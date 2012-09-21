@@ -216,9 +216,10 @@ struct task_group {
 	struct cfs_rq **cfs_rq;
 	unsigned long shares;
 
+	atomic_t load_weight;
 #ifdef	CONFIG_SMP
-	atomic_long_t load_avg;
-	atomic_t runnable_avg;
+	atomic64_t load_avg;
+	atomic_t runnable_avg, usage_avg;
 #endif
 #endif
 
@@ -351,8 +352,8 @@ struct cfs_rq {
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* Required to track per-cpu representation of a task_group */
-	u32 tg_runnable_contrib;
-	unsigned long tg_load_contrib;
+	u32 tg_runnable_contrib, tg_usage_contrib;
+	u64 tg_load_contrib;
 
 	/*
 	 *   h_load = weight * f(tg)
