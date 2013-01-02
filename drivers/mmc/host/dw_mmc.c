@@ -101,6 +101,50 @@ struct idmac_desc {
 };
 #endif /* CONFIG_MMC_DW_IDMAC */
 
+static int dw_mci_ciu_clk_en(struct dw_mci *host, bool force_gating)
+{
+	int ret = 1;
+
+	if (!atomic_read(&host->ciu_clk_cnt)) {
+		ret = clk_prepare_enable(host->ciu_clk);
+		atomic_inc_return(&host->ciu_clk_cnt);
+		if (ret)
+			dev_err(host->dev, "failed to enable ciu clock\n");
+	}
+
+	return ret;
+}
+
+static void dw_mci_ciu_clk_dis(struct dw_mci *host)
+{
+	if (atomic_read(&host->ciu_clk_cnt)) {
+		clk_disable_unprepare(host->ciu_clk);
+		atomic_dec_return(&host->ciu_clk_cnt);
+	}
+}
+
+static int dw_mci_biu_clk_en(struct dw_mci *host, bool force_gating)
+{
+	int ret = 1;
+
+	if (!atomic_read(&host->biu_clk_cnt)) {
+		ret = clk_prepare_enable(host->biu_clk);
+		atomic_inc_return(&host->biu_clk_cnt);
+		if (ret)
+			dev_err(host->dev, "failed to enable biu clock\n");
+	}
+
+	return ret;
+}
+
+static void dw_mci_biu_clk_dis(struct dw_mci *host)
+{
+	if (atomic_read(&host->biu_clk_cnt)) {
+		clk_disable_unprepare(host->biu_clk);
+		atomic_dec_return(&host->biu_clk_cnt);
+	}
+}
+
 static bool dw_mci_reset(struct dw_mci *host);
 
 #if defined(CONFIG_DEBUG_FS)
@@ -2730,7 +2774,7 @@ int dw_mci_probe(struct dw_mci *host)
 	if (IS_ERR(host->biu_clk)) {
 		dev_dbg(host->dev, "biu clock not available\n");
 	} else {
-		ret = clk_prepare_enable(host->biu_clk);
+		ret = dw_mci_biu_clk_en(host, true);
 		if (ret) {
 			dev_err(host->dev, "failed to enable biu clock\n");
 			return ret;
@@ -2742,7 +2786,7 @@ int dw_mci_probe(struct dw_mci *host)
 		dev_dbg(host->dev, "ciu clock not available\n");
 		host->bus_hz = host->pdata->bus_hz;
 	} else {
-		ret = clk_prepare_enable(host->ciu_clk);
+		ret = dw_mci_ciu_clk_en(host, true);
 		if (ret) {
 			dev_err(host->dev, "failed to enable ciu clock\n");
 			goto err_clk_biu;
@@ -2932,11 +2976,11 @@ err_dmaunmap:
 
 err_clk_ciu:
 	if (!IS_ERR(host->ciu_clk))
-		clk_disable_unprepare(host->ciu_clk);
+		dw_mci_ciu_clk_dis(host);
 
 err_clk_biu:
 	if (!IS_ERR(host->biu_clk))
-		clk_disable_unprepare(host->biu_clk);
+		dw_mci_biu_clk_dis(host);
 
 	return ret;
 }
@@ -2966,10 +3010,10 @@ void dw_mci_remove(struct dw_mci *host)
 		host->dma_ops->exit(host);
 
 	if (!IS_ERR(host->ciu_clk))
-		clk_disable_unprepare(host->ciu_clk);
+		dw_mci_ciu_clk_dis(host);
 
 	if (!IS_ERR(host->biu_clk))
-		clk_disable_unprepare(host->biu_clk);
+		dw_mci_biu_clk_dis(host);
 }
 EXPORT_SYMBOL(dw_mci_remove);
 
@@ -2988,6 +3032,12 @@ EXPORT_SYMBOL(dw_mci_suspend);
 int dw_mci_resume(struct dw_mci *host)
 {
 	int i, ret;
+
+	ret = dw_mci_ciu_clk_en(host, false);
+	if (ret) {
+		dev_err(host->dev, "failed to enable ciu clock\n");
+		return ret;
+	}
 
 	if (!dw_mci_ctrl_reset(host, SDMMC_CTRL_ALL_RESET_FLAGS)) {
 		ret = -ENODEV;
