@@ -361,6 +361,9 @@ struct zone {
 	 */
 	unsigned long		dirty_balance_reserve;
 
+#ifdef CONFIG_CMA
+	bool			cma_alloc;
+#endif
 #ifndef CONFIG_SPARSEMEM
 	/*
 	 * Flags for a pageblock_nr_pages block. See pageblock-flags.h.
