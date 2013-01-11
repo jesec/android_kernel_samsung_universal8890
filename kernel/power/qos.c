@@ -157,6 +157,18 @@ static struct pm_qos_object memory_bandwidth_pm_qos = {
 	.name = "memory_bandwidth",
 };
 
+static BLOCKING_NOTIFIER_HEAD(cpu_freq_max_notifier);
+static struct pm_qos_constraints cpu_freq_max_constraints = {
+	.list = PLIST_HEAD_INIT(cpu_freq_max_constraints.list),
+	.target_value = PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE,
+	.default_value = PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE,
+	.type = PM_QOS_MIN,
+	.notifiers = &cpu_freq_max_notifier,
+};
+static struct pm_qos_object cpu_freq_max_pm_qos = {
+	.constraints = &cpu_freq_max_constraints,
+	.name = "cpu_freq_max",
+};
 
 static struct pm_qos_object *pm_qos_array[] = {
 	&null_pm_qos,
@@ -166,7 +178,8 @@ static struct pm_qos_object *pm_qos_array[] = {
 	&bus_throughput_pm_qos,
 	&network_throughput_pm_qos,
 	&memory_bandwidth_pm_qos,
-	&cpu_freq_min_pm_qos
+	&cpu_freq_min_pm_qos,
+	&cpu_freq_max_pm_qos
 };
 
 static ssize_t pm_qos_power_write(struct file *filp, const char __user *buf,
