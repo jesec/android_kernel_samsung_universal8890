@@ -1038,6 +1038,7 @@ extern void wake_up_if_idle(int cpu);
 #ifdef CONFIG_SCHED_HMP
 struct hmp_domain {
 	struct cpumask cpus;
+	struct cpumask possible_cpus;
 	struct list_head hmp_domains;
 };
 #endif /* CONFIG_SCHED_HMP */
