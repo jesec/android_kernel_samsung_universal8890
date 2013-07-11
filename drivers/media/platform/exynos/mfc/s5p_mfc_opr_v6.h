@@ -102,6 +102,8 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define s5p_mfc_get_mvc_disp_view_id()	(readl(dev->regs_base +		\
 					S5P_FIMV_D_MVC_VIEW_ID)		\
 					& S5P_FIMV_D_MVC_VIEW_ID_DISP_MASK)
+#define mfc_get_dec_used_flag()		readl(dev->regs_base + \
+						S5P_FIMV_D_USED_DPB_FLAG_LOWER)
 
 #define s5p_mfc_is_interlace_picture()	((readl(dev->regs_base + \
 					S5P_FIMV_D_DECODED_STATUS) & \
