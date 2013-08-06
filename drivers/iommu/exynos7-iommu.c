@@ -128,8 +128,11 @@
 #define REG_L1TLB_ENTRY_PPN	0x75C
 #define REG_L1TLB_ENTRY_ATTR	0x764
 
-#define MMU_MAJ_VER(reg)	(reg >> 28)
-#define MMU_MIN_VER(reg)	((reg >> 21) & 0x7F)
+#define MMU_MAJ_VER(val)	((val) >> 7)
+#define MMU_MIN_VER(val)	((val) & 0x7F)
+#define MMU_RAW_VER(reg)	(((reg) >> 21) & ((1 << 11) - 1)) /* 11 bits */
+
+#define MAKE_MMU_VER(maj, min)	((((maj) & 0xF) << 7) | ((min) & 0x7F))
 
 #define MMU_PB_CAPA(reg)	((reg) & 0xFF)
 
@@ -264,15 +267,24 @@ static bool is_sysmmu_active(struct sysmmu_drvdata *data)
 	return data->activations > 0;
 }
 
-unsigned int __sysmmu_version(struct sysmmu_drvdata *drvdata,
+static unsigned int __raw_sysmmu_version(struct sysmmu_drvdata *drvdata,
+					 int idx)
+{
+	return MMU_RAW_VER(
+		__raw_readl(drvdata->sfrbases[idx] + REG_MMU_VERSION));
+}
+
+static unsigned int __sysmmu_version(struct sysmmu_drvdata *drvdata,
 					int idx, unsigned int *minor)
 {
 	unsigned int major = 0;
 
-	major = readl(drvdata->sfrbases[idx] + REG_MMU_VERSION);
-
-	if (!(MMU_MAJ_VER(major) >= 5)) {
-		pr_err("%s: sysmmu version is lower than v5.x\n", __func__);
+	major = __raw_sysmmu_version(drvdata, idx);
+	if ((MMU_MAJ_VER(major) < 5)) {
+		pr_err("%s: version(%d.%d) of %s[%d] is lower than 5.0\n",
+			__func__, MMU_MAJ_VER(major), MMU_MIN_VER(major),
+			drvdata->dbgname, idx);
+		BUG();
 		return major;
 	}
 
@@ -640,37 +652,43 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova)
 	}
 }
 
-static void sysmmu_tlb_invalidate_range(struct device *dev, dma_addr_t iova,
-					size_t size)
+void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
+				  size_t size)
 {
 	struct device *sysmmu;
 
 	for_each_sysmmu(dev, sysmmu) {
 		unsigned long flags;
 		struct sysmmu_drvdata *drvdata;
+		int i;
 
 		drvdata = dev_get_drvdata(sysmmu);
 
 		spin_lock_irqsave(&drvdata->lock, flags);
-		if (is_sysmmu_active(drvdata) &&
-				drvdata->runtime_active) {
-			int i;
-			for (i = 0; i < drvdata->nsfrs; i++)
-				__sysmmu_tlb_invalidate_range(
-					drvdata->sfrbases[i], iova, size);
-		} else {
+		if (!is_sysmmu_active(drvdata) ||
+				!drvdata->runtime_active) {
+			spin_unlock_irqrestore(&drvdata->lock, flags);
 			dev_dbg(dev,
-			"%s is disabled. Skipping TLB invalidation @ %#x\n",
-			drvdata->dbgname, iova);
+				"%s: Skipping TLB invalidation of %#x@%#x\n",
+				drvdata->dbgname, size, start);
+			continue;
+		}
+
+		for (i = 0; i < drvdata->nsfrs; i++) {
+			if (__raw_sysmmu_version(drvdata, i) >=
+							MAKE_MMU_VER(5, 1)) {
+				__sysmmu_tlb_invalidate_range(
+					drvdata->sfrbases[i], start, size);
+			} else {
+				if (!WARN_ON(!sysmmu_block(
+						drvdata->sfrbases[i])))
+					__sysmmu_tlb_invalidate(
+							drvdata->sfrbases[i]);
+				sysmmu_unblock(drvdata->sfrbases[i]);
+			}
 		}
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
-}
-
-void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
-				  size_t size)
-{
-	sysmmu_tlb_invalidate_range(dev, start, size);
 }
 
 static void debug_sysmmu_l1tlb_show(void __iomem *sfrbase)
