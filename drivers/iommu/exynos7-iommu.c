@@ -358,6 +358,7 @@ static void __sysmmu_set_ptbase(void __iomem *sfrbase,
 		SYSMMU_PBUFCFG_PREFETCH		\
 	)
 
+__attribute__ ((unused))
 static int __prepare_prefetch_buffers(struct sysmmu_drvdata *drvdata,
 				struct sysmmu_prefbuf prefbuf[], int num_pb)
 {
@@ -612,6 +613,7 @@ int exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 	return 0;
 }
 
+__attribute__ ((unused))
 static void __sysmmu_restore_state(struct sysmmu_drvdata *drvdata)
 {
 	int i;
@@ -626,6 +628,7 @@ static void __sysmmu_restore_state(struct sysmmu_drvdata *drvdata)
 	}
 }
 
+__attribute__ ((unused))
 static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova)
 {
 	struct device *sysmmu;
