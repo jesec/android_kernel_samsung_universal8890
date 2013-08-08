@@ -545,6 +545,9 @@ static cpumask_var_t frozen_cpus;
 int disable_nonboot_cpus(void)
 {
 	int cpu, first_cpu, error = 0;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	int nonboot_cluster_first_cpu = 4;
+#endif
 
 	cpu_maps_update_begin();
 	first_cpu = cpumask_first(cpu_online_mask);
@@ -556,7 +559,11 @@ int disable_nonboot_cpus(void)
 
 	pr_info("Disabling non-boot CPUs ...\n");
 	for_each_online_cpu(cpu) {
+#if defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
+		if (cpu == first_cpu || cpu == nonboot_cluster_first_cpu)
+#else
 		if (cpu == first_cpu)
+#endif
 			continue;
 		trace_suspend_resume(TPS("CPU_OFF"), cpu, true);
 		error = _cpu_down(cpu, 1);
@@ -568,6 +575,15 @@ int disable_nonboot_cpus(void)
 			break;
 		}
 	}
+
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	error = _cpu_down(nonboot_cluster_first_cpu, 1);
+	if (!error)
+		cpumask_set_cpu(nonboot_cluster_first_cpu, frozen_cpus);
+	else
+		printk(KERN_ERR "Error taking CPU%d down: %d\n",
+			nonboot_cluster_first_cpu, error);
+#endif
 
 	if (!error) {
 		BUG_ON(num_online_cpus() > 1);
