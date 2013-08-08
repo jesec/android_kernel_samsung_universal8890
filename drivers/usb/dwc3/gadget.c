@@ -1603,9 +1603,10 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	dwc->ep0state = EP0_SETUP_PHASE;
 	dwc3_ep0_out_start(dwc);
 
-	dwc3_gadget_enable_irq(dwc);
-
+	dwc3_gadget_disable_irq(dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	dwc3_gadget_enable_irq(dwc);
 
 	return 0;
 
