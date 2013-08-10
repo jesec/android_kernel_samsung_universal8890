@@ -29,6 +29,7 @@
 static int mdev_probe(struct platform_device *pdev)
 {
 	struct v4l2_device *v4l2_dev;
+	struct device *dev = &pdev->dev;
 	struct exynos_md *mdev;
 	int ret;
 
@@ -36,7 +37,13 @@ static int mdev_probe(struct platform_device *pdev)
 	if (!mdev)
 		return -ENOMEM;
 
-	mdev->id = pdev->id;
+	if (dev->of_node) {
+		mdev->id = of_alias_get_id(pdev->dev.of_node, "mdev");
+		pdev->id = mdev->id;
+	} else {
+		mdev->id = pdev->id;
+	}
+
 	mdev->pdev = pdev;
 	spin_lock_init(&mdev->slock);
 
@@ -85,30 +92,26 @@ static int mdev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id exynos_mdev_match[] = {
+	{
+		.compatible = "samsung,exynos5-mdev",
+	},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, exynos_mdev_match);
+
 static struct platform_driver mdev_driver = {
 	.probe		= mdev_probe,
 	.remove		= mdev_remove,
 	.driver = {
 		.name	= MDEV_MODULE_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = exynos_mdev_match,
 	}
 };
 
-int __init mdev_init(void)
-{
-	int ret = platform_driver_register(&mdev_driver);
-	if (ret)
-		err("platform_driver_register failed: %d\n", ret);
-	return ret;
-}
-
-void __exit mdev_exit(void)
-{
-	platform_driver_unregister(&mdev_driver);
-}
-
-module_init(mdev_init);
-module_exit(mdev_exit);
+module_platform_driver(mdev_driver);
 
 MODULE_AUTHOR("Hyunwoong Kim <khw0178.kim@samsung.com>");
 MODULE_DESCRIPTION("EXYNOS5 SoC series media device driver");
