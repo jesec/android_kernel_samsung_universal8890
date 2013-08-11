@@ -1635,11 +1635,11 @@ static int get_ctrl_val(struct hevc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
 		ctrl->value = ctx->framerate;
 		break;
-/*
+
 	case V4L2_CID_MPEG_MFC_GET_VERSION_INFO:
 		ctrl->value = hevc_version(dev);
 		break;
-*/
+
 	case V4L2_CID_MPEG_VIDEO_QOS_RATIO:
 		ctrl->value = ctx->qos_ratio;
 		break;
