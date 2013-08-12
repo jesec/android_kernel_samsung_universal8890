@@ -145,6 +145,7 @@ struct hevc_buf {
 		dma_addr_t stream;
 	} planes;
 	int used;
+	int frametag;
 };
 
 #define vb_to_hevc_buf(x)	\

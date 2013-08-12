@@ -462,6 +462,7 @@ static void hevc_handle_frame_all_extracted(struct hevc_ctx *ctx)
 static void hevc_handle_frame_copy_timestamp(struct hevc_ctx *ctx)
 {
 	struct hevc_buf *dst_buf, *src_buf;
+	struct hevc_dec *dec = ctx->dec_priv;
 	dma_addr_t dec_y_addr;
 
 	dec_y_addr = HEVC_GET_ADR(DEC_DECODED_Y);
@@ -479,6 +480,7 @@ static void hevc_handle_frame_copy_timestamp(struct hevc_ctx *ctx)
 			memcpy(&dst_buf->vb.v4l2_buf.timestamp,
 					&src_buf->vb.v4l2_buf.timestamp,
 					sizeof(struct timeval));
+			dst_buf->frametag = dec->stored_tag;
 			break;
 		}
 	}
@@ -618,6 +620,11 @@ static void hevc_handle_frame_new(struct hevc_ctx *ctx, unsigned int err)
 					dec->stored_tag);
 				dec->y_addr_for_pb = 0;
 			}
+
+			call_cop(ctx, get_buf_update_val, ctx,
+				&ctx->dst_ctrls[index],
+				V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG,
+				dst_buf->frametag);
 
 			if (!dec->is_dts_mode) {
 				hevc_debug(7, "timestamp: %ld %ld\n",
