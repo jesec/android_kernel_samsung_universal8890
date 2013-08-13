@@ -2531,7 +2531,7 @@ int hevc_init_dec_ctx(struct hevc_ctx *ctx)
 	ctx->vq_dst.io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 	ctx->vq_dst.ops = &hevc_dec_qops;
 	ctx->vq_dst.mem_ops = hevc_mem_ops();
-	ctx->vq_src.timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	ctx->vq_dst.timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	ret = vb2_queue_init(&ctx->vq_dst);
 	if (ret) {
 		hevc_err("Failed to initialize videobuf2 queue(capture)\n");
