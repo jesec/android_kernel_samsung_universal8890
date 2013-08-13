@@ -18,10 +18,10 @@
 #define DEBUG
 
 #ifdef DEBUG
-extern int debug;
+extern int debug_hevc;
 #define hevc_debug(level, fmt, args...)				\
 	do {							\
-		if (debug >= level)				\
+		if (debug_hevc >= level)				\
 			printk(KERN_DEBUG "%s:%d: " fmt,	\
 				__func__, __LINE__, ##args);	\
 	} while (0)
