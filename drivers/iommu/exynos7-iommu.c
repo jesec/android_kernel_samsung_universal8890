@@ -359,7 +359,6 @@ static void __sysmmu_set_ptbase(void __iomem *sfrbase,
 		SYSMMU_PBUFCFG_PREFETCH		\
 	)
 
-__attribute__ ((unused))
 static int __prepare_prefetch_buffers(struct sysmmu_drvdata *drvdata,
 				struct sysmmu_prefbuf prefbuf[], int num_pb)
 {
@@ -433,7 +432,6 @@ static int __prepare_prefetch_buffers(struct sysmmu_drvdata *drvdata,
 	return ret_num_pb;
 }
 
-#if 0
 static void __exynos_sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 					   int idx)
 {
@@ -488,9 +486,6 @@ static void __exynos_sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 					drvdata->sfrbases[idx] + REG_PB_CFG);
 	}
 }
-#else
-#define __exynos_sysmmu_set_pbuf(drvdata, idx) do { } while (0)
-#endif
 
 void exynos_sysmmu_set_pbuf(struct device *dev, int nbufs,
 				struct sysmmu_prefbuf prefbuf[])
