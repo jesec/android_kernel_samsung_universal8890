@@ -177,12 +177,20 @@ static char *sysmmu_fault_name[SYSMMU_FAULTS_NUM] = {
 #define SYSMMU_FAULT_WRITE	(1 << SYSMMU_FAULTS_NUM)
 
 enum sysmmu_property {
-	SYSMMU_PROP_READ = 1,
-	SYSMMU_PROP_WRITE = 2,
+	SYSMMU_PROP_RESERVED,
+	SYSMMU_PROP_READ,
+	SYSMMU_PROP_WRITE,
 	SYSMMU_PROP_READWRITE = SYSMMU_PROP_READ | SYSMMU_PROP_WRITE,
 	SYSMMU_PROP_RW_MASK = SYSMMU_PROP_READWRITE,
 	SYSMMU_PROP_WINDOW_SHIFT = 16,
 	SYSMMU_PROP_WINDOW_MASK = 0x1F << SYSMMU_PROP_WINDOW_SHIFT,
+};
+
+static const char * const sysmmu_prop_opts[] = {
+	[SYSMMU_PROP_RESERVED]		= "Reserved",
+	[SYSMMU_PROP_READ]		= "r",
+	[SYSMMU_PROP_WRITE]		= "w",
+	[SYSMMU_PROP_READWRITE]		= "rw",	/* default */
 };
 
 struct sysmmu_version {
@@ -1225,6 +1233,39 @@ static struct device * __init __sysmmu_init_master(
 	return master;
 }
 
+static int __init __sysmmu_init_prop(struct device *sysmmu,
+				     struct sysmmu_drvdata *drvdata)
+{
+	struct device_node *prop_node;
+	const char *s;
+	int winmap = 0;
+
+	drvdata->prop = SYSMMU_PROP_READWRITE;
+
+	prop_node = of_get_child_by_name(sysmmu->of_node, "prop-map");
+	if (!prop_node)
+		return 0;
+
+	if (!of_property_read_string(prop_node, "iomap", &s)) {
+		int val;
+		for (val = 1; val < ARRAY_SIZE(sysmmu_prop_opts); val++) {
+			if (!strcasecmp(s, sysmmu_prop_opts[val])) {
+				drvdata->prop &= ~SYSMMU_PROP_RW_MASK;
+				drvdata->prop = val;
+				break;
+			}
+		}
+	} else if (!of_property_read_u32_index(
+					prop_node, "winmap", 0, &winmap)) {
+		if (winmap) {
+			drvdata->prop &= ~SYSMMU_PROP_RW_MASK;
+			drvdata->prop = winmap << SYSMMU_PROP_WINDOW_SHIFT;
+		}
+	}
+
+	return 0;
+}
+
 static int __init __sysmmu_setup(struct device *sysmmu,
 				struct sysmmu_drvdata *drvdata)
 {
@@ -1242,6 +1283,10 @@ static int __init __sysmmu_setup(struct device *sysmmu,
 	ret = __sysmmu_init_clock(sysmmu, drvdata);
 	if (ret)
 		dev_err(sysmmu, "Failed to initialize gating clocks\n");
+
+	ret = __sysmmu_init_prop(sysmmu, drvdata);
+	if (ret)
+		dev_err(sysmmu, "Failed to initialize sysmmu properties\n");
 
 	return ret;
 }
