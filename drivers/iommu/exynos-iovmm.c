@@ -372,6 +372,7 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 		dev_err(dev, "%s: Total %#x , Free %#x , Chunks %d\n",
 				__func__, IOVM_SIZE,
 				vmm->allocated_size[id], vmm->num_areas[id]);
+		spin_unlock(&vmm->vmlist_lock);
 		ret = -ENOMEM;
 		goto err_map_nomem;
 	}
