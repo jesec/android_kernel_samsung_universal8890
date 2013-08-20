@@ -986,6 +986,11 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 	hevc_debug_enter();
 	hevc_debug(2, "f->type = %d ctx->state = %d\n", f->type, ctx->state);
 
+	if (ctx->state == HEVCINST_VPS_PARSED_ONLY) {
+		hevc_err("HEVCINST_VPS_PARSED_ONLY !!!\n");
+		return -EAGAIN;
+	}
+
 	if (ctx->state == HEVCINST_GOT_INST ||
 	    ctx->state == HEVCINST_RES_CHANGE_FLUSH ||
 	    ctx->state == HEVCINST_RES_CHANGE_END) {
@@ -993,8 +998,13 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 		 * so wait until it is finished */
 		if (hevc_wait_for_done_ctx(ctx,
 				HEVC_R2H_CMD_SEQ_DONE_RET, 1)) {
-			hevc_cleanup_timeout(ctx);
-			return -EIO;
+			if (ctx->state == HEVCINST_VPS_PARSED_ONLY) {
+				hevc_err("HEVCINST_VPS_PARSED_ONLY !!!\n");
+				return -EAGAIN;
+			} else {
+				hevc_cleanup_timeout(ctx);
+				return -EIO;
+			}
 		}
 	}
 
@@ -1255,7 +1265,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 		/* Can only request buffers after
 		   an instance has been opened.*/
-		if (ctx->state == HEVCINST_GOT_INST) {
+		if ((ctx->state == HEVCINST_GOT_INST) ||
+			(ctx->state == HEVCINST_VPS_PARSED_ONLY)) {
 			if (reqbufs->count == 0) {
 				hevc_info("Freeing buffers.\n");
 				ret = vb2_reqbufs(&ctx->vq_src, reqbufs);

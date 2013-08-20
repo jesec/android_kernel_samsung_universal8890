@@ -920,6 +920,7 @@ static inline void hevc_handle_error(struct hevc_ctx *ctx,
 {
 	struct hevc_dev *dev;
 	unsigned long flags;
+	struct hevc_buf *src_buf;
 
 	if (!ctx) {
 		hevc_err("no hevc context to run\n");
@@ -941,6 +942,18 @@ static inline void hevc_handle_error(struct hevc_ctx *ctx,
 	case HEVCINST_INIT:
 		/* This error had to happen while acquireing instance */
 	case HEVCINST_GOT_INST:
+		/* This error had to happen while parsing vps only */
+		if(err == HEVC_VPS_ONLY_ERROR) {
+			ctx->state = HEVCINST_VPS_PARSED_ONLY;
+			if (!list_empty(&ctx->src_queue)) {
+				src_buf = list_entry(ctx->src_queue.next, struct hevc_buf,
+						list);
+				list_del(&src_buf->list);
+				ctx->src_queue_cnt--;
+				vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_DONE);
+			}
+		}
+
 	case HEVCINST_RES_CHANGE_END:
 		/* This error had to happen while parsing the header */
 	case HEVCINST_HEAD_PARSED:

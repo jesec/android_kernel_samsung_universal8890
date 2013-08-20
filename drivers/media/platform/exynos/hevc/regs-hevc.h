@@ -607,4 +607,6 @@ static inline unsigned int r2h_bits(int cmd)
 #define HEVC_FRAME_PACK_SEI_INFO		HEVC_D_FRAME_PACK_SEI_INFO
 #define HEVC_FRAME_PACK_GRID_POS		HEVC_D_FRAME_PACK_GRID_POS
 
+#define HEVC_VPS_ONLY_ERROR		42
+
 #endif /* _REGS_HEVC_H */
