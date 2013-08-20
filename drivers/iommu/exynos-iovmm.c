@@ -560,7 +560,7 @@ int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes)
 		{SZ_2G, IOVM_SIZE - SZ_2G, 0, 0, 0, 0},
 		{SZ_1G + SZ_256M, SZ_1G, SZ_1G, 0, 0, 0},
 		{SZ_1G, SZ_768M, SZ_768M, SZ_768M , 0, 0},
-		{SZ_768M, SZ_768M, SZ_768M, SZ_512M, SZ_512M, 0},
+		{SZ_1G, SZ_1G, SZ_768M, SZ_256M, SZ_256M, 0},
 		{SZ_1G, SZ_512M, SZ_256M, SZ_768M, SZ_512M, SZ_256M},
 		};
 	int i, nplanes, ret = 0;
