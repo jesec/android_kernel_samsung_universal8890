@@ -369,8 +369,8 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 		spin_lock(&vmm->vmlist_lock);
 		dev_err(dev, "%s: Not enough IOVM space to allocate %#x/%#x\n",
 				__func__, size, align);
-		dev_err(dev, "%s: Total %#x , Free %#x , Chunks %d\n",
-				__func__, IOVM_SIZE,
+		dev_err(dev, "%s: Total %#x (%d), Allocated %#x , Chunks %d\n",
+				__func__, vmm->iovm_size[id], id,
 				vmm->allocated_size[id], vmm->num_areas[id]);
 		spin_unlock(&vmm->vmlist_lock);
 		ret = -ENOMEM;
