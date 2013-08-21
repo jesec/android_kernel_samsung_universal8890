@@ -376,7 +376,8 @@ struct sc_dev {
  * @bl_op:		image blend mode
  * @dith:		image dithering mode
  * @g_alpha:		global alpha value
- * @color_fill:		color fill value
+ * @color_fill:		enable color fill
+ * @color:		color fill value
  * @flags:		context state flags
  * @slock:		spinlock pscecting this data structure
  * @cacheable:		cacheability of current frame
@@ -399,7 +400,8 @@ struct sc_ctx {
 	enum sc_blend_op		bl_op;
 	u32				dith;
 	u32				g_alpha;
-	unsigned int			color_fill;
+	bool				color_fill;
+	unsigned int			color;
 	unsigned long			flags;
 	spinlock_t			slock;
 	bool				cacheable;

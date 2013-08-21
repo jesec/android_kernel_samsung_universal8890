@@ -1218,7 +1218,10 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->bl_op = ctrl->val;
 		break;
 	case V4L2_CID_2D_COLOR_FILL:
-		ctx->color_fill = ctrl->val;
+		ctx->color_fill = (bool)ctrl->val;
+		break;
+	case V4L2_CID_2D_SRC_COLOR:
+		ctx->color = ctrl->val;
 		break;
 	case V4L2_CID_2D_FMT_PREMULTI:
 		ctx->pre_multi = ctrl->val;
@@ -1276,6 +1279,16 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.ops = &sc_ctrl_ops,
 		.id = V4L2_CID_2D_COLOR_FILL,
 		.name = "set color fill",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.flags = V4L2_CTRL_FLAG_SLIDER,
+		.step = 1,
+		.min = false,
+		.max = true,
+		.def = false,
+	}, {
+		.ops = &sc_ctrl_ops,
+		.id = V4L2_CID_2D_SRC_COLOR,
+		.name = "set color fill value",
 		.type = V4L2_CTRL_TYPE_BITMASK,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
 		.step = 0, /* must 0 for V4L2_CTRL_TYPE_BITMASK */
@@ -1959,7 +1972,7 @@ static void sc_m2m_device_run(void *priv)
 
 	sc_hwset_soft_reset(sc);
 
-	if (!sc_init_scaling_ratio(ctx)) {
+	if (!ctx->color_fill && !sc_init_scaling_ratio(ctx)) {
 		/* invalid scaling ratio: aborting the current task */
 		struct vb2_buffer *src_vb, *dst_vb;
 
@@ -1997,7 +2010,7 @@ static void sc_m2m_device_run(void *priv)
 	if (ctx->bl_op)
 		sc_hwset_blend(sc, ctx->bl_op, ctx->pre_multi);
 	if (ctx->color_fill)
-		sc_hwset_color_fill(sc, ctx->color_fill);
+		sc_hwset_color_fill(sc, ctx->color);
 
 	sc_hwset_flip_rotation(sc, ctx->flip, ctx->rotation);
 	sc_hwset_int_en(sc, 1);
