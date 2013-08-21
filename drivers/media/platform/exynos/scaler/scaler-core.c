@@ -1246,15 +1246,18 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.name = "set cacheable",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
-		.max = 1,
+		.step = 1,
+		.min = false,
+		.max = true,
 		.def = true,
 	}, {
 		.ops = &sc_ctrl_ops,
 		.id = V4L2_CID_GLOBAL_ALPHA,
-		.name = "Set RGB alpha",
+		.name = "Set constant src alpha",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
 		.step = 1,
+		.min = 0,
 		.max = 255,
 		.def = 0,
 	}, {
@@ -1264,6 +1267,7 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
 		.step = 1,
+		.min = 0,
 		.max = BL_OP_ADD,
 		.def = 0,
 	}, {
@@ -1272,6 +1276,8 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.name = "set color fill",
 		.type = V4L2_CTRL_TYPE_BITMASK,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
+		.step = 0, /* must 0 for V4L2_CTRL_TYPE_BITMASK */
+		.min = 0,
 		.max = 0xffffffff,
 		.def = 0,
 	}, {
@@ -1280,7 +1286,9 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.name = "set dithering",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
-		.max = 1,
+		.step = 1,
+		.min = false,
+		.max = true,
 		.def = false,
 	}, {
 		.ops = &sc_ctrl_ops,
@@ -1288,7 +1296,9 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.name = "set pre-multiplied format",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
-		.max = 1,
+		.step = 1,
+		.min = false,
+		.max = true,
 		.def = false,
 	}, {
 		.ops = &sc_ctrl_ops,
@@ -1296,6 +1306,8 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.name = "Set CSC equation",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
+		.step = 1,
+		.min = SC_CSC_601,
 		.max = SC_CSC_709,
 		.def = SC_CSC_601,
 	}, {
@@ -1304,6 +1316,8 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.name = "Set CSC range",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.flags = V4L2_CTRL_FLAG_SLIDER,
+		.step = 1,
+		.min = SC_CSC_NARROW,
 		.max = SC_CSC_WIDE,
 		.def = SC_CSC_NARROW,
 	}
@@ -2175,6 +2189,7 @@ static int sc_probe(struct platform_device *pdev)
 	sc_clock_gating(sc, SC_CLK_ON);
 	pm_runtime_get_sync(sc->dev);
 	sc->ver = sc_hwget_version(sc);
+	dev_info(&pdev->dev, "scaler version is 0x%08x\n", sc->ver);
 	pm_runtime_put_sync(sc->dev);
 	sc_clock_gating(sc, SC_CLK_OFF);
 
