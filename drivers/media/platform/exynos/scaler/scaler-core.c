@@ -14,6 +14,7 @@
 #include <linux/device.h>
 #include <linux/version.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
@@ -2117,7 +2118,11 @@ static int sc_probe(struct platform_device *pdev)
 	}
 
 	sc->dev = &pdev->dev;
-	sc->id = pdev->id;
+
+	if (pdev->dev.of_node)
+		sc->id = of_alias_get_id(pdev->dev.of_node, "scaler");
+	else
+		sc->id = pdev->id;
 
 	spin_lock_init(&sc->slock);
 	mutex_init(&sc->lock);
@@ -2212,6 +2217,14 @@ static int sc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id exynos_sc_match[] = {
+	{
+		.compatible = "samsung,exynos5-scaler",
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, exynos_sc_match);
+
 static struct platform_driver sc_driver = {
 	.probe		= sc_probe,
 	.remove		= sc_remove,
@@ -2219,6 +2232,7 @@ static struct platform_driver sc_driver = {
 		.name	= MODULE_NAME,
 		.owner	= THIS_MODULE,
 		.pm	= &sc_pm_ops,
+		.of_match_table = of_match_ptr(exynos_sc_match),
 	}
 };
 
