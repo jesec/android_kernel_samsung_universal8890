@@ -15,6 +15,8 @@
 #include <linux/jiffies.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
+#include <linux/clk.h>
+#include <linux/clk-private.h>
 
 #include <plat/cpu.h>
 
@@ -77,7 +79,10 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 	struct clk *parent_clk = NULL;
 	int ret = 0;
 
-	dev->pm.clock = clk_get(dev->device, "mfc");
+	if (dev->id == 0)
+		dev->pm.clock = clk_get(dev->device, "gate_mfc0");
+	else if (dev->id == 1)
+		dev->pm.clock = clk_get(dev->device, "gate_mfc1");
 
 	if (IS_ERR(dev->pm.clock)) {
 		printk(KERN_ERR "failed to get parent clock\n");
@@ -110,37 +115,58 @@ err_p_clk:
 
 int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 {
-	struct clk *clk_child;
-	struct clk *clk_parent;
-	char *str_child = "aclk_333";
-	char *str_parent = "aclk_333_sw";
+	struct clk *clk_child = NULL;
+	struct clk *clk_parent = NULL;
 
-	if ((dev->pdata->ip_ver == IP_VER_MFC_6A_0) ||
-			(dev->pdata->ip_ver == IP_VER_MFC_6A_1)) {
-		clk_child = clk_get(NULL, str_child);
+	if (dev->id == 0) {
+		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_user");
 		if (IS_ERR(clk_child)) {
-			pr_err("failed to get %s clock\n", str_child);
+			pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
 			return PTR_ERR(clk_child);
 		}
-
-		clk_parent = clk_get(NULL, str_parent);
+		clk_parent = clk_get(dev->device, "aclk_mfc0_333");
 		if (IS_ERR(clk_parent)) {
-			clk_put(clk_child);
-			pr_err("failed to get %s clock\n", str_parent);
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
 			return PTR_ERR(clk_child);
 		}
-
-		if (clk_set_parent(clk_child, clk_parent)) {
-			clk_put(clk_child);
-			clk_put(clk_parent);
-			pr_err("Unable to set parent %s of clock %s.\n",
-					str_parent, str_child);
+		clk_set_parent(clk_child, clk_parent);
+	} else if (dev->id == 1) {
+		clk_child = clk_get(dev->device, "mout_aclk_mfc1_333_user");
+		if (IS_ERR(clk_child)) {
+			pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
 			return PTR_ERR(clk_child);
 		}
-
-		clk_put(clk_child);
-		clk_put(clk_parent);
+		clk_parent = clk_get(dev->device, "aclk_mfc1_333");
+		if (IS_ERR(clk_parent)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+			return PTR_ERR(clk_child);
+		}
+		clk_set_parent(clk_child, clk_parent);
 	}
+
+	clk_child = clk_get(dev->device, "mout_mfc_pll_user");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+	clk_parent = clk_get(dev->device, "dout_mfc_pll");
+	if (IS_ERR(clk_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_child);
+	}
+	clk_set_parent(clk_child, clk_parent);
+
+	clk_child = clk_get(dev->device, "mout_bus_pll_user");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+	clk_parent = clk_get(dev->device, "dout_bus_pll");
+	if (IS_ERR(clk_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_child);
+	}
+	clk_set_parent(clk_child, clk_parent);
 
 	return 0;
 }
