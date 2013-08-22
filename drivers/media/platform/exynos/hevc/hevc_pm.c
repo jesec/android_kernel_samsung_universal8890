@@ -15,6 +15,7 @@
 #include <linux/jiffies.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
+#include <linux/clk-private.h>
 
 #include <plat/cpu.h>
 
@@ -41,7 +42,7 @@ int hevc_init_pm(struct hevc_dev *dev)
 
 	pm = &dev->pm;
 
-	parent = clk_get(dev->device, "hevc");
+	parent = clk_get(dev->device, "gate_hevc");
 	if (IS_ERR(parent)) {
 		printk(KERN_ERR "failed to get parent clock\n");
 		ret = -ENOENT;
@@ -84,7 +85,7 @@ int hevc_init_pm(struct hevc_dev *dev)
 	pm = &dev->pm;
 
 	/* clock for gating */
-	pm->clock = clk_get(dev->device, "hevc");
+	pm->clock = clk_get(dev->device, "gate_hevc");
 	if (IS_ERR(pm->clock)) {
 		printk(KERN_ERR "failed to get clock-gating control\n");
 		ret = PTR_ERR(pm->clock);
@@ -117,32 +118,42 @@ int hevc_set_clock_parent(struct hevc_dev *dev)
 {
 	struct clk *clk_child;
 	struct clk *clk_parent;
-	char *str_child = "aclk_333";
-	char *str_parent = "aclk_333_sw";
 
-	clk_child = clk_get(NULL, str_child);
+	clk_child = clk_get(dev->device, "mout_aclk_hevc_400_user");
 	if (IS_ERR(clk_child)) {
-		pr_err("failed to get %s clock\n", str_child);
+		pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
 		return PTR_ERR(clk_child);
 	}
-
-	clk_parent = clk_get(NULL, str_parent);
+	clk_parent = clk_get(dev->device, "aclk_hevc_400");
 	if (IS_ERR(clk_parent)) {
-		clk_put(clk_child);
-		pr_err("failed to get %s clock\n", str_parent);
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
 		return PTR_ERR(clk_child);
 	}
+	clk_set_parent(clk_child, clk_parent);
 
-	if (clk_set_parent(clk_child, clk_parent)) {
-		clk_put(clk_child);
-		clk_put(clk_parent);
-		pr_err("Unable to set parent %s of clock %s.\n",
-				str_parent, str_child);
+	clk_child = clk_get(dev->device, "mout_mfc_pll_user");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
 		return PTR_ERR(clk_child);
 	}
+	clk_parent = clk_get(dev->device, "dout_mfc_pll");
+	if (IS_ERR(clk_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_child);
+	}
+	clk_set_parent(clk_child, clk_parent);
 
-	clk_put(clk_child);
-	clk_put(clk_parent);
+	clk_child = clk_get(dev->device, "mout_bus_pll_user");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+	clk_parent = clk_get(dev->device, "dout_bus_pll");
+	if (IS_ERR(clk_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_child);
+	}
+	clk_set_parent(clk_child, clk_parent);
 
 	return 0;
 }

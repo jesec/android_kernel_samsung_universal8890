@@ -1385,9 +1385,7 @@ static int hevc_open(struct file *file)
 		}
 
 		/* Set clock source again after power on */
-		/*
 		hevc_set_clock_parent(dev);
-		*/
 
 		dev->curr_ctx = ctx->num;
 		dev->preempt_ctx = HEVC_NO_INSTANCE_SET;
