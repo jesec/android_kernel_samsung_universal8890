@@ -1949,9 +1949,6 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	/* prevent racing with updates to the clock topology */
 	clk_prepare_lock();
 
-	if (clk->parent == parent)
-		goto out;
-
 	/* check that we are allowed to re-parent if the clock is in use */
 	if ((clk->flags & CLK_SET_PARENT_GATE) && clk->prepare_count) {
 		ret = -EBUSY;
