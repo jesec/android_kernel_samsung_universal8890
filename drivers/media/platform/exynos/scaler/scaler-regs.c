@@ -344,11 +344,18 @@ int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat)
 		cfg |= SCALER_CFG_FMT_ARGB4444;
 		break;
 	case V4L2_PIX_FMT_RGB32:
-		cfg |= SCALER_CFG_FMT_ARGB8888;
-		cfg |= SCALER_CFG_BYTE_SWAP;
+		/* V4L2(RGB32:RGBA) --> SC(ABGR) : A is msb */
+		cfg |= SCALER_CFG_FMT_RGBA8888;
+		cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		break;
 	case V4L2_PIX_FMT_BGR32:
+		/* V4L2(BGR32:BGRA) --> SC(ARGB) : A is msb */
 		cfg |= SCALER_CFG_FMT_ARGB8888;
+		break;
+	case V4L2_PIX_FMT_ARGB32:
+		/* V4L2(ARGB32) --> SC(BGRA) : B is msb */
+		cfg |= SCALER_CFG_FMT_ARGB8888;
+		cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		break;
 	case V4L2_PIX_FMT_YUYV:
 		cfg |= SCALER_CFG_FMT_YUYV;
@@ -371,7 +378,7 @@ int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat)
 	case V4L2_PIX_FMT_NV21M:
 		if (sc_ver_is_5a(sc)) {
 			cfg |= SCALER_CFG_FMT_YCBCR420_2P;
-			cfg |= SCALER_CFG_HWORD_SWAP;
+			cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		} else {
 			cfg |= SCALER_CFG_FMT_YCRCB420_2P;
 		}
@@ -382,7 +389,7 @@ int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat)
 	case V4L2_PIX_FMT_NV61:
 		if (sc_ver_is_5a(sc)) {
 			cfg |= SCALER_CFG_FMT_YCBCR422_2P;
-			cfg |= SCALER_CFG_HWORD_SWAP;
+			cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		} else {
 			cfg |= SCALER_CFG_FMT_YCRCB422_2P;
 		}
@@ -393,7 +400,7 @@ int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat)
 	case V4L2_PIX_FMT_NV42:
 		if (sc_ver_is_5a(sc)) {
 			cfg |= SCALER_CFG_FMT_YCBCR444_2P;
-			cfg |= SCALER_CFG_HWORD_SWAP;
+			cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		} else {
 			cfg |= SCALER_CFG_FMT_YCRCB444_2P;
 		}
@@ -434,14 +441,21 @@ int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat)
 		is_rgb = true;
 		break;
 	case V4L2_PIX_FMT_RGB32:
-		cfg |= SCALER_CFG_FMT_ARGB8888;
-		cfg |= SCALER_CFG_BYTE_SWAP;
+		/* HAL(RGBA) -> V4L2(RGB32) --> SC(ABGR) : A is msb */
+		cfg |= SCALER_CFG_FMT_RGBA8888;
+		cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		is_rgb = true;
 		break;
 	case V4L2_PIX_FMT_BGR32:
+		/* HAL(BGRA) -> V4L2(BGR32) --> SC(ARGB) : A is msb */
 		cfg |= SCALER_CFG_FMT_ARGB8888;
 		is_rgb = true;
 		break;
+	case V4L2_PIX_FMT_ARGB32:
+		/* HAL(ARGB) -> V4L2(ARGB32) --> SC(BGRA) : B is msb */
+		cfg |= SCALER_CFG_FMT_ARGB8888;
+		cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
+		is_rgb = true;
 	case V4L2_PIX_FMT_YUYV:
 		cfg |= SCALER_CFG_FMT_YUYV;
 		break;
@@ -452,23 +466,14 @@ int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat)
 		cfg |= SCALER_CFG_FMT_YVYU;
 		break;
 	case V4L2_PIX_FMT_NV12:
-		cfg |= SCALER_CFG_FMT_YCBCR420_2P;
-		break;
-	case V4L2_PIX_FMT_NV21:
-		if (sc_ver_is_5a(sc)) {
-			cfg |= SCALER_CFG_FMT_YCBCR420_2P;
-			cfg |= SCALER_CFG_HWORD_SWAP;
-		} else {
-			cfg |= SCALER_CFG_FMT_YCRCB420_2P;
-		}
-		break;
 	case V4L2_PIX_FMT_NV12M:
 		cfg |= SCALER_CFG_FMT_YCBCR420_2P;
 		break;
+	case V4L2_PIX_FMT_NV21:
 	case V4L2_PIX_FMT_NV21M:
 		if (sc_ver_is_5a(sc)) {
 			cfg |= SCALER_CFG_FMT_YCBCR420_2P;
-			cfg |= SCALER_CFG_HWORD_SWAP;
+			cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		} else {
 			cfg |= SCALER_CFG_FMT_YCRCB420_2P;
 		}
@@ -479,7 +484,7 @@ int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat)
 	case V4L2_PIX_FMT_NV61:
 		if (sc_ver_is_5a(sc)) {
 			cfg |= SCALER_CFG_FMT_YCBCR422_2P;
-			cfg |= SCALER_CFG_HWORD_SWAP;
+			cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		} else {
 			cfg |= SCALER_CFG_FMT_YCRCB422_2P;
 		}
@@ -490,7 +495,7 @@ int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat)
 	case V4L2_PIX_FMT_NV42:
 		if (sc_ver_is_5a(sc)) {
 			cfg |= SCALER_CFG_FMT_YCBCR444_2P;
-			cfg |= SCALER_CFG_HWORD_SWAP;
+			cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
 		} else {
 			cfg |= SCALER_CFG_FMT_YCRCB444_2P;
 		}

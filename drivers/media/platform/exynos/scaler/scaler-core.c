@@ -53,7 +53,7 @@ static struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 16 },
 		.color		= SC_COLOR_RGB,
 	}, {
-		.name		= "ARGB8888",
+		.name		= "RGBA8888",
 		.pixelformat	= V4L2_PIX_FMT_RGB32,
 		.num_planes	= 1,
 		.num_comp	= 1,
@@ -62,6 +62,13 @@ static struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "BGRA8888",
 		.pixelformat	= V4L2_PIX_FMT_BGR32,
+		.num_planes	= 1,
+		.num_comp	= 1,
+		.bitperpixel	= { 32 },
+		.color		= SC_COLOR_RGB,
+	}, {
+		.name		= "ARGB8888",
+		.pixelformat	= V4L2_PIX_FMT_ARGB32,
 		.num_planes	= 1,
 		.num_comp	= 1,
 		.bitperpixel	= { 32 },
@@ -261,9 +268,6 @@ static struct sc_fmt *sc_find_format(struct sc_dev *sc, struct v4l2_format *f)
 				return NULL;
 			if (!V4L2_TYPE_IS_OUTPUT(f->type) &&
 				sc_fmt->pixelformat == V4L2_PIX_FMT_NV12MT_16X16)
-				return NULL;
-			if (!sc_ver_is_5a(sc) &&
-				sc_fmt->pixelformat == V4L2_PIX_FMT_RGB32)
 				return NULL;
 			else
 				return &sc_formats[i];
@@ -1828,6 +1832,7 @@ static void sc_set_dithering(struct sc_ctx *ctx)
 			switch (d_frame->sc_fmt->pixelformat) {
 			case V4L2_PIX_FMT_RGB32:
 			case V4L2_PIX_FMT_BGR32:
+			case V4L2_PIX_FMT_ARGB32:
 				val = sc_dith_val(SC_DITH_8BIT, SC_DITH_8BIT,
 						SC_DITH_8BIT);
 				break;
