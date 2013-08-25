@@ -7,3 +7,5 @@
 
 scaler-objs := scaler-core.o scaler-regs.o scaler-vb2.o
 obj-$(CONFIG_VIDEO_EXYNOS_SCALER)	+= scaler.o
+
+ccflags-n += -DSC_USE_SWRESET

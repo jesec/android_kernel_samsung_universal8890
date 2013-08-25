@@ -327,12 +327,11 @@ static struct sc_bl_op_val sc_bl_op_tbl[] = {
 	{ONE,	 ONE,	ONE,	ONE},		/* ADD */
 };
 
-
 int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat)
 {
 	unsigned long cfg = readl(sc->regs + SCALER_SRC_CFG);
 
-	cfg &= ~SCALER_CFG_FMT_MASK;
+	cfg &= ~(SCALER_CFG_TILE_EN|SCALER_CFG_SWAP_MASK|SCALER_CFG_FMT_MASK);
 
 	switch (pixelformat) {
 	case V4L2_PIX_FMT_RGB565:
@@ -419,7 +418,7 @@ int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat)
 	unsigned long cfg = readl(sc->regs + SCALER_DST_CFG);
 	bool is_rgb = false;
 
-	cfg &= ~SCALER_CFG_FMT_MASK;
+	cfg &= ~(SCALER_CFG_SWAP_MASK|SCALER_CFG_FMT_MASK);
 
 	switch (pixelformat) {
 	case V4L2_PIX_FMT_RGB565:
@@ -903,10 +902,14 @@ int sc_hwget_version(struct sc_dev *sc)
 
 void sc_hwset_soft_reset(struct sc_dev *sc)
 {
-	unsigned long cfg = readl(sc->regs + SCALER_CFG);
+	unsigned long cfg = 0;
 
-	cfg |= SCALER_CFG_SOFT_RST;
-	cfg &= ~((1 << 10) | (1 << 9));
+#ifdef SC_USE_SWRESET
+	cfg = SCALER_CFG_SOFT_RST;
+#else
+	cfg = (SCALER_CFG_CSC_Y_OFFSET_SRC|SCALER_CFG_CSC_Y_OFFSET_DST);
+#endif
+
 	writel(cfg, sc->regs + SCALER_CFG);
 	sc_dbg("done soft reset\n");
 
