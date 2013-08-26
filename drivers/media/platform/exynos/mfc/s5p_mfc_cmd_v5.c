@@ -56,7 +56,7 @@ int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev)
 	memset(&h2r_args, 0, sizeof(struct s5p_mfc_cmd_args));
 	h2r_args.arg[0] = buf_size->firmware_code;
 
-	ret = s5p_mfc_cmd_host2risc(S5P_FIMV_H2R_CMD_SYS_INIT, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_SYS_INIT, &h2r_args);
 
 	mfc_debug_leave();
 
@@ -72,7 +72,7 @@ int s5p_mfc_sleep_cmd(struct s5p_mfc_dev *dev)
 
 	memset(&h2r_args, 0, sizeof(struct s5p_mfc_cmd_args));
 
-	ret = s5p_mfc_cmd_host2risc(S5P_FIMV_H2R_CMD_SLEEP, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_SLEEP, &h2r_args);
 
 	mfc_debug_leave();
 
@@ -88,7 +88,7 @@ int s5p_mfc_wakeup_cmd(struct s5p_mfc_dev *dev)
 
 	memset(&h2r_args, 0, sizeof(struct s5p_mfc_cmd_args));
 
-	ret = s5p_mfc_cmd_host2risc(S5P_FIMV_H2R_CMD_WAKEUP, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_WAKEUP, &h2r_args);
 
 	mfc_debug_leave();
 
@@ -117,7 +117,8 @@ int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx)
 	h2r_args.arg[2] = ctx->ctx.ofs;
 	h2r_args.arg[3] = ctx->ctx_buf_size;
 
-	ret = s5p_mfc_cmd_host2risc(S5P_FIMV_H2R_CMD_OPEN_INSTANCE, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev,
+			S5P_FIMV_H2R_CMD_OPEN_INSTANCE, &h2r_args);
 
 	mfc_debug_leave();
 
