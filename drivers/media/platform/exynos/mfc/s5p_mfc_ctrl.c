@@ -46,7 +46,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 
 	base_align = dev->variant->buf_align->mfc_base_align;
 	firmware_size = dev->variant->buf_size->firmware_code;
-	alloc_ctx = dev->alloc_ctx[MFC_CMA_FW_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[MFC_FW_ALLOC_CTX];
 
 	if (dev->bitproc_buf)
 		return 0;

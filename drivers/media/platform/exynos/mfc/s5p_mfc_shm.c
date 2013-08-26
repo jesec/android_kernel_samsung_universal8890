@@ -21,7 +21,7 @@ int s5p_mfc_init_shm(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_buf_size_v5 *buf_size = dev->variant->buf_size->buf;
-	void *shm_alloc_ctx = dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+	void *shm_alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 	if (ctx->is_drm)
 		shm_alloc_ctx = dev->alloc_ctx_sh;

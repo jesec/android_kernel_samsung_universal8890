@@ -30,7 +30,7 @@ enum {
 	MFC_QOS_REMOVE,
 };
 
-void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
+static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_platdata *pdata = dev->pdata;
@@ -85,7 +85,7 @@ void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 	}
 }
 
-void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
+static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_platdata *pdata = dev->pdata;

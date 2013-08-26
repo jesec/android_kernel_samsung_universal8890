@@ -20,17 +20,10 @@
 *  while mmaping */
 #define DST_QUEUE_OFF_BASE      (TASK_SIZE / 2)
 
-#define MFC_ALLOC_CTX_NUM	2
-
 #define MFC_BANK_A_ALLOC_CTX	0
 #define MFC_BANK_B_ALLOC_CTX	1
 
-#define MFC_BANK_A_ALIGN_ORDER	11
-#define MFC_BANK_B_ALIGN_ORDER	11
-
-#define MFC_CMA_BANK1_ALLOC_CTX MFC_BANK_A_ALLOC_CTX
-#define MFC_CMA_BANK2_ALLOC_CTX MFC_BANK_B_ALLOC_CTX
-#define MFC_CMA_FW_ALLOC_CTX	MFC_BANK_A_ALLOC_CTX
+#define MFC_FW_ALLOC_CTX	MFC_BANK_A_ALLOC_CTX
 
 static inline dma_addr_t s5p_mfc_mem_plane_addr(
 	struct s5p_mfc_ctx *c, struct vb2_buffer *v, unsigned int n)

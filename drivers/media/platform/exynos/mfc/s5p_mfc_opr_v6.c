@@ -125,7 +125,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	}
 	dec = ctx->dec_priv;
 	enc = ctx->enc_priv;
-	alloc_ctx = dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 	mb_width = mb_width(ctx->img_width);
 	mb_height = mb_height(ctx->img_height);
@@ -338,7 +338,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 		return -EINVAL;
 	}
 	buf_size = dev->variant->buf_size->buf;
-	alloc_ctx = dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 	switch (ctx->codec_mode) {
 	case S5P_FIMV_CODEC_H264_DEC:
@@ -422,7 +422,7 @@ void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 }
 
 /* Allocate display shared buffer for SYS_INIT */
-int alloc_dev_dis_shared_buffer(struct s5p_mfc_dev *dev, void *alloc_ctx)
+static int alloc_dev_dis_shared_buffer(struct s5p_mfc_dev *dev, void *alloc_ctx)
 {
 	dev->dis_shm_buf.alloc =
 			s5p_mfc_mem_alloc_priv(alloc_ctx, PAGE_SIZE);
@@ -461,7 +461,7 @@ int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
 		return -EINVAL;
 	}
 	buf_size = dev->variant->buf_size->buf;
-	alloc_ctx = dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (dev->num_drm_inst)
@@ -502,7 +502,7 @@ int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
 }
 
 /* Release display shared buffers for SYS_INIT */
-void release_dev_dis_shared_buffer(struct s5p_mfc_dev *dev)
+static void release_dev_dis_shared_buffer(struct s5p_mfc_dev *dev)
 {
 	if (dev->dis_shm_buf.alloc) {
 		s5p_mfc_mem_free_priv(dev->dis_shm_buf.alloc);
@@ -544,7 +544,8 @@ static int calc_plane(int width, int height, int is_tiled)
 	return (mbX * 16) * (mbY * 16);
 }
 
-void set_linear_stride_size(struct s5p_mfc_ctx *ctx, struct s5p_mfc_fmt *fmt)
+static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
+				struct s5p_mfc_fmt *fmt)
 {
 	struct s5p_mfc_raw_info *raw;
 	int i;

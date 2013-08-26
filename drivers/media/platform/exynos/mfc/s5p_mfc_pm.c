@@ -154,7 +154,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 extern spinlock_t int_div_lock;
 #endif
 
-int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
+static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 {
 	struct clk *parent_clk = NULL;
 	int ret = 0;

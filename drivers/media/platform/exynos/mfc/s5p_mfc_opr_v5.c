@@ -61,7 +61,7 @@ int s5p_mfc_alloc_dec_temp_buffers(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	struct s5p_mfc_buf_size_v5 *buf_size = dev->variant->buf_size->buf;
-	void *alloc_ctx = dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+	void *alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 	mfc_debug_enter();
 
@@ -127,7 +127,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	unsigned int enc_ref_y_size = 0;
 	unsigned int enc_ref_c_size = 0;
 	unsigned int guard_width, guard_height;
-	void *alloc_ctx = dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+	void *alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 	mfc_debug_enter();
 
@@ -260,7 +260,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	/* Allocate only if memory from bank 2 is necessary */
 	if (ctx->port_b_size > 0) {
 		ctx->port_b_buf = s5p_mfc_mem_alloc_priv(
-				dev->alloc_ctx[MFC_CMA_BANK2_ALLOC_CTX],
+				dev->alloc_ctx[MFC_BANK_B_ALLOC_CTX],
 				ctx->port_b_size);
 		if (IS_ERR(ctx->port_b_buf)) {
 			ctx->port_b_buf = 0;
@@ -296,7 +296,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_buf_size_v5 *buf_size = dev->variant->buf_size->buf;
-	void *alloc_ctx = dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+	void *alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 	mfc_debug_enter();
 

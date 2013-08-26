@@ -1485,7 +1485,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		else
 			alloc_ctx =
-				ctx->dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+				ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 
 		/* Can only request buffers after
 		   an instance has been opened.*/
@@ -1532,8 +1532,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		} else {
 			alloc_ctx = (!IS_MFCV6(dev)) ?
-				ctx->dev->alloc_ctx[MFC_CMA_BANK2_ALLOC_CTX] :
-				ctx->dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
+				ctx->dev->alloc_ctx[MFC_BANK_B_ALLOC_CTX] :
+				ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 		}
 
 		if (ctx->capture_state != QUEUE_FREE) {
@@ -2184,8 +2184,8 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 	}
 
 	raw = &ctx->raw_buf;
-	alloc_ctx1 = ctx->dev->alloc_ctx[MFC_CMA_BANK1_ALLOC_CTX];
-	alloc_ctx2 = ctx->dev->alloc_ctx[MFC_CMA_BANK2_ALLOC_CTX];
+	alloc_ctx1 = ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+	alloc_ctx2 = ctx->dev->alloc_ctx[MFC_BANK_B_ALLOC_CTX];
 
 	/* Video output for decoding (source)
 	 * this can be set after getting an instance */
