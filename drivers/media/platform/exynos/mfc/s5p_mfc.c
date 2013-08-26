@@ -1339,7 +1339,7 @@ static int s5p_mfc_open(struct file *file)
 
 	ret = call_cop(ctx, init_ctx_ctrls, ctx);
 	if (ret) {
-		mfc_err("failed int init_buf_ctrls\n");
+		mfc_err("failed in init_ctx_ctrls\n");
 		goto err_ctx_ctrls;
 	}
 
@@ -1548,7 +1548,7 @@ static int s5p_mfc_release(struct file *file)
 #endif
 
 	if (call_cop(ctx, cleanup_ctx_ctrls, ctx) < 0)
-		mfc_err("failed in init_buf_ctrls\n");
+		mfc_err("failed in cleanup_ctx_ctrl\n");
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
