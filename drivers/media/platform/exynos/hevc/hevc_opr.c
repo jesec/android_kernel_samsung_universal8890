@@ -387,36 +387,20 @@ void hevc_dec_calc_dpb_size(struct hevc_ctx *ctx)
 			ctx->img_height, ctx->buf_width, ctx->buf_height);
 
 	switch (ctx->dst_fmt->fourcc) {
-	case V4L2_PIX_FMT_NV12MT_16X16:
-		raw->plane_size[0] =
-			calc_plane(ctx->img_width, ctx->img_height, 1);
-		raw->plane_size[1] =
-			calc_plane(ctx->img_width, (ctx->img_height >> 1), 1);
-		raw->plane_size[2] = 0;
-		break;
 	case V4L2_PIX_FMT_NV12M:
 	case V4L2_PIX_FMT_NV21M:
-		raw->plane_size[0] =
-			calc_plane(ctx->img_width, ctx->img_height, 0);
-		raw->plane_size[1] =
-			calc_plane(ctx->img_width, (ctx->img_height >> 1), 0);
+		raw->plane_size[0] = ctx->buf_width*ctx->img_height;
+		raw->plane_size[1] = ctx->buf_width*(ctx->img_height >> 1);
 		raw->plane_size[2] = 0;
 		break;
 	case V4L2_PIX_FMT_YUV420M:
 	case V4L2_PIX_FMT_YVU420M:
 		raw->plane_size[0] =
 			calc_plane(ctx->img_width, ctx->img_height, 0);
-#if 0
 		raw->plane_size[1] =
 			calc_plane(ctx->img_width >> 1, ctx->img_height >> 1, 0);
 		raw->plane_size[2] =
 			calc_plane(ctx->img_width >> 1, ctx->img_height >> 1, 0);
-#else
-		raw->plane_size[1] =
-			calc_plane(ctx->img_width, ctx->img_height >> 1, 0);
-		raw->plane_size[2] =
-			calc_plane(ctx->img_width, ctx->img_height >> 1, 0);
-#endif
 		break;
 	default:
 		raw->plane_size[0] = 0;
