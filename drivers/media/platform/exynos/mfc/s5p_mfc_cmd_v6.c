@@ -136,14 +136,10 @@ int s5p_mfc_close_inst_cmd(struct s5p_mfc_ctx *ctx)
 
 	mfc_debug_enter();
 
-	if (ctx->state != MFCINST_FREE) {
-		s5p_mfc_write_reg(dev, ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	s5p_mfc_write_reg(dev, ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 
-		ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_CLOSE_INSTANCE,
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_CLOSE_INSTANCE,
 					    &h2r_args);
-	} else {
-		ret = -EINVAL;
-	}
 
 	mfc_debug_leave();
 

@@ -133,15 +133,11 @@ int s5p_mfc_close_inst_cmd(struct s5p_mfc_ctx *ctx)
 
 	mfc_debug_enter();
 
-	if (ctx->state != MFCINST_FREE) {
-		memset(&h2r_args, 0, sizeof(struct s5p_mfc_cmd_args));
-		h2r_args.arg[0] = ctx->inst_no;
+	memset(&h2r_args, 0, sizeof(struct s5p_mfc_cmd_args));
+	h2r_args.arg[0] = ctx->inst_no;
 
-		ret = s5p_mfc_cmd_host2risc(S5P_FIMV_H2R_CMD_CLOSE_INSTANCE,
+	ret = s5p_mfc_cmd_host2risc(S5P_FIMV_H2R_CMD_CLOSE_INSTANCE,
 					    &h2r_args);
-	} else {
-		ret = -EINVAL;
-	}
 
 	mfc_debug_leave();
 

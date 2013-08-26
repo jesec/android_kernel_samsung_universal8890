@@ -35,13 +35,15 @@ int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx)
 int s5p_mfc_close_inst(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
-	int ret;
+	int ret = -EINVAL;
 
 	/* Closing decoding instance  */
 	mfc_info("Returning instance number\n");
 	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
-	ret = s5p_mfc_close_inst_cmd(ctx);
+	if (ctx->state != MFCINST_FREE)
+		ret = s5p_mfc_close_inst_cmd(ctx);
+
 	if (ret) {
 		mfc_err("Failed to return an instance.\n");
 		ctx->state = MFCINST_ERROR;
