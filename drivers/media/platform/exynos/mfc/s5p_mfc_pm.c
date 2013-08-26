@@ -144,30 +144,6 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 		clk_set_parent(clk_child, clk_parent);
 	}
 
-	clk_child = clk_get(dev->device, "mout_mfc_pll_user");
-	if (IS_ERR(clk_child)) {
-		pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
-		return PTR_ERR(clk_child);
-	}
-	clk_parent = clk_get(dev->device, "dout_mfc_pll");
-	if (IS_ERR(clk_parent)) {
-		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-		return PTR_ERR(clk_child);
-	}
-	clk_set_parent(clk_child, clk_parent);
-
-	clk_child = clk_get(dev->device, "mout_bus_pll_user");
-	if (IS_ERR(clk_child)) {
-		pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
-		return PTR_ERR(clk_child);
-	}
-	clk_parent = clk_get(dev->device, "dout_bus_pll");
-	if (IS_ERR(clk_parent)) {
-		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-		return PTR_ERR(clk_child);
-	}
-	clk_set_parent(clk_child, clk_parent);
-
 	return 0;
 }
 
