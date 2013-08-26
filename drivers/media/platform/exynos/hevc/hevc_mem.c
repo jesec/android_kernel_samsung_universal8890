@@ -20,37 +20,6 @@
 #include "hevc_pm.h"
 #include "hevc_debug.h"
 
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-static const char * const s5p_mem_types[] = {
-	HEVC_CMA_FW,
-	HEVC_CMA_BANK1,
-	HEVC_CMA_BANK2,
-};
-
-static unsigned long s5p_mem_alignments[] = {
-	HEVC_CMA_FW_ALIGN,
-	HEVC_CMA_BANK1_ALIGN,
-	HEVC_CMA_BANK2_ALIGN,
-};
-
-struct vb2_mem_ops *hevc_mem_ops(void)
-{
-	return (struct vb2_mem_ops *)&vb2_cma_phys_memops;
-}
-
-void **hevc_mem_init_multi(struct device *dev, unsigned int ctx_num)
-{
-/* TODO Cachable should be set */
-	return (void **)vb2_cma_phys_init_multi(dev, ctx_num,
-					   s5p_mem_types,
-					   s5p_mem_alignments, 0);
-}
-
-void hevc_mem_cleanup_multi(void **alloc_ctxes)
-{
-	vb2_cma_phys_cleanup_multi(alloc_ctxes);
-}
-#elif defined(CONFIG_VIDEOBUF2_ION)
 struct vb2_mem_ops *hevc_mem_ops(void)
 {
 	return (struct vb2_mem_ops *)&vb2_ion_memops;
@@ -93,79 +62,7 @@ void hevc_mem_cleanup_multi(void **alloc_ctxes, unsigned int ctx_num)
 
 	kfree(alloc_ctxes);
 }
-#endif
 
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-struct vb2_cma_phys_conf {
-	struct device		*dev;
-	const char		*type;
-	unsigned long		alignment;
-	bool			cacheable;
-};
-
-struct vb2_cma_phys_buf {
-	struct vb2_cma_phys_conf		*conf;
-	dma_addr_t			paddr;
-	unsigned long			size;
-	struct vm_area_struct		*vma;
-	atomic_t			refcount;
-	struct vb2_vmarea_handler	handler;
-	bool				cacheable;
-};
-void hevc_cache_clean(void *alloc_ctx)
-{
-	struct vb2_cma_phys_buf *buf = (struct vb2_cma_phys_buf *)alloc_ctx;
-	void *start_addr;
-	unsigned long size;
-	unsigned long paddr = (dma_addr_t)buf->paddr;
-
-	start_addr = (dma_addr_t *)phys_to_virt(buf->paddr);
-	size = buf->size;
-
-	dmac_map_area(start_addr, size, DMA_TO_DEVICE);
-	outer_clean_range(paddr, paddr + size);
-}
-
-void hevc_cache_inv(void *alloc_ctx)
-{
-	struct vb2_cma_phys_buf *buf = (struct vb2_cma_phys_buf *)alloc_ctx;
-	void *start_addr;
-	unsigned long size;
-	unsigned long paddr = (dma_addr_t)buf->paddr;
-
-	start_addr = (dma_addr_t *)phys_to_virt(buf->paddr);
-	size = buf->size;
-
-	outer_inv_range(paddr, paddr + size);
-	dmac_unmap_area(start_addr, size, DMA_FROM_DEVICE);
-}
-
-void hevc_mem_suspend(void *alloc_ctx)
-{
-	/* NOP */
-}
-
-void hevc_mem_resume(void *alloc_ctx)
-{
-	/* NOP */
-}
-
-void hevc_mem_set_cacheable(void *alloc_ctx, bool cacheable)
-{
-	vb2_cma_phys_set_cacheable(alloc_ctx, cacheable);
-}
-
-void hevc_mem_get_cacheable(void *alloc_ctx)
-{
-	/* NOP */
-}
-
-int hevc_mem_cache_flush(struct vb2_buffer *vb, u32 plane_no)
-{
-	vb2_cma_phys_cache_flush(vb, plane_no);
-	return 0;
-}
-#elif defined(CONFIG_VIDEOBUF2_ION)
 void hevc_mem_set_cacheable(void *alloc_ctx, bool cacheable)
 {
 	vb2_ion_set_cached(alloc_ctx, cacheable);
@@ -250,4 +147,3 @@ int hevc_mem_resume(void *alloc_ctx)
 {
 	return vb2_ion_attach_iommu(alloc_ctx);
 }
-#endif

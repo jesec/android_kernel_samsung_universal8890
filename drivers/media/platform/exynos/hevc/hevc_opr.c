@@ -22,9 +22,6 @@
 #include <linux/firmware.h>
 #include <linux/err.h>
 #include <linux/sched.h>
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-#include <linux/cma.h>
-#endif
 
 #include <linux/dma-mapping.h>
 #include <asm/cacheflush.h>

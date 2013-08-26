@@ -16,9 +16,6 @@
 #include <linux/firmware.h>
 #include <linux/err.h>
 #include <linux/sched.h>
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-#include <linux/cma.h>
-#endif
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 #include <plat/iovmm.h>
@@ -40,10 +37,6 @@ static unsigned char *hevc_bitproc_virt;
 /* Allocate firmware */
 int hevc_alloc_firmware(struct hevc_dev *dev)
 {
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-	int err;
-	struct cma_info mem_info_f, mem_info_a, mem_info_b;
-#endif
 	unsigned int base_align;
 	unsigned int firmware_size;
 	void *alloc_ctx;
@@ -61,41 +54,9 @@ int hevc_alloc_firmware(struct hevc_dev *dev)
 	firmware_size = dev->variant->buf_size->firmware_code;
 	alloc_ctx = dev->alloc_ctx[HEVC_CMA_FW_ALLOC_CTX];
 
-#if !defined(CONFIG_VIDEOBUF2_ION)
-	if (hevc_bitproc_buf) {
-		hevc_err("Attempting to allocate firmware when it seems that it is already loaded.\n");
-		return -ENOMEM;
-	}
-#else
 	if (hevc_bitproc_buf)
 		return 0;
-#endif
 
-	/* Get memory region information and check if it is correct */
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-	err = cma_info(&mem_info_f, dev->v4l2_dev.dev, HEVC_CMA_FW);
-	hevc_debug(3, "Area \"%s\" is from %08x to %08x and has size %08x", "f",
-				mem_info_f.lower_bound, mem_info_f.upper_bound,
-							mem_info_f.total_size);
-	if (err) {
-		hevc_err("Couldn't get memory information from CMA.\n");
-		return -EINVAL;
-	}
-	err = cma_info(&mem_info_a, dev->v4l2_dev.dev, HEVC_CMA_BANK1);
-	hevc_debug(3, "Area \"%s\" is from %08x to %08x and has size %08x", "a",
-			mem_info_a.lower_bound, mem_info_a.upper_bound,
-						mem_info_a.total_size);
-	if (err) {
-		hevc_err("Couldn't get memory information from CMA.\n");
-		return -EINVAL;
-	}
-
-	if (mem_info_f.upper_bound > mem_info_a.lower_bound) {
-			hevc_err("Firmware has to be "
-			"allocated before  memory for buffers (bank A).\n");
-		return -EINVAL;
-	}
-#endif
 	hevc_info("Allocating memory for firmware.\n");
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
@@ -136,33 +97,13 @@ int hevc_alloc_firmware(struct hevc_dev *dev)
 
 	dev->port_a = hevc_bitproc_phys;
 
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-	if (IS_TWOPORT(dev)) {
-		err = cma_info(&mem_info_b, dev->v4l2_dev.dev, HEVC_CMA_BANK2);
-		hevc_debug(3, "Area \"%s\" is from %08x to %08x and has size %08x", "b",
-				mem_info_b.lower_bound, mem_info_b.upper_bound,
-				mem_info_b.total_size);
-		if (err) {
-			hevc_err("Couldn't get memory information from CMA.\n");
-			return -EINVAL;
-		}
-		dev->port_b = mem_info_b.lower_bound;
-		hevc_debug(2, "Port A: %08x Port B: %08x (FW: %08x size: %08x)\n",
-				dev->port_a, dev->port_b, hevc_bitproc_phys,
-							firmware_size);
-	} else {
-		hevc_debug(2, "Port : %08x (FW: %08x size: %08x)\n",
-				dev->port_a, hevc_bitproc_phys,
-						firmware_size);
-	}
-#elif defined(CONFIG_VIDEOBUF2_ION)
 	dev->port_b = hevc_bitproc_phys;
 
 	hevc_info("Port A: %08x Port B: %08x (FW: %08x size: %08x)\n",
 			dev->port_a, dev->port_b,
 			hevc_bitproc_phys,
 			firmware_size);
-#endif
+
 	hevc_debug_leave();
 
 	return 0;
