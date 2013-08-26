@@ -14,66 +14,12 @@
 #define __S5P_MFC_MEM_H_ __FILE__
 
 #include <linux/platform_device.h>
-
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-#include <media/videobuf2-cma-phys.h>
-#elif defined(CONFIG_VIDEOBUF2_ION)
 #include <media/videobuf2-ion.h>
-#endif
 
 /* Offset base used to differentiate between CAPTURE and OUTPUT
 *  while mmaping */
 #define DST_QUEUE_OFF_BASE      (TASK_SIZE / 2)
 
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-/* Define names for CMA memory kinds used by MFC */
-#define MFC_CMA_BANK1		"a"
-#define MFC_CMA_BANK2		"b"
-#define MFC_CMA_FW		"f"
-
-#define MFC_CMA_FW_ALLOC_CTX	0
-#define MFC_CMA_BANK1_ALLOC_CTX 1
-#define MFC_CMA_BANK2_ALLOC_CTX 2
-
-#define MFC_CMA_BANK1_ALIGN	0x2000	/* 8KB */
-#define MFC_CMA_BANK2_ALIGN	0x2000	/* 8KB */
-#define MFC_CMA_FW_ALIGN	0x20000	/* 128KB */
-
-#define s5p_mfc_mem_plane_addr(c, v, n)					\
-		do {							\
-			(dma_addr_t)vb2_cma_phys_plane_paddr(v, n)	\
-		} while (0)
-
-static inline void *s5p_mfc_mem_alloc_priv(void *alloc_ctx, size_t size)
-{
-	return vb2_cma_phys_memops.alloc(alloc_ctx, size);
-}
-
-static inline void s5p_mfc_mem_free_priv(void *vb_priv)
-{
-	vb2_cma_phys_memops.put(vb_priv);
-}
-
-static inline dma_addr_t s5p_mfc_mem_daddr_priv(void *vb_priv)
-{
-	return (dma_addr_t)vb2_cma_phys_memops.cookie(vb_priv);
-}
-
-static inline void *s5p_mfc_mem_vaddr_priv(void *vb_priv)
-{
-	return vb2_cma_phys_memops.vaddr(vb_priv);
-}
-
-static inline int s5p_mfc_mem_prepare(struct vb2_buffer *vb)
-{
-	return 0;
-}
-
-static inline int s5p_mfc_mem_finish(struct vb2_buffer *vb)
-{
-	return 0;
-}
-#elif defined(CONFIG_VIDEOBUF2_ION)
 #define MFC_ALLOC_CTX_NUM	2
 
 #define MFC_BANK_A_ALLOC_CTX	0
@@ -138,7 +84,6 @@ static inline int s5p_mfc_mem_finish(struct vb2_buffer *vb)
 {
 	return vb2_ion_buf_finish(vb);
 }
-#endif
 
 struct vb2_mem_ops *s5p_mfc_mem_ops(void);
 void **s5p_mfc_mem_init_multi(struct device *dev, unsigned int ctx_num);
