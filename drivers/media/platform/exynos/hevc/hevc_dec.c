@@ -1251,7 +1251,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		else
 			alloc_ctx =
-				ctx->dev->alloc_ctx[HEVC_CMA_BANK1_ALLOC_CTX];
+				ctx->dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
 
 		/* Can only request buffers after
 		   an instance has been opened.*/
@@ -1297,7 +1297,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		if (ctx->is_drm)
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		else
-			alloc_ctx = ctx->dev->alloc_ctx[HEVC_CMA_BANK1_ALLOC_CTX];
+			alloc_ctx = ctx->dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
 
 		if (ctx->capture_state != QUEUE_FREE) {
 			hevc_err("Bufs have already been requested.\n");
@@ -1947,8 +1947,8 @@ static int hevc_queue_setup(struct vb2_queue *vq,
 	}
 
 	raw = &ctx->raw_buf;
-	alloc_ctx1 = ctx->dev->alloc_ctx[HEVC_CMA_BANK1_ALLOC_CTX];
-	alloc_ctx2 = ctx->dev->alloc_ctx[HEVC_CMA_BANK2_ALLOC_CTX];
+	alloc_ctx1 = ctx->dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
+	alloc_ctx2 = ctx->dev->alloc_ctx[HEVC_BANK_B_ALLOC_CTX];
 
 	/* Video output for decoding (source)
 	 * this can be set after getting an instance */

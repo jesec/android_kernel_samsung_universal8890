@@ -52,7 +52,7 @@ int hevc_alloc_firmware(struct hevc_dev *dev)
 
 	base_align = 0;
 	firmware_size = dev->variant->buf_size->firmware_code;
-	alloc_ctx = dev->alloc_ctx[HEVC_CMA_FW_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[HEVC_FW_ALLOC_CTX];
 
 	if (hevc_bitproc_buf)
 		return 0;

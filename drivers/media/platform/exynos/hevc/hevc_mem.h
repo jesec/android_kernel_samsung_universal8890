@@ -24,9 +24,7 @@
 #define HEVC_BANK_A_ALLOC_CTX	0
 #define HEVC_BANK_B_ALLOC_CTX	1
 
-#define HEVC_CMA_BANK1_ALLOC_CTX HEVC_BANK_A_ALLOC_CTX
-#define HEVC_CMA_BANK2_ALLOC_CTX HEVC_BANK_B_ALLOC_CTX
-#define HEVC_CMA_FW_ALLOC_CTX	HEVC_BANK_A_ALLOC_CTX
+#define HEVC_FW_ALLOC_CTX	HEVC_BANK_A_ALLOC_CTX
 
 static inline dma_addr_t hevc_mem_plane_addr(
 	struct hevc_ctx *c, struct vb2_buffer *v, unsigned int n)

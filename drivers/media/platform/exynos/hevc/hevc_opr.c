@@ -93,7 +93,7 @@ int hevc_alloc_codec_buffers(struct hevc_ctx *ctx)
 		return -EINVAL;
 	}
 	dec = ctx->dec_priv;
-	alloc_ctx = dev->alloc_ctx[HEVC_CMA_BANK1_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
 
 	hevc_info("ctx->img_width: %d  ctx->img_height = %d\n", ctx->img_width,  ctx->img_height);
 
@@ -181,7 +181,7 @@ int hevc_alloc_instance_buffer(struct hevc_ctx *ctx)
 		return -EINVAL;
 	}
 	buf_size = dev->variant->buf_size->buf;
-	alloc_ctx = dev->alloc_ctx[HEVC_CMA_BANK1_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
 
 	hevc_info("Instance context buffer buf_size->dec_ctx : 0x%x\n", buf_size->dec_ctx);
 	ctx->ctx_buf_size = buf_size->dec_ctx;
@@ -248,7 +248,7 @@ int hevc_alloc_dev_context_buffer(struct hevc_dev *dev)
 		return -EINVAL;
 	}
 	buf_size = dev->variant->buf_size->buf;
-	alloc_ctx = dev->alloc_ctx[HEVC_CMA_BANK1_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
 
 	hevc_info("dev context buf_size : %d\n", buf_size->dev_ctx);
 

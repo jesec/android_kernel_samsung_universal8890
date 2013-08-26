@@ -136,7 +136,7 @@ int hevc_set_clock_parent(struct hevc_dev *dev)
 
 #ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
 extern spinlock_t int_div_lock;
-int hevc_clock_set_rate(struct hevc_dev *dev, unsigned long rate)
+static int hevc_clock_set_rate(struct hevc_dev *dev, unsigned long rate)
 {
 	struct clk *parent_clk = NULL;
 	int ret = 0;

@@ -18,13 +18,10 @@ void hevc_final_pm(struct hevc_dev *dev);
 
 int hevc_clock_on(void);
 void hevc_clock_off(void);
-int hevc_clock_init(void);
-void hevc_clock_release(void);
 int hevc_power_on(void);
 int hevc_power_off(void);
 int hevc_get_clk_ref_cnt(void);
 int hevc_set_clock_parent(struct hevc_dev *dev);
-int hevc_clock_set_rate(struct hevc_dev *dev, unsigned long rate);
 
 #ifdef CONFIG_HEVC_USE_BUS_DEVFREQ
 void hevc_qos_on(struct hevc_ctx *ctx);
