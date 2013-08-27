@@ -1090,6 +1090,7 @@ struct sched_avg {
 	s64 decay_count;
 	unsigned long load_avg_contrib;
 	unsigned long load_avg_ratio;
+	unsigned long child_avg_ratio;
 #ifdef CONFIG_SCHED_HMP
 	u64 hmp_last_up_migration;
 	u64 hmp_last_down_migration;
