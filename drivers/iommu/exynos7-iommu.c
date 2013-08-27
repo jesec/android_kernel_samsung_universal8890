@@ -182,6 +182,8 @@ static char *sysmmu_fault_name[SYSMMU_FAULTS_NUM] = {
 	"UNKNOWN FAULT"
 };
 
+#define SYSMMU_FAULT_WRITE	(1 << SYSMMU_FAULTS_NUM)
+
 enum sysmmu_property {
 	SYSMMU_PROP_READ = 1,
 	SYSMMU_PROP_WRITE = 2,
@@ -725,18 +727,17 @@ static void __set_fault_handler(struct sysmmu_drvdata *data,
 
 static int default_fault_handler(struct iommu_domain *domain,
 				 struct device *dev, unsigned long fault_addr,
-				 int itype, void *reserved)
+				 int flags, void *reserved)
 {
 	struct exynos_iommu_domain *priv = domain->priv;
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	sysmmu_pte_t *ent;
+	int write = (flags >> SYSMMU_FAULTS_NUM);
+	int itype = flags & ~SYSMMU_FAULT_WRITE;
 
-	if (!((itype >= 0) && (itype < SYSMMU_FAULTS_NUM)))
-			itype = SYSMMU_FAULT_UNKNOWN;
-
-	pr_err("%s occured at 0x%lx by '%s'(Page table base: 0x%lx)\n",
-		sysmmu_fault_name[itype], fault_addr, dev_name(owner->dev),
-				__pa(priv->pgtable));
+	pr_err("%s (W=%d) occured at 0x%lx by '%s'(Page table base: 0x%lx)\n",
+		sysmmu_fault_name[itype], write, fault_addr,
+		dev_name(owner->dev), __pa(priv->pgtable));
 
 	ent = section_entry(priv->pgtable, fault_addr);
 	pr_err("\tLv1 entry: 0x%x\n", *ent);
@@ -762,7 +763,7 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	unsigned long addr = -1;
 	const char *mmuname = NULL;
 	int i, ret = -ENOSYS;
-	int awfault = 0;
+	int flags = 0;
 
 	if (drvdata->master)
 		owner = drvdata->master->archdata.iommu;
@@ -789,25 +790,27 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 		itype =  __ffs(__raw_readl(
 				drvdata->sfrbases[i] + REG_INT_STATUS));
 		if (itype > 15) {
-			awfault = 1;
 			itype -= 16;
+			flags = SYSMMU_FAULT_WRITE;
 		}
 
 		if (WARN_ON(!(itype < SYSMMU_FAULT_UNKNOWN)))
 			itype = SYSMMU_FAULT_UNKNOWN;
 		else
-			addr = __raw_readl(drvdata->sfrbases[i] + (awfault ?
-					REG_FAULT_AW_ADDR : REG_FAULT_AR_ADDR));
+			addr = __raw_readl(drvdata->sfrbases[i] +
+					((flags & SYSMMU_FAULT_WRITE) ?
+					 REG_FAULT_AW_ADDR : REG_FAULT_AR_ADDR));
+		flags |= itype;
 	}
 
 	if (drvdata->domain) /* owner is always set if drvdata->domain exists */
 		ret = report_iommu_fault(drvdata->domain,
-					owner->dev, addr, itype + 16 * awfault);
+					owner->dev, addr, flags);
 
 	if (ret == -ENOSYS) {
 		if (drvdata->fault_handler)
 			ret = drvdata->fault_handler(drvdata->domain,
-				owner->dev, addr, itype + 16 * awfault, NULL);
+				owner->dev, addr, flags, NULL);
 	}
 
 	if (!ret && (itype != SYSMMU_FAULT_UNKNOWN)) {
