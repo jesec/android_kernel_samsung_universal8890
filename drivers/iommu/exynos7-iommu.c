@@ -699,7 +699,7 @@ static void debug_sysmmu_l1tlb_show(void __iomem *sfrbase)
 	int i, l1tlb_num;
 	u32 vpn, ppn, attr, vvalid, pvalid;
 
-	l1tlb_num = __raw_readl(sfrbase + REG_MMU_CAPA);
+	l1tlb_num = __raw_readl(sfrbase + REG_MMU_CAPA) & 0xFF;
 
 	pr_err("%s: Show evel1 TLB entries\n", __func__);
 	pr_err("%10.s %s %10.s %s %10.s\n", "VPN", "V", "PPN", "V", "ATTR");
