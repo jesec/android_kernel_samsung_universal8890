@@ -5074,24 +5074,20 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 						int *min_cpu)
 {
 	int cpu;
-	int min_cpu_runnable_temp = NR_CPUS;
-	unsigned long min_runnable_load = INT_MAX;
-	unsigned long contrib;
+	int min_load = INT_MAX;
+	int min_cpu_temp = NR_CPUS;
 
 	for_each_cpu_mask(cpu, hmpd->cpus) {
-		/* don't use the divisor in the loop, just at the end */
-		contrib = cpu_rq(cpu)->avg.runnable_avg_sum * scale_load_down(1024);
-		if (contrib < min_runnable_load) {
-			min_runnable_load = contrib;
-			min_cpu_runnable_temp = cpu;
+		if (cpu_rq(cpu)->cfs.tg_load_contrib < min_load) {
+			min_load = cpu_rq(cpu)->cfs.tg_load_contrib;
+			min_cpu_temp = cpu;
 		}
 	}
 
 	if (min_cpu)
-		*min_cpu = min_cpu_runnable_temp;
+		*min_cpu = min_cpu_temp;
 
-	/* domain will often have at least one empty CPU */
-	return min_runnable_load ? min_runnable_load / (LOAD_AVG_MAX + 1) : 0;
+	return min_load;
 }
 
 /*
@@ -5119,18 +5115,22 @@ static inline unsigned int hmp_offload_down(int cpu, struct sched_entity *se)
 		return NR_CPUS;
 
 	/* Is the current domain fully loaded? */
-	/* load < ~50% */
+	/* load < ~94% */
 	min_usage = hmp_domain_min_load(hmp_cpu_domain(cpu), NULL);
-	if (min_usage < (NICE_0_LOAD>>1))
+	if (min_usage < NICE_0_LOAD-64)
+		return NR_CPUS;
+
+	/* Is the cpu oversubscribed? */
+	/* load < ~194% */
+	if (cpu_rq(cpu)->cfs.tg_load_contrib < 2*NICE_0_LOAD-64)
 		return NR_CPUS;
 
 	/* Is the task alone on the cpu? */
-	if (cpu_rq(cpu)->cfs.nr_running < 2)
+	if (cpu_rq(cpu)->nr_running < 2)
 		return NR_CPUS;
 
 	/* Is the task actually starving? */
-	/* >=25% ratio running/runnable = starving */
-	if (hmp_task_starvation(se) > 768)
+	if (hmp_task_starvation(se) > 768) /* <25% waiting */
 		return NR_CPUS;
 
 	/* Does the slower domain have spare cycles? */
@@ -5141,7 +5141,6 @@ static inline unsigned int hmp_offload_down(int cpu, struct sched_entity *se)
 
 	if (cpumask_test_cpu(dest_cpu, &hmp_slower_domain(cpu)->cpus))
 		return dest_cpu;
-
 	return NR_CPUS;
 }
 #endif /* CONFIG_SCHED_HMP */
