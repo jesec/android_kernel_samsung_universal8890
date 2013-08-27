@@ -5176,8 +5176,7 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 	u64 min_target_last_migration = ULLONG_MAX;
 	u64 curr_last_migration;
 	unsigned long min_runnable_load = INT_MAX;
-	unsigned long scaled_min_runnable_load = INT_MAX;
-	unsigned long contrib, scaled_contrib;
+	unsigned long contrib;
 	struct sched_avg *avg;
 
 	for_each_cpu_mask(cpu, hmpd->cpus) {
@@ -5186,12 +5185,17 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 		curr_last_migration = avg->hmp_last_up_migration ?
 			avg->hmp_last_up_migration : avg->hmp_last_down_migration;
 
-		/* don't use the divisor in the loop, just at the end */
-		contrib = avg->child_avg_ratio * scale_load_down(1024);
-		scaled_contrib = contrib >> 13;
+		contrib = avg->load_avg_ratio;
+		/*
+		 * Consider a runqueue completely busy if there is any load
+		 * on it. Definitely not the best for overall fairness, but
+		 * does well in typical Android use cases.
+		 */
+		if(contrib)
+			contrib = 1023;
 
 		if ((contrib < min_runnable_load) ||
-				(scaled_contrib == scaled_min_runnable_load &&
+			(contrib == min_runnable_load &&
 				 curr_last_migration < min_target_last_migration)) {
 			/*
 			 * if the load is the same target the CPU with
@@ -5201,7 +5205,6 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 			 * domain is fully loaded
 			 */
 			min_runnable_load = contrib;
-			scaled_min_runnable_load = scaled_contrib;
 			min_cpu_runnable_temp = cpu;
 			min_target_last_migration = curr_last_migration;
 		}
@@ -5210,9 +5213,7 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 	if (min_cpu)
 		*min_cpu = min_cpu_runnable_temp;
 
-	/* domain will often have at least one empty CPU */
-	trace_printk("hmp_domain_min_load returning %lu\n", min_runnable_load > 1023 ? 1023 : min_runnable_load);
-	return min_runnable_load > 1023 ? 1023 : min_runnable_load; /* ? min_runnable_load / (LOAD_AVG_MAX + 1) : 0*/
+	return min_runnable_load;
 }
 
 /*
