@@ -4984,20 +4984,16 @@ static inline unsigned int hmp_select_slower_cpu(struct task_struct *tsk,
 
 static inline void hmp_next_up_delay(struct sched_entity *se, int cpu)
 {
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
-
-	u64 now = cfs_rq_clock_task(cfs_rq);
+	u64 now = cpu_rq(cpu)->clock_task;
 	se->avg.hmp_last_up_migration = now;
 	se->avg.hmp_last_down_migration = 0;
 	cpu_rq(cpu)->avg.hmp_last_up_migration = now;
-	 cpu_rq(cpu)->avg.hmp_last_down_migration = 0;
+	cpu_rq(cpu)->avg.hmp_last_down_migration = 0;
 }
 
 static inline void hmp_next_down_delay(struct sched_entity *se, int cpu)
 {
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
-
-	u64 now = cfs_rq_clock_task(cfs_rq);
+	u64 now = cpu_rq(cpu)->clock_task;
 	se->avg.hmp_last_down_migration = now;
 	se->avg.hmp_last_up_migration = 0;
 	cpu_rq(cpu)->avg.hmp_last_down_migration = now;
@@ -8286,7 +8282,6 @@ static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle) { }
 static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_entity *se)
 {
 	struct task_struct *p = task_of(se);
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
 	u64 now;
 
 	if (target_cpu)
@@ -8304,7 +8299,7 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 		return 0;
 
 	/* Let the task load settle before doing another up migration */
-	now = cfs_rq_clock_task(cfs_rq);
+	now = cpu_rq(cpu)->clock_task;
 	if (((now - se->avg.hmp_last_up_migration) >> 10)
 					< hmp_next_up_threshold)
 		return 0;
@@ -8325,7 +8320,6 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 {
 	struct task_struct *p = task_of(se);
-	struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
 	u64 now;
 
 	if (hmp_cpu_is_slowest(cpu))
@@ -8341,7 +8335,7 @@ static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 #endif
 
 	/* Let the task load settle before doing another down migration */
-	now = cfs_rq_clock_task(cfs_rq);
+	now = cpu_rq(cpu)->clock_task;
 	if (((now - se->avg.hmp_last_down_migration) >> 10)
 					< hmp_next_down_threshold)
 		return 0;
