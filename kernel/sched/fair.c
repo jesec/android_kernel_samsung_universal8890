@@ -8389,8 +8389,12 @@ static void hmp_force_up_migration(int this_cpu)
 	unsigned int force;
 	struct task_struct *p;
 
-	if (!spin_trylock(&hmp_force_migration))
+	if (!spin_trylock(&hmp_force_migration)) {
+		//trace_printk("CPU%d FAILED TO GET MIGRATION SPINLOCK\n", this_cpu);
 		return;
+	}
+	//trace_printk("hmp_force_up_migration spinlock TAKEN cpu=%d\n", this_cpu);
+
 	for_each_online_cpu(cpu) {
 		force = 0;
 		target = cpu_rq(cpu);
@@ -8400,6 +8404,7 @@ static void hmp_force_up_migration(int this_cpu)
 			raw_spin_unlock_irqrestore(&target->lock, flags);
 			continue;
 		}
+		//trace_printk("examining CPU%d\n", cpu);
 		if (!entity_is_task(curr)) {
 			struct cfs_rq *cfs_rq;
 
@@ -8442,6 +8447,7 @@ static void hmp_force_up_migration(int this_cpu)
 				target, &target->active_balance_work);
 	}
 	spin_unlock(&hmp_force_migration);
+	//trace_printk("spinlock RELEASE cpu %d\n", this_cpu);
 }
 #else
 static void hmp_force_up_migration(int this_cpu) { }
