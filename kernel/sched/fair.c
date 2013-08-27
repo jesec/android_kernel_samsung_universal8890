@@ -5172,7 +5172,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 
 #ifdef CONFIG_SCHED_HMP
 	/* always put non-kernel forking tasks on a big domain */
-	if (sd_flag & SD_BALANCE_FORK) {
+	if ((!p->parent || p->parent->pid > 2) &&
+			(sd_flag & SD_BALANCE_FORK)) {
 		if(hmp_cpu_is_fastest(prev_cpu)) {
 			struct hmp_domain *hmpdom = list_entry(&hmp_cpu_domain(prev_cpu)->hmp_domains, struct hmp_domain, hmp_domains);
 			__always_unused int lowest_ratio = hmp_domain_min_load(hmpdom, &new_cpu);
