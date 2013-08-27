@@ -595,13 +595,14 @@ static int exynos_adc_probe(struct platform_device *pdev)
 	if (IS_ERR(info->vdd)) {
 		dev_err(&pdev->dev, "failed getting regulator, err = %ld\n",
 							PTR_ERR(info->vdd));
-		return PTR_ERR(info->vdd);
+		info->vdd = NULL;
 	}
 
-	ret = regulator_enable(info->vdd);
-	if (ret)
-		return ret;
-
+	if (info->vdd) {
+		ret = regulator_enable(info->vdd);
+		if (ret)
+			return ret;
+	}
 	ret = exynos_adc_prepare_clk(info);
 	if (ret)
 		goto err_disable_reg;
@@ -656,7 +657,8 @@ err_disable_clk:
 err_unprepare_clk:
 	exynos_adc_unprepare_clk(info);
 err_disable_reg:
-	regulator_disable(info->vdd);
+	if (info->vdd)
+		regulator_disable(info->vdd);
 	return ret;
 }
 
@@ -673,7 +675,8 @@ static int exynos_adc_remove(struct platform_device *pdev)
 		info->data->exit_hw(info);
 	exynos_adc_disable_clk(info);
 	exynos_adc_unprepare_clk(info);
-	regulator_disable(info->vdd);
+	if (info->vdd)
+		regulator_disable(info->vdd);
 
 	return 0;
 }
@@ -687,7 +690,8 @@ static int exynos_adc_suspend(struct device *dev)
 	if (info->data->exit_hw)
 		info->data->exit_hw(info);
 	exynos_adc_disable_clk(info);
-	regulator_disable(info->vdd);
+	if (info->vdd)
+		regulator_disable(info->vdd);
 
 	return 0;
 }
@@ -698,9 +702,11 @@ static int exynos_adc_resume(struct device *dev)
 	struct exynos_adc *info = iio_priv(indio_dev);
 	int ret;
 
-	ret = regulator_enable(info->vdd);
-	if (ret)
-		return ret;
+	if (info->vdd) {
+		ret = regulator_enable(info->vdd);
+		if (ret)
+			return ret;
+	}
 
 	ret = exynos_adc_enable_clk(info);
 	if (ret)
