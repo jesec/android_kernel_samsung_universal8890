@@ -4801,8 +4801,8 @@ static void hmp_offline_cpu(int cpu)
  * hmp_next_up_threshold: Delay before next up migration (1024 ~= 1 ms)
  * hmp_next_down_threshold: Delay before next down migration (1024 ~= 1 ms)
  */
-unsigned int hmp_up_threshold = 512;
-unsigned int hmp_down_threshold = 256;
+unsigned int hmp_up_threshold = 700; /*512;*/
+unsigned int hmp_down_threshold = 512; /*256;*/
 #ifdef CONFIG_SCHED_HMP_PRIO_FILTER
 unsigned int hmp_up_prio = NICE_TO_PRIO(CONFIG_SCHED_HMP_PRIO_FILTER_VAL);
 #endif
