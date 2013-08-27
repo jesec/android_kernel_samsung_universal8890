@@ -653,7 +653,7 @@ static unsigned int s3c24xx_serial_getclk(struct s3c24xx_uart_port *ourport,
 		if (!(clk_sel & (1 << cnt)))
 			continue;
 
-		sprintf(clkname, "sclk_uart%d", ourport->port.line);
+		snprintf(clkname, sizeof(clkname), "sclk_uart%d", ourport->port.line);
 		clk = clk_get(ourport->port.dev, clkname);
 		if (IS_ERR(clk))
 			continue;
@@ -1619,7 +1619,7 @@ s3c24xx_serial_get_options(struct uart_port *port, int *baud,
 
 		/* now calculate the baud rate */
 
-		sprintf(clk_name, "sclk_uart%d", port->line);
+		snprintf(clk_name, sizeof(clk_name), "sclk_uart%d", port->line);
 
 		clk = clk_get(port->dev, clk_name);
 		if (!IS_ERR(clk))
