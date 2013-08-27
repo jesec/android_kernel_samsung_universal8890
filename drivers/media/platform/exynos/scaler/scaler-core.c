@@ -1223,6 +1223,13 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_2D_COLOR_FILL:
 		ctx->color_fill = (bool)ctrl->val;
+#ifndef SC_USE_SWRESET
+		if (ctx->color_fill) {
+			v4l2_err(&ctx->sc_dev->m2m.v4l2_dev,
+				"color fill does not support\n");
+			return -EINVAL;
+		}
+#endif
 		break;
 	case V4L2_CID_2D_SRC_COLOR:
 		ctx->color = ctrl->val;
