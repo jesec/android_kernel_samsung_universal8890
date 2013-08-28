@@ -5407,8 +5407,8 @@ unlock:
 		return new_cpu;
 	}
 	/* Make sure that the task stays in its previous hmp domain */
-	if (!cpumask_test_cpu(new_cpu, &hmp_cpu_domain(prev_cpu)->cpus))
-		return prev_cpu;
+	if (!cpumask_test_cpu(new_cpu, &hmp_cpu_domain(task_cpu(p))->cpus))
+		return task_cpu(p);
 #endif
 
 	return new_cpu;
