@@ -4814,7 +4814,7 @@ static struct sched_entity *hmp_get_heaviest_task(struct sched_entity* se, int m
 {
 	int num_tasks = hmp_max_tasks;
 	struct sched_entity *max_se = se;
-	unsigned long int max_ratio = 0;
+	unsigned long int max_ratio = se->avg.load_avg_ratio;
 	const struct cpumask *hmp_target_mask = NULL;
 
 	if (migrate_up) {
@@ -4990,7 +4990,8 @@ static inline unsigned int hmp_select_slower_cpu(struct task_struct *tsk,
 
 static inline void hmp_next_up_delay(struct sched_entity *se, int cpu)
 {
-	u64 now = cpu_rq(cpu)->clock_task;
+	/* hack - always use clock from first online CPU */
+	u64 now = cpu_rq(cpumask_first(cpu_online_mask))->clock_task;
 	se->avg.hmp_last_up_migration = now;
 	se->avg.hmp_last_down_migration = 0;
 	cpu_rq(cpu)->avg.hmp_last_up_migration = now;
@@ -4999,7 +5000,8 @@ static inline void hmp_next_up_delay(struct sched_entity *se, int cpu)
 
 static inline void hmp_next_down_delay(struct sched_entity *se, int cpu)
 {
-	u64 now = cpu_rq(cpu)->clock_task;
+	/* hack - always use clock from first online CPU */
+	u64 now = cpu_rq(cpumask_first(cpu_online_mask))->clock_task;
 	se->avg.hmp_last_down_migration = now;
 	se->avg.hmp_last_up_migration = 0;
 	cpu_rq(cpu)->avg.hmp_last_down_migration = now;
@@ -5242,16 +5244,15 @@ static inline unsigned int hmp_offload_down(int cpu, struct sched_entity *se)
 	if (hmp_cpu_is_slowest(cpu))
 		return NR_CPUS;
 
-	/* Is the current domain fully loaded? */
-	/* load < ~50% */
+	/* Is there an idle CPU in the current domain */
 	min_usage = hmp_domain_min_load(hmp_cpu_domain(cpu), NULL);
-	if (min_usage < (NICE_0_LOAD>>1)) {
+	if (min_usage == 0) {
 		trace_sched_hmp_offload_abort(cpu,min_usage,"load");
 		return NR_CPUS;
 	}
 
 	/* Is the task alone on the cpu? */
-	if (cpu_rq(cpu)->nr_running < 2) {
+	if (cpu_rq(cpu)->cfs.h_nr_running < 2) {
 		trace_sched_hmp_offload_abort(cpu,cpu_rq(cpu)->cfs.nr_running,"nr_running");
 		return NR_CPUS;
 	}
@@ -5262,10 +5263,9 @@ static inline unsigned int hmp_offload_down(int cpu, struct sched_entity *se)
 		return NR_CPUS;
 	}
 
-	/* Does the slower domain have spare cycles? */
+	/* Does the slower domain have any idle CPUs? */
 	min_usage = hmp_domain_min_load(hmp_slower_domain(cpu), &dest_cpu);
-	/* load > 50% */
-	if (min_usage > NICE_0_LOAD/2) {
+	if (min_usage > 0) {
 		trace_sched_hmp_offload_abort(cpu,min_usage,"slowdomain");
 		return NR_CPUS;
 	}
@@ -8310,14 +8310,18 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 		return 0;
 
 	/* Let the task load settle before doing another up migration */
-	now = cpu_rq(cpu)->clock_task;
+	/* hack - always use clock from first online CPU */
+	now = cpu_rq(cpumask_first(cpu_online_mask))->clock_task;
 	if (((now - se->avg.hmp_last_up_migration) >> 10)
 					< hmp_next_up_threshold)
 		return 0;
 
-	/* Target domain load < 94% */
+	/* hmp_domain_min_load only returns 0 for an
+	 * idle CPU or 1023 for any partly-busy one.
+	 * Be explicit about requirement for an idle CPU.
+	 */
 	if (hmp_domain_min_load(hmp_faster_domain(cpu), target_cpu)
-			> NICE_0_LOAD-64)
+			!= 0)
 		return 0;
 
 	if (cpumask_intersects(&hmp_faster_domain(cpu)->cpus,
