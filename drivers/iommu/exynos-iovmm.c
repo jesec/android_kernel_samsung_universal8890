@@ -303,7 +303,6 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
 	size_t exact_align_mask = 0;
 	size_t max_align, align;
-	size_t size_to_map;
 	int ret = 0;
 	struct scatterlist *tsg;
 
@@ -379,7 +378,6 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	}
 
 	addr = start - start_off;
-	size_to_map  = PAGE_ALIGN(size + start_off);
 	do {
 		phys_addr_t phys;
 		size_t len;
@@ -407,8 +405,8 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 
 		len = PAGE_ALIGN(len);
 
-		if (len > (size_to_map - mapped_size))
-			len = size_to_map - mapped_size;
+		if (len > (size - mapped_size))
+			len = size - mapped_size;
 
 		ret = iommu_map(vmm->domain, addr, phys, len, 0);
 		if (ret) {
@@ -418,13 +416,13 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 
 		addr += len;
 		mapped_size += len;
-	} while ((sg = sg_next(sg)) && (mapped_size < size_to_map));
+	} while ((sg = sg_next(sg)) && (mapped_size < size));
 
-	BUG_ON(mapped_size > size_to_map);
+	BUG_ON(mapped_size > size);
 
-	if (mapped_size < size_to_map) {
+	if (mapped_size < size) {
 		dev_err(dev, "mapped_size(%d) is smaller than size(%d)\n",
-				mapped_size, size_to_map);
+				mapped_size, size);
 		if (!ret) {
 			dev_err(dev, "ret: %d\n", ret);
 			ret = -EINVAL;
