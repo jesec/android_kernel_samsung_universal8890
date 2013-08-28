@@ -2650,7 +2650,6 @@ static inline void __update_group_entity_contrib(struct sched_entity *se)
 
 static inline void update_rq_runnable_avg(struct rq *rq, int runnable)
 {
-	u32 contrib;
 	int cpu = -1;	/* not used in normal case */
 
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
@@ -2659,9 +2658,7 @@ static inline void update_rq_runnable_avg(struct rq *rq, int runnable)
 	__update_entity_runnable_avg(rq->clock_task, &rq->avg, runnable,
 				     runnable, cpu);
 	__update_tg_runnable_avg(&rq->avg, &rq->cfs);
-	contrib = rq->avg.runnable_avg_sum * scale_load_down(1024);
-	contrib /= (rq->avg.runnable_avg_period + 1);
-	trace_sched_rq_runnable_ratio(cpu_of(rq), scale_load(contrib));
+	trace_sched_rq_runnable_ratio(cpu_of(rq), rq->avg.load_avg_ratio);
 	trace_sched_rq_runnable_load(cpu_of(rq), rq->cfs.runnable_load_avg);
 }
 #else /* CONFIG_FAIR_GROUP_SCHED */
@@ -2749,7 +2746,7 @@ static inline void update_entity_load_avg(struct sched_entity *se,
 
 	if (se->on_rq) {
 		cfs_rq->runnable_load_avg += contrib_delta;
-		rq_of(cfs_rq)->avg.child_avg_ratio += ratio_delta;
+		rq_of(cfs_rq)->avg.load_avg_ratio += ratio_delta;
 	} else {
 		subtract_blocked_load_contrib(cfs_rq, -contrib_delta);
 	}
@@ -2827,7 +2824,7 @@ static inline void enqueue_entity_load_avg(struct cfs_rq *cfs_rq,
 	}
 
 	cfs_rq->runnable_load_avg += se->avg.load_avg_contrib;
-	rq_of(cfs_rq)->avg.child_avg_ratio += se->avg.load_avg_ratio;
+	rq_of(cfs_rq)->avg.load_avg_ratio += se->avg.load_avg_ratio;
 
 	/* we force update consideration on load-balancer moves */
 	update_cfs_rq_blocked_load(cfs_rq, !wakeup);
@@ -2847,7 +2844,7 @@ static inline void dequeue_entity_load_avg(struct cfs_rq *cfs_rq,
 	update_cfs_rq_blocked_load(cfs_rq, !sleep);
 
 	cfs_rq->runnable_load_avg -= se->avg.load_avg_contrib;
-	rq_of(cfs_rq)->avg.child_avg_ratio -= se->avg.load_avg_ratio;
+	rq_of(cfs_rq)->avg.load_avg_ratio -= se->avg.load_avg_ratio;
 
 	if (sleep) {
 		cfs_rq->blocked_load_avg += se->avg.load_avg_contrib;
