@@ -17,7 +17,8 @@
 #include "s5p_mfc_cmd.h"
 #include "s5p_mfc_mem.h"
 
-int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd, struct s5p_mfc_cmd_args *args)
+int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd,
+				struct s5p_mfc_cmd_args *args)
 {
 	if (cmd != S5P_FIMV_CH_NAL_START)
 		mfc_info("Issue the command: %d\n", cmd);
@@ -36,7 +37,6 @@ int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd, struct s5p_mfc_cmd_a
 
 int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev)
 {
-	struct s5p_mfc_cmd_args h2r_args;
 	struct s5p_mfc_buf_size_v6 *buf_size;
 	int ret;
 
@@ -58,7 +58,7 @@ int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev)
 					(unsigned int)dev->dis_shm_buf.ofs);
 	}
 
-	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_SYS_INIT, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_SYS_INIT, NULL);
 
 	mfc_debug_leave();
 
@@ -67,14 +67,11 @@ int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev)
 
 int s5p_mfc_sleep_cmd(struct s5p_mfc_dev *dev)
 {
-	struct s5p_mfc_cmd_args h2r_args;
 	int ret;
 
 	mfc_debug_enter();
 
-	memset(&h2r_args, 0, sizeof(struct s5p_mfc_cmd_args));
-
-	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_SLEEP, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_SLEEP, NULL);
 
 	mfc_debug_leave();
 
@@ -83,14 +80,11 @@ int s5p_mfc_sleep_cmd(struct s5p_mfc_dev *dev)
 
 int s5p_mfc_wakeup_cmd(struct s5p_mfc_dev *dev)
 {
-	struct s5p_mfc_cmd_args h2r_args;
 	int ret;
 
 	mfc_debug_enter();
 
-	memset(&h2r_args, 0, sizeof(struct s5p_mfc_cmd_args));
-
-	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_WAKEUP, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_WAKEUP, NULL);
 
 	mfc_debug_leave();
 
@@ -100,7 +94,6 @@ int s5p_mfc_wakeup_cmd(struct s5p_mfc_dev *dev)
 /* Open a new instance and get its number */
 int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx)
 {
-	struct s5p_mfc_cmd_args h2r_args;
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret;
 
@@ -120,7 +113,7 @@ int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx)
 		s5p_mfc_write_reg(dev, ctx->dec_priv->crc_enable,
 							S5P_FIMV_D_CRC_CTRL);
 
-	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_OPEN_INSTANCE, &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_OPEN_INSTANCE, NULL);
 
 	mfc_debug_leave();
 
@@ -130,16 +123,14 @@ int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx)
 /* Close instance */
 int s5p_mfc_close_inst_cmd(struct s5p_mfc_ctx *ctx)
 {
-	struct s5p_mfc_cmd_args h2r_args;
 	struct s5p_mfc_dev *dev = ctx->dev;
-	int ret = 0;
+	int ret;
 
 	mfc_debug_enter();
 
 	s5p_mfc_write_reg(dev, ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 
-	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_CLOSE_INSTANCE,
-					    &h2r_args);
+	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_CLOSE_INSTANCE, NULL);
 
 	mfc_debug_leave();
 
