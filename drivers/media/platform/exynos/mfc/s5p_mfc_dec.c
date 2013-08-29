@@ -2231,7 +2231,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		}
 
 		/* For MFC 5.x only, first allocator should be alloc_ctx2 */
-		if (!ctx->is_drm && IS_MFCV5(dev))
+		if (!ctx->is_drm && IS_MFCv5X(dev))
 			allocators[0] = alloc_ctx2;
 
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&

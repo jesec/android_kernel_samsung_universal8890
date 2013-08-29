@@ -797,16 +797,16 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 /*
  * Version Description
  *
- * IS_MFCV5 : For MFC v5 architecure
- * IS_MFCV6 : For MFC v6 architecure
- * IS_MFCv6X : For MFC v6.X only
  * IS_MFCv7X : For MFC v7.X only
+ * IS_MFCv6X : For MFC v6.X only
+ * IS_MFCv5X : For MFC v5.X only
+ * IS_MFCV6 : For MFC v6 architecure
  */
 #define IS_MFCv7X(dev)		(mfc_version(dev) == 0x72)
 #define IS_MFCv6X(dev)		((mfc_version(dev) == 0x61) || \
 				 (mfc_version(dev) == 0x65))
+#define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
 #define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev))
-#define IS_MFCV5(dev)		(mfc_version(dev) == 0x51)
 
 /* supported feature macros by F/W version */
 #define FW_HAS_BUS_RESET(dev)		(dev->fw.date >= 0x120206)
@@ -817,7 +817,7 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x121205))
 #define FW_HAS_ENC_SPSPPS_CTRL(dev)	((IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x121005)) ||	\
-					(IS_MFCV5(dev) &&		\
+					(IS_MFCv5X(dev) &&		\
 					(dev->fw.date >= 0x120823)))
 #define FW_HAS_VUI_PARAMS(dev)		(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x121214))
@@ -837,7 +837,16 @@ struct s5p_mfc_fmt {
 };
 
 int get_framerate(struct timeval *to, struct timeval *from);
-inline int clear_hw_bit(struct s5p_mfc_ctx *ctx);
+static inline int clear_hw_bit(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	int ret = -1;
+
+	if (!atomic_read(&dev->watchdog_run))
+		ret = test_and_clear_bit(ctx->num, &dev->hw_lock);
+
+	return ret;
+}
 
 #if defined(CONFIG_EXYNOS_MFC_V5)
 #include "regs-mfc-v5.h"

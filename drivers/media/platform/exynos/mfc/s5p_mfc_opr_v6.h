@@ -19,9 +19,6 @@
 
 #define MFC_CTRL_MODE_CUSTOM	MFC_CTRL_MODE_SFR
 
-int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx);
-int s5p_mfc_init_encode(struct s5p_mfc_ctx *mfc_ctx);
-
 int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx);
 int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx,
 		dma_addr_t buf_addr,

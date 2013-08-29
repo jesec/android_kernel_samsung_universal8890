@@ -772,7 +772,8 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 }
 
 /* Set display buffer through shared memory at INIT_BUFFER */
-int mfc_set_dec_dis_buffer(struct s5p_mfc_ctx *ctx, struct list_head *buf_queue)
+static int mfc_set_dec_dis_buffer(struct s5p_mfc_ctx *ctx,
+						struct list_head *buf_queue)
 {
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -1870,7 +1871,7 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 }
 
 /* Initialize decoding */
-int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
+static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_dec *dec;
@@ -2034,7 +2035,7 @@ int s5p_mfc_decode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 	return 0;
 }
 
-int s5p_mfc_init_encode(struct s5p_mfc_ctx *ctx)
+static int s5p_mfc_init_encode(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 
@@ -2062,7 +2063,7 @@ int s5p_mfc_init_encode(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
-int s5p_mfc_h264_set_aso_slice_order(struct s5p_mfc_ctx *ctx)
+static int s5p_mfc_h264_set_aso_slice_order(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
