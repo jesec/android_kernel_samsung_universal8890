@@ -96,7 +96,7 @@ void hevc_dec_calc_dpb_size(struct hevc_ctx *ctx);
 #define mb_height(y_size)		((y_size + 15) / 16)
 
 #define hevc_dec_mv_size(x, y)		\
-			(((x + 63) / 64) * ((y + 63) / 64) * 256 + 512)
+			(((x + 63) / 64) * ((y + 63) / 64) * 256 + 512 + 1024)
 
 #define hevc_clear_int_flags()				\
 	do {							\
@@ -112,7 +112,7 @@ void hevc_dec_calc_dpb_size(struct hevc_ctx *ctx);
 
 #define DEC_HEVC_SCRATCH_SIZE(x, y)			\
 			((((x + 15) / 16) + 1) * 64 + ((x + 63) / 64) * 256 + \
-			((x + 63) / 64) * 256 + (x + 64) * 10 + y * 128)
+			((y + 63) / 64) * 256 + (x + 64) * 10 + y * 128)
 
 void hevc_try_run(struct hevc_dev *dev);
 
