@@ -777,8 +777,12 @@ void sc_hwset_src_imgsize(struct sc_dev *sc, struct sc_frame *frame)
 	 */
 	if (frame->sc_fmt->num_comp == 2)
 		cfg |= frame->width << 16;
-	if (frame->sc_fmt->num_comp == 3)
-		cfg |= (frame->width >> 1) << 16;
+	if (frame->sc_fmt->num_comp == 3) {
+		if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat))
+			cfg |= ALIGN(frame->width >> 1, 16) << 16;
+		else
+			cfg |= (frame->width >> 1) << 16;
+	}
 
 	writel(cfg, sc->regs + SCALER_SRC_SPAN);
 }
@@ -817,8 +821,13 @@ void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame)
 	 */
 	if (frame->sc_fmt->num_comp == 2)
 		cfg |= frame->width << 16;
-	if (frame->sc_fmt->num_comp == 3)
-		cfg |= (frame->width >> 1) << 16;
+	if (frame->sc_fmt->num_comp == 3) {
+		if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat))
+			cfg |= ALIGN(frame->width >> 1, 16) << 16;
+		else
+			cfg |= (frame->width >> 1) << 16;
+	}
+
 	writel(cfg, sc->regs + SCALER_DST_SPAN);
 }
 

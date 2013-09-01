@@ -330,8 +330,16 @@ static int sc_v4l2_g_fmt_mplane(struct file *file, void *fh,
 	for (i = 0; i < pixm->num_planes; ++i) {
 		pixm->plane_fmt[i].bytesperline = (pixm->width *
 				sc_fmt->bitperpixel[i]) >> 3;
-		pixm->plane_fmt[i].sizeimage = pixm->plane_fmt[i].bytesperline
-				* pixm->height;
+		if (sc_fmt_is_ayv12(sc_fmt->pixelformat)) {
+			unsigned int y_size, c_span;
+			y_size = pixm->width * pixm->height;
+			c_span = ALIGN(pixm->width >> 1, 16);
+			pixm->plane_fmt[i].sizeimage =
+				y_size + (c_span * pixm->height >> 1) * 2;
+		} else {
+			pixm->plane_fmt[i].sizeimage =
+				pixm->plane_fmt[i].bytesperline * pixm->height;
+		}
 
 		v4l2_dbg(1, sc_log_level, &ctx->sc_dev->m2m.v4l2_dev,
 				"[%d] plane: bytesperline %d, sizeimage %d\n",
@@ -395,8 +403,16 @@ static int sc_v4l2_try_fmt_mplane(struct file *file, void *fh,
 	for (i = 0; i < pixm->num_planes; ++i) {
 		pixm->plane_fmt[i].bytesperline = (pixm->width *
 				sc_fmt->bitperpixel[i]) >> 3;
-		pixm->plane_fmt[i].sizeimage = pixm->plane_fmt[i].bytesperline
-				* pixm->height;
+		if (sc_fmt_is_ayv12(sc_fmt->pixelformat)) {
+			unsigned int y_size, c_span;
+			y_size = pixm->width * pixm->height;
+			c_span = ALIGN(pixm->width >> 1, 16);
+			pixm->plane_fmt[i].sizeimage =
+				y_size + (c_span * pixm->height >> 1) * 2;
+		} else {
+			pixm->plane_fmt[i].sizeimage =
+				pixm->plane_fmt[i].bytesperline * pixm->height;
+		}
 
 		v4l2_dbg(1, sc_log_level, &ctx->sc_dev->m2m.v4l2_dev,
 				"[%d] plane: bytesperline %d, sizeimage %d\n",
@@ -417,7 +433,7 @@ static int sc_v4l2_s_fmt_mplane(struct file *file, void *fh,
 	struct v4l2_pix_format_mplane *pixm = &f->fmt.pix_mp;
 	struct sc_size_limit *limitout = &ctx->sc_dev->variant->limit_input;
 	struct sc_size_limit *limitcap = &ctx->sc_dev->variant->limit_output;
-	int ret = 0;
+	int i, ret = 0;
 
 	if (vb2_is_streaming(vq)) {
 		v4l2_err(&ctx->sc_dev->m2m.v4l2_dev, "device is busy\n");
@@ -440,6 +456,9 @@ static int sc_v4l2_s_fmt_mplane(struct file *file, void *fh,
 				"not supported format values\n");
 		return -EINVAL;
 	}
+
+	for (i = 0; i < frame->sc_fmt->num_planes; i++)
+		frame->bytesused[i] = pixm->plane_fmt[i].sizeimage;
 
 	if (V4L2_TYPE_IS_OUTPUT(f->type) &&
 		((pixm->width > limitout->max_w) ||
@@ -734,10 +753,18 @@ static void sc_calc_intbufsize(struct sc_dev *sc, struct sc_int_frame *int_frame
 		break;
 	case 3:
 		if (frame->sc_fmt->num_planes == 1) {
-			frame->addr.ysize = size;
-			frame->addr.cbsize =
-			((size * frame->sc_fmt->bitperpixel[0]) / 8 - size) / 2;
-			frame->addr.crsize = frame->addr.cbsize;
+			if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat)) {
+				unsigned int c_span;
+				c_span = ALIGN(frame->width >> 1, 16);
+				frame->addr.ysize = size;
+				frame->addr.cbsize = c_span * (frame->height >> 1);
+				frame->addr.crsize = frame->addr.cbsize;
+			} else {
+				frame->addr.ysize = size;
+				frame->addr.cbsize =
+				((size * frame->sc_fmt->bitperpixel[0]) / 8 - size) / 2;
+				frame->addr.crsize = frame->addr.cbsize;
+			}
 		} else if (frame->sc_fmt->num_planes == 3) {
 			frame->addr.ysize =
 				(size * frame->sc_fmt->bitperpixel[0]) / 8;
@@ -993,18 +1020,13 @@ static int sc_vb2_queue_setup(struct vb2_queue *vq,
 	if (IS_ERR(frame))
 		return PTR_ERR(frame);
 
-	for (i = 0; i < frame->sc_fmt->num_planes; ++i)
-		frame->bytesused[i] = (frame->crop.width * frame->crop.height *
-				frame->sc_fmt->bitperpixel[i]) / BITS_PER_BYTE;
-
 	if (V4L2_TYPE_IS_OUTPUT(vq->type))
 		free_intermediate_frame(ctx);
 
 	/* Get number of planes from format_list in driver */
 	*num_planes = frame->sc_fmt->num_planes;
 	for (i = 0; i < frame->sc_fmt->num_planes; i++) {
-		sizes[i] = (frame->width * frame->height *
-				frame->sc_fmt->bitperpixel[i]) >> 3;
+		sizes[i] = frame->bytesused[i];
 		allocators[i] = ctx->sc_dev->alloc_ctx;
 
 		if (sc_ver_is_5a(ctx->sc_dev)) {
@@ -1831,12 +1853,22 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 		break;
 	case 3:
 		if (frame->sc_fmt->num_planes == 1) {
-			frame->addr.cb = frame->addr.y + size;
-			frame->addr.cr = frame->addr.cb + (size >> 2);
-			frame->addr.ysize = size;
-			frame->addr.cbsize =
-			(size * frame->sc_fmt->bitperpixel[0] - size) / 2;
-			frame->addr.crsize = frame->addr.cbsize;
+			if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat)) {
+				unsigned int c_span;
+				c_span = ALIGN(frame->width >> 1, 16);
+				frame->addr.ysize = size;
+				frame->addr.cbsize = c_span * (frame->height >> 1);
+				frame->addr.crsize = frame->addr.cbsize;
+				frame->addr.cb = frame->addr.y + size;
+				frame->addr.cr = frame->addr.cb + frame->addr.cbsize;
+			} else {
+				frame->addr.cb = frame->addr.y + size;
+				frame->addr.cr = frame->addr.cb + (size >> 2);
+				frame->addr.ysize = size;
+				frame->addr.cbsize =
+				(((size * frame->sc_fmt->bitperpixel[0]) >> 3) - size) / 2;
+				frame->addr.crsize = frame->addr.cbsize;
+			}
 		} else if (frame->sc_fmt->num_planes == 3) {
 			cookie = vb2_plane_cookie(vb2buf, 1);
 			if (!cookie)

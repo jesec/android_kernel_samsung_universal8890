@@ -88,6 +88,7 @@ extern int sc_log_level;
 		(x == V4L2_PIX_FMT_NV21) || (x == V4L2_PIX_FMT_NV12M) || \
 		(x == V4L2_PIX_FMT_NV21M) || (x == V4L2_PIX_FMT_YUV420M) || \
 		(x == V4L2_PIX_FMT_YVU420M) || (x == V4L2_PIX_FMT_NV12MT_16X16))
+#define sc_fmt_is_ayv12(x)	((x) == V4L2_PIX_FMT_YVU420)
 #define sc_dith_val(a, b, c)	((a << SCALER_DITH_R_SHIFT) |	\
 		(b << SCALER_DITH_G_SHIFT) | (c << SCALER_DITH_B_SHIFT))
 #define sc_ver_is_5a(sc)	(sc->ver == 0x3)
