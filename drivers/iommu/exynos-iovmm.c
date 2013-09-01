@@ -122,10 +122,6 @@ again:
 	spin_unlock(&vmm->bitmap_lock);
 
 	vstart = (index << PAGE_SHIFT) + vmm->iova_start[id] + offset;
-	if (!(ALIGN(vstart + size, SZ_256K) & (SECT_SIZE - 1))) {
-		dma_addr_t dummy_start = ALIGN(vstart + size, SZ_256K);
-		lv2_dummy_map(vmm->domain, dummy_start);
-	}
 
 	region = kmalloc(sizeof(*region), GFP_KERNEL);
 	if (unlikely(!region)) {

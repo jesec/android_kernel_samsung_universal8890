@@ -108,8 +108,6 @@ static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
 struct exynos_vm_region *find_iovm_region(struct exynos_iovmm *vmm,
 						dma_addr_t iova);
 
-void lv2_dummy_map(struct iommu_domain *domain, unsigned long iova);
-
 static inline int find_iovmm_plane(struct exynos_iovmm *vmm, dma_addr_t iova)
 {
 	int i;
@@ -132,8 +130,6 @@ struct exynos_vm_region *find_iovm_region(struct exynos_iovmm *vmm,
 {
 	return NULL;
 }
-
-#define lv2_dummy_map(domain, iova)	do { } while (0)
 
 static inline int find_iovmm_plane(struct exynos_iovmm *vmm, dma_addr_t iova)
 {

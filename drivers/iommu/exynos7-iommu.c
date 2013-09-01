@@ -48,8 +48,10 @@
 #define LPAGE_MASK (~((LPAGE_SIZE >> PG_ENT_SHIFT) - 1))
 #define SPAGE_MASK (~((SPAGE_SIZE >> PG_ENT_SHIFT) - 1))
 
-#define lv1ent_fault(sent) ((*(sent) & 7) == 0)
-#define lv1ent_page(sent) ((*(sent) & 7) == 1)
+#define lv1ent_fault(sent) ((*(sent) == ZERO_LV2LINK) || \
+			   ((*(sent) & 7) == 0))
+#define lv1ent_page(sent) ((*(sent) != ZERO_LV2LINK) && \
+			  ((*(sent) & 7) == 1))
 #define lv1ent_section(sent) ((*(sent) & 7) == 2)
 #define lv1ent_lsection(sent) ((*(sent) & 7) == 4)
 #define lv1ent_spsection(sent) ((*(sent) & 7) == 6)
@@ -151,6 +153,8 @@ static void *sysmmu_placeholder; /* Inidcate if a device is System MMU */
 
 static struct kmem_cache *lv2table_kmem_cache;
 static phys_addr_t fault_page;
+static unsigned long *zero_lv2_table;
+#define ZERO_LV2LINK mk_lv1ent_page(__pa(zero_lv2_table))
 
 static sysmmu_pte_t *section_entry(sysmmu_pte_t *pgtable, unsigned long iova)
 {
@@ -643,6 +647,33 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova)
 			int i;
 			for (i = 0; i < drvdata->nsfrs; i++)
 				__sysmmu_tlb_invalidate_entry(
+						drvdata->sfrbases[i], iova);
+		} else {
+			dev_dbg(dev,
+			"%s is disabled. Skipping TLB invalidation @ %#x\n",
+			drvdata->dbgname, iova);
+		}
+		spin_unlock_irqrestore(&drvdata->lock, flags);
+	}
+}
+
+static void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
+{
+	struct device *sysmmu;
+
+	for_each_sysmmu(dev, sysmmu) {
+		unsigned long flags;
+		struct sysmmu_drvdata *drvdata;
+
+		drvdata = dev_get_drvdata(sysmmu);
+
+		spin_lock_irqsave(&drvdata->lock, flags);
+		if (is_sysmmu_active(drvdata) &&
+				drvdata->runtime_active) {
+			int i;
+			for (i = 0; i < drvdata->nsfrs; i++)
+				if (has_sysmmu_capable_pbuf(drvdata, i))
+					__sysmmu_tlb_invalidate_entry(
 						drvdata->sfrbases[i], iova);
 		} else {
 			dev_dbg(dev,
@@ -1433,6 +1464,7 @@ static struct platform_driver exynos_sysmmu_driver __refdata = {
 static int exynos_iommu_domain_init(struct iommu_domain *domain)
 {
 	struct exynos_iommu_domain *priv;
+	int i;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -1447,6 +1479,17 @@ static int exynos_iommu_domain_init(struct iommu_domain *domain)
 						GFP_KERNEL | __GFP_ZERO, 1);
 	if (!priv->lv2entcnt)
 		goto err_counter;
+
+	for (i = 0; i < NUM_LV1ENTRIES; i += 8) {
+		priv->pgtable[i + 0] = ZERO_LV2LINK;
+		priv->pgtable[i + 1] = ZERO_LV2LINK;
+		priv->pgtable[i + 2] = ZERO_LV2LINK;
+		priv->pgtable[i + 3] = ZERO_LV2LINK;
+		priv->pgtable[i + 4] = ZERO_LV2LINK;
+		priv->pgtable[i + 5] = ZERO_LV2LINK;
+		priv->pgtable[i + 6] = ZERO_LV2LINK;
+		priv->pgtable[i + 7] = ZERO_LV2LINK;
+	}
 
 	pgtable_flush(priv->pgtable, priv->pgtable + NUM_LV1ENTRIES);
 
@@ -1549,11 +1592,12 @@ static void exynos_iommu_detach_device(struct iommu_domain *domain,
 		dev_dbg(dev, "%s: No IOMMU is attached\n", __func__);
 }
 
-static sysmmu_pte_t *alloc_lv2entry(sysmmu_pte_t *sent, unsigned long iova,
-					short *pgcounter)
+static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
+		sysmmu_pte_t *sent, unsigned long iova, short *pgcounter)
 {
 	if (lv1ent_fault(sent)) {
 		sysmmu_pte_t *pent;
+		struct exynos_iommu_owner *owner;
 
 		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
 		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
@@ -1565,6 +1609,26 @@ static sysmmu_pte_t *alloc_lv2entry(sysmmu_pte_t *sent, unsigned long iova,
 		*pgcounter = NUM_LV2ENTRIES;
 		pgtable_flush(pent, pent + NUM_LV2ENTRIES);
 		pgtable_flush(sent, sent + 1);
+
+		/*
+		 * If pretched SLPD is a fault SLPD in zero_l2_table, FLPD cache
+		 * caches the address of zero_l2_table. This function replaces
+		 * the zero_l2_table with new L2 page table to write valid
+		 * mappings.
+		 * Accessing the valid area may cause page fault since FLPD
+		 * cache may still caches zero_l2_table for the valid area
+		 * instead of new L2 page table that have the mapping
+		 * information of the valid area
+		 * Thus any replacement of zero_l2_table with other valid L2
+		 * page table must involve FLPD cache invalidation if the System
+		 * MMU have prefetch feature and FLPD cache (version 3.3).
+		 * FLPD cache invalidation is performed with TLB invalidation
+		 * by VPN without blocking. It is safe to invalidate TLB without
+		 * blocking because the target address of TLB invalidation is not
+		 * currently mapped.
+		 */
+		list_for_each_entry(owner, &priv->clients, client)
+			sysmmu_tlb_invalidate_flpdcache(owner->dev, iova);
 	} else if (!lv1ent_page(sent)) {
 		return ERR_PTR(-EADDRINUSE);
 	}
@@ -1586,7 +1650,14 @@ static int lv1ent_check_page(sysmmu_pte_t *sent, short *pgcnt)
 	return 0;
 }
 
-static void clear_page_table(sysmmu_pte_t *ent, int n)
+static void clear_lv1_page_table(sysmmu_pte_t *ent, int n)
+{
+	int i;
+	for (i = 0; i < n; i++)
+		ent[i] = ZERO_LV2LINK;
+}
+
+static void clear_lv2_page_table(sysmmu_pte_t *ent, int n)
 {
 	if (n > 0)
 		memset(ent, 0, sizeof(*ent) * n);
@@ -1611,7 +1682,7 @@ static int lv1set_section(sysmmu_pte_t *sent, phys_addr_t paddr,
 		for (i = 0; i < SECT_PER_LSECT; i++, sent++, pgcnt++) {
 			ret = lv1ent_check_page(sent, pgcnt);
 			if (ret) {
-				clear_page_table(sent - i, i);
+				clear_lv1_page_table(sent - i, i);
 				return ret;
 			}
 			*sent = mk_lv1ent_lsect(paddr);
@@ -1622,7 +1693,7 @@ static int lv1set_section(sysmmu_pte_t *sent, phys_addr_t paddr,
 		for (i = 0; i < SECT_PER_SPSECT; i++, sent++, pgcnt++) {
 			ret = lv1ent_check_page(sent, pgcnt);
 			if (ret) {
-				clear_page_table(sent - i, i);
+				clear_lv1_page_table(sent - i, i);
 				return ret;
 			}
 			*sent = mk_lv1ent_spsect(paddr);
@@ -1647,7 +1718,7 @@ static int lv2set_page(sysmmu_pte_t *pent, phys_addr_t paddr,
 		int i;
 		for (i = 0; i < SPAGES_PER_LPAGE; i++, pent++) {
 			if (!lv2ent_fault(pent)) {
-				clear_page_table(pent - i, i);
+				clear_lv2_page_table(pent - i, i);
 				return -EADDRINUSE;
 			}
 
@@ -1658,27 +1729,6 @@ static int lv2set_page(sysmmu_pte_t *pent, phys_addr_t paddr,
 	}
 
 	return 0;
-}
-
-void lv2_dummy_map(struct iommu_domain *domain, unsigned long iova)
-{
-	struct exynos_iommu_domain *priv = domain->priv;
-	sysmmu_pte_t *entry;
-	sysmmu_pte_t *pent;
-	unsigned long flags;
-
-	BUG_ON(priv->pgtable == NULL);
-
-	spin_lock_irqsave(&priv->pgtablelock, flags);
-	entry = section_entry(priv->pgtable, iova);
-
-	pent = alloc_lv2entry(entry, iova,
-			&priv->lv2entcnt[lv1ent_offset(iova)]);
-	if (IS_ERR(pent)) {
-		pr_info("%s: Failed(%ld) to map @ %#lx\n",
-				__func__, PTR_ERR(pent), iova);
-	}
-	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 }
 
 static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
@@ -1701,7 +1751,7 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	} else {
 		sysmmu_pte_t *pent;
 
-		pent = alloc_lv2entry(entry, iova,
+		pent = alloc_lv2entry(priv, entry, iova,
 					&priv->lv2entcnt[lv1ent_offset(iova)]);
 
 		if (IS_ERR(pent)) {
@@ -1741,7 +1791,7 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 			goto err;
 		}
 
-		clear_page_table(ent, SECT_PER_SPSECT);
+		clear_lv1_page_table(ent, SECT_PER_SPSECT);
 
 		pgtable_flush(ent, ent + SECT_PER_SPSECT);
 		size = SPSECT_SIZE;
@@ -1754,8 +1804,8 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 			goto err;
 		}
 
-		*ent = 0;
-		*(++ent) = 0;
+		*ent = ZERO_LV2LINK;
+		*(++ent) = ZERO_LV2LINK;
 		pgtable_flush(ent, ent + 2);
 		size = LSECT_SIZE;
 		goto done;
@@ -1767,7 +1817,7 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 			goto err;
 		}
 
-		*ent = 0;
+		*ent = ZERO_LV2LINK;
 		pgtable_flush(ent, ent + 1);
 		size = SECT_SIZE;
 		goto done;
@@ -1802,7 +1852,7 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 		goto err;
 	}
 
-	clear_page_table(ent, SPAGES_PER_LPAGE);
+	clear_lv2_page_table(ent, SPAGES_PER_LPAGE);
 	pgtable_flush(ent, ent + SPAGES_PER_LPAGE);
 
 	size = LPAGE_SIZE;
@@ -1921,8 +1971,8 @@ static int __init exynos_set_sysmmu(struct device *dev, void *unused)
 
 static int __init exynos_iommu_init(void)
 {
-	int ret;
 	struct page *page;
+	int ret = -ENOMEM;
 
 	ret = bus_for_each_dev(&platform_bus_type, NULL, NULL,
 				   exynos_set_sysmmu);
@@ -1939,18 +1989,39 @@ static int __init exynos_iommu_init(void)
 	page = alloc_page(GFP_KERNEL | __GFP_ZERO);
 	if (!page) {
 		pr_err("%s: failed to allocate fault page\n", __func__);
-		kmem_cache_destroy(lv2table_kmem_cache);
-		return -ENOMEM;
+		goto err_fault_page;
 	}
 	fault_page = page_to_phys(page);
 
 	ret = bus_set_iommu(&platform_bus_type, &exynos_iommu_ops);
 	if (ret) {
-		__free_page(page);
-		kmem_cache_destroy(lv2table_kmem_cache);
 		pr_err("%s: Failed to register IOMMU ops\n", __func__);
+		goto err_set_iommu;
 	}
 
-	return platform_driver_register(&exynos_sysmmu_driver);
+	zero_lv2_table = kmem_cache_zalloc(lv2table_kmem_cache, GFP_KERNEL);
+	if (zero_lv2_table == NULL) {
+		pr_err("%s: Failed to allocate zero level2 page table\n",
+			__func__);
+		ret = -ENOMEM;
+		goto err_zero_lv2;
+	}
+
+	ret = platform_driver_register(&exynos_sysmmu_driver);
+	if (ret) {
+		pr_err("%s: Failed to register System MMU driver.\n", __func__);
+		goto err_driver_register;
+	}
+
+	return 0;
+err_driver_register:
+	kmem_cache_free(lv2table_kmem_cache, zero_lv2_table);
+err_zero_lv2:
+	bus_set_iommu(&platform_bus_type, NULL);
+err_set_iommu:
+	__free_page(page);
+err_fault_page:
+	kmem_cache_destroy(lv2table_kmem_cache);
+	return ret;
 }
 subsys_initcall(exynos_iommu_init);
