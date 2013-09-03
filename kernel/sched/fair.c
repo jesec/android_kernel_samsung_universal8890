@@ -4888,8 +4888,8 @@ static struct sched_entity *hmp_get_lightest_task(struct sched_entity* se, int m
  * hmp_next_up_threshold: Delay before next up migration (1024 ~= 1 ms)
  * hmp_next_down_threshold: Delay before next down migration (1024 ~= 1 ms)
  */
-unsigned int hmp_up_threshold = 700; /*512;*/
-unsigned int hmp_down_threshold = 512; /*256;*/
+unsigned int hmp_up_threshold = 700;
+unsigned int hmp_down_threshold = 256;
 static int hmp_boostpulse_duration = 1000000; /* microseconds */
 static u64 hmp_boostpulse_endtime;
 static int hmp_boost_val;
