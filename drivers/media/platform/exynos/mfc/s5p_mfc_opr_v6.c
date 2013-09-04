@@ -2080,7 +2080,7 @@ static int s5p_mfc_h264_set_aso_slice_order(struct s5p_mfc_ctx *ctx)
 }
 
 /* Encode a single frame */
-int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx)
+int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 
@@ -2099,7 +2099,16 @@ int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_set_slice_mode(ctx);
 
 	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
-	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_FRAME_START, NULL);
+	/* Issue different commands to instance basing on whether it
+	 * is the last frame or not. */
+	switch (last_frame) {
+	case 0:
+		s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_FRAME_START, NULL);
+		break;
+	case 1:
+		s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_LAST_FRAME, NULL);
+		break;
+	}
 
 	mfc_debug(2, "--\n");
 
@@ -2232,6 +2241,50 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
+static inline int s5p_mfc_run_enc_last_frames(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	unsigned long flags;
+	struct s5p_mfc_buf *dst_mb;
+	struct s5p_mfc_raw_info *raw;
+	dma_addr_t src_addr[3] = { 0, 0, 0 }, dst_addr;
+	unsigned int dst_size;
+
+	raw = &ctx->raw_buf;
+	spin_lock_irqsave(&dev->irqlock, flags);
+
+	/* Source is not used for encoding, but should exist. */
+	if (list_empty(&ctx->src_queue)) {
+		mfc_debug(2, "no src buffers.\n");
+		spin_unlock_irqrestore(&dev->irqlock, flags);
+		return -EAGAIN;
+	}
+
+	if (list_empty(&ctx->dst_queue)) {
+		mfc_debug(2, "no dst buffers.\n");
+		spin_unlock_irqrestore(&dev->irqlock, flags);
+		return -EAGAIN;
+	}
+
+	mfc_debug(2, "Set address zero for all planes\n");
+	s5p_mfc_set_enc_frame_buffer(ctx, &src_addr[0], raw->num_planes);
+
+	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
+	dst_mb->used = 1;
+	dst_addr = s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0);
+	dst_size = vb2_plane_size(&dst_mb->vb, 0);
+
+	s5p_mfc_set_enc_stream_buffer(ctx, dst_addr, dst_size);
+
+	spin_unlock_irqrestore(&dev->irqlock, flags);
+
+	dev->curr_ctx = ctx->num;
+	s5p_mfc_clean_ctx_int_flags(ctx);
+	s5p_mfc_encode_one_frame(ctx, 1);
+
+	return 0;
+}
+
 static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -2245,6 +2298,7 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 	*/
 	unsigned int dst_size;
 	unsigned int index, i;
+	int last_frame = 0;
 
 	raw = &ctx->raw_buf;
 	spin_lock_irqsave(&dev->irqlock, flags);
@@ -2263,10 +2317,19 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 
 	src_mb = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
 	src_mb->used = 1;
-	for (i = 0; i < raw->num_planes; i++) {
-		src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
-		mfc_debug(2, "enc src[%d] addr: 0x%08lx",
+
+	if (src_mb->vb.v4l2_planes[0].bytesused == 0) {
+		last_frame = 1;
+		mfc_debug(2, "Setting ctx->state to FINISHING\n");
+		ctx->state = MFCINST_FINISHING;
+
+		mfc_debug(2, "Set address zero for all planes\n");
+	} else {
+		for (i = 0; i < raw->num_planes; i++) {
+			src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
+			mfc_debug(2, "enc src[%d] addr: 0x%08lx",
 					i, (unsigned long)src_addr[i]);
+		}
 	}
 
 	s5p_mfc_set_enc_frame_buffer(ctx, &src_addr[0], raw->num_planes);
@@ -2286,7 +2349,7 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 
 	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
-	s5p_mfc_encode_one_frame(ctx);
+	s5p_mfc_encode_one_frame(ctx, last_frame);
 
 	return 0;
 }
@@ -2579,6 +2642,8 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 	} else if (ctx->type == MFCINST_ENCODER) {
 		switch (ctx->state) {
 		case MFCINST_FINISHING:
+			ret = s5p_mfc_run_enc_last_frames(ctx);
+			break;
 		case MFCINST_RUNNING:
 		case MFCINST_RUNNING_NO_OUTPUT:
 			ret = s5p_mfc_run_enc_frame(ctx);

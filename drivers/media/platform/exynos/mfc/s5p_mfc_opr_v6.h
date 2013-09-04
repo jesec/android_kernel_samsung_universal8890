@@ -34,7 +34,7 @@ void s5p_mfc_get_enc_frame_buffer(struct s5p_mfc_ctx *ctx,
 int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *mfc_ctx);
 
 int s5p_mfc_decode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame);
-int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *mfc_ctx);
+int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame);
 
 /* Memory allocation */
 int s5p_mfc_alloc_dec_temp_buffers(struct s5p_mfc_ctx *ctx);

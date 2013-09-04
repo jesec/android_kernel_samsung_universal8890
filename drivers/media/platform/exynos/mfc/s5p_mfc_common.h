@@ -634,6 +634,8 @@ struct s5p_mfc_enc {
 		unsigned int bits;
 	} slice_size;
 	unsigned int in_slice;
+
+	int stored_tag;
 };
 
 /**
