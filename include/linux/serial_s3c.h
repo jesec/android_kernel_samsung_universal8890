@@ -234,6 +234,7 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/serial_core.h>
+struct uart_port;
 
 /* configuration structure for per-machine configurations for the
  * serial port
@@ -254,6 +255,8 @@ struct s3c2410_uartcfg {
 	unsigned long	   ucon;	 /* value of ucon for port */
 	unsigned long	   ulcon;	 /* value of ulcon for port */
 	unsigned long	   ufcon;	 /* value of ufcon for port */
+
+	void (*wake_peer)(struct uart_port *);
 };
 
 #endif /* __ASSEMBLY__ */
