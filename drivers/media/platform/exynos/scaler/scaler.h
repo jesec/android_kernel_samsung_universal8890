@@ -125,6 +125,12 @@ enum sc_clk_status {
 	SC_CLK_OFF,
 };
 
+enum sc_clocks {
+	SC_GATE_CLK,
+	SC_CHLD_CLK,
+	SC_PARN_CLK
+};
+
 enum sc_color_fmt {
 	SC_COLOR_RGB = 0x10,
 	SC_COLOR_YUV = 0x20,
@@ -324,6 +330,8 @@ struct sc_vb2;
  * @id:		Rotator device index (0..SC_MAX_DEVS)
  * @aclk:	aclk required for scaler operation
  * @pclk:	pclk required for scaler operation
+ * @clk_chld:	child clk of mux required for scaler operation
+ * @clk_parn:	parent clk of mux required for scaler operation
  * @regs:	the mapped hardware registers
  * @regs_res:	the resource claimed for IO registers
  * @wait:	interrupt handler waitqueue
@@ -345,6 +353,8 @@ struct sc_dev {
 	int				ver;
 	struct clk			*aclk;
 	struct clk			*pclk;
+	struct clk			*clk_chld;
+	struct clk			*clk_parn;
 	void __iomem			*regs;
 	struct resource			*regs_res;
 	wait_queue_head_t		wait;

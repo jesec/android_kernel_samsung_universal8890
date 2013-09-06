@@ -1484,8 +1484,31 @@ static const struct v4l2_file_operations sc_v4l2_fops = {
 static int sc_clk_get(struct sc_dev *sc)
 {
 	int ret;
+	char *parn_clkname, *chld_clkname, *gate_clkname;
 
-	sc->aclk = clk_get(sc->dev, "gate_m2mscaler");
+	of_property_read_string_index(sc->dev->of_node,
+		"clock-names", SC_PARN_CLK, (const char **)&parn_clkname);
+	of_property_read_string_index(sc->dev->of_node,
+		"clock-names", SC_CHLD_CLK, (const char **)&chld_clkname);
+	of_property_read_string_index(sc->dev->of_node,
+		"clock-names", SC_GATE_CLK, (const char **)&gate_clkname);
+
+	sc_dbg("clknames: parent %s child %s gate %s\n",
+		parn_clkname, chld_clkname, gate_clkname);
+
+	sc->clk_parn = clk_get(sc->dev, parn_clkname);
+	if (IS_ERR(sc->clk_parn)) {
+		dev_err(sc->dev, "failed to get parent clk\n");
+		goto err_clk_get_parn;
+	}
+
+	sc->clk_chld = clk_get(sc->dev, chld_clkname);
+	if (IS_ERR(sc->clk_chld)) {
+		dev_err(sc->dev, "failed to get child clk\n");
+		goto err_clk_get_chld;
+	}
+
+	sc->aclk = clk_get(sc->dev, gate_clkname);
 	if (IS_ERR(sc->aclk)) {
 		dev_err(sc->dev, "failed to get gate clk\n");
 		goto err_clk_get;
@@ -1501,8 +1524,11 @@ static int sc_clk_get(struct sc_dev *sc)
 
 err_clk_prepare:
 	clk_put(sc->aclk);
-
 err_clk_get:
+	clk_put(sc->clk_chld);
+err_clk_get_chld:
+	clk_put(sc->clk_parn);
+err_clk_get_parn:
 	return -ENXIO;
 }
 
@@ -1510,12 +1536,15 @@ static void sc_clk_put(struct sc_dev *sc)
 {
 	clk_unprepare(sc->aclk);
 	clk_put(sc->aclk);
+	clk_put(sc->clk_chld);
+	clk_put(sc->clk_parn);
 }
 
 #ifdef CONFIG_PM_RUNTIME
 static void sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
 {
 	if (status == SC_CLK_ON) {
+		clk_set_parent(sc->clk_chld, sc->clk_parn);
 		atomic_inc(&sc->clk_cnt);
 		clk_enable(sc->aclk);
 		dev_dbg(sc->dev, "clock enabled\n");
@@ -2296,6 +2325,8 @@ static int sc_remove(struct platform_device *pdev)
 	sc->vb2->suspend(sc->alloc_ctx);
 
 	clk_put(sc->aclk);
+	clk_put(sc->clk_chld);
+	clk_put(sc->clk_parn);
 
 	if (timer_pending(&sc->wdt.timer))
 		del_timer(&sc->wdt.timer);
