@@ -65,7 +65,7 @@
 
 #define MFC_BASE_MASK		((1 << 17) - 1)
 
-#define DEC_LAST_FRAME		0x80000000
+#define FLAG_LAST_FRAME		0x80000000
 
 /**
  * enum s5p_mfc_inst_type - The type of an MFC device node.
