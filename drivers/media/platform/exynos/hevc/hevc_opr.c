@@ -852,7 +852,8 @@ static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 	dev->curr_ctx = ctx->num;
 	hevc_clean_ctx_int_flags(ctx);
 
-	if (temp_vb->vb.v4l2_planes[0].bytesused == 0) {
+	if (temp_vb->vb.v4l2_planes[0].bytesused == 0 ||
+		temp_vb->vb.v4l2_buf.reserved2 == FLAG_LAST_FRAME) {
 		last_frame = 1;
 		hevc_debug(2, "Setting ctx->state to FINISHING\n");
 		ctx->state = HEVCINST_FINISHING;

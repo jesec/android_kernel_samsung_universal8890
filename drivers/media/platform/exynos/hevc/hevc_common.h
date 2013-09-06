@@ -55,7 +55,7 @@
 
 #define STUFF_BYTE		4
 
-#define DEC_LAST_FRAME		0x80000000
+#define FLAG_LAST_FRAME		0x80000000
 
 /**
  * enum hevc_inst_type - The type of an HEVC device node.
