@@ -4894,6 +4894,9 @@ static int hmp_boostpulse_duration = 1000000; /* microseconds */
 static u64 hmp_boostpulse_endtime;
 static int hmp_boost_val;
 static int hmp_boostpulse;
+
+#define BOOT_BOOST_DURATION 40000000 /* microseconds */
+
 #ifdef CONFIG_SCHED_HMP_PRIO_FILTER
 unsigned int hmp_up_prio = NICE_TO_PRIO(CONFIG_SCHED_HMP_PRIO_FILTER_VAL);
 #endif
@@ -9329,6 +9332,7 @@ __init void init_sched_fair_class(void)
 
 #ifdef CONFIG_SCHED_HMP
 	hmp_cpu_mask_setup();
+
 #endif
 #endif /* SMP */
 
@@ -9461,4 +9465,15 @@ static int __init register_sched_cpufreq_notifier(void)
 }
 
 core_initcall(register_sched_cpufreq_notifier);
+
+#if BOOT_BOOST_DURATION
+static int __init hmp_boot_boost(void)
+{
+	hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + BOOT_BOOST_DURATION;
+
+	return 0;
+}
+pure_initcall(hmp_boot_boost);
+#endif
+
 #endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
