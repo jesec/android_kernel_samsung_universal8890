@@ -1099,8 +1099,6 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		}
 
 	}
-	/* Width and height are left intact as they may be relevant for
-	 * FIMV1 decoding. */
 
 	return 0;
 }

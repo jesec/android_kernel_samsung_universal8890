@@ -149,12 +149,6 @@ int hevc_load_firmware(struct hevc_dev *dev)
 		return -EINVAL;
 	}
 	memcpy(hevc_bitproc_virt, fw_blob->data, fw_blob->size);
-	/*
-	hevc_bitproc_dma = dma_map_single(dev->v4l2_dev.dev,
-					     hevc_bitproc_virt,
-					     FIRMWARE_CODE_SIZE,
-					     DMA_TO_DEVICE);
-	*/
 	hevc_mem_clean_priv(hevc_bitproc_buf, hevc_bitproc_virt, 0,
 			fw_blob->size);
 
@@ -175,19 +169,12 @@ int hevc_release_firmware(struct hevc_dev *dev)
 		return -EINVAL;
 	}
 
-	/*
-	if (hevc_bitproc_dma)
-		dma_unmap_single(dev->v4l2_dev.dev, hevc_bitproc_dma,
-				 FIRMWARE_CODE_SIZE, DMA_TO_DEVICE);
-	*/
 	hevc_mem_free_priv(hevc_bitproc_buf);
 
 	hevc_bitproc_virt =  0;
 	hevc_bitproc_phys = 0;
 	hevc_bitproc_buf = 0;
-	/*
-	hevc_bitproc_dma = 0;
-	*/
+
 	return 0;
 }
 

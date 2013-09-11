@@ -204,11 +204,6 @@ void hevc_release_instance_buffer(struct hevc_ctx *ctx)
 	}
 
 	if (ctx->ctx.alloc) {
-		/*
-		dma_unmap_single(ctx->dev->v4l2_dev.dev,
-				ctx->ctx.dma, ctx->ctx_buf_size,
-				DMA_TO_DEVICE);
-		*/
 		hevc_mem_free_priv(ctx->ctx.alloc);
 		ctx->ctx.alloc = NULL;
 		ctx->ctx.ofs = 0;

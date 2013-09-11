@@ -1634,9 +1634,6 @@ static const struct v4l2_file_operations hevc_fops = {
 static struct video_device hevc_dec_videodev = {
 	.name = HEVC_DEC_NAME,
 	.fops = &hevc_fops,
-	/*
-	.ioctl_ops = &hevc_ioctl_ops,
-	*/
 	.minor = -1,
 	.release = video_device_release,
 };
