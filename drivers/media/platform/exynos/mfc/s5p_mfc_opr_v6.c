@@ -407,11 +407,6 @@ void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 	}
 
 	if (ctx->ctx.alloc) {
-		/*
-		dma_unmap_single(ctx->dev->v4l2_dev.dev,
-				ctx->ctx.dma, ctx->ctx_buf_size,
-				DMA_TO_DEVICE);
-		*/
 		s5p_mfc_mem_free_priv(ctx->ctx.alloc);
 		ctx->ctx.alloc = NULL;
 		ctx->ctx.ofs = 0;
@@ -2086,13 +2081,6 @@ int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 
 	mfc_debug(2, "++\n");
 
-	/* memory structure cur. frame */
-	/*
-	if (ctx->src_fmt->fourcc == V4L2_PIX_FMT_NV12M)
-		WRITEL(0, S5P_FIMV_ENC_MAP_FOR_CUR);
-	else if (ctx->src_fmt->fourcc == V4L2_PIX_FMT_NV12MT)
-		WRITEL(3, S5P_FIMV_ENC_MAP_FOR_CUR);
-	*/
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)
 		s5p_mfc_h264_set_aso_slice_order(ctx);
 

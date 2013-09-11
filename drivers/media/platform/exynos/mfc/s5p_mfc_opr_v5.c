@@ -359,11 +359,6 @@ void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 	mfc_debug_enter();
 
 	if (ctx->ctx.alloc) {
-		/*
-		dma_unmap_single(ctx->dev->v4l2_dev.dev,
-				ctx->ctx.dma, ctx->ctx_buf_size,
-				DMA_TO_DEVICE);
-		*/
 		s5p_mfc_mem_free_priv(ctx->ctx.alloc);
 		ctx->ctx.alloc = NULL;
 		ctx->ctx.ofs = 0;
@@ -1286,38 +1281,6 @@ static int s5p_mfc_set_enc_params_h263(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
-#if 0
-/* Open a new instance and get its number */
-int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx)
-{
-	int ret;
-
-	mfc_debug_enter();
-	mfc_debug(2, "Requested codec mode: %d\n", ctx->codec_mode);
-	ret = s5p_mfc_cmd_host2risc(ctx->dev, ctx, \
-			S5P_FIMV_H2R_CMD_OPEN_INSTANCE, ctx->codec_mode);
-	mfc_debug_leave();
-	return ret;
-}
-
-/* Close instance */
-int s5p_mfc_close_inst(struct s5p_mfc_ctx *ctx)
-{
-	int ret = 0;
-	struct s5p_mfc_dev *dev = ctx->dev;
-
-	mfc_debug_enter();
-	if (ctx->state != MFCINST_FREE) {
-		ret = s5p_mfc_cmd_host2risc(dev, ctx,
-			S5P_FIMV_H2R_CMD_CLOSE_INSTANCE, ctx->inst_no);
-	} else {
-		ret = -EINVAL;
-	}
-	mfc_debug_leave();
-	return ret;
-}
-#endif
-
 /* Initialize decoding */
 int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 {
@@ -1566,9 +1529,6 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_buf *dst_mb;
 	struct s5p_mfc_buf *src_mb;
 	dma_addr_t src_y_addr, src_c_addr, dst_addr;
-	/*
-	unsigned int src_y_size, src_c_size;
-	*/
 	unsigned int dst_size;
 	unsigned int index;
 

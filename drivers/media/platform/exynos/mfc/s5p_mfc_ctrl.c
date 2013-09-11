@@ -142,12 +142,6 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 		return -EINVAL;
 	}
 	memcpy(dev->bitproc_virt, fw_blob->data, fw_blob->size);
-	/*
-	s5p_mfc_bitproc_dma = dma_map_single(dev->v4l2_dev.dev,
-					     dev->bitproc_virt,
-					     FIRMWARE_CODE_SIZE,
-					     DMA_TO_DEVICE);
-	*/
 	s5p_mfc_mem_clean_priv(dev->bitproc_buf, dev->bitproc_virt, 0,
 			fw_blob->size);
 	release_firmware(fw_blob);
@@ -167,19 +161,12 @@ int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev)
 		return -EINVAL;
 	}
 
-	/*
-	if (s5p_mfc_bitproc_dma)
-		dma_unmap_single(dev->v4l2_dev.dev, s5p_mfc_bitproc_dma,
-				 FIRMWARE_CODE_SIZE, DMA_TO_DEVICE);
-	*/
 	s5p_mfc_mem_free_priv(dev->bitproc_buf);
 
 	dev->bitproc_virt =  0;
 	dev->bitproc_phys = 0;
 	dev->bitproc_buf = 0;
-	/*
-	s5p_mfc_bitproc_dma = 0;
-	*/
+
 	return 0;
 }
 

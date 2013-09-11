@@ -2181,16 +2181,6 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			mfc_err("failed to try output format\n");
 			return -EINVAL;
 		}
-
-		/*
-		pix_fmt_mp->height;
-		pix_fmt_mp->width;
-
-		pix_fmt_mp->plane_fmt[0].bytesperline;  - buf_width
-		pix_fmt_mp->plane_fmt[0].sizeimage;	- luma
-		pix_fmt_mp->plane_fmt[1].bytesperline;  - buf_width
-		pix_fmt_mp->plane_fmt[1].sizeimage;	- chroma
-		*/
 	} else {
 		mfc_err("invalid buf type\n");
 		return -EINVAL;
@@ -2232,7 +2222,6 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		ctx->codec_mode = ctx->dst_fmt->codec_mode;
 		mfc_debug(2, "codec number: %d\n", ctx->dst_fmt->codec_mode);
 
-		/* CHKME: 2KB aligned, multiple of 4KB - it may be ok with SDVMM */
 		enc->dst_buf_size = pix_fmt_mp->plane_fmt[0].sizeimage;
 		pix_fmt_mp->plane_fmt[0].bytesperline = 0;
 
@@ -2310,7 +2299,6 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 	mfc_info("type: %d\n", reqbufs->memory);
 
-	/* if memory is not mmp or userptr return error */
 	if ((reqbufs->memory != V4L2_MEMORY_MMAP) &&
 		(reqbufs->memory != V4L2_MEMORY_USERPTR) &&
 		(reqbufs->memory != V4L2_MEMORY_DMABUF))
@@ -2410,7 +2398,6 @@ static int vidioc_querybuf(struct file *file, void *priv,
 
 	mfc_debug(2, "type: %d\n", buf->memory);
 
-	/* if memory is not mmp or userptr return error */
 	if ((buf->memory != V4L2_MEMORY_MMAP) &&
 		(buf->memory != V4L2_MEMORY_USERPTR) &&
 		(buf->memory != V4L2_MEMORY_DMABUF))
@@ -3172,11 +3159,6 @@ static int vidioc_g_ext_ctrls(struct file *file, void *priv,
 	int i;
 	int ret = 0;
 
-	/*
-	if (s5p_mfc_get_node_type(file) != MFCNODE_ENCODER)
-		return -EINVAL;
-	*/
-
 	if (f->ctrl_class != V4L2_CTRL_CLASS_MPEG)
 		return -EINVAL;
 
@@ -3207,11 +3189,6 @@ static int vidioc_s_ext_ctrls(struct file *file, void *priv,
 	struct v4l2_control ctrl;
 	int i;
 	int ret = 0;
-
-	/*
-	if (s5p_mfc_get_node_type(file) != MFCNODE_ENCODER)
-		return -EINVAL;
-	*/
 
 	if (f->ctrl_class != V4L2_CTRL_CLASS_MPEG)
 		return -EINVAL;
@@ -3248,11 +3225,6 @@ static int vidioc_try_ext_ctrls(struct file *file, void *priv,
 	struct v4l2_control ctrl;
 	int i;
 	int ret = 0;
-
-	/*
-	if (s5p_mfc_get_node_type(file) != MFCNODE_ENCODER)
-		return -EINVAL;
-	*/
 
 	if (f->ctrl_class != V4L2_CTRL_CLASS_MPEG)
 		return -EINVAL;

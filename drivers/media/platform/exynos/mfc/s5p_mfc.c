@@ -1685,9 +1685,6 @@ static const struct v4l2_file_operations s5p_mfc_fops = {
 static struct video_device s5p_mfc_dec_videodev = {
 	.name = S5P_MFC_DEC_NAME,
 	.fops = &s5p_mfc_fops,
-	/*
-	.ioctl_ops = &s5p_mfc_ioctl_ops,
-	*/
 	.minor = -1,
 	.release = video_device_release,
 };
@@ -1695,9 +1692,6 @@ static struct video_device s5p_mfc_dec_videodev = {
 static struct video_device s5p_mfc_enc_videodev = {
 	.name = S5P_MFC_ENC_NAME,
 	.fops = &s5p_mfc_fops,
-	/*
-	.ioctl_ops = &s5p_mfc_enc_ioctl_ops,
-	*/
 	.minor = -1,
 	.release = video_device_release,
 };
