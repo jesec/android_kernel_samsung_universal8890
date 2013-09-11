@@ -520,6 +520,8 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	frame_type = s5p_mfc_get_disp_frame_type();
 	mvc_view_id = s5p_mfc_get_mvc_disp_view_id();
 
+	mfc_debug(2, "frame_type : %d\n", frame_type);
+
 	if (IS_MFCV6(dev) && ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC) {
 		if (mvc_view_id == 0)
 			ctx->sequence++;

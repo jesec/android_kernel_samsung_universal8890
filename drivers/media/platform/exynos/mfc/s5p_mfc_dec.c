@@ -1358,7 +1358,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 
 	ctx->src_fmt = find_format(f, MFC_FMT_DEC);
 	ctx->codec_mode = ctx->src_fmt->codec_mode;
-	mfc_debug(2, "The codec number is: %d\n", ctx->codec_mode);
+	mfc_info("The codec number is: %d\n", ctx->codec_mode);
 	ctx->pix_format = pix_mp->pixelformat;
 	if ((pix_mp->width > 0) && (pix_mp->height > 0)) {
 		ctx->img_height = pix_mp->height;
@@ -1370,8 +1370,6 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		dec->src_buf_size = pix_mp->plane_fmt[0].sizeimage;
 	else
 		dec->src_buf_size = MAX_FRAME_SIZE;
-	mfc_info("s_fmt w/h: %dx%d, ctx: %dx%d\n", pix_mp->width,
-		pix_mp->height, ctx->img_width, ctx->img_height);
 	mfc_info("sizeimage: %d\n", pix_mp->plane_fmt[0].sizeimage);
 	pix_mp->plane_fmt[0].bytesperline = 0;
 
