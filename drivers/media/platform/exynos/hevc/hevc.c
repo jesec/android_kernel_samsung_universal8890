@@ -246,10 +246,7 @@ static inline void wake_up_ctx(struct hevc_ctx *ctx, unsigned int reason,
 	ctx->int_cond = 1;
 	ctx->int_type = reason;
 	ctx->int_err = err;
-	if (ctx->state != HEVCINST_ABORT && ctx->state != HEVCINST_FREE)
-		wake_up_interruptible(&ctx->queue);
-	else
-		wake_up(&ctx->queue);
+	wake_up(&ctx->queue);
 }
 
 /* Wake up device wait_queue */
@@ -1172,7 +1169,7 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 		if (err != 0) {
 			if (hevc_clear_hw_bit(ctx) == 0)
 				BUG();
-			wake_up_interruptible(&ctx->queue);
+			wake_up(&ctx->queue);
 
 			hevc_clock_off();
 			break;
@@ -1212,7 +1209,7 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 
 		if (hevc_clear_hw_bit(ctx) == 0)
 			BUG();
-		wake_up_interruptible(&ctx->queue);
+		wake_up(&ctx->queue);
 
 		hevc_clock_off();
 
@@ -1483,7 +1480,7 @@ static int hevc_release(struct file *file)
 	if (need_to_wait_frame_start(ctx)) {
 		ctx->state = HEVCINST_ABORT;
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_FRAME_DONE_RET, 0))
+				HEVC_R2H_CMD_FRAME_DONE_RET))
 			hevc_cleanup_timeout(ctx);
 	}
 
@@ -1512,7 +1509,7 @@ static int hevc_release(struct file *file)
 		spin_unlock_irq(&dev->condlock);
 
 		/* Wait for hw_lock == 0 for this context */
-		wait_event_interruptible_timeout(ctx->queue,
+		wait_event_timeout(ctx->queue,
 				(test_bit(ctx->num, &dev->hw_lock) == 0),
 				msecs_to_jiffies(HEVC_INT_TIMEOUT));
 
@@ -1521,13 +1518,13 @@ static int hevc_release(struct file *file)
 
 		/* Wait until instance is returned or timeout occured */
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_CLOSE_INSTANCE_RET, 0)) {
+				HEVC_R2H_CMD_CLOSE_INSTANCE_RET)) {
 			dev->curr_ctx_drm = ctx->is_drm;
 			test_and_set_bit(ctx->num, &dev->hw_lock);
 			hevc_clock_on();
 			hevc_close_inst(ctx);
 			if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_CLOSE_INSTANCE_RET, 0)) {
+				HEVC_R2H_CMD_CLOSE_INSTANCE_RET)) {
 				hevc_err("Abnormal h/w state.\n");
 
 				/* cleanup for the next open */

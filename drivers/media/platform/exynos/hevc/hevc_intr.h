@@ -17,8 +17,7 @@
 
 #include "hevc_common.h"
 
-int hevc_wait_for_done_ctx(struct hevc_ctx *ctx,
-						int command, int interrupt);
+int hevc_wait_for_done_ctx(struct hevc_ctx *ctx, int command);
 int hevc_wait_for_done_dev(struct hevc_dev *dev, int command);
 void hevc_clean_ctx_int_flags(struct hevc_ctx *ctx);
 void hevc_clean_dev_int_flags(struct hevc_dev *dev);

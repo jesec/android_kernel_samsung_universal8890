@@ -38,9 +38,6 @@ int hevc_wait_for_done_dev(struct hevc_dev *dev, int command)
 		hevc_err("Interrupt (dev->int_type:%d, command:%d) timed out.\n",
 							dev->int_type, command);
 		return 1;
-	} else if (ret == -ERESTARTSYS) {
-		hevc_err("Interrupted by a signal.\n");
-		return 1;
 	}
 	hevc_debug(1, "Finished waiting (dev->int_type:%d, command: %d).\n",
 							dev->int_type, command);
@@ -54,26 +51,16 @@ void hevc_clean_dev_int_flags(struct hevc_dev *dev)
 	dev->int_err = 0;
 }
 
-int hevc_wait_for_done_ctx(struct hevc_ctx *ctx,
-				    int command, int interrupt)
+int hevc_wait_for_done_ctx(struct hevc_ctx *ctx, int command)
 {
 	int ret;
 
-	if (interrupt) {
-		ret = wait_event_interruptible_timeout(ctx->queue,
-				wait_condition(ctx, command),
-				msecs_to_jiffies(HEVC_INT_TIMEOUT));
-	} else {
-		ret = wait_event_timeout(ctx->queue,
-				wait_condition(ctx, command),
-				msecs_to_jiffies(HEVC_INT_TIMEOUT));
-	}
+	ret = wait_event_timeout(ctx->queue,
+			wait_condition(ctx, command),
+			msecs_to_jiffies(HEVC_INT_TIMEOUT));
 	if (ret == 0) {
 		hevc_err("Interrupt (ctx->int_type:%d, command:%d) timed out.\n",
 							ctx->int_type, command);
-		return 1;
-	} else if (ret == -ERESTARTSYS) {
-		hevc_err("Interrupted by a signal.\n");
 		return 1;
 	} else if (ret > 0) {
 		if (is_err_cond(ctx)) {

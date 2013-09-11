@@ -997,7 +997,7 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 		/* If the HEVC is parsing the header,
 		 * so wait until it is finished */
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_SEQ_DONE_RET, 1)) {
+				HEVC_R2H_CMD_SEQ_DONE_RET)) {
 			if (ctx->state == HEVCINST_VPS_PARSED_ONLY) {
 				hevc_err("HEVCINST_VPS_PARSED_ONLY !!!\n");
 				return -EAGAIN;
@@ -1198,7 +1198,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		hevc_try_run(dev);
 		/* Wait until instance is returned or timeout occured */
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_CLOSE_INSTANCE_RET, 0)) {
+				HEVC_R2H_CMD_CLOSE_INSTANCE_RET)) {
 			hevc_cleanup_timeout(ctx);
 			return -EIO;
 		}
@@ -1215,7 +1215,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 	spin_unlock_irq(&dev->condlock);
 	hevc_try_run(dev);
 	if (hevc_wait_for_done_ctx(ctx,
-			HEVC_R2H_CMD_OPEN_INSTANCE_RET, 1)) {
+			HEVC_R2H_CMD_OPEN_INSTANCE_RET)) {
 		hevc_cleanup_timeout(ctx);
 		hevc_release_instance_buffer(ctx);
 		return -EIO;
@@ -1363,8 +1363,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 		if (dec->dst_memtype == V4L2_MEMORY_MMAP) {
 			if (hevc_wait_for_done_ctx(ctx,
-					HEVC_R2H_CMD_INIT_BUFFERS_RET,
-					1)) {
+					HEVC_R2H_CMD_INIT_BUFFERS_RET)) {
 				hevc_cleanup_timeout(ctx);
 				return -EIO;
 			}
@@ -1597,7 +1596,7 @@ static int get_ctrl_val(struct hevc_ctx *ctx, struct v4l2_control *ctrl)
 
 		/* Should wait for the header to be parsed */
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_SEQ_DONE_RET, 1)) {
+				HEVC_R2H_CMD_SEQ_DONE_RET)) {
 			hevc_cleanup_timeout(ctx);
 			return -EIO;
 		}
@@ -2289,7 +2288,7 @@ static int hevc_stop_streaming(struct vb2_queue *q)
 	if (need_to_wait_frame_start(ctx)) {
 		ctx->state = HEVCINST_ABORT;
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_FRAME_DONE_RET, 0))
+				HEVC_R2H_CMD_FRAME_DONE_RET))
 			hevc_cleanup_timeout(ctx);
 
 		aborted = 1;
@@ -2347,7 +2346,7 @@ static int hevc_stop_streaming(struct vb2_queue *q)
 		spin_unlock_irq(&dev->condlock);
 		hevc_try_run(dev);
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_DPB_FLUSH_RET, 0))
+				HEVC_R2H_CMD_DPB_FLUSH_RET))
 			hevc_cleanup_timeout(ctx);
 		ctx->state = prev_state;
 	}
@@ -2441,7 +2440,7 @@ static void hevc_buf_queue(struct vb2_buffer *vb)
 	hevc_try_run(dev);
 	if (wait_flag) {
 		if (hevc_wait_for_done_ctx(ctx,
-				HEVC_R2H_CMD_INIT_BUFFERS_RET, 1))
+				HEVC_R2H_CMD_INIT_BUFFERS_RET))
 			hevc_cleanup_timeout(ctx);
 	}
 
