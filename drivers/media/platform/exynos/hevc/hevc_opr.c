@@ -58,20 +58,6 @@
 #define OFFSETA(x)		(((x) - dev->port_a) >> HEVC_MEM_OFFSET)
 #define OFFSETB(x)		(((x) - dev->port_b) >> HEVC_MEM_OFFSET)
 
-/* Allocate temporary buffers for decoding */
-int hevc_alloc_dec_temp_buffers(struct hevc_ctx *ctx)
-{
-	/* NOP */
-
-	return 0;
-}
-
-/* Release temproary buffers for decoding */
-void hevc_release_dec_desc_buffer(struct hevc_ctx *ctx)
-{
-	/* NOP */
-}
-
 /* Allocate codec buffers */
 int hevc_alloc_codec_buffers(struct hevc_ctx *ctx)
 {
@@ -95,8 +81,6 @@ int hevc_alloc_codec_buffers(struct hevc_ctx *ctx)
 	dec = ctx->dec_priv;
 	alloc_ctx = dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
 
-	hevc_info("ctx->img_width: %d  ctx->img_height = %d\n", ctx->img_width,  ctx->img_height);
-
 	mb_width = mb_width(ctx->img_width);
 	mb_height = mb_height(ctx->img_height);
 
@@ -111,7 +95,6 @@ int hevc_alloc_codec_buffers(struct hevc_ctx *ctx)
 	}
 
 	dec->mv_count = dec->total_dpb_count;
-	hevc_info("dec->mv_count : %d  ctx->mv_size = %d\n", dec->mv_count,  ctx->mv_size);
 
 	hevc_info("ctx->lcu_size : %d\n", ctx->lcu_size);
 	lcu_width = ALIGN(ctx->img_width, ctx->lcu_size);
@@ -183,7 +166,6 @@ int hevc_alloc_instance_buffer(struct hevc_ctx *ctx)
 	buf_size = dev->variant->buf_size->buf;
 	alloc_ctx = dev->alloc_ctx[HEVC_BANK_A_ALLOC_CTX];
 
-	hevc_info("Instance context buffer buf_size->dec_ctx : 0x%x\n", buf_size->dec_ctx);
 	ctx->ctx_buf_size = buf_size->dec_ctx;
 
 	if (ctx->is_drm)
@@ -531,8 +513,6 @@ int hevc_set_dec_frame_buffer(struct hevc_ctx *ctx)
 		hevc_debug(2, "raw->plane_size[%d]= %d\n", i, raw->plane_size[i]);
 		WRITEL(raw->plane_size[i], HEVC_D_FIRST_PLANE_DPB_SIZE + i*4);
 	}
-
-	hevc_info("width %d height %d\n", ctx->img_width, ctx->img_height);
 
 	WRITEL(buf_addr1, HEVC_D_SCRATCH_BUFFER_ADDR);
 	WRITEL(ctx->scratch_buf_size, HEVC_D_SCRATCH_BUFFER_SIZE);

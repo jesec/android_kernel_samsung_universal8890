@@ -520,13 +520,10 @@ static void hevc_handle_frame_new(struct hevc_ctx *ctx, unsigned int err)
 	frame_type = hevc_get_disp_frame_type();
 
 	hevc_debug(2, "frame_type : %d\n", frame_type);
-	hevc_debug(2, "dec_frame_type : %d\n", hevc_get_dec_frame_type());
 
 	ctx->sequence++;
 
 	dspl_y_addr = HEVC_GET_ADR(DEC_DISPLAY_Y);
-
-	hevc_debug(2, "dspl_y_addr : 0x%x\n", dspl_y_addr);
 
 	if (dec->immediate_display == 1) {
 		dspl_y_addr = HEVC_GET_ADR(DEC_DECODED_Y);
@@ -1075,8 +1072,8 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 			ctx->img_height = hevc_get_img_height();
 			ctx->lcu_size = hevc_get_lcu_size();
 
-			hevc_info("ctx->img_width = %d\n", ctx->img_width);
-			hevc_info("ctx->img_height = %d\n", ctx->img_height);
+			hevc_debug(2,"ctx->img_width = %d\n", ctx->img_width);
+			hevc_debug(2,"ctx->img_height = %d\n", ctx->img_height);
 
 			switch (ctx->lcu_size) {
 			case 0:
@@ -1093,7 +1090,7 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 			}
 
 			ctx->dpb_count = hevc_get_dpb_count();
-			hevc_info("dpb_count = %d\n", ctx->dpb_count);
+			hevc_debug(2,"dpb_count = %d\n", ctx->dpb_count);
 
 			dec->internal_dpb = 0;
 			hevc_dec_store_crop_info(ctx);
@@ -1579,8 +1576,6 @@ static int hevc_release(struct file *file)
 
 	hevc_release_codec_buffers(ctx);
 	hevc_release_instance_buffer(ctx);
-	if (ctx->type == HEVCINST_DECODER)
-		hevc_release_dec_desc_buffer(ctx);
 
 	if (ctx->type == HEVCINST_DECODER)
 		kfree(ctx->dec_priv);
