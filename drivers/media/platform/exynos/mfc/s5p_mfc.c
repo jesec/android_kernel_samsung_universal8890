@@ -233,10 +233,7 @@ static inline void wake_up_ctx(struct s5p_mfc_ctx *ctx, unsigned int reason,
 	ctx->int_cond = 1;
 	ctx->int_type = reason;
 	ctx->int_err = err;
-	if (ctx->state != MFCINST_ABORT && ctx->state != MFCINST_FREE)
-		wake_up_interruptible(&ctx->queue);
-	else
-		wake_up(&ctx->queue);
+	wake_up(&ctx->queue);
 }
 
 /* Wake up device wait_queue */
@@ -1186,7 +1183,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		if (err != 0) {
 			if (clear_hw_bit(ctx) == 0)
 				BUG();
-			wake_up_interruptible(&ctx->queue);
+			wake_up(&ctx->queue);
 
 			s5p_mfc_clock_off(dev);
 			break;
@@ -1232,7 +1229,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 
 		if (clear_hw_bit(ctx) == 0)
 			BUG();
-		wake_up_interruptible(&ctx->queue);
+		wake_up(&ctx->queue);
 
 		s5p_mfc_clock_off(dev);
 
@@ -1508,7 +1505,7 @@ static int s5p_mfc_release(struct file *file)
 	if (need_to_wait_frame_start(ctx)) {
 		ctx->state = MFCINST_ABORT;
 		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET, 0))
+				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
 			s5p_mfc_cleanup_timeout(ctx);
 	}
 
@@ -1527,8 +1524,7 @@ static int s5p_mfc_release(struct file *file)
 			spin_unlock_irq(&dev->condlock);
 			s5p_mfc_try_run(dev);
 			if (s5p_mfc_wait_for_done_ctx(ctx,
-					S5P_FIMV_R2H_CMD_NAL_ABORT_RET,
-					0))
+					S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
 				s5p_mfc_cleanup_timeout(ctx);
 
 			enc->in_slice = 0;
@@ -1560,7 +1556,7 @@ static int s5p_mfc_release(struct file *file)
 		spin_unlock_irq(&dev->condlock);
 
 		/* Wait for hw_lock == 0 for this context */
-		wait_event_interruptible_timeout(ctx->queue,
+		wait_event_timeout(ctx->queue,
 				(test_bit(ctx->num, &dev->hw_lock) == 0),
 				msecs_to_jiffies(MFC_INT_TIMEOUT));
 
@@ -1569,13 +1565,13 @@ static int s5p_mfc_release(struct file *file)
 
 		/* Wait until instance is returned or timeout occured */
 		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET, 0)) {
+				S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET)) {
 			dev->curr_ctx_drm = ctx->is_drm;
 			set_bit(ctx->num, &dev->hw_lock);
 			s5p_mfc_clock_on(dev);
 			s5p_mfc_close_inst(ctx);
 			if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET, 0)) {
+				S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET)) {
 				mfc_err("Abnormal h/w state.\n");
 
 				/* cleanup for the next open */
