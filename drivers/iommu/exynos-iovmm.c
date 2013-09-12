@@ -625,3 +625,10 @@ err_alloc_vmm:
 
 	return ret;
 }
+
+void iovmm_set_fault_handler(struct device *dev,
+			     iommu_fault_handler_t handler, void *token)
+{
+	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
+	iommu_set_fault_handler(vmm->domain, handler, token);
+}

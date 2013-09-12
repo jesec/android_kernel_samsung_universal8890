@@ -163,15 +163,7 @@ static sysmmu_pte_t *page_entry(sysmmu_pte_t *sent, unsigned long iova)
 				lv2ent_offset(iova);
 }
 
-enum exynos_sysmmu_inttype {
-	SYSMMU_PTW_ACCESS,
-	SYSMMU_PAGEFAULT,
-	SYSMMU_L1TLB_MULTIHIT,
-	SYSMMU_ACCESS,
-	SYSMMU_SECURITY,
-	SYSMMU_FAULT_UNKNOWN,
-	SYSMMU_FAULTS_NUM
-};
+#define SYSMMU_FAULTS_NUM         (SYSMMU_FAULT_UNKNOWN + 1)
 
 static char *sysmmu_fault_name[SYSMMU_FAULTS_NUM] = {
 	"PTW ACCESS FAULT",
@@ -861,7 +853,6 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 		 (itype == SYSMMU_FAULT_ACCESS))) {
 		if (flags & IOMMU_FAULT_WRITE)
 			itype += REG_INT_STATUS_WRITE_BIT;
->>>>>>> a92e0ab... iommu/exynos7: show verbose fault information
 		__raw_writel(1 << itype, drvdata->sfrbases[i] + REG_INT_CLEAR);
 
 		sysmmu_unblock(drvdata->sfrbases[i]);

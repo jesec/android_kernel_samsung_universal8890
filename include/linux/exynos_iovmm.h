@@ -13,6 +13,7 @@
 
 #ifdef CONFIG_EXYNOS_IOVMM
 #include <linux/dma-direction.h>
+#include <linux/iommu.h>
 
 struct scatterlist;
 struct device;
@@ -67,6 +68,36 @@ int iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size);
 void iovmm_unmap_oto(struct device *dev, phys_addr_t phys);
 
 int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes);
+
+#define SYSMMU_FAULT_BITS	4
+#define SYSMMU_FAULT_SHIFT	16
+#define SYSMMU_FAULT_MASK	((1 << SYSMMU_FAULT_BITS) - 1)
+#define SYSMMU_FAULT_FLAG(id) (((id) & SYSMMU_FAULT_MASK) << SYSMMU_FAULT_SHIFT)
+#define SYSMMU_FAULT_ID(fg)   (((fg) >> SYSMMU_FAULT_SHIFT) & SYSMMU_FAULT_MASK)
+
+#define SYSMMU_FAULT_PTW_ACCESS   0
+#define SYSMMU_FAULT_PAGE_FAULT   1
+#define SYSMMU_FAULT_TLB_MULTIHIT 2
+#define SYSMMU_FAULT_ACCESS       3
+#define SYSMMU_FAULT_SECURITY     4
+#define SYSMMU_FAULT_UNKNOWN      5
+
+#define IOMMU_FAULT_EXYNOS_PTW_ACCESS SYSMMU_FAULT_FLAG(SYSMMU_FAULT_PTW_ACCESS)
+#define IOMMU_FAULT_EXYNOS_PAGE_FAULT SYSMMU_FAULT_FLAG(SYSMMU_FAULT_PAGE_FAULT)
+#define IOMMU_FAULT_EXYNOS_TLB_MULTIHIT \
+				SYSMMU_FAULT_FLAG(SYSMMU_FAULT_TLB_MULTIHIT)
+#define IOMMU_FAULT_EXYNOS_ACCESS     SYSMMU_FAULT_FLAG(SYSMMU_FAULT_ACCESS)
+#define IOMMU_FAULT_EXYNOS_SECURITY   SYSMMU_FAULT_FLAG(SYSMMU_FAULT_SECURITY)
+#define IOMMU_FAULT_EXYNOS_UNKNOWN    SYSMMU_FAULT_FLAG(SYSMMU_FAULT_UNKOWN)
+
+/*
+ * iovmm_set_fault_handler - register fault handler of dev to iommu controller
+ * @dev: the device that wants to register fault handler
+ * @handler: fault handler
+ * @token: any data the device driver needs to get when fault occurred
+ */
+void iovmm_set_fault_handler(struct device *dev,
+			     iommu_fault_handler_t handler, void *token);
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
@@ -75,6 +106,7 @@ int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes);
 #define iovmm_map_oto(dev, phys, size)	(-ENOSYS)
 #define iovmm_unmap_oto(dev, phys)	do { } while (0)
 #define exynos_create_iovmm(sysmmu, inplanes, onplanes) 0
+#define iovmm_set_fault_handler(dev, handler, token) do { } while (0)
 #endif /* CONFIG_EXYNOS_IOVMM */
 
 #endif /*__ASM_PLAT_IOVMM_H*/
