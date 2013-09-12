@@ -223,7 +223,6 @@ struct sysmmu_drvdata {
 	struct clk *clk_master;
 	int activations;
 	struct iommu_domain *domain; /* domain given to iommu_attach_device() */
-	iommu_fault_handler_t fault_handler;
 	phys_addr_t pgtable;
 	struct sysmmu_version ver; /* mach/sysmmu.h */
 	short qos;
@@ -696,92 +695,139 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 	}
 }
 
-static void debug_sysmmu_l1tlb_show(void __iomem *sfrbase)
+static void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 {
-	int i, l1tlb_num;
-	u32 vpn, ppn, attr, vvalid, pvalid;
+	unsigned int i, capa, lmm;
+	static char lmm_preset[6][6] = { /* [pb_num - 1][pb_lmm] */
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{3, 2, 0, 0, 0, 0},
+		{4, 3, 2, 1, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{6, 5, 4, 3, 3, 2},
+	};
 
-	l1tlb_num = __raw_readl(sfrbase + REG_MMU_CAPA) & 0xFF;
+	capa = __raw_readl(sfrbase + REG_MMU_CAPA);
 
-	pr_err("%s: Show evel1 TLB entries\n", __func__);
-	pr_err("%10.s %s %10.s %s %10.s\n", "VPN", "V", "PPN", "V", "ATTR");
-	pr_err("----------------------------------------------------\n");
+	pr_crit("---------- System MMU Status -----------------------------\n");
+	pr_crit("MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
+		__raw_readl(sfrbase + REG_MMU_CFG),
+		__raw_readl(sfrbase + REG_MMU_STATUS));
+	pr_crit("TLB hit notify : %s\n",
+		(__raw_readl(sfrbase + REG_L1TLB_CFG) == 2) ? "on" : "off");
+	if (((capa >> 8) & 0xFFF) != 0)
+		pr_crit("Level 2 TLB: %s\n",
+			(__raw_readl(sfrbase + REG_L2TLB_CFG) == 1) ?
+				"on" : "off");
 
-	for (i = 0; i < l1tlb_num; i++) {
+	pr_crit("---------- Level 1 TLB -----------------------------------\n");
+
+	for (i = 0; i < (capa & 0xFF); i++) {
 		__raw_writel(i, sfrbase + REG_L1TLB_READ_ENTRY);
-		vpn = __raw_readl(sfrbase + REG_L1TLB_ENTRY_VPN);
-		ppn = __raw_readl(sfrbase + REG_L1TLB_ENTRY_PPN);
-		attr = __raw_readl(sfrbase + REG_L1TLB_ENTRY_ATTR);
-		vvalid = (vpn & (1 << 28)) ? 1 : 0;
-		pvalid = (ppn & (1 << 28)) ? 1 : 0;
-		pr_err("%10.x %d %10.x %d %10.x\n",
-			vpn & 0xFFFFF, vvalid, ppn & 0xFFFFFF, pvalid, attr);
-	}
-}
-
-static void __set_fault_handler(struct sysmmu_drvdata *data,
-					iommu_fault_handler_t handler)
-{
-	data->fault_handler = handler;
-}
-
-static int default_fault_handler(struct iommu_domain *domain,
-				 struct device *dev, unsigned long fault_addr,
-				 int flags, void *reserved)
-{
-	struct exynos_iommu_domain *priv = domain->priv;
-	struct exynos_iommu_owner *owner = dev->archdata.iommu;
-	sysmmu_pte_t *ent;
-	int write = (flags >> SYSMMU_FAULTS_NUM);
-	int itype = flags & ~SYSMMU_FAULT_WRITE;
-
-	pr_err("%s (W=%d) occured at 0x%lx by '%s'(Page table base: 0x%lx)\n",
-		sysmmu_fault_name[itype], write, fault_addr,
-		dev_name(owner->dev), __pa(priv->pgtable));
-
-	ent = section_entry(priv->pgtable, fault_addr);
-	pr_err("\tLv1 entry: 0x%x\n", *ent);
-
-	if (lv1ent_page(ent)) {
-		ent = page_entry(ent, fault_addr);
-		pr_err("\t Lv2 entry: 0x%x\n", *ent);
+		pr_crit("[%02d] VPN: %#010x, PPN: %#010x, ATTR: %#010x\n",
+			i, __raw_readl(sfrbase + REG_L1TLB_ENTRY_VPN),
+			__raw_readl(sfrbase + REG_L1TLB_ENTRY_PPN),
+			__raw_readl(sfrbase + REG_L1TLB_ENTRY_ATTR));
 	}
 
-	pr_err("Generating Kernel OOPS... because it is unrecoverable.\n");
+	if (((capa >> 20) & 0xF) == 0)
+		return; /* pb is not implemented */
 
-	BUG();
+	capa = __raw_readl(sfrbase + REG_PB_INFO);
+	lmm = __raw_readl(sfrbase + REG_PB_LMM);
 
-	return 0;
+	pr_crit("---------- Prefetch Buffers ------------------------------\n");
+	pr_crit("PB_INFO: %#010x, PB_LMM: %#010x\n", capa, lmm);
+
+	capa = lmm_preset[(capa & 0xFF) - 1][lmm];
+
+	for (i = 0; i < capa; i++) {
+		__raw_writel(i, sfrbase + REG_PB_INDICATE);
+		pr_crit("PB[%d] = CFG: %#010x, START: %#010x, END: %#010x\n", i,
+			__raw_readl(sfrbase + REG_PB_CFG),
+			__raw_readl(sfrbase + REG_PB_START_ADDR),
+			__raw_readl(sfrbase + REG_PB_END_ADDR));
+	}
+
+	/* Reading L2TLB is not provided by H/W */
+}
+
+static void show_fault_information(struct sysmmu_drvdata *drvdata, int idx,
+				   int flags, unsigned long fault_addr)
+{
+	unsigned int info;
+	phys_addr_t pgtable;
+	int fault_id = SYSMMU_FAULT_ID(flags);
+
+	pgtable = __raw_readl(drvdata->sfrbases[idx] + REG_PT_BASE_PPN);
+	pgtable <<= PAGE_SHIFT;
+
+	pr_crit("----------------------------------------------------------\n");
+	pr_crit("%s[%d] %s %s at %#010lx by %s (page table @ %#010x)\n",
+		dev_name(drvdata->sysmmu), idx,
+		(flags & IOMMU_FAULT_WRITE) ? "WRITE" : "READ",
+		sysmmu_fault_name[fault_id], fault_addr,
+		dev_name(drvdata->master), pgtable);
+
+	if (fault_id == SYSMMU_FAULT_UNKNOWN) {
+		pr_crit("The fault is not caused by this System MMU.\n");
+		pr_crit("Please check IRQ and SFR base address.\n");
+		goto finish;
+	}
+
+	info = __raw_readl(drvdata->sfrbases[idx] +
+			((flags & IOMMU_FAULT_WRITE) ?
+			REG_FAULT_AW_TRANS_INFO : REG_FAULT_AR_TRANS_INFO));
+	pr_crit("AxID: %#x, AxLEN: %#x\n", info & 0xFFFF, (info >> 16) & 0xF);
+
+	if (pgtable != drvdata->pgtable)
+		pr_crit("Page table base of driver: %#010x\n",
+			drvdata->pgtable);
+
+	if (fault_id == SYSMMU_FAULT_PTW_ACCESS) {
+		pr_crit("System MMU has failed to access page table\n");
+		goto finish;
+	}
+
+	if (!pfn_valid(pgtable >> PAGE_SHIFT)) {
+		pr_crit("Page table base is not in a valid memory region\n");
+	} else {
+		sysmmu_pte_t *ent;
+		ent = section_entry(phys_to_virt(pgtable), fault_addr);
+		pr_crit("Lv1 entry: %#010x\n", *ent);
+
+		if (lv1ent_page(ent)) {
+			ent = page_entry(ent, fault_addr);
+			pr_crit("Lv2 entry: %#010x\n", *ent);
+		}
+	}
+
+	dump_sysmmu_tlb_pb(drvdata->sfrbases[idx]);
+
+finish:
+	pr_crit("----------------------------------------------------------\n");
 }
 
 static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 {
 	/* SYSMMU is in blocked when interrupt occurred. */
 	struct sysmmu_drvdata *drvdata = dev_id;
-	struct exynos_iommu_owner *owner = NULL;
 	unsigned int itype;
 	unsigned long addr = -1;
-	const char *mmuname = NULL;
 	int i, ret = -ENOSYS;
 	int flags = 0;
 
-	if (drvdata->master)
-		owner = drvdata->master->archdata.iommu;
-
-	if (owner)
-		spin_lock(&owner->lock);
-
-	WARN_ON(!is_sysmmu_active(drvdata));
+	WARN(!is_sysmmu_active(drvdata),
+		"Fault occurred while System MMU %s is not enabled!\n",
+		dev_name(drvdata->sysmmu));
 
 	for (i = 0; i < drvdata->nsfrs; i++) {
 		struct resource *irqres;
 		irqres = platform_get_resource(
 				to_platform_device(drvdata->sysmmu),
 				IORESOURCE_IRQ, i);
-		if (irqres && ((int)irqres->start == irq)) {
-			mmuname = irqres->name;
+		if (irqres && ((int)irqres->start == irq))
 			break;
-		}
 	}
 
 	if (i == drvdata->nsfrs) {
@@ -803,30 +849,25 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 		flags |= itype;
 	}
 
-	if (drvdata->domain) /* owner is always set if drvdata->domain exists */
+	show_fault_information(drvdata, i, flags, addr);
+
+	if (drvdata->domain) /* master is set if drvdata->domain exists */
 		ret = report_iommu_fault(drvdata->domain,
-					owner->dev, addr, flags);
+					drvdata->master, addr, flags);
 
-	if (ret == -ENOSYS) {
-		if (drvdata->fault_handler)
-			ret = drvdata->fault_handler(drvdata->domain,
-				owner->dev, addr, flags, NULL);
-	}
-
-	if (!ret && (itype != SYSMMU_FAULT_UNKNOWN)) {
-		if (itype == SYSMMU_L1TLB_MULTIHIT)
-			debug_sysmmu_l1tlb_show(drvdata->sfrbases[i]);
+#if 0 /* Recovering System MMU fault is available from System MMU v6 */
+	if ((ret == 0) &&
+		((itype == SYSMMU_FAULT_PAGE_FAULT) ||
+		 (itype == SYSMMU_FAULT_ACCESS))) {
+		if (flags & IOMMU_FAULT_WRITE)
+			itype += REG_INT_STATUS_WRITE_BIT;
+>>>>>>> a92e0ab... iommu/exynos7: show verbose fault information
 		__raw_writel(1 << itype, drvdata->sfrbases[i] + REG_INT_CLEAR);
-	} else {
-		dev_dbg(owner ? owner->dev : drvdata->sysmmu,
-				"%s is not handled by %s\n",
-				sysmmu_fault_name[itype], drvdata->dbgname);
-	}
 
-	sysmmu_unblock(drvdata->sfrbases[i]);
-
-	if (owner)
-		spin_unlock(&owner->lock);
+		sysmmu_unblock(drvdata->sfrbases[i]);
+	} else
+#endif
+	panic("Unrecoverable System MMU Fault!!");
 
 	return IRQ_HANDLED;
 }
@@ -1270,8 +1311,6 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 		data->runtime_active = !pm_runtime_enabled(dev);
 		data->sysmmu = dev;
 		spin_lock_init(&data->lock);
-
-		__set_fault_handler(data, &default_fault_handler);
 
 		platform_set_drvdata(pdev, data);
 
