@@ -672,6 +672,7 @@ struct s5p_mfc_ctx {
 	int buf_width;
 	int buf_height;
 	int dpb_count;
+	int buf_stride;
 
 	struct s5p_mfc_raw_info raw_buf;
 	int mv_size;

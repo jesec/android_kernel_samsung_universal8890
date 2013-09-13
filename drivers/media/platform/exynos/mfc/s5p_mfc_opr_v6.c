@@ -558,8 +558,10 @@ static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 	case V4L2_PIX_FMT_NV12MT:
 	case V4L2_PIX_FMT_NV12M:
 	case V4L2_PIX_FMT_NV21M:
-		raw->stride[0] = ctx->img_width;
-		raw->stride[1] = ctx->img_width;
+		raw->stride[0] = ctx->buf_stride ?
+				ALIGN(ctx->img_width, 16) : ctx->img_width;
+		raw->stride[1] = ctx->buf_stride ?
+				ALIGN(ctx->img_width, 16) : ctx->img_width;
 		raw->stride[2] = 0;
 		break;
 	case V4L2_PIX_FMT_RGB24:

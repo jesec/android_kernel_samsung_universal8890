@@ -2269,6 +2269,7 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		ctx->raw_buf.num_planes = ctx->src_fmt->num_planes;
 		ctx->img_width = pix_fmt_mp->width;
 		ctx->img_height = pix_fmt_mp->height;
+		ctx->buf_stride = pix_fmt_mp->plane_fmt[0].bytesperline;
 
 		mfc_debug(2, "codec number: %d\n", ctx->src_fmt->codec_mode);
 		mfc_debug(2, "fmt - w: %d, h: %d, ctx - w: %d, h: %d\n",
