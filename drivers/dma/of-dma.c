@@ -139,6 +139,25 @@ static int of_dma_match_channel(struct device_node *np, const char *name,
 }
 
 /**
+ * of_dma_get_mcode_addr - Get the DMA micro code buffer address.
+ * @np:		device node of DMA controller
+ *
+ * Return the physical address.
+ */
+unsigned int of_dma_get_mcode_addr(struct device_node *np)
+{
+	unsigned int addr = 0;
+	const __be32	*prop;
+
+	prop = of_get_property(np, "#dma-mcode-addr", NULL);
+	if (prop)
+		addr = be32_to_cpup(prop);
+
+	return addr;
+}
+EXPORT_SYMBOL_GPL(of_dma_get_mcode_addr);
+
+/**
  * of_dma_request_slave_channel - Get the DMA slave channel
  * @np:		device node to get DMA request from
  * @name:	name of desired channel
