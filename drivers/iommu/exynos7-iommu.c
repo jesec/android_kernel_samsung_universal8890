@@ -480,6 +480,8 @@ static void __exynos_sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 		__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_CFG);
 		__raw_writel(prefbuf[i].base,
 			     drvdata->sfrbases[idx] + REG_PB_START_ADDR);
+		if (!prefbuf[i].base)
+			continue;
 		__raw_writel(prefbuf[i].size - 1 + prefbuf[i].base,
 				drvdata->sfrbases[idx] + REG_PB_END_ADDR);
 		__raw_writel(prefbuf[i].config | 1,
