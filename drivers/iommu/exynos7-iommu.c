@@ -431,8 +431,7 @@ static int __prepare_prefetch_buffers(struct sysmmu_drvdata *drvdata,
 
 	if ((drvdata->prop & SYSMMU_PROP_WRITE) &&
 				(ret_num_pb < num_pb) && (vmm->onplanes > 0)) {
-		for (i = 0; i < min(num_pb - ret_num_pb,
-					vmm->inplanes + vmm->onplanes); i++) {
+		for (i = 0; i < min(num_pb - ret_num_pb, vmm->onplanes); i++) {
 			prefbuf[ret_num_pb + i].base =
 					vmm->iova_start[vmm->inplanes + i];
 			prefbuf[ret_num_pb + i].size =
@@ -526,8 +525,6 @@ static void __exynos_sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 		__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_CFG);
 		__raw_writel(prefbuf[i].base,
 			     drvdata->sfrbases[idx] + REG_PB_START_ADDR);
-		if (!prefbuf[i].base)
-			continue;
 		__raw_writel(prefbuf[i].size - 1 + prefbuf[i].base,
 				drvdata->sfrbases[idx] + REG_PB_END_ADDR);
 		__raw_writel(prefbuf[i].config | 1,
