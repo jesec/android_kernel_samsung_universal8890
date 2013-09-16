@@ -98,6 +98,65 @@ int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes);
  */
 void iovmm_set_fault_handler(struct device *dev,
 			     iommu_fault_handler_t handler, void *token);
+
+/*
+ * flags to option_iplanes and option_oplanes.
+ * inplanes and onplanes is 'input planes' and 'output planes', respectively.
+ *
+ * default value to option_iplanes:
+ *    (TLB_UPDATE | ASCENDING | PREFETCH)
+ * default value to option_oplanes:
+ *    (TLB_UPDATE | ASCENDING | PREFETCH | WRITE)
+ *
+ * SYSMMU_PBUFCFG_READ and SYSMMU_PBUFCFG_WRITE are ignored because they are
+ * implicitly set from 'inplanes' and 'onplanes' arguments to
+ * iovmm_set_prefetch_buffer().
+ *
+ * Guide to setting flags:
+ * - Clear SYSMMU_BUFCFG_TLB_UPDATE if a buffer is accessed by the device
+ *   for rotation.
+ * - Set SYSMMU_PBUFCFG_DESCENDING if the device access a buffer in reversed
+ *   order
+ * - Clear SYSMMU_PBUFCFG_PREFETCH if access to a buffer has poor locality.
+ * - Otherwise, always set flags as default value.
+ */
+#define SYSMMU_PBUFCFG_TLB_UPDATE      (1 << 16)
+#define SYSMMU_PBUFCFG_ASCENDING       (1 << 12)
+#define SYSMMU_PBUFCFG_DESCENDING      (0 << 12)
+#define SYSMMU_PBUFCFG_PREFETCH                (1 << 8)
+#define SYSMMU_PBUFCFG_WRITE           (1 << 4)
+#define SYSMMU_PBUFCFG_READ            (0 << 4)
+
+#define SYSMMU_PBUFCFG_DEFAULT_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_ASCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_READ)
+#define SYSMMU_PBUFCFG_DEFAULT_OUTPUT  (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_ASCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_WRITE)
+
+/*
+ * sysmmu_set_prefetch_buffer() - set prefetch buffer configuration
+ *
+ * @dev: device descriptor of master device
+ * @inplanes: number of input planes that uses prefetch buffers.
+ * @onplanes: number of output planes that uses prefetch buffers.
+ * @option_iplanes: prefetch buffer configuration to input planes.
+ * @option_oplanes: prefetch buffer configuration to output planes.
+ *
+ * Returns 0 if setting is successful. -EINVAL if the argument is invalid.
+ *
+ * @inplanes and @onplanes must not exceed the values to exynos_create_iovmm().
+ * The setting is reset if System MMU is reset.
+ * The situation that System MMU is reset are:
+ * - iovmm_deactivate()
+ * - local power down due to suspend to ram, pm_rutime_put() or its equivalent.
+ */
+int sysmmu_set_prefetch_buffer(struct device *dev,
+		unsigned int inplanes, unsigned int onplanes,
+		unsigned int option_iplanes,
+		unsigned int option_oplanes);
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
@@ -107,6 +166,13 @@ void iovmm_set_fault_handler(struct device *dev,
 #define iovmm_unmap_oto(dev, phys)	do { } while (0)
 #define exynos_create_iovmm(sysmmu, inplanes, onplanes) 0
 #define iovmm_set_fault_handler(dev, handler, token) do { } while (0)
+static inline int sysmmu_set_prefetch_buffer(struct device *dev,
+		unsigned int inplanes, unsigned int onplanes,
+		unsigned int option_iplanes,
+		unsigned int option_oplanes)
+{
+	return -ENOSYS;
+}
 #endif /* CONFIG_EXYNOS_IOVMM */
 
 #endif /*__ASM_PLAT_IOVMM_H*/
