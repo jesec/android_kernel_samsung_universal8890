@@ -564,8 +564,8 @@ static int pwm_samsung_suspend(struct device *dev)
 		if (!chan)
 			continue;
 
-		chan->period_ns = 0;
-		chan->duty_ns = 0;
+		chan->period_ns = -1;
+		chan->duty_ns = -1;
 	}
 
 	return 0;
