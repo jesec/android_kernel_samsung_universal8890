@@ -8578,6 +8578,25 @@ static int move_specific_task(struct lb_env *env, struct task_struct *pm)
 	return 0;
 }
 
+static ATOMIC_NOTIFIER_HEAD(hmp_task_migration_notifier);
+
+int register_hmp_task_migration_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&hmp_task_migration_notifier, nb);
+}
+
+static int hmp_up_migration_noti(void)
+{
+	return atomic_notifier_call_chain(&hmp_task_migration_notifier,
+			HMP_UP_MIGRATION, NULL);
+}
+
+static int hmp_down_migration_noti(void)
+{
+	return atomic_notifier_call_chain(&hmp_task_migration_notifier,
+			HMP_DOWN_MIGRATION, NULL);
+}
+
 /*
  * hmp_active_task_migration_cpu_stop is run by cpu stopper and used to
  * migrate a specific task from one runqueue to another.
@@ -8635,10 +8654,15 @@ static int hmp_active_task_migration_cpu_stop(void *data)
 
 		schedstat_inc(sd, alb_count);
 
-		if (move_specific_task(&env, p))
+		if (move_specific_task(&env, p)) {
 			schedstat_inc(sd, alb_pushed);
-		else
+			if (hmp_cpu_is_fastest(target_cpu))
+				hmp_up_migration_noti();
+			else if (hmp_cpu_is_slowest(target_cpu))
+				hmp_down_migration_noti();
+		} else {
 			schedstat_inc(sd, alb_failed);
+		}
 	}
 	rcu_read_unlock();
 	double_unlock_balance(busiest_rq, target_rq);
@@ -8711,6 +8735,7 @@ static int hmp_idle_pull_cpu_stop(void *data)
 
 		if (move_specific_task(&env, p)) {
 			schedstat_inc(sd, alb_pushed);
+			hmp_up_migration_noti();
 		} else {
 			schedstat_inc(sd, alb_failed);
 		}
