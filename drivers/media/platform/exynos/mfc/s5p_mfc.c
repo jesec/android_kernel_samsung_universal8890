@@ -62,7 +62,7 @@ static struct proc_dir_entry *mfc_proc_entry;
 #define MFC_DRM_MAGIC_CHUNK3	0x3bd05317
 
 #define MFC_SFR_AREA_COUNT	11
-static void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
+void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 {
 	int i;
 	int addr[MFC_SFR_AREA_COUNT][2] = {
@@ -87,37 +87,6 @@ static void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 				addr[i][1], false);
 		printk("...\n");
 	}
-}
-
-static int s5p_mfc_sysmmu_fault_handler(struct device *dev, const char *mmuname,
-		enum exynos_sysmmu_inttype itype, unsigned long pgtable_base,
-		unsigned long fault_addr)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct s5p_mfc_dev *m_dev = platform_get_drvdata(pdev);
-
-	pr_err("MFC PAGE FAULT occurred at 0x%lx (Page table base: 0x%lx)\n",
-			fault_addr, pgtable_base);
-
-	s5p_mfc_dump_regs(m_dev);
-
-	pr_err("dumping device info...\n-----------------------\n");
-	pr_err("num_inst: %d\nint_cond: %d\nint_type: %d\nint_err: %u\n"
-		"hw_lock: %lu\ncurr_ctx: %d\npreempt_ctx: %d\n"
-		"ctx_work_bits: %lu\nclk_state: %lu\ncurr_ctx_drm: %d\n"
-		"fw_status: %d\nnum_drm_inst: %d\n",
-		m_dev->num_inst, m_dev->int_cond, m_dev->int_type,
-		m_dev->int_err, m_dev->hw_lock, m_dev->curr_ctx,
-		m_dev->preempt_ctx, m_dev->ctx_work_bits, m_dev->clk_state,
-		m_dev->curr_ctx_drm, m_dev->fw_status, m_dev->num_drm_inst);
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-	pr_err("curr_rate: %d\n\n", m_dev->curr_rate);
-#endif
-
-	pr_err("Generating Kernel OOPS... because it is unrecoverable.\n");
-	BUG();
-
-	return IRQ_HANDLED;
 }
 
 static int check_magic(unsigned char *addr)
@@ -1698,56 +1667,6 @@ static struct video_device s5p_mfc_enc_videodev = {
 
 static void *mfc_get_drv_data(struct platform_device *pdev);
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-static int proc_read_inst_number(char *buf, char **start,
-		off_t off, int count, int *eof, void *data)
-{
-	struct s5p_mfc_dev *dev = (struct s5p_mfc_dev *)data;
-	int len = 0;
-
-	if (!dev) {
-		mfc_err("no mfc device to run\n");
-		return -EINVAL;
-	}
-
-	len += snprintf(buf + len, count - len, "%d\n", dev->num_inst);
-
-	return len;
-}
-
-static int proc_read_drm_inst_number(char *buf, char **start,
-		off_t off, int count, int *eof, void *data)
-{
-	struct s5p_mfc_dev *dev = (struct s5p_mfc_dev *)data;
-	int len = 0;
-
-	if (!dev) {
-		mfc_err("no mfc device to run\n");
-		return -EINVAL;
-	}
-
-	len += snprintf(buf + len, count - len, "%d\n", dev->num_drm_inst);
-
-	return len;
-}
-
-static int proc_read_fw_status(char *buf, char **start,
-		off_t off, int count, int *eof, void *data)
-{
-	struct s5p_mfc_dev *dev = (struct s5p_mfc_dev *)data;
-	int len = 0;
-
-	if (!dev) {
-		mfc_err("no mfc device to run\n");
-		return -EINVAL;
-	}
-
-	len += snprintf(buf + len, count - len, "%d\n", dev->fw_status);
-
-	return len;
-}
-#endif
-
 /* MFC probe function */
 static int s5p_mfc_probe(struct platform_device *pdev)
 {
@@ -1912,11 +1831,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->watchdog_timer.data = (unsigned long)dev;
 	dev->watchdog_timer.function = s5p_mfc_watchdog;
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	exynos_sysmmu_set_fault_handler(dev->device,
-			s5p_mfc_sysmmu_fault_handler);
-#endif
-
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	INIT_LIST_HEAD(&dev->qos_queue);
 #endif
@@ -1988,47 +1902,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(dev->alloc_ctx_drm);
 		goto alloc_ctx_drm_fail;
 	}
-
-	mfc_proc_entry = proc_mkdir(MFC_PROC_ROOT, NULL);
-	if (!mfc_proc_entry) {
-		dev_err(&pdev->dev, "unable to create /proc/%s\n",
-				MFC_PROC_ROOT);
-		ret = -ENOMEM;
-		goto err_proc_entry;
-	}
-
-	if (!create_proc_read_entry(MFC_PROC_INSTANCE_NUMBER,
-				0,
-				mfc_proc_entry,
-				proc_read_inst_number,
-				dev)) {
-		dev_err(&pdev->dev, "unable to create /proc/%s/%s\n",
-				MFC_PROC_ROOT, MFC_PROC_INSTANCE_NUMBER);
-		ret = -ENOMEM;
-		goto err_proc_number;
-	}
-
-	if (!create_proc_read_entry(MFC_PROC_DRM_INSTANCE_NUMBER,
-				0,
-				mfc_proc_entry,
-				proc_read_drm_inst_number,
-				dev)) {
-		dev_err(&pdev->dev, "unable to create /proc/%s/%s\n",
-				MFC_PROC_ROOT, MFC_PROC_DRM_INSTANCE_NUMBER);
-		ret = -ENOMEM;
-		goto err_proc_drm;
-	}
-
-	if (!create_proc_read_entry(MFC_PROC_FW_STATUS,
-				0,
-				mfc_proc_entry,
-				proc_read_fw_status,
-				dev)) {
-		dev_err(&pdev->dev, "unable to create /proc/%s/%s\n",
-				MFC_PROC_ROOT, MFC_PROC_FW_STATUS);
-		ret = -ENOMEM;
-		goto err_proc_fw;
-	}
 #endif
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
@@ -2053,13 +1926,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 err_qos_cnt:
 #endif
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-err_proc_fw:
-	remove_proc_entry(MFC_PROC_DRM_INSTANCE_NUMBER, mfc_proc_entry);
-err_proc_drm:
-	remove_proc_entry(MFC_PROC_INSTANCE_NUMBER, mfc_proc_entry);
-err_proc_number:
-	remove_proc_entry(MFC_PROC_ROOT, NULL);
-err_proc_entry:
 	vb2_ion_destroy_context(dev->alloc_ctx_drm);
 shared_vaddr_fail:
 	s5p_mfc_mem_free_priv(dev->drm_info.alloc);
