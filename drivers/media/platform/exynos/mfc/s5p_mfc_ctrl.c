@@ -51,7 +51,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	if (dev->bitproc_buf)
 		return 0;
 
-	mfc_info("Allocating memory for firmware.\n");
+	mfc_debug(2, "Allocating memory for firmware.\n");
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (dev->num_drm_inst)
@@ -93,7 +93,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 
 	dev->port_b = dev->bitproc_phys;
 
-	mfc_info("Port A: %08x Port B: %08x (FW: %08x size: %08x)\n",
+	mfc_debug(2, "Port A: %08x Port B: %08x (FW: %08x size: %08x)\n",
 			dev->port_a, dev->port_b,
 			dev->bitproc_phys,
 			firmware_size);
@@ -120,7 +120,7 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 	/* Firmare has to be present as a separate file or compiled
 	 * into kernel. */
 	mfc_debug_enter();
-	mfc_info("Requesting fw\n");
+	mfc_debug(2, "Requesting fw\n");
 	err = request_firmware((const struct firmware **)&fw_blob,
 					MFC_FW_NAME, dev->v4l2_dev.dev);
 
@@ -302,7 +302,7 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 		return -EINVAL;
 
 	/* 0. MFC reset */
-	mfc_info("MFC reset...\n");
+	mfc_debug(2, "MFC reset...\n");
 
 	s5p_mfc_clock_on(dev);
 
@@ -311,7 +311,7 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 		mfc_err("Failed to reset MFC - timeout.\n");
 		goto err_init_hw;
 	}
-	mfc_info("Done MFC reset...\n");
+	mfc_debug(2, "Done MFC reset...\n");
 
 	/* 1. Set DRAM base Addr */
 	s5p_mfc_init_memctrl(dev);
@@ -393,7 +393,7 @@ err_init_hw:
 /* Deinitialize hardware */
 void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev)
 {
-	mfc_info("mfc deinit start\n");
+	mfc_debug(2, "mfc deinit start\n");
 
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
@@ -406,7 +406,7 @@ void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev)
 		s5p_mfc_clock_off(dev);
 	}
 
-	mfc_info("mfc deinit completed\n");
+	mfc_debug(2, "mfc deinit completed\n");
 }
 
 int s5p_mfc_sleep(struct s5p_mfc_dev *dev)

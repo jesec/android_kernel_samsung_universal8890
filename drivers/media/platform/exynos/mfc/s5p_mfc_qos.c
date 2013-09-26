@@ -96,7 +96,7 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 		mfc_debug(7, "QoS index: %d\n", i + 1);
 		if (total_mb > qos_table[i].thrd_mb) {
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-			mfc_info("\tint: %d, mif: %d, cpu: %d\n",
+			mfc_debug(2, "\tint: %d, mif: %d, cpu: %d\n",
 					qos_table[i].freq_int,
 					qos_table[i].freq_mif,
 					qos_table[i].freq_cpu);

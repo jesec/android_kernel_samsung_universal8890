@@ -307,7 +307,7 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 
 	/* Call clock on/off to make ref count 0 */
 	ref_cnt = s5p_mfc_get_clk_ref_cnt(dev);
-	mfc_info("Clock reference count: %d\n", ref_cnt);
+	mfc_debug(2, "Clock reference count: %d\n", ref_cnt);
 	if (ref_cnt < 0) {
 		for (i = ref_cnt; i < 0; i++)
 			s5p_mfc_clock_on(dev);
@@ -779,7 +779,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 		ctx->state = MFCINST_RES_CHANGE_FLUSH;
 
 	if (res_change) {
-		mfc_info("Resolution change set to %d\n", res_change);
+		mfc_debug(2, "Resolution change set to %d\n", res_change);
 		ctx->state = MFCINST_RES_CHANGE_INIT;
 
 		s5p_mfc_clear_int_flags();
@@ -801,8 +801,8 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC &&
 		dst_frame_status == S5P_FIMV_DEC_STATUS_DECODING_ONLY &&
 		FW_HAS_SEI_S3D_REALLOC(dev) && sei_avail_status) {
-		mfc_info("Frame packing SEI exists for a frame.\n");
-		mfc_info("Reallocate DPBs and issue init_buffer.\n");
+		mfc_debug(2, "Frame packing SEI exists for a frame.\n");
+		mfc_debug(2, "Reallocate DPBs and issue init_buffer.\n");
 		ctx->is_dpb_realloc = 1;
 		ctx->state = MFCINST_HEAD_PARSED;
 		ctx->capture_state = QUEUE_FREE;
@@ -1267,7 +1267,7 @@ static int s5p_mfc_open(struct file *file)
 	int magic_offset;
 #endif
 
-	mfc_info("mfc driver open called\n");
+	mfc_debug(2, "mfc driver open called\n");
 
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
@@ -1338,7 +1338,7 @@ static int s5p_mfc_open(struct file *file)
 	if (magic_offset >= 0) {
 		clear_magic(dev->drm_info.virt + magic_offset);
 		if (dev->num_drm_inst < MFC_MAX_DRM_CTX) {
-			mfc_info("DRM instance opened\n");
+			mfc_debug(2, "DRM instance opened\n");
 
 			dev->num_drm_inst++;
 			ctx->is_drm = 1;
@@ -1476,7 +1476,7 @@ err_ctx_alloc:
 err_node_type:
 	mutex_unlock(&dev->mfc_mutex);
 err_no_device:
-	mfc_info("mfc driver open finished\n");
+	mfc_debug(2, "mfc driver open finished\n");
 
 	return ret;
 }
@@ -1492,7 +1492,7 @@ static int s5p_mfc_release(struct file *file)
 	struct s5p_mfc_dev *dev = NULL;
 	struct s5p_mfc_enc *enc = NULL;
 
-	mfc_info("mfc driver release called\n");
+	mfc_debug(2, "mfc driver release called\n");
 
 	dev = ctx->dev;
 	if (!dev) {
@@ -1603,7 +1603,7 @@ static int s5p_mfc_release(struct file *file)
 
 		flush_workqueue(dev->sched_wq);
 
-		mfc_info("power off\n");
+		mfc_debug(2, "power off\n");
 		s5p_mfc_power_off(dev);
 
 		/* reset <-> F/W release */

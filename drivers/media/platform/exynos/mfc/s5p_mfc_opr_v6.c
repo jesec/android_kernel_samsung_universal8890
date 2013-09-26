@@ -837,9 +837,9 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 = ctx->port_a_phys;
 	buf_size1 = ctx->port_a_size;
 
-	mfc_info("Buf1: %p (%d)\n", (void *)buf_addr1, buf_size1);
-	mfc_info("Total DPB COUNT: %d\n", dec->total_dpb_count);
-	mfc_info("Setting display delay to %d\n", dec->display_delay);
+	mfc_debug(2, "Buf1: %p (%d)\n", (void *)buf_addr1, buf_size1);
+	mfc_debug(2, "Total DPB COUNT: %d\n", dec->total_dpb_count);
+	mfc_debug(2, "Setting display delay to %d\n", dec->display_delay);
 
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
 		WRITEL(dec->tiled_buf_cnt, S5P_FIMV_D_NUM_DPB);
@@ -873,7 +873,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 				}
 			} else {
 				dec->loop_filter_mpeg4 = 0;
-				mfc_info("failed to enable loop filter\n");
+				mfc_debug(2, "failed to enable loop filter\n");
 			}
 		}
 		reg |= (dec->loop_filter_mpeg4
@@ -1888,8 +1888,8 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		mfc_err("no mfc decoder to run\n");
 		return -EINVAL;
 	}
-	mfc_info("InstNo: %d/%d\n", ctx->inst_no, S5P_FIMV_CH_SEQ_HEADER);
-	mfc_info("BUFs: %08x %08x %08x\n",
+	mfc_debug(2, "InstNo: %d/%d\n", ctx->inst_no, S5P_FIMV_CH_SEQ_HEADER);
+	mfc_debug(2, "BUFs: %08x %08x %08x\n",
 		  READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
 		  READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
 		  READL(S5P_FIMV_D_CPB_BUFFER_ADDR));
@@ -2361,9 +2361,9 @@ static inline void s5p_mfc_run_init_dec(struct s5p_mfc_ctx *ctx)
 	}
 	/* Initializing decoding - parsing header */
 	spin_lock_irqsave(&dev->irqlock, flags);
-	mfc_info("Preparing to init decoding.\n");
+	mfc_debug(2, "Preparing to init decoding.\n");
 	temp_vb = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
-	mfc_info("Header size: %d\n", temp_vb->vb.v4l2_planes[0].bytesused);
+	mfc_debug(2, "Header size: %d\n", temp_vb->vb.v4l2_planes[0].bytesused);
 	s5p_mfc_set_dec_stream_buffer(ctx,
 			s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
 			0, temp_vb->vb.v4l2_planes[0].bytesused);
@@ -2411,7 +2411,7 @@ static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_set_stride_enc(ctx);
 
 	dev->curr_ctx = ctx->num;
-	mfc_info("Header addr: 0x%08lx\n",
+	mfc_debug(2, "Header addr: 0x%08lx\n",
 		(unsigned long)s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0));
 	s5p_mfc_clean_ctx_int_flags(ctx);
 

@@ -2220,7 +2220,7 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 		ctx->dst_fmt = fmt;
 		ctx->codec_mode = ctx->dst_fmt->codec_mode;
-		mfc_debug(2, "codec number: %d\n", ctx->dst_fmt->codec_mode);
+		mfc_info("codec number: %d\n", ctx->dst_fmt->codec_mode);
 
 		enc->dst_buf_size = pix_fmt_mp->plane_fmt[0].sizeimage;
 		pix_fmt_mp->plane_fmt[0].bytesperline = 0;
@@ -2297,7 +2297,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 	mfc_debug_enter();
 
-	mfc_info("type: %d\n", reqbufs->memory);
+	mfc_debug(2, "type: %d\n", reqbufs->memory);
 
 	if ((reqbufs->memory != V4L2_MEMORY_MMAP) &&
 		(reqbufs->memory != V4L2_MEMORY_USERPTR) &&
@@ -2306,7 +2306,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (reqbufs->count == 0) {
-			mfc_info("Freeing buffers.\n");
+			mfc_debug(2, "Freeing buffers.\n");
 			ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
 			ctx->capture_state = QUEUE_FREE;
 			return ret;
@@ -2347,7 +2347,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		}
 	} else if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (reqbufs->count == 0) {
-			mfc_info("Freeing buffers.\n");
+			mfc_debug(2, "Freeing buffers.\n");
 			ret = vb2_reqbufs(&ctx->vq_src, reqbufs);
 			ctx->output_state = QUEUE_FREE;
 			return ret;
@@ -2477,17 +2477,17 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 
 				if (ctx->avg_framerate > ENC_HIGH_FPS) {
 					if (ctx->frame_count == ENC_AVG_FRAMES)
-						mfc_info("force fps: %d\n", ENC_MAX_FPS);
+						mfc_debug(2, "force fps: %d\n", ENC_MAX_FPS);
 					goto out;
 				}
 			} else {
 				ctx->last_framerate = ENC_MAX_FPS;
-				mfc_info("fps set to %d\n", ctx->last_framerate);
+				mfc_debug(2, "fps set to %d\n", ctx->last_framerate);
 			}
 #endif
 			if (ctx->last_framerate != 0 &&
 				ctx->last_framerate != ctx->framerate) {
-				mfc_info("fps changed: %d -> %d\n",
+				mfc_debug(2, "fps changed: %d -> %d\n",
 					ctx->framerate, ctx->last_framerate);
 				ctx->framerate = ctx->last_framerate;
 				s5p_mfc_qos_on(ctx);
@@ -2542,7 +2542,7 @@ static int vidioc_streamon(struct file *file, void *priv,
 	} else {
 		ret = vb2_streamon(&ctx->vq_dst, type);
 	}
-	mfc_info("ctx->src_queue_cnt = %d ctx->state = %d "
+	mfc_debug(2, "ctx->src_queue_cnt = %d ctx->state = %d "
 		  "ctx->dst_queue_cnt = %d ctx->dpb_count = %d\n",
 		  ctx->src_queue_cnt, ctx->state, ctx->dst_queue_cnt,
 		  ctx->dpb_count);
@@ -2568,7 +2568,7 @@ static int vidioc_streamoff(struct file *file, void *priv,
 		ret = vb2_streamoff(&ctx->vq_dst, type);
 	}
 
-	mfc_info("streamoff\n");
+	mfc_debug(2, "streamoff\n");
 	mfc_debug_leave();
 
 	return ret;

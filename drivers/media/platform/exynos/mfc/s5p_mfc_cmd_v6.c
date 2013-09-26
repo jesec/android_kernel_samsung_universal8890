@@ -20,10 +20,7 @@
 int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd,
 				struct s5p_mfc_cmd_args *args)
 {
-	if (cmd != S5P_FIMV_CH_NAL_START)
-		mfc_info("Issue the command: %d\n", cmd);
-	else
-		mfc_debug(2, "Issue the command: %d\n", cmd);
+	mfc_debug(2, "Issue the command: %d\n", cmd);
 
 	/* Reset RISC2HOST command */
 	s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_RISC2HOST_CMD);

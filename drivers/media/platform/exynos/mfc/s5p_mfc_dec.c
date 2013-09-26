@@ -1368,7 +1368,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		dec->src_buf_size = pix_mp->plane_fmt[0].sizeimage;
 	else
 		dec->src_buf_size = MAX_FRAME_SIZE;
-	mfc_info("sizeimage: %d\n", pix_mp->plane_fmt[0].sizeimage);
+	mfc_debug(2, "sizeimage: %d\n", pix_mp->plane_fmt[0].sizeimage);
 	pix_mp->plane_fmt[0].bytesperline = 0;
 
 	/* In case of calling s_fmt twice or more */
@@ -1463,7 +1463,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 	void *alloc_ctx;
 
 	mfc_debug_enter();
-	mfc_info("Memory type: %d\n", reqbufs->memory);
+	mfc_debug(2, "Memory type: %d\n", reqbufs->memory);
 
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
@@ -1487,7 +1487,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		   an instance has been opened.*/
 		if (ctx->state == MFCINST_GOT_INST) {
 			if (reqbufs->count == 0) {
-				mfc_info("Freeing buffers.\n");
+				mfc_debug(2, "Freeing buffers.\n");
 				ret = vb2_reqbufs(&ctx->vq_src, reqbufs);
 				ctx->output_state = QUEUE_FREE;
 				return ret;
@@ -1514,7 +1514,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		}
 	} else if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (reqbufs->count == 0) {
-			mfc_info("Freeing buffers.\n");
+			mfc_debug(2, "Freeing buffers.\n");
 			ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
 			s5p_mfc_release_codec_buffers(ctx);
 			dec->dpb_queue_cnt = 0;
@@ -1672,7 +1672,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		}
 		if (ctx->last_framerate != 0 &&
 				ctx->last_framerate != ctx->framerate) {
-			mfc_info("fps changed: %d -> %d\n",
+			mfc_debug(2, "fps changed: %d -> %d\n",
 					ctx->framerate, ctx->last_framerate);
 			ctx->framerate = ctx->last_framerate;
 			s5p_mfc_qos_on(ctx);
@@ -1727,7 +1727,7 @@ static int vidioc_streamon(struct file *file, void *priv,
 		mfc_err("unknown v4l2 buffer type\n");
 	}
 
-	mfc_info("ctx->src_queue_cnt = %d ctx->state = %d "
+	mfc_debug(2, "ctx->src_queue_cnt = %d ctx->state = %d "
 		  "ctx->dst_queue_cnt = %d ctx->dpb_count = %d\n",
 		  ctx->src_queue_cnt, ctx->state, ctx->dst_queue_cnt,
 		  ctx->dpb_count);
@@ -1757,7 +1757,7 @@ static int vidioc_streamoff(struct file *file, void *priv,
 		mfc_err("unknown v4l2 buffer type\n");
 	}
 
-	mfc_info("streamoff\n");
+	mfc_debug(2, "streamoff\n");
 	mfc_debug_leave();
 
 	return ret;
