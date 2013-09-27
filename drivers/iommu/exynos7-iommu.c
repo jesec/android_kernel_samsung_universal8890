@@ -136,7 +136,10 @@
 
 #define MAKE_MMU_VER(maj, min)	((((maj) & 0xF) << 7) | ((min) & 0x7F))
 
-#define MMU_PB_CAPA(reg)	((reg >> 20) & 0xF)
+/* 'reg' argument must be the value of REG_MMU_CAPA register */
+#define MMU_NUM_L1TLB_ENTRIES(reg) (reg & 0xFF)
+#define MMU_HAVE_PB(reg)	(!!((reg >> 20) & 0xF))
+#define MMU_HAVE_L2TLB(reg)	(!!((reg >> 8) & 0xFFF))
 
 #define MMU_MAX_DF_CMD		8
 
@@ -299,7 +302,7 @@ static bool has_sysmmu_capable_pbuf(struct sysmmu_drvdata *drvdata, int idx)
 	unsigned long cfg =
 		__raw_readl(drvdata->sfrbases[idx] + REG_MMU_CAPA);
 
-	return MMU_PB_CAPA(cfg) ? true : false;
+	return MMU_HAVE_PB(cfg) ? true : false;
 }
 
 static void sysmmu_unblock(void __iomem *sfrbase)
@@ -787,21 +790,27 @@ static void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 	};
 
 	capa = __raw_readl(sfrbase + REG_MMU_CAPA);
+	lmm = MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
 
 	pr_crit("---------- System MMU Status -----------------------------\n");
-	pr_crit("MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
+	pr_crit("VERSION %d.%d, MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
+		MMU_MAJ_VER(lmm), MMU_MIN_VER(lmm),
 		__raw_readl(sfrbase + REG_MMU_CFG),
 		__raw_readl(sfrbase + REG_MMU_STATUS));
-	pr_crit("TLB hit notify : %s\n",
-		(__raw_readl(sfrbase + REG_L1TLB_CFG) == 2) ? "on" : "off");
-	if (((capa >> 8) & 0xFFF) != 0)
+
+	if (lmm == MAKE_MMU_VER(5, 1))
+		pr_crit("TLB hit notify : %s\n",
+			(__raw_readl(sfrbase + REG_L1TLB_CFG) == 2) ?
+				"on" : "off");
+
+	if (MMU_HAVE_L2TLB(capa))
 		pr_crit("Level 2 TLB: %s\n",
 			(__raw_readl(sfrbase + REG_L2TLB_CFG) == 1) ?
 				"on" : "off");
 
 	pr_crit("---------- Level 1 TLB -----------------------------------\n");
 
-	for (i = 0; i < (capa & 0xFF); i++) {
+	for (i = 0; i < MMU_NUM_L1TLB_ENTRIES(capa); i++) {
 		__raw_writel(i, sfrbase + REG_L1TLB_READ_ENTRY);
 		pr_crit("[%02d] VPN: %#010x, PPN: %#010x, ATTR: %#010x\n",
 			i, __raw_readl(sfrbase + REG_L1TLB_ENTRY_VPN),
@@ -809,8 +818,8 @@ static void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 			__raw_readl(sfrbase + REG_L1TLB_ENTRY_ATTR));
 	}
 
-	if (((capa >> 20) & 0xF) == 0)
-		return; /* pb is not implemented */
+	if (!MMU_HAVE_PB(capa))
+		return;
 
 	capa = __raw_readl(sfrbase + REG_PB_INFO);
 	lmm = __raw_readl(sfrbase + REG_PB_LMM);
