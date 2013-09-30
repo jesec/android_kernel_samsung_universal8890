@@ -108,7 +108,6 @@ int hevc_open_inst_cmd(struct hevc_ctx *ctx)
 
 	dec = ctx->dec_priv;
 	hevc_debug(2, "Requested codec mode: %d\n", ctx->codec_mode);
-	dec->crc_enable = 1;
 
 	hevc_write_reg(ctx->codec_mode, HEVC_CODEC_TYPE);
 	hevc_write_reg(ctx->ctx.ofs, HEVC_CONTEXT_MEM_ADDR);
