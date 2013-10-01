@@ -1372,6 +1372,9 @@ static int __init __sysmmu_setup(struct device *sysmmu,
 	if (ret)
 		dev_err(sysmmu, "Failed to initialize gating clocks\n");
 
+	/* QoS value is inherited by the master IP */
+	drvdata->qos = -1;
+
 	ret = __sysmmu_init_prop(sysmmu, drvdata);
 	if (ret)
 		dev_err(sysmmu, "Failed to initialize sysmmu properties\n");
