@@ -45,6 +45,8 @@
 #include <linux/cpufreq.h>
 #include <linux/of.h>
 
+#include <sound/exynos.h>
+
 #include <asm/irq.h>
 
 #include "samsung.h"
@@ -89,6 +91,9 @@ static void dbg(const char *fmt, ...)
 
 /* flag to ignore all characters coming in */
 #define RXSTAT_DUMMY_READ (0x10000000)
+
+static void s3c24xx_serial_resetport(struct uart_port *port,
+				   struct s3c2410_uartcfg *cfg);
 
 static inline struct s3c24xx_uart_port *to_ourport(struct uart_port *port)
 {
@@ -557,23 +562,51 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 	return ret;
 }
 
+#ifdef CONFIG_PM_RUNTIME
+static void aud_uart_get_sync(struct platform_device *pdev, struct uart_port *port)
+{
+	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		lpass_get_sync(&pdev->dev);
+}
+
+static void aud_uart_put_sync(struct platform_device *pdev)
+{
+	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		lpass_put_sync(&pdev->dev);
+}
+#else
+static void aud_uart_get_sync(struct platform_device *pdev, struct uart_port *port)
+{
+}
+
+static void aud_uart_put_sync(struct platform_device *pdev)
+{
+}
+#endif
+
 /* power power management control */
 
 static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 			      unsigned int old)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
-	int timeout = 10000;
+	struct platform_device *pdev = ourport->pdev;
 
 	ourport->pm_level = level;
 
 	switch (level) {
 	case 3:
 		clk_disable_unprepare(ourport->clk);
+		aud_uart_put_sync(ourport->pdev);
 		break;
 
 	case 0:
+		aud_uart_get_sync(ourport->pdev, port);
 		clk_prepare_enable(ourport->clk);
+#ifdef CONFIG_PM_RUNTIME
+		if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+			s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
+#endif
 		break;
 	default:
 		dev_err(port->dev, "s3c24xx_serial: unknown pm %d\n", level);
@@ -1187,6 +1220,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 
 	/* setup info for port */
 	port->dev	= &platdev->dev;
+	ourport->pdev	= platdev;
 
 	/* Startup sequence is different for s3c64xx and higher SoC's */
 	if (s3c24xx_serial_has_interrupt_mask(port))
@@ -1234,6 +1268,11 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 		ourport->check_separated_clk = 1;
 	else
 		ourport->check_separated_clk = 0;
+
+#ifdef CONFIG_PM_RUNTIME
+	if (of_find_property(platdev->dev.of_node, "samsung,lpass-subip", NULL))
+		lpass_register_subip(&platdev->dev, "aud-uart");
+#endif
 
 	snprintf(clkname, sizeof(clkname), "gate_uart%d", ourport->port.line);
 	ourport->clk = clk_get(&platdev->dev, clkname);
@@ -1432,6 +1471,12 @@ static int s3c24xx_serial_resume(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	struct platform_device *pdev = ourport->pdev;
+
+#ifdef CONFIG_PM_RUNTIME
+	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		return 0;
+#endif
 
 	if (port) {
 		clk_prepare_enable(ourport->clk);
@@ -1447,6 +1492,13 @@ static int s3c24xx_serial_resume(struct device *dev)
 static int s3c24xx_serial_resume_noirq(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	struct platform_device *pdev = ourport->pdev;
+
+#ifdef CONFIG_PM_RUNTIME
+	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		return 0;
+#endif
 
 	if (port) {
 		/* restore IRQ mask */

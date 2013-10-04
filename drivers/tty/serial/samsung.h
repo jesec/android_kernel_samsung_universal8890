@@ -64,6 +64,7 @@ struct s3c24xx_uart_port {
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block		freq_transition;
 #endif
+	struct platform_device		*pdev;
 };
 
 /* conversion functions */
