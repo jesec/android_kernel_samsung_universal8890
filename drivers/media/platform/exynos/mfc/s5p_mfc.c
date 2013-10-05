@@ -1667,6 +1667,57 @@ static struct video_device s5p_mfc_enc_videodev = {
 
 static void *mfc_get_drv_data(struct platform_device *pdev);
 
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
+#define QOS_STEP_NUM (4)
+static struct s5p_mfc_qos g_mfc_qos_table[QOS_STEP_NUM];
+#endif
+
+
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
+static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
+	struct s5p_mfc_qos *pdata)
+{
+	int ret = 0;
+	struct device_node *np_qos;
+
+	np_qos = of_find_node_by_name(np, node_name);
+	if (!np_qos) {
+		pr_err("%s: could not find mfc_qos_platdata node\n",
+			node_name);
+		return -EINVAL;
+	}
+
+	of_property_read_u32(np_qos, "thrd_mb", &pdata->thrd_mb);
+	of_property_read_u32(np_qos, "freq_mfc", &pdata->freq_mfc);
+	of_property_read_u32(np_qos, "freq_int", &pdata->freq_int);
+	of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
+	of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
+	of_property_read_u32(np_qos, "freq_kfc", &pdata->freq_kfc);
+
+	return ret;
+}
+#endif
+
+static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
+{
+	struct s5p_mfc_platdata	*pdata = mfc->pdata;
+
+	if (!np)
+		return;
+
+	of_property_read_u32(np, "ip_ver", &pdata->ip_ver);
+	of_property_read_u32(np, "clock_rate", &pdata->clock_rate);
+	of_property_read_u32(np, "min_rate", &pdata->min_rate);
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
+	of_property_read_u32(np, "num_qos_steps", &pdata->num_qos_steps);
+
+	parse_mfc_qos_platdata(np, "mfc_qos_variant_0", &g_mfc_qos_table[0]);
+	parse_mfc_qos_platdata(np, "mfc_qos_variant_1", &g_mfc_qos_table[1]);
+	parse_mfc_qos_platdata(np, "mfc_qos_variant_2", &g_mfc_qos_table[2]);
+	parse_mfc_qos_platdata(np, "mfc_qos_variant_3", &g_mfc_qos_table[3]);
+#endif
+}
+
 /* MFC probe function */
 static int s5p_mfc_probe(struct platform_device *pdev)
 {
@@ -1692,22 +1743,31 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->device = &pdev->dev;
 	dev->pdata = pdev->dev.platform_data;
 
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-	/* initial clock rate should be min rate */
-	dev->curr_rate = dev->min_rate = dev->pdata->min_rate;
-#endif
-
 	dev->variant = mfc_get_drv_data(pdev);
 
 	if (dev->device->of_node)
 		dev->id = of_alias_get_id(pdev->dev.of_node, "mfc");
 
-	dev_dbg(&pdev->dev,"of alias get id : mfc-%d \n", dev->id);
+	dev_dbg(&pdev->dev, "of alias get id : mfc-%d \n", dev->id);
 
 	if (dev->id < 0 || dev->id >= dev->variant->num_entities) {
 		dev_err(&pdev->dev, "Invalid platform device id: %d\n", dev->id);
 		return -EINVAL;
 	}
+
+	dev->pdata = devm_kzalloc(&pdev->dev, sizeof(struct s5p_mfc_platdata), GFP_KERNEL);
+	if (!dev->pdata) {
+		dev_err(&pdev->dev, "no memory for state\n");
+		return -ENOMEM;
+	}
+
+	mfc_parse_dt(dev->device->of_node, dev);
+
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
+	/* initial clock rate should be min rate */
+	dev->curr_rate = dev->min_rate = dev->pdata->min_rate;
+	dev->pdata->qos_table = g_mfc_qos_table;
+#endif
 
 	ret = s5p_mfc_init_pm(dev);
 	if (ret < 0) {

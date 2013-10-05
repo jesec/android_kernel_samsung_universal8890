@@ -121,7 +121,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	if (dev->id == 0) {
 		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_user");
 		if (IS_ERR(clk_child)) {
-			pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 			return PTR_ERR(clk_child);
 		}
 		clk_parent = clk_get(dev->device, "aclk_mfc0_333");
@@ -133,7 +133,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	} else if (dev->id == 1) {
 		clk_child = clk_get(dev->device, "mout_aclk_mfc1_333_user");
 		if (IS_ERR(clk_child)) {
-			pr_err("failed to get %s clock\n",__clk_get_name(clk_child));
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 			return PTR_ERR(clk_child);
 		}
 		clk_parent = clk_get(dev->device, "aclk_mfc1_333");
@@ -156,46 +156,34 @@ extern spinlock_t int_div_lock;
 
 static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 {
-	struct clk *parent_clk = NULL;
-	int ret = 0;
+	struct clk *clk_child = NULL;
 
-	pm = &dev->pm;
+	if (dev->id == 0) {
+		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_user");
+		if (IS_ERR(clk_child)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+			return PTR_ERR(clk_child);
+		}
 
-	if ((dev->pdata->ip_ver == IP_VER_MFC_5A_0) ||
-	    (dev->pdata->ip_ver == IP_VER_MFC_5A_1)) {
-		parent_clk = clk_get(dev->device, "aclk_333_pre");
-		if (IS_ERR(parent_clk)) {
-			mfc_err("failed to get parent clock aclk_333_pre.\n");
-			ret = PTR_ERR(parent_clk);
-			goto err_g_clk;
+	} else if (dev->id == 1) {
+		clk_child = clk_get(dev->device, "mout_aclk_mfc1_333_user");
+		if (IS_ERR(clk_child)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+			return PTR_ERR(clk_child);
 		}
-	} else if ((dev->pdata->ip_ver == IP_VER_MFC_6A_0) ||
-		(dev->pdata->ip_ver == IP_VER_MFC_6A_1)) {
-		parent_clk = clk_get(dev->device, "aclk_333_dout");
-		if (IS_ERR(parent_clk)) {
-			mfc_err("failed to get parent clock aclk_333_dout.\n");
-			ret = PTR_ERR(parent_clk);
-			goto err_g_clk;
-		}
-	} else {
-		/* No need to set clock rate */
-		return 0;
 	}
 
 #ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
 	spin_lock(&int_div_lock);
 #endif
-	clk_set_rate(parent_clk, rate * 1000);
+	clk_set_rate(clk_child, rate * 1000);
 #ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
 	spin_unlock(&int_div_lock);
 #endif
 
-	clk_put(parent_clk);
+	clk_put(clk_child);
 
 	return 0;
-
-err_g_clk:
-	return ret;
 }
 #endif
 #endif

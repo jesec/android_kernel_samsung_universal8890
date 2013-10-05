@@ -766,7 +766,7 @@ static inline unsigned int mfc_linear_buf_size(unsigned int version)
 static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 {
 	unsigned int version = 0;
-#if 0
+
 	switch (dev->pdata->ip_ver) {
 	case IP_VER_MFC_4P_0:
 	case IP_VER_MFC_4P_1:
@@ -786,8 +786,6 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 		version = 0x72;
 		break;
 	}
-#endif
-	version = 0x72;
 
 	return version;
 }
