@@ -27,6 +27,10 @@
 #include <linux/of_irq.h>
 #include <linux/of_i2c.h>
 
+#include <mach/exynos-pm.h>
+
+static LIST_HEAD(drvdata_list);
+
 /*
  * HSI2C controller from Samsung supports 2 modes of operation
  * 1. Auto mode: Where in master automatically controls the whole transaction
@@ -157,6 +161,7 @@
 #define EXYNOS5_I2C_PM_TIMEOUT		1000	/* ms */
 
 struct exynos5_i2c {
+	struct list_head		node;
 	struct i2c_adapter	adap;
 	unsigned int		suspended:1;
 
@@ -686,6 +691,32 @@ static const struct i2c_algorithm exynos5_i2c_algorithm = {
 	.functionality		= exynos5_i2c_func,
 };
 
+#ifdef CONFIG_CPU_IDLE
+static int exynos5_i2c_notifier(struct notifier_block *self,
+				unsigned long cmd, void *v)
+{
+	struct exynos5_i2c *i2c;
+
+	switch (cmd) {
+	case LPA_EXIT:
+		list_for_each_entry(i2c, &drvdata_list, node) {
+			i2c_lock_adapter(&i2c->adap);
+			clk_prepare_enable(i2c->clk);
+			exynos5_i2c_reset(i2c);
+			clk_disable_unprepare(i2c->clk);
+			i2c_unlock_adapter(&i2c->adap);
+		}
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos5_i2c_notifier_block = {
+	.notifier_call = exynos5_i2c_notifier,
+};
+#endif /*CONFIG_CPU_IDLE */
+
 static int exynos5_i2c_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -804,6 +835,8 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	pm_runtime_mark_last_busy(i2c->dev);
 	pm_runtime_put_autosuspend(i2c->dev);
 
+	list_add_tail(&i2c->node, &drvdata_list);
+
 	return 0;
 
  err_pm:
@@ -884,6 +917,9 @@ static struct platform_driver exynos5_i2c_driver = {
 
 static int __init i2c_adap_exynos5_init(void)
 {
+#ifdef CONFIG_CPU_IDLE
+	exynos_pm_register_notifier(&exynos5_i2c_notifier_block);
+#endif
 	return platform_driver_register(&exynos5_i2c_driver);
 }
 subsys_initcall(i2c_adap_exynos5_init);
