@@ -839,7 +839,9 @@ static int exynos5_i2c_suspend_noirq(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
 
+	i2c_lock_adapter(&i2c->adap);
 	i2c->suspended = 1;
+	i2c_unlock_adapter(&i2c->adap);
 
 	return 0;
 }
@@ -848,19 +850,13 @@ static int exynos5_i2c_resume_noirq(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
-	int ret = 0;
 
+	i2c_lock_adapter(&i2c->adap);
 	clk_prepare_enable(i2c->clk);
-
-	ret = exynos5_hsi2c_clock_setup(i2c);
-	if (ret) {
-		clk_disable_unprepare(i2c->clk);
-		return ret;
-	}
-
-	exynos5_i2c_init(i2c);
+	exynos5_i2c_reset(i2c);
 	clk_disable_unprepare(i2c->clk);
 	i2c->suspended = 0;
+	i2c_unlock_adapter(&i2c->adap);
 
 	return 0;
 }
