@@ -2313,9 +2313,9 @@ struct hmp_global_attr {
 };
 
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
-#define HMP_DATA_SYSFS_MAX 4
+#define HMP_DATA_SYSFS_MAX 7
 #else
-#define HMP_DATA_SYSFS_MAX 3
+#define HMP_DATA_SYSFS_MAX 6
 #endif
 
 struct hmp_data_struct {
@@ -4890,11 +4890,25 @@ static struct sched_entity *hmp_get_lightest_task(struct sched_entity* se, int m
  */
 unsigned int hmp_up_threshold = 700; /*512;*/
 unsigned int hmp_down_threshold = 512; /*256;*/
+static int hmp_boostpulse_duration = 1000000; /* microseconds */
+static u64 hmp_boostpulse_endtime;
+static int hmp_boost_val;
+static int hmp_boostpulse;
 #ifdef CONFIG_SCHED_HMP_PRIO_FILTER
 unsigned int hmp_up_prio = NICE_TO_PRIO(CONFIG_SCHED_HMP_PRIO_FILTER_VAL);
 #endif
 unsigned int hmp_next_up_threshold = 4096;
 unsigned int hmp_next_down_threshold = 4096;
+
+static inline int hmp_boost(void)
+{
+	u64 now = ktime_to_us(ktime_get());
+
+	if (hmp_boost_val || now < hmp_boostpulse_endtime)
+		return 1;
+	else
+		return 0;
+}
 
 static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_entity *se);
 static unsigned int hmp_down_migration(int cpu, struct sched_entity *se);
@@ -5093,12 +5107,21 @@ static int hmp_period_tofrom_sysfs(int value)
 }
 
 /* max value for threshold is 1024 */
-static int hmp_theshold_from_sysfs(int value)
+static int hmp_threshold_from_sysfs(int value)
 {
 	if (value > 1024)
 		return -1;
+
 	return value;
 }
+
+static int hmp_boostpulse_write(int value)
+{
+	hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + hmp_boostpulse_duration;
+
+	return 0;
+}
+
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
 /* freqinvar control is only 0,1 off/on */
 static int hmp_freqinvar_from_sysfs(int value)
@@ -5147,11 +5170,23 @@ static int hmp_attr_init(void)
 	hmp_attr_add("up_threshold",
 		&hmp_up_threshold,
 		NULL,
-		hmp_theshold_from_sysfs);
+		hmp_threshold_from_sysfs);
 	hmp_attr_add("down_threshold",
 		&hmp_down_threshold,
 		NULL,
-		hmp_theshold_from_sysfs);
+		hmp_threshold_from_sysfs);
+	hmp_attr_add("boostpulse",
+		&hmp_boostpulse,
+		NULL,
+		hmp_boostpulse_write);
+	hmp_attr_add("boostpulse_duration",
+		&hmp_boostpulse_duration,
+		NULL,
+		NULL);
+	hmp_attr_add("boost",
+		&hmp_boost_val,
+		NULL,
+		NULL);
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
 	/* default frequency-invariant scaling ON */
 	hmp_data.freqinvar_load_scale_enabled = 1;
@@ -5250,7 +5285,7 @@ static inline unsigned int hmp_offload_down(int cpu, struct sched_entity *se)
 
 	/* Is the task alone on the cpu? */
 	if (cpu_rq(cpu)->cfs.h_nr_running < 2) {
-		trace_sched_hmp_offload_abort(cpu,cpu_rq(cpu)->cfs.nr_running,"nr_running");
+		trace_sched_hmp_offload_abort(cpu,cpu_rq(cpu)->cfs.h_nr_running,"nr_running");
 		return NR_CPUS;
 	}
 
@@ -8303,7 +8338,7 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 	if (p->prio >= hmp_up_prio)
 		return 0;
 #endif
-	if (se->avg.load_avg_ratio < hmp_up_threshold)
+	if (!hmp_boost() && se->avg.load_avg_ratio < hmp_up_threshold)
 		return 0;
 
 	/* Let the task load settle before doing another up migration */
@@ -8317,10 +8352,8 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 	 * idle CPU or 1023 for any partly-busy one.
 	 * Be explicit about requirement for an idle CPU.
 	 */
-	if (hmp_domain_min_load(hmp_faster_domain(cpu), target_cpu)
-			!= 0)
+	if (hmp_domain_min_load(hmp_faster_domain(cpu), target_cpu) != 0)
 		return 0;
-
 	if (cpumask_intersects(&hmp_faster_domain(cpu)->cpus,
 			tsk_cpus_allowed(p)))
 		return 1;
@@ -8345,6 +8378,10 @@ static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 		return 1;
 	}
 #endif
+
+	if (hmp_boost())
+		if (!hmp_domain_min_load(hmp_cpu_domain(cpu), NULL))
+			return 0;
 
 	/* Let the task load settle before doing another down migration */
 	now = cpu_rq(cpu)->clock_task;
@@ -8714,12 +8751,12 @@ static unsigned int hmp_idle_pull(int this_cpu)
 		}
 		orig = curr;
 		curr = hmp_get_heaviest_task(curr, 1);
-		if (curr->avg.load_avg_ratio > hmp_up_threshold &&
-				curr->avg.load_avg_ratio > ratio) {
-			p = task_of(curr);
-			target = rq;
-			ratio = curr->avg.load_avg_ratio;
-		}
+		if (hmp_boost() || curr->avg.load_avg_ratio > hmp_up_threshold)
+			if (curr->avg.load_avg_ratio > ratio) {
+				p = task_of(curr);
+				target = rq;
+				ratio = curr->avg.load_avg_ratio;
+			}
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
 
