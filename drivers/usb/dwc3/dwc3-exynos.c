@@ -137,14 +137,80 @@ void dwc3_exynos_rsw_drv_vbus(struct device *dev, int on)
 	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
 
 	if (on) {
-		gpio_set_value(rsw->boost5v_gpio, 1);
+		if (gpio_is_valid(rsw->boost5v_gpio))
+			gpio_set_value(rsw->boost5v_gpio, 1);
 		/* Do we need some delay here? */
-		gpio_set_value(rsw->vbus_gpio, 1);
+		if (gpio_is_valid(rsw->vbus_gpio))
+			gpio_set_value(rsw->vbus_gpio, 1);
 	} else {
-		gpio_set_value(rsw->vbus_gpio, 0);
-		gpio_set_value(rsw->boost5v_gpio, 0);
+		if (gpio_is_valid(rsw->vbus_gpio))
+			gpio_set_value(rsw->vbus_gpio, 0);
+		if (gpio_is_valid(rsw->boost5v_gpio))
+			gpio_set_value(rsw->boost5v_gpio, 0);
 	}
 }
+
+/**
+ * dwc3_exynos_id_event - receive ID pin state change event.
+ *
+ * @state : New ID pin state.
+ *
+ * Context: may sleep.
+ */
+int dwc3_exynos_id_event(struct device *dev, int state)
+{
+	struct dwc3_exynos	*exynos;
+	struct otg_fsm		*fsm;
+
+	dev_dbg(dev, "EVENT: ID: %d\n", state);
+
+	exynos = dev_get_drvdata(dev);
+	if (!exynos)
+		return -ENOENT;
+
+	fsm = exynos->rsw.fsm;
+	if (!fsm)
+		return -ENOENT;
+
+	if (fsm->id != state) {
+		fsm->id = state;
+		dwc3_otg_run_sm(fsm);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(dwc3_exynos_id_event);
+
+/**
+ * dwc3_exynos_vbus_event - receive VBus change event.
+ *
+ * vbus_active : New VBus state, true if active, false otherwise.
+ *
+ * Context: may sleep.
+ */
+int dwc3_exynos_vbus_event(struct device *dev, bool vbus_active)
+{
+	struct dwc3_exynos	*exynos;
+	struct otg_fsm		*fsm;
+
+	dev_dbg(dev, "EVENT: VBUS: %sactive\n", vbus_active ? "" : "in");
+
+	exynos = dev_get_drvdata(dev);
+	if (!exynos)
+		return -ENOENT;
+
+	fsm = exynos->rsw.fsm;
+	if (!fsm)
+		return -ENOENT;
+
+	if (fsm->b_sess_vld != vbus_active) {
+		fsm->b_sess_vld = vbus_active;
+		dwc3_otg_run_sm(fsm);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(dwc3_exynos_vbus_event);
 
 int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
 {
@@ -227,8 +293,10 @@ void dwc3_exynos_rsw_exit(struct device *dev)
 	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
 	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
 
-	free_irq(gpio_to_irq(rsw->id_gpio), rsw);
-	free_irq(gpio_to_irq(rsw->b_sess_gpio), rsw);
+	if (gpio_is_valid(rsw->id_gpio))
+		free_irq(gpio_to_irq(rsw->id_gpio), rsw);
+	if (gpio_is_valid(rsw->b_sess_gpio))
+		free_irq(gpio_to_irq(rsw->b_sess_gpio), rsw);
 	rsw->fsm = NULL;
 
 }
@@ -253,23 +321,12 @@ static struct dwc3_exynos *dwc3_exynos_match(struct device *dev)
 bool dwc3_exynos_rsw_available(struct device *dev)
 {
 	struct dwc3_exynos	*exynos;
-	struct dwc3_exynos_rsw	*rsw;
-	bool			ret;
 
 	exynos = dwc3_exynos_match(dev);
 	if (!exynos)
 		return false;
 
-	rsw = &exynos->rsw;
-
-	ret = gpio_is_valid(rsw->boost5v_gpio) &&
-	      gpio_is_valid(rsw->vbus_gpio) &&
-	      gpio_is_valid(rsw->id_gpio) &&
-	      gpio_is_valid(rsw->b_sess_gpio);
-	if (ret)
-		dev_info(dev, "DWC3 Exynos Role Switch is available\n");
-
-	return ret;
+	return true;
 }
 
 
