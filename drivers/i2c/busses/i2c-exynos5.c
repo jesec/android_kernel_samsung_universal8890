@@ -109,9 +109,11 @@ static LIST_HEAD(drvdata_list);
 #define HSI2C_RX_FIFO_EMPTY			(1u << 24)
 #define HSI2C_RX_FIFO_FULL			(1u << 23)
 #define HSI2C_RX_FIFO_LVL(x)			((x >> 16) & 0x7f)
+#define HSI2C_RX_FIFO_LVL_MASK			(0x7F << 16)
 #define HSI2C_TX_FIFO_EMPTY			(1u << 8)
 #define HSI2C_TX_FIFO_FULL			(1u << 7)
 #define HSI2C_TX_FIFO_LVL(x)			((x >> 0) & 0x7f)
+#define HSI2C_TX_FIFO_LVL_MASK			(0x7F << 0)
 #define HSI2C_FIFO_EMPTY			(HSI2C_RX_FIFO_EMPTY |	\
 						HSI2C_TX_FIFO_EMPTY)
 
@@ -159,6 +161,7 @@ static LIST_HEAD(drvdata_list);
 
 /* timeout for pm runtime autosuspend */
 #define EXYNOS5_I2C_PM_TIMEOUT		1000	/* ms */
+#define EXYNOS5_FIFO_SIZE		16
 
 struct exynos5_i2c {
 	struct list_head		node;
@@ -444,11 +447,15 @@ static irqreturn_t exynos5_i2c_irq(int irqno, void *dev_id)
 		if (i2c->msg_ptr >= i2c->msg->len)
 			exynos5_i2c_stop(i2c);
 	} else {
-		byte = i2c->msg->buf[i2c->msg_ptr++];
-		writel(byte, i2c->regs + HSI2C_TX_DATA);
+		if ((readl(i2c->regs + HSI2C_FIFO_STATUS)
+				& HSI2C_TX_FIFO_LVL_MASK) < EXYNOS5_FIFO_SIZE)
+		{
+			byte = i2c->msg->buf[i2c->msg_ptr++];
+			writel(byte, i2c->regs + HSI2C_TX_DATA);
 
-		if (i2c->msg_ptr >= i2c->msg->len)
-			exynos5_i2c_stop(i2c);
+			if (i2c->msg_ptr >= i2c->msg->len)
+				exynos5_i2c_stop(i2c);
+		}
 	}
 
 	tmp = readl(i2c->regs + HSI2C_INT_STATUS);
@@ -575,7 +582,7 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c,
 			while (time_before(jiffies, timeout) &&
 				(i2c->msg_ptr < i2c->msg->len)) {
 				if ((readl(i2c->regs + HSI2C_FIFO_STATUS)
-					& 0x7f) < 64) {
+					& HSI2C_TX_FIFO_LVL_MASK) < EXYNOS5_FIFO_SIZE) {
 					byte = i2c->msg->buf
 						[i2c->msg_ptr++];
 					writel(byte,
