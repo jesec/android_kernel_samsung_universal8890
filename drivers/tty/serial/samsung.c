@@ -562,7 +562,7 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 	return ret;
 }
 
-#ifdef CONFIG_PM_RUNTIME
+#if defined(CONFIG_PM_RUNTIME) && defined(CONFIG_SND_SAMSUNG_AUDSS)
 static void aud_uart_get_sync(struct platform_device *pdev, struct uart_port *port)
 {
 	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
@@ -1269,7 +1269,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	else
 		ourport->check_separated_clk = 0;
 
-#ifdef CONFIG_PM_RUNTIME
+#if defined(CONFIG_PM_RUNTIME) && defined(CONFIG_SND_SAMSUNG_AUDSS)
 	if (of_find_property(platdev->dev.of_node, "samsung,lpass-subip", NULL))
 		lpass_register_subip(&platdev->dev, "aud-uart");
 #endif
