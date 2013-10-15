@@ -8,3 +8,4 @@ exynos-hevc-y += hevc_dec.o
 exynos-hevc-y += hevc_mem.o
 exynos-hevc-y += hevc_reg.o
 exynos-hevc-y += hevc_ctrl.o
+exynos-hevc-y += hevc_qos.o

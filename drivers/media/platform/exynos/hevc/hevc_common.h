@@ -27,6 +27,8 @@
 
 #include <media/videobuf2-core.h>
 
+#include <mach/exynos-hevc.h>
+
 /*
  * CONFIG_HEVC_USE_BUS_DEVFREQ might be defined in exynos-hevc.h.
  * So pm_qos.h should be checked after exynos-hevc.h
@@ -218,7 +220,7 @@ struct hevc_dev {
 	struct hevc_pm	pm;
 	struct hevc_fw	fw;
 	struct hevc_variant	*variant;
-	struct exynos_hevc_platdata	*pdata;
+	struct hevc_platdata	*pdata;
 
 	int num_inst;
 	spinlock_t irqlock;

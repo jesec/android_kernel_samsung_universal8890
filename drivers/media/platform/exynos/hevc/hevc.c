@@ -305,7 +305,6 @@ static void hevc_watchdog_worker(struct work_struct *work)
 		if (ctx && (ctx->inst_no != HEVC_NO_INSTANCE_SET)) {
 			ctx->state = HEVCINST_ERROR;
 			ctx->inst_no = HEVC_NO_INSTANCE_SET;
-			hevc_qos_off(ctx);
 			hevc_cleanup_queue(&ctx->dst_queue,
 				&ctx->vq_dst);
 			hevc_cleanup_queue(&ctx->src_queue,
@@ -316,6 +315,12 @@ static void hevc_watchdog_worker(struct work_struct *work)
 	}
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
+
+	for (i = 0; i < HEVC_NUM_CONTEXTS; i++) {
+		ctx = dev->ctx[i];
+		if (ctx && (ctx->inst_no != HEVC_NO_INSTANCE_SET))
+			hevc_qos_off(ctx);
+	}
 
 	spin_lock_irq(&dev->condlock);
 	dev->hw_lock = 0;
@@ -899,7 +904,7 @@ static inline void hevc_handle_error(struct hevc_ctx *ctx,
 		/* This error had to happen while acquireing instance */
 	case HEVCINST_GOT_INST:
 		/* This error had to happen while parsing vps only */
-		if(err == HEVC_VPS_ONLY_ERROR) {
+		if (err == HEVC_VPS_ONLY_ERROR) {
 			ctx->state = HEVCINST_VPS_PARSED_ONLY;
 			if (!list_empty(&ctx->src_queue)) {
 				src_buf = list_entry(ctx->src_queue.next, struct hevc_buf,
@@ -1031,8 +1036,8 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 			ctx->img_height = hevc_get_img_height();
 			ctx->lcu_size = hevc_get_lcu_size();
 
-			hevc_debug(2,"ctx->img_width = %d\n", ctx->img_width);
-			hevc_debug(2,"ctx->img_height = %d\n", ctx->img_height);
+			hevc_debug(2, "ctx->img_width = %d\n", ctx->img_width);
+			hevc_debug(2, "ctx->img_height = %d\n", ctx->img_height);
 
 			switch (ctx->lcu_size) {
 			case 0:
@@ -1049,7 +1054,7 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 			}
 
 			ctx->dpb_count = hevc_get_dpb_count();
-			hevc_debug(2,"dpb_count = %d\n", ctx->dpb_count);
+			hevc_debug(2, "dpb_count = %d\n", ctx->dpb_count);
 
 			dec->internal_dpb = 0;
 			hevc_dec_store_crop_info(ctx);
@@ -1602,6 +1607,57 @@ static struct video_device hevc_dec_videodev = {
 
 static void *hevc_get_drv_data(struct platform_device *pdev);
 
+#ifdef CONFIG_HEVC_USE_BUS_DEVFREQ
+#define QOS_STEP_NUM (4)
+static struct hevc_qos g_hevc_qos_table[QOS_STEP_NUM];
+#endif
+
+
+#ifdef CONFIG_HEVC_USE_BUS_DEVFREQ
+static int parse_hevc_qos_platdata(struct device_node *np, char *node_name,
+	struct hevc_qos *pdata)
+{
+	int ret = 0;
+	struct device_node *np_qos;
+
+	np_qos = of_find_node_by_name(np, node_name);
+	if (!np_qos) {
+		pr_err("%s: could not find hevc_qos_platdata node\n",
+			node_name);
+		return -EINVAL;
+	}
+
+	of_property_read_u32(np_qos, "thrd_mb", &pdata->thrd_mb);
+	of_property_read_u32(np_qos, "freq_hevc", &pdata->freq_hevc);
+	of_property_read_u32(np_qos, "freq_int", &pdata->freq_int);
+	of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
+	of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
+	of_property_read_u32(np_qos, "freq_kfc", &pdata->freq_kfc);
+
+	return ret;
+}
+#endif
+
+static void hevc_parse_dt(struct device_node *np, struct hevc_dev *hevc)
+{
+	struct hevc_platdata	*pdata = hevc->pdata;
+
+	if (!np)
+		return;
+
+	of_property_read_u32(np, "ip_ver", &pdata->ip_ver);
+	of_property_read_u32(np, "clock_rate", &pdata->clock_rate);
+	of_property_read_u32(np, "min_rate", &pdata->min_rate);
+#ifdef CONFIG_HEVC_USE_BUS_DEVFREQ
+	of_property_read_u32(np, "num_qos_steps", &pdata->num_qos_steps);
+
+	parse_hevc_qos_platdata(np, "hevc_qos_variant_0", &g_hevc_qos_table[0]);
+	parse_hevc_qos_platdata(np, "hevc_qos_variant_1", &g_hevc_qos_table[1]);
+	parse_hevc_qos_platdata(np, "hevc_qos_variant_2", &g_hevc_qos_table[2]);
+	parse_hevc_qos_platdata(np, "hevc_qos_variant_3", &g_hevc_qos_table[3]);
+#endif
+}
+
 /* HEVC probe function */
 static int hevc_probe(struct platform_device *pdev)
 {
@@ -1627,11 +1683,19 @@ static int hevc_probe(struct platform_device *pdev)
 	spin_lock_init(&dev->condlock);
 
 	dev->device = &pdev->dev;
-	dev->pdata = pdev->dev.platform_data;
+
+	dev->pdata = devm_kzalloc(&pdev->dev, sizeof(struct hevc_platdata), GFP_KERNEL);
+	if (!dev->pdata) {
+		dev_err(&pdev->dev, "no memory for state\n");
+		return -ENOMEM;
+	}
+
+	hevc_parse_dt(dev->device->of_node, dev);
 
 #ifdef CONFIG_HEVC_USE_BUS_DEVFREQ
 	/* initial clock rate should be min rate */
 	dev->curr_rate = dev->min_rate = dev->pdata->min_rate;
+	dev->pdata->qos_table = g_hevc_qos_table;
 #endif
 
 	dev->variant = hevc_get_drv_data(pdev);
