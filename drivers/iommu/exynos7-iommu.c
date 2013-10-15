@@ -320,6 +320,8 @@ static void sysmmu_unblock(void __iomem *sfrbase)
 	__raw_writel(CTRL_ENABLE, sfrbase + REG_MMU_CTRL);
 }
 
+static void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
+
 static bool sysmmu_block(void __iomem *sfrbase)
 {
 	int i = 120;
@@ -329,6 +331,8 @@ static bool sysmmu_block(void __iomem *sfrbase)
 		--i;
 
 	if (!(__raw_readl(sfrbase + REG_MMU_STATUS) & 1)) {
+		dump_sysmmu_tlb_pb(sfrbase);
+		panic("Failed to block System MMU!");
 		sysmmu_unblock(sfrbase);
 		return false;
 	}
@@ -881,8 +885,7 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 				__sysmmu_tlb_invalidate_range(
 					drvdata->sfrbases[i], start, size);
 			} else {
-				if (!WARN_ON(!sysmmu_block(
-						drvdata->sfrbases[i])))
+				if (sysmmu_block(drvdata->sfrbases[i]))
 					__sysmmu_tlb_invalidate(
 							drvdata->sfrbases[i]);
 				sysmmu_unblock(drvdata->sfrbases[i]);
