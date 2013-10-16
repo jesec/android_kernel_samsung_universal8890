@@ -67,13 +67,6 @@ static struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 32 },
 		.color		= SC_COLOR_RGB,
 	}, {
-		.name		= "ARGB8888",
-		.pixelformat	= V4L2_PIX_FMT_ARGB32,
-		.num_planes	= 1,
-		.num_comp	= 1,
-		.bitperpixel	= { 32 },
-		.color		= SC_COLOR_RGB,
-	}, {
 		.name		= "YUV 4:2:0 contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV12,
 		.num_planes	= 1,
@@ -218,28 +211,6 @@ static struct sc_fmt sc_formats[] = {
 
 #define SCALE_RATIO(x, y)	((65536 * x) / y)
 
-static struct sc_variant variant_5a = {
-	.limit_input = {
-		.min_w		= 16,
-		.min_h		= 16,
-		.max_w		= 16384,
-		.max_h		= 16384,
-		.align_w	= 0,
-		.align_h	= 0,
-	},
-	.limit_output = {
-		.min_w		= 4,
-		.min_h		= 4,
-		.max_w		= 4096,
-		.max_h		= 4096,
-		.align_w	= 0,
-		.align_h	= 0,
-	},
-	.sc_up_max		= SCALE_RATIO(1, 16),
-	.sc_down_min		= SCALE_RATIO(4, 1),
-	.sc_down_swmin		= SCALE_RATIO(16, 1),
-};
-
 static struct sc_variant variant = {
 	.limit_input = {
 		.min_w		= 16,
@@ -271,9 +242,6 @@ static struct sc_fmt *sc_find_format(struct sc_dev *sc, struct v4l2_format *f)
 	for (i = 0; i < ARRAY_SIZE(sc_formats); ++i) {
 		sc_fmt = &sc_formats[i];
 		if (sc_fmt->pixelformat == f->fmt.pix_mp.pixelformat) {
-			if (sc_ver_is_5a(sc) && (sc_fmt->num_planes == 3 ||
-				sc_fmt->pixelformat == V4L2_PIX_FMT_NV12MT_16X16))
-				return NULL;
 			if (!V4L2_TYPE_IS_OUTPUT(f->type) &&
 				sc_fmt->pixelformat == V4L2_PIX_FMT_NV12MT_16X16)
 				return NULL;
@@ -380,17 +348,10 @@ static int sc_v4l2_try_fmt_mplane(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
-	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
+	if (V4L2_TYPE_IS_OUTPUT(f->type))
 		limit = &ctx->sc_dev->variant->limit_input;
-		/* rotation max source size is 4Kx4K */
-		if (sc_ver_is_5a(ctx->sc_dev) &&
-			(ctx->rotation == 90 || ctx->rotation == 270)) {
-			limit->max_w = 4096;
-			limit->max_h = 4096;
-		}
-	} else {
+	else
 		limit = &ctx->sc_dev->variant->limit_output;
-	}
 
 	/*
 	 * Y_SPAN - should even in interleaved YCbCr422
@@ -536,26 +497,6 @@ static int sc_v4l2_qbuf(struct file *file, void *fh,
 			 struct v4l2_buffer *buf)
 {
 	struct sc_ctx *ctx = fh_to_sc_ctx(fh);
-
-	if (sc_ver_is_5a(ctx->sc_dev)) {
-		/*
-		 * Exynos5410 scaler reads more than source image size
-		 * when rotation and width size not aligned 64 bytes.
-		 * To resolve this, increase plane length.
-		 */
-		if (V4L2_TYPE_IS_OUTPUT(buf->type) &&
-				(ctx->rotation == 90 || ctx->rotation == 270)) {
-			struct sc_frame *frame;
-			frame = ctx_get_frame(ctx, buf->type);
-			if (frame->width % 32) {
-				int i;
-				for (i = 0; i < buf->length; i++)
-					buf->m.planes[i].length += 64;
-				sc_dbg("increase plane length to 0x%x\n",
-						buf->m.planes[0].length);
-			}
-		}
-	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
 }
@@ -1036,22 +977,6 @@ static int sc_vb2_queue_setup(struct vb2_queue *vq,
 	for (i = 0; i < frame->sc_fmt->num_planes; i++) {
 		sizes[i] = frame->bytesused[i];
 		allocators[i] = ctx->sc_dev->alloc_ctx;
-
-		if (sc_ver_is_5a(ctx->sc_dev)) {
-			/*
-			 * Exynos5410 scaler reads more than source image size
-			 * when width size is not aligned 64 bytes and rotation.
-			 * To resolve this, increase plane length.
-			 */
-			if (V4L2_TYPE_IS_OUTPUT(vq->type) &&
-				(ctx->rotation == 90 || ctx->rotation == 270)) {
-				if (frame->width % 32) {
-					sizes[i] += 64;
-					sc_dbg("increase sizes[%d] to 0x%x\n",
-							i, sizes[i]);
-				}
-			}
-		}
 	}
 
 	return vb2_queue_init(vq);
@@ -1478,88 +1403,6 @@ static const struct v4l2_file_operations sc_v4l2_fops = {
 	.mmap		= sc_mmap,
 };
 
-static int sc_clk_get(struct sc_dev *sc)
-{
-	int ret;
-	char *parn_clkname, *chld_clkname, *gate_clkname;
-
-	of_property_read_string_index(sc->dev->of_node,
-		"clock-names", SC_PARN_CLK, (const char **)&parn_clkname);
-	of_property_read_string_index(sc->dev->of_node,
-		"clock-names", SC_CHLD_CLK, (const char **)&chld_clkname);
-	of_property_read_string_index(sc->dev->of_node,
-		"clock-names", SC_GATE_CLK, (const char **)&gate_clkname);
-
-	sc_dbg("clknames: parent %s child %s gate %s\n",
-		parn_clkname, chld_clkname, gate_clkname);
-
-	sc->clk_parn = clk_get(sc->dev, parn_clkname);
-	if (IS_ERR(sc->clk_parn)) {
-		dev_err(sc->dev, "failed to get parent clk\n");
-		goto err_clk_get_parn;
-	}
-
-	sc->clk_chld = clk_get(sc->dev, chld_clkname);
-	if (IS_ERR(sc->clk_chld)) {
-		dev_err(sc->dev, "failed to get child clk\n");
-		goto err_clk_get_chld;
-	}
-
-	sc->aclk = clk_get(sc->dev, gate_clkname);
-	if (IS_ERR(sc->aclk)) {
-		dev_err(sc->dev, "failed to get gate clk\n");
-		goto err_clk_get;
-	}
-
-	ret = clk_prepare(sc->aclk);
-	if (ret < 0) {
-		dev_err(sc->dev, "failed to prepare gate clk\n");
-		goto err_clk_prepare;
-	}
-
-	return 0;
-
-err_clk_prepare:
-	clk_put(sc->aclk);
-err_clk_get:
-	clk_put(sc->clk_chld);
-err_clk_get_chld:
-	clk_put(sc->clk_parn);
-err_clk_get_parn:
-	return -ENXIO;
-}
-
-static void sc_clk_put(struct sc_dev *sc)
-{
-	clk_unprepare(sc->aclk);
-	clk_put(sc->aclk);
-	clk_put(sc->clk_chld);
-	clk_put(sc->clk_parn);
-}
-
-#ifdef CONFIG_PM_RUNTIME
-static void sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
-{
-	if (status == SC_CLK_ON) {
-		clk_set_parent(sc->clk_chld, sc->clk_parn);
-		atomic_inc(&sc->clk_cnt);
-		clk_enable(sc->aclk);
-		dev_dbg(sc->dev, "clock enabled\n");
-	} else if (status == SC_CLK_OFF) {
-		int clk_cnt = atomic_dec_return(&sc->clk_cnt);
-		if (clk_cnt < 0) {
-			dev_err(sc->dev, "scaler clock control is wrong!!\n");
-			atomic_set(&sc->clk_cnt, 0);
-		} else {
-			clk_disable(sc->aclk);
-			dev_dbg(sc->dev, "clock disabled\n");
-		}
-	}
-}
-#else
-#define sc_clock_gating(sc, on)
-#endif
-
 static void sc_watchdog(unsigned long arg)
 {
 	struct sc_dev *sc = (struct sc_dev *)arg;
@@ -1888,45 +1731,11 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 
 static void sc_set_dithering(struct sc_ctx *ctx)
 {
-	struct sc_frame *s_frame, *d_frame;
 	struct sc_dev *sc = ctx->sc_dev;
 	unsigned int val = 0;
 
-	if (sc_ver_is_5a(sc)) {
-		s_frame = &ctx->s_frame;
-		d_frame = &ctx->d_frame;
-
-		if (s_frame->sc_fmt->pixelformat != d_frame->sc_fmt->pixelformat
-			&& sc_fmt_is_rgb(d_frame->sc_fmt->color) && ctx->dith) {
-			switch (d_frame->sc_fmt->pixelformat) {
-			case V4L2_PIX_FMT_RGB32:
-			case V4L2_PIX_FMT_BGR32:
-			case V4L2_PIX_FMT_ARGB32:
-				val = sc_dith_val(SC_DITH_8BIT, SC_DITH_8BIT,
-						SC_DITH_8BIT);
-				break;
-			case V4L2_PIX_FMT_RGB565:
-				val = sc_dith_val(SC_DITH_5BIT, SC_DITH_6BIT,
-						SC_DITH_5BIT);
-				break;
-			case V4L2_PIX_FMT_RGB555X:
-				val = sc_dith_val(SC_DITH_5BIT, SC_DITH_5BIT,
-						SC_DITH_5BIT);
-				break;
-			case V4L2_PIX_FMT_RGB444:
-				val = sc_dith_val(SC_DITH_4BIT, SC_DITH_4BIT,
-						SC_DITH_4BIT);
-				break;
-			default:
-				val = sc_dith_val(SC_DITH_8BIT, SC_DITH_8BIT,
-						SC_DITH_8BIT);
-				break;
-			}
-		}
-	} else {
-		if (ctx->dith)
-			val = sc_dith_val(1, 1, 1);
-	}
+	if (ctx->dith)
+		val = sc_dith_val(1, 1, 1);
 
 	sc_dbg("dither value is 0x%x\n", val);
 	sc_hwset_dith(sc, val);
@@ -2171,6 +1980,84 @@ err_v4l2_dev:
 	return ret;
 }
 
+static void sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
+{
+	if (status == SC_CLK_ON) {
+		clk_set_parent(sc->clk_chld, sc->clk_parn);
+		atomic_inc(&sc->clk_cnt);
+		clk_enable(sc->aclk);
+		dev_dbg(sc->dev, "clock enabled\n");
+	} else if (status == SC_CLK_OFF) {
+		int clk_cnt = atomic_dec_return(&sc->clk_cnt);
+		if (clk_cnt < 0) {
+			dev_err(sc->dev, "scaler clock control is wrong!!\n");
+			atomic_set(&sc->clk_cnt, 0);
+		} else {
+			clk_disable(sc->aclk);
+			dev_dbg(sc->dev, "clock disabled\n");
+		}
+	}
+}
+
+static int sc_clk_get(struct sc_dev *sc)
+{
+	int ret;
+	char *parn_clkname, *chld_clkname, *gate_clkname;
+
+	of_property_read_string_index(sc->dev->of_node,
+		"clock-names", SC_PARN_CLK, (const char **)&parn_clkname);
+	of_property_read_string_index(sc->dev->of_node,
+		"clock-names", SC_CHLD_CLK, (const char **)&chld_clkname);
+	of_property_read_string_index(sc->dev->of_node,
+		"clock-names", SC_GATE_CLK, (const char **)&gate_clkname);
+
+	sc_dbg("clknames: parent %s child %s gate %s\n",
+		parn_clkname, chld_clkname, gate_clkname);
+
+	sc->clk_parn = clk_get(sc->dev, parn_clkname);
+	if (IS_ERR(sc->clk_parn)) {
+		dev_err(sc->dev, "failed to get parent clk\n");
+		goto err_clk_get_parn;
+	}
+
+	sc->clk_chld = clk_get(sc->dev, chld_clkname);
+	if (IS_ERR(sc->clk_chld)) {
+		dev_err(sc->dev, "failed to get child clk\n");
+		goto err_clk_get_chld;
+	}
+
+	sc->aclk = clk_get(sc->dev, gate_clkname);
+	if (IS_ERR(sc->aclk)) {
+		dev_err(sc->dev, "failed to get gate clk\n");
+		goto err_clk_get;
+	}
+
+	ret = clk_prepare(sc->aclk);
+	if (ret < 0) {
+		dev_err(sc->dev, "failed to prepare gate clk\n");
+		goto err_clk_prepare;
+	}
+
+	return 0;
+
+err_clk_prepare:
+	clk_put(sc->aclk);
+err_clk_get:
+	clk_put(sc->clk_chld);
+err_clk_get_chld:
+	clk_put(sc->clk_parn);
+err_clk_get_parn:
+	return -ENXIO;
+}
+
+static void sc_clk_put(struct sc_dev *sc)
+{
+	clk_unprepare(sc->aclk);
+	clk_put(sc->aclk);
+	clk_put(sc->clk_chld);
+	clk_put(sc->clk_parn);
+}
+
 #ifdef CONFIG_PM_SLEEP
 static int sc_suspend(struct device *dev)
 {
@@ -2304,10 +2191,7 @@ static int sc_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "scaler version is 0x%08x\n", sc->ver);
 	pm_runtime_put_sync(sc->dev);
 
-	if (sc_ver_is_5a(sc))
-		sc->variant = &variant_5a;
-	else
-		sc->variant = &variant;
+	sc->variant = &variant;
 
 	ret = sc_register_m2m_device(sc);
 	if (ret) {
@@ -2331,9 +2215,7 @@ static int sc_remove(struct platform_device *pdev)
 
 	sc->vb2->suspend(sc->alloc_ctx);
 
-	clk_put(sc->aclk);
-	clk_put(sc->clk_chld);
-	clk_put(sc->clk_parn);
+	sc_clk_put(sc);
 
 	if (timer_pending(&sc->wdt.timer))
 		del_timer(&sc->wdt.timer);

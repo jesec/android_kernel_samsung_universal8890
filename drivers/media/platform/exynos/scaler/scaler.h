@@ -23,14 +23,13 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/v4l2-ctrls.h>
-
-#include "scaler-regs.h"
-
 #if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
 #include <media/videobuf2-cma-phys.h>
 #elif defined(CONFIG_VIDEOBUF2_ION)
 #include <media/videobuf2-ion.h>
 #endif
+
+#include "scaler-regs.h"
 
 extern int sc_log_level;
 #define sc_dbg(fmt, args...)						\
@@ -91,8 +90,6 @@ extern int sc_log_level;
 #define sc_fmt_is_ayv12(x)	((x) == V4L2_PIX_FMT_YVU420)
 #define sc_dith_val(a, b, c)	((a << SCALER_DITH_R_SHIFT) |	\
 		(b << SCALER_DITH_G_SHIFT) | (c << SCALER_DITH_B_SHIFT))
-#define sc_ver_is_5a(sc)	(sc->ver == 0x3)
-#define sc_num_pbuf(sc)		(sc_ver_is_5a(sc) ? 2 : 3)
 
 #if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
 extern const struct sc_vb2 sc_vb2_cma;
@@ -330,7 +327,7 @@ struct sc_vb2;
  * @pdata:	pointer to the device platform data
  * @variant:	the IP variant information
  * @m2m:	memory-to-memory V4L2 device information
- * @id:		Rotator device index (0..SC_MAX_DEVS)
+ * @id:		scaler device index (0..SC_MAX_DEVS)
  * @aclk:	aclk required for scaler operation
  * @pclk:	pclk required for scaler operation
  * @clk_chld:	child clk of mux required for scaler operation
@@ -345,7 +342,7 @@ struct sc_vb2;
  * @slock:	the spinlock pscecting this data structure
  * @lock:	the mutex pscecting this data structure
  * @wdt:	watchdog timer information
- * @clk_cnt:	scator clock on/off count
+ * @clk_cnt:	scalor clock on/off count
  */
 struct sc_dev {
 	struct device			*dev;
@@ -368,10 +365,6 @@ struct sc_dev {
 	struct mutex			lock;
 	struct sc_wdt			wdt;
 	atomic_t			clk_cnt;
-	void				*clk_private;
-	void *(*setup_clocks)(void);
-	bool (*init_clocks)(void *p);
-	void (*clean_clocks)(void *p);
 };
 
 /*
