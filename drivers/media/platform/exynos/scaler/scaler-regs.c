@@ -931,12 +931,12 @@ int sc_hwget_version(struct sc_dev *sc)
 
 void sc_hwset_soft_reset(struct sc_dev *sc)
 {
-	unsigned long cfg = 0;
+	unsigned long cfg;
 
-#ifdef SC_USE_SWRESET
-	cfg = SCALER_CFG_SOFT_RST;
-#else
+#ifdef SC_NO_SOFTRST
 	cfg = (SCALER_CFG_CSC_Y_OFFSET_SRC|SCALER_CFG_CSC_Y_OFFSET_DST);
+#else
+	cfg = SCALER_CFG_SOFT_RST;
 #endif
 
 	writel(cfg, sc->regs + SCALER_CFG);
