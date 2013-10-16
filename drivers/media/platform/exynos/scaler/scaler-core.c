@@ -1305,7 +1305,7 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.step = 1,
 		.min = 0,
 		.max = 255,
-		.def = 0,
+		.def = 255,
 	}, {
 		.ops = &sc_ctrl_ops,
 		.id = V4L2_CID_2D_BLEND_OP,
@@ -2109,7 +2109,7 @@ static void sc_m2m_device_run(void *priv)
 	sc_set_dithering(ctx);
 
 	if (ctx->bl_op)
-		sc_hwset_blend(sc, ctx->bl_op, ctx->pre_multi);
+		sc_hwset_blend(sc, ctx->bl_op, ctx->pre_multi, ctx->g_alpha);
 	if (ctx->color_fill)
 		sc_hwset_color_fill(sc, ctx->color);
 

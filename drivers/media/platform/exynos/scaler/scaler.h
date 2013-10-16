@@ -197,9 +197,11 @@ enum sc_bl_comp {
 	SRC_A,
 	SRC_C,
 	DST_A,
+	SRC_GA = 0x5,
 	INV_SA = 0x11,
 	INV_SC,
 	INV_DA,
+	INV_SAGA = 0x17,
 	ZERO = 0xff,
 };
 
@@ -457,7 +459,8 @@ static inline struct sc_frame *ctx_get_frame(struct sc_ctx *ctx,
 int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat);
 int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat);
 void sc_hwset_pre_multi_format(struct sc_dev *sc);
-void sc_hwset_blend(struct sc_dev *sc, enum sc_blend_op bl_op, bool pre_multi);
+void sc_hwset_blend(struct sc_dev *sc, enum sc_blend_op bl_op, bool pre_multi,
+		unsigned char g_alpha);
 void sc_hwset_color_fill(struct sc_dev *sc, unsigned int val);
 void sc_hwset_dith(struct sc_dev *sc, unsigned int val);
 void sc_hwset_csc_coef(struct sc_dev *sc, enum sc_csc_idx idx,
