@@ -192,6 +192,14 @@ static struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 16 },
 		.color		= SC_COLOR_YUV,
 	}, {
+		.name		= "YUV 4:2:2 contiguous 3-planar, Y/Cb/Cr",
+		.pixelformat	= V4L2_PIX_FMT_YUV422P,
+		.num_planes	= 1,
+		.num_comp	= 3,
+		.h_shift	= 1,
+		.bitperpixel	= { 16 },
+		.color		= SC_COLOR_YUV,
+	}, {
 		.name		= "YUV 4:4:4 contiguous Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV24,
 		.num_planes	= 1,

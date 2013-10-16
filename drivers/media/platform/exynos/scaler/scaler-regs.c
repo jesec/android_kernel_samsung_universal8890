@@ -394,6 +394,9 @@ int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat)
 			cfg |= SCALER_CFG_FMT_YCRCB422_2P;
 		}
 		break;
+	case V4L2_PIX_FMT_YUV422P:
+		cfg |= SCALER_CFG_FMT_YCBCR422_3P;
+		break;
 	case V4L2_PIX_FMT_NV24:
 		cfg |= SCALER_CFG_FMT_YCBCR444_2P;
 		break;
@@ -488,6 +491,9 @@ int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat)
 		} else {
 			cfg |= SCALER_CFG_FMT_YCRCB422_2P;
 		}
+		break;
+	case V4L2_PIX_FMT_YUV422P:
+		cfg |= SCALER_CFG_FMT_YCBCR422_3P;
 		break;
 	case V4L2_PIX_FMT_NV24:
 		cfg |= SCALER_CFG_FMT_YCBCR444_2P;
