@@ -143,7 +143,7 @@ static struct sc_fmt sc_formats[] = {
 		.num_comp	= 3,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= {8, 2, 2 },
+		.bitperpixel	= { 8, 2, 2 },
 		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YVU 4:2:0 non-contiguous 3-planar, Y/Cr/Cb",
@@ -152,7 +152,7 @@ static struct sc_fmt sc_formats[] = {
 		.num_comp	= 3,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= {8, 2, 2 },
+		.bitperpixel	= { 8, 2, 2 },
 		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:2 packed, YCbYCr",
@@ -740,23 +740,24 @@ static int sc_ctx_stop_req(struct sc_ctx *ctx)
 static void sc_calc_intbufsize(struct sc_dev *sc, struct sc_int_frame *int_frame)
 {
 	struct sc_frame *frame = &int_frame->frame;
-	unsigned int size;
+	unsigned int pixsize, bytesize;
 
-	size = frame->width * frame->height;
+	pixsize = frame->width * frame->height;
+	bytesize = (pixsize * frame->sc_fmt->bitperpixel[0]) >> 3;
 
 	switch (frame->sc_fmt->num_comp) {
 	case 1:
-		frame->addr.ysize = size * frame->sc_fmt->bitperpixel[0];
+		frame->addr.ysize = bytesize;
 		break;
 	case 2:
 		if (frame->sc_fmt->num_planes == 1) {
-			frame->addr.ysize = size;
-			frame->addr.cbsize = size;
+			frame->addr.ysize = pixsize;
+			frame->addr.cbsize = bytesize - pixsize;
 		} else if (frame->sc_fmt->num_planes == 2) {
 			frame->addr.ysize =
-				(size * frame->sc_fmt->bitperpixel[0]) / 8;
+				(pixsize * frame->sc_fmt->bitperpixel[0]) / 8;
 			frame->addr.cbsize =
-				(size * frame->sc_fmt->bitperpixel[1]) / 8;
+				(pixsize * frame->sc_fmt->bitperpixel[1]) / 8;
 		}
 		break;
 	case 3:
@@ -764,22 +765,21 @@ static void sc_calc_intbufsize(struct sc_dev *sc, struct sc_int_frame *int_frame
 			if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat)) {
 				unsigned int c_span;
 				c_span = ALIGN(frame->width >> 1, 16);
-				frame->addr.ysize = size;
+				frame->addr.ysize = pixsize;
 				frame->addr.cbsize = c_span * (frame->height >> 1);
 				frame->addr.crsize = frame->addr.cbsize;
 			} else {
-				frame->addr.ysize = size;
-				frame->addr.cbsize =
-				((size * frame->sc_fmt->bitperpixel[0]) / 8 - size) / 2;
+				frame->addr.ysize = pixsize;
+				frame->addr.cbsize = (bytesize - pixsize) / 2;
 				frame->addr.crsize = frame->addr.cbsize;
 			}
 		} else if (frame->sc_fmt->num_planes == 3) {
 			frame->addr.ysize =
-				(size * frame->sc_fmt->bitperpixel[0]) / 8;
+				(pixsize * frame->sc_fmt->bitperpixel[0]) / 8;
 			frame->addr.cbsize =
-				(size * frame->sc_fmt->bitperpixel[1]) / 8;
+				(pixsize * frame->sc_fmt->bitperpixel[1]) / 8;
 			frame->addr.crsize =
-				(size * frame->sc_fmt->bitperpixel[2]) / 8;
+				(pixsize * frame->sc_fmt->bitperpixel[2]) / 8;
 		} else {
 			dev_err(sc->dev, "Please check the num of comp\n");
 		}
@@ -1819,10 +1819,11 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 		struct sc_frame *frame)
 {
 	int ret;
-	unsigned int size;
+	unsigned int pixsize, bytesize;
 	void *cookie;
 
-	size = frame->width * frame->height;
+	pixsize = frame->width * frame->height;
+	bytesize = (pixsize * frame->sc_fmt->bitperpixel[0]) >> 3;
 
 	cookie = vb2_plane_cookie(vb2buf, 0);
 	if (!cookie)
@@ -1834,17 +1835,18 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 
 	frame->addr.cb = 0;
 	frame->addr.cr = 0;
+	frame->addr.cbsize = 0;
+	frame->addr.crsize = 0;
 
 	switch (frame->sc_fmt->num_comp) {
-	case 1:
-		frame->addr.ysize = size * frame->sc_fmt->bitperpixel[0];
+	case 1: /* rgb, yuyv */
+		frame->addr.ysize = bytesize;
 		break;
 	case 2:
 		if (frame->sc_fmt->num_planes == 1) {
-			frame->addr.cb = frame->addr.y + size;
-			frame->addr.ysize = size;
-			frame->addr.cbsize =
-				size * frame->sc_fmt->bitperpixel[0] - size;
+			frame->addr.cb = frame->addr.y + pixsize;
+			frame->addr.ysize = pixsize;
+			frame->addr.cbsize = bytesize - pixsize;
 		} else if (frame->sc_fmt->num_planes == 2) {
 			cookie = vb2_plane_cookie(vb2buf, 1);
 			if (!cookie)
@@ -1854,9 +1856,9 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 			if (ret != 0)
 				return ret;
 			frame->addr.ysize =
-				size * frame->sc_fmt->bitperpixel[0];
+				pixsize * frame->sc_fmt->bitperpixel[0] >> 3;
 			frame->addr.cbsize =
-				size * frame->sc_fmt->bitperpixel[1];
+				pixsize * frame->sc_fmt->bitperpixel[1] >> 3;
 		}
 		break;
 	case 3:
@@ -1864,18 +1866,17 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 			if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat)) {
 				unsigned int c_span;
 				c_span = ALIGN(frame->width >> 1, 16);
-				frame->addr.ysize = size;
+				frame->addr.ysize = pixsize;
 				frame->addr.cbsize = c_span * (frame->height >> 1);
 				frame->addr.crsize = frame->addr.cbsize;
-				frame->addr.cb = frame->addr.y + size;
+				frame->addr.cb = frame->addr.y + pixsize;
 				frame->addr.cr = frame->addr.cb + frame->addr.cbsize;
 			} else {
-				frame->addr.cb = frame->addr.y + size;
-				frame->addr.cr = frame->addr.cb + (size >> 2);
-				frame->addr.ysize = size;
-				frame->addr.cbsize =
-				(((size * frame->sc_fmt->bitperpixel[0]) >> 3) - size) / 2;
+				frame->addr.ysize = pixsize;
+				frame->addr.cbsize = (bytesize - pixsize) / 2;
 				frame->addr.crsize = frame->addr.cbsize;
+				frame->addr.cb = frame->addr.y + pixsize;
+				frame->addr.cr = frame->addr.cb + frame->addr.cbsize;
 			}
 		} else if (frame->sc_fmt->num_planes == 3) {
 			cookie = vb2_plane_cookie(vb2buf, 1);
@@ -1891,11 +1892,11 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 			if (ret != 0)
 				return ret;
 			frame->addr.ysize =
-				size * frame->sc_fmt->bitperpixel[0];
+				pixsize * frame->sc_fmt->bitperpixel[0] >> 3;
 			frame->addr.cbsize =
-				size * frame->sc_fmt->bitperpixel[1];
+				pixsize * frame->sc_fmt->bitperpixel[1] >> 3;
 			frame->addr.crsize =
-				size * frame->sc_fmt->bitperpixel[2];
+				pixsize * frame->sc_fmt->bitperpixel[2] >> 3;
 		} else {
 			dev_err(sc->dev, "Please check the num of comp\n");
 		}
@@ -1911,8 +1912,9 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 		frame->addr.cr = t_cb;
 	}
 
-	sc_dbg("y addr 0x%x Cb 0x%x Cr 0x%x\n",
-			frame->addr.y, frame->addr.cb, frame->addr.cr);
+	sc_dbg("y addr 0x%x y size 0x%x\n", frame->addr.y, frame->addr.ysize);
+	sc_dbg("cb addr 0x%x cb size 0x%x\n", frame->addr.cb, frame->addr.cbsize);
+	sc_dbg("cr addr 0x%x cr size 0x%x\n", frame->addr.cr, frame->addr.crsize);
 
 	return 0;
 }
