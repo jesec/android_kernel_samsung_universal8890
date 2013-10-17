@@ -590,7 +590,6 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 			      unsigned int old)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
-	struct platform_device *pdev = ourport->pdev;
 
 	ourport->pm_level = level;
 
@@ -604,7 +603,7 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 		aud_uart_get_sync(ourport->pdev, port);
 		clk_prepare_enable(ourport->clk);
 #ifdef CONFIG_PM_RUNTIME
-		if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		if (of_find_property(ourport->pdev->dev.of_node, "samsung,lpass-subip", NULL))
 			s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
 #endif
 		break;
