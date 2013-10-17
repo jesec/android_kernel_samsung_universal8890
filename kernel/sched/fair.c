@@ -9472,6 +9472,8 @@ static int __init register_sched_cpufreq_notifier(void)
 
 core_initcall(register_sched_cpufreq_notifier);
 
+#endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
+
 #if BOOT_BOOST_DURATION
 static int __init hmp_boot_boost(void)
 {
@@ -9481,5 +9483,3 @@ static int __init hmp_boot_boost(void)
 }
 pure_initcall(hmp_boot_boost);
 #endif
-
-#endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
