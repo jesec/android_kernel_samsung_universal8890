@@ -75,6 +75,7 @@ enum decon_update_bit {
 	S3CFB_SHADOW_PROTECT,
 	S3CFB_STAND_ALONE_UPDATE,
 	S3CFB_SYNC_SLAVE_UPDATE,
+	S3CFB_FLUSH_WORKQUEUE,
 };
 
 enum mdev_node {
