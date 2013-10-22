@@ -26,8 +26,8 @@
 	printk(KERN_ERR "%s:%d: " fmt "\n", __func__, __LINE__, ##args)
 
 #define MDEV_MODULE_NAME "exynos-mdev"
-#define MAX_GSC_SUBDEV		4
-#define MDEV_MAX_NUM	3
+#define MAX_GSC_SUBDEV		3
+#define MDEV_MAX_NUM		3
 
 #define GSC_OUT_PAD_SINK	0
 #define GSC_OUT_PAD_SOURCE	1
