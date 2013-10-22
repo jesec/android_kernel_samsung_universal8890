@@ -43,6 +43,8 @@
 #define S5P_MFC_NAME		"s5p-mfc"
 #define S5P_MFC_DEC_NAME	"s5p-mfc-dec"
 #define S5P_MFC_ENC_NAME	"s5p-mfc-enc"
+#define S5P_MFC_DEC_DRM_NAME	"s5p-mfc-dec-secure"
+#define S5P_MFC_ENC_DRM_NAME	"s5p-mfc-enc-secure"
 
 int debug;
 module_param(debug, int, S_IRUGO | S_IWUSR);
@@ -339,6 +341,7 @@ watchdog_exit:
 static inline enum s5p_mfc_node_type s5p_mfc_get_node_type(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
+	enum s5p_mfc_node_type node_type;
 
 	if (!vdev) {
 		mfc_err("failed to get video_device");
@@ -347,12 +350,26 @@ static inline enum s5p_mfc_node_type s5p_mfc_get_node_type(struct file *file)
 
 	mfc_debug(2, "video_device index: %d\n", vdev->index);
 
-	if (vdev->index == 0)
-		return MFCNODE_DECODER;
-	else if (vdev->index == 1)
-		return MFCNODE_ENCODER;
-	else
-		return MFCNODE_INVALID;
+	switch (vdev->index) {
+	case 0:
+		node_type = MFCNODE_DECODER;
+		break;
+	case 1:
+		node_type = MFCNODE_ENCODER;
+		break;
+	case 2:
+		node_type = MFCNODE_DECODER_DRM;
+		break;
+	case 3:
+		node_type = MFCNODE_ENCODER_DRM;
+		break;
+	default:
+		node_type = MFCNODE_INVALID;
+		break;
+	}
+
+	return node_type;
+
 }
 
 static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
@@ -1368,6 +1385,7 @@ static int s5p_mfc_open(struct file *file)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	int magic_offset;
 #endif
+	struct video_device *vdev = NULL;
 
 	mfc_debug(2, "mfc driver open called\n");
 
@@ -1396,7 +1414,28 @@ static int s5p_mfc_open(struct file *file)
 		goto err_ctx_alloc;
 	}
 
-	v4l2_fh_init(&ctx->fh, (node == MFCNODE_DECODER) ? dev->vfd_dec : dev->vfd_enc);
+	switch (node) {
+	case MFCNODE_DECODER:
+		vdev = dev->vfd_dec;
+		break;
+	case MFCNODE_ENCODER:
+		vdev = dev->vfd_enc;
+		break;
+	case MFCNODE_DECODER_DRM:
+		vdev = dev->vfd_dec_drm;
+		break;
+	case MFCNODE_ENCODER_DRM:
+		vdev = dev->vfd_enc_drm;
+		break;
+	default:
+		mfc_err("Invalid node(%d)\n", node);
+		break;
+	}
+
+	if (!vdev)
+		goto err_vdev;
+
+	v4l2_fh_init(&ctx->fh, vdev);
 	file->private_data = &ctx->fh;
 	v4l2_fh_add(&ctx->fh);
 
@@ -1421,7 +1460,7 @@ static int s5p_mfc_open(struct file *file)
 
 	init_waitqueue_head(&ctx->queue);
 
-	if (node == MFCNODE_DECODER)
+	if (is_decoder_node(node))
 		ret = s5p_mfc_init_dec_ctx(ctx);
 	else
 		ret = s5p_mfc_init_enc_ctx(ctx);
@@ -1556,10 +1595,10 @@ err_drm_start:
 	call_cop(ctx, cleanup_ctx_ctrls, ctx);
 
 err_ctx_ctrls:
-	if (node == MFCNODE_DECODER) {
+	if (is_decoder_node(node)) {
 		kfree(ctx->dec_priv->ref_info);
 		kfree(ctx->dec_priv);
-	} else if (ctx->type == MFCINST_ENCODER) {
+	} else {
 		kfree(ctx->enc_priv);
 	}
 
@@ -1569,6 +1608,7 @@ err_ctx_init:
 err_ctx_num:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
+err_vdev:
 	kfree(ctx);
 
 err_ctx_alloc:
@@ -1748,10 +1788,13 @@ static unsigned int s5p_mfc_poll(struct file *file,
 {
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
 	unsigned int ret = 0;
+	enum s5p_mfc_node_type node_type;
 
-	if (s5p_mfc_get_node_type(file) == MFCNODE_DECODER)
+	node_type = s5p_mfc_get_node_type(file);
+
+	if (is_decoder_node(node_type))
 		ret = vb2_poll(&ctx->vq_src, file, wait);
-	else if (s5p_mfc_get_node_type(file) == MFCNODE_ENCODER)
+	else
 		ret = vb2_poll(&ctx->vq_dst, file, wait);
 
 	return ret;
@@ -1798,6 +1841,20 @@ static struct video_device s5p_mfc_dec_videodev = {
 
 static struct video_device s5p_mfc_enc_videodev = {
 	.name = S5P_MFC_ENC_NAME,
+	.fops = &s5p_mfc_fops,
+	.minor = -1,
+	.release = video_device_release,
+};
+
+static struct video_device s5p_mfc_dec_drm_videodev = {
+	.name = S5P_MFC_DEC_DRM_NAME,
+	.fops = &s5p_mfc_fops,
+	.minor = -1,
+	.release = video_device_release,
+};
+
+static struct video_device s5p_mfc_enc_drm_videodev = {
+	.name = S5P_MFC_ENC_DRM_NAME,
 	.fops = &s5p_mfc_fops,
 	.minor = -1,
 	.release = video_device_release,
@@ -2012,6 +2069,64 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->vfd_enc = vfd;
 
 	video_set_drvdata(vfd, dev);
+
+	/* secure decoder */
+	vfd = video_device_alloc();
+	if (!vfd) {
+		v4l2_err(&dev->v4l2_dev, "Failed to allocate video device\n");
+		ret = -ENOMEM;
+		goto alloc_vdev_dec;
+	}
+	*vfd = s5p_mfc_dec_drm_videodev;
+
+	vfd->ioctl_ops = get_dec_v4l2_ioctl_ops();
+
+	vfd->lock = &dev->mfc_mutex;
+	vfd->v4l2_dev = &dev->v4l2_dev;
+	vfd->vfl_dir = VFL_DIR_M2M;
+
+	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_dec_drm_videodev.name, dev->id);
+
+	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_DEC_DRM + 2*dev->id);
+	if (ret) {
+		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
+		video_device_release(vfd);
+		goto reg_vdev_dec;
+	}
+	v4l2_info(&dev->v4l2_dev, "secure decoder registered as /dev/video%d\n",
+								vfd->num);
+	dev->vfd_dec_drm = vfd;
+
+	video_set_drvdata(vfd, dev);
+
+	/* secure encoder */
+	vfd = video_device_alloc();
+	if (!vfd) {
+		v4l2_err(&dev->v4l2_dev, "Failed to allocate video device\n");
+		ret = -ENOMEM;
+		goto alloc_vdev_enc;
+	}
+	*vfd = s5p_mfc_enc_drm_videodev;
+
+	vfd->ioctl_ops = get_enc_v4l2_ioctl_ops();
+
+	vfd->lock = &dev->mfc_mutex;
+	vfd->v4l2_dev = &dev->v4l2_dev;
+	vfd->vfl_dir = VFL_DIR_M2M;
+	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_enc_videodev.name, dev->id);
+
+	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_ENC_DRM + 2*dev->id);
+	if (ret) {
+		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
+		video_device_release(vfd);
+		goto reg_vdev_enc;
+	}
+	v4l2_info(&dev->v4l2_dev, "secure encoder registered as /dev/video%d\n",
+								vfd->num);
+	dev->vfd_enc_drm = vfd;
+
+	video_set_drvdata(vfd, dev);
+	/* end of node setting*/
 
 	platform_set_drvdata(pdev, dev);
 

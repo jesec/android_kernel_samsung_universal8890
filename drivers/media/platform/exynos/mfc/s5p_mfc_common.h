@@ -77,6 +77,8 @@ enum s5p_mfc_node_type {
 	MFCNODE_INVALID = -1,
 	MFCNODE_DECODER = 0,
 	MFCNODE_ENCODER = 1,
+	MFCNODE_DECODER_DRM = 2,
+	MFCNODE_ENCODER_DRM = 3,
 };
 
 /**
@@ -235,6 +237,8 @@ struct s5p_mfc_dev {
 	struct v4l2_device	v4l2_dev;
 	struct video_device	*vfd_dec;
 	struct video_device	*vfd_enc;
+	struct video_device	*vfd_dec_drm;
+	struct video_device	*vfd_enc_drm;
 	struct device		*device;
 #ifdef CONFIG_ION_EXYNOS
 	struct ion_client	*mfc_ion_client;
@@ -897,6 +901,14 @@ static inline int clear_hw_bit(struct s5p_mfc_ctx *ctx)
 #ifdef CONFIG_ION_EXYNOS
 extern struct ion_device *ion_exynos;
 #endif
+
+static inline int is_decoder_node(enum s5p_mfc_node_type node)
+{
+	if (node == MFCNODE_DECODER || node == MFCNODE_DECODER_DRM)
+		return 1;
+
+	return 0;
+}
 
 #if defined(CONFIG_EXYNOS_MFC_V5)
 #include "regs-mfc-v5.h"
