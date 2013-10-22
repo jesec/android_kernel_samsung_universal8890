@@ -18,7 +18,7 @@
 #include <linux/sched.h>
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-#include <plat/iovmm.h>
+#include <config/exynos/iovmm.h>
 #endif
 
 #include "hevc_common.h"
