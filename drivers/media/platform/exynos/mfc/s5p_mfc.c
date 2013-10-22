@@ -90,27 +90,6 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 		printk("...\n");
 	}
 }
-
-static int check_magic(unsigned char *addr)
-{
-	if (((u32)*(u32 *)(addr) == MFC_DRM_MAGIC_CHUNK0) &&
-	    ((u32)*(u32 *)(addr + 0x4) == MFC_DRM_MAGIC_CHUNK1) &&
-	    ((u32)*(u32 *)(addr + 0x8) == MFC_DRM_MAGIC_CHUNK2) &&
-	    ((u32)*(u32 *)(addr + 0xC) == MFC_DRM_MAGIC_CHUNK3))
-		return 0;
-	else if (((u32)*(u32 *)(addr + 0x10) == MFC_DRM_MAGIC_CHUNK0) &&
-	    ((u32)*(u32 *)(addr + 0x14) == MFC_DRM_MAGIC_CHUNK1) &&
-	    ((u32)*(u32 *)(addr + 0x18) == MFC_DRM_MAGIC_CHUNK2) &&
-	    ((u32)*(u32 *)(addr + 0x1C) == MFC_DRM_MAGIC_CHUNK3))
-		return 0x10;
-	else
-		return -1;
-}
-
-static inline void clear_magic(unsigned char *addr)
-{
-	memset((void *)addr, 0x00, MFC_DRM_MAGIC_SIZE);
-}
 #endif
 
 /*
@@ -1382,9 +1361,6 @@ static int s5p_mfc_open(struct file *file)
 	struct s5p_mfc_dev *dev = video_drvdata(file);
 	int ret = 0;
 	enum s5p_mfc_node_type node;
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	int magic_offset;
-#endif
 	struct video_device *vdev = NULL;
 
 	mfc_debug(2, "mfc driver open called\n");
@@ -1474,12 +1450,9 @@ static int s5p_mfc_open(struct file *file)
 	}
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	/* Multi-instance is supported for same DRM type */
-	magic_offset = check_magic(dev->drm_info.virt);
-	if (magic_offset >= 0) {
-		clear_magic(dev->drm_info.virt + magic_offset);
+	if (is_drm_node(node)) {
 		if (dev->num_drm_inst < MFC_MAX_DRM_CTX) {
-			mfc_debug(2, "DRM instance opened\n");
+			mfc_info("DRM instance is opened\n");
 
 			dev->num_drm_inst++;
 			ctx->is_drm = 1;

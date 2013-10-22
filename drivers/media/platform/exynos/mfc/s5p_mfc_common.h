@@ -910,6 +910,14 @@ static inline int is_decoder_node(enum s5p_mfc_node_type node)
 	return 0;
 }
 
+static inline int is_drm_node(enum s5p_mfc_node_type node)
+{
+	if (node == MFCNODE_DECODER_DRM || node == MFCNODE_ENCODER_DRM)
+		return 1;
+
+	return 0;
+}
+
 #if defined(CONFIG_EXYNOS_MFC_V5)
 #include "regs-mfc-v5.h"
 #include "s5p_mfc_opr_v5.h"
