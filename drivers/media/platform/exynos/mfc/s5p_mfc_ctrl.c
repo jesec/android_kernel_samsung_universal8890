@@ -17,7 +17,7 @@
 #include <linux/err.h>
 #include <linux/sched.h>
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-#include <plat/iovmm.h>
+#include <config/exynos/iovmm.h>
 #endif
 
 #include "s5p_mfc_common.h"
