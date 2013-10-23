@@ -28,6 +28,7 @@
 #include "s5p_mfc_reg.h"
 #include "s5p_mfc_cmd.h"
 #include "s5p_mfc_pm.h"
+#include "s5p_mfc_ctrl.h"
 
 
 /* Allocate firmware */
@@ -48,7 +49,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	firmware_size = dev->variant->buf_size->firmware_code;
 	alloc_ctx = dev->alloc_ctx[MFC_FW_ALLOC_CTX];
 
-	if (dev->bitproc_buf)
+	if (dev->fw_info.alloc)
 		return 0;
 
 	mfc_debug(2, "Allocating memory for firmware.\n");
@@ -57,46 +58,42 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	alloc_ctx = dev->alloc_ctx_fw;
 #endif
 
-	dev->bitproc_buf = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
-	if (IS_ERR(dev->bitproc_buf)) {
-		dev->bitproc_buf = 0;
+	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
+	if (IS_ERR(dev->fw_info.alloc)) {
+		dev->fw_info.alloc = 0;
 		printk(KERN_ERR "Allocating bitprocessor buffer failed\n");
 		return -ENOMEM;
 	}
 
-	dev->bitproc_phys = s5p_mfc_mem_daddr_priv(dev->bitproc_buf);
-	if (dev->bitproc_phys & ((1 << base_align) - 1)) {
+	dev->fw_info.ofs = s5p_mfc_mem_daddr_priv(dev->fw_info.alloc);
+	if (dev->fw_info.ofs & ((1 << base_align) - 1)) {
 		mfc_err("The base memory is not aligned to %dBytes.\n",
 				(1 << base_align));
-		s5p_mfc_mem_free_priv(dev->bitproc_buf);
-		dev->bitproc_phys = 0;
-		dev->bitproc_buf = 0;
+		s5p_mfc_mem_free_priv(dev->fw_info.alloc);
+		dev->fw_info.ofs = 0;
+		dev->fw_info.alloc = 0;
 		return -EIO;
 	}
 
-	if (!dev->num_drm_inst) {
-		dev->bitproc_virt =
-				s5p_mfc_mem_vaddr_priv(dev->bitproc_buf);
-		mfc_debug(2, "Virtual address for FW: %08lx\n",
-				(long unsigned int)dev->bitproc_virt);
-		if (!dev->bitproc_virt) {
-			mfc_err("Bitprocessor memory remap failed\n");
-			s5p_mfc_mem_free_priv(dev->bitproc_buf);
-			dev->bitproc_phys = 0;
-			dev->bitproc_buf = 0;
-			return -EIO;
-		}
+	dev->fw_info.virt =
+		s5p_mfc_mem_vaddr_priv(dev->fw_info.alloc);
+	mfc_debug(2, "Virtual address for FW: %08lx\n",
+			(long unsigned int)dev->fw_info.virt);
+	if (!dev->fw_info.virt) {
+		mfc_err("Bitprocessor memory remap failed\n");
+		s5p_mfc_mem_free_priv(dev->fw_info.alloc);
+		dev->fw_info.ofs = 0;
+		dev->fw_info.alloc = 0;
+		return -EIO;
 	}
 
-	dev->port_a = dev->bitproc_phys;
+	dev->port_a = dev->fw_info.ofs;
+	dev->port_b = dev->fw_info.ofs;
 
-	dev->port_b = dev->bitproc_phys;
-
-	mfc_debug(2, "Port A: %08x Port B: %08x (FW: %08x size: %08x)\n",
+	mfc_debug(2, "Port A: %08x Port B: %08x (FW: %08lx size: %08x)\n",
 			dev->port_a, dev->port_b,
-			dev->bitproc_phys,
+			dev->fw_info.ofs,
 			firmware_size);
-
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	alloc_ctx = dev->alloc_ctx_drm_fw;
 
@@ -124,6 +121,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 
 	mfc_info("Port for DRM F/W : 0x%lx\n", dev->drm_fw_info.ofs);
 #endif
+
 	mfc_debug_leave();
 
 	return 0;
@@ -162,14 +160,15 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 		release_firmware(fw_blob);
 		return -ENOMEM;
 	}
-	if (dev->bitproc_buf == 0 || dev->bitproc_phys == 0) {
+
+	if (dev->fw_info.alloc == 0 || dev->fw_info.ofs == 0) {
 		mfc_err("MFC firmware is not allocated or was not mapped correctly.\n");
 		release_firmware(fw_blob);
 		return -EINVAL;
 	}
 	dev->fw_size = fw_blob->size;
-	memcpy(dev->bitproc_virt, fw_blob->data, fw_blob->size);
-	s5p_mfc_mem_clean_priv(dev->bitproc_buf, dev->bitproc_virt, 0,
+	memcpy(dev->fw_info.virt, fw_blob->data, fw_blob->size);
+	s5p_mfc_mem_clean_priv(dev->fw_info.alloc, dev->fw_info.virt, 0,
 			fw_blob->size);
 	release_firmware(fw_blob);
 	mfc_debug_leave();
@@ -181,7 +180,7 @@ int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev)
 {
 	/* Before calling this function one has to make sure
 	 * that MFC is no longer processing */
-	if (!dev->bitproc_buf)
+	if (!dev->fw_info.alloc)
 		return -EINVAL;
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
@@ -195,12 +194,11 @@ int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev)
 		dev->drm_fw_info.ofs = 0;
 	}
 #endif
+	s5p_mfc_mem_free_priv(dev->fw_info.alloc);
 
-	s5p_mfc_mem_free_priv(dev->bitproc_buf);
-
-	dev->bitproc_virt =  0;
-	dev->bitproc_phys = 0;
-	dev->bitproc_buf = 0;
+	dev->fw_info.virt =  0;
+	dev->fw_info.ofs = 0;
+	dev->fw_info.alloc = 0;
 
 	return 0;
 }
@@ -289,11 +287,24 @@ static int s5p_mfc_reset(struct s5p_mfc_dev *dev)
 	return 0;
 }
 
-static inline void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev)
+void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
+					enum mfc_buf_usage_type buf_type)
 {
+	struct s5p_mfc_extra_buf *fw_info;
+
+	fw_info = &dev->fw_info;
+
 	if (IS_MFCV6(dev)) {
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+		if (buf_type == MFCBUF_DRM)
+			fw_info = &dev->drm_fw_info;
+
+		s5p_mfc_write_reg(dev, fw_info->ofs, S5P_FIMV_RISC_BASE_ADDRESS);
+		mfc_info("[%d] Base Address : %08lx\n", buf_type, fw_info->ofs);
+#else
 		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_RISC_BASE_ADDRESS);
 		mfc_debug(2, "Base Address : %08x\n", dev->port_a);
+#endif
 	} else {
 		/* channelA, port0 */
 		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_MC_DRAMBASE_ADR_A);
@@ -319,11 +330,12 @@ static inline void s5p_mfc_clear_cmds(struct s5p_mfc_dev *dev)
 }
 
 /* Initialize hardware */
-int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
+int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 {
 	char fimv_info;
 	int fw_ver;
 	int ret = 0;
+	int curr_ctx_backup = dev->curr_ctx_drm;
 
 	mfc_debug_enter();
 
@@ -333,11 +345,17 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 	}
 
 	/* RMVME: */
-	if (!dev->bitproc_buf)
+	if (!dev->fw_info.alloc)
 		return -EINVAL;
 
 	/* 0. MFC reset */
 	mfc_debug(2, "MFC reset...\n");
+
+	/* At init time, do not call secure API */
+	if (buf_type == MFCBUF_NORMAL)
+		dev->curr_ctx_drm = 0;
+	else if (buf_type == MFCBUF_DRM)
+		dev->curr_ctx_drm = 1;
 
 	s5p_mfc_clock_on(dev);
 
@@ -349,7 +367,7 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 	mfc_debug(2, "Done MFC reset...\n");
 
 	/* 1. Set DRAM base Addr */
-	s5p_mfc_init_memctrl(dev);
+	s5p_mfc_init_memctrl(dev, buf_type);
 
 	/* 2. Initialize registers of channel I/F */
 	s5p_mfc_clear_cmds(dev);
@@ -371,7 +389,7 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 
 	s5p_mfc_clean_dev_int_flags(dev);
 	/* 4. Initialize firmware */
-	ret = s5p_mfc_sys_init_cmd(dev);
+	ret = s5p_mfc_sys_init_cmd(dev, buf_type);
 	if (ret) {
 		mfc_err("Failed to send command to MFC - timeout.\n");
 		goto err_init_hw;
@@ -417,13 +435,49 @@ int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
 		}
 	}
 
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	/* Cache flush for base address change */
+	s5p_mfc_clean_dev_int_flags(dev);
+	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_CACHE_FLUSH, NULL);
+	if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET)) {
+		mfc_err("Failed to flush cache\n");
+		ret = -EIO;
+		goto err_init_hw;
+	}
+
+	if (buf_type == MFCBUF_DRM && !curr_ctx_backup)
+		s5p_mfc_init_memctrl(dev, MFCBUF_NORMAL);
+	else if (buf_type == MFCBUF_NORMAL && curr_ctx_backup)
+		s5p_mfc_init_memctrl(dev, MFCBUF_DRM);
+#endif
+
 err_init_hw:
 	s5p_mfc_clock_off(dev);
+	dev->curr_ctx_drm = curr_ctx_backup;
 	mfc_debug_leave();
 
 	return ret;
 }
 
+/* Wrapper : Initialize hardware */
+int s5p_mfc_init_hw(struct s5p_mfc_dev *dev)
+{
+	int ret;
+
+	ret = mfc_init_hw(dev, MFCBUF_NORMAL);
+	if (ret)
+		return ret;
+
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	if (dev->drm_fw_status) {
+		ret = mfc_init_hw(dev, MFCBUF_DRM);
+		if (ret)
+			return ret;
+	}
+#endif
+
+	return ret;
+}
 
 /* Deinitialize hardware */
 void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev)
@@ -529,7 +583,7 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 	mfc_debug(2, "Done MFC reset...\n");
 
 	/* 1. Set DRAM base Addr */
-	s5p_mfc_init_memctrl(dev);
+	s5p_mfc_init_memctrl(dev, MFCBUF_NORMAL);
 
 	/* 2. Initialize registers of channel I/F */
 	s5p_mfc_clear_cmds(dev);

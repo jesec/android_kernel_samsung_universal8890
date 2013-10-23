@@ -1117,6 +1117,12 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	mfc_debug(2, "Int reason: %d (err: %d)\n", reason, err);
 
 	switch (reason) {
+	case S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET:
+		s5p_mfc_clear_int_flags();
+		/* Do not clear hw_lock */
+		wake_up_dev(dev, reason, err);
+		goto done;
+		break;
 	case S5P_FIMV_R2H_CMD_SYS_INIT_RET:
 	case S5P_FIMV_R2H_CMD_FW_STATUS_RET:
 	case S5P_FIMV_R2H_CMD_SLEEP_RET:
@@ -1495,12 +1501,18 @@ static int s5p_mfc_open(struct file *file)
 
 			dev->fw_status = 1;
 		}
-		ret = exynos_smc(0x81000001, dev->fw_size, 0, 0);
-		if (ret) {
-			mfc_err("Failed to download MFC DRM F/W(%x)\n", ret);
+		if (!dev->drm_fw_info.ofs) {
+			mfc_err("DRM F/W buffer is not allocated.\n");
 			dev->drm_fw_status = 0;
 		} else {
-			dev->drm_fw_status = 1;
+			ret = exynos_smc(0x81000001, dev->fw_size,
+						dev->drm_fw_info.ofs, 0);
+			if (ret) {
+				mfc_err("MFC DRM F/W(%x) is skipped\n", ret);
+				dev->drm_fw_status = 0;
+			} else {
+				dev->drm_fw_status = 1;
+			}
 		}
 #else
 		/* Load the FW */

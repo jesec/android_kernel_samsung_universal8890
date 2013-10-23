@@ -47,6 +47,7 @@
 #define S5P_FIMV_CH_LAST_FRAME			9
 #define S5P_FIMV_H2R_CMD_FLUSH			10
 #define S5P_FIMV_CH_NAL_ABORT			11
+#define S5P_FIMV_CH_CACHE_FLUSH			12
 /* RMVME: REALLOC used? */
 #define S5P_FIMV_CH_FRAME_START_REALLOC		5
 
@@ -68,6 +69,7 @@
 #define S5P_FIMV_R2H_CMD_FIELD_DONE_RET		14
 #define S5P_FIMV_R2H_CMD_SLICE_DONE_RET		15
 #define S5P_FIMV_R2H_CMD_ENC_BUFFER_FUL_RET	16
+#define S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET	20
 #define S5P_FIMV_R2H_CMD_ERR_RET		32
 
 #define S5P_FIMV_H2R_CMD_FW_STATUS		12	/* dummy H/W command */
@@ -87,6 +89,7 @@ static inline unsigned int h2r_to_r2h_bits(int cmd)
 	case S5P_FIMV_H2R_CMD_WAKEUP:
 	case S5P_FIMV_H2R_CMD_FLUSH:
 	case S5P_FIMV_CH_NAL_ABORT:
+	case S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET:
 		mask |= R2H_BIT(cmd);
 		break;
 	case S5P_FIMV_CH_FRAME_START:

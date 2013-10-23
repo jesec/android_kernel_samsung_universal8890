@@ -20,7 +20,8 @@ struct s5p_mfc_cmd_args {
 };
 
 int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd, struct s5p_mfc_cmd_args *args);
-int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev);
+int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev,
+				enum mfc_buf_usage_type buf_type);
 int s5p_mfc_sleep_cmd(struct s5p_mfc_dev *dev);
 int s5p_mfc_wakeup_cmd(struct s5p_mfc_dev *dev);
 int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx);

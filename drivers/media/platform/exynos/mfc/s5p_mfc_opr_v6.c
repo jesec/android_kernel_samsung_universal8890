@@ -39,6 +39,7 @@
 #include "s5p_mfc_debug.h"
 #include "s5p_mfc_dec.h"
 #include "s5p_mfc_enc.h"
+#include "s5p_mfc_ctrl.h"
 
 /* #define S5P_MFC_DEBUG_REGWRITE  */
 #ifdef S5P_MFC_DEBUG_REGWRITE
@@ -417,38 +418,54 @@ void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 }
 
 /* Allocate display shared buffer for SYS_INIT */
-static int alloc_dev_dis_shared_buffer(struct s5p_mfc_dev *dev, void *alloc_ctx)
+int alloc_dev_dis_shared_buffer(struct s5p_mfc_dev *dev, void *alloc_ctx,
+					enum mfc_buf_usage_type buf_type)
 {
-	dev->dis_shm_buf.alloc =
+	struct s5p_mfc_extra_buf *dis_shm_buf;
+
+	dis_shm_buf = &dev->dis_shm_buf;
+
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	if (buf_type == MFCBUF_DRM) {
+		dis_shm_buf = &dev->dis_shm_buf_drm;
+		alloc_ctx = dev->alloc_ctx_sh;
+	}
+#endif
+
+	dis_shm_buf->alloc =
 			s5p_mfc_mem_alloc_priv(alloc_ctx, PAGE_SIZE);
-	if (IS_ERR(dev->dis_shm_buf.alloc)) {
+	if (IS_ERR(dis_shm_buf->alloc)) {
 		mfc_err("Allocating Display shared buffer failed.\n");
-		return PTR_ERR(dev->dis_shm_buf.alloc);
+		return PTR_ERR(dis_shm_buf->alloc);
 	}
 
-	dev->dis_shm_buf.ofs = s5p_mfc_mem_daddr_priv(dev->dis_shm_buf.alloc);
-	dev->dis_shm_buf.virt = s5p_mfc_mem_vaddr_priv(dev->dis_shm_buf.alloc);
-	if (!dev->dis_shm_buf.virt) {
-		s5p_mfc_mem_free_priv(dev->dis_shm_buf.alloc);
-		dev->dis_shm_buf.alloc = NULL;
-		dev->dis_shm_buf.ofs = 0;
+	dis_shm_buf->ofs = s5p_mfc_mem_daddr_priv(dis_shm_buf->alloc);
+	dis_shm_buf->virt = s5p_mfc_mem_vaddr_priv(dis_shm_buf->alloc);
+	if (!dis_shm_buf->virt) {
+		s5p_mfc_mem_free_priv(dis_shm_buf->alloc);
+		dis_shm_buf->alloc = NULL;
+		dis_shm_buf->ofs = 0;
 
 		mfc_err("Get vaddr for dis_shared is failed\n");
 		return -ENOMEM;
 	}
 
-	memset((void *)dev->dis_shm_buf.virt, 0, PAGE_SIZE);
-	s5p_mfc_mem_clean_priv(dev->dis_shm_buf.alloc, dev->dis_shm_buf.virt, 0,
-			PAGE_SIZE);
+	if (buf_type == MFCBUF_NORMAL) {
+		memset((void *)dis_shm_buf->virt, 0, PAGE_SIZE);
+		s5p_mfc_mem_clean_priv(dis_shm_buf->alloc, dis_shm_buf->virt, 0,
+				PAGE_SIZE);
+	}
 
 	return 0;
 }
 
-/* Allocate context buffers for SYS_INIT */
-int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
+/* Allocation for internal usage */
+int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
+					enum mfc_buf_usage_type buf_type)
 {
 	struct s5p_mfc_buf_size_v6 *buf_size;
 	void *alloc_ctx;
+	struct s5p_mfc_extra_buf *ctx_buf;
 
 	mfc_debug_enter();
 	if (!dev) {
@@ -457,34 +474,37 @@ int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
 	}
 	buf_size = dev->variant->buf_size->buf;
 	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+	ctx_buf = &dev->ctx_buf;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	if (dev->num_drm_inst)
+	if (buf_type == MFCBUF_DRM) {
 		alloc_ctx = dev->alloc_ctx_drm;
+		ctx_buf = &dev->ctx_buf_drm;
+	}
 #endif
-	dev->ctx_buf.alloc =
+	ctx_buf->alloc =
 			s5p_mfc_mem_alloc_priv(alloc_ctx, buf_size->dev_ctx);
-	if (IS_ERR(dev->ctx_buf.alloc)) {
+	if (IS_ERR(ctx_buf->alloc)) {
 		mfc_err("Allocating DESC buffer failed.\n");
-		return PTR_ERR(dev->ctx_buf.alloc);
+		return PTR_ERR(ctx_buf->alloc);
 	}
 
-	dev->ctx_buf.ofs = s5p_mfc_mem_daddr_priv(dev->ctx_buf.alloc);
-	dev->ctx_buf.virt = s5p_mfc_mem_vaddr_priv(dev->ctx_buf.alloc);
-	if (!dev->ctx_buf.virt) {
-		s5p_mfc_mem_free_priv(dev->ctx_buf.alloc);
-		dev->ctx_buf.alloc = NULL;
-		dev->ctx_buf.ofs = 0;
+	ctx_buf->ofs = s5p_mfc_mem_daddr_priv(ctx_buf->alloc);
+	ctx_buf->virt = s5p_mfc_mem_vaddr_priv(ctx_buf->alloc);
+	if (!ctx_buf->virt) {
+		s5p_mfc_mem_free_priv(ctx_buf->alloc);
+		ctx_buf->alloc = NULL;
+		ctx_buf->ofs = 0;
 
 		mfc_err("Remapping DESC buffer failed.\n");
 		return -ENOMEM;
 	}
 
 	if (IS_MFCv7X(dev)) {
-		if (alloc_dev_dis_shared_buffer(dev, alloc_ctx) < 0) {
-			s5p_mfc_mem_free_priv(dev->ctx_buf.alloc);
-			dev->ctx_buf.alloc = NULL;
-			dev->ctx_buf.ofs = 0;
+		if (alloc_dev_dis_shared_buffer(dev, alloc_ctx, buf_type) < 0) {
+			s5p_mfc_mem_free_priv(ctx_buf->alloc);
+			ctx_buf->alloc = NULL;
+			ctx_buf->ofs = 0;
 
 			mfc_err("Alloc shared memory failed.\n");
 			return -ENOMEM;
@@ -496,33 +516,80 @@ int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
 	return 0;
 }
 
-/* Release display shared buffers for SYS_INIT */
-static void release_dev_dis_shared_buffer(struct s5p_mfc_dev *dev)
+/* Wrapper : allocate context buffers for SYS_INIT */
+int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
 {
-	if (dev->dis_shm_buf.alloc) {
-		s5p_mfc_mem_free_priv(dev->dis_shm_buf.alloc);
-		dev->dis_shm_buf.alloc = NULL;
-		dev->dis_shm_buf.ofs = 0;
-		dev->dis_shm_buf.virt = NULL;
+	int ret = 0;
+
+	ret = mfc_alloc_dev_context_buffer(dev, MFCBUF_NORMAL);
+	if (ret)
+		return ret;
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	ret = mfc_alloc_dev_context_buffer(dev, MFCBUF_DRM);
+	if (ret)
+		return ret;
+#endif
+
+	return ret;
+}
+
+/* Release display shared buffers for SYS_INIT */
+void release_dev_dis_shared_buffer(struct s5p_mfc_dev *dev,
+					enum mfc_buf_usage_type buf_type)
+{
+	struct s5p_mfc_extra_buf *dis_shm_buf;
+
+	dis_shm_buf = &dev->dis_shm_buf;
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	if (buf_type == MFCBUF_DRM)
+		dis_shm_buf = &dev->dis_shm_buf_drm;
+#endif
+	if (dis_shm_buf->alloc) {
+		s5p_mfc_mem_free_priv(dis_shm_buf->alloc);
+		dis_shm_buf->alloc = NULL;
+		dis_shm_buf->ofs = 0;
+		dis_shm_buf->virt = NULL;
 	}
+}
+
+/* Release context buffers for SYS_INIT */
+void mfc_release_dev_context_buffer(struct s5p_mfc_dev *dev,
+					enum mfc_buf_usage_type buf_type)
+{
+	struct s5p_mfc_extra_buf *ctx_buf;
+	struct s5p_mfc_buf_size_v6 *buf_size;
+
+	if (!dev) {
+		mfc_err("no mfc device to run\n");
+		return;
+	}
+
+	ctx_buf = &dev->ctx_buf;
+	buf_size = dev->variant->buf_size->buf;
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	if (buf_type == MFCBUF_DRM)
+		ctx_buf = &dev->ctx_buf_drm;
+#endif
+
+	if (ctx_buf->alloc) {
+		s5p_mfc_mem_free_priv(ctx_buf->alloc);
+		ctx_buf->alloc = NULL;
+		ctx_buf->ofs = 0;
+		ctx_buf->virt = NULL;
+	}
+
+	if (IS_MFCv7X(dev))
+		release_dev_dis_shared_buffer(dev, buf_type);
 }
 
 /* Release context buffers for SYS_INIT */
 void s5p_mfc_release_dev_context_buffer(struct s5p_mfc_dev *dev)
 {
-	if (!dev) {
-		mfc_err("no mfc device to run\n");
-		return;
-	}
-	if (dev->ctx_buf.alloc) {
-		s5p_mfc_mem_free_priv(dev->ctx_buf.alloc);
-		dev->ctx_buf.alloc = NULL;
-		dev->ctx_buf.ofs = 0;
-		dev->ctx_buf.virt = NULL;
-	}
+	mfc_release_dev_context_buffer(dev, MFCBUF_NORMAL);
 
-	if (IS_MFCv7X(dev))
-		release_dev_dis_shared_buffer(dev);
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	mfc_release_dev_context_buffer(dev, MFCBUF_DRM);
+#endif
 }
 
 static int calc_plane(int width, int height, int is_tiled)
@@ -2640,6 +2707,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 	struct s5p_mfc_ctx *ctx;
 	int new_ctx;
 	unsigned int ret = 0;
+	int need_cache_flush = 0;
 
 	mfc_debug(1, "Try run dev: %p\n", dev);
 	if (!dev) {
@@ -2689,9 +2757,29 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 	/* Last frame has already been sent to MFC
 	 * Now obtaining frames from MFC buffer */
 
-	dev->curr_ctx_drm = ctx->is_drm;
+	/* Check if cache flush command is needed */
+	if (dev->curr_ctx_drm != ctx->is_drm)
+		need_cache_flush = 1;
+	else
+		dev->curr_ctx_drm = ctx->is_drm;
 
+	mfc_debug(2, "need_cache_flush = %d, is_drm = %d\n", need_cache_flush, ctx->is_drm);
 	s5p_mfc_clock_on(dev);
+
+	if (need_cache_flush) {
+		s5p_mfc_clean_dev_int_flags(dev);
+
+		s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_CACHE_FLUSH, NULL);
+		if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET)) {
+			mfc_err("Failed to flush cache\n");
+		}
+
+		s5p_mfc_init_memctrl(dev, (ctx->is_drm ? MFCBUF_DRM : MFCBUF_NORMAL));
+		s5p_mfc_clock_off(dev);
+
+		dev->curr_ctx_drm = ctx->is_drm;
+		s5p_mfc_clock_on(dev);
+	}
 
 	if (ctx->type == MFCINST_DECODER) {
 		switch (ctx->state) {

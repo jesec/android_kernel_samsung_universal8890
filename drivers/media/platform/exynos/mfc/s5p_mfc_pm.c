@@ -19,6 +19,7 @@
 #include <linux/clk-private.h>
 
 #include <plat/cpu.h>
+#include <mach/smc.h>
 
 #include "s5p_mfc_common.h"
 #include "s5p_mfc_debug.h"
@@ -233,7 +234,19 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	if (!dev->curr_ctx_drm) {
+	if (dev->curr_ctx_drm) {
+		spin_lock_irqsave(&dev->pm.clklock, flags);
+		mfc_debug(3, "Begin: enable protection\n");
+		ret = exynos_smc(0x81000000, 0, dev->id, 1);
+		if (!ret) {
+			printk("Protection Enable failed! ret(%u)\n", ret);
+			spin_unlock_irqrestore(&dev->pm.clklock, flags);
+			clk_disable(dev->pm.clock);
+			return ret;
+		}
+		mfc_debug(3, "End: enable protection\n");
+		spin_unlock_irqrestore(&dev->pm.clklock, flags);
+	} else {
 		ret = s5p_mfc_mem_resume(dev->alloc_ctx[0]);
 		if (ret < 0) {
 			clk_disable(dev->pm.clock);
@@ -255,7 +268,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	}
 
 	state = atomic_read(&dev->clk_ref);
-	mfc_debug(3, "+ %d", state);
+	mfc_debug(2, "+ %d\n", state);
 
 	return 0;
 }
@@ -264,6 +277,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 {
 	int state, val;
 	unsigned long timeout, flags;
+	int ret = 0;
 
 	if (IS_MFCV6(dev)) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
@@ -292,10 +306,23 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 		mfc_err("Clock state is wrong(%d)\n", state);
 		atomic_set(&dev->clk_ref, 0);
 	} else {
-		if (!dev->curr_ctx_drm)
+		if (dev->curr_ctx_drm) {
+			mfc_debug(3, "Begin: disable protection\n");
+			spin_lock_irqsave(&dev->pm.clklock, flags);
+			ret = exynos_smc(0x81000000, 0, dev->id, 0);
+			if (!ret) {
+				printk("Protection Disable failed! ret(%u)\n", ret);
+				spin_unlock_irqrestore(&dev->pm.clklock, flags);
+				clk_disable(dev->pm.clock);
+				return;
+			}
+			mfc_debug(3, "End: disable protection\n");
+			spin_unlock_irqrestore(&dev->pm.clklock, flags);
+		} else {
 			s5p_mfc_mem_suspend(dev->alloc_ctx[0]);
-		clk_disable(dev->pm.clock);
+		}
 	}
+	mfc_debug(2, "- %d\n", state);
 }
 
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev)

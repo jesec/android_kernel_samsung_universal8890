@@ -148,6 +148,12 @@ enum s5p_mfc_buf_cacheable_mask {
 	MFCMASK_SRC_CACHE = (1 << 1),
 };
 
+enum mfc_buf_usage_type {
+	MFCBUF_INVALID = 0,
+	MFCBUF_NORMAL,
+	MFCBUF_DRM,
+};
+
 struct s5p_mfc_ctx;
 struct s5p_mfc_extra_buf;
 
@@ -277,6 +283,8 @@ struct s5p_mfc_dev {
 	/* For 6.x, Added for SYS_INIT context buffer */
 	struct s5p_mfc_extra_buf ctx_buf;
 	struct s5p_mfc_extra_buf dis_shm_buf;
+	struct s5p_mfc_extra_buf ctx_buf_drm;
+	struct s5p_mfc_extra_buf dis_shm_buf_drm;
 
 	struct s5p_mfc_ctx *ctx[MFC_NUM_CONTEXTS];
 	int curr_ctx;
@@ -322,9 +330,6 @@ struct s5p_mfc_dev {
 	int curr_rate;
 #endif
 	int id;
-	void *bitproc_buf;
-	dma_addr_t bitproc_phys;
-	unsigned char *bitproc_virt;
 	atomic_t clk_ref;
 	int fw_size;
 	int drm_fw_status;
