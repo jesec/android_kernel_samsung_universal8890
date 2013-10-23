@@ -298,7 +298,10 @@ struct s5p_mfc_dev {
 	int fw_status;
 	int num_drm_inst;
 	struct s5p_mfc_extra_buf drm_info;
+	struct s5p_mfc_extra_buf fw_info;
+	struct s5p_mfc_extra_buf drm_fw_info;
 	struct vb2_alloc_ctx *alloc_ctx_fw;
+	struct vb2_alloc_ctx *alloc_ctx_drm_fw;
 	struct vb2_alloc_ctx *alloc_ctx_sh;
 	struct vb2_alloc_ctx *alloc_ctx_drm;
 
@@ -323,6 +326,8 @@ struct s5p_mfc_dev {
 	dma_addr_t bitproc_phys;
 	unsigned char *bitproc_virt;
 	atomic_t clk_ref;
+	int fw_size;
+	int drm_fw_status;
 };
 
 /**

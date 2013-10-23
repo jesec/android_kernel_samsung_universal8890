@@ -27,6 +27,7 @@
 #include <media/videobuf2-core.h>
 #include <linux/of.h>
 #include <linux/exynos_iovmm.h>
+#include <mach/smc.h>
 
 #include "s5p_mfc_common.h"
 
@@ -1483,26 +1484,23 @@ static int s5p_mfc_open(struct file *file)
 					msecs_to_jiffies(MFC_WATCHDOG_INTERVAL);
 		add_timer(&dev->watchdog_timer);
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-		if (ctx->is_drm) {
-			if (!dev->fw_status) {
-				ret = s5p_mfc_alloc_firmware(dev);
-				if (ret)
-					goto err_fw_alloc;
-			}
+		if (!dev->fw_status) {
+			ret = s5p_mfc_alloc_firmware(dev);
+			if (ret)
+				goto err_fw_alloc;
+
+			ret = s5p_mfc_load_firmware(dev);
+			if (ret)
+				goto err_fw_load;
 
 			dev->fw_status = 1;
+		}
+		ret = exynos_smc(0x81000001, dev->fw_size, 0, 0);
+		if (ret) {
+			mfc_err("Failed to download MFC DRM F/W(%x)\n", ret);
+			dev->drm_fw_status = 0;
 		} else {
-			if (!dev->fw_status) {
-				ret = s5p_mfc_alloc_firmware(dev);
-				if (ret)
-					goto err_fw_alloc;
-
-				ret = s5p_mfc_load_firmware(dev);
-				if (ret)
-					goto err_fw_load;
-
-				dev->fw_status = 1;
-			}
+			dev->drm_fw_status = 1;
 		}
 #else
 		/* Load the FW */
@@ -2153,12 +2151,23 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->alloc_ctx_fw = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
-			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCFW |
-			VB2ION_CTX_KVA_STATIC);
+			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCNFW |
+			VB2ION_CTX_KVA_STATIC | VB2ION_CTX_IOMMU);
 	if (IS_ERR(dev->alloc_ctx_fw)) {
 		mfc_err("failed to prepare F/W allocation context\n");
 		ret = PTR_ERR(dev->alloc_ctx_fw);
 		goto alloc_ctx_fw_fail;
+	}
+
+	dev->alloc_ctx_drm_fw = (struct vb2_alloc_ctx *)
+		vb2_ion_create_context(&pdev->dev,
+			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
+			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCFW |
+			VB2ION_CTX_KVA_STATIC);
+	if (IS_ERR(dev->alloc_ctx_drm_fw)) {
+		mfc_err("failed to prepare F/W allocation context\n");
+		ret = PTR_ERR(dev->alloc_ctx_drm_fw);
+		goto alloc_ctx_drm_fw_fail;
 	}
 
 	dev->alloc_ctx_sh = (struct vb2_alloc_ctx *)
@@ -2227,6 +2236,8 @@ shared_alloc_fail:
 alloc_ctx_drm_fail:
 	vb2_ion_destroy_context(dev->alloc_ctx_sh);
 alloc_ctx_sh_fail:
+	vb2_ion_destroy_context(dev->alloc_ctx_drm_fw);
+alloc_ctx_drm_fw_fail:
 	vb2_ion_destroy_context(dev->alloc_ctx_fw);
 alloc_ctx_fw_fail:
 	destroy_workqueue(dev->sched_wq);

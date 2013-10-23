@@ -54,8 +54,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	mfc_debug(2, "Allocating memory for firmware.\n");
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	if (dev->num_drm_inst)
-		alloc_ctx = dev->alloc_ctx_fw;
+	alloc_ctx = dev->alloc_ctx_fw;
 #endif
 
 	dev->bitproc_buf = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
@@ -98,6 +97,33 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 			dev->bitproc_phys,
 			firmware_size);
 
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	alloc_ctx = dev->alloc_ctx_drm_fw;
+
+	dev->drm_fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
+	if (IS_ERR(dev->drm_fw_info.alloc)) {
+		/* Release normal F/W buffer */
+		s5p_mfc_mem_free_priv(dev->fw_info.alloc);
+		dev->fw_info.ofs = 0;
+		dev->fw_info.alloc = 0;
+		printk(KERN_ERR "Allocating bitprocessor buffer failed\n");
+		return -ENOMEM;
+	}
+
+	dev->drm_fw_info.ofs = s5p_mfc_mem_daddr_priv(dev->drm_fw_info.alloc);
+	if (dev->drm_fw_info.ofs & ((1 << base_align) - 1)) {
+		mfc_err("The base memory is not aligned to %dBytes.\n",
+				(1 << base_align));
+		s5p_mfc_mem_free_priv(dev->drm_fw_info.alloc);
+		/* Release normal F/W buffer */
+		s5p_mfc_mem_free_priv(dev->fw_info.alloc);
+		dev->fw_info.ofs = 0;
+		dev->fw_info.alloc = 0;
+		return -EIO;
+	}
+
+	mfc_info("Port for DRM F/W : 0x%lx\n", dev->drm_fw_info.ofs);
+#endif
 	mfc_debug_leave();
 
 	return 0;
@@ -141,6 +167,7 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 		release_firmware(fw_blob);
 		return -EINVAL;
 	}
+	dev->fw_size = fw_blob->size;
 	memcpy(dev->bitproc_virt, fw_blob->data, fw_blob->size);
 	s5p_mfc_mem_clean_priv(dev->bitproc_buf, dev->bitproc_virt, 0,
 			fw_blob->size);
@@ -160,6 +187,14 @@ int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev)
 		mfc_err("no mfc device to run\n");
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	if (dev->drm_fw_info.alloc) {
+		s5p_mfc_mem_free_priv(dev->drm_fw_info.alloc);
+		dev->drm_fw_info.alloc = 0;
+		dev->drm_fw_info.ofs = 0;
+	}
+#endif
 
 	s5p_mfc_mem_free_priv(dev->bitproc_buf);
 
