@@ -177,6 +177,7 @@ struct exynos5_i2c {
 
 	void __iomem		*regs;
 	struct clk		*clk;
+	struct clk		*rate_clk;
 	struct device		*dev;
 	int			state;
 
@@ -287,7 +288,7 @@ static int exynos5_i2c_set_timing(struct exynos5_i2c *i2c, int mode)
 	unsigned int t_scl_l, t_scl_h;
 	unsigned int t_sr_release;
 	unsigned int t_ftl_cycle;
-	unsigned int clkin = clk_get_rate(i2c->clk);
+	unsigned int clkin = clk_get_rate(i2c->rate_clk);
 	unsigned int div, utemp0 = 0, utemp1 = 0, clk_cycle;
 	unsigned int op_clk = (mode == HSI2C_HIGH_SPD) ?
 				i2c->hs_clock : i2c->fs_clock;
@@ -768,12 +769,17 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	i2c->adap.class   = I2C_CLASS_HWMON | I2C_CLASS_SPD;
 
 	i2c->dev = &pdev->dev;
-	i2c->clk = devm_clk_get(&pdev->dev, "hsi2c");
+	i2c->clk = devm_clk_get(&pdev->dev, "gate_hsi2c");
 	if (IS_ERR(i2c->clk)) {
 		dev_err(&pdev->dev, "cannot get clock\n");
 		return -ENOENT;
 	}
 
+	i2c->rate_clk = devm_clk_get(&pdev->dev, "rate_hsi2c");
+	if (IS_ERR(i2c->rate_clk)) {
+		dev_err(&pdev->dev, "cannot get rate clock\n");
+		return -ENOENT;
+	}
 	clk_prepare_enable(i2c->clk);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
