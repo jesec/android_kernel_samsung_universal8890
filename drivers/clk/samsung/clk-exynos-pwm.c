@@ -130,10 +130,10 @@ void __init exynos_pwm_clk_init(struct device_node *np)
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 
 	clk_table[pwm_scaler0] = clk_register_divider(NULL, "pwm-scaler0",
-				"pclk_pwm", 0, reg_base + REG_TCFG0, 0, 8,
+				"pwm-clock", 0, reg_base + REG_TCFG0, 0, 8,
 				0, &lock);
 	clk_table[pwm_scaler1] = clk_register_divider(NULL, "pwm-scaler1",
-				"pclk_pwm", 0, reg_base + REG_TCFG0, 8, 8,
+				"pwm-clock", 0, reg_base + REG_TCFG0, 8, 8,
 				0, &lock);
 
 	clk_table[pwm_tdiv0] = clk_register_divider_table(NULL, "pwm-tdiv0",
