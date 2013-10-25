@@ -79,10 +79,14 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 	struct clk *parent_clk = NULL;
 	int ret = 0;
 
+#if defined(CONFIG_SOC_EXYNOS5430)
 	if (dev->id == 0)
 		dev->pm.clock = clk_get(dev->device, "gate_mfc0");
 	else if (dev->id == 1)
 		dev->pm.clock = clk_get(dev->device, "gate_mfc1");
+#elif defined(CONFIG_SOC_EXYNOS5422)
+	dev->pm.clock = clk_get(dev->device, "mfc");
+#endif
 
 	if (IS_ERR(dev->pm.clock)) {
 		printk(KERN_ERR "failed to get parent clock\n");
@@ -118,6 +122,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	struct clk *clk_child = NULL;
 	struct clk *clk_parent = NULL;
 
+#if defined(CONFIG_SOC_EXYNOS5430)
 	if (dev->id == 0) {
 		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_user");
 		if (IS_ERR(clk_child)) {
@@ -143,7 +148,19 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 		}
 		clk_set_parent(clk_child, clk_parent);
 	}
-
+#elif defined(CONFIG_SOC_EXYNOS5422)
+	clk_child = clk_get(dev->device, "mout_aclk_333_user");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+	clk_parent = clk_get(dev->device, "mout_aclk_333_sw");
+	if (IS_ERR(clk_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_child);
+	}
+	clk_set_parent(clk_child, clk_parent);
+#endif
 	return 0;
 }
 
