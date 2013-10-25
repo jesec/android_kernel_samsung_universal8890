@@ -226,7 +226,6 @@ struct sysmmu_prefbuf {
 struct sysmmu_drvdata {
 	struct device *sysmmu;	/* System MMU's device descriptor */
 	struct device *master;	/* Client device that needs System MMU */
-	char *dbgname;
 	int nsfrs;
 	void __iomem **sfrbases;
 	struct clk *clk;
@@ -294,7 +293,7 @@ static unsigned int __sysmmu_version(struct sysmmu_drvdata *drvdata,
 	if ((MMU_MAJ_VER(major) > 3)) {
 		pr_err("%s: version(%d.%d) of %s[%d] is higher than 3.3\n",
 			__func__, MMU_MAJ_VER(major), MMU_MIN_VER(major),
-			drvdata->dbgname, idx);
+			dev_name(drvdata->sysmmu), idx);
 		BUG();
 		return major;
 	}
@@ -537,26 +536,24 @@ static void __exynos_sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
 
 	num_pb = __raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO) & 0xFF;
 	if ((num_pb != 3) && (num_pb != 4) && (num_pb != 6)) {
-		dev_err(drvdata->master,
-			"%s: Read invalid PB information from %s\n",
-			__func__, drvdata->dbgname);
+		dev_err(drvdata->sysmmu,
+			"%s: Read invalid PB information\n", __func__);
 		return;
 	}
 
 	num_bufs = __prepare_prefetch_buffers(drvdata, idx, prefbuf, num_pb);
 	if (num_bufs == 0) {
-		dev_dbg(drvdata->master,
-			"%s: No buffer to initialize PB of %s - NUM_PB %d\n",
-			__func__, drvdata->dbgname, num_pb);
+		dev_dbg(drvdata->sysmmu,
+			"%s: No buffer to initialize PB - NUM_PB %d\n",
+			__func__, num_pb);
 		return;
 	}
 
 	if (lmm_preset[num_pb - 3][num_bufs - 1] == -1) {
-		dev_err(drvdata->master,
-			"%s: Unable to initialize PB of %s -" \
+		dev_err(drvdata->sysmmu,
+			"%s: Unable to initialize PB -" \
 			"NUM_PB %d, prop %d, numbuf %d\n",
-			__func__, drvdata->dbgname, num_pb, drvdata->prop,
-			num_bufs);
+			__func__, num_pb, drvdata->prop, num_bufs);
 		return;
 	}
 
@@ -676,9 +673,8 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova)
 				__sysmmu_tlb_invalidate_entry(
 						drvdata->sfrbases[i], iova);
 		} else {
-			dev_dbg(dev,
-			"%s is disabled. Skipping TLB invalidation @ %#x\n",
-			drvdata->dbgname, iova);
+			dev_dbg(sysmmu,
+			"Disabled. Skipping TLB invalidation @ %#x\n", iova);
 		}
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
@@ -706,9 +702,8 @@ static void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
 						drvdata->sfrbases[i], iova);
 				}
 		} else {
-			dev_dbg(dev,
-			"%s is disabled. Skipping TLB invalidation @ %#x\n",
-			drvdata->dbgname, iova);
+			dev_dbg(sysmmu,
+			"Disabled. Skipping TLB invalidation @ %#x\n", iova);
 		}
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
@@ -730,9 +725,9 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 		if (!is_sysmmu_active(drvdata) ||
 				!drvdata->runtime_active) {
 			spin_unlock_irqrestore(&drvdata->lock, flags);
-			dev_dbg(dev,
+			dev_dbg(sysmmu,
 				"%s: Skipping TLB invalidation of %#x@%#x\n",
-				drvdata->dbgname, size, start);
+				__func__, size, start);
 			continue;
 		}
 
@@ -938,10 +933,10 @@ static bool __sysmmu_disable(struct sysmmu_drvdata *drvdata)
 		if (drvdata->runtime_active)
 			__sysmmu_disable_nocount(drvdata);
 
-		dev_dbg(drvdata->sysmmu, "Disabled %s\n", drvdata->dbgname);
+		dev_dbg(drvdata->sysmmu, "Disabled\n");
 	} else  {
-		dev_dbg(drvdata->sysmmu, "%d times left to disable %s\n",
-					drvdata->activations, drvdata->dbgname);
+		dev_dbg(drvdata->sysmmu, "%d times left to disable\n",
+					drvdata->activations);
 	}
 
 	spin_unlock_irqrestore(&drvdata->lock, flags);
@@ -1008,12 +1003,11 @@ static int __sysmmu_enable(struct sysmmu_drvdata *drvdata,
 		if (drvdata->runtime_active)
 			__sysmmu_enable_nocount(drvdata);
 
-		dev_dbg(drvdata->sysmmu, "Enabled %s\n", drvdata->dbgname);
+		dev_dbg(drvdata->sysmmu, "Enabled\n");
 	} else {
 		ret = (pgtable == drvdata->pgtable) ? 1 : -EBUSY;
 
-		dev_dbg(drvdata->sysmmu, "%s is already enabled\n",
-							drvdata->dbgname);
+		dev_dbg(drvdata->sysmmu, "Already enabled\n");
 	}
 
 	if (WARN_ON(ret < 0))
