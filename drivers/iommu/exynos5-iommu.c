@@ -1534,11 +1534,12 @@ static void exynos_iommu_domain_destroy(struct iommu_domain *domain)
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	list_for_each_entry(owner, &priv->clients, client) {
+	list_for_each_entry(owner, &priv->clients, client)
 		while (!exynos_sysmmu_disable(owner->dev))
 			; /* until System MMU is actually disabled */
-		list_del_init(&owner->client);
-	}
+
+	while (!list_empty(&priv->clients))
+		list_del_init(priv->clients.next);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
