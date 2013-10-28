@@ -1471,9 +1471,9 @@ static int s3c24xx_serial_resume(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+#ifdef CONFIG_PM_RUNTIME
 	struct platform_device *pdev = ourport->pdev;
 
-#ifdef CONFIG_PM_RUNTIME
 	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
 		return 0;
 #endif
@@ -1492,10 +1492,10 @@ static int s3c24xx_serial_resume(struct device *dev)
 static int s3c24xx_serial_resume_noirq(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
+#ifdef CONFIG_PM_RUNTIME
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	struct platform_device *pdev = ourport->pdev;
 
-#ifdef CONFIG_PM_RUNTIME
 	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
 		return 0;
 #endif
