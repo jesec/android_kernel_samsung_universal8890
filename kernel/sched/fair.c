@@ -9474,7 +9474,7 @@ core_initcall(register_sched_cpufreq_notifier);
 
 #endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
 
-#if BOOT_BOOST_DURATION
+#ifdef BOOT_BOOST_DURATION
 static int __init hmp_boot_boost(void)
 {
 	hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + BOOT_BOOST_DURATION;
