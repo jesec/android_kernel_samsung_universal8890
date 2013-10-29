@@ -1983,17 +1983,19 @@ err_v4l2_dev:
 static void sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
 {
 	if (status == SC_CLK_ON) {
-		clk_set_parent(sc->clk_chld, sc->clk_parn);
+		if (sc->clk_chld && sc->clk_parn)
+			clk_set_parent(sc->clk_chld, sc->clk_parn);
 		atomic_inc(&sc->clk_cnt);
-		clk_enable(sc->aclk);
+		if (sc->aclk)
+			clk_enable(sc->aclk);
 		dev_dbg(sc->dev, "clock enabled\n");
 	} else if (status == SC_CLK_OFF) {
-		int clk_cnt = atomic_dec_return(&sc->clk_cnt);
-		if (clk_cnt < 0) {
+		if (WARN_ON(atomic_dec_return(&sc->clk_cnt) < 0)) {
 			dev_err(sc->dev, "scaler clock control is wrong!!\n");
 			atomic_set(&sc->clk_cnt, 0);
 		} else {
-			clk_disable(sc->aclk);
+			if (sc->aclk)
+				clk_disable(sc->aclk);
 			dev_dbg(sc->dev, "clock disabled\n");
 		}
 	}
@@ -2001,61 +2003,72 @@ static void sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
 
 static int sc_clk_get(struct sc_dev *sc)
 {
-	int ret;
-	char *parn_clkname, *chld_clkname, *gate_clkname;
+	int ret = -ENOENT;
+	const char *clkname;
 
-	of_property_read_string_index(sc->dev->of_node,
-		"clock-names", SC_PARN_CLK, (const char **)&parn_clkname);
-	of_property_read_string_index(sc->dev->of_node,
-		"clock-names", SC_CHLD_CLK, (const char **)&chld_clkname);
-	of_property_read_string_index(sc->dev->of_node,
-		"clock-names", SC_GATE_CLK, (const char **)&gate_clkname);
+	/* aclk, clk_parn and clk_chld are initialized with zero */
 
-	sc_dbg("clknames: parent %s child %s gate %s\n",
-		parn_clkname, chld_clkname, gate_clkname);
-
-	sc->clk_parn = clk_get(sc->dev, parn_clkname);
-	if (IS_ERR(sc->clk_parn)) {
-		dev_err(sc->dev, "failed to get parent clk\n");
-		goto err_clk_get_parn;
+	if (!of_property_read_string_index(sc->dev->of_node, "clock-names",
+						SC_GATE_CLK, &clkname)) {
+		sc->aclk = devm_clk_get(sc->dev, clkname);
+		if (IS_ERR(sc->aclk)) {
+			if (sc->aclk == ERR_PTR(-ENOENT)) {
+				dev_info(sc->dev, "No gate clock found.\n");
+				sc->aclk = NULL;
+			} else {
+				dev_err(sc->dev, "Failed to get gate clk\n");
+				return PTR_ERR(sc->aclk);
+			}
+		} else {
+			ret = clk_prepare(sc->aclk);
+			if (ret != 0) {
+				dev_err(sc->dev, "Failed to prepare gate clk\n");
+				return ret;
+			}
+		}
 	}
 
-	sc->clk_chld = clk_get(sc->dev, chld_clkname);
-	if (IS_ERR(sc->clk_chld)) {
-		dev_err(sc->dev, "failed to get child clk\n");
-		goto err_clk_get_chld;
+	if (!of_property_read_string_index(sc->dev->of_node, "clock-names",
+						SC_PARN_CLK, &clkname)) {
+		sc->clk_parn = devm_clk_get(sc->dev, clkname);
+		if (IS_ERR(sc->clk_parn)) {
+			dev_err(sc->dev,
+				"Failed to get parent clk '%s'\n", clkname);
+			ret = PTR_ERR(sc->clk_parn);
+			goto err_aux_clk_get;
+		}
 	}
 
-	sc->aclk = clk_get(sc->dev, gate_clkname);
-	if (IS_ERR(sc->aclk)) {
-		dev_err(sc->dev, "failed to get gate clk\n");
-		goto err_clk_get;
-	}
-
-	ret = clk_prepare(sc->aclk);
-	if (ret < 0) {
-		dev_err(sc->dev, "failed to prepare gate clk\n");
-		goto err_clk_prepare;
+	if (!of_property_read_string_index(sc->dev->of_node, "clock-names",
+						SC_CHLD_CLK, &clkname)) {
+		sc->clk_chld = devm_clk_get(sc->dev, clkname);
+		if (IS_ERR(sc->clk_chld)) {
+			dev_err(sc->dev,
+				"Failed to get child clk '%s'\n", clkname);
+			ret = PTR_ERR(sc->clk_chld);
+			goto err_aux_clk_get;
+		}
 	}
 
 	return 0;
 
-err_clk_prepare:
-	clk_put(sc->aclk);
-err_clk_get:
-	clk_put(sc->clk_chld);
-err_clk_get_chld:
-	clk_put(sc->clk_parn);
-err_clk_get_parn:
-	return -ENXIO;
+err_aux_clk_get:
+	clk_unprepare(sc->aclk);
+	return ret;
 }
 
 static void sc_clk_put(struct sc_dev *sc)
 {
-	clk_unprepare(sc->aclk);
-	clk_put(sc->aclk);
-	clk_put(sc->clk_chld);
-	clk_put(sc->clk_parn);
+	if (sc->aclk) {
+		clk_unprepare(sc->aclk);
+		clk_put(sc->aclk);
+	}
+
+	if (sc->clk_chld)
+		clk_put(sc->clk_chld);
+
+	if (sc->clk_parn)
+		clk_put(sc->clk_parn);
 }
 
 #ifdef CONFIG_PM_SLEEP
