@@ -2463,7 +2463,7 @@ static __always_inline int __update_entity_runnable_avg(u64 now,
 #endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
 
 	/* delta_w is the amount already accumulated against our next period */
-	delta_w = sa->runnable_avg_period % 1024;
+	delta_w = sa->remainder;
 	if (delta + delta_w >= 1024) {
 		/* period roll-over */
 		decayed = 1;
@@ -2522,6 +2522,10 @@ static __always_inline int __update_entity_runnable_avg(u64 now,
 			sa->usage_avg_sum += runnable_contrib;
 #endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
 		sa->runnable_avg_period += runnable_contrib;
+
+		sa->remainder = delta;
+	} else {
+		sa->remainder += delta;
 	}
 
 	/* Remainder of delta accrued against u_0` */
