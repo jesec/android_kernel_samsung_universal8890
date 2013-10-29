@@ -2023,6 +2023,17 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	entry = section_entry(priv->pgtable, iova);
 
 	if (size >= SECT_SIZE) {
+		int num_entry = size / SECT_SIZE;
+		struct exynos_iommu_owner *owner;
+		int i;
+
+		list_for_each_entry(owner, &priv->clients, client)
+			for (i = 0; i < num_entry; i++)
+				if (entry[i] == ZERO_LV2LINK)
+					sysmmu_tlb_invalidate_flpdcache(
+						owner->dev,
+						iova + i * SECT_SIZE);
+
 		ret = lv1set_section(entry, paddr, size,
 					&priv->lv2entcnt[lv1ent_offset(iova)]);
 	} else {
