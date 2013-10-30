@@ -216,6 +216,19 @@ config EXYNOS_IOVMM
 	  an IO virtual memory region with a physical memory region
 	  and managing the allocated virtual memory regions.
 
+config EXYNOS_IOMMU_NO_MASTER_CLKGATE
+	bool "Always enable master's clock when System MMU is enabled"
+	depends on EXYNOS_IOMMU || EXYNOS7_IOMMU
+	default y
+	help
+	  Exynos IOMMU driver gates master's clock when access to the MMIO of
+	  System MMU is required. However, if the master's device driver does
+	  not handle the master's gate clocks, Exynos IOMMU driver may disable
+	  the master's clock.
+	  Say Y if Exynos IOMMU driver always enable the master's gate clock
+	  if System MMU is enabled to guarantee that the master's clock is not
+	  gated by System MMU driver.
+
 config EXYNOS_IOMMU_DEBUG
 	bool "Debugging log for Exynos IOMMU"
 	depends on EXYNOS_IOMMU || EXYNOS7_IOMMU

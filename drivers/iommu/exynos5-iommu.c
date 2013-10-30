@@ -151,6 +151,15 @@ static phys_addr_t fault_page;
 static unsigned long *zero_lv2_table;
 #define ZERO_LV2LINK mk_lv1ent_page(__pa(zero_lv2_table))
 
+#define __sysmmu_clk_enable(drvdata)	if (drvdata->clk) \
+						clk_enable(drvdata->clk)
+#define __sysmmu_clk_disable(drvdata)	if (drvdata->clk) \
+						clk_disable(drvdata->clk)
+#define __master_clk_enable(drvdata)	if (drvdata->clk_master) \
+						clk_enable(drvdata->clk_master)
+#define __master_clk_disable(drvdata)	if (drvdata->clk_master) \
+						clk_disable(drvdata->clk_master)
+
 static sysmmu_pte_t *section_entry(sysmmu_pte_t *pgtable, unsigned long iova)
 {
 	return (sysmmu_pte_t *)(pgtable + lv1ent_offset(iova));
@@ -756,9 +765,13 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 			continue;
 		}
 
+		__master_clk_enable(drvdata);
+
 		for (idx = 0; idx < drvdata->nsfrs; idx++)
 			__exynos_sysmmu_set_prefbuf_by_plane(drvdata, idx,
 					inplanes, onplanes, ipoption, opoption);
+
+		__master_clk_disable(drvdata);
 
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
@@ -783,9 +796,11 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova)
 		if (is_sysmmu_active(drvdata) &&
 				drvdata->runtime_active) {
 			int i;
+			__master_clk_enable(drvdata);
 			for (i = 0; i < drvdata->nsfrs; i++)
 				__sysmmu_tlb_invalidate_entry(
 						drvdata->sfrbases[i], iova);
+			__master_clk_disable(drvdata);
 		} else {
 			dev_dbg(sysmmu,
 			"Disabled. Skipping TLB invalidation @ %#x\n", iova);
@@ -809,12 +824,14 @@ static void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
 		if (is_sysmmu_active(drvdata) &&
 				drvdata->runtime_active) {
 			int i;
+			__master_clk_enable(drvdata);
 			for (i = 0; i < drvdata->nsfrs; i++)
 				if (has_sysmmu_capable_pbuf(drvdata, i, &min)) {
 					if (min == 3)
 					__sysmmu_tlb_invalidate_entry(
 						drvdata->sfrbases[i], iova);
 				}
+			__master_clk_disable(drvdata);
 		} else {
 			dev_dbg(sysmmu,
 			"Disabled. Skipping TLB invalidation @ %#x\n", iova);
@@ -845,12 +862,17 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 			continue;
 		}
 
+		__master_clk_enable(drvdata);
+
 		for (i = 0; i < drvdata->nsfrs; i++) {
 			if (!WARN_ON(!sysmmu_block(drvdata->sfrbases[i])))
 				__sysmmu_tlb_invalidate(
 						drvdata->sfrbases[i]);
 			sysmmu_unblock(drvdata->sfrbases[i]);
 		}
+
+		__master_clk_disable(drvdata);
+
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
 }
@@ -986,6 +1008,8 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 			break;
 	}
 
+	__master_clk_enable(drvdata);
+
 	if (i == drvdata->nsfrs) {
 		itype = SYSMMU_FAULT_UNDEF;
 	} else {
@@ -1005,6 +1029,8 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 		ret = report_iommu_fault(drvdata->domain,
 					drvdata->master, addr, flags);
 
+	__master_clk_disable(drvdata);
+
 	panic("Unrecoverable System MMU Fault!!");
 
 	return IRQ_HANDLED;
@@ -1020,7 +1046,9 @@ static void __sysmmu_disable_nocount(struct sysmmu_drvdata *drvdata)
 				drvdata->sfrbases[i] + REG_MMU_CTRL);
 	}
 
-	clk_disable(drvdata->clk);
+	__sysmmu_clk_disable(drvdata);
+	if (IS_ENABLED(CONFIG_EXYNOS_IOMMU_NO_MASTER_CLKGATE))
+		__master_clk_disable(drvdata);
 }
 
 static bool __sysmmu_disable(struct sysmmu_drvdata *drvdata)
@@ -1036,8 +1064,11 @@ static bool __sysmmu_disable(struct sysmmu_drvdata *drvdata)
 		drvdata->pgtable = 0;
 		drvdata->domain = NULL;
 
-		if (drvdata->runtime_active)
+		if (drvdata->runtime_active) {
+			__master_clk_enable(drvdata);
 			__sysmmu_disable_nocount(drvdata);
+			__master_clk_disable(drvdata);
+		}
 
 		dev_dbg(drvdata->sysmmu, "Disabled\n");
 	} else  {
@@ -1084,7 +1115,9 @@ static void __sysmmu_enable_nocount(struct sysmmu_drvdata *drvdata)
 {
 	int i;
 
-	clk_enable(drvdata->clk);
+	if (IS_ENABLED(CONFIG_EXYNOS_IOMMU_NO_MASTER_CLKGATE))
+		__master_clk_enable(drvdata);
+	__sysmmu_clk_enable(drvdata);
 
 	for (i = 0; i < drvdata->nsfrs; i++) {
 		__raw_writel(0, drvdata->sfrbases[i] + REG_MMU_CTRL);
@@ -1108,8 +1141,11 @@ static int __sysmmu_enable(struct sysmmu_drvdata *drvdata,
 		drvdata->pgtable = pgtable;
 		drvdata->domain = domain;
 
-		if (drvdata->runtime_active)
+		if (drvdata->runtime_active) {
+			__master_clk_enable(drvdata);
 			__sysmmu_enable_nocount(drvdata);
+			__master_clk_disable(drvdata);
+		}
 
 		dev_dbg(drvdata->sysmmu, "Enabled\n");
 	} else {
@@ -1282,9 +1318,14 @@ static int __init __sysmmu_init_clock(struct device *sysmmu,
 
 	drvdata->clk = devm_clk_get(sysmmu, "sysmmu");
 	if (IS_ERR(drvdata->clk)) {
-		dev_dbg(sysmmu, "No gating clock found.\n");
-		drvdata->clk = NULL;
-		return 0;
+		if (PTR_ERR(drvdata->clk) == -ENOENT) {
+			dev_dbg(sysmmu, "No gating clock found.\n");
+			drvdata->clk = NULL;
+			return 0;
+		}
+
+		dev_err(sysmmu, "Failed get sysmmu clock\n");
+		return PTR_ERR(drvdata->clk);
 	}
 
 	ret = clk_prepare(drvdata->clk);
@@ -1303,9 +1344,11 @@ static int __init __sysmmu_init_clock(struct device *sysmmu,
 		return PTR_ERR(drvdata->clk_master);
 	}
 
-	dev_dbg(sysmmu, "sysmmu clk = %s, master clk = %s\n",
-		__clk_get_name(drvdata->clk),
-		__clk_get_name(drvdata->clk_master));
+	ret = clk_prepare(drvdata->clk_master);
+	if (ret) {
+		dev_dbg(sysmmu, "clk_prepare() failed\n");
+		return ret;
+	}
 
 	return 0;
 }
@@ -1524,8 +1567,11 @@ static int sysmmu_suspend(struct device *dev)
 	unsigned long flags;
 	spin_lock_irqsave(&drvdata->lock, flags);
 	if (is_sysmmu_active(drvdata) &&
-		(!pm_runtime_enabled(dev) || drvdata->runtime_active))
+		(!pm_runtime_enabled(dev) || drvdata->runtime_active)) {
+		__master_clk_enable(drvdata);
 		__sysmmu_disable_nocount(drvdata);
+		__master_clk_disable(drvdata);
+	}
 	spin_unlock_irqrestore(&drvdata->lock, flags);
 	return 0;
 }
@@ -1536,8 +1582,11 @@ static int sysmmu_resume(struct device *dev)
 	unsigned long flags;
 	spin_lock_irqsave(&drvdata->lock, flags);
 	if (is_sysmmu_active(drvdata) &&
-		(!pm_runtime_enabled(dev) || drvdata->runtime_active))
+		(!pm_runtime_enabled(dev) || drvdata->runtime_active)) {
+		__master_clk_enable(drvdata);
 		__sysmmu_enable_nocount(drvdata);
+		__master_clk_disable(drvdata);
+	}
 	spin_unlock_irqrestore(&drvdata->lock, flags);
 	return 0;
 }
@@ -1549,8 +1598,11 @@ static int sysmmu_runtime_suspend(struct device *dev)
 	struct sysmmu_drvdata *drvdata = dev_get_drvdata(dev);
 	unsigned long flags;
 	spin_lock_irqsave(&drvdata->lock, flags);
-	if (is_sysmmu_active(drvdata))
+	if (is_sysmmu_active(drvdata)) {
+		__master_clk_enable(drvdata);
 		__sysmmu_disable_nocount(drvdata);
+		__master_clk_disable(drvdata);
+	}
 	drvdata->runtime_active = false;
 	spin_unlock_irqrestore(&drvdata->lock, flags);
 	return 0;
@@ -1562,8 +1614,11 @@ static int sysmmu_runtime_resume(struct device *dev)
 	unsigned long flags;
 	spin_lock_irqsave(&drvdata->lock, flags);
 	drvdata->runtime_active = true;
-	if (is_sysmmu_active(drvdata))
+	if (is_sysmmu_active(drvdata)) {
+		__master_clk_enable(drvdata);
 		__sysmmu_enable_nocount(drvdata);
+		__master_clk_disable(drvdata);
+	}
 	spin_unlock_irqrestore(&drvdata->lock, flags);
 	return 0;
 }
