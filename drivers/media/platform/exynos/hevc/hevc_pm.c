@@ -134,30 +134,22 @@ int hevc_set_clock_parent(struct hevc_dev *dev)
 	return 0;
 }
 
-#ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
-extern spinlock_t int_div_lock;
+#ifdef CONFIG_ARM_EXYNOS5430_BUS_DEVFREQ
 static int hevc_clock_set_rate(struct hevc_dev *dev, unsigned long rate)
 {
 	struct clk *parent_clk = NULL;
 	int ret = 0;
 
-	pm = &dev->pm;
-
-	if ((dev->pdata->ip_ver == IP_VER_HEVC_5A_0) ||
-	    (dev->pdata->ip_ver == IP_VER_HEVC_5A_1)) {
-		parent_clk = clk_get(dev->device, "aclk_333_pre");
-		if (IS_ERR(parent_clk)) {
-			hevc_err("failed to get parent clock aclk_333_pre.\n");
-			ret = PTR_ERR(parent_clk);
-			goto err_g_clk;
-		}
-
-		spin_lock(&int_div_lock);
-		clk_set_rate(parent_clk, rate * 1000);
-		spin_unlock(&int_div_lock);
-
-		clk_put(parent_clk);
+	parent_clk = clk_get(dev->device, "mout_aclk_hevc_400_user");
+	if (IS_ERR(parent_clk)) {
+		hevc_err("failed to get parent clock mout_aclk_hevc_400_user.\n");
+		ret = PTR_ERR(parent_clk);
+		goto err_g_clk;
 	}
+
+	clk_set_rate(parent_clk, rate * 1000);
+
+	clk_put(parent_clk);
 
 	return 0;
 
@@ -181,7 +173,7 @@ int hevc_clock_on(void)
 	struct hevc_dev *dev = platform_get_drvdata(to_platform_device(pm->device));
 	unsigned long flags;
 
-#ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
+#ifdef CONFIG_ARM_EXYNOS5430_BUS_DEVFREQ
 	hevc_clock_set_rate(dev, dev->curr_rate);
 #endif
 	ret = clk_enable(pm->clock);
