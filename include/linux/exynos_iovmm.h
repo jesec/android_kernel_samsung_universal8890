@@ -175,4 +175,9 @@ static inline int sysmmu_set_prefetch_buffer(struct device *dev,
 }
 #endif /* CONFIG_EXYNOS_IOVMM */
 
+#if defined(CONFIG_EXYNOS7_IOMMU) || defined(CONFIG_EXYNOS_IOMMU)
+void exynos_sysmmu_show_status(struct device *dev);
+#else
+#define exynos_sysmmu_show_status(dev) do { } while (0)
+#endif
 #endif /*__ASM_PLAT_IOVMM_H*/

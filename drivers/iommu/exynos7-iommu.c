@@ -31,10 +31,12 @@
 #include <linux/of_platform.h>
 #include <linux/device.h>
 #include <linux/clk-private.h>
+#include <linux/sched.h>
 
 #include <plat/cpu.h>
 
 #include <asm/cacheflush.h>
+#include <asm/pgtable.h>
 
 #include "exynos-iommu.h"
 
@@ -785,11 +787,44 @@ static void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 		{0, 0, 0, 0, 0, 0},
 		{6, 5, 4, 3, 3, 2},
 	};
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+
+	pr_crit("---------- System MMU Status -----------------------------\n");
+
+	pgd = pgd_offset_k((unsigned long)sfrbase);
+	if (!pgd) {
+		pr_crit("Invalid virtual address %p\n", sfrbase);
+		return;
+	}
+
+	pud = pud_offset(pgd, (unsigned long)sfrbase);
+	if (!pud) {
+		pr_crit("Invalid virtual address %p\n", sfrbase);
+		return;
+	}
+
+	pmd = pmd_offset(pud, (unsigned long)sfrbase);
+	if (!pmd) {
+		pr_crit("Invalid virtual address %p\n", sfrbase);
+		return;
+	}
+
+	pte = pte_offset_kernel(pmd, (unsigned long)sfrbase);
+	if (!pte) {
+		pr_crit("Invalid virtual address %p\n", sfrbase);
+		return;
+	}
 
 	capa = __raw_readl(sfrbase + REG_MMU_CAPA);
 	lmm = MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
 
-	pr_crit("---------- System MMU Status -----------------------------\n");
+	pr_crit("ADDR: %#010lx(VA: 0x%p), MMU_CTRL: %#010x, PT_BASE: %#010x\n",
+		pte_pfn(*pte) << PAGE_SHIFT, sfrbase,
+		__raw_readl(sfrbase + REG_MMU_CTRL),
+		__raw_readl(sfrbase + REG_PT_BASE_PPN));
 	pr_crit("VERSION %d.%d, MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
 		MMU_MAJ_VER(lmm), MMU_MIN_VER(lmm),
 		__raw_readl(sfrbase + REG_MMU_CFG),
@@ -2085,3 +2120,67 @@ err_fault_page:
 	return ret;
 }
 subsys_initcall(exynos_iommu_init);
+
+static void sysmmu_dump_lv2_page_table(unsigned int lv1idx, sysmmu_pte_t *base)
+{
+	unsigned int i;
+	for (i = 0; i < NUM_LV2ENTRIES; i += 4) {
+		if (!base[i] && !base[i + 1] && !base[i + 2] && !base[i + 3])
+			continue;
+		pr_info("    LV2[%04d][%03d] %08x %08x %08x %08x\n",
+			lv1idx, i,
+			base[i], base[i + 1], base[i + 2], base[i + 3]);
+	}
+}
+
+static void sysmmu_dump_page_table(sysmmu_pte_t *base)
+{
+	unsigned int i;
+
+	pr_info("---- System MMU Page Table @ %#010x (ZeroLv2Desc: %#x) ----\n",
+		virt_to_phys(base), ZERO_LV2LINK);
+
+	for (i = 0; i < NUM_LV1ENTRIES; i += 4) {
+		unsigned int j;
+		if ((base[i] == ZERO_LV2LINK) &&
+			(base[i + 1] == ZERO_LV2LINK) &&
+			(base[i + 2] == ZERO_LV2LINK) &&
+			(base[i + 3] == ZERO_LV2LINK))
+			continue;
+		pr_info("LV1[%04d] %08x %08x %08x %08x\n",
+			i, base[i], base[i + 1], base[i + 2], base[i + 3]);
+
+		for (j = 0; j < 4; j++)
+			if (lv1ent_page(&base[i + j]))
+				sysmmu_dump_lv2_page_table(i + j,
+						page_entry(&base[i + j], 0));
+	}
+}
+
+void exynos_sysmmu_show_status(struct device *dev)
+{
+	struct device *sysmmu;
+	for_each_sysmmu(dev, sysmmu) {
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
+		unsigned int i;
+
+		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
+			dev_info(sysmmu, "%s: System MMU is not active\n",
+					__func__);
+			continue;
+		}
+
+		pr_info("DUMPING SYSTEM MMU: %s\n", dev_name(sysmmu));
+		for (i = 0; i < drvdata->nsfrs; i++) {
+			/* System MMU must be enabled */
+			if (sysmmu_block(drvdata->sfrbases[i]))
+				dump_sysmmu_tlb_pb(drvdata->sfrbases[i]);
+			else
+				pr_err("!!Failed to block Sytem MMU!\n");
+			sysmmu_unblock(drvdata->sfrbases[i]);
+
+		}
+
+		sysmmu_dump_page_table(phys_to_virt(drvdata->pgtable));
+	}
+}
