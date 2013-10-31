@@ -21,5 +21,6 @@ const struct v4l2_ioctl_ops *hevc_get_dec_v4l2_ioctl_ops(void);
 int hevc_init_dec_ctx(struct hevc_ctx *ctx);
 int hevc_dec_ctx_ready(struct hevc_ctx *ctx);
 void hevc_dec_store_crop_info(struct hevc_ctx *ctx);
+int hevc_dec_cleanup_user_shared_handle(struct hevc_ctx *ctx);
 
 #endif /* __HEVC_DEC_H_ */

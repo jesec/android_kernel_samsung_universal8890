@@ -270,6 +270,33 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 10,
 		.default_value = 100,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_SET_DYNAMIC_DPB_MODE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Set dynamic DPB",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC_SET_USER_SHARED_HANDLE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Set dynamic DPB",
+		.minimum = 0,
+		.maximum = 65535,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC_GET_EXT_INFO,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Get extra information",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -407,8 +434,9 @@ static struct hevc_ctrl_cfg hevc_ctrl_list[] = {
 /* Check whether a context should be run on hardware */
 int hevc_dec_ctx_ready(struct hevc_ctx *ctx)
 {
-	hevc_debug(2, "src=%d, dst=%d, state=%d capstat=%d\n",
-		  ctx->src_queue_cnt, ctx->dst_queue_cnt,
+	struct hevc_dec *dec = ctx->dec_priv;
+	hevc_debug(2, "src=%d, dst=%d, ref=%d, state=%d capstat=%d\n",
+		  ctx->src_queue_cnt, ctx->dst_queue_cnt, dec->ref_queue_cnt,
 		  ctx->state, ctx->capture_state);
 	hevc_debug(2, "wait_state = %d\n", ctx->wait_state);
 
@@ -417,22 +445,27 @@ int hevc_dec_ctx_ready(struct hevc_ctx *ctx)
 		return 1;
 	/* Context is to decode a frame */
 	if (ctx->src_queue_cnt >= 1 &&
-	    ctx->state == HEVCINST_RUNNING &&
-	    ctx->wait_state == WAIT_NONE &&
-	    ctx->dst_queue_cnt >= ctx->dpb_count)
+		ctx->state == HEVCINST_RUNNING &&
+		ctx->wait_state == WAIT_NONE &&
+		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1) ||
+		(!dec->is_dynamic_dpb && ctx->dst_queue_cnt >= ctx->dpb_count)))
 		return 1;
 	/* Context is to return last frame */
 	if (ctx->state == HEVCINST_FINISHING &&
-	    ctx->dst_queue_cnt >= ctx->dpb_count)
+		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1) ||
+		(!dec->is_dynamic_dpb && ctx->dst_queue_cnt >= ctx->dpb_count)))
 		return 1;
 	/* Context is to set buffers */
 	if (ctx->state == HEVCINST_HEAD_PARSED &&
-	    ctx->capture_state == QUEUE_BUFS_MMAPED)
+		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1) ||
+		(!dec->is_dynamic_dpb &&
+				ctx->capture_state == QUEUE_BUFS_MMAPED)))
 		return 1;
 	/* Resolution change */
 	if ((ctx->state == HEVCINST_RES_CHANGE_INIT ||
 		ctx->state == HEVCINST_RES_CHANGE_FLUSH) &&
-		ctx->dst_queue_cnt >= ctx->dpb_count)
+		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1) ||
+		(!dec->is_dynamic_dpb && ctx->dst_queue_cnt >= ctx->dpb_count)))
 		return 1;
 	if (ctx->state == HEVCINST_RES_CHANGE_END &&
 		ctx->src_queue_cnt >= 1)
@@ -1452,6 +1485,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		ret = vb2_qbuf(&ctx->vq_src, buf);
 	} else {
 		ret = vb2_qbuf(&ctx->vq_dst, buf);
+		hevc_debug(2, "End of enqueue(%d) : %d\n", buf->index, ret);
 	}
 
 	hevc_debug_leave();
@@ -1462,7 +1496,10 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct hevc_ctx *ctx = fh_to_hevc_ctx(file->private_data);
+	struct hevc_dec *dec = ctx->dec_priv;
+	struct dec_dpb_ref_info *dstBuf, *srcBuf;
 	int ret;
+	int ncount = 0;
 
 	hevc_debug_enter();
 	hevc_debug(2, "Addr: %p %p %p Type: %d\n", &ctx->vq_src, buf, buf->m.planes,
@@ -1471,10 +1508,26 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		hevc_err("Call on DQBUF after unrecoverable error.\n");
 		return -EIO;
 	}
-	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		ret = vb2_dqbuf(&ctx->vq_src, buf, file->f_flags & O_NONBLOCK);
-	else
+	} else {
 		ret = vb2_dqbuf(&ctx->vq_dst, buf, file->f_flags & O_NONBLOCK);
+		/* Memcpy from dec->ref_info to shared memory */
+		srcBuf = &dec->ref_info[buf->index];
+		for (ncount = 0; ncount < HEVC_MAX_DPBS; ncount++) {
+			if (srcBuf->dpb[ncount].fd[0] == HEVC_INFO_INIT_FD)
+				break;
+			hevc_debug(2, "DQ index[%d] Released FD = %d\n",
+					buf->index, srcBuf->dpb[ncount].fd[0]);
+		}
+
+		if ((dec->is_dynamic_dpb) && (dec->sh_handle.virt != NULL)) {
+			dstBuf = (struct dec_dpb_ref_info *)
+					dec->sh_handle.virt + buf->index;
+			memcpy(dstBuf, srcBuf, sizeof(struct dec_dpb_ref_info));
+			dstBuf->index = buf->index;
+		}
+	}
 	hevc_debug_leave();
 	return ret;
 }
@@ -1546,6 +1599,17 @@ static int vidioc_queryctrl(struct file *file, void *priv,
 		return -EINVAL;
 	*qc = *c;
 	return 0;
+}
+
+static int dec_ext_info(struct hevc_ctx *ctx)
+{
+	struct hevc_dev *dev = ctx->dev;
+	int val = 0;
+
+	if (FW_HAS_DYNAMIC_DPB(dev))
+		val |= DEC_SET_DYNAMIC_DPB;
+
+	return val;
 }
 
 /* Get ctrl */
@@ -1638,13 +1702,17 @@ static int get_ctrl_val(struct hevc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
 		ctrl->value = ctx->framerate;
 		break;
-
 	case V4L2_CID_MPEG_MFC_GET_VERSION_INFO:
 		ctrl->value = hevc_version(dev);
 		break;
-
 	case V4L2_CID_MPEG_VIDEO_QOS_RATIO:
 		ctrl->value = ctx->qos_ratio;
+		break;
+	case V4L2_CID_MPEG_MFC_SET_DYNAMIC_DPB_MODE:
+		ctrl->value = dec->is_dynamic_dpb;
+		break;
+	case V4L2_CID_MPEG_MFC_GET_EXT_INFO:
+		ctrl->value = dec_ext_info(ctx);
 		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
@@ -1692,6 +1760,57 @@ static int vidioc_g_ctrl(struct file *file, void *priv,
 	hevc_debug_leave();
 
 	return ret;
+}
+
+static int process_user_shared_handle(struct hevc_ctx *ctx)
+{
+	struct hevc_dev *dev = ctx->dev;
+	struct hevc_dec *dec = ctx->dec_priv;
+	int ret = 0;
+
+	dec->sh_handle.ion_handle =
+		ion_import_dma_buf(dev->hevc_ion_client, dec->sh_handle.fd);
+	if (IS_ERR(dec->sh_handle.ion_handle)) {
+		hevc_err("Failed to import fd\n");
+		ret = PTR_ERR(dec->sh_handle.ion_handle);
+		goto import_dma_fail;
+	}
+
+	dec->sh_handle.virt =
+		ion_map_kernel(dev->hevc_ion_client, dec->sh_handle.ion_handle);
+	if (dec->sh_handle.virt == NULL) {
+		hevc_err("Failed to get kernel virtual address\n");
+		ret = -EINVAL;
+		goto map_kernel_fail;
+	}
+
+	hevc_debug(2, "User Handle: fd = %d, virt = 0x%x\n",
+				dec->sh_handle.fd, (int)dec->sh_handle.virt);
+
+	return 0;
+
+map_kernel_fail:
+	ion_free(dev->hevc_ion_client, dec->sh_handle.ion_handle);
+
+import_dma_fail:
+	return ret;
+}
+
+int hevc_dec_cleanup_user_shared_handle(struct hevc_ctx *ctx)
+{
+	struct hevc_dev *dev = ctx->dev;
+	struct hevc_dec *dec = ctx->dec_priv;
+
+	if (dec->sh_handle.fd == -1)
+		return 0;
+
+	if (dec->sh_handle.virt)
+		ion_unmap_kernel(dev->hevc_ion_client,
+					dec->sh_handle.ion_handle);
+
+	ion_free(dev->hevc_ion_client, dec->sh_handle.ion_handle);
+
+	return 0;
 }
 
 /* Set a ctrl */
@@ -1767,6 +1886,19 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_MPEG_VIDEO_QOS_RATIO:
 		ctx->qos_ratio = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC_SET_DYNAMIC_DPB_MODE:
+		if (FW_HAS_DYNAMIC_DPB(dev))
+			dec->is_dynamic_dpb = ctrl->value;
+		else
+			dec->is_dynamic_dpb = 0;
+		break;
+	case V4L2_CID_MPEG_MFC_SET_USER_SHARED_HANDLE:
+		dec->sh_handle.fd = ctrl->value;
+		if (process_user_shared_handle(ctx)) {
+			dec->sh_handle.fd = -1;
+			return -EINVAL;
+		}
 		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
@@ -2081,7 +2213,8 @@ static int hevc_buf_init(struct vb2_buffer *vb)
 	}
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		if (ctx->capture_state == QUEUE_BUFS_MMAPED) {
+		if (!dec->is_dynamic_dpb &&
+				(ctx->capture_state == QUEUE_BUFS_MMAPED)) {
 			hevc_debug_leave();
 			return 0;
 		}
@@ -2251,6 +2384,44 @@ static int hevc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return 0;
 }
 
+static void cleanup_ref_queue(struct hevc_ctx *ctx)
+{
+	struct hevc_dec *dec = ctx->dec_priv;
+	struct hevc_buf *ref_buf;
+	dma_addr_t ref_addr;
+	int i;
+
+	/* move buffers in ref queue to src queue */
+	while (!list_empty(&dec->ref_queue)) {
+		ref_buf = list_entry((&dec->ref_queue)->next,
+						struct hevc_buf, list);
+
+		for (i = 0; i < 2; i++) {
+			ref_addr = hevc_mem_plane_addr(ctx, &ref_buf->vb, i);
+			hevc_debug(2, "dec ref[%d] addr: 0x%08lx", i,
+						(unsigned long)ref_addr);
+		}
+
+		list_del(&ref_buf->list);
+		dec->ref_queue_cnt--;
+	}
+
+	hevc_debug(2, "Dec ref-count: %d\n", dec->ref_queue_cnt);
+
+	BUG_ON(dec->ref_queue_cnt);
+}
+
+static void cleanup_assigned_fd(struct hevc_ctx *ctx)
+{
+	struct hevc_dec *dec;
+	int i;
+
+	dec = ctx->dec_priv;
+
+	for (i = 0; i < HEVC_MAX_DPBS; i++)
+		dec->assigned_fd[i] = HEVC_INFO_INIT_FD;
+}
+
 #define need_to_wait_frame_start(ctx)		\
 	(((ctx->state == HEVCINST_FINISHING) ||	\
 	  (ctx->state == HEVCINST_RUNNING)) &&	\
@@ -2295,6 +2466,12 @@ static int hevc_stop_streaming(struct vb2_queue *q)
 	spin_lock_irqsave(&dev->irqlock, flags);
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (dec->is_dynamic_dpb) {
+			cleanup_assigned_fd(ctx);
+			cleanup_ref_queue(ctx);
+			dec->dynamic_used = 0;
+		}
+
 		hevc_cleanup_queue(&ctx->dst_queue, &ctx->vq_dst);
 		INIT_LIST_HEAD(&ctx->dst_queue);
 		ctx->dst_queue_cnt = 0;
@@ -2363,6 +2540,8 @@ static void hevc_buf_queue(struct vb2_buffer *vb)
 	struct hevc_buf *dpb_buf, *tmp_buf;
 	int wait_flag = 0;
 	int remove_flag = 0;
+	int index;
+	int skip_add = 0;
 
 	hevc_debug_enter();
 	if (!ctx) {
@@ -2392,11 +2571,12 @@ static void hevc_buf_queue(struct vb2_buffer *vb)
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		buf->used = 0;
+		index = vb->v4l2_buf.index;
 		hevc_debug(2, "Dst queue: %p\n", &ctx->dst_queue);
 		hevc_debug(2, "Adding to dst: %p (0x%08lx)\n", vb,
 			(unsigned long)hevc_mem_plane_addr(ctx, vb, 0));
 		hevc_debug(2, "ADDING Flag before: %lx (%d)\n",
-					dec->dpb_status, vb->v4l2_buf.index);
+					dec->dpb_status, index);
 		/* Mark destination as available for use by HEVC */
 		spin_lock_irqsave(&dev->irqlock, flags);
 		if (!list_empty(&dec->dpb_queue)) {
@@ -2415,10 +2595,27 @@ static void hevc_buf_queue(struct vb2_buffer *vb)
 				return;
 			}
 		}
-		set_bit(vb->v4l2_buf.index, &dec->dpb_status);
-		hevc_debug(2, "ADDING Flag after: %lx\n", dec->dpb_status);
-		list_add_tail(&buf->list, &ctx->dst_queue);
-		ctx->dst_queue_cnt++;
+		if (dec->is_dynamic_dpb) {
+			dec->assigned_fd[index] = vb->v4l2_planes[0].m.fd;
+			hevc_debug(2, "Assigned FD[%d] = %d\n", index,
+						dec->assigned_fd[index]);
+			if (dec->dynamic_used & (1 << index)) {
+				/* This buffer is already referenced */
+				hevc_debug(2, "Already ref[%d], fd = %d\n",
+						index, dec->assigned_fd[index]);
+				list_add_tail(&buf->list, &dec->ref_queue);
+				dec->ref_queue_cnt++;
+				skip_add = 1;
+			}
+		} else {
+			set_bit(index, &dec->dpb_status);
+			hevc_debug(2, "ADDING Flag after: %lx\n",
+							dec->dpb_status);
+		}
+		if (!skip_add) {
+			list_add_tail(&buf->list, &ctx->dst_queue);
+			ctx->dst_queue_cnt++;
+		}
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 		if ((dec->dst_memtype == V4L2_MEMORY_USERPTR || dec->dst_memtype == V4L2_MEMORY_DMABUF) &&
 				ctx->dst_queue_cnt == dec->total_dpb_count)
@@ -2507,12 +2704,25 @@ int hevc_init_dec_ctx(struct hevc_ctx *ctx)
 
 	INIT_LIST_HEAD(&dec->dpb_queue);
 	dec->dpb_queue_cnt = 0;
+	INIT_LIST_HEAD(&dec->ref_queue);
+	dec->ref_queue_cnt = 0;
 
 	dec->display_delay = -1;
 	dec->is_packedpb = 0;
 	dec->is_interlaced = 0;
 	dec->immediate_display = 0;
 	dec->is_dts_mode = 0;
+
+	dec->is_dynamic_dpb = 0;
+	dec->dynamic_used = 0;
+	cleanup_assigned_fd(ctx);
+	dec->sh_handle.fd = -1;
+	dec->ref_info = kzalloc(
+		(sizeof(struct dec_dpb_ref_info) * HEVC_MAX_DPBS), GFP_KERNEL);
+	if (!dec->ref_info) {
+		hevc_err("failed to allocate decoder information data\n");
+		return -ENOMEM;
+	}
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;

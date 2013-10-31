@@ -38,6 +38,9 @@
 #endif
 
 #define HEVC_MAX_BUFFERS		32
+#define HEVC_MAX_PLANES		3
+#define HEVC_MAX_DPBS		32
+#define HEVC_INFO_INIT_FD	-1
 
 #define HEVC_NUM_CONTEXTS	16
 #define HEVC_MAX_DRM_CTX		2
@@ -212,6 +215,9 @@ struct hevc_dev {
 	struct video_device	*vfd_dec;
 	struct video_device	*vfd_enc;
 	struct device		*device;
+#ifdef CONFIG_ION_EXYNOS
+	struct ion_client	*hevc_ion_client;
+#endif
 
 	void __iomem		*regs_base;
 	int			irq;
@@ -397,6 +403,21 @@ struct hevc_codec_ops {
 	(((c)->c_ops->op) ?					\
 		((c)->c_ops->op(args)) : 0)
 
+struct stored_dpb_info {
+	int fd[HEVC_MAX_PLANES];
+};
+
+struct dec_dpb_ref_info {
+	int index;
+	struct stored_dpb_info dpb[HEVC_MAX_DPBS];
+};
+
+struct hevc_user_shared_handle {
+	int fd;
+	struct ion_handle *ion_handle;
+	void *virt;
+};
+
 struct hevc_raw_info {
 	int num_planes;
 	int stride[3];
@@ -443,6 +464,15 @@ struct hevc_dec {
 	/* For 6.x */
 	int remained;
 
+	/* For dynamic DPB */
+	int is_dynamic_dpb;
+	unsigned int dynamic_set;
+	unsigned int dynamic_used;
+	struct list_head ref_queue;
+	unsigned int ref_queue_cnt;
+	struct dec_dpb_ref_info *ref_info;
+	int assigned_fd[HEVC_MAX_DPBS];
+	struct hevc_user_shared_handle sh_handle;
 };
 
 
@@ -560,7 +590,12 @@ static inline unsigned int hevc_version(struct hevc_dev *dev)
 #define NUM_OF_PORT(dev)	(IS_TWOPORT(dev) ? 2 : 1)
 #define NUM_OF_ALLOC_CTX(dev)	(NUM_OF_PORT(dev) + 1)
 
+#define FW_HAS_DYNAMIC_DPB(dev)		(dev->fw.date >= 0x131030)
+
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
+
+/* Extra information for Decoder */
+#define	DEC_SET_DYNAMIC_DPB		(1 << 1)
 
 struct hevc_fmt {
 	char *name;
@@ -572,6 +607,10 @@ struct hevc_fmt {
 
 int hevc_get_framerate(struct timeval *to, struct timeval *from);
 inline int hevc_clear_hw_bit(struct hevc_ctx *ctx);
+
+#ifdef CONFIG_ION_EXYNOS
+extern struct ion_device *ion_exynos;
+#endif
 
 #include "regs-hevc.h"
 #include "hevc_opr.h"

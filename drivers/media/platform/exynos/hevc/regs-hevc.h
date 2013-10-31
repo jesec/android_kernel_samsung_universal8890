@@ -161,6 +161,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define HEVC_D_OPT_LF_CTRL_SHIFT		1
 #define HEVC_D_OPT_LF_CTRL_MASK		0x3
 #define HEVC_D_OPT_TILE_MODE_SHIFT		0
+#define HEVC_D_OPT_DYNAMIC_DPB_SET_SHIFT	3
 
 #define HEVC_D_DISPLAY_DELAY		0xF0B8
 
@@ -459,6 +460,9 @@ static inline unsigned int r2h_bits(int cmd)
 #define HEVC_D_MV_BUFFER_PORT_ID_LOWER                      0xF58C
 #define HEVC_D_OTHER_BUFFER_PORT_ID                         0xF590
 #define HEVC_D_METADATA_BUFFER_PORT_ID                      0xF594
+#define HEVC_D_INIT_BUFFER_OPTIONS                          0xF598
+#define HEVC_D_DYNAMIC_DPB_FLAG_UPPER                       0xF5A0
+#define HEVC_D_DYNAMIC_DPB_FLAG_LOWER                       0xF5A4
 
 /* Nal cmd */
 #define HEVC_D_CPB_BUFFER_ADDR                              0xF5B0
@@ -508,6 +512,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define HEVC_D_CHROMA_FORMAT                                0xF684
 
 #define HEVC_D_HEVC_INFO                                    0xF6A0
+#define HEVC_D_USED_DPB_FLAG_UPPER                          0xF6A4
+#define HEVC_D_USED_DPB_FLAG_LOWER                          0xF6A8
 
 #define HEVC_D_METADATA_ADDR_SEI_NAL                        0xF6C0
 #define HEVC_D_METADATA_SIZE_SEI_NAL                        0xF6C4

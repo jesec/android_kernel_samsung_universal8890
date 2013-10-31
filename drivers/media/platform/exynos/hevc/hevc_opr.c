@@ -509,6 +509,9 @@ int hevc_set_dec_frame_buffer(struct hevc_ctx *ctx)
 		WRITEL(raw->plane_size[i], HEVC_D_FIRST_PLANE_DPB_SIZE + i*4);
 	}
 
+	if (dec->is_dynamic_dpb)
+		WRITEL((0x1 << HEVC_D_OPT_DYNAMIC_DPB_SET_SHIFT), HEVC_D_INIT_BUFFER_OPTIONS);
+
 	WRITEL(buf_addr1, HEVC_D_SCRATCH_BUFFER_ADDR);
 	WRITEL(ctx->scratch_buf_size, HEVC_D_SCRATCH_BUFFER_SIZE);
 	buf_addr1 += ctx->scratch_buf_size;
@@ -528,6 +531,9 @@ int hevc_set_dec_frame_buffer(struct hevc_ctx *ctx)
 
 	i = 0;
 	list_for_each_entry(buf, buf_queue, list) {
+		/* Do not setting DPB */
+		if (dec->is_dynamic_dpb)
+			break;
 		for (j = 0; j < raw->num_planes; j++) {
 			hevc_debug(2, "buf->planes.raw[%d] = 0x%x\n", j, buf->planes.raw[j]);
 			WRITEL(buf->planes.raw[j], HEVC_D_FIRST_PLANE_DPB0 + (j*0x100 + i*4));
@@ -688,6 +694,13 @@ int hevc_decode_one_frame(struct hevc_ctx *ctx, int last_frame)
 	hevc_debug(2, "Setting flags to %08lx (free:%d WTF:%d)\n",
 				dec->dpb_status, ctx->dst_queue_cnt,
 						dec->dpb_queue_cnt);
+	if (dec->is_dynamic_dpb) {
+		hevc_debug(2, "Dynamic:0x%08x, Available:0x%08lx\n",
+					dec->dynamic_set, dec->dpb_status);
+		WRITEL(dec->dynamic_set, HEVC_D_DYNAMIC_DPB_FLAG_LOWER);
+		WRITEL(0x0, HEVC_D_DYNAMIC_DPB_FLAG_UPPER);
+	}
+
 	WRITEL(dec->dpb_status, HEVC_D_AVAILABLE_DPB_FLAG_LOWER);
 	WRITEL(0x0, HEVC_D_AVAILABLE_DPB_FLAG_UPPER);
 	WRITEL(dec->slice_enable, HEVC_D_SLICE_IF_ENABLE);
@@ -741,10 +754,37 @@ static inline int hevc_get_new_ctx(struct hevc_dev *dev)
 	return new_ctx;
 }
 
+static int hevc_set_dynamic_dpb(struct hevc_ctx *ctx, struct hevc_buf *dst_vb)
+{
+	struct hevc_dev *dev = ctx->dev;
+	struct hevc_dec *dec = ctx->dec_priv;
+	struct hevc_raw_info *raw = &ctx->raw_buf;
+	int dst_index;
+
+	dst_index = dst_vb->vb.v4l2_buf.index;
+	dec->dynamic_set = 1 << dst_index;
+	dst_vb->used = 1;
+	set_bit(dst_index, &dec->dpb_status);
+	hevc_debug(2, "ADDING Flag after: %lx\n", dec->dpb_status);
+	hevc_debug(2, "Dst addr [%d] = 0x%x\n", dst_index,
+			dst_vb->planes.raw[0]);
+
+	WRITEL(dst_vb->planes.raw[0],
+			HEVC_D_FIRST_PLANE_DPB0 + (dst_index * 4));
+	WRITEL(dst_vb->planes.raw[1],
+			HEVC_D_SECOND_PLANE_DPB0 + (dst_index * 4));
+	WRITEL(raw->plane_size[0], HEVC_D_FIRST_PLANE_DPB_SIZE);
+	WRITEL(raw->plane_size[1], HEVC_D_SECOND_PLANE_DPB_SIZE);
+
+	return 0;
+}
+
 static inline int hevc_run_dec_last_frames(struct hevc_ctx *ctx)
 {
 	struct hevc_dev *dev;
-	struct hevc_buf *temp_vb;
+	struct hevc_buf *temp_vb, *dst_vb;
+	struct hevc_dec *dec = ctx->dec_priv;
+
 	unsigned long flags;
 
 	if (!ctx) {
@@ -757,6 +797,12 @@ static inline int hevc_run_dec_last_frames(struct hevc_ctx *ctx)
 		return -EINVAL;
 	}
 	spin_lock_irqsave(&dev->irqlock, flags);
+
+	if ((dec->is_dynamic_dpb) && (ctx->dst_queue_cnt == 0)) {
+		hevc_debug(2, "No dst buffer\n");
+		spin_unlock_irqrestore(&dev->irqlock, flags);
+		return -EAGAIN;
+	}
 
 	/* Frames are being decoded */
 	if (list_empty(&ctx->src_queue)) {
@@ -771,6 +817,12 @@ static inline int hevc_run_dec_last_frames(struct hevc_ctx *ctx)
 			hevc_mem_plane_addr(ctx, &temp_vb->vb, 0), 0, 0);
 	}
 
+	if (dec->is_dynamic_dpb) {
+		dst_vb = list_entry(ctx->dst_queue.next,
+						struct hevc_buf, list);
+		hevc_set_dynamic_dpb(ctx, dst_vb);
+	}
+
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	dev->curr_ctx = ctx->num;
@@ -783,7 +835,8 @@ static inline int hevc_run_dec_last_frames(struct hevc_ctx *ctx)
 static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 {
 	struct hevc_dev *dev;
-	struct hevc_buf *temp_vb;
+	struct hevc_buf *temp_vb, *dst_vb;
+	struct hevc_dec *dec = ctx->dec_priv;
 	unsigned long flags;
 	int last_frame = 0;
 	unsigned int index;
@@ -805,10 +858,12 @@ static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 		return -EAGAIN;
 	}
-	if (ctx->dst_queue_cnt < ctx->dpb_count) {
+	if ((dec->is_dynamic_dpb && ctx->dst_queue_cnt == 0) ||
+		(!dec->is_dynamic_dpb && ctx->dst_queue_cnt < ctx->dpb_count)) {
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 		return -EAGAIN;
 	}
+
 	/* Get the next source buffer */
 	temp_vb = list_entry(ctx->src_queue.next, struct hevc_buf, list);
 	temp_vb->used = 1;
@@ -818,11 +873,18 @@ static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 	hevc_set_dec_stream_buffer(ctx,
 			hevc_mem_plane_addr(ctx, &temp_vb->vb, 0),
 			0, temp_vb->vb.v4l2_planes[0].bytesused);
-	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	index = temp_vb->vb.v4l2_buf.index;
 	if (call_cop(ctx, set_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
 		hevc_err("failed in set_buf_ctrls_val\n");
+
+	if (dec->is_dynamic_dpb) {
+		dst_vb = list_entry(ctx->dst_queue.next,
+						struct hevc_buf, list);
+		hevc_set_dynamic_dpb(ctx, dst_vb);
+	}
+
+	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	dev->curr_ctx = ctx->num;
 	hevc_clean_ctx_int_flags(ctx);
@@ -872,6 +934,7 @@ static inline void hevc_run_init_dec(struct hevc_ctx *ctx)
 static inline int hevc_run_init_dec_buffers(struct hevc_ctx *ctx)
 {
 	struct hevc_dev *dev;
+	struct hevc_dec *dec = ctx->dec_priv;
 	int ret;
 
 	if (!ctx) {
@@ -888,7 +951,7 @@ static inline int hevc_run_init_dec_buffers(struct hevc_ctx *ctx)
 	 * First set the output frame buffers
 	 * hevc_alloc_dec_buffers(ctx); */
 
-	if (ctx->capture_state != QUEUE_BUFS_MMAPED) {
+	if (!dec->is_dynamic_dpb && (ctx->capture_state != QUEUE_BUFS_MMAPED)) {
 		hevc_err("It seems that not all destionation buffers were "
 			"mmaped.\nHEVC requires that all destination are mmaped "
 			"before starting processing.\n");

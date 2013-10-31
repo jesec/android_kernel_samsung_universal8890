@@ -91,6 +91,8 @@ void hevc_dec_calc_dpb_size(struct hevc_ctx *ctx);
 #define hevc_get_dec_frame()		(readl(dev->regs_base + \
 						HEVC_D_DECODED_FRAME_TYPE) \
 						& HEVC_DECODED_FRAME_MASK)
+#define hevc_get_dec_used_flag()		readl(dev->regs_base + \
+						HEVC_D_USED_DPB_FLAG_LOWER)
 
 #define mb_width(x_size)		((x_size + 15) / 16)
 #define mb_height(y_size)		((y_size + 15) / 16)

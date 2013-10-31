@@ -430,6 +430,64 @@ static void hevc_handle_frame_all_extracted(struct hevc_ctx *ctx)
 	hevc_debug(2, "After cleanup\n");
 }
 
+/*
+ * Used only when dynamic DPB is enabled.
+ * Check released buffers are enqueued again.
+ */
+static void hevc_check_ref_frame(struct hevc_ctx *ctx,
+			struct list_head *ref_list, int ref_index)
+{
+	struct hevc_dec *dec = ctx->dec_priv;
+	struct hevc_buf *ref_buf, *tmp_buf;
+	int index;
+
+	list_for_each_entry_safe(ref_buf, tmp_buf, ref_list, list) {
+		index = ref_buf->vb.v4l2_buf.index;
+		if (index == ref_index) {
+			list_del(&ref_buf->list);
+			dec->ref_queue_cnt--;
+
+			list_add_tail(&ref_buf->list, &ctx->dst_queue);
+			ctx->dst_queue_cnt++;
+
+			dec->assigned_fd[index] =
+					ref_buf->vb.v4l2_planes[0].m.fd;
+			clear_bit(index, &dec->dpb_status);
+			hevc_debug(2, "Move buffer[%d], fd[%d] to dst queue\n",
+					index, dec->assigned_fd[index]);
+			break;
+		}
+	}
+}
+
+/* Process the released reference information */
+static void hevc_handle_released_info(struct hevc_ctx *ctx,
+				struct list_head *dst_queue_addr,
+				unsigned int released_flag, int index)
+{
+	struct hevc_dec *dec = ctx->dec_priv;
+	struct dec_dpb_ref_info *refBuf;
+	int t, ncount = 0;
+
+	refBuf = &dec->ref_info[index];
+
+	if (released_flag) {
+		for (t = 0; t < HEVC_MAX_DPBS; t++) {
+			if (released_flag & (1 << t)) {
+				hevc_debug(2, "Release FD[%d] = %03d !! ",
+						t, dec->assigned_fd[t]);
+				refBuf->dpb[ncount].fd[0] = dec->assigned_fd[t];
+				dec->assigned_fd[t] = HEVC_INFO_INIT_FD;
+				ncount++;
+				hevc_check_ref_frame(ctx, dst_queue_addr, t);
+			}
+		}
+	}
+
+	if (ncount != HEVC_MAX_DPBS)
+		refBuf->dpb[ncount].fd[0] = HEVC_INFO_INIT_FD;
+}
+
 static void hevc_handle_frame_copy_timestamp(struct hevc_ctx *ctx)
 {
 	struct hevc_buf *dst_buf, *src_buf;
@@ -466,6 +524,8 @@ static void hevc_handle_frame_new(struct hevc_ctx *ctx, unsigned int err)
 	unsigned int index;
 	unsigned int frame_type;
 	unsigned int dst_frame_status;
+	struct list_head *dst_queue_addr;
+	unsigned int prev_flag, released_flag = 0;
 	int i;
 
 	if (!ctx) {
@@ -503,9 +563,25 @@ static void hevc_handle_frame_new(struct hevc_ctx *ctx, unsigned int err)
 	if (frame_type == HEVC_DISPLAY_FRAME_NOT_CODED)
 		return;
 
+	if (dec->is_dynamic_dpb) {
+		prev_flag = dec->dynamic_used;
+		dec->dynamic_used = hevc_get_dec_used_flag();
+		released_flag = prev_flag & (~dec->dynamic_used);
+
+		hevc_debug(2, "Used flag = %08x, Released Buffer = %08x\n",
+				dec->dynamic_used, released_flag);
+	}
+
+	/* The HEVC returns address of the buffer, now we have to
+	 * check which videobuf does it correspond to */
+	if (dec->is_dynamic_dpb)
+		dst_queue_addr = &dec->ref_queue;
+	else
+		dst_queue_addr = &ctx->dst_queue;
+
 	/* The HEVC  returns address of the buffer, now we have to
 	 * check which videobuf does it correspond to */
-	list_for_each_entry(dst_buf, &ctx->dst_queue, list) {
+	list_for_each_entry(dst_buf, dst_queue_addr, list) {
 		hevc_debug(2, "Listing: %d\n", dst_buf->vb.v4l2_buf.index);
 		/* Check if this is the buffer we're looking for */
 		hevc_debug(2, "0x%08lx, 0x%08x",
@@ -514,8 +590,14 @@ static void hevc_handle_frame_new(struct hevc_ctx *ctx, unsigned int err)
 				dspl_y_addr);
 		if (hevc_mem_plane_addr(ctx, &dst_buf->vb, 0)
 							== dspl_y_addr) {
+			index = dst_buf->vb.v4l2_buf.index;
 			list_del(&dst_buf->list);
-			ctx->dst_queue_cnt--;
+
+			if (dec->is_dynamic_dpb)
+				dec->ref_queue_cnt--;
+			else
+				ctx->dst_queue_cnt--;
+
 			dst_buf->vb.v4l2_buf.sequence = ctx->sequence;
 
 			if (hevc_read_info(ctx, PIC_TIME_TOP) ==
@@ -528,7 +610,7 @@ static void hevc_handle_frame_new(struct hevc_ctx *ctx, unsigned int err)
 				vb2_set_plane_payload(&dst_buf->vb, i,
 							raw->plane_size[i]);
 
-			clear_bit(dst_buf->vb.v4l2_buf.index, &dec->dpb_status);
+			clear_bit(index, &dec->dpb_status);
 
 			dst_buf->vb.v4l2_buf.flags &=
 					~(V4L2_BUF_FLAG_KEYFRAME |
@@ -556,9 +638,12 @@ static void hevc_handle_frame_new(struct hevc_ctx *ctx, unsigned int err)
 				hevc_err("Warning for displayed frame: %d\n",
 							hevc_err_dspl(err));
 
-			index = dst_buf->vb.v4l2_buf.index;
 			if (call_cop(ctx, get_buf_ctrls_val, ctx, &ctx->dst_ctrls[index]) < 0)
 				hevc_err("failed in get_buf_ctrls_val\n");
+
+			if (dec->is_dynamic_dpb)
+				hevc_handle_released_info(ctx, dst_queue_addr,
+							released_flag, index);
 
 			if (dec->immediate_display == 1) {
 				dst_frame_status = hevc_get_dec_status()
@@ -695,6 +780,32 @@ static void hevc_handle_frame_error(struct hevc_ctx *ctx,
 	queue_work(dev->sched_wq, &dev->sched_work);
 }
 
+static void hevc_handle_ref_frame(struct hevc_ctx *ctx)
+{
+	struct hevc_dec *dec = ctx->dec_priv;
+	struct hevc_buf *dec_buf;
+	dma_addr_t dec_addr, buf_addr;
+
+	dec_buf = list_entry(ctx->dst_queue.next, struct hevc_buf, list);
+
+	dec_addr = HEVC_GET_ADR(DEC_DECODED_Y);
+	buf_addr = hevc_mem_plane_addr(ctx, &dec_buf->vb, 0);
+
+	if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
+		hevc_debug(2, "Find dec buffer y = 0x%x\n", dec_addr);
+
+		list_del(&dec_buf->list);
+		ctx->dst_queue_cnt--;
+
+		list_add_tail(&dec_buf->list, &dec->ref_queue);
+		dec->ref_queue_cnt++;
+	} else {
+		hevc_debug(2, "Can't find buffer for addr = 0x%x\n", dec_addr);
+		hevc_debug(2, "Expected addr = 0x%x, used = %d\n",
+						buf_addr, dec_buf->used);
+	}
+}
+
 /* Handle frame decoding interrupt */
 static void hevc_handle_frame(struct hevc_ctx *ctx,
 					unsigned int reason, unsigned int err)
@@ -737,6 +848,8 @@ static void hevc_handle_frame(struct hevc_ctx *ctx,
 
 	hevc_debug(2, "Frame Status: %x\n", dst_frame_status);
 	hevc_debug(2, "SEI available status: %x\n", sei_avail_status);
+	hevc_debug(2, "Used flag: old = %08x, new = %08x\n",
+				dec->dynamic_used, hevc_get_dec_used_flag());
 
 	if (ctx->state == HEVCINST_RES_CHANGE_INIT)
 		ctx->state = HEVCINST_RES_CHANGE_FLUSH;
@@ -744,6 +857,8 @@ static void hevc_handle_frame(struct hevc_ctx *ctx,
 	if (res_change) {
 		hevc_info("Resolution change set to %d\n", res_change);
 		ctx->state = HEVCINST_RES_CHANGE_INIT;
+		ctx->wait_state = WAIT_DECODING;
+		hevc_debug(2, "Decoding waiting! : %d\n", ctx->wait_state);
 
 		hevc_clear_int_flags();
 		if (hevc_clear_hw_bit(ctx) == 0)
@@ -781,6 +896,19 @@ static void hevc_handle_frame(struct hevc_ctx *ctx,
 			goto leave_handle_frame;
 		} else {
 			hevc_handle_frame_all_extracted(ctx);
+		}
+	}
+
+	if (dec->is_dynamic_dpb) {
+		switch (dst_frame_status) {
+		case HEVC_DEC_STATUS_DECODING_ONLY:
+			dec->dynamic_used = hevc_get_dec_used_flag();
+			/* Fall through */
+		case HEVC_DEC_STATUS_DECODING_DISPLAY:
+			hevc_handle_ref_frame(ctx);
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -1400,8 +1528,11 @@ err_drm_start:
 	call_cop(ctx, cleanup_ctx_ctrls, ctx);
 
 err_ctx_ctrls:
-	if (node == HEVCNODE_DECODER)
+	if (node == HEVCNODE_DECODER){
+		kfree(ctx->dec_priv->ref_info);
 		kfree(ctx->dec_priv);
+	}
+
 err_ctx_init:
 	dev->ctx[ctx->num] = 0;
 
@@ -1541,8 +1672,11 @@ static int hevc_release(struct file *file)
 	hevc_release_codec_buffers(ctx);
 	hevc_release_instance_buffer(ctx);
 
-	if (ctx->type == HEVCINST_DECODER)
+	if (ctx->type == HEVCINST_DECODER){
+		hevc_dec_cleanup_user_shared_handle(ctx);
 		kfree(ctx->dec_priv);
+	}
+
 	dev->ctx[ctx->num] = 0;
 	kfree(ctx);
 
@@ -1819,6 +1953,14 @@ static int hevc_probe(struct platform_device *pdev)
 	}
 	INIT_WORK(&dev->sched_work, hevc_sched_worker);
 
+#ifdef CONFIG_ION_EXYNOS
+	dev->hevc_ion_client = ion_client_create(ion_exynos, "hevc");
+	if (IS_ERR(dev->hevc_ion_client)) {
+		dev_err(&pdev->dev, "failed to ion_client_create\n");
+		goto err_ion_client;
+	}
+#endif
+
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	dev->alloc_ctx_fw = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev, SZ_4K,
@@ -1900,6 +2042,10 @@ alloc_ctx_sh_fail:
 alloc_ctx_fw_fail:
 	destroy_workqueue(dev->sched_wq);
 #endif
+#ifdef CONFIG_ION_EXYNOS
+	ion_client_destroy(dev->hevc_ion_client);
+err_ion_client:
+#endif
 err_wq_sched:
 	hevc_mem_cleanup_multi((void **)dev->alloc_ctx,
 			alloc_ctx_num);
@@ -1950,6 +2096,9 @@ static int hevc_remove(struct platform_device *pdev)
 	hevc_mem_free_priv(dev->drm_info.alloc);
 	vb2_ion_destroy_context(dev->alloc_ctx_sh);
 	vb2_ion_destroy_context(dev->alloc_ctx_fw);
+#endif
+#ifdef CONFIG_ION_EXYNOS
+	ion_client_destroy(dev->hevc_ion_client);
 #endif
 	hevc_mem_cleanup_multi((void **)dev->alloc_ctx,
 					NUM_OF_ALLOC_CTX(dev));
