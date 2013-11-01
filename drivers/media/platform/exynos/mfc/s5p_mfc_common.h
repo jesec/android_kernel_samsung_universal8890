@@ -816,6 +816,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 	case IP_VER_MFC_6A_1:
 		version = 0x72;
 		break;
+	case IP_VER_MFC_6A_2:
+		version = 0x723;
+		break;
 	}
 
 	return version;
@@ -834,7 +837,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
  * IS_MFCv5X : For MFC v5.X only
  * IS_MFCV6 : For MFC v6 architecure
  */
-#define IS_MFCv7X(dev)		(mfc_version(dev) == 0x72)
+#define IS_MFCv7X(dev)		((mfc_version(dev) == 0x72) || \
+				 (mfc_version(dev) == 0x723))
 #define IS_MFCv6X(dev)		((mfc_version(dev) == 0x61) || \
 				 (mfc_version(dev) == 0x65))
 #define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
