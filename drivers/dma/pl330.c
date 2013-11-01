@@ -23,6 +23,7 @@
 #include <linux/dmaengine.h>
 #include <linux/amba/bus.h>
 #include <linux/amba/pl330.h>
+#include <linux/pm_runtime.h>
 #include <linux/scatterlist.h>
 #include <linux/of.h>
 #include <linux/of_dma.h>
@@ -2153,6 +2154,10 @@ static int pl330_alloc_chan_resources(struct dma_chan *chan)
 	struct pl330_dmac *pl330 = pch->dmac;
 	unsigned long flags;
 
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_get_sync(pl330->ddma.dev);
+#endif
+
 	spin_lock_irqsave(&pch->lock, flags);
 
 	dma_cookie_init(chan);
@@ -2256,6 +2261,10 @@ static void pl330_free_chan_resources(struct dma_chan *chan)
 		list_splice_tail_init(&pch->work_list, &pch->dmac->desc_pool);
 
 	spin_unlock_irqrestore(&pch->lock, flags);
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_put_sync(pch->dmac->ddma.dev);
+#endif
 }
 
 static enum dma_status
@@ -2881,6 +2890,10 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 		"\tDBUFF-%ux%ubytes Num_Chans-%u Num_Peri-%u Num_Events-%u\n",
 		pcfg->data_buf_dep, pcfg->data_bus_width / 8, pcfg->num_chan,
 		pcfg->num_peri, pcfg->num_events);
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_put_sync(&adev->dev);
+#endif
 
 	return 0;
 probe_err3:
