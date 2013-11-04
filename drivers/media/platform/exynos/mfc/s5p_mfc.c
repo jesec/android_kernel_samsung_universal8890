@@ -795,7 +795,10 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 
 	dec_buf = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 
-	dec_addr = MFC_GET_ADR(DEC_DECODED_Y);
+	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
+		dec_addr = mfc_get_dec_first_addr();
+	else
+		dec_addr = MFC_GET_ADR(DEC_DECODED_Y);
 	buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
 
 	if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
@@ -891,6 +894,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 		ctx->is_dpb_realloc = 1;
 		ctx->state = MFCINST_HEAD_PARSED;
 		ctx->capture_state = QUEUE_FREE;
+		ctx->wait_state = WAIT_DECODING;
 		s5p_mfc_handle_frame_all_extracted(ctx);
 		goto leave_handle_frame;
 	}
@@ -910,7 +914,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 	if (dec->is_dynamic_dpb) {
 		switch (dst_frame_status) {
 		case S5P_FIMV_DEC_STATUS_DECODING_ONLY:
-			dec->dynamic_used = mfc_get_dec_used_flag();
+			dec->dynamic_used |= mfc_get_dec_used_flag();
 			/* Fall through */
 		case S5P_FIMV_DEC_STATUS_DECODING_DISPLAY:
 			s5p_mfc_handle_ref_frame(ctx);

@@ -622,7 +622,8 @@ int s5p_mfc_dec_ctx_ready(struct s5p_mfc_ctx *ctx)
 		return 1;
 	/* Context is to set buffers */
 	if (ctx->state == MFCINST_HEAD_PARSED &&
-		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1) ||
+		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1 &&
+		  ctx->wait_state == WAIT_NONE) ||
 		(!dec->is_dynamic_dpb &&
 				ctx->capture_state == QUEUE_BUFS_MMAPED)))
 		return 1;
@@ -2698,7 +2699,8 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 				__dec_reset_buf_ctrls(&ctx->dst_ctrls[index]);
 			index++;
 		}
-		if (ctx->wait_state == WAIT_INITBUF_DONE) {
+		if (ctx->wait_state == WAIT_INITBUF_DONE ||
+					ctx->wait_state == WAIT_DECODING) {
 			ctx->wait_state = WAIT_NONE;
 			mfc_debug(2, "Decoding can be started now\n");
 		}
@@ -2934,6 +2936,8 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 		mfc_err("failed to allocate decoder information data\n");
 		return -ENOMEM;
 	}
+	for (i = 0; i < MFC_MAX_BUFFERS; i++)
+		dec->ref_info[i].dpb[0].fd[0] = MFC_INFO_INIT_FD;
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;

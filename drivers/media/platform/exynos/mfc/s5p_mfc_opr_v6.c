@@ -774,16 +774,28 @@ static int mfc_set_dec_dis_buffer(struct s5p_mfc_ctx *ctx,
 {
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_raw_info *raw = &ctx->raw_buf;
 	struct s5p_mfc_buf *buf;
 	int i, j;
 
 	/* Do not setting DPB */
-	if (dec->is_dynamic_dpb)
+	if (dec->is_dynamic_dpb) {
+		for (i = 0; i < raw->num_planes; i++) {
+			s5p_mfc_write_shm(dev, raw->plane_size[i],
+					D_FIRST_DIS_SIZE + (i * 4));
+			/* Stride should be multiple of 16 */
+			s5p_mfc_write_shm(dev, raw->stride[i],
+					D_FIRST_DIS_STRIDE + (i * 4));
+			mfc_debug(2, "DIS plane%d.size = %d, stride = %d\n", i,
+				raw->plane_size[i], raw->stride[i]);
+		}
+
 		return 0;
+	}
 
 	i = 0;
 	list_for_each_entry(buf, buf_queue, list) {
-		for (j = 0; j < ctx->raw_buf.num_planes; j++) {
+		for (j = 0; j < raw->num_planes; j++) {
 			mfc_debug(2, "# DIS plane%d addr = %x\n",
 							j, buf->planes.raw[j]);
 			s5p_mfc_write_shm(dev, buf->planes.raw[j],
@@ -795,14 +807,14 @@ static int mfc_set_dec_dis_buffer(struct s5p_mfc_ctx *ctx,
 	mfc_debug(2, "# number of display buffer = %d\n", dec->total_dpb_count);
 	s5p_mfc_write_shm(dev, dec->total_dpb_count, D_NUM_DIS);
 
-	for (i = 0; i < ctx->raw_buf.num_planes; i++) {
-		s5p_mfc_write_shm(dev, ctx->raw_buf.plane_size[i],
+	for (i = 0; i < raw->num_planes; i++) {
+		s5p_mfc_write_shm(dev, raw->plane_size[i],
 						D_FIRST_DIS_SIZE + (i * 4));
 		/* Stride should be multiple of 16 */
-		s5p_mfc_write_shm(dev, ctx->raw_buf.stride[i],
+		s5p_mfc_write_shm(dev, raw->stride[i],
 						D_FIRST_DIS_STRIDE + (i * 4));
 		mfc_debug(2, "# DIS plane%d.size = %d, stride = %d\n", i,
-			ctx->raw_buf.plane_size[i], ctx->raw_buf.stride[i]);
+			raw->plane_size[i], raw->stride[i]);
 	}
 
 	return 0;
@@ -2159,6 +2171,12 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 	int i;
 
 	dst_index = dst_vb->vb.v4l2_buf.index;
+	dst_vb->used = 1;
+	set_bit(dst_index, &dec->dpb_status);
+	dec->dynamic_set = 1 << dst_index;
+	mfc_debug(2, "ADDING Flag after: %lx\n", dec->dpb_status);
+	mfc_debug(2, "Dst addr [%d] = 0x%x\n", dst_index,
+			dst_vb->planes.raw[0]);
 
 	if (dec->is_dual_dpb) {
 		for (i = 0; i < raw->num_planes; i++) {
@@ -2177,12 +2195,6 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 					raw->plane_size[i], raw->stride[i]);
 		}
 	} else {
-		dec->dynamic_set = 1 << dst_index;
-		dst_vb->used = 1;
-		set_bit(dst_index, &dec->dpb_status);
-		mfc_debug(2, "ADDING Flag after: %lx\n", dec->dpb_status);
-		mfc_debug(2, "Dst addr [%d] = 0x%x\n", dst_index,
-				dst_vb->planes.raw[0]);
 		WRITEL(dst_vb->planes.raw[0],
 				S5P_FIMV_D_LUMA_DPB + (dst_index * 4));
 		WRITEL(dst_vb->planes.raw[1],
