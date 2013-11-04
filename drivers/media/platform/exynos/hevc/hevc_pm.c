@@ -28,6 +28,7 @@
 
 static struct hevc_pm *pm;
 atomic_t clk_ref_hevc;
+static int power_on_flag;
 
 #if defined(CONFIG_ARCH_EXYNOS4)
 
@@ -190,9 +191,12 @@ int hevc_clock_on(void)
 
 	spin_lock_irqsave(&pm->clklock, flags);
 	if (atomic_inc_return(&clk_ref_hevc) == 1) {
-		val = hevc_read_reg(HEVC_BUS_RESET_CTRL);
-		val &= ~(0x1);
-		hevc_write_reg(val, HEVC_BUS_RESET_CTRL);
+		if(power_on_flag == 0){
+			val = hevc_read_reg(HEVC_BUS_RESET_CTRL);
+			val &= ~(0x1);
+			hevc_write_reg(val, HEVC_BUS_RESET_CTRL);
+		}
+		power_on_flag = 0;
 	}
 	spin_unlock_irqrestore(&pm->clklock, flags);
 
@@ -241,6 +245,7 @@ int hevc_power_on(void)
 {
 	atomic_set(&pm->power, 1);
 
+	power_on_flag = 1;
 	return pm_runtime_get_sync(pm->device);
 	return 0;
 }

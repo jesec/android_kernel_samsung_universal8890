@@ -368,11 +368,11 @@ void hevc_deinit_hw(struct hevc_dev *dev)
 		hevc_err("no hevc device to run\n");
 		return;
 	}
-
+/*
 	hevc_clock_on();
 	hevc_reset(dev);
 	hevc_clock_off();
-
+*/
 	hevc_info("hevc deinit completed\n");
 }
 
