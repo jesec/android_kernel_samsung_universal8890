@@ -401,6 +401,15 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_GET_EXT_INFO,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Get extra information",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -1821,6 +1830,19 @@ static int vidioc_queryctrl(struct file *file, void *priv,
 	return 0;
 }
 
+static int dec_ext_info(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	int val = 0;
+
+	if (IS_MFCv7X(dev))
+		val |= DEC_SET_DUAL_DPB;
+	if (FW_HAS_DYNAMIC_DPB(dev))
+		val |= DEC_SET_DYNAMIC_DPB;
+
+	return val;
+}
+
 /* Get ctrl */
 static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 {
@@ -1919,6 +1941,9 @@ static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_MFC_SET_DYNAMIC_DPB_MODE:
 		ctrl->value = dec->is_dynamic_dpb;
+		break;
+	case V4L2_CID_MPEG_MFC_GET_EXT_INFO:
+		ctrl->value = dec_ext_info(ctx);
 		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
@@ -2097,7 +2122,10 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 		ctx->qos_ratio = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC_SET_DYNAMIC_DPB_MODE:
-		dec->is_dynamic_dpb = ctrl->value;
+		if (FW_HAS_DYNAMIC_DPB(dev))
+			dec->is_dynamic_dpb = ctrl->value;
+		else
+			dec->is_dynamic_dpb = 0;
 		break;
 	case V4L2_CID_MPEG_MFC_SET_USER_SHARED_HANDLE:
 		dec->sh_handle.fd = ctrl->value;

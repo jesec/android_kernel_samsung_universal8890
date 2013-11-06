@@ -1067,6 +1067,15 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_GET_EXT_INFO,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Get extra information",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -2588,6 +2597,19 @@ static int vidioc_queryctrl(struct file *file, void *priv,
 	return 0;
 }
 
+static int enc_ext_info(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	int val = 0;
+
+	if (IS_MFCv7X(dev)) {
+		val |= ENC_SET_RGB_INPUT;
+		val |= ENC_SET_SPARE_SIZE;
+	}
+
+	return val;
+}
+
 static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -2653,6 +2675,9 @@ static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_QOS_RATIO:
 		ctrl->value = ctx->qos_ratio;
+		break;
+	case V4L2_CID_MPEG_MFC_GET_EXT_INFO:
+		ctrl->value = enc_ext_info(ctx);
 		break;
 	default:
 		v4l2_err(&dev->v4l2_dev, "Invalid control: 0x%08x\n", ctrl->id);

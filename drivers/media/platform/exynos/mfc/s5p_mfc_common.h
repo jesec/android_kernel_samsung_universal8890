@@ -857,8 +857,17 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x130329))
 #define FW_HAS_POC_TYPE_CTRL(dev)	(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130405))
+#define FW_HAS_DYNAMIC_DPB(dev)		(IS_MFCv7X(dev) &&		\
+					(dev->fw.date >= 0x131108))
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
+
+/* Extra information for Decoder */
+#define	DEC_SET_DUAL_DPB		(1 << 0)
+#define	DEC_SET_DYNAMIC_DPB		(1 << 1)
+/* Extra information for Encoder */
+#define	ENC_SET_RGB_INPUT		(1 << 0)
+#define	ENC_SET_SPARE_SIZE		(1 << 1)
 
 struct s5p_mfc_fmt {
 	char *name;
