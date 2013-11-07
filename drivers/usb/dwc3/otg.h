@@ -25,6 +25,8 @@
 struct dwc3_ext_otg_ops {
 	int	(*setup)(struct device *dev, struct otg_fsm *fsm);
 	void	(*exit)(struct device *dev);
+	int	(*start) (struct device *dev);
+	void	(*stop)(struct device *dev);
 	/* FIXME: must be removed, use regulator framework instead */
 #if IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
 	void	(*drv_vbus)(struct device *dev, int on);
@@ -72,6 +74,25 @@ static inline int dwc3_ext_otg_exit(struct dwc3_otg *dotg)
 	return 0;
 }
 
+static inline int dwc3_ext_otg_start(struct dwc3_otg *dotg)
+{
+	struct device *dev = dotg->dwc->dev->parent;
+
+	if (!dotg->ext_otg_ops->start)
+		return -EOPNOTSUPP;
+	return dotg->ext_otg_ops->start(dev);
+}
+
+static inline int dwc3_ext_otg_stop(struct dwc3_otg *dotg)
+{
+	struct device *dev = dotg->dwc->dev->parent;
+
+	if (!dotg->ext_otg_ops->stop)
+		return -EOPNOTSUPP;
+	dotg->ext_otg_ops->stop(dev);
+	return 0;
+}
+
 #if is_enabled(config_usb_dwc3_exynos)
 static inline int dwc3_ext_otg_drv_vbus(struct dwc3_otg *dotg, int on)
 {
@@ -89,6 +110,8 @@ static inline int dwc3_ext_otg_drv_vbus(struct dwc3_otg *dotg, int on)
 bool dwc3_exynos_rsw_available(struct device *dev);
 int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm);
 void dwc3_exynos_rsw_exit(struct device *dev);
+int dwc3_exynos_rsw_start(struct device *dev);
+void dwc3_exynos_rsw_stop(struct device *dev);
 void dwc3_exynos_rsw_drv_vbus(struct device *dev, int on);
 #endif
 

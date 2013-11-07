@@ -194,7 +194,7 @@ int dwc3_exynos_vbus_event(struct device *dev, bool vbus_active)
 }
 EXPORT_SYMBOL_GPL(dwc3_exynos_vbus_event);
 
-int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
+int dwc3_exynos_rsw_start(struct device *dev)
 {
 	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
 	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
@@ -205,9 +205,8 @@ int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	fsm->id = dwc3_exynos_get_id_state(rsw);
-	fsm->b_sess_vld = dwc3_exynos_get_b_sess_state(rsw);
-	rsw->fsm = fsm;
+	rsw->fsm->id = dwc3_exynos_get_id_state(rsw);
+	rsw->fsm->b_sess_vld = dwc3_exynos_get_b_sess_state(rsw);
 
 	if (gpio_is_valid(rsw->id_gpio)) {
 		ret = devm_gpio_request(exynos->dev, rsw->id_gpio,
@@ -252,17 +251,40 @@ int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
 	return 0;
 }
 
-void dwc3_exynos_rsw_exit(struct device *dev)
+void dwc3_exynos_rsw_stop(struct device *dev)
 {
 	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
 	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+
+	dev_dbg(dev, "%s\n", __func__);
 
 	if (gpio_is_valid(rsw->id_gpio))
 		free_irq(gpio_to_irq(rsw->id_gpio), rsw);
 	if (gpio_is_valid(rsw->b_sess_gpio))
 		free_irq(gpio_to_irq(rsw->b_sess_gpio), rsw);
-	rsw->fsm = NULL;
+}
 
+
+int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
+{
+	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
+	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	rsw->fsm = fsm;
+
+	return 0;
+}
+
+void dwc3_exynos_rsw_exit(struct device *dev)
+{
+	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
+	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+
+	dev_dbg(dev, "%s\n", __func__);
+
+ 	rsw->fsm = NULL;
 }
 
 static struct dwc3_exynos *dwc3_exynos_match(struct device *dev)

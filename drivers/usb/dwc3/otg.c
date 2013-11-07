@@ -46,6 +46,8 @@ static struct dwc3_ext_otg_ops *dwc3_otg_exynos_rsw_probe(struct dwc3 *dwc)
 
 	ops->setup = dwc3_exynos_rsw_setup;
 	ops->exit = dwc3_exynos_rsw_exit;
+	ops->start = dwc3_exynos_rsw_start;
+	ops->stop = dwc3_exynos_rsw_stop;
 
 	return ops;
 }
@@ -271,13 +273,6 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 		dev_err(dev, "Binding gadget %s\n", gadget->name);
 
 		otg->gadget = gadget;
-		/*
-		 * Prevents unnecessary activation of OTG SM: if ID pin
-		 * is high then we ensure that the statemachine will
-		 * enter to valid state.
-		 */
-		if (dotg->fsm.id)
-			dwc3_otg_run_sm(&dotg->fsm);
 	} else {
 		dev_err(dev, "Unbinding gadget\n");
 
@@ -355,6 +350,19 @@ static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 	return ret;
 }
 
+static void dwc3_otg_enable_irq(struct dwc3_otg *dotg)
+{
+	/* Enable only connector ID status & VBUS change events */
+	dwc3_writel(dotg->regs, DWC3_OEVTEN,
+			DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT |
+			DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT);
+}
+
+static void dwc3_otg_disable_irq(struct dwc3_otg *dotg)
+{
+	dwc3_writel(dotg->regs, DWC3_OEVTEN, 0x0);
+}
+
 /**
  * dwc3_otg_reset - reset dwc3 otg registers.
  *
@@ -383,10 +391,6 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg)
 	/* Clear all otg events (interrupts) indications  */
 	dwc3_writel(dotg->regs, DWC3_OEVT, DWC3_OEVT_CLEAR_ALL);
 
-	/* Enable only connector ID status & VBUS change events */
-	dwc3_writel(dotg->regs, DWC3_OEVTEN,
-			DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT |
-			DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT);
 }
 
 /* SysFS interface */
@@ -484,6 +488,65 @@ static const struct attribute_group dwc3_otg_attr_group = {
 	.attrs = dwc3_otg_attributes,
 };
 
+ /**
+ * dwc3_otg_start
+ * @dwc: pointer to our controller context structure
+ */
+int dwc3_otg_start(struct dwc3 *dwc)
+{
+	struct dwc3_otg		*dotg = dwc->dotg;
+	struct otg_fsm		*fsm = &dotg->fsm;
+	int			ret;
+
+	if (dotg->ext_otg_ops) {
+		ret = dwc3_ext_otg_start(dotg);
+		if (ret) {
+			dev_err(dwc->dev, "failed to start external OTG\n");
+			return ret;
+		}
+	} else {
+		dotg->regs = dwc->regs;
+
+		dwc3_otg_reset(dotg);
+
+		dotg->fsm.id = dwc3_otg_get_id_state(dotg);
+		dotg->fsm.b_sess_vld = dwc3_otg_get_b_sess_state(dotg);
+
+		dotg->irq = platform_get_irq(to_platform_device(dwc->dev), 0);
+		ret = devm_request_threaded_irq(dwc->dev, dotg->irq,
+				dwc3_otg_interrupt,
+				dwc3_otg_thread_interrupt,
+				IRQF_SHARED, "dwc3-otg", dotg);
+		if (ret) {
+			dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
+					dotg->irq, ret);
+			return ret;
+		}
+
+		dwc3_otg_enable_irq(dotg);
+	}
+
+	dwc3_otg_run_sm(fsm);
+
+	return 0;
+}
+
+/**
+ * dwc3_otg_stop
+ * @dwc: pointer to our controller context structure
+ */
+void dwc3_otg_stop(struct dwc3 *dwc)
+{
+	struct dwc3_otg		*dotg = dwc->dotg;
+
+	if (dotg->ext_otg_ops) {
+		dwc3_ext_otg_stop(dotg);
+	} else {
+		dwc3_otg_disable_irq(dotg);
+		free_irq(dotg->irq, dotg);
+	}
+}
+
 /**
  * dwc3_otg_init - Initializes otg related registers
  * @dwc: pointer to our controller context structure
@@ -557,22 +620,6 @@ has_ext_otg:
 		ret = dwc3_ext_otg_setup(dotg);
 		if (ret) {
 			dev_err(dwc->dev, "failed to setup external OTG\n");
-			return ret;
-		}
-	} else {
-		dotg->regs = dwc->regs;
-
-		dwc3_otg_reset(dotg);
-		dotg->fsm.id = dwc3_otg_get_id_state(dotg);
-		dotg->fsm.b_sess_vld = dwc3_otg_get_b_sess_state(dotg);
-		dotg->irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-		ret = devm_request_threaded_irq(dwc->dev, dotg->irq,
-				dwc3_otg_interrupt,
-				dwc3_otg_thread_interrupt,
-				IRQF_SHARED, "dwc3-otg", dotg);
-		if (ret) {
-			dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
-					dotg->irq, ret);
 			return ret;
 		}
 	}
