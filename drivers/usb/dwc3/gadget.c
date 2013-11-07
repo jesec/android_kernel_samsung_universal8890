@@ -1535,16 +1535,16 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 			}
 
 			dwc3_event_buffers_setup(dwc);
-
-			ret = dwc3_udc_init(dwc);
-			if (ret) {
-				dev_err(dwc->dev, "failed to reinitialize udc\n");
-				return ret;
-			}
-
-			dwc3_gadget_enable_irq(dwc);
-			dwc->ready = 1;
 		}
+
+		ret = dwc3_udc_init(dwc);
+		if (ret) {
+			dev_err(dwc->dev, "failed to initialize udc\n");
+			return ret;
+		}
+
+		dwc3_gadget_enable_irq(dwc);
+		dwc->ready = 1;
 
 		if (dwc->revision <= DWC3_REVISION_187A) {
 			reg &= ~DWC3_DCTL_TRGTULST_MASK;
@@ -1694,20 +1694,9 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	dwc->gadget_driver	= driver;
 
-	ret = dwc3_udc_init(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to initialize udc\n");
-		goto err2;
-	}
-
-	dwc3_gadget_enable_irq(dwc);
-	dwc->ready = 1;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return 0;
-
-err2:
-	dwc->gadget_driver = NULL;
 
 err1:
 	spin_unlock_irqrestore(&dwc->lock, flags);
