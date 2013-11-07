@@ -1415,7 +1415,7 @@ static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 	return 0;
 }
 
-static int __dwc3_gadget_start(struct dwc3 *dwc)
+static int dwc3_udc_init(struct dwc3 *dwc)
 {
 	struct dwc3_ep          *dep;
 	int                     ret = 0;
@@ -1529,7 +1529,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		if (!dwc->ready) {
 			dwc3_core_init(dwc);
 			dwc3_event_buffers_setup(dwc);
-			__dwc3_gadget_start(dwc);
+			dwc3_udc_init(dwc);
 			dwc3_gadget_enable_irq(dwc);
 			dwc->ready = 1;
 		}
@@ -1682,9 +1682,9 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	dwc->gadget_driver	= driver;
 
-	ret = __dwc3_gadget_start(dwc);
+	ret = dwc3_udc_init(dwc);
 	if (ret) {
-		dev_err(dwc->dev, "failed to setup gadget\n");
+		dev_err(dwc->dev, "failed to initialize udc\n");
 		goto err2;
 	}
 
