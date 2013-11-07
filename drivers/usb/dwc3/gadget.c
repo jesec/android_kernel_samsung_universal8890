@@ -1520,6 +1520,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 {
 	u32			reg;
 	u32			timeout = 500;
+	int			ret;
 
 	if (is_on) {
 		/*
@@ -1527,9 +1528,20 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		 * the core should be completely reinitialized.
 		 */
 		if (!dwc->ready) {
-			dwc3_core_init(dwc);
+			ret = dwc3_core_init(dwc);
+			if (ret) {
+				dev_err(dwc->dev, "failed to reinitialize core\n");
+				return ret;
+			}
+
 			dwc3_event_buffers_setup(dwc);
-			dwc3_udc_init(dwc);
+
+			ret = dwc3_udc_init(dwc);
+			if (ret) {
+				dev_err(dwc->dev, "failed to reinitialize udc\n");
+				return ret;
+			}
+
 			dwc3_gadget_enable_irq(dwc);
 			dwc->ready = 1;
 		}
