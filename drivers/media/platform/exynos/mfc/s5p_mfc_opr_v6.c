@@ -576,6 +576,7 @@ static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 		break;
 	case V4L2_PIX_FMT_RGB32X:
 	case V4L2_PIX_FMT_BGR32:
+	case V4L2_PIX_FMT_ARGB32:
 		ctx->raw_buf.stride[0] = ctx->img_width * 4;
 		ctx->raw_buf.stride[1] = 0;
 		ctx->raw_buf.stride[2] = 0;
@@ -719,6 +720,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 		break;
 	case V4L2_PIX_FMT_BGR32:
 	case V4L2_PIX_FMT_RGB32X:
+	case V4L2_PIX_FMT_ARGB32:
 		raw->plane_size[0] = ALIGN(default_size * 4, 256);
 		raw->plane_size[1] = 0;
 		raw->plane_size[2] = 0;
@@ -1203,17 +1205,20 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 	case V4L2_PIX_FMT_YUV420M:
 		pix_val = 3;
 		break;
+	case V4L2_PIX_FMT_ARGB32:
+		pix_val = 8;
+		break;
 	case V4L2_PIX_FMT_RGB24:
-		pix_val = 4;
+		pix_val = 9;
 		break;
 	case V4L2_PIX_FMT_RGB565:
-		pix_val = 5;
+		pix_val = 10;
 		break;
 	case V4L2_PIX_FMT_RGB32X:
-		pix_val = 7;
+		pix_val = 12;
 		break;
 	case V4L2_PIX_FMT_BGR32:
-		pix_val = 8;
+		pix_val = 13;
 		break;
 	default:
 		pix_val = 0;

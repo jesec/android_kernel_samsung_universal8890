@@ -35,6 +35,15 @@
 #define DEF_SRC_FMT	1
 #define DEF_DST_FMT	2
 
+/*
+ * RGB encoding information to avoid confusion.
+ *
+ * V4L2_PIX_FMT_ARGB32 takes ARGB data like below.
+ * MSB                              LSB
+ * 3       2       1
+ * 2       4       6       8       0
+ * |B......BG......GR......RA......A|
+ */
 static struct s5p_mfc_fmt formats[] = {
 	{
 		.name = "4:2:0 3 Planes Y/Cb/Cr",
@@ -102,6 +111,13 @@ static struct s5p_mfc_fmt formats[] = {
 	{
 		.name = "BGRA8888 1 Plane 32bpp",
 		.fourcc = V4L2_PIX_FMT_BGR32,
+		.codec_mode = MFC_FORMATS_NO_CODEC,
+		.type = MFC_FMT_RAW,
+		.num_planes = 1,
+	},
+	{
+		.name = "ARGB8888 1 Plane 32bpp",
+		.fourcc = V4L2_PIX_FMT_ARGB32,
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 1,
