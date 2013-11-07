@@ -143,6 +143,8 @@ static void dwc3_otg_set_host_mode(struct dwc3_otg *dotg)
 	struct dwc3	*dwc = dotg->dwc;
 	u32		reg;
 
+	dwc->needs_reinit = 1;
+
 	if (dotg->regs) {
 		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
 		reg &= ~DWC3_OTG_OCTL_PERIMODE;
@@ -156,6 +158,8 @@ static void dwc3_otg_set_peripheral_mode(struct dwc3_otg *dotg)
 {
 	struct dwc3	*dwc = dotg->dwc;
 	u32		reg;
+
+	dwc->needs_reinit = 1;
 
 	if (dotg->regs) {
 		reg = dwc3_readl(dotg->regs, DWC3_OCTL);

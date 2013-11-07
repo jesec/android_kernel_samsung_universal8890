@@ -1524,10 +1524,12 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 	if (is_on) {
 		/*
-		 * According to the Databook in case of reconnection
-		 * the core should be completely reinitialized.
+		 * According to the Databook in case of reconnection and
+		 * role switching the core should be completely reinitialized.
+		 * Exception: first connection as peripheral when core was
+		 * initialized during probing.
 		 */
-		if (!dwc->ready) {
+		if (dwc->needs_reinit) {
 			ret = dwc3_core_init(dwc);
 			if (ret) {
 				dev_err(dwc->dev, "failed to reinitialize core\n");
@@ -1544,7 +1546,8 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		}
 
 		dwc3_gadget_enable_irq(dwc);
-		dwc->ready = 1;
+
+		dwc->needs_reinit = 0;
 
 		if (dwc->revision <= DWC3_REVISION_187A) {
 			reg &= ~DWC3_DCTL_TRGTULST_MASK;
@@ -1565,7 +1568,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		dwc3_gadget_disable_irq(dwc);
 		__dwc3_gadget_ep_disable(dwc->eps[0]);
 		__dwc3_gadget_ep_disable(dwc->eps[1]);
-		dwc->ready = 0;
+		dwc->needs_reinit = 1;
 
 		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 		reg &= ~DWC3_DCTL_RUN_STOP;
@@ -1719,8 +1722,6 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	dwc3_gadget_disable_irq(dwc);
 	__dwc3_gadget_ep_disable(dwc->eps[0]);
 	__dwc3_gadget_ep_disable(dwc->eps[1]);
-
-	dwc->ready = 0;
 
 	dwc->gadget_driver	= NULL;
 
