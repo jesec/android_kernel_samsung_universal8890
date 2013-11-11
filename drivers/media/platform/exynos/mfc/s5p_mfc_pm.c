@@ -175,20 +175,22 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 {
 	struct clk *clk_child = NULL;
 
+#if defined(CONFIG_SOC_EXYNOS5430)
 	if (dev->id == 0) {
-		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_user");
+		clk_child = clk_get(dev->device, "dout_aclk_mfc0_333");
 		if (IS_ERR(clk_child)) {
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 			return PTR_ERR(clk_child);
 		}
 
 	} else if (dev->id == 1) {
-		clk_child = clk_get(dev->device, "mout_aclk_mfc1_333_user");
+		clk_child = clk_get(dev->device, "dout_aclk_mfc1_333");
 		if (IS_ERR(clk_child)) {
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 			return PTR_ERR(clk_child);
 		}
 	}
+#endif
 
 #ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
 	spin_lock(&int_div_lock);
