@@ -784,6 +784,7 @@ static inline unsigned int mfc_linear_buf_size(unsigned int version)
 		size = 0;
 		break;
 	case 0x72:
+	case 0x723:
 		size = 256;
 		break;
 	default:
