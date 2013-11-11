@@ -30,6 +30,15 @@
 int sc_log_level;
 module_param_named(sc_log_level, sc_log_level, uint, 0644);
 
+/*
+ * If true, writes the latency of H/W operation to v4l2_buffer.reserved2
+ * in the unit of nano seconds.  It must not be enabled with real use-case
+ * because v4l2_buffer.reserved may be used for other purpose.
+ * The latency is written to the destination buffer.
+ */
+int __measure_hw_latency;
+module_param_named(measure_hw_latency, __measure_hw_latency, int, 0644);
+
 static struct sc_fmt sc_formats[] = {
 	{
 		.name		= "RGB565",
@@ -1113,6 +1122,11 @@ static struct vb2_ops sc_vb2_ops = {
 	.stop_streaming		 = sc_vb2_stop_streaming,
 };
 
+struct vb2_scaler_buffer {
+	struct v4l2_m2m_buffer mb;
+	unsigned long long hw_latency;
+};
+
 static int queue_init(void *priv, struct vb2_queue *src_vq,
 		      struct vb2_queue *dst_vq)
 {
@@ -1125,7 +1139,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->ops = &sc_vb2_ops;
 	src_vq->mem_ops = ctx->sc_dev->vb2->ops;
 	src_vq->drv_priv = ctx;
-	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+	src_vq->buf_struct_size = sizeof(struct vb2_scaler_buffer);
 	src_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	ret = vb2_queue_init(src_vq);
@@ -1138,7 +1152,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->ops = &sc_vb2_ops;
 	dst_vq->mem_ops = ctx->sc_dev->vb2->ops;
 	dst_vq->drv_priv = ctx;
-	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+	dst_vq->buf_struct_size = sizeof(struct vb2_scaler_buffer);
 	dst_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	return vb2_queue_init(dst_vq);
@@ -1638,6 +1652,16 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 	src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 	dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 
+	if (__measure_hw_latency) {
+		struct v4l2_m2m_buffer *mb =
+					container_of(dst_vb, typeof(*mb), vb);
+		struct vb2_scaler_buffer *svb =
+					container_of(mb, typeof(*svb), mb);
+
+		dst_vb->v4l2_buf.reserved2 =
+				(__u32)(sched_clock() - svb->hw_latency);
+	}
+
 	if (src_vb && dst_vb) {
 		if (val & SCALER_INT_STATUS_FRAME_END) {
 			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_DONE);
@@ -1955,6 +1979,15 @@ static void sc_m2m_device_run(void *priv)
 
 	set_bit(DEV_RUN, &sc->state);
 	set_bit(CTX_RUN, &ctx->flags);
+
+	if (__measure_hw_latency) {
+		struct vb2_buffer *vb = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
+		struct v4l2_m2m_buffer *mb = container_of(vb, typeof(*mb), vb);
+		struct vb2_scaler_buffer *svb =
+					container_of(mb, typeof(*svb), mb);
+
+		svb->hw_latency = sched_clock();
+	}
 
 	sc_hwset_start(sc);
 }
