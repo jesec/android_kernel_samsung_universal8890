@@ -1106,7 +1106,8 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
-		goto irq_cleanup_hw;
+		s5p_mfc_clear_int_flags();
+		goto irq_cleanup_err;
 	}
 
 	/* Reset the timeout watchdog */
@@ -1137,7 +1138,9 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	ctx = dev->ctx[dev->curr_ctx];
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
-		goto irq_cleanup_hw;
+		s5p_mfc_clear_int_flags();
+		s5p_mfc_clock_off(dev);
+		goto irq_cleanup_err;
 	}
 
 	if (ctx->type == MFCINST_DECODER)
@@ -1250,7 +1253,6 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		clear_work_bit(ctx);
 		if (clear_hw_bit(ctx) == 0)
 			BUG();
-		wake_up_ctx(ctx, reason, err);
 		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET:
@@ -1258,7 +1260,6 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		clear_work_bit(ctx);
 		if (clear_hw_bit(ctx) == 0)
 			BUG();
-		wake_up_ctx(ctx, reason, err);
 		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_NAL_ABORT_RET:
@@ -1266,7 +1267,6 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		clear_work_bit(ctx);
 		if (clear_hw_bit(ctx) == 0)
 			BUG();
-		wake_up_ctx(ctx, reason, err);
 		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_DPB_FLUSH_RET:
@@ -1274,7 +1274,6 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		clear_work_bit(ctx);
 		if (clear_hw_bit(ctx) == 0)
 			BUG();
-		wake_up_ctx(ctx, reason, err);
 		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET:
@@ -1353,7 +1352,9 @@ irq_cleanup_hw:
 	s5p_mfc_clear_int_flags();
 
 	s5p_mfc_clock_off(dev);
+	wake_up_ctx(ctx, reason, err);
 
+irq_cleanup_err:
 	if (dev)
 		queue_work(dev->sched_wq, &dev->sched_work);
 
