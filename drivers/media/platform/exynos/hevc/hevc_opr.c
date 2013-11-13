@@ -760,6 +760,7 @@ static int hevc_set_dynamic_dpb(struct hevc_ctx *ctx, struct hevc_buf *dst_vb)
 	struct hevc_dec *dec = ctx->dec_priv;
 	struct hevc_raw_info *raw = &ctx->raw_buf;
 	int dst_index;
+	int i;
 
 	dst_index = dst_vb->vb.v4l2_buf.index;
 	dec->dynamic_set = 1 << dst_index;
@@ -769,12 +770,11 @@ static int hevc_set_dynamic_dpb(struct hevc_ctx *ctx, struct hevc_buf *dst_vb)
 	hevc_debug(2, "Dst addr [%d] = 0x%x\n", dst_index,
 			dst_vb->planes.raw[0]);
 
-	WRITEL(dst_vb->planes.raw[0],
-			HEVC_D_FIRST_PLANE_DPB0 + (dst_index * 4));
-	WRITEL(dst_vb->planes.raw[1],
-			HEVC_D_SECOND_PLANE_DPB0 + (dst_index * 4));
-	WRITEL(raw->plane_size[0], HEVC_D_FIRST_PLANE_DPB_SIZE);
-	WRITEL(raw->plane_size[1], HEVC_D_SECOND_PLANE_DPB_SIZE);
+	for (i = 0; i < raw->num_planes; i++) {
+		WRITEL(raw->plane_size[i], HEVC_D_FIRST_PLANE_DPB_SIZE + i*4);
+		WRITEL(dst_vb->planes.raw[i],
+			HEVC_D_FIRST_PLANE_DPB0 + (i*0x100 + dst_index*4));
+	}
 
 	return 0;
 }
