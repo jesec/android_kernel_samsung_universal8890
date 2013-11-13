@@ -176,8 +176,38 @@ static inline int sysmmu_set_prefetch_buffer(struct device *dev,
 #endif /* CONFIG_EXYNOS_IOVMM */
 
 #if defined(CONFIG_EXYNOS7_IOMMU) || defined(CONFIG_EXYNOS_IOMMU)
+/**
+ * exynos_sysmmu_enable() - enable system mmu
+ * @dev: The device whose System MMU is about to be enabled.
+ * @pgd: Base physical address of the 1st level page table
+ *
+ * This function enable system mmu to transfer address
+ * from virtual address to physical address.
+ * Return non-zero if it fails to enable System MMU.
+ */
+int exynos_sysmmu_enable(struct device *dev, unsigned long pgd);
+
+/**
+ * exynos_sysmmu_disable() - disable sysmmu mmu of ip
+ * @dev: The device whose System MMU is about to be disabled.
+ *
+ * This function disable system mmu to transfer address
+ * from virtual address to physical address
+ */
+bool exynos_sysmmu_disable(struct device *dev);
+
 void exynos_sysmmu_show_status(struct device *dev);
 #else
+static inline int exynos_sysmmu_enable(struct device *owner, unsigned long *pgd)
+{
+	return -ENODEV;
+}
+
+static inline bool exynos_sysmmu_disable(struct device *owner)
+{
+	return false;
+}
+
 #define exynos_sysmmu_show_status(dev) do { } while (0)
 #endif
 #endif /*__ASM_PLAT_IOVMM_H*/
