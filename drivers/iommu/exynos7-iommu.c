@@ -1831,6 +1831,27 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 	return page_entry(sent, iova);
 }
 
+static sysmmu_pte_t *alloc_lv2entry_fast(struct exynos_iommu_domain *priv,
+		sysmmu_pte_t *sent, unsigned long iova)
+{
+	if (lv1ent_fault(sent)) {
+		sysmmu_pte_t *pent;
+
+		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
+		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
+		if (!pent)
+			return ERR_PTR(-ENOMEM);
+
+		*sent = mk_lv1ent_page(__pa(pent));
+		kmemleak_ignore(pent);
+		pgtable_flush(sent, sent + 1);
+	} else if (!lv1ent_page(sent)) {
+		return ERR_PTR(-EADDRINUSE);
+	}
+
+	return page_entry(sent, iova);
+}
+
 static int lv1ent_check_page(sysmmu_pte_t *sent, short *pgcnt)
 {
 	if (lv1ent_page(sent)) {
@@ -2096,6 +2117,180 @@ static phys_addr_t exynos_iommu_iova_to_phys(struct iommu_domain *domain,
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
 	return phys;
+}
+
+static int __sysmmu_unmap_user_pages(struct device *dev,
+					struct mm_struct *mm,
+					unsigned long vaddr, size_t size)
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct exynos_iovmm *vmm = owner->vmm_data;
+	struct iommu_domain *domain = vmm->domain;
+	struct exynos_iommu_domain *priv = domain->priv;
+	struct vm_area_struct *vma;
+	unsigned long start, end;
+	unsigned long flags;
+	bool is_pfnmap;
+	sysmmu_pte_t *sent, *pent;
+
+	down_read(&mm->mmap_sem);
+
+	/*
+	 * Assumes that the VMA is safe.
+	 * The caller must check the range of address space before calling this.
+	 */
+	vma = find_vma(mm, vaddr);
+	is_pfnmap = vma->vm_flags & VM_PFNMAP;
+
+	start = vaddr & PAGE_MASK;
+	end = PAGE_ALIGN(vaddr + size);
+
+	pr_debug("%s: unmap start @ %#lx for %d bytes\n", __func__, start, size);
+
+	spin_lock_irqsave(&priv->pgtablelock, flags);
+
+	do {
+		sysmmu_pte_t *pent_first;
+		int i;
+
+		sent = section_entry(priv->pgtable, start);
+		pent = page_entry(sent, start);
+
+		pent_first = pent;
+		do {
+			i = lv2ent_offset(start);
+
+			if (!lv2ent_fault(pent) && !is_pfnmap)
+				put_page(phys_to_page(spage_phys(pent)));
+
+			*pent = 0;
+			start += PAGE_SIZE;
+		} while (pent++, (start != end) && (i < (NUM_LV2ENTRIES - 1)));
+
+		pgtable_flush(pent_first, pent);
+	} while (start != end);
+
+	spin_unlock_irqrestore(&priv->pgtablelock, flags);
+	up_read(&mm->mmap_sem);
+
+	pr_debug("%s: unmap done @ %#lx\n", __func__, start);
+
+	return 0;
+}
+
+int exynos_sysmmu_map_user_pages(struct device *dev,
+					struct mm_struct *mm,
+					unsigned long vaddr,
+					size_t size, int write)
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct exynos_iovmm *vmm = owner->vmm_data;
+	struct iommu_domain *domain = vmm->domain;
+	struct exynos_iommu_domain *priv = domain->priv;
+	struct vm_area_struct *vma;
+	unsigned long flags;
+	unsigned long start, end;
+	unsigned long pgd_next;
+	int ret = -EINVAL;
+	bool is_pfnmap;
+	pgd_t *pgd;
+
+	down_read(&mm->mmap_sem);
+
+	/*
+	 * Assumes that the VMA is safe.
+	 * The caller must check the range of address space before calling this.
+	 */
+	vma = find_vma(mm, vaddr);
+	is_pfnmap = vma->vm_flags & VM_PFNMAP;
+
+	start = vaddr & PAGE_MASK;
+	end = PAGE_ALIGN(vaddr + size);
+
+	pr_debug("%s: map @ %#lx--%#lx, %d bytes, vm_flags: %#lx\n",
+			__func__, start, end, size, vma->vm_flags);
+
+	spin_lock_irqsave(&priv->pgtablelock, flags);
+
+	pgd = pgd_offset(mm, start);
+	do {
+		unsigned long pmd_next;
+		pmd_t *pmd;
+
+		if (pgd_none_or_clear_bad(pgd))
+			goto out_unmap;
+
+		pgd_next = pgd_addr_end(start, end);
+		pmd = pmd_offset((pud_t *)pgd, start);
+
+		do {
+			pte_t *pte, *pte_first;
+			sysmmu_pte_t *pent, *pent_first;
+			sysmmu_pte_t *sent;
+
+			if (pmd_none_or_clear_bad(pmd))
+				goto out_unmap;
+
+			pmd_next = pmd_addr_end(start, pgd_next);
+			pmd_next = min(ALIGN(start + 1, SECT_SIZE), pmd_next);
+
+			pte = pte_offset_map(pmd, start);
+			pte_first = pte;
+
+			sent = section_entry(priv->pgtable, start);
+			pent = alloc_lv2entry_fast(priv, sent, start);
+			if (IS_ERR(pent)) {
+				ret = PTR_ERR(pent);
+				goto out_unmap;
+			}
+
+			pent_first = pent;
+			do {
+				if (pte_none(*pte))
+					goto out_unmap;
+
+				if (write && (!pte_write(*pte) ||
+						!pte_dirty(*pte))) {
+					ret = handle_pte_fault(mm,
+							vma, start,
+							pte, pmd,
+							FAULT_FLAG_WRITE);
+					if (IS_ERR_VALUE(ret))
+						goto out_unmap;
+				}
+
+				if (lv2ent_fault(pent)) {
+					if (!is_pfnmap)
+						get_page(pte_page(*pte));
+					*pent = mk_lv2ent_spage(__pfn_to_phys(
+								pte_pfn(*pte)));
+				}
+			} while (pte++, pent++, start += PAGE_SIZE, start < pmd_next);
+
+			pte_unmap(pte_first);
+			pgtable_flush(pent_first, pent);
+		} while (pmd++, start = pmd_next, start != pgd_next);
+
+	} while (pgd++, start = pgd_next, start != end);
+
+	ret = 0;
+out_unmap:
+	spin_unlock_irqrestore(&priv->pgtablelock, flags);
+	up_read(&mm->mmap_sem);
+
+	if (ret) {
+		pr_err("%s: out unmap @ %#lx, end %#lx\n", __func__, start, end);
+		__sysmmu_unmap_user_pages(dev, mm, vaddr, start - vaddr);
+	}
+
+	return ret;
+}
+
+int exynos_sysmmu_unmap_user_pages(struct device *dev,
+					struct mm_struct *mm,
+					unsigned long vaddr, size_t size)
+{
+	return __sysmmu_unmap_user_pages(dev, mm, vaddr, size);
 }
 
 static struct iommu_ops exynos_iommu_ops = {

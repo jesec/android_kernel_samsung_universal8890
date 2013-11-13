@@ -196,6 +196,44 @@ int exynos_sysmmu_enable(struct device *dev, unsigned long pgd);
  */
 bool exynos_sysmmu_disable(struct device *dev);
 
+/**
+ * exynos_sysmmu_map_user_pages() - maps all pages by fetching from
+ * user page table entries.
+ * @dev: The device whose System MMU is about to be disabled.
+ * @mm: mm struct of user requested to map
+ * @vaddr: start vaddr in valid vma
+ * @size: size to map
+ * @write: set if buffer may be written
+ *
+ * This function maps all user pages into sysmmu page table.
+ */
+int exynos_sysmmu_map_user_pages(struct device *dev,
+					struct mm_struct *mm,
+					unsigned long vaddr, size_t size,
+					int write);
+
+/**
+ * exynos_sysmmu_unmap_user_pages() - unmaps all mapped pages
+ * @dev: The device whose System MMU is about to be disabled.
+ * @mm: mm struct of user requested to map
+ * @vaddr: start vaddr in valid vma
+ * @size: size to map
+ *
+ * This function unmaps all user pages mapped in sysmmu page table.
+ */
+int exynos_sysmmu_unmap_user_pages(struct device *dev,
+					struct mm_struct *mm,
+					unsigned long vaddr, size_t size);
+
+/*
+ * The handle_pte_fault() is called by exynos_sysmmu_map_user_pages().
+ * Driver cannot include include/linux/huge_mm.h because
+ * CONFIG_TRANSPARENT_HUGEPAGE is disabled.
+ */
+extern int handle_pte_fault(struct mm_struct *mm,
+			    struct vm_area_struct *vma, unsigned long address,
+			    pte_t *pte, pmd_t *pmd, unsigned int flags);
+
 struct sysmmu_prefbuf {
 	unsigned long base;
 	unsigned long size;
@@ -227,6 +265,21 @@ static inline int exynos_sysmmu_enable(struct device *owner, unsigned long *pgd)
 static inline bool exynos_sysmmu_disable(struct device *owner)
 {
 	return false;
+}
+
+int exynos_sysmmu_map_user_pages(struct device *dev,
+					struct mm_struct *mm,
+					unsigned long vaddr, size_t size,
+					int write)
+{
+	return -ENODEV;
+}
+
+int exynos_sysmmu_unmap_user_pages(struct device *dev,
+					struct mm_struct *mm,
+					unsigned long vaddr, size_t size)
+{
+	return -ENODEV;
 }
 
 #define exynos_sysmmu_show_status(dev) do { } while (0)
