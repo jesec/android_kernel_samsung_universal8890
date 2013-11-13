@@ -1403,6 +1403,46 @@ static const struct v4l2_file_operations sc_v4l2_fops = {
 	.mmap		= sc_mmap,
 };
 
+static int sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
+{
+	if (status == SC_CLK_ON) {
+		int ret;
+		if (sc->clk_chld && sc->clk_parn) {
+			ret = clk_set_parent(sc->clk_chld, sc->clk_parn);
+			if (ret) {
+				dev_err(sc->dev,
+					"%s: Failed to setup MUX: %d\n",
+					__func__, ret);
+				return ret;
+			}
+		}
+
+		if (sc->aclk) {
+			ret = clk_enable(sc->aclk);
+			if (ret) {
+				dev_err(sc->dev,
+					"%s: Failed to enable clock: %d\n",
+					__func__, ret);
+				return ret;
+			}
+		}
+
+		atomic_inc(&sc->clk_cnt);
+		dev_dbg(sc->dev, "clock enabled\n");
+	} else if (status == SC_CLK_OFF) {
+		if (WARN_ON(atomic_dec_return(&sc->clk_cnt) < 0)) {
+			dev_err(sc->dev, "scaler clock control is wrong!!\n");
+			atomic_set(&sc->clk_cnt, 0);
+		} else {
+			if (sc->aclk)
+				clk_disable(sc->aclk);
+			dev_dbg(sc->dev, "clock disabled\n");
+		}
+	}
+
+	return 0;
+}
+
 static void sc_watchdog(unsigned long arg)
 {
 	struct sc_dev *sc = (struct sc_dev *)arg;
@@ -1412,6 +1452,7 @@ static void sc_watchdog(unsigned long arg)
 
 	sc_dbg("timeout watchdog\n");
 	if (atomic_read(&sc->wdt.cnt) >= SC_WDT_CNT) {
+		sc_clock_gating(sc, SC_CLK_OFF);
 		pm_runtime_put(sc->dev);
 
 		sc_dbg("wakeup blocked process\n");
@@ -1580,6 +1621,7 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 
 	ctx = v4l2_m2m_get_curr_priv(sc->m2m.m2m_dev);
 	if (!ctx || !ctx->m2m_ctx) {
+		sc_clock_gating(sc, SC_CLK_OFF);
 		pm_runtime_put(sc->dev);
 		dev_err(sc->dev, "current ctx is NULL\n");
 		goto isr_unlock;
@@ -1588,6 +1630,7 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 	if (sc_process_2nd_stage(sc, ctx))
 		goto isr_unlock;
 
+	sc_clock_gating(sc, SC_CLK_OFF);
 	pm_runtime_put(sc->dev);
 
 	clear_bit(CTX_RUN, &ctx->flags);
@@ -1821,6 +1864,7 @@ static void sc_m2m_device_run(void *priv)
 	struct sc_ctx *ctx = priv;
 	struct sc_dev *sc;
 	struct sc_frame *s_frame, *d_frame;
+	int ret;
 
 	sc = ctx->sc_dev;
 
@@ -1846,9 +1890,22 @@ static void sc_m2m_device_run(void *priv)
 	sc_get_bufaddr(sc, v4l2_m2m_next_dst_buf(ctx->m2m_ctx), d_frame);
 
 	if (in_irq())
-		pm_runtime_get(sc->dev);
+		ret = pm_runtime_get(sc->dev);
 	else
-		pm_runtime_get_sync(sc->dev);
+		ret = pm_runtime_get_sync(sc->dev);
+	if (ret < 0) {
+		dev_err(sc->dev,
+			"%s=%d: Failed to enable local power\n", __func__, ret);
+		return;
+	}
+
+	ret = sc_clock_gating(sc, SC_CLK_ON);
+	if (ret < 0) {
+		pm_runtime_put(sc->dev);
+		dev_err(sc->dev,
+			"%s=%d: Failed to enable clock\n", __func__, ret);
+		return;
+	}
 
 	sc_hwset_soft_reset(sc);
 
@@ -1856,6 +1913,7 @@ static void sc_m2m_device_run(void *priv)
 		/* invalid scaling ratio: aborting the current task */
 		struct vb2_buffer *src_vb, *dst_vb;
 
+		sc_clock_gating(sc, SC_CLK_OFF);
 		pm_runtime_put(sc->dev);
 
 		src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
@@ -1980,81 +2038,41 @@ err_v4l2_dev:
 	return ret;
 }
 
-static void sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
-{
-	if (status == SC_CLK_ON) {
-		if (sc->clk_chld && sc->clk_parn)
-			clk_set_parent(sc->clk_chld, sc->clk_parn);
-		atomic_inc(&sc->clk_cnt);
-		if (sc->aclk)
-			clk_enable(sc->aclk);
-		dev_dbg(sc->dev, "clock enabled\n");
-	} else if (status == SC_CLK_OFF) {
-		if (WARN_ON(atomic_dec_return(&sc->clk_cnt) < 0)) {
-			dev_err(sc->dev, "scaler clock control is wrong!!\n");
-			atomic_set(&sc->clk_cnt, 0);
-		} else {
-			if (sc->aclk)
-				clk_disable(sc->aclk);
-			dev_dbg(sc->dev, "clock disabled\n");
-		}
-	}
-}
-
 static int sc_clk_get(struct sc_dev *sc)
 {
-	int ret = -ENOENT;
-	const char *clkname;
-
-	/* aclk, clk_parn and clk_chld are initialized with zero */
-
-	if (!of_property_read_string_index(sc->dev->of_node, "clock-names",
-						SC_GATE_CLK, &clkname)) {
-		sc->aclk = devm_clk_get(sc->dev, clkname);
-		if (IS_ERR(sc->aclk)) {
-			if (sc->aclk == ERR_PTR(-ENOENT)) {
-				dev_info(sc->dev, "No gate clock found.\n");
-				sc->aclk = NULL;
-			} else {
-				dev_err(sc->dev, "Failed to get gate clk\n");
-				return PTR_ERR(sc->aclk);
-			}
-		} else {
-			ret = clk_prepare(sc->aclk);
-			if (ret != 0) {
-				dev_err(sc->dev, "Failed to prepare gate clk\n");
-				return ret;
-			}
-		}
+	sc->aclk = devm_clk_get(sc->dev, "gate");
+	if (IS_ERR(sc->aclk)) {
+		if (PTR_ERR(sc->aclk) == -ENOENT)
+			/* clock is not present */
+			sc->aclk = NULL;
+		else
+			return PTR_ERR(sc->aclk);
+		dev_info(sc->dev, "'gate' clock is not present\n");
 	}
 
-	if (!of_property_read_string_index(sc->dev->of_node, "clock-names",
-						SC_PARN_CLK, &clkname)) {
-		sc->clk_parn = devm_clk_get(sc->dev, clkname);
+	sc->clk_chld = devm_clk_get(sc->dev, "mux_user");
+	if (IS_ERR(sc->clk_chld)) {
+		if (PTR_ERR(sc->clk_chld) == -ENOENT)
+			/* clock is not present */
+			sc->clk_chld = NULL;
+		else
+			return PTR_ERR(sc->clk_chld);
+		dev_info(sc->dev, "'mux_user' clock is not present\n");
+	}
+
+	if (sc->clk_chld) {
+		sc->clk_parn = devm_clk_get(sc->dev, "mux_src");
 		if (IS_ERR(sc->clk_parn)) {
-			dev_err(sc->dev,
-				"Failed to get parent clk '%s'\n", clkname);
-			ret = PTR_ERR(sc->clk_parn);
-			goto err_aux_clk_get;
+			if (PTR_ERR(sc->clk_parn) == -ENOENT)
+				/* clock is not present */
+				sc->clk_parn = NULL;
+			else
+				return PTR_ERR(sc->clk_parn);
+		dev_info(sc->dev, "'mux_src' clock is not present\n");
 		}
 	}
 
-	if (!of_property_read_string_index(sc->dev->of_node, "clock-names",
-						SC_CHLD_CLK, &clkname)) {
-		sc->clk_chld = devm_clk_get(sc->dev, clkname);
-		if (IS_ERR(sc->clk_chld)) {
-			dev_err(sc->dev,
-				"Failed to get child clk '%s'\n", clkname);
-			ret = PTR_ERR(sc->clk_chld);
-			goto err_aux_clk_get;
-		}
-	}
-
-	return 0;
-
-err_aux_clk_get:
-	clk_unprepare(sc->aclk);
-	return ret;
+	return clk_prepare(sc->aclk);
 }
 
 static void sc_clk_put(struct sc_dev *sc)
@@ -2097,29 +2115,8 @@ static int sc_resume(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_PM_RUNTIME
-static int sc_runtime_suspend(struct device *dev)
-{
-	struct sc_dev *sc = dev_get_drvdata(dev);
-
-	sc_clock_gating(sc, SC_CLK_OFF);
-
-	return 0;
-}
-
-static int sc_runtime_resume(struct device *dev)
-{
-	struct sc_dev *sc = dev_get_drvdata(dev);
-
-	sc_clock_gating(sc, SC_CLK_ON);
-
-	return 0;
-}
-#endif
-
 static const struct dev_pm_ops sc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(sc_suspend, sc_resume)
-	SET_RUNTIME_PM_OPS(sc_runtime_suspend, sc_runtime_resume, NULL)
 };
 
 static int sc_probe(struct platform_device *pdev)
@@ -2193,15 +2190,23 @@ static int sc_probe(struct platform_device *pdev)
 	exynos_create_iovmm(&pdev->dev, 3, 3);
 	sc->vb2->resume(sc->alloc_ctx);
 
-#ifdef CONFIG_PM_RUNTIME
 	pm_runtime_enable(&pdev->dev);
-#else
-	sc_clock_gating(sc, SC_CLK_ON);
-#endif
 
-	pm_runtime_get_sync(sc->dev);
+	ret = pm_runtime_get_sync(sc->dev);
+	if (ret < 0)
+		goto err_clk;
+
+	ret = sc_clock_gating(sc, SC_CLK_ON);
+	if (ret < 0) {
+		pm_runtime_put_sync(sc->dev);
+		goto err_clk;
+	}
+
 	sc->ver = sc_hwget_version(sc);
 	dev_info(&pdev->dev, "scaler version is 0x%08x\n", sc->ver);
+
+	sc_clock_gating(sc, SC_CLK_OFF);
+
 	pm_runtime_put_sync(sc->dev);
 
 	sc->variant = &variant;
