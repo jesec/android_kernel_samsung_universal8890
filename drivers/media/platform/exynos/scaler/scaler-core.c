@@ -1883,6 +1883,53 @@ static bool sc_init_scaling_ratio(struct sc_ctx *ctx)
 	return true;
 }
 
+/*
+ * 'Prefetch' is not required by Scaler
+ * because fetch larger region is more beneficial for rotation
+ */
+#define SC_SRC_PBCONFIG	(SYSMMU_PBUFCFG_TLB_UPDATE |		\
+			SYSMMU_PBUFCFG_ASCENDING | SYSMMU_PBUFCFG_READ)
+#define SC_DST_PBCONFIG	(SYSMMU_PBUFCFG_TLB_UPDATE |		\
+			SYSMMU_PBUFCFG_ASCENDING | SYSMMU_PBUFCFG_WRITE)
+
+static void sc_set_prefetch_buffers(struct device *dev, struct sc_ctx *ctx)
+{
+	struct sc_frame *s_frame = &ctx->s_frame;
+	struct sc_frame *d_frame = &ctx->d_frame;
+	struct sysmmu_prefbuf pb_reg[6];
+	unsigned int i = 0;
+
+	pb_reg[i].base = s_frame->addr.y;
+	pb_reg[i].size = s_frame->addr.ysize;
+	pb_reg[i++].config = SC_SRC_PBCONFIG;
+	if (s_frame->sc_fmt->num_comp >= 2) {
+		pb_reg[i].base = s_frame->addr.cb;
+		pb_reg[i].size = s_frame->addr.cbsize;
+		pb_reg[i++].config = SC_SRC_PBCONFIG;
+	}
+	if (s_frame->sc_fmt->num_comp >= 3) {
+		pb_reg[i].base = s_frame->addr.cr;
+		pb_reg[i].size = s_frame->addr.crsize;
+		pb_reg[i++].config = SC_SRC_PBCONFIG;
+	}
+
+	pb_reg[i].base = d_frame->addr.y;
+	pb_reg[i].size = d_frame->addr.ysize;
+	pb_reg[i++].config = SC_DST_PBCONFIG;
+	if (d_frame->sc_fmt->num_comp >= 2) {
+		pb_reg[i].base = d_frame->addr.cb;
+		pb_reg[i].size = d_frame->addr.cbsize;
+		pb_reg[i++].config = SC_DST_PBCONFIG;
+	}
+	if (d_frame->sc_fmt->num_comp >= 3) {
+		pb_reg[i].base = d_frame->addr.cr;
+		pb_reg[i].size = d_frame->addr.crsize;
+		pb_reg[i++].config = SC_DST_PBCONFIG;
+	}
+
+	sysmmu_set_prefetch_buffer_by_region(dev, pb_reg, i);
+}
+
 static void sc_m2m_device_run(void *priv)
 {
 	struct sc_ctx *ctx = priv;
@@ -1979,6 +2026,8 @@ static void sc_m2m_device_run(void *priv)
 
 	set_bit(DEV_RUN, &sc->state);
 	set_bit(CTX_RUN, &ctx->flags);
+
+	sc_set_prefetch_buffers(sc->dev, ctx);
 
 	if (__measure_hw_latency) {
 		struct vb2_buffer *vb = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
