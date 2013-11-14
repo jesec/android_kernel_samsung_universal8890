@@ -963,8 +963,7 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx)
 
 	cfg |= CFG_FLPDCACHE;
 	cfg |= (min == 2) ? CFG_SYSSEL : CFG_ACGEN;
-	if (!(drvdata->qos < 0))
-		cfg |= CFG_QOS_OVRRIDE | CFG_QOS(drvdata->qos);
+	cfg |= CFG_QOS_OVRRIDE;
 
 	func_set_pbuf[min](drvdata, idx);
 set_cfg:
@@ -1279,8 +1278,20 @@ static int __init __sysmmu_init_prop(struct device *sysmmu,
 	struct device_node *prop_node;
 	const char *s;
 	int winmap = 0;
+	unsigned int qos = 8;
+	int ret;
 
 	drvdata->prop = SYSMMU_PROP_READWRITE;
+
+	ret = of_property_read_u32_index(sysmmu->of_node, "qos", 0, &qos);
+
+	if ((ret == 0) && (qos > 15)) {
+		dev_err(sysmmu, "%s: Invalid QoS value %d specified\n",
+				__func__, qos);
+		qos = 8;
+	}
+
+	drvdata->qos = (short)qos;
 
 	prop_node = of_get_child_by_name(sysmmu->of_node, "prop-map");
 	if (!prop_node)
@@ -1323,9 +1334,6 @@ static int __init __sysmmu_setup(struct device *sysmmu,
 	ret = __sysmmu_init_clock(sysmmu, drvdata);
 	if (ret)
 		dev_err(sysmmu, "Failed to initialize gating clocks\n");
-
-	/* QoS value is inherited by the master IP */
-	drvdata->qos = -1;
 
 	ret = __sysmmu_init_prop(sysmmu, drvdata);
 	if (ret)
