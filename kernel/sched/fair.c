@@ -2679,6 +2679,19 @@ static inline void __update_group_entity_contrib(struct sched_entity *se) {}
 static inline void update_rq_runnable_avg(struct rq *rq, int runnable) {}
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 
+#ifdef CONFIG_SCHED_HMP
+/*
+ * Migration thresholds should be in the range [0..1023]
+ * hmp_up_threshold: min. load required for migrating tasks to a faster cpu
+ * hmp_down_threshold: max. load allowed for tasks migrating to a slower cpu
+ * The default values (512, 256) offer good responsiveness, but may need
+ * tweaking suit particular needs.
+ */
+
+unsigned int hmp_up_threshold = 700;
+unsigned int hmp_down_threshold = 256;
+#endif
+
 static inline void __update_task_entity_contrib(struct sched_entity *se)
 {
 	u32 contrib;
@@ -2691,6 +2704,10 @@ static inline void __update_task_entity_contrib(struct sched_entity *se)
 	contrib = se->avg.runnable_avg_sum * scale_load_down(NICE_0_LOAD);
 	contrib /= (se->avg.runnable_avg_period + 1);
 	se->avg.load_avg_ratio = scale_load(contrib);
+#ifdef CONFIG_SCHED_HMP
+	if (se->avg.load_avg_ratio > hmp_up_threshold)
+		cpu_rq(smp_processor_id())->next_balance = jiffies;
+#endif
 	trace_sched_task_runnable_ratio(task_of(se), se->avg.load_avg_ratio);
 }
 
@@ -4887,18 +4904,10 @@ static struct sched_entity *hmp_get_lightest_task(struct sched_entity* se, int m
 }
 
 /*
- * Migration thresholds should be in the range [0..1023]
- * hmp_up_threshold: min. load required for migrating tasks to a faster cpu
- * hmp_down_threshold: max. load allowed for tasks migrating to a slower cpu
- * The default values (512, 256) offer good responsiveness, but may need
- * tweaking suit particular needs.
- *
  * hmp_up_prio: Only up migrate task with high priority (<hmp_up_prio)
  * hmp_next_up_threshold: Delay before next up migration (1024 ~= 1 ms)
  * hmp_next_down_threshold: Delay before next down migration (1024 ~= 1 ms)
  */
-unsigned int hmp_up_threshold = 700;
-unsigned int hmp_down_threshold = 256;
 static int hmp_boostpulse_duration = 1000000; /* microseconds */
 static u64 hmp_boostpulse_endtime;
 static int hmp_boost_val;
