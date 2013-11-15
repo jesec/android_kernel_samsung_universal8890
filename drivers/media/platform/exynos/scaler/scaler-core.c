@@ -2007,8 +2007,10 @@ static void sc_m2m_device_run(void *priv)
 
 		src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-		v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
-		v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
+		if (src_vb)
+			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
+		if (dst_vb)
+			v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
 		v4l2_m2m_job_finish(sc->m2m.m2m_dev, ctx->m2m_ctx);
 		return;
 	}
