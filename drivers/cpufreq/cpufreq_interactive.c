@@ -116,6 +116,9 @@ struct cpufreq_interactive_tunables {
 #define TASK_NAME_LEN 15
 	/* realtime thread handles frequency scaling */
 	struct task_struct *speedchange_task;
+
+	/* handle for get cpufreq_policy */
+	unsigned int *policy;
 };
 
 /* For cases where we have single governor instance for system */
@@ -575,12 +578,20 @@ static void cpufreq_interactive_boost(struct cpufreq_interactive_tunables *tunab
 	int anyboost = 0;
 	unsigned long flags[2];
 	struct cpufreq_interactive_cpuinfo *pcpu;
+	struct cpumask boost_mask;
+	struct cpufreq_policy *policy = container_of(tunables->policy,
+						struct cpufreq_policy, policy);
 
 	tunables->boosted = true;
 
 	spin_lock_irqsave(&speedchange_cpumask_lock, flags[0]);
 
-	for_each_online_cpu(i) {
+	if (have_governor_per_policy())
+		cpumask_copy(&boost_mask, policy->cpus);
+	else
+		cpumask_copy(&boost_mask, cpu_online_mask);
+
+	for_each_cpu(i, &boost_mask) {
 		pcpu = &per_cpu(cpuinfo, i);
 		if (tunables != pcpu->policy->governor_data)
 			continue;
@@ -1153,6 +1164,9 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			kfree(tuned_parameters[policy->cpu]);
 		}
 		tunables->usage_count = 1;
+
+		/* update handle for get cpufreq_policy */
+		tunables->policy = &policy->policy;
 
 		spin_lock_init(&tunables->target_loads_lock);
 		spin_lock_init(&tunables->above_hispeed_delay_lock);
