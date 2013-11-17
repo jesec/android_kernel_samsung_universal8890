@@ -137,7 +137,8 @@ void iovmm_set_fault_handler(struct device *dev,
 					SYSMMU_PBUFCFG_WRITE)
 
 /*
- * sysmmu_set_prefetch_buffer() - set prefetch buffer configuration
+ * sysmmu_set_prefetch_buffer_by_plane() -
+ *                               set prefetch buffer configuration by plane
  *
  * @dev: device descriptor of master device
  * @inplanes: number of input planes that uses prefetch buffers.
@@ -153,10 +154,9 @@ void iovmm_set_fault_handler(struct device *dev,
  * - iovmm_deactivate()
  * - local power down due to suspend to ram, pm_rutime_put() or its equivalent.
  */
-int sysmmu_set_prefetch_buffer(struct device *dev,
-		unsigned int inplanes, unsigned int onplanes,
-		unsigned int option_iplanes,
-		unsigned int option_oplanes);
+int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption, unsigned int opoption);
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
@@ -166,10 +166,10 @@ int sysmmu_set_prefetch_buffer(struct device *dev,
 #define iovmm_unmap_oto(dev, phys)	do { } while (0)
 #define exynos_create_iovmm(sysmmu, inplanes, onplanes) 0
 #define iovmm_set_fault_handler(dev, handler, token) do { } while (0)
-static inline int sysmmu_set_prefetch_buffer(struct device *dev,
-		unsigned int inplanes, unsigned int onplanes,
-		unsigned int option_iplanes,
-		unsigned int option_oplanes)
+
+int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption, unsigned int opoption)
 {
 	return -ENOSYS;
 }
@@ -195,6 +195,24 @@ int exynos_sysmmu_enable(struct device *dev, unsigned long pgd);
  * from virtual address to physical address
  */
 bool exynos_sysmmu_disable(struct device *dev);
+
+struct sysmmu_prefbuf {
+	unsigned long base;
+	unsigned long size;
+	unsigned long config;
+};
+
+/*
+ * sysmmu_set_prefetch_buffer_by_region() - set prefetch buffer configuration
+ *
+ * @dev: device descriptor of master device
+ * @pb_reg: array of regions where prefetch buffer contains.
+ *
+ * If @dev is NULL or @pb_reg is 0, prefetch buffers is disabled.
+ *
+ */
+void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
+			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg);
 
 void exynos_sysmmu_show_status(struct device *dev);
 #else

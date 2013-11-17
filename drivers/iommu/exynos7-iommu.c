@@ -99,6 +99,8 @@
 #define CFG_SHAREABLE	(1 << 12)
 #define CFG_QOS_OVRRIDE (1 << 11)
 
+#define PB_INFO_NUM(reg)	((reg) & 0xFF)
+
 #define REG_MMU_CTRL		0x000
 #define REG_MMU_CFG		0x004
 #define REG_MMU_STATUS		0x008
@@ -207,11 +209,6 @@ struct sysmmu_version {
 	unsigned char minor;
 };
 
-struct sysmmu_prefbuf {
-	unsigned long base;
-	unsigned long size;
-	unsigned long config;
-};
 /*
  * Metadata attached to each System MMU devices.
  */
@@ -355,123 +352,24 @@ static void __sysmmu_set_ptbase(void __iomem *sfrbase,
 	__sysmmu_tlb_invalidate(sfrbase);
 }
 
-#define PLANES_SHIFT 28
-#define PB_CFG_MASK	0x11111;
-
-static int __prepare_instant_prefetch_buffers(struct sysmmu_drvdata *drvdata,
-		struct sysmmu_prefbuf prefbuf[], int num_pb,
-		unsigned int option_inplanes, unsigned int option_onplanes)
+static void __sysmmu_disable_pbuf(struct sysmmu_drvdata *drvdata, int idx)
 {
-	int ret_num_pb = 0;
-	int i;
-	struct exynos_iovmm *vmm;
-	int inplanes = option_inplanes >> PLANES_SHIFT;
-	int onplanes = option_onplanes >> PLANES_SHIFT;
+	unsigned int i, num_pb;
 
-	vmm = exynos_get_iovmm(drvdata->master);
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO));
 
-	if (drvdata->prop & SYSMMU_PROP_READ) {
-		ret_num_pb = min(inplanes, num_pb);
-		for (i = 0; i < ret_num_pb; i++) {
-			prefbuf[i].base = vmm->iova_start[i];
-			prefbuf[i].size = vmm->iovm_size[i];
-			prefbuf[i].config = option_inplanes & PB_CFG_MASK;
-		}
+	__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_LMM);
+
+	for (i = 0; i < num_pb; i++) {
+		__raw_writel(i, drvdata->sfrbases[idx] + REG_PB_INDICATE);
+		__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_CFG);
 	}
-
-	if ((drvdata->prop & SYSMMU_PROP_WRITE) &&
-				(ret_num_pb < num_pb) && (onplanes > 0)) {
-		for (i = 0; i < min(num_pb - ret_num_pb, onplanes); i++) {
-			prefbuf[ret_num_pb + i].base =
-					vmm->iova_start[vmm->inplanes + i];
-			prefbuf[ret_num_pb + i].size =
-					vmm->iovm_size[vmm->inplanes + i];
-			prefbuf[ret_num_pb + i].config =
-						option_onplanes & PB_CFG_MASK;
-		}
-
-		ret_num_pb += i;
-	}
-
-	return ret_num_pb;
 }
 
-
-static int __prepare_prefetch_buffers(struct sysmmu_drvdata *drvdata,
-				struct sysmmu_prefbuf prefbuf[], int num_pb)
+static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
+		struct sysmmu_prefbuf prefbuf[], int num_bufs, int idx)
 {
-	int ret_num_pb = 0;
-	int i;
-	struct exynos_iovmm *vmm;
-
-	if (!drvdata->master || !drvdata->master->archdata.iommu) {
-		dev_err(drvdata->sysmmu, "%s: No master device is specified\n",
-					__func__);
-		return 0;
-	}
-
-	vmm = exynos_get_iovmm(drvdata->master);
-
-	if (!vmm || (drvdata->num_pbufs > 0)) {
-		if (drvdata->num_pbufs > num_pb)
-			drvdata->num_pbufs = num_pb;
-
-		memcpy(prefbuf, drvdata->pbufs,
-				drvdata->num_pbufs * sizeof(prefbuf[0]));
-
-		return drvdata->num_pbufs;
-	}
-
-	if (drvdata->prop & SYSMMU_PROP_READ) {
-		ret_num_pb = min(vmm->inplanes, num_pb);
-		for (i = 0; i < ret_num_pb; i++) {
-			prefbuf[i].base = vmm->iova_start[i];
-			prefbuf[i].size = vmm->iovm_size[i];
-			prefbuf[i].config = SYSMMU_PBUFCFG_DEFAULT_INPUT;
-		}
-	}
-
-	if ((drvdata->prop & SYSMMU_PROP_WRITE) &&
-				(ret_num_pb < num_pb) && (vmm->onplanes > 0)) {
-		for (i = 0; i < min(num_pb - ret_num_pb, vmm->onplanes); i++) {
-			prefbuf[ret_num_pb + i].base =
-					vmm->iova_start[vmm->inplanes + i];
-			prefbuf[ret_num_pb + i].size =
-					vmm->iovm_size[vmm->inplanes + i];
-			prefbuf[ret_num_pb + i].config =
-						SYSMMU_PBUFCFG_DEFAULT_OUTPUT;
-		}
-
-		ret_num_pb += i;
-	}
-
-	if (drvdata->prop & SYSMMU_PROP_WINDOW_MASK) {
-		unsigned long prop = (drvdata->prop & SYSMMU_PROP_WINDOW_MASK)
-						>> SYSMMU_PROP_WINDOW_SHIFT;
-		BUG_ON(ret_num_pb != 0);
-		for (i = 0; (i < (vmm->inplanes + vmm->onplanes)) &&
-						(ret_num_pb < num_pb); i++) {
-			if (prop & 1) {
-				prefbuf[ret_num_pb].base = vmm->iova_start[i];
-				prefbuf[ret_num_pb].size = vmm->iovm_size[i];
-				prefbuf[ret_num_pb].config =
-						SYSMMU_PBUFCFG_DEFAULT_INPUT;
-				ret_num_pb++;
-			}
-			prop >>= 1;
-			if (prop == 0)
-				break;
-		}
-	}
-
-	return ret_num_pb;
-}
-
-static void __exynos_sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
-	   int idx, unsigned int option_inplanes, unsigned int option_onplanes)
-{
-	int num_pb, num_bufs;
-	struct sysmmu_prefbuf prefbuf[6];
+	int num_pb;
 	int i;
 	static char lmm_preset[4][6] = {  /* [num of PB][num of buffers] */
 	/*	  1,  2,  3,  4,  5,  6 */
@@ -481,34 +379,7 @@ static void __exynos_sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 		{ 5,  5,  4,  2,  1,  0}, /* num of pb: 6 */
 		};
 
-	num_pb = __raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO) & 0xFF;
-	if ((num_pb != 3) && (num_pb != 4) && (num_pb != 6)) {
-		dev_err(drvdata->master,
-			"%s: Read invalid PB information from %s\n",
-			__func__, drvdata->dbgname);
-		return;
-	}
-
-	if (!option_inplanes && !option_onplanes) {
-		num_bufs = __prepare_prefetch_buffers(drvdata, prefbuf, num_pb);
-		if (num_bufs == 0) {
-			dev_err(drvdata->master,
-				"%s: Unable to initialize PB of %s -"
-				"NUM_PB %d, numbufs %d\n",
-				__func__, drvdata->dbgname, num_pb, num_bufs);
-			return;
-		}
-	} else {
-		num_bufs = __prepare_instant_prefetch_buffers(drvdata, prefbuf,
-				num_pb, option_inplanes, option_onplanes);
-		if (num_bufs == 0) {
-			dev_err(drvdata->master,
-				"%s: Unable to initialize PB of %s -"
-				"NUM_PB %d, numbufs %d\n",
-				__func__, drvdata->dbgname, num_pb, num_bufs);
-			return;
-		}
-	}
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO));
 
 	if (lmm_preset[num_pb - 3][num_bufs - 1] == -1) {
 		dev_err(drvdata->master,
@@ -534,10 +405,172 @@ static void __exynos_sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 	}
 }
 
-int sysmmu_set_prefetch_buffer(struct device *dev,
-		unsigned int inplanes, unsigned int onplanes,
-		unsigned int option_iplanes,
-		unsigned int option_oplanes)
+#define PB_CFG_MASK	0x11111;
+
+static int __prepare_prefetch_buffers_by_plane(struct sysmmu_drvdata *drvdata,
+				struct sysmmu_prefbuf prefbuf[], int num_pb,
+				int inplanes, int onplanes,
+				int ipoption, int opoption)
+{
+	int ret_num_pb = 0;
+	int i = 0;
+	struct exynos_iovmm *vmm;
+
+	if (!drvdata->master || !drvdata->master->archdata.iommu) {
+		dev_err(drvdata->sysmmu, "%s: No master device is specified\n",
+					__func__);
+		return 0;
+	}
+
+	vmm = ((struct exynos_iommu_owner *)
+			(drvdata->master->archdata.iommu))->vmm_data;
+	if (!vmm)
+		return 0; /* No VMM information to set prefetch buffers */
+
+	if (!inplanes && !onplanes) {
+		inplanes = vmm->inplanes;
+		onplanes = vmm->onplanes;
+	}
+
+	ipoption &= PB_CFG_MASK;
+	opoption &= PB_CFG_MASK;
+
+	if (drvdata->prop & SYSMMU_PROP_READ) {
+		ret_num_pb = min(inplanes, num_pb);
+		for (i = 0; i < ret_num_pb; i++) {
+			prefbuf[i].base = vmm->iova_start[i];
+			prefbuf[i].size = vmm->iovm_size[i];
+			prefbuf[i].config = ipoption;
+		}
+	}
+
+	if ((drvdata->prop & SYSMMU_PROP_WRITE) &&
+				(ret_num_pb < num_pb) && (onplanes > 0)) {
+		for (i = 0; i < min(num_pb - ret_num_pb, onplanes); i++) {
+			prefbuf[ret_num_pb + i].base =
+					vmm->iova_start[vmm->inplanes + i];
+			prefbuf[ret_num_pb + i].size =
+					vmm->iovm_size[vmm->inplanes + i];
+			prefbuf[ret_num_pb + i].config = opoption;
+		}
+
+		ret_num_pb += i;
+	}
+
+	if (drvdata->prop & SYSMMU_PROP_WINDOW_MASK) {
+		unsigned long prop = (drvdata->prop & SYSMMU_PROP_WINDOW_MASK)
+						>> SYSMMU_PROP_WINDOW_SHIFT;
+		BUG_ON(ret_num_pb != 0);
+		for (i = 0; (i < (vmm->inplanes + vmm->onplanes)) &&
+						(ret_num_pb < num_pb); i++) {
+			if (prop & 1) {
+				prefbuf[ret_num_pb].base = vmm->iova_start[i];
+				prefbuf[ret_num_pb].size = vmm->iovm_size[i];
+				prefbuf[ret_num_pb].config = ipoption;
+				ret_num_pb++;
+			}
+			prop >>= 1;
+			if (prop == 0)
+				break;
+		}
+	}
+
+	return ret_num_pb;
+}
+
+static void __exynos_sysmmu_set_prefbuf_by_region(
+		struct sysmmu_drvdata *drvdata, int idx,
+		struct sysmmu_prefbuf pb_reg[], unsigned int num_reg)
+{
+	unsigned int i;
+	int num_bufs = 0;
+	struct sysmmu_prefbuf prefbuf[6];
+
+	if ((num_reg == 0) || (pb_reg == NULL)) {
+		/* Disabling prefetch buffers */
+		__sysmmu_disable_pbuf(drvdata, idx);
+		return;
+	}
+
+	for (i = 0; i < num_reg; i++) {
+		if (((pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
+					(drvdata->prop & SYSMMU_PROP_WRITE)) ||
+			(!(pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
+				 (drvdata->prop & SYSMMU_PROP_READ)))
+			prefbuf[num_bufs++] = pb_reg[i];
+	}
+
+	__sysmmu_set_pbuf(drvdata, prefbuf, num_bufs, idx);
+}
+
+static void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
+			int idx, unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption, unsigned int opoption)
+{
+	unsigned int num_pb;
+	int num_bufs;
+	struct sysmmu_prefbuf prefbuf[6];
+
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO));
+	if ((num_pb != 3) && (num_pb != 4) && (num_pb != 6)) {
+		dev_err(drvdata->master,
+				"%s: Read invalid PB information from %s\n",
+				__func__, dev_name(drvdata->sysmmu));
+		return;
+	}
+
+	num_bufs = __prepare_prefetch_buffers_by_plane(drvdata,
+			prefbuf, num_pb, inplanes, onplanes,
+			ipoption, opoption);
+
+	if (num_bufs == 0)
+		__sysmmu_disable_pbuf(drvdata, idx);
+	else
+		__sysmmu_set_pbuf(drvdata, prefbuf, num_bufs, idx);
+}
+
+void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
+			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg)
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct device *sysmmu;
+	unsigned long flags;
+
+	if (!dev->archdata.iommu) {
+		dev_err(dev, "%s: No System MMU is configured\n", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&owner->lock, flags);
+
+	for_each_sysmmu(dev, sysmmu) {
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
+		int idx;
+
+		spin_lock_irqsave(&drvdata->lock, flags);
+
+		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
+			spin_unlock_irqrestore(&drvdata->lock, flags);
+			continue;
+		}
+
+		for (idx = 0; idx < drvdata->nsfrs; idx++) {
+			if (!has_sysmmu_capable_pbuf(drvdata, idx))
+				continue;
+
+			__exynos_sysmmu_set_prefbuf_by_region(drvdata,
+						idx, pb_reg, num_reg);
+		}
+
+		spin_unlock_irqrestore(&drvdata->lock, flags);
+	}
+
+	spin_unlock_irqrestore(&owner->lock, flags);
+}
+
+int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption, unsigned int opoption)
 {
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	struct exynos_iovmm *vmm;
@@ -566,6 +599,7 @@ int sysmmu_set_prefetch_buffer(struct device *dev,
 
 	for_each_sysmmu(dev, sysmmu) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
+
 		int idx = 0;
 
 		spin_lock_irqsave(&drvdata->lock, flags);
@@ -575,10 +609,13 @@ int sysmmu_set_prefetch_buffer(struct device *dev,
 			continue;
 		}
 
-		for (idx = 0; idx < drvdata->nsfrs; idx++)
-			__exynos_sysmmu_set_pbuf(drvdata, idx,
-				(inplanes << PLANES_SHIFT) | option_iplanes,
-				(onplanes << PLANES_SHIFT) | option_oplanes);
+		for (idx = 0; idx < drvdata->nsfrs; idx++) {
+			if (!has_sysmmu_capable_pbuf(drvdata, idx))
+				continue;
+
+			__exynos_sysmmu_set_prefbuf_by_plane(drvdata, idx,
+					inplanes, onplanes, ipoption, opoption);
+		}
 
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
@@ -666,21 +703,6 @@ int exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 	spin_unlock_irqrestore(&owner->lock, flags);
 
 	return 0;
-}
-
-__attribute__ ((unused))
-static void __sysmmu_restore_state(struct sysmmu_drvdata *drvdata)
-{
-	int i;
-
-	for (i = 0; i < drvdata->nsfrs; i++) {
-		if (has_sysmmu_capable_pbuf(drvdata, i)) {
-			if (sysmmu_block(drvdata->sfrbases[i])) {
-				__exynos_sysmmu_set_pbuf(drvdata, i, 0, 0);
-				sysmmu_unblock(drvdata->sfrbases[i]);
-			}
-		}
-	}
 }
 
 __attribute__ ((unused))
@@ -1040,7 +1062,9 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx)
 		cfg |= CFG_QOS_OVRRIDE | CFG_QOS(drvdata->qos);
 
 	if (has_sysmmu_capable_pbuf(drvdata, idx))
-		__exynos_sysmmu_set_pbuf(drvdata, idx, 0, 0);
+		__exynos_sysmmu_set_prefbuf_by_plane(drvdata, idx, 0, 0,
+					SYSMMU_PBUFCFG_DEFAULT_INPUT,
+					SYSMMU_PBUFCFG_DEFAULT_OUTPUT);
 
 	cfg |= __raw_readl(drvdata->sfrbases[idx] + REG_MMU_CFG) & ~CFG_MASK;
 	__raw_writel(cfg, drvdata->sfrbases[idx] + REG_MMU_CFG);
@@ -1513,10 +1537,8 @@ static int sysmmu_resume(struct device *dev)
 	unsigned long flags;
 	spin_lock_irqsave(&drvdata->lock, flags);
 	if (is_sysmmu_active(drvdata) &&
-		(!pm_runtime_enabled(dev) || drvdata->runtime_active)) {
+		(!pm_runtime_enabled(dev) || drvdata->runtime_active))
 		__sysmmu_enable_nocount(drvdata);
-		__sysmmu_restore_state(drvdata);
-	}
 	spin_unlock_irqrestore(&drvdata->lock, flags);
 	return 0;
 }
