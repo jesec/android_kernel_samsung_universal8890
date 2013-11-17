@@ -100,6 +100,7 @@
 #define CFG_QOS_OVRRIDE (1 << 11)
 
 #define PB_INFO_NUM(reg)	((reg) & 0xFF)
+#define L1TLB_ATTR_IM	(1 << 16)
 
 #define REG_MMU_CTRL		0x000
 #define REG_MMU_CFG		0x004
@@ -119,7 +120,7 @@
 #define REG_FAULT_AW_ADDR	0x080
 #define REG_FAULT_AW_TRANS_INFO	0x088
 #define REG_L1TLB_CFG		0x100 /* sysmmu v5.1 only */
-#define REG_L1TLB_CTRL		0x104 /* sysmmu v5.1 only */
+#define REG_L1TLB_CTRL		0x108 /* sysmmu v5.1 only */
 #define REG_L2TLB_CFG		0x200 /* sysmmu that has L2TLB only*/
 #define REG_PB_LMM		0x300
 #define REG_PB_INDICATE		0x308
@@ -274,6 +275,7 @@ static unsigned int __raw_sysmmu_version(struct sysmmu_drvdata *drvdata,
 		__raw_readl(drvdata->sfrbases[idx] + REG_MMU_VERSION));
 }
 
+__attribute__ ((unused))
 static unsigned int __sysmmu_version(struct sysmmu_drvdata *drvdata,
 					int idx, unsigned int *minor)
 {
@@ -625,6 +627,38 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 	return 0;
 }
 
+void exynos_sysmmu_release_df(struct device *dev)
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct device *sysmmu;
+	unsigned long flags;
+
+	BUG_ON(!has_sysmmu(dev));
+
+	spin_lock_irqsave(&owner->lock, flags);
+
+	for_each_sysmmu(dev, sysmmu) {
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
+		int idx = 0;
+
+		spin_lock_irqsave(&drvdata->lock, flags);
+		if (is_sysmmu_active(drvdata) &&
+				drvdata->runtime_active) {
+			for (idx = 0; idx < drvdata->nsfrs; idx++) {
+				if (__raw_sysmmu_version(drvdata, idx) >=
+						MAKE_MMU_VER(5, 1))
+					__raw_writel(0x1,
+					drvdata->sfrbases[idx] + REG_L1TLB_CTRL);
+				else
+					dev_err(sysmmu, "DF is not supported");
+			}
+		}
+		spin_unlock_irqrestore(&drvdata->lock, flags);
+	}
+
+	spin_unlock_irqrestore(&owner->lock, flags);
+}
+
 static void __sysmmu_set_df(void __iomem *sfrbase,
 				dma_addr_t iova)
 {
@@ -634,25 +668,43 @@ static void __sysmmu_set_df(void __iomem *sfrbase,
 static void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata,
 				   int idx, dma_addr_t iova)
 {
-	int maj, min = 0;
-	u32 cfg = 0;
+#ifdef CONFIG_EXYNOS7_IOMMU_CHECK_DF
+	int i, num_l1tlb, df_cnt = 0;
+#endif
+	u32 cfg;
 
-	maj = __sysmmu_version(drvdata, idx, &min);
-	if ((maj < 5) || ((maj == 5) && !min)) {
+	if (MAKE_MMU_VER(5, 1) > __raw_sysmmu_version(drvdata, idx)) {
 		dev_err(drvdata->sysmmu, "%s: %s: doesn't support SW direct fetch\n",
 			drvdata->dbgname, __func__);
 		return;
 	}
 
+#ifdef CONFIG_EXYNOS7_IOMMU_CHECK_DF
+	num_l1tlb = MMU_NUM_L1TLB_ENTRIES(__raw_readl(drvdata->sfrbases[idx] +
+				REG_MMU_CAPA));
+	for (i = 0; i < num_l1tlb; i++) {
+		__raw_writel(i, drvdata->sfrbases[idx] + REG_L1TLB_READ_ENTRY);
+		cfg = __raw_readl(drvdata->sfrbases[idx] + REG_L1TLB_ENTRY_ATTR);
+		if (cfg & L1TLB_ATTR_IM)
+			df_cnt++;
+	}
+
+	if (df_cnt == num_l1tlb) {
+		dev_err(drvdata->sysmmu, "%s: All TLBs are special slots", __func__);
+		return;
+	}
+
 	cfg = __raw_readl(drvdata->sfrbases[idx] + REG_SW_DF_VPN_CMD_NUM);
 
-	if ((cfg & 0xFF) < 9)
-		__sysmmu_set_df(drvdata->sfrbases[idx], iova);
+	if ((cfg & 0xFF) > 9)
+		dev_info(drvdata->sysmmu,
+			"%s: DF command queue is full\n", __func__);
 	else
-		pr_info("%s: DF command queue is full\n", __func__);
+#endif
+		__sysmmu_set_df(drvdata->sfrbases[idx], iova);
 }
 
-int exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
+void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 {
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	struct device *sysmmu;
@@ -665,13 +717,13 @@ int exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 	vmm = exynos_get_iovmm(dev);
 	if (!vmm) {
 		dev_err(dev, "%s: IOVMM not found\n", __func__);
-		return 0;
+		return;
 	}
 
 	plane = find_iovmm_plane(vmm, iova);
 	if (plane < 0) {
 		dev_err(dev, "%s: IOVA %#x is out of IOVMM\n", __func__, iova);
-		return 0;
+		return;
 	}
 
 	spin_lock_irqsave(&owner->lock, flags);
@@ -682,27 +734,27 @@ int exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 
-		if (drvdata->prop & SYSMMU_PROP_WINDOW_MASK) {
-			unsigned long prop =
-				(drvdata->prop & SYSMMU_PROP_WINDOW_MASK)
-						>> SYSMMU_PROP_WINDOW_SHIFT;
+		if (is_sysmmu_active(drvdata) &&
+				drvdata->runtime_active) {
+			if (drvdata->prop & SYSMMU_PROP_WINDOW_MASK) {
+				unsigned long prop =
+					(drvdata->prop & SYSMMU_PROP_WINDOW_MASK)
+					>> SYSMMU_PROP_WINDOW_SHIFT;
 
-			if (prop & (1 << plane)) {
+				if (prop & (1 << plane)) {
+					for (idx = 0; idx < drvdata->nsfrs; idx++)
+						__exynos_sysmmu_set_df(
+								drvdata, idx, iova);
+				}
+			} else {
 				for (idx = 0; idx < drvdata->nsfrs; idx++)
-					__exynos_sysmmu_set_df(
-							drvdata, idx, iova);
+					__exynos_sysmmu_set_df(drvdata, idx, iova);
 			}
-		} else {
-			for (idx = 0; idx < drvdata->nsfrs; idx++)
-				__exynos_sysmmu_set_df(drvdata, idx, iova);
 		}
-
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
 
 	spin_unlock_irqrestore(&owner->lock, flags);
-
-	return 0;
 }
 
 __attribute__ ((unused))

@@ -215,6 +215,9 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg);
 
 void exynos_sysmmu_show_status(struct device *dev);
+
+void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova);
+void exynos_sysmmu_release_df(struct device *dev);
 #else
 static inline int exynos_sysmmu_enable(struct device *owner, unsigned long *pgd)
 {
@@ -227,5 +230,7 @@ static inline bool exynos_sysmmu_disable(struct device *owner)
 }
 
 #define exynos_sysmmu_show_status(dev) do { } while (0)
+#define exynos_sysmmu_set_df(dev, iova)	do { } while (0)
+#define exynos_sysmmu_release_df(dev)	do { } while (0)
 #endif
 #endif /*__ASM_PLAT_IOVMM_H*/

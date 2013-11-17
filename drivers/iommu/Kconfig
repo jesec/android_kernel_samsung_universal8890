@@ -198,6 +198,14 @@ config EXYNOS7_IOMMU
 
 	  If unsure, say N here.
 
+config EXYNOS7_IOMMU_CHECK_DF
+	bool "Check direct fetch capability"
+	depends on EXYNOS7_IOMMU
+	default y
+	help
+	  Support for Direct fetch functionality. This allows to check
+	  direct fetch capability before setting special slots.
+
 config EXYNOS_IOVMM
 	bool "IO Virtual Memory Manager for Exynos IOMMUs"
 	select GENERIC_ALLOCATOR
