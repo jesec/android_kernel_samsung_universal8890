@@ -2767,18 +2767,22 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 	s5p_mfc_clock_on(dev);
 
 	if (need_cache_flush) {
-		s5p_mfc_clean_dev_int_flags(dev);
+		if (FW_HAS_BASE_CHANGE(dev)) {
+			s5p_mfc_clean_dev_int_flags(dev);
 
-		s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_CACHE_FLUSH, NULL);
-		if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET)) {
-			mfc_err("Failed to flush cache\n");
+			s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_CACHE_FLUSH, NULL);
+			if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET)) {
+				mfc_err("Failed to flush cache\n");
+			}
+
+			s5p_mfc_init_memctrl(dev, (ctx->is_drm ? MFCBUF_DRM : MFCBUF_NORMAL));
+			s5p_mfc_clock_off(dev);
+
+			dev->curr_ctx_drm = ctx->is_drm;
+			s5p_mfc_clock_on(dev);
+		} else {
+			dev->curr_ctx_drm = ctx->is_drm;
 		}
-
-		s5p_mfc_init_memctrl(dev, (ctx->is_drm ? MFCBUF_DRM : MFCBUF_NORMAL));
-		s5p_mfc_clock_off(dev);
-
-		dev->curr_ctx_drm = ctx->is_drm;
-		s5p_mfc_clock_on(dev);
 	}
 
 	if (ctx->type == MFCINST_DECODER) {

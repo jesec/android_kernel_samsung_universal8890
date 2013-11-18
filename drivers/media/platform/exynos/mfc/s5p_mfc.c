@@ -1468,19 +1468,23 @@ static int s5p_mfc_open(struct file *file)
 			ret = -EINVAL;
 			goto err_drm_start;
 		}
+#if 0
 		if (dev->num_inst != dev->num_drm_inst) {
 			mfc_err("Can not open DRM instance\n");
 			mfc_err("Non-DRM instance is already opened.\n");
 			ret = -EINVAL;
 			goto err_drm_inst;
 		}
+#endif
 	} else {
+#if 0
 		if (dev->num_drm_inst) {
 			mfc_err("Can not open non-DRM instance\n");
 			mfc_err("DRM instance is already opened.\n");
 			ret = -EINVAL;
 			goto err_drm_start;
 		}
+#endif
 	}
 #endif
 
@@ -1501,17 +1505,25 @@ static int s5p_mfc_open(struct file *file)
 
 			dev->fw_status = 1;
 		}
-		if (!dev->drm_fw_info.ofs) {
-			mfc_err("DRM F/W buffer is not allocated.\n");
-			dev->drm_fw_status = 0;
+
+		/* Check for supporting smc */
+		ret = exynos_smc(SMC_DCPP_SUPPORT, 0, 0, 0);
+		if (ret) {
+			dev->is_support_smc = 0;
 		} else {
-			ret = exynos_smc(0x81000001, dev->fw_size,
-						dev->drm_fw_info.ofs, 0);
-			if (ret) {
-				mfc_err("MFC DRM F/W(%x) is skipped\n", ret);
+			dev->is_support_smc = 1;
+			if (!dev->drm_fw_info.ofs) {
+				mfc_err("DRM F/W buffer is not allocated.\n");
 				dev->drm_fw_status = 0;
 			} else {
-				dev->drm_fw_status = 1;
+				ret = exynos_smc(SMC_DRM_FW_LOADING, dev->fw_size,
+						dev->drm_fw_info.ofs, 0);
+				if (ret) {
+					mfc_err("MFC DRM F/W(%x) is skipped\n", ret);
+					dev->drm_fw_status = 0;
+				} else {
+					dev->drm_fw_status = 1;
+				}
 			}
 		}
 #else
@@ -1569,7 +1581,7 @@ err_fw_load:
 err_fw_alloc:
 	del_timer_sync(&dev->watchdog_timer);
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-err_drm_inst:
+//err_drm_inst:
 	if (ctx->is_drm)
 		dev->num_drm_inst--;
 

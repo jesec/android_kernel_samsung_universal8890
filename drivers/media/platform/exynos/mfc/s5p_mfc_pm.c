@@ -234,10 +234,11 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	if (dev->curr_ctx_drm) {
+	if (dev->curr_ctx_drm && dev->is_support_smc) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
 		mfc_debug(3, "Begin: enable protection\n");
-		ret = exynos_smc(0x81000000, 0, dev->id, 1);
+		ret = exynos_smc(SMC_PROTECTION_SET, 0,
+					dev->id, SMC_PROTECTION_ENABLE);
 		if (!ret) {
 			printk("Protection Enable failed! ret(%u)\n", ret);
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
@@ -306,10 +307,11 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 		mfc_err("Clock state is wrong(%d)\n", state);
 		atomic_set(&dev->clk_ref, 0);
 	} else {
-		if (dev->curr_ctx_drm) {
+		if (dev->curr_ctx_drm && dev->is_support_smc) {
 			mfc_debug(3, "Begin: disable protection\n");
 			spin_lock_irqsave(&dev->pm.clklock, flags);
-			ret = exynos_smc(0x81000000, 0, dev->id, 0);
+			ret = exynos_smc(SMC_PROTECTION_SET, 0,
+					dev->id, SMC_PROTECTION_DISABLE);
 			if (!ret) {
 				printk("Protection Disable failed! ret(%u)\n", ret);
 				spin_unlock_irqrestore(&dev->pm.clklock, flags);
@@ -321,6 +323,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 		} else {
 			s5p_mfc_mem_suspend(dev->alloc_ctx[0]);
 		}
+		clk_disable(dev->pm.clock);
 	}
 	mfc_debug(2, "- %d\n", state);
 }

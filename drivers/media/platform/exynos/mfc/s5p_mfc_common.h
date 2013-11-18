@@ -70,6 +70,15 @@
 
 #define FLAG_LAST_FRAME		0x80000000
 
+/* Command ID for smc */
+#define SMC_PROTECTION_SET	0x81000000
+#define SMC_DRM_FW_LOADING	0x81000001
+#define SMC_DCPP_SUPPORT	0x81000002
+
+/* Parameter for smc */
+#define SMC_PROTECTION_ENABLE	1
+#define SMC_PROTECTION_DISABLE	0
+
 /**
  * enum s5p_mfc_inst_type - The type of an MFC device node.
  */
@@ -333,6 +342,7 @@ struct s5p_mfc_dev {
 	atomic_t clk_ref;
 	int fw_size;
 	int drm_fw_status;
+	int is_support_smc;
 };
 
 /**
@@ -877,6 +887,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define FW_HAS_POC_TYPE_CTRL(dev)	(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130405))
 #define FW_HAS_DYNAMIC_DPB(dev)		(IS_MFCv7X(dev) &&		\
+					(dev->fw.date >= 0x131108))
+#define FW_HAS_BASE_CHANGE(dev)		(IS_MFCv7X(dev) &&		\
 					(dev->fw.date >= 0x131108))
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)

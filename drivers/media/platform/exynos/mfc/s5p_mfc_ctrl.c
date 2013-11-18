@@ -437,18 +437,20 @@ int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	/* Cache flush for base address change */
-	s5p_mfc_clean_dev_int_flags(dev);
-	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_CACHE_FLUSH, NULL);
-	if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET)) {
-		mfc_err("Failed to flush cache\n");
-		ret = -EIO;
-		goto err_init_hw;
-	}
+	if (FW_HAS_BASE_CHANGE(dev)) {
+		s5p_mfc_clean_dev_int_flags(dev);
+		s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_CACHE_FLUSH, NULL);
+		if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET)) {
+			mfc_err("Failed to flush cache\n");
+			ret = -EIO;
+			goto err_init_hw;
+		}
 
-	if (buf_type == MFCBUF_DRM && !curr_ctx_backup)
-		s5p_mfc_init_memctrl(dev, MFCBUF_NORMAL);
-	else if (buf_type == MFCBUF_NORMAL && curr_ctx_backup)
-		s5p_mfc_init_memctrl(dev, MFCBUF_DRM);
+		if (buf_type == MFCBUF_DRM && !curr_ctx_backup)
+			s5p_mfc_init_memctrl(dev, MFCBUF_NORMAL);
+		else if (buf_type == MFCBUF_NORMAL && curr_ctx_backup)
+			s5p_mfc_init_memctrl(dev, MFCBUF_DRM);
+	}
 #endif
 
 err_init_hw:
