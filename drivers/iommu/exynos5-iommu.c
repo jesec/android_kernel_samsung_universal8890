@@ -695,8 +695,6 @@ static void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
 	if (num_pb == 0) /* No Prefetch buffers */
 		return;
 
-	BUG_ON(num_pb < 0);
-
 	num_bufs = __prepare_prefetch_buffers_by_plane(drvdata,
 			prefbuf, num_pb, inplanes, onplanes,
 			ipoption, opoption);
