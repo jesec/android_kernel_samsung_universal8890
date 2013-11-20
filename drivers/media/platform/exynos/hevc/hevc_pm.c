@@ -141,9 +141,9 @@ static int hevc_clock_set_rate(struct hevc_dev *dev, unsigned long rate)
 	struct clk *parent_clk = NULL;
 	int ret = 0;
 
-	parent_clk = clk_get(dev->device, "mout_aclk_hevc_400_user");
+	parent_clk = clk_get(dev->device, "dout_aclk_hevc_400");
 	if (IS_ERR(parent_clk)) {
-		hevc_err("failed to get parent clock mout_aclk_hevc_400_user.\n");
+		hevc_err("failed to get parent clock dout_aclk_hevc_400\n");
 		ret = PTR_ERR(parent_clk);
 		goto err_g_clk;
 	}
