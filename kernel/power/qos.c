@@ -366,6 +366,50 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 }
 
 /**
+ * pm_qos_update_constraints - update new constraints attributes
+ * @pm_qos_class: identification of which qos value is requested
+ * @constraints: new constraints data struct
+ *
+ * This function updates new constraints attributes.
+ */
+int pm_qos_update_constraints(int pm_qos_class,
+			struct pm_qos_constraints *constraints)
+{
+	struct pm_qos_constraints *r_constraints;
+	int ret = -EINVAL;
+	int i;
+
+	if (!constraints) {
+		printk(KERN_ERR "%s: invalid constraints\n",
+				__func__);
+		return ret;
+	}
+
+	for (i = 1; i < PM_QOS_NUM_CLASSES; i++) {
+		if (i != pm_qos_class)
+			continue;
+
+		r_constraints = pm_qos_array[i]->constraints;
+
+		if (constraints->target_value)
+			r_constraints->target_value = constraints->target_value;
+		if (constraints->default_value)
+			r_constraints->default_value = constraints->default_value;
+		if (constraints->type)
+			r_constraints->type = constraints->type;
+		if (constraints->notifiers)
+			r_constraints->notifiers = constraints->notifiers;
+
+		return 0;
+	}
+
+	printk(KERN_ERR "%s: no search PM QoS CLASS(%d)\n",
+				__func__, pm_qos_class);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pm_qos_update_constraints);
+
+/**
  * pm_qos_flags_remove_req - Remove device PM QoS flags request.
  * @pqf: Device PM QoS flags set to remove the request from.
  * @req: Request to remove from the set.
