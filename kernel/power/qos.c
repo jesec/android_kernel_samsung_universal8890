@@ -312,7 +312,22 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 	int prev_value, curr_value, new_value;
 	int ret;
 
+#ifdef CONFIG_ARCH_EXYNOS
+	struct pm_qos_constraints *cpu_max_const;
+	struct pm_qos_constraints *kfc_max_const;
+#endif
+
 	spin_lock_irqsave(&pm_qos_lock, flags);
+
+#ifdef CONFIG_ARCH_EXYNOS
+	cpu_max_const = cpu_freq_max_pm_qos.constraints;
+	kfc_max_const = kfc_freq_max_pm_qos.constraints;
+
+	if ((c == cpu_max_const || c == kfc_max_const) &&
+				(value > c->default_value))
+		value = c->default_value;
+#endif
+
 	prev_value = pm_qos_get_value(c);
 	if (value == PM_QOS_DEFAULT_VALUE)
 		new_value = c->default_value;
