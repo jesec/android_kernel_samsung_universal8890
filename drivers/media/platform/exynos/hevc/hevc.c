@@ -490,8 +490,10 @@ static void hevc_handle_released_info(struct hevc_ctx *ctx,
 
 static void hevc_handle_frame_copy_timestamp(struct hevc_ctx *ctx)
 {
+	struct hevc_dec *dec;
 	struct hevc_buf *dst_buf, *src_buf;
 	dma_addr_t dec_y_addr;
+	struct list_head *dst_queue_addr;
 
 	dec_y_addr = HEVC_GET_ADR(DEC_DECODED_Y);
 
@@ -500,9 +502,16 @@ static void hevc_handle_frame_copy_timestamp(struct hevc_ctx *ctx)
 		return;
 	}
 
+	dec = ctx->dec_priv;
+
+	if (dec->is_dynamic_dpb)
+		dst_queue_addr = &dec->ref_queue;
+	else
+		dst_queue_addr = &ctx->dst_queue;
+
 	/* Copy timestamp from consumed src buffer to decoded dst buffer */
 	src_buf = list_entry(ctx->src_queue.next, struct hevc_buf, list);
-	list_for_each_entry(dst_buf, &ctx->dst_queue, list) {
+	list_for_each_entry(dst_buf, dst_queue_addr, list) {
 		if (hevc_mem_plane_addr(ctx, &dst_buf->vb, 0) ==
 								dec_y_addr) {
 			memcpy(&dst_buf->vb.v4l2_buf.timestamp,
