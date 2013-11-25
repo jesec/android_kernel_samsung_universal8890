@@ -481,6 +481,7 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_buf *dst_buf, *src_buf;
 	dma_addr_t dec_y_addr;
+	struct list_head *dst_queue_addr;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -495,9 +496,14 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	else
 		dec_y_addr = MFC_GET_ADR(DEC_DECODED_Y);
 
+	if (dec->is_dynamic_dpb)
+		dst_queue_addr = &dec->ref_queue;
+	else
+		dst_queue_addr = &ctx->dst_queue;
+
 	/* Copy timestamp from consumed src buffer to decoded dst buffer */
 	src_buf = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
-	list_for_each_entry(dst_buf, &ctx->dst_queue, list) {
+	list_for_each_entry(dst_buf, dst_queue_addr, list) {
 		if (s5p_mfc_mem_plane_addr(ctx, &dst_buf->vb, 0) ==
 								dec_y_addr) {
 			memcpy(&dst_buf->vb.v4l2_buf.timestamp,
