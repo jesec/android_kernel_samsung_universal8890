@@ -745,6 +745,51 @@ static void sc_calc_intbufsize(struct sc_dev *sc, struct sc_int_frame *int_frame
 
 extern struct ion_device *ion_exynos;
 
+static void free_intermediate_frame(struct sc_ctx *ctx)
+{
+
+	if (ctx->i_frame == NULL)
+		return;
+
+	if (!ctx->i_frame->handle[0])
+		return;
+
+	ion_free(ctx->i_frame->client, ctx->i_frame->handle[0]);
+
+	if (ctx->i_frame->handle[1])
+		ion_free(ctx->i_frame->client, ctx->i_frame->handle[1]);
+	if (ctx->i_frame->handle[2])
+		ion_free(ctx->i_frame->client, ctx->i_frame->handle[2]);
+
+	if (ctx->i_frame->src_addr.y)
+		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->src_addr.y);
+	if (ctx->i_frame->src_addr.cb)
+		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->src_addr.cb);
+	if (ctx->i_frame->src_addr.cr)
+		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->src_addr.cr);
+	if (ctx->i_frame->dst_addr.y)
+		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->dst_addr.y);
+	if (ctx->i_frame->dst_addr.cb)
+		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->dst_addr.cb);
+	if (ctx->i_frame->dst_addr.cr)
+		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->dst_addr.cr);
+
+	memset(&ctx->i_frame->handle, 0, sizeof(struct ion_handle *) * 3);
+	memset(&ctx->i_frame->src_addr, 0, sizeof(ctx->i_frame->src_addr));
+	memset(&ctx->i_frame->dst_addr, 0, sizeof(ctx->i_frame->dst_addr));
+}
+
+static void destroy_intermediate_frame(struct sc_ctx *ctx)
+{
+	if (ctx->i_frame) {
+		free_intermediate_frame(ctx);
+		ion_client_destroy(ctx->i_frame->client);
+		kfree(ctx->i_frame);
+		ctx->i_frame = NULL;
+		clear_bit(CTX_INT_FRAME, &ctx->flags);
+	}
+}
+
 static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 {
 	struct sc_frame *frame;
@@ -764,7 +809,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 	 * needed to be initialized because image setting is never changed
 	 * while streaming continues.
 	 */
-	if (test_bit(CTX_INT_FRAME, &ctx->flags))
+	if (ctx->i_frame->handle[0])
 		return true;
 
 	sc_calc_intbufsize(sc, ctx->i_frame);
@@ -898,11 +943,10 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		frame->addr.cr = ctx->i_frame->dst_addr.cr;
 	}
 
-	set_bit(CTX_INT_FRAME, &ctx->flags);
-
 	return true;
+
 err_ion_alloc:
-	/* allocated resources are freed in free_intermediate_frame() */
+	free_intermediate_frame(ctx);
 	return false;
 }
 
@@ -927,54 +971,12 @@ static bool allocate_intermediate_frame(struct sc_ctx *ctx)
 			ctx->i_frame = NULL;
 			return false;
 		}
-	}
 
-	memcpy(&ctx->i_frame->frame, &ctx->d_frame, sizeof(ctx->d_frame));
+		memcpy(&ctx->i_frame->frame, &ctx->d_frame,
+			sizeof(ctx->d_frame));
+	}
 
 	return true;
-}
-
-static void free_intermediate_frame(struct sc_ctx *ctx)
-{
-	if (ctx->i_frame == NULL)
-		return;
-
-	if (ctx->i_frame->handle[0])
-		ion_free(ctx->i_frame->client, ctx->i_frame->handle[0]);
-	if (ctx->i_frame->handle[1])
-		ion_free(ctx->i_frame->client, ctx->i_frame->handle[1]);
-	if (ctx->i_frame->handle[2])
-		ion_free(ctx->i_frame->client, ctx->i_frame->handle[2]);
-
-	if (ctx->i_frame->src_addr.y)
-		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->src_addr.y);
-	if (ctx->i_frame->src_addr.cb)
-		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->src_addr.cb);
-	if (ctx->i_frame->src_addr.cr)
-		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->src_addr.cr);
-	if (ctx->i_frame->dst_addr.y)
-		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->dst_addr.y);
-	if (ctx->i_frame->dst_addr.cb)
-		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->dst_addr.cb);
-	if (ctx->i_frame->dst_addr.cr)
-		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->dst_addr.cr);
-
-	memset(&ctx->i_frame->handle, 0, sizeof(ctx->i_frame->handle));
-	memset(&ctx->i_frame->src_addr, 0, sizeof(ctx->i_frame->src_addr));
-	memset(&ctx->i_frame->dst_addr, 0, sizeof(ctx->i_frame->dst_addr));
-
-	clear_bit(CTX_INT_FRAME, &ctx->flags);
-}
-
-static void destroy_intermediate_frame(struct sc_ctx *ctx)
-{
-	if (ctx->i_frame) {
-		free_intermediate_frame(ctx);
-		ion_client_destroy(ctx->i_frame->client);
-		kfree(ctx->i_frame);
-		ctx->i_frame = NULL;
-		clear_bit(CTX_INT_FRAME, &ctx->flags);
-	}
 }
 
 static int sc_vb2_queue_setup(struct vb2_queue *vq,
@@ -1626,6 +1628,8 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 
 	sc_hwset_start(sc);
 
+	clear_bit(CTX_INT_FRAME, &ctx->flags);
+
 	return true;
 }
 
@@ -1887,6 +1891,9 @@ static bool sc_init_scaling_ratio(struct sc_ctx *ctx)
 			free_intermediate_frame(ctx);
 			return false;
 		}
+
+		set_bit(CTX_INT_FRAME, &ctx->flags);
+
 	}
 
 	sc_set_scale_ratio(sc, h_ratio, v_ratio);
