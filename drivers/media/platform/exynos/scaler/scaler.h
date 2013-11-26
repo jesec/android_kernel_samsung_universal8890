@@ -287,7 +287,6 @@ struct sc_frame {
 
 struct sc_int_frame {
 	struct sc_frame			frame;
-	void				*cookie;
 	struct ion_client		*client;
 	struct ion_handle		*handle[3];
 	struct sc_addr			src_addr;

@@ -747,14 +747,9 @@ extern struct ion_device *ion_exynos;
 
 static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 {
-	int i;
 	struct sc_frame *frame;
-	size_t imagesize = 0;
 	struct sc_dev *sc = ctx->sc_dev;
 	struct sg_table *sgt;
-
-	if (ctx->i_frame->cookie != NULL)
-		return true;
 
 	frame = &ctx->i_frame->frame;
 
@@ -762,22 +757,15 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 	frame->crop.left = 0;
 	frame->width = frame->crop.width;
 	frame->height = frame->crop.height;
-	for (i = 0; i < frame->sc_fmt->num_planes; i++)
-		imagesize += frame->sc_fmt->bitperpixel[i];
 
-	imagesize *= frame->crop.width;
-	imagesize /= 8;
-	imagesize *= frame->crop.height;
-
-	ctx->i_frame->client = ion_client_create(ion_exynos, "scaler-int");
-	if (IS_ERR(ctx->i_frame->client)) {
-		dev_err(sc->dev,
-			"Failed to create ION client for intermediate buffer"
-			"(err %ld)\n",
-			PTR_ERR(ctx->i_frame->client));
-		ctx->i_frame->client = NULL;
-		return false;
-	}
+	/*
+	 * Check if intermeidate frame is already initialized by a previous
+	 * frame. If it is already initialized, intermediate buffer is no longer
+	 * needed to be initialized because image setting is never changed
+	 * while streaming continues.
+	 */
+	if (test_bit(CTX_INT_FRAME, &ctx->flags))
+		return true;
 
 	sc_calc_intbufsize(sc, ctx->i_frame);
 
@@ -910,6 +898,8 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		frame->addr.cr = ctx->i_frame->dst_addr.cr;
 	}
 
+	set_bit(CTX_INT_FRAME, &ctx->flags);
+
 	return true;
 err_ion_alloc:
 	/* allocated resources are freed in free_intermediate_frame() */
@@ -926,9 +916,20 @@ static bool allocate_intermediate_frame(struct sc_ctx *ctx)
 			return false;
 		}
 
-		memcpy(&ctx->i_frame->frame, &ctx->d_frame,
-			sizeof(ctx->d_frame));
+		ctx->i_frame->client = ion_client_create(ion_exynos,
+							"scaler-int");
+		if (IS_ERR(ctx->i_frame->client)) {
+			dev_err(ctx->sc_dev->dev,
+			"Failed to create ION client for int.buf.(err %ld)\n",
+				PTR_ERR(ctx->i_frame->client));
+			ctx->i_frame->client = NULL;
+			kfree(ctx->i_frame);
+			ctx->i_frame = NULL;
+			return false;
+		}
 	}
+
+	memcpy(&ctx->i_frame->frame, &ctx->d_frame, sizeof(ctx->d_frame));
 
 	return true;
 }
@@ -958,11 +959,22 @@ static void free_intermediate_frame(struct sc_ctx *ctx)
 	if (ctx->i_frame->dst_addr.cr)
 		iovmm_unmap(ctx->sc_dev->dev, ctx->i_frame->dst_addr.cr);
 
-	ion_client_destroy(ctx->i_frame->client);
+	memset(&ctx->i_frame->handle, 0, sizeof(ctx->i_frame->handle));
+	memset(&ctx->i_frame->src_addr, 0, sizeof(ctx->i_frame->src_addr));
+	memset(&ctx->i_frame->dst_addr, 0, sizeof(ctx->i_frame->dst_addr));
 
-	kfree(ctx->i_frame);
-	ctx->i_frame = NULL;
 	clear_bit(CTX_INT_FRAME, &ctx->flags);
+}
+
+static void destroy_intermediate_frame(struct sc_ctx *ctx)
+{
+	if (ctx->i_frame) {
+		free_intermediate_frame(ctx);
+		ion_client_destroy(ctx->i_frame->client);
+		kfree(ctx->i_frame);
+		ctx->i_frame = NULL;
+		clear_bit(CTX_INT_FRAME, &ctx->flags);
+	}
 }
 
 static int sc_vb2_queue_setup(struct vb2_queue *vq,
@@ -978,15 +990,14 @@ static int sc_vb2_queue_setup(struct vb2_queue *vq,
 	if (IS_ERR(frame))
 		return PTR_ERR(frame);
 
-	if (V4L2_TYPE_IS_OUTPUT(vq->type))
-		free_intermediate_frame(ctx);
-
 	/* Get number of planes from format_list in driver */
 	*num_planes = frame->sc_fmt->num_planes;
 	for (i = 0; i < frame->sc_fmt->num_planes; i++) {
 		sizes[i] = frame->bytesused[i];
 		allocators[i] = ctx->sc_dev->alloc_ctx;
 	}
+
+	free_intermediate_frame(ctx);
 
 	return vb2_queue_init(vq);
 }
@@ -1107,6 +1118,8 @@ static int sc_vb2_stop_streaming(struct vb2_queue *vq)
 		dev_err(ctx->sc_dev->dev, "wait timeout\n");
 
 	clear_bit(CTX_STREAMING, &ctx->flags);
+
+	free_intermediate_frame(ctx);
 
 	return ret;
 }
@@ -1381,6 +1394,7 @@ static int sc_release(struct file *file)
 
 	sc_dbg("refcnt= %d", atomic_read(&sc->m2m.in_use));
 
+	destroy_intermediate_frame(ctx);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 	if (ctx->fence_wq)
 		destroy_workqueue(ctx->fence_wq);
@@ -1612,7 +1626,6 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 
 	sc_hwset_start(sc);
 
-	clear_bit(CTX_INT_FRAME, &ctx->flags);
 	return true;
 }
 
@@ -1874,8 +1887,6 @@ static bool sc_init_scaling_ratio(struct sc_ctx *ctx)
 			free_intermediate_frame(ctx);
 			return false;
 		}
-
-		set_bit(CTX_INT_FRAME, &ctx->flags);
 	}
 
 	sc_set_scale_ratio(sc, h_ratio, v_ratio);
