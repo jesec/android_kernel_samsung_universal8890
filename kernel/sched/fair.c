@@ -5100,29 +5100,48 @@ static ssize_t hmp_store(struct kobject *a, struct attribute *attr,
 	if (sscanf(str, "%d", &temp) < 1)
 		ret = -EINVAL;
 	else {
-		if (hmp_attr->from_sysfs != NULL)
+		if (hmp_attr->from_sysfs != NULL) {
 			temp = hmp_attr->from_sysfs(temp);
-		if (temp < 0)
-			ret = -EINVAL;
-		else
+			if (temp < 0)
+				ret = temp;
+		} else {
 			*(hmp_attr->value) = temp;
+		}
 	}
 	vfree(str);
 	return ret;
 }
 
-static int hmp_period_tofrom_sysfs(int value)
+static int hmp_period_to_sysfs(int value)
 {
 	return (LOAD_AVG_PERIOD << HMP_VARIABLE_SCALE_SHIFT) / value;
 }
 
-/* max value for threshold is 1024 */
-static int hmp_threshold_from_sysfs(int value)
+static int hmp_period_from_sysfs(int value)
 {
-	if (value > 1024)
-		return -1;
+	hmp_data.multiplier = (LOAD_AVG_PERIOD << HMP_VARIABLE_SCALE_SHIFT) / value;
+	return 0;
+}
 
-	return value;
+/* max value for threshold is 1024 */
+static int hmp_up_threshold_from_sysfs(int value)
+{
+	if ((value > 1024) || (value < 0))
+		return -EINVAL;
+
+	hmp_up_threshold = value;
+
+	return 0;
+}
+
+static int hmp_down_threshold_from_sysfs(int value)
+{
+	if ((value > 1024) || (value < 0))
+		return -EINVAL;
+
+	hmp_down_threshold = value;
+
+	return 0;
 }
 
 static int hmp_boostpulse_from_sysfs(int value)
@@ -5240,20 +5259,20 @@ static int hmp_attr_init(void)
 	/* by default load_avg_period_ms == LOAD_AVG_PERIOD
 	 * meaning no change
 	 */
-	hmp_data.multiplier = hmp_period_tofrom_sysfs(LOAD_AVG_PERIOD);
+	hmp_data.multiplier = hmp_period_to_sysfs(LOAD_AVG_PERIOD);
 
 	hmp_attr_add("load_avg_period_ms",
 		&hmp_data.multiplier,
-		hmp_period_tofrom_sysfs,
-		hmp_period_tofrom_sysfs);
+		hmp_period_to_sysfs,
+		hmp_period_from_sysfs);
 	hmp_attr_add("up_threshold",
 		&hmp_up_threshold,
 		NULL,
-		hmp_threshold_from_sysfs);
+		hmp_up_threshold_from_sysfs);
 	hmp_attr_add("down_threshold",
 		&hmp_down_threshold,
 		NULL,
-		hmp_threshold_from_sysfs);
+		hmp_down_threshold_from_sysfs);
 	hmp_attr_add("boostpulse",
 		&hmp_boostpulse,
 		NULL,
