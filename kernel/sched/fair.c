@@ -4894,6 +4894,7 @@ static int hmp_boostpulse_duration = 1000000; /* microseconds */
 static u64 hmp_boostpulse_endtime;
 static int hmp_boost_val;
 static int hmp_boostpulse;
+static DEFINE_RAW_SPINLOCK(hmp_boost_lock);
 
 #define BOOT_BOOST_DURATION 40000000 /* microseconds */
 
@@ -4906,11 +4907,17 @@ unsigned int hmp_next_down_threshold = 4096;
 static inline int hmp_boost(void)
 {
 	u64 now = ktime_to_us(ktime_get());
+	int ret;
+	unsigned long flags;
 
+	raw_spin_lock_irqsave(&hmp_boost_lock, flags);
 	if (hmp_boost_val || now < hmp_boostpulse_endtime)
-		return 1;
+		ret = 1;
 	else
-		return 0;
+		ret = 0;
+	raw_spin_unlock_irqrestore(&hmp_boost_lock, flags);
+
+	return ret;
 }
 
 static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_entity *se);
@@ -5118,11 +5125,80 @@ static int hmp_threshold_from_sysfs(int value)
 	return value;
 }
 
-static int hmp_boostpulse_write(int value)
+static int hmp_boostpulse_from_sysfs(int value)
 {
-	hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + hmp_boostpulse_duration;
+	unsigned long flags;
+	u64 boostpulse_endtime = ktime_to_us(ktime_get()) + hmp_boostpulse_duration;
+
+	raw_spin_lock_irqsave(&hmp_boost_lock, flags);
+	if (boostpulse_endtime > hmp_boostpulse_endtime)
+		hmp_boostpulse_endtime = boostpulse_endtime;
+	raw_spin_unlock_irqrestore(&hmp_boost_lock, flags);
 
 	return 0;
+}
+
+static int hmp_boostpulse_duration_from_sysfs(int duration)
+{
+	if (duration < 0)
+		return -EINVAL;
+
+	hmp_boostpulse_duration = duration;
+
+	return 0;
+}
+
+static int hmp_boost_from_sysfs(int value)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	raw_spin_lock_irqsave(&hmp_boost_lock, flags);
+	if (value == 1)
+		hmp_boost_val++;
+	else if (value == 0)
+		if (hmp_boost_val >= 1)
+			hmp_boost_val--;
+		else
+			ret = -EINVAL;
+	else
+		ret = -EINVAL;
+	raw_spin_unlock_irqrestore(&hmp_boost_lock, flags);
+
+	return ret;
+}
+
+int set_hmp_boost(int enable)
+{
+	return hmp_boost_from_sysfs(enable);
+}
+
+int set_hmp_boostpulse(int duration)
+{
+	unsigned long flags;
+	u64 boostpulse_endtime;
+
+	if (duration < 0)
+		return -EINVAL;
+
+	boostpulse_endtime = ktime_to_us(ktime_get()) + duration;
+
+	raw_spin_lock_irqsave(&hmp_boost_lock, flags);
+	if (boostpulse_endtime > hmp_boostpulse_endtime)
+		hmp_boostpulse_endtime = boostpulse_endtime;
+	raw_spin_unlock_irqrestore(&hmp_boost_lock, flags);
+
+	return 0;
+}
+
+int set_hmp_up_threshold(int value)
+{
+	return hmp_up_threshold_from_sysfs(value);
+}
+
+int set_hmp_down_threshold(int value)
+{
+	return hmp_down_threshold_from_sysfs(value);
 }
 
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
@@ -5181,15 +5257,15 @@ static int hmp_attr_init(void)
 	hmp_attr_add("boostpulse",
 		&hmp_boostpulse,
 		NULL,
-		hmp_boostpulse_write);
+		hmp_boostpulse_from_sysfs);
 	hmp_attr_add("boostpulse_duration",
 		&hmp_boostpulse_duration,
 		NULL,
-		NULL);
+		hmp_boostpulse_duration_from_sysfs);
 	hmp_attr_add("boost",
 		&hmp_boost_val,
 		NULL,
-		NULL);
+		hmp_boost_from_sysfs);
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
 	/* default frequency-invariant scaling ON */
 	hmp_data.freqinvar_load_scale_enabled = 1;

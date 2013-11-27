@@ -1041,6 +1041,11 @@ struct hmp_domain {
 	struct cpumask possible_cpus;
 	struct list_head hmp_domains;
 };
+
+extern int set_hmp_boost(int enable);
+extern int set_hmp_boostpulse(int duration);
+extern int set_hmp_up_threshold(int value);
+extern int set_hmp_down_threshold(int value);
 #endif /* CONFIG_SCHED_HMP */
 #else /* CONFIG_SMP */
 
