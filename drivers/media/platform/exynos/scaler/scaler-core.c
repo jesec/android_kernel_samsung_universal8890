@@ -979,6 +979,97 @@ static bool allocate_intermediate_frame(struct sc_ctx *ctx)
 	return true;
 }
 
+static int sc_find_scaling_ratio(struct sc_ctx *ctx)
+{
+	__s32 src_width, src_height;
+	unsigned int h_ratio, v_ratio;
+	struct sc_dev *sc = ctx->sc_dev;
+
+	if ((ctx->s_frame.crop.width == 0) ||
+			(ctx->d_frame.crop.width == 0))
+		return 0; /* s_fmt is not complete */
+
+	src_width = ctx->s_frame.crop.width;
+	src_height = ctx->s_frame.crop.height;
+	if ((ctx->rotation % 180) == 90)
+		swap(src_width, src_height);
+
+	h_ratio = SCALE_RATIO(src_width, ctx->d_frame.crop.width);
+	v_ratio = SCALE_RATIO(src_height, ctx->d_frame.crop.height);
+
+	if ((h_ratio > sc->variant->sc_down_swmin) ||
+			(h_ratio < sc->variant->sc_up_max)) {
+		dev_err(sc->dev, "Width scaling is out of range(%d -> %d)\n",
+			src_width, ctx->d_frame.crop.width);
+		return -EINVAL;
+	}
+
+	if ((v_ratio > sc->variant->sc_down_swmin) ||
+			(v_ratio < sc->variant->sc_up_max)) {
+		dev_err(sc->dev, "Height scaling is out of range(%d -> %d)\n",
+			src_height, ctx->d_frame.crop.height);
+		return -EINVAL;
+	}
+
+	if ((h_ratio > sc->variant->sc_down_min) ||
+				(v_ratio > sc->variant->sc_down_min)) {
+		struct v4l2_rect crop;
+		struct sc_size_limit *limit;
+		unsigned int halign = 0, walign = 0;
+		__u32 pixfmt;
+
+		if (!allocate_intermediate_frame(ctx))
+			return -ENOMEM;
+
+		if (v_ratio > sc->variant->sc_down_min)
+			crop.height = ((src_height + 7) / 8) * 2;
+
+		if (h_ratio > sc->variant->sc_down_min)
+			crop.width = ((src_width + 7) / 8) * 2;
+
+		pixfmt = ctx->i_frame->frame.sc_fmt->pixelformat;
+
+		if (sc_fmt_is_yuv422(pixfmt)) {
+			walign = 1;
+		} else if (sc_fmt_is_yuv420(pixfmt)) {
+			walign = 1;
+			halign = 1;
+		}
+
+		limit = &sc->variant->limit_output;
+		v4l_bound_align_image(&crop.width, limit->min_w, limit->max_w,
+				walign, &crop.height, limit->min_h,
+				limit->max_h, halign, 0);
+
+		h_ratio = SCALE_RATIO(src_width, crop.width);
+		v_ratio = SCALE_RATIO(src_height, crop.height);
+
+		limit = &sc->variant->limit_output;
+		v4l_bound_align_image(&crop.width, limit->min_w, limit->max_w,
+				walign, &crop.height, limit->min_h,
+				limit->max_h, halign, 0);
+
+		h_ratio = SCALE_RATIO(src_width, crop.width);
+		v_ratio = SCALE_RATIO(src_height, crop.height);
+
+		if (memcmp(&crop, &ctx->i_frame->frame.crop, sizeof(crop))) {
+			memcpy(&ctx->i_frame->frame.crop, &crop, sizeof(crop));
+			free_intermediate_frame(ctx);
+			if (!initialize_initermediate_frame(ctx)) {
+				free_intermediate_frame(ctx);
+				return -ENOMEM;
+			}
+		}
+	} else {
+		destroy_intermediate_frame(ctx);
+	}
+
+	ctx->h_ratio = h_ratio;
+	ctx->v_ratio = v_ratio;
+
+	return 0;
+}
+
 static int sc_vb2_queue_setup(struct vb2_queue *vq,
 		const struct v4l2_format *fmt, unsigned int *num_buffers,
 		unsigned int *num_planes, unsigned int sizes[],
@@ -986,6 +1077,7 @@ static int sc_vb2_queue_setup(struct vb2_queue *vq,
 {
 	struct sc_ctx *ctx = vb2_get_drv_priv(vq);
 	struct sc_frame *frame;
+	int ret;
 	int i;
 
 	frame = ctx_get_frame(ctx, vq->type);
@@ -999,7 +1091,9 @@ static int sc_vb2_queue_setup(struct vb2_queue *vq,
 		allocators[i] = ctx->sc_dev->alloc_ctx;
 	}
 
-	free_intermediate_frame(ctx);
+	ret = sc_find_scaling_ratio(ctx);
+	if (ret)
+		return ret;
 
 	return vb2_queue_init(vq);
 }
@@ -1436,19 +1530,8 @@ static const struct v4l2_file_operations sc_v4l2_fops = {
 static int sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
 {
 	if (status == SC_CLK_ON) {
-		int ret;
-		if (sc->clk_chld && sc->clk_parn) {
-			ret = clk_set_parent(sc->clk_chld, sc->clk_parn);
-			if (ret) {
-				dev_err(sc->dev,
-					"%s: Failed to setup MUX: %d\n",
-					__func__, ret);
-				return ret;
-			}
-		}
-
 		if (sc->aclk) {
-			ret = clk_enable(sc->aclk);
+			int ret = clk_enable(sc->aclk);
 			if (ret) {
 				dev_err(sc->dev,
 					"%s: Failed to enable clock: %d\n",
@@ -1825,82 +1908,6 @@ static void sc_set_dithering(struct sc_ctx *ctx)
 	sc_hwset_dith(sc, val);
 }
 
-static bool sc_init_scaling_ratio(struct sc_ctx *ctx)
-{
-	__s32 src_width, src_height;
-	unsigned int h_ratio, v_ratio;
-	struct sc_dev *sc = ctx->sc_dev;
-
-	src_width = ctx->s_frame.crop.width;
-	src_height = ctx->s_frame.crop.height;
-	if ((ctx->rotation % 180) == 90)
-		swap(src_width, src_height);
-
-	h_ratio = SCALE_RATIO(src_width, ctx->d_frame.crop.width);
-	v_ratio = SCALE_RATIO(src_height, ctx->d_frame.crop.height);
-
-	if ((h_ratio > sc->variant->sc_down_swmin) ||
-			(h_ratio < sc->variant->sc_up_max)) {
-		dev_err(sc->dev, "Width scaling is out of range(%d -> %d)\n",
-			src_width, ctx->d_frame.crop.width);
-		return false;
-	}
-
-	if ((v_ratio > sc->variant->sc_down_swmin) ||
-			(v_ratio < sc->variant->sc_up_max)) {
-		dev_err(sc->dev, "Height scaling is out of range(%d -> %d)\n",
-			src_height, ctx->d_frame.crop.height);
-		return false;
-	}
-
-	if ((h_ratio > sc->variant->sc_down_min) ||
-				(v_ratio > sc->variant->sc_down_min)) {
-		struct v4l2_rect *crop;
-		struct sc_size_limit *limit;
-		unsigned int halign = 0, walign = 0;
-		__u32 pixfmt;
-
-		if (!allocate_intermediate_frame(ctx))
-			return false;
-
-		crop = &ctx->i_frame->frame.crop;
-		pixfmt = ctx->i_frame->frame.sc_fmt->pixelformat;
-
-		if (v_ratio > sc->variant->sc_down_min)
-			crop->height = ((src_height + 7) / 8) * 2;
-
-		if (h_ratio > sc->variant->sc_down_min)
-			crop->width = ((src_width + 7) / 8) * 2;
-
-		if (sc_fmt_is_yuv422(pixfmt)) {
-			walign = 1;
-		} else if (sc_fmt_is_yuv420(pixfmt)) {
-			walign = 1;
-			halign = 1;
-		}
-
-		limit = &sc->variant->limit_output;
-		v4l_bound_align_image(&crop->width, limit->min_w, limit->max_w,
-				walign, &crop->height, limit->min_h,
-				limit->max_h, halign, 0);
-
-		h_ratio = SCALE_RATIO(src_width, crop->width);
-		v_ratio = SCALE_RATIO(src_height, crop->height);
-
-		if (!initialize_initermediate_frame(ctx)) {
-			free_intermediate_frame(ctx);
-			return false;
-		}
-
-		set_bit(CTX_INT_FRAME, &ctx->flags);
-
-	}
-
-	sc_set_scale_ratio(sc, h_ratio, v_ratio);
-
-	return true;
-}
-
 /*
  * 'Prefetch' is not required by Scaler
  * because fetch larger region is more beneficial for rotation
@@ -1998,22 +2005,9 @@ static void sc_m2m_device_run(void *priv)
 
 	sc_hwset_soft_reset(sc);
 
-	if (!sc_init_scaling_ratio(ctx)) {
-		/* invalid scaling ratio: aborting the current task */
-		struct vb2_buffer *src_vb, *dst_vb;
-
-		sc_clock_gating(sc, SC_CLK_OFF);
-		pm_runtime_put(sc->dev);
-
-		src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-		if (src_vb)
-			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
-		if (dst_vb)
-			v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
-		v4l2_m2m_job_finish(sc->m2m.m2m_dev, ctx->m2m_ctx);
-		return;
-	}
+	sc_set_scale_ratio(sc, ctx->h_ratio, ctx->v_ratio);
+	if (ctx->i_frame)
+		set_bit(CTX_INT_FRAME, &ctx->flags);
 
 	if (test_bit(CTX_INT_FRAME, &ctx->flags))
 		d_frame = &ctx->i_frame->frame;
@@ -2217,8 +2211,25 @@ static int sc_resume(struct device *dev)
 }
 #endif
 
+#ifdef CONFIG_PM_RUNTIME
+static int sc_runtime_resume(struct device *dev)
+{
+	struct sc_dev *sc = dev_get_drvdata(dev);
+	if (sc->clk_chld && sc->clk_parn) {
+		int ret = clk_set_parent(sc->clk_chld, sc->clk_parn);
+		if (ret) {
+			dev_err(sc->dev, "%s: Failed to setup MUX: %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+	return 0;
+}
+#endif
+
 static const struct dev_pm_ops sc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(sc_suspend, sc_resume)
+	SET_RUNTIME_PM_OPS(NULL, sc_runtime_resume, NULL)
 };
 
 static int sc_probe(struct platform_device *pdev)

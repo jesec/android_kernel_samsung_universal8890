@@ -407,6 +407,8 @@ struct sc_ctx {
 	u32				g_alpha;
 	bool				color_fill;
 	unsigned int			color;
+	unsigned int			h_ratio;
+	unsigned int			v_ratio;
 	unsigned long			flags;
 	spinlock_t			slock;
 	bool				cacheable;
