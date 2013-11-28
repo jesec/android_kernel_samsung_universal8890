@@ -2282,13 +2282,14 @@ static inline int s5p_mfc_run_dec_last_frames(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_buf *temp_vb, *dst_vb;
-	struct s5p_mfc_dec *dec = ctx->dec_priv;
+	struct s5p_mfc_dec *dec;
 	unsigned long flags;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
 		return -EINVAL;
 	}
+	dec = ctx->dec_priv;
 	dev = ctx->dev;
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
@@ -2334,7 +2335,7 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_buf *temp_vb, *dst_vb;
-	struct s5p_mfc_dec *dec = ctx->dec_priv;
+	struct s5p_mfc_dec *dec;
 	unsigned long flags;
 	int last_frame = 0;
 	unsigned int index;
@@ -2343,6 +2344,7 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 		mfc_err("no mfc context to run\n");
 		return -EINVAL;
 	}
+	dec = ctx->dec_priv;
 	dev = ctx->dev;
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
@@ -2590,13 +2592,14 @@ static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
 static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev;
-	struct s5p_mfc_dec *dec = ctx->dec_priv;
+	struct s5p_mfc_dec *dec;
 	int ret;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
 		return -EINVAL;
 	}
+	dec = ctx->dec_priv;
 	dev = ctx->dev;
 	if (!dev) {
 		mfc_err("no mfc device to run\n");

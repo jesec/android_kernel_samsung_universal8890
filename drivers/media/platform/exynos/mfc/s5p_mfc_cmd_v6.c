@@ -100,7 +100,7 @@ int s5p_mfc_wakeup_cmd(struct s5p_mfc_dev *dev)
 /* Open a new instance and get its number */
 int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx)
 {
-	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_dev *dev;
 	int ret;
 
 	mfc_debug_enter();
@@ -109,7 +109,7 @@ int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx)
 		mfc_err("no mfc context to run\n");
 		return -EINVAL;
 	}
-
+	dev = ctx->dev;
 	mfc_debug(2, "Requested codec mode: %d\n", ctx->codec_mode);
 
 	s5p_mfc_write_reg(dev, ctx->codec_mode, S5P_FIMV_CODEC_TYPE);

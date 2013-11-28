@@ -1106,7 +1106,6 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
-		s5p_mfc_clear_int_flags();
 		goto irq_cleanup_err;
 	}
 
@@ -1922,7 +1921,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 #endif
 
 	dev_dbg(&pdev->dev, "%s()\n", __func__);
-	dev = kzalloc(sizeof(struct s5p_mfc_dev), GFP_KERNEL);
+	dev = devm_kzalloc(&pdev->dev, sizeof(struct s5p_mfc_dev), GFP_KERNEL);
 	if (!dev) {
 		dev_err(&pdev->dev, "Not enough memory for MFC device.\n");
 		return -ENOMEM;
@@ -2327,10 +2326,10 @@ static int s5p_mfc_remove(struct platform_device *pdev)
 #ifdef CONFIG_ION_EXYNOS
 	ion_client_destroy(dev->mfc_ion_client);
 #endif
-	s5p_mfc_mem_cleanup_multi((void **)dev->alloc_ctx,
-					NUM_OF_ALLOC_CTX(dev));
 	mfc_debug(2, "Will now deinit HW\n");
 	s5p_mfc_deinit_hw(dev);
+	s5p_mfc_mem_cleanup_multi((void **)dev->alloc_ctx,
+					NUM_OF_ALLOC_CTX(dev));
 	free_irq(dev->irq, dev);
 	iounmap(dev->regs_base);
 	release_mem_region(dev->mfc_mem->start, resource_size(dev->mfc_mem));

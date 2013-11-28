@@ -202,12 +202,15 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 #ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
 	spin_lock(&int_div_lock);
 #endif
-	clk_set_rate(clk_child, rate * 1000);
+	if(clk_child)
+		clk_set_rate(clk_child, rate * 1000);
+
 #ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
 	spin_unlock(&int_div_lock);
 #endif
 
-	clk_put(clk_child);
+	if(clk_child)
+		clk_put(clk_child);
 
 	return 0;
 }

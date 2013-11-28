@@ -2791,7 +2791,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->gop_size = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE:
-		p->slice_mode = ctrl->value;
+		p->slice_mode =
+			(enum v4l2_mpeg_video_multi_slice_mode)ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
 		p->slice_mb = ctrl->value;
@@ -2863,7 +2864,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		p->codec.h264.level = h264_level(ctrl->value);
+		p->codec.h264.level =
+		h264_level((enum v4l2_mpeg_video_h264_level)ctrl->value);
 		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_H264_INTERLACE:
 		p->codec.h264.interlace = ctrl->value;

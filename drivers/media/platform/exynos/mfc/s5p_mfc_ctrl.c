@@ -180,12 +180,13 @@ int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev)
 {
 	/* Before calling this function one has to make sure
 	 * that MFC is no longer processing */
-	if (!dev->fw_info.alloc)
-		return -EINVAL;
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
 		return -EINVAL;
 	}
+
+	if (!dev->fw_info.alloc)
+		return -EINVAL;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (dev->drm_fw_info.alloc) {
@@ -335,7 +336,7 @@ int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 	char fimv_info;
 	int fw_ver;
 	int ret = 0;
-	int curr_ctx_backup = dev->curr_ctx_drm;
+	int curr_ctx_backup;
 
 	mfc_debug_enter();
 
@@ -343,6 +344,7 @@ int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 		mfc_err("no mfc device to run\n");
 		return -EINVAL;
 	}
+	curr_ctx_backup = dev->curr_ctx_drm;
 
 	/* RMVME: */
 	if (!dev->fw_info.alloc)
