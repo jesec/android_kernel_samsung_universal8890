@@ -37,7 +37,6 @@ static unsigned char *hevc_bitproc_virt;
 /* Allocate firmware */
 int hevc_alloc_firmware(struct hevc_dev *dev)
 {
-	unsigned int base_align;
 	unsigned int firmware_size;
 	void *alloc_ctx;
 
@@ -50,7 +49,6 @@ int hevc_alloc_firmware(struct hevc_dev *dev)
 
 	hevc_debug(3, "fw size %d\n", dev->variant->buf_size->firmware_code);
 
-	base_align = 0;
 	firmware_size = dev->variant->buf_size->firmware_code;
 	alloc_ctx = dev->alloc_ctx[HEVC_FW_ALLOC_CTX];
 
@@ -72,14 +70,6 @@ int hevc_alloc_firmware(struct hevc_dev *dev)
 	}
 
 	hevc_bitproc_phys = hevc_mem_daddr_priv(hevc_bitproc_buf);
-	if (hevc_bitproc_phys & ((1 << base_align) - 1)) {
-		hevc_err("The base memory is not aligned to %dBytes.\n",
-				(1 << base_align));
-		hevc_mem_free_priv(hevc_bitproc_buf);
-		hevc_bitproc_phys = 0;
-		hevc_bitproc_buf = 0;
-		return -EIO;
-	}
 
 	if (!dev->num_drm_inst) {
 		hevc_bitproc_virt =

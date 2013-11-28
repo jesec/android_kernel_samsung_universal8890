@@ -80,7 +80,6 @@ err_p_clk:
 
 int hevc_init_pm(struct hevc_dev *dev)
 {
-	struct clk *parent_clk = NULL;
 	int ret = 0;
 
 	pm = &dev->pm;
@@ -106,12 +105,10 @@ int hevc_init_pm(struct hevc_dev *dev)
 	pm->device = dev->device;
 	pm_runtime_enable(pm->device);
 
-	clk_put(parent_clk);
-
 	return 0;
 
-	clk_put(pm->clock);
 err_g_clk:
+	clk_put(pm->clock);
 	return ret;
 }
 
@@ -128,7 +125,7 @@ int hevc_set_clock_parent(struct hevc_dev *dev)
 	clk_parent = clk_get(dev->device, "aclk_hevc_400");
 	if (IS_ERR(clk_parent)) {
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-		return PTR_ERR(clk_child);
+		return PTR_ERR(clk_parent);
 	}
 	clk_set_parent(clk_child, clk_parent);
 

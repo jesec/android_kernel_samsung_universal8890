@@ -783,7 +783,7 @@ static inline int hevc_run_dec_last_frames(struct hevc_ctx *ctx)
 {
 	struct hevc_dev *dev;
 	struct hevc_buf *temp_vb, *dst_vb;
-	struct hevc_dec *dec = ctx->dec_priv;
+	struct hevc_dec *dec;
 
 	unsigned long flags;
 
@@ -791,6 +791,7 @@ static inline int hevc_run_dec_last_frames(struct hevc_ctx *ctx)
 		hevc_err("no hevc context to run\n");
 		return -EINVAL;
 	}
+	dec = ctx->dec_priv;
 	dev = ctx->dev;
 	if (!dev) {
 		hevc_err("no hevc device to run\n");
@@ -836,7 +837,7 @@ static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 {
 	struct hevc_dev *dev;
 	struct hevc_buf *temp_vb, *dst_vb;
-	struct hevc_dec *dec = ctx->dec_priv;
+	struct hevc_dec *dec;
 	unsigned long flags;
 	int last_frame = 0;
 	unsigned int index;
@@ -845,6 +846,7 @@ static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 		hevc_err("no hevc context to run\n");
 		return -EINVAL;
 	}
+	dec = ctx->dec_priv;
 	dev = ctx->dev;
 	if (!dev) {
 		hevc_err("no hevc device to run\n");
@@ -934,13 +936,14 @@ static inline void hevc_run_init_dec(struct hevc_ctx *ctx)
 static inline int hevc_run_init_dec_buffers(struct hevc_ctx *ctx)
 {
 	struct hevc_dev *dev;
-	struct hevc_dec *dec = ctx->dec_priv;
+	struct hevc_dec *dec;
 	int ret;
 
 	if (!ctx) {
 		hevc_err("no hevc context to run\n");
 		return -EINVAL;
 	}
+	dec = ctx->dec_priv;
 	dev = ctx->dev;
 	if (!dev) {
 		hevc_err("no hevc device to run\n");

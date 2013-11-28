@@ -16,7 +16,6 @@
 #define HEVC_OPR_H_
 
 #include "hevc_mem.h"
-#include "hevc_opr.h"
 
 #define HEVC_CTRL_MODE_CUSTOM	HEVC_CTRL_MODE_SFR
 

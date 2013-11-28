@@ -164,10 +164,7 @@ void hevc_sched_worker(struct work_struct *work)
 
 	dev = container_of(work, struct hevc_dev, sched_work);
 
-	if (dev)
-		hevc_try_run(dev);
-	else
-		hevc_err("no hevc device to run\n");
+	hevc_try_run(dev);
 }
 
 inline int hevc_clear_hw_bit(struct hevc_ctx *ctx)
@@ -1627,7 +1624,7 @@ static int hevc_release(struct file *file)
 		if (hevc_wait_for_done_ctx(ctx,
 				HEVC_R2H_CMD_CLOSE_INSTANCE_RET)) {
 			dev->curr_ctx_drm = ctx->is_drm;
-			test_and_set_bit(ctx->num, &dev->hw_lock);
+			set_bit(ctx->num, &dev->hw_lock);
 			hevc_clock_on();
 			hevc_close_inst(ctx);
 			if (hevc_wait_for_done_ctx(ctx,
@@ -1816,7 +1813,7 @@ static int hevc_probe(struct platform_device *pdev)
 	pr_info("+ %s\n", __func__);
 
 	dev_dbg(&pdev->dev, "%s()\n", __func__);
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	dev = devm_kzalloc(&pdev->dev, sizeof(struct hevc_dev), GFP_KERNEL);
 	if (!dev) {
 		dev_err(&pdev->dev, "Not enough memory for HEVC device.\n");
 		return -ENOMEM;
