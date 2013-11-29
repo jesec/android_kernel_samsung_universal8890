@@ -63,6 +63,7 @@ static struct proc_dir_entry *mfc_proc_entry;
 #define MFC_DRM_MAGIC_CHUNK1	0x8b803342
 #define MFC_DRM_MAGIC_CHUNK2	0x5e87f4f5
 #define MFC_DRM_MAGIC_CHUNK3	0x3bd05317
+#endif
 
 #define MFC_SFR_AREA_COUNT	11
 void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
@@ -79,7 +80,7 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 		{ 0xA000, 0x200 },
 		{ 0xB000, 0x40 },
 		{ 0xD000, 0x70 },
-		{ 0xF000, 0x5FF },
+		{ 0xF000, 0xFF8 },
 	};
 
 	pr_err("dumping registers (SFR base = %p)\n", dev->regs_base);
@@ -91,7 +92,31 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 		printk("...\n");
 	}
 }
+
+int exynos_mfc_sysmmu_fault_handler(struct iommu_domain *iodmn, struct device *dev,
+		unsigned long addr, int id, void *param)
+{
+	struct s5p_mfc_dev *m_dev;
+
+	m_dev = (struct s5p_mfc_dev *)param;
+
+	s5p_mfc_dump_regs(m_dev);
+
+	pr_err("dumping device info...\n-----------------------\n");
+	pr_err("dev->id: %d\nnum_inst: %d\nint_cond: %d\nint_type: %d\nint_err: %u\n"
+		"hw_lock: %lu\ncurr_ctx: %d\npreempt_ctx: %d\n"
+		"ctx_work_bits: %lu\nclk_state: %lu\ncurr_ctx_drm: %d\n"
+		"fw_status: %d\nnum_drm_inst: %d\n",
+		m_dev->id, m_dev->num_inst, m_dev->int_cond, m_dev->int_type,
+		m_dev->int_err, m_dev->hw_lock, m_dev->curr_ctx,
+		m_dev->preempt_ctx, m_dev->ctx_work_bits, m_dev->clk_state,
+		m_dev->curr_ctx_drm, m_dev->fw_status, m_dev->num_drm_inst);
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
+	pr_err("curr_rate: %d\n\n", m_dev->curr_rate);
 #endif
+
+	return 0;
+}
 
 /*
  * A framerate table determines framerate by the interval(us) of each frame.
@@ -2257,6 +2282,9 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	for (i = 0; i < dev->pdata->num_qos_steps; i++)
 		atomic_set(&dev->qos_req_cnt[i], 0);
 #endif
+
+	iovmm_set_fault_handler(dev->device,
+		exynos_mfc_sysmmu_fault_handler, dev);
 
 	pr_debug("%s--\n", __func__);
 	return 0;
