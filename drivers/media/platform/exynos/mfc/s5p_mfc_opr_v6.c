@@ -1416,7 +1416,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	WRITEL(reg, S5P_FIMV_E_GOP_CONFIG);
 
 	/* UHD encoding case */
-	if((ctx->img_width = 3840) && (ctx->img_height = 2160)) {
+	if((ctx->img_width == 3840) && (ctx->img_height == 2160)) {
 		p_264->level = 51;
 		p_264->profile = 0x2;
 	}
