@@ -466,6 +466,8 @@ static void __sysmmu_set_pbuf_ver31(struct sysmmu_drvdata *drvdata,
 		/* Separate PB mode */
 		cfg |= 2 << 28;
 
+		if (prefbuf[1].size == 0)
+			prefbuf[1].size = 1;
 		__sysmmu_set_prefbuf(drvdata->sfrbases[idx] + pbuf_offset[1],
 					prefbuf[1].base, prefbuf[1].size, 1);
 	} else {
@@ -477,6 +479,8 @@ static void __sysmmu_set_pbuf_ver31(struct sysmmu_drvdata *drvdata,
 
 	__raw_writel(cfg, drvdata->sfrbases[idx] + REG_MMU_CFG);
 
+	if (prefbuf[0].size == 0)
+		prefbuf[0].size = 1;
 	__sysmmu_set_prefbuf(drvdata->sfrbases[idx] + pbuf_offset[1],
 				prefbuf[0].base, prefbuf[0].size, 0);
 }
@@ -506,9 +510,16 @@ static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 		num_bufs = 3; /* Only the first 3 buffers are set to PB */
 	}
 
-	for (i = 0; i < num_bufs; i++)
+	for (i = 0; i < num_bufs; i++) {
+		if (prefbuf[i].size == 0) {
+			dev_err(drvdata->sysmmu,
+				"%s: Trying to init PB[%d/%d]with zero-size\n",
+				__func__, idx, num_bufs);
+			prefbuf[i].size = 1;
+		}
 		__sysmmu_set_prefbuf(drvdata->sfrbases[idx] + pbuf_offset[2],
 			prefbuf[i].base, prefbuf[i].size, i);
+	}
 
 	__raw_writel(cfg, drvdata->sfrbases[idx] + REG_MMU_CFG);
 }
@@ -562,6 +573,12 @@ static void __sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
 	for (i = 0; i < num_pb; i++) {
 		__raw_writel(i, drvdata->sfrbases[idx] + REG_PB_INDICATE);
 		__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_CFG);
+		if (prefbuf[i].size == 0) {
+			dev_err(drvdata->sysmmu,
+				"%s: Trying to init PB[%d/%d]with zero-size\n",
+				__func__, idx, num_bufs);
+			continue;
+		}
 		if (num_bufs <= i)
 			continue; /* unused PB */
 		__sysmmu_set_prefbuf(drvdata->sfrbases[idx] + pbuf_offset[3],

@@ -429,6 +429,12 @@ static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 	for (i = 0; i < num_pb; i++) {
 		__raw_writel(i, drvdata->sfrbases[idx] + REG_PB_INDICATE);
 		__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_CFG);
+		if (prefbuf[i].size == 0) {
+			dev_err(drvdata->sysmmu,
+				"%s: Trying to init PB[%d/%d]with zero-size\n",
+				__func__, idx, num_bufs);
+			continue;
+		}
 		if (num_bufs <= i)
 			continue; /* unused PB */
 		__raw_writel(prefbuf[i].base,
