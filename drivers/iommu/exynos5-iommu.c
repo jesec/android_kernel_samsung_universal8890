@@ -504,12 +504,8 @@ static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 	__raw_writel(cfg, drvdata->sfrbases[idx] + REG_MMU_CFG);
 }
 
-static void __sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
-					struct sysmmu_prefbuf prefbuf[],
-					int num_bufs, int idx)
+static unsigned int find_lmm_preset(unsigned int num_pb, unsigned int num_bufs)
 {
-	int num_pb;
-	int i;
 	static char lmm_preset[4][6] = {  /* [num of PB][num of buffers] */
 	/*	  1,  2,  3,  4,  5,  6 */
 		{ 1,  1,  0, -1, -1, -1}, /* num of pb: 3 */
@@ -517,23 +513,48 @@ static void __sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
 		{-1, -1, -1, -1, -1, -1},
 		{ 5,  5,  4,  2,  1,  0}, /* num of pb: 6 */
 		};
+	unsigned int lmm;
+
+	BUG_ON(num_bufs > 6);
+	lmm = lmm_preset[num_pb - 3][num_bufs - 1];
+	BUG_ON(lmm == -1);
+	return lmm;
+}
+
+static unsigned int find_num_pb(unsigned int num_pb, unsigned int lmm)
+{
+	static char lmm_preset[6][6] = { /* [pb_num - 1][pb_lmm] */
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{3, 2, 0, 0, 0, 0},
+		{4, 3, 2, 1, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{6, 5, 4, 3, 3, 2},
+	};
+
+	num_pb = lmm_preset[num_pb - 1][lmm];
+	BUG_ON(num_pb == 0);
+	return num_pb;
+}
+
+static void __sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
+					struct sysmmu_prefbuf prefbuf[],
+					int num_bufs, int idx)
+{
+	unsigned int i, num_pb, lmm;
 
 	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO));
 
-	if (lmm_preset[num_pb - 3][num_bufs - 1] == -1) {
-		dev_err(drvdata->sysmmu,
-			"%s: Unable to initialize PB -" \
-			"NUM_PB %d, prop %d, numbuf %d\n",
-			__func__, num_pb, drvdata->prop, num_bufs);
-		return;
-	}
+	lmm = find_lmm_preset(num_pb, (unsigned int)num_bufs);
+	num_pb = find_num_pb(num_pb, lmm);
 
-	__raw_writel(lmm_preset[num_pb - 3][num_bufs - 1],
-		     drvdata->sfrbases[idx] + REG_PB_LMM);
+	__raw_writel(lmm, drvdata->sfrbases[idx] + REG_PB_LMM);
 
-	for (i = 0; i < num_bufs; i++) {
+	for (i = 0; i < num_pb; i++) {
 		__raw_writel(i, drvdata->sfrbases[idx] + REG_PB_INDICATE);
 		__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_CFG);
+		if (num_bufs <= i)
+			continue; /* unused PB */
 		__sysmmu_set_prefbuf(drvdata->sfrbases[idx] + pbuf_offset[3],
 					prefbuf[i].base, prefbuf[i].size, 0);
 		__raw_writel(prefbuf[i].config | 1,
@@ -837,14 +858,6 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 static void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 {
 	unsigned int i, capa, lmm, tlb_ent_num;
-	static char lmm_preset[6][6] = { /* [pb_num - 1][pb_lmm] */
-		{0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-		{3, 2, 0, 0, 0, 0},
-		{4, 3, 2, 1, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-		{6, 5, 4, 3, 3, 2},
-	};
 
 	lmm = MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
 
@@ -871,7 +884,7 @@ static void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 	pr_crit("---------- Prefetch Buffers ------------------------------\n");
 	pr_crit("PB_INFO: %#010x, PB_LMM: %#010x\n", capa, lmm);
 
-	capa = lmm_preset[(capa & 0xFF) - 1][lmm];
+	capa = find_num_pb(capa & 0xFF, lmm);
 
 	for (i = 0; i < capa; i++) {
 		__raw_writel(i, sfrbase + REG_PB_INDICATE);
@@ -1050,7 +1063,7 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx)
 	BUG_ON(maj != 3);
 
 	if (min < 2)
-		goto set_cfg;
+		goto set_pb;
 
 	BUG_ON(min > 3);
 
@@ -1058,6 +1071,7 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx)
 	cfg |= (min == 2) ? CFG_SYSSEL : CFG_ACGEN;
 	cfg |= CFG_QOS_OVRRIDE;
 
+set_pb:
 	__exynos_sysmmu_set_prefbuf_by_plane(drvdata, idx, 0, 0,
 				SYSMMU_PBUFCFG_DEFAULT_INPUT,
 				SYSMMU_PBUFCFG_DEFAULT_OUTPUT);
