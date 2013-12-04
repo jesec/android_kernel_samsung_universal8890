@@ -854,8 +854,9 @@ static int dwc3_prepare(struct device *dev)
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
 		dwc3_gadget_prepare(dwc);
+		break;
+	case USB_DR_MODE_OTG:
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
 	default:
@@ -878,8 +879,9 @@ static void dwc3_complete(struct device *dev)
 	dwc3_event_buffers_setup(dwc);
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
 		dwc3_gadget_complete(dwc);
+		break;
+	case USB_DR_MODE_OTG:
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
 	default:
@@ -898,8 +900,9 @@ static int dwc3_suspend(struct device *dev)
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
 		dwc3_gadget_suspend(dwc);
+		break;
+	case USB_DR_MODE_OTG:
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
 	default:
@@ -940,8 +943,9 @@ static int dwc3_resume(struct device *dev)
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
 		dwc3_gadget_resume(dwc);
+		break;
+	case USB_DR_MODE_OTG:
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
 	default:
