@@ -144,17 +144,16 @@ enum sysmmu_property {
 struct sysmmu_drvdata {
 	struct device *sysmmu;	/* System MMU's device descriptor */
 	struct device *master;	/* Client device that needs System MMU */
-	int nsfrs;
-	void __iomem **sfrbases;
+	void __iomem *sfrbase;
 	struct clk *clk;
 	struct clk *clk_master;
 	int activations;
 	struct iommu_domain *domain; /* domain given to iommu_attach_device() */
 	phys_addr_t pgtable;
-	short qos;
 	spinlock_t lock;
 	struct sysmmu_prefbuf pbufs[MAX_NUM_PBUF];
-	int num_pbufs;
+	short qos;
+	short num_pbufs;
 	bool runtime_active;
 	enum sysmmu_property prop; /* mach/sysmmu.h */
 };
@@ -219,7 +218,7 @@ extern void *sysmmu_placeholder; /* Inidcate if a device is System MMU */
 
 #define PGSIZE_BITMAP (SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
 
-#define __exynos_sysmmu_set_df(drvdata, idx, iova) do { } while (0)
+#define __exynos_sysmmu_set_df(drvdata, iova) do { } while (0)
 #define __exynos_sysmmu_release_df(drvdata) do { } while (0)
 
 #elif defined(CONFIG_EXYNOS7_IOMMU) /* System MMU v5 ~ */
@@ -249,8 +248,7 @@ extern void *sysmmu_placeholder; /* Inidcate if a device is System MMU */
 
 #define PGSIZE_BITMAP (DSECT_SIZE | SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
 
-void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata,
-			    int idx, dma_addr_t iova);
+void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata, dma_addr_t iova);
 void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata);
 
 #else
@@ -320,7 +318,7 @@ static inline bool sysmmu_block(void __iomem *sfrbase)
 	return true;
 }
 
-void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx);
+void __sysmmu_init_config(struct sysmmu_drvdata *drvdata);
 void __sysmmu_set_ptbase(void __iomem *sfrbase, phys_addr_t pfn_pgtable);
 
 extern unsigned long *zero_lv2_table;
@@ -342,10 +340,10 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id);
 void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova);
 void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova);
 void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
-			int idx, unsigned int inplanes, unsigned int onplanes,
+			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption, unsigned int opoption);
 void __exynos_sysmmu_set_prefbuf_by_region(struct sysmmu_drvdata *drvdata,
-			int idx, struct sysmmu_prefbuf pb_reg[],
+			struct sysmmu_prefbuf pb_reg[],
 			unsigned int num_reg);
 int __prepare_prefetch_buffers_by_plane(struct sysmmu_drvdata *drvdata,
 				struct sysmmu_prefbuf prefbuf[], int num_pb,

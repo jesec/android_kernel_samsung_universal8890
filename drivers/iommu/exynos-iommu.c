@@ -44,11 +44,9 @@ void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 		if (is_sysmmu_active(drvdata) && drvdata->runtime_active) {
-			int i;
 			__master_clk_enable(drvdata);
-			for (i = 0; i < drvdata->nsfrs; i++)
-				__sysmmu_tlb_invalidate_flpdcache(
-						drvdata->sfrbases[i], iova);
+			__sysmmu_tlb_invalidate_flpdcache(
+					drvdata->sfrbase, iova);
 			__master_clk_disable(drvdata);
 		} else {
 			dev_dbg(sysmmu, "Skip FLPD invalidation @ %#x\n", iova);
@@ -69,11 +67,8 @@ void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova)
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 		if (is_sysmmu_active(drvdata) && drvdata->runtime_active) {
-			int i;
 			__master_clk_enable(drvdata);
-			for (i = 0; i < drvdata->nsfrs; i++)
-				__sysmmu_tlb_invalidate_entry(
-						drvdata->sfrbases[i], iova);
+			__sysmmu_tlb_invalidate_entry(drvdata->sfrbase, iova);
 			__master_clk_disable(drvdata);
 		} else {
 			dev_dbg(sysmmu, "Skip TLB invalidation @ %#x\n", iova);
@@ -90,7 +85,6 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 	for_each_sysmmu(dev, sysmmu) {
 		unsigned long flags;
 		struct sysmmu_drvdata *drvdata;
-		int i;
 
 		drvdata = dev_get_drvdata(sysmmu);
 
@@ -104,9 +98,7 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 
 		__master_clk_enable(drvdata);
 
-		for (i = 0; i < drvdata->nsfrs; i++)
-			__sysmmu_tlb_invalidate(drvdata->sfrbases[i],
-						start, size);
+		__sysmmu_tlb_invalidate(drvdata->sfrbase, start, size);
 
 		__master_clk_disable(drvdata);
 
@@ -116,10 +108,7 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 
 static inline void __sysmmu_disable_nocount(struct sysmmu_drvdata *drvdata)
 {
-	int i;
-
-	for (i = 0; i < drvdata->nsfrs; i++)
-		__raw_sysmmu_disable(drvdata->sfrbases[i]);
+	__raw_sysmmu_disable(drvdata->sfrbase);
 
 	__sysmmu_clk_disable(drvdata);
 	if (IS_ENABLED(CONFIG_EXYNOS_IOMMU_NO_MASTER_CLKGATE))
@@ -158,20 +147,16 @@ static bool __sysmmu_disable(struct sysmmu_drvdata *drvdata)
 
 static void __sysmmu_enable_nocount(struct sysmmu_drvdata *drvdata)
 {
-	int i;
-
 	if (IS_ENABLED(CONFIG_EXYNOS_IOMMU_NO_MASTER_CLKGATE))
 		__master_clk_enable(drvdata);
+
 	__sysmmu_clk_enable(drvdata);
 
-	for (i = 0; i < drvdata->nsfrs; i++) {
-		__sysmmu_init_config(drvdata, i);
+	__sysmmu_init_config(drvdata);
 
-		__sysmmu_set_ptbase(drvdata->sfrbases[i],
-					drvdata->pgtable / PAGE_SIZE);
+	__sysmmu_set_ptbase(drvdata->sfrbase, drvdata->pgtable / PAGE_SIZE);
 
-		__raw_sysmmu_enable(drvdata->sfrbases[i]);
-	}
+	__raw_sysmmu_enable(drvdata->sfrbase);
 }
 
 static int __sysmmu_enable(struct sysmmu_drvdata *drvdata,
@@ -444,7 +429,6 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 
 	for_each_sysmmu(dev, sysmmu) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
-		int idx;
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 
@@ -455,10 +439,7 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 
 		__master_clk_enable(drvdata);
 
-		for (idx = 0; idx < drvdata->nsfrs; idx++) {
-			__exynos_sysmmu_set_prefbuf_by_region(drvdata,
-						idx, pb_reg, num_reg);
-		}
+		__exynos_sysmmu_set_prefbuf_by_region(drvdata, pb_reg, num_reg);
 
 		__master_clk_disable(drvdata);
 
@@ -499,7 +480,6 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 
 	for_each_sysmmu(dev, sysmmu) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
-		int idx = 0;
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 
@@ -510,8 +490,7 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 
 		__master_clk_enable(drvdata);
 
-		for (idx = 0; idx < drvdata->nsfrs; idx++)
-			__exynos_sysmmu_set_prefbuf_by_plane(drvdata, idx,
+		__exynos_sysmmu_set_prefbuf_by_plane(drvdata,
 					inplanes, onplanes, ipoption, opoption);
 
 		__master_clk_disable(drvdata);
@@ -550,7 +529,6 @@ void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 
 	for_each_sysmmu(dev, sysmmu) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
-		int idx = 0;
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 
@@ -560,16 +538,10 @@ void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 				unsigned long prop;
 				prop = drvdata->prop & SYSMMU_PROP_WINDOW_MASK;
 				prop >>= SYSMMU_PROP_WINDOW_SHIFT;
-				if (prop & (1 << plane)) {
-					for (idx = 0; idx < drvdata->nsfrs;
-									idx++)
-						__exynos_sysmmu_set_df(
-							drvdata, idx, iova);
-				}
+				if (prop & (1 << plane))
+					__exynos_sysmmu_set_df(drvdata, iova);
 			} else {
-				for (idx = 0; idx < drvdata->nsfrs; idx++)
-					__exynos_sysmmu_set_df(
-							drvdata, idx, iova);
+				__exynos_sysmmu_set_df(drvdata, iova);
 			}
 			__master_clk_disable(drvdata);
 		}
@@ -802,51 +774,40 @@ static int __init __sysmmu_setup(struct device *sysmmu,
 
 static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 {
-	int i, ret;
+	int ret;
 	struct device *dev = &pdev->dev;
 	struct sysmmu_drvdata *data;
+	struct resource *res;
 
-	data = devm_kzalloc(dev,
-			sizeof(*data) + sizeof(*data->sfrbases) *
-				(pdev->num_resources / 2),
-			GFP_KERNEL);
+	data = devm_kzalloc(dev, sizeof(*data) , GFP_KERNEL);
 	if (!data) {
 		dev_err(dev, "Not enough memory\n");
 		return -ENOMEM;
 	}
 
-	data->nsfrs = pdev->num_resources / 2;
-	data->sfrbases = (void __iomem **)(data + 1);
-
-	for (i = 0; i < data->nsfrs; i++) {
-		struct resource *res;
-		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-		if (!res) {
-			dev_err(dev, "Unable to find IOMEM region\n");
-			return -ENOENT;
-		}
-
-		data->sfrbases[i] = devm_request_and_ioremap(dev, res);
-		if (!data->sfrbases[i]) {
-			dev_err(dev, "Unable to map IOMEM @ PA:%#x\n",
-							res->start);
-			return -EBUSY;
-		}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(dev, "Unable to find IOMEM region\n");
+		return -ENOENT;
 	}
 
-	for (i = 0; i < data->nsfrs; i++) {
-		ret = platform_get_irq(pdev, i);
-		if (ret <= 0) {
-			dev_err(dev, "Unable to find IRQ resource\n");
-			return ret;
-		}
+	data->sfrbase = devm_request_and_ioremap(dev, res);
+	if (!data->sfrbase) {
+		dev_err(dev, "Unable to map IOMEM @ PA:%#x\n", res->start);
+		return -EBUSY;
+	}
 
-		ret = devm_request_irq(dev, ret, exynos_sysmmu_irq, 0,
-					dev_name(dev), data);
-		if (ret) {
-			dev_err(dev, "Unabled to register interrupt handler\n");
-			return ret;
-		}
+	ret = platform_get_irq(pdev, 0);
+	if (ret <= 0) {
+		dev_err(dev, "Unable to find IRQ resource\n");
+		return ret;
+	}
+
+	ret = devm_request_irq(dev, ret, exynos_sysmmu_irq, 0,
+				dev_name(dev), data);
+	if (ret) {
+		dev_err(dev, "Unabled to register interrupt handler\n");
+		return ret;
 	}
 
 	pm_runtime_enable(dev);
@@ -1751,7 +1712,6 @@ void exynos_sysmmu_show_status(struct device *dev)
 	struct device *sysmmu;
 	for_each_sysmmu(dev, sysmmu) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(sysmmu);
-		unsigned int i;
 
 		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
 			dev_info(sysmmu, "%s: System MMU is not active\n",
@@ -1763,15 +1723,12 @@ void exynos_sysmmu_show_status(struct device *dev)
 
 		__master_clk_enable(drvdata);
 
-		for (i = 0; i < drvdata->nsfrs; i++) {
-			/* System MMU must be enabled */
-			if (sysmmu_block(drvdata->sfrbases[i]))
-				dump_sysmmu_tlb_pb(drvdata->sfrbases[i]);
-			else
-				pr_err("!!Failed to block Sytem MMU!\n");
-			sysmmu_unblock(drvdata->sfrbases[i]);
-
-		}
+		/* System MMU must be enabled */
+		if (sysmmu_block(drvdata->sfrbase))
+			dump_sysmmu_tlb_pb(drvdata->sfrbase);
+		else
+			pr_err("!!Failed to block Sytem MMU!\n");
+		sysmmu_unblock(drvdata->sfrbase);
 
 		__master_clk_disable(drvdata);
 

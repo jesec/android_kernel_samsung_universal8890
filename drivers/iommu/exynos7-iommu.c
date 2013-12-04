@@ -168,51 +168,50 @@ static unsigned int find_num_pb(unsigned int num_pb, unsigned int lmm)
 }
 
 static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
-		struct sysmmu_prefbuf prefbuf[], int num_bufs, int idx)
+		struct sysmmu_prefbuf prefbuf[], int num_bufs)
 {
 	unsigned int i, num_pb, lmm;
 
-	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO));
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
 
 	lmm = find_lmm_preset(num_pb, (unsigned int)num_bufs);
 	num_pb = find_num_pb(num_pb, lmm);
 
-	__raw_writel(lmm, drvdata->sfrbases[idx] + REG_PB_LMM);
+	__raw_writel(lmm, drvdata->sfrbase + REG_PB_LMM);
 
 	for (i = 0; i < num_pb; i++) {
-		__raw_writel(i, drvdata->sfrbases[idx] + REG_PB_INDICATE);
-		__raw_writel(0, drvdata->sfrbases[idx] + REG_PB_CFG);
+		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
+		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
 		if (prefbuf[i].size == 0) {
 			dev_err(drvdata->sysmmu,
 				"%s: Trying to init PB[%d/%d]with zero-size\n",
-				__func__, idx, num_bufs);
+				__func__, i, num_bufs);
 			continue;
 		}
 		if (num_bufs <= i)
 			continue; /* unused PB */
 		__raw_writel(prefbuf[i].base,
-			     drvdata->sfrbases[idx] + REG_PB_START_ADDR);
+			     drvdata->sfrbase + REG_PB_START_ADDR);
 		__raw_writel(prefbuf[i].size - 1 + prefbuf[i].base,
-				drvdata->sfrbases[idx] + REG_PB_END_ADDR);
+				drvdata->sfrbase + REG_PB_END_ADDR);
 		__raw_writel(prefbuf[i].config | 1,
-					drvdata->sfrbases[idx] + REG_PB_CFG);
+					drvdata->sfrbase + REG_PB_CFG);
 	}
 }
 
-void __exynos_sysmmu_set_prefbuf_by_region(
-		struct sysmmu_drvdata *drvdata, int idx,
+void __exynos_sysmmu_set_prefbuf_by_region(struct sysmmu_drvdata *drvdata,
 		struct sysmmu_prefbuf pb_reg[], unsigned int num_reg)
 {
 	unsigned int i;
 	int num_bufs = 0;
 	struct sysmmu_prefbuf prefbuf[6];
 
-	if (!has_sysmmu_capable_pbuf(drvdata->sfrbases[idx]))
+	if (!has_sysmmu_capable_pbuf(drvdata->sfrbase))
 		return;
 
 	if ((num_reg == 0) || (pb_reg == NULL)) {
 		/* Disabling prefetch buffers */
-		__sysmmu_disable_pbuf(drvdata->sfrbases[idx]);
+		__sysmmu_disable_pbuf(drvdata->sfrbase);
 		return;
 	}
 
@@ -224,21 +223,21 @@ void __exynos_sysmmu_set_prefbuf_by_region(
 			prefbuf[num_bufs++] = pb_reg[i];
 	}
 
-	__sysmmu_set_pbuf(drvdata, prefbuf, num_bufs, idx);
+	__sysmmu_set_pbuf(drvdata, prefbuf, num_bufs);
 }
 
 void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
-			int idx, unsigned int inplanes, unsigned int onplanes,
+			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption, unsigned int opoption)
 {
 	unsigned int num_pb;
 	int num_bufs;
 	struct sysmmu_prefbuf prefbuf[6];
 
-	if (!has_sysmmu_capable_pbuf(drvdata->sfrbases[idx]))
+	if (!has_sysmmu_capable_pbuf(drvdata->sfrbase))
 		return;
 
-	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbases[idx] + REG_PB_INFO));
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
 	if ((num_pb != 3) && (num_pb != 4) && (num_pb != 6)) {
 		dev_err(drvdata->master,
 				"%s: Read invalid PB information from %s\n",
@@ -251,9 +250,9 @@ void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
 			ipoption, opoption);
 
 	if (num_bufs == 0)
-		__sysmmu_disable_pbuf(drvdata->sfrbases[idx]);
+		__sysmmu_disable_pbuf(drvdata->sfrbase);
 	else
-		__sysmmu_set_pbuf(drvdata, prefbuf, num_bufs, idx);
+		__sysmmu_set_pbuf(drvdata, prefbuf, num_bufs);
 }
 
 static void __sysmmu_set_df(void __iomem *sfrbase,
@@ -262,26 +261,25 @@ static void __sysmmu_set_df(void __iomem *sfrbase,
 	__raw_writel(iova, sfrbase + REG_SW_DF_VPN);
 }
 
-void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata,
-				   int idx, dma_addr_t iova)
+void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata, dma_addr_t iova)
 {
 #ifdef CONFIG_EXYNOS7_IOMMU_CHECK_DF
 	int i, num_l1tlb, df_cnt = 0;
 #endif
 	u32 cfg;
 
-	if (MAKE_MMU_VER(5, 1) > __raw_sysmmu_version(drvdata->sfrbases[idx])) {
+	if (MAKE_MMU_VER(5, 1) > __raw_sysmmu_version(drvdata->sfrbase)) {
 		dev_err(drvdata->sysmmu, "%s: SW direct fetch not supported\n",
 			__func__);
 		return;
 	}
 
 #ifdef CONFIG_EXYNOS7_IOMMU_CHECK_DF
-	num_l1tlb = MMU_NUM_L1TLB_ENTRIES(__raw_readl(drvdata->sfrbases[idx] +
+	num_l1tlb = MMU_NUM_L1TLB_ENTRIES(__raw_readl(drvdata->sfrbase +
 				REG_MMU_CAPA));
 	for (i = 0; i < num_l1tlb; i++) {
-		__raw_writel(i, drvdata->sfrbases[idx] + REG_L1TLB_READ_ENTRY);
-		cfg = __raw_readl(drvdata->sfrbases[idx] + REG_L1TLB_ENTRY_ATTR);
+		__raw_writel(i, drvdata->sfrbase + REG_L1TLB_READ_ENTRY);
+		cfg = __raw_readl(drvdata->sfrbase + REG_L1TLB_ENTRY_ATTR);
 		if (cfg & L1TLB_ATTR_IM)
 			df_cnt++;
 	}
@@ -291,28 +289,22 @@ void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata,
 		return;
 	}
 
-	cfg = __raw_readl(drvdata->sfrbases[idx] + REG_SW_DF_VPN_CMD_NUM);
+	cfg = __raw_readl(drvdata->sfrbase + REG_SW_DF_VPN_CMD_NUM);
 
 	if ((cfg & 0xFF) > 9)
 		dev_info(drvdata->sysmmu,
 			"%s: DF command queue is full\n", __func__);
 	else
 #endif
-		__sysmmu_set_df(drvdata->sfrbases[idx], iova);
+		__sysmmu_set_df(drvdata->sfrbase, iova);
 }
 
 void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata)
 {
-	int idx;
-
-	for (idx = 0; idx < drvdata->nsfrs; idx++) {
-		if (__raw_sysmmu_version(drvdata->sfrbases[idx]) >=
-				MAKE_MMU_VER(5, 1))
-			__raw_writel(0x1,
-				     drvdata->sfrbases[idx] + REG_L1TLB_CTRL);
-		else
-			dev_err(drvdata->sysmmu, "DF is not supported");
-	}
+	if (__raw_sysmmu_version(drvdata->sfrbase) >= MAKE_MMU_VER(5, 1))
+		__raw_writel(0x1, drvdata->sfrbase + REG_L1TLB_CTRL);
+	else
+		dev_err(drvdata->sysmmu, "DF is not supported");
 }
 
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
@@ -403,19 +395,19 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 	/* Reading L2TLB is not provided by H/W */
 }
 
-static void show_fault_information(struct sysmmu_drvdata *drvdata, int idx,
+static void show_fault_information(struct sysmmu_drvdata *drvdata,
 				   int flags, unsigned long fault_addr)
 {
 	unsigned int info;
 	phys_addr_t pgtable;
 	int fault_id = SYSMMU_FAULT_ID(flags);
 
-	pgtable = __raw_readl(drvdata->sfrbases[idx] + REG_PT_BASE_PPN);
+	pgtable = __raw_readl(drvdata->sfrbase + REG_PT_BASE_PPN);
 	pgtable <<= PAGE_SHIFT;
 
 	pr_crit("----------------------------------------------------------\n");
-	pr_crit("%s[%d] %s %s at %#010lx by %s (page table @ %#010x)\n",
-		dev_name(drvdata->sysmmu), idx,
+	pr_crit("%s %s %s at %#010lx by %s (page table @ %#010x)\n",
+		dev_name(drvdata->sysmmu),
 		(flags & IOMMU_FAULT_WRITE) ? "WRITE" : "READ",
 		sysmmu_fault_name[fault_id], fault_addr,
 		dev_name(drvdata->master), pgtable);
@@ -426,7 +418,7 @@ static void show_fault_information(struct sysmmu_drvdata *drvdata, int idx,
 		goto finish;
 	}
 
-	info = __raw_readl(drvdata->sfrbases[idx] +
+	info = __raw_readl(drvdata->sfrbase +
 			((flags & IOMMU_FAULT_WRITE) ?
 			REG_FAULT_AW_TRANS_INFO : REG_FAULT_AR_TRANS_INFO));
 	pr_crit("AxID: %#x, AxLEN: %#x\n", info & 0xFFFF, (info >> 16) & 0xF);
@@ -453,7 +445,7 @@ static void show_fault_information(struct sysmmu_drvdata *drvdata, int idx,
 		}
 	}
 
-	dump_sysmmu_tlb_pb(drvdata->sfrbases[idx]);
+	dump_sysmmu_tlb_pb(drvdata->sfrbase);
 
 finish:
 	pr_crit("----------------------------------------------------------\n");
@@ -467,42 +459,28 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	struct sysmmu_drvdata *drvdata = dev_id;
 	unsigned int itype;
 	unsigned long addr = -1;
-	int i, ret = -ENOSYS;
+	int ret = -ENOSYS;
 	int flags = 0;
 
 	WARN(!is_sysmmu_active(drvdata),
 		"Fault occurred while System MMU %s is not enabled!\n",
 		dev_name(drvdata->sysmmu));
 
-	for (i = 0; i < drvdata->nsfrs; i++) {
-		struct resource *irqres;
-		irqres = platform_get_resource(
-				to_platform_device(drvdata->sysmmu),
-				IORESOURCE_IRQ, i);
-		if (irqres && ((int)irqres->start == irq))
-			break;
+	itype =  __ffs(__raw_readl(drvdata->sfrbase + REG_INT_STATUS));
+	if (itype >= REG_INT_STATUS_WRITE_BIT) {
+		itype -= REG_INT_STATUS_WRITE_BIT;
+		flags = IOMMU_FAULT_WRITE;
 	}
 
-	if (i == drvdata->nsfrs) {
+	if (WARN_ON(!(itype < SYSMMU_FAULT_UNKNOWN)))
 		itype = SYSMMU_FAULT_UNKNOWN;
-	} else {
-		itype =  __ffs(__raw_readl(
-				drvdata->sfrbases[i] + REG_INT_STATUS));
-		if (itype >= REG_INT_STATUS_WRITE_BIT) {
-			itype -= REG_INT_STATUS_WRITE_BIT;
-			flags = IOMMU_FAULT_WRITE;
-		}
+	else
+		addr = __raw_readl(drvdata->sfrbase +
+				((flags & IOMMU_FAULT_WRITE) ?
+				 REG_FAULT_AW_ADDR : REG_FAULT_AR_ADDR));
+	flags |= SYSMMU_FAULT_FLAG(itype);
 
-		if (WARN_ON(!(itype < SYSMMU_FAULT_UNKNOWN)))
-			itype = SYSMMU_FAULT_UNKNOWN;
-		else
-			addr = __raw_readl(drvdata->sfrbases[i] +
-					((flags & IOMMU_FAULT_WRITE) ?
-					 REG_FAULT_AW_ADDR : REG_FAULT_AR_ADDR));
-		flags |= SYSMMU_FAULT_FLAG(itype);
-	}
-
-	show_fault_information(drvdata, i, flags, addr);
+	show_fault_information(drvdata, flags, addr);
 
 	if (drvdata->domain) /* master is set if drvdata->domain exists */
 		ret = report_iommu_fault(drvdata->domain,
@@ -514,9 +492,9 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 		 (itype == SYSMMU_FAULT_ACCESS))) {
 		if (flags & IOMMU_FAULT_WRITE)
 			itype += REG_INT_STATUS_WRITE_BIT;
-		__raw_writel(1 << itype, drvdata->sfrbases[i] + REG_INT_CLEAR);
+		__raw_writel(1 << itype, drvdata->sfrbase + REG_INT_CLEAR);
 
-		sysmmu_unblock(drvdata->sfrbases[i]);
+		sysmmu_unblock(drvdata->sfrbase);
 	} else
 #endif
 
@@ -525,21 +503,21 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx)
+void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 {
 	unsigned long cfg;
 
-	__raw_writel(0, drvdata->sfrbases[idx] + REG_MMU_CTRL);
+	__raw_writel(0, drvdata->sfrbase + REG_MMU_CTRL);
 
 	cfg = CFG_FLPDCACHE | CFG_ACGEN;
 	if (!(drvdata->qos < 0))
 		cfg |= CFG_QOS_OVRRIDE | CFG_QOS(drvdata->qos);
 
-	if (has_sysmmu_capable_pbuf(drvdata->sfrbases[idx]))
-		__exynos_sysmmu_set_prefbuf_by_plane(drvdata, idx, 0, 0,
+	if (has_sysmmu_capable_pbuf(drvdata->sfrbase))
+		__exynos_sysmmu_set_prefbuf_by_plane(drvdata, 0, 0,
 					SYSMMU_PBUFCFG_DEFAULT_INPUT,
 					SYSMMU_PBUFCFG_DEFAULT_OUTPUT);
 
-	cfg |= __raw_readl(drvdata->sfrbases[idx] + REG_MMU_CFG) & ~CFG_MASK;
-	__raw_writel(cfg, drvdata->sfrbases[idx] + REG_MMU_CFG);
+	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
+	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
 }
