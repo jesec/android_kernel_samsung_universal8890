@@ -195,6 +195,7 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 {
 	struct usb_otg	*otg = fsm->otg;
 	struct dwc3_otg	*dotg = container_of(otg, struct dwc3_otg, otg);
+	struct dwc3	*dwc = dotg->dwc;
 	struct device	*dev = dotg->dwc->dev;
 	int		ret;
 
@@ -205,14 +206,26 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 
 	if (on) {
 		wake_lock(&dotg->wakelock);
+		if (dwc->needs_reinit) {
+			ret = dwc3_core_init(dwc);
+			if (ret) {
+				dev_err(dwc->dev, "%s: failed to reinitialize core\n",
+						__func__);
+				return ret;
+			} else {
+				dwc->needs_reinit = 0;
+			}
+		}
 		dwc3_otg_set_host_mode(dotg);
-		ret = platform_device_add(dotg->dwc->xhci);
+		ret = platform_device_add(dwc->xhci);
 		if (ret) {
 			dev_err(dev, "%s: cannot add xhci\n", __func__);
 			return ret;
 		}
 	} else {
-		platform_device_del(dotg->dwc->xhci);
+		platform_device_del(dwc->xhci);
+		dwc3_core_exit(dwc);
+		dwc->needs_reinit = 1;
 		wake_unlock(&dotg->wakelock);
 	}
 

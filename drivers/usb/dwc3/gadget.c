@@ -1568,7 +1568,6 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		dwc3_gadget_disable_irq(dwc);
 		__dwc3_gadget_ep_disable(dwc->eps[0]);
 		__dwc3_gadget_ep_disable(dwc->eps[1]);
-		dwc->needs_reinit = 1;
 
 		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 		reg &= ~DWC3_DCTL_RUN_STOP;
@@ -1595,6 +1594,12 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 			return -ETIMEDOUT;
 		udelay(1);
 	} while (1);
+
+	if (!is_on) {
+		/* when everything is done, shutdown PHYs */
+		dwc3_core_exit(dwc);
+		dwc->needs_reinit = 1;
+	}
 
 	dev_vdbg(dwc->dev, "gadget %s data soft-%s\n",
 			dwc->gadget_driver

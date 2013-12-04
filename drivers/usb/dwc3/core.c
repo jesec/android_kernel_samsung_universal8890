@@ -490,7 +490,7 @@ err0:
 	return ret;
 }
 
-static void dwc3_core_exit(struct dwc3 *dwc)
+void dwc3_core_exit(struct dwc3 *dwc)
 {
 	dwc3_free_scratch_buffers(dwc);
 	usb_phy_shutdown(dwc->usb2_phy);
@@ -595,6 +595,10 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 			dev_err(dev, "failed to initialize otg\n");
 			return ret;
 		}
+
+		/* turn off PHYs to save power */
+		dwc3_core_exit(dwc);
+		dwc->needs_reinit = 1;
 
 		ret = dwc3_host_init(dwc);
 		if (ret) {
@@ -903,8 +907,12 @@ static int dwc3_suspend(struct device *dev)
 		dwc3_gadget_suspend(dwc);
 		break;
 	case USB_DR_MODE_OTG:
-		/* FALLTHROUGH */
+		break;
 	case USB_DR_MODE_HOST:
+		usb_phy_shutdown(dwc->usb3_phy);
+		usb_phy_shutdown(dwc->usb2_phy);
+		phy_exit(dwc->usb2_generic_phy);
+		phy_exit(dwc->usb3_generic_phy);
 	default:
 		/* do nothing */
 		break;
@@ -916,11 +924,6 @@ static int dwc3_suspend(struct device *dev)
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	usb_phy_shutdown(dwc->usb3_phy);
-	usb_phy_shutdown(dwc->usb2_phy);
-	phy_exit(dwc->usb2_generic_phy);
-	phy_exit(dwc->usb3_generic_phy);
-
 	return 0;
 }
 
@@ -929,16 +932,6 @@ static int dwc3_resume(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
 	int		ret;
-
-	usb_phy_init(dwc->usb3_phy);
-	usb_phy_init(dwc->usb2_phy);
-	ret = phy_init(dwc->usb2_generic_phy);
-	if (ret < 0)
-		return ret;
-
-	ret = phy_init(dwc->usb3_generic_phy);
-	if (ret < 0)
-		goto err_usb2phy_init;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -950,8 +943,21 @@ static int dwc3_resume(struct device *dev)
 		dwc3_gadget_resume(dwc);
 		break;
 	case USB_DR_MODE_OTG:
-		/* FALLTHROUGH */
+		break;
 	case USB_DR_MODE_HOST:
+		usb_phy_init(dwc->usb3_phy);
+		usb_phy_init(dwc->usb2_phy);
+		ret = phy_init(dwc->usb2_generic_phy);
+		if (ret < 0) {
+			spin_unlock_irqrestore(&dwc->lock, flags);
+			return ret;
+		}
+
+		ret = phy_init(dwc->usb3_generic_phy);
+		if (ret < 0) {
+			spin_unlock_irqrestore(&dwc->lock, flags);
+			goto err_usb2phy_init;
+		}
 	default:
 		/* do nothing */
 		break;
