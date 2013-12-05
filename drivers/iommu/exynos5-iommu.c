@@ -113,7 +113,9 @@ static bool has_sysmmu_capable_pbuf(void __iomem *sfrbase, int *min)
 void __sysmmu_tlb_invalidate(void __iomem *sfrbase,
 				dma_addr_t iova, size_t size)
 {
-	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+	if (!WARN_ON(!sysmmu_block(sfrbase)))
+		__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+	sysmmu_unblock(sfrbase);
 }
 
 void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova)

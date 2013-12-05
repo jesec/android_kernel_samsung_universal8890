@@ -429,7 +429,7 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 		goto err_map_map;
 	}
 
-	dev_dbg(dev, "IOVMM: Allocated VM region @ %#x/%#x bytes.\n",
+	TRACE_LOG_DEV(dev, "IOVMM: Allocated VM region @ %#x/%#x bytes.\n",
 								start, size);
 
 	return start;
@@ -450,8 +450,8 @@ err_map_map:
 	show_iovm_regions(vmm);
 
 err_map_nomem:
-	dev_dbg(dev, "IOVMM: Failed to allocated VM region for %#x bytes.\n",
-									size);
+	TRACE_LOG_DEV(dev,
+		"IOVMM: Failed to allocated VM region for %#x bytes.\n", size);
 	return (dma_addr_t)ret;
 }
 
@@ -493,7 +493,7 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 
 		free_iovm_region(vmm, region);
 
-		dev_dbg(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
+		TRACE_LOG_DEV(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
 						unmap_size, iova);
 	} else {
 		dev_err(dev, "IOVMM: No IOVM region %#x to free.\n", iova);
@@ -547,7 +547,7 @@ void iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
 
 		free_iovm_region(vmm, region);
 
-		dev_dbg(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
+		TRACE_LOG_DEV(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
 						unmap_size, phys);
 	}
 }
@@ -703,7 +703,7 @@ err_setup_domain:
 		kfree(vmm->vm_map[i]);
 	kfree(vmm);
 err_alloc_vmm:
-	dev_dbg(dev, "IOVMM: Failed to create IOVMM (%d)\n", ret);
+	dev_err(dev, "IOVMM: Failed to create IOVMM (%d)\n", ret);
 
 	return ret;
 }
