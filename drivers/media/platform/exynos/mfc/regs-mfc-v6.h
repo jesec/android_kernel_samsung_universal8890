@@ -802,4 +802,6 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_E_ENCODED_SOURCE_LUMA_ADDR	0xFA94
 #define S5P_FIMV_E_ENCODED_SOURCE_CHROMA_ADDR	0xFA98
 
+#define S5P_FIMV_D_FIRST_PLANE_DPB_STRIDE_SIZE  0xF138
+#define S5P_FIMV_D_FIRST_PLANE_DPB_SIZE         0xF144
 #endif /* _REGS_FIMV_V6_H */

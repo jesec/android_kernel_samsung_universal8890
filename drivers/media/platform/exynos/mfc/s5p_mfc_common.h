@@ -809,6 +809,7 @@ static inline unsigned int mfc_linear_buf_size(unsigned int version)
 		break;
 	case 0x72:
 	case 0x723:
+	case 0x80:
 		size = 256;
 		break;
 	default:
@@ -844,6 +845,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 	case IP_VER_MFC_6A_2:
 		version = 0x723;
 		break;
+	case IP_VER_MFC_7A_0:
+		version = 0x80;
+		break;
 	}
 
 	return version;
@@ -867,7 +871,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define IS_MFCv6X(dev)		((mfc_version(dev) == 0x61) || \
 				 (mfc_version(dev) == 0x65))
 #define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
-#define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev))
+#define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) || IS_MFCv8X(dev))
+#define IS_MFCv8X(dev)		(mfc_version(dev) == 0x80)
 
 /* supported feature macros by F/W version */
 #define FW_HAS_BUS_RESET(dev)		(dev->fw.date >= 0x120206)
@@ -886,9 +891,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x130329))
 #define FW_HAS_POC_TYPE_CTRL(dev)	(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130405))
-#define FW_HAS_DYNAMIC_DPB(dev)		(IS_MFCv7X(dev) &&		\
+#define FW_HAS_DYNAMIC_DPB(dev)		((IS_MFCv7X(dev) || IS_MFCv8X(dev))&&	\
 					(dev->fw.date >= 0x131108))
-#define FW_HAS_BASE_CHANGE(dev)		(IS_MFCv7X(dev) &&		\
+#define FW_HAS_BASE_CHANGE(dev)		((IS_MFCv7X(dev) || IS_MFCv8X(dev))&&	\
 					(dev->fw.date >= 0x131108))
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
@@ -947,6 +952,9 @@ static inline int is_drm_node(enum s5p_mfc_node_type node)
 #elif defined(CONFIG_EXYNOS_MFC_V6)
 #include "regs-mfc-v6.h"
 #include "s5p_mfc_opr_v6.h"
+#elif defined(CONFIG_EXYNOS_MFC_V8)
+#include "regs-mfc-v8.h"
+#include "s5p_mfc_opr_v8.h"
 #endif
 
 #endif /* S5P_MFC_COMMON_H_ */

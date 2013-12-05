@@ -493,7 +493,7 @@ void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev)
 		return;
 	}
 
-	if (!IS_MFCv7X(dev)) {
+	if (!IS_MFCv7X(dev) && !IS_MFCv8X(dev)) {
 		s5p_mfc_clock_on(dev);
 		s5p_mfc_reset(dev);
 		s5p_mfc_clock_off(dev);

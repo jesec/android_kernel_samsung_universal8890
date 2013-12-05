@@ -2618,7 +2618,7 @@ static int enc_ext_info(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int val = 0;
 
-	if (IS_MFCv7X(dev)) {
+	if (IS_MFCv7X(dev) || IS_MFCv8X(dev)) {
 		val |= ENC_SET_RGB_INPUT;
 		val |= ENC_SET_SPARE_SIZE;
 	}

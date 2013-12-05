@@ -170,6 +170,9 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		if (mfc_version(dev) == 0x61)
 			ctx->scratch_buf_size =
 				DEC_V61_H264_SCRATCH_SIZE(mb_width, mb_height);
+		else if (IS_MFCv8X(dev))
+			ctx->scratch_buf_size =
+				DEC_V80_H264_SCRATCH_SIZE(mb_width, mb_height);
 		else
 			ctx->scratch_buf_size =
 				DEC_V65_H264_SCRATCH_SIZE(mb_width, mb_height);
@@ -187,9 +190,13 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		if (mfc_version(dev) == 0x61)
 			ctx->scratch_buf_size =
 				DEC_V61_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
+		else if (IS_MFCv8X(dev))
+			ctx->scratch_buf_size =
+				DEC_V80_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
 		else
 			ctx->scratch_buf_size =
 				DEC_V65_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
+
 		ctx->scratch_buf_size += add_size0;
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
 		ctx->port_a_size = ctx->scratch_buf_size;
@@ -224,6 +231,9 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		if (mfc_version(dev) == 0x61)
 			ctx->scratch_buf_size =
 				DEC_V61_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
+		else if (IS_MFCv8X(dev))
+			ctx->scratch_buf_size =
+				DEC_V80_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
 		else
 			ctx->scratch_buf_size =
 				DEC_V65_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
@@ -246,6 +256,9 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		if (mfc_version(dev) == 0x61)
 			ctx->scratch_buf_size =
 				ENC_V61_H264_SCRATCH_SIZE(mb_width, mb_height);
+		else if (IS_MFCv8X(dev))
+			ctx->scratch_buf_size =
+				ENC_V80_H264_SCRATCH_SIZE(mb_width, mb_height);
 		else
 			ctx->scratch_buf_size =
 				ENC_V65_H264_SCRATCH_SIZE(mb_width, mb_height);
@@ -726,6 +739,32 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		tiled_ref->plane_size[2] = 0;
 	}
 
+	if (IS_MFCv8X(dev)){
+		set_linear_stride_size(ctx, ctx->dst_fmt);
+
+		switch (ctx->dst_fmt->fourcc) {
+			case V4L2_PIX_FMT_NV12M:
+			case V4L2_PIX_FMT_NV21M:
+				raw->plane_size[0] += 64;
+				raw->plane_size[1] =
+					(((ctx->img_width + 15)/16)*16)
+					*(((ctx->img_height + 15)/16)*8) + 64;
+				break;
+			case V4L2_PIX_FMT_YUV420M:
+			case V4L2_PIX_FMT_YVU420M:
+				raw->plane_size[0] += 64;
+				raw->plane_size[1] =
+					(((ctx->img_width + 15)/16)*16)
+					*(((ctx->img_height + 15)/16)*8) + 64;
+				raw->plane_size[2] =
+					(((ctx->img_width + 15)/16)*16)
+					*(((ctx->img_height + 15)/16)*8) + 64;
+				break;
+			default:
+				break;
+		}
+	}
+
 	for (i = 0; i < raw->num_planes; i++)
 		mfc_debug(2, "Plane[%d] size = %d, stride = %d\n",
 			i, raw->plane_size[i], raw->stride[i]);
@@ -804,7 +843,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 	for (i = 0; i < raw->num_planes; i++)
 		raw->plane_size[i] += add_size;
 
-	if (IS_MFCv7X(dev))
+	if (IS_MFCv7X(dev) || IS_MFCv8X(dev))
 		set_linear_stride_size(ctx, ctx->src_fmt);
 }
 
@@ -889,6 +928,22 @@ static int mfc_set_dec_dis_buffer(struct s5p_mfc_ctx *ctx,
 	return 0;
 }
 
+/* Set display buffer through shared memory at INIT_BUFFER */
+int mfc_set_dec_stride_buffer(struct s5p_mfc_ctx *ctx, struct list_head *buf_queue)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	int i;
+
+	for (i = 0; i < ctx->raw_buf.num_planes; i++) {
+		WRITEL(ctx->raw_buf.stride[i],
+			S5P_FIMV_D_FIRST_PLANE_DPB_STRIDE_SIZE + (i * 4));
+		mfc_debug(2, "# plane%d.size = %d, stride = %d\n", i,
+			ctx->raw_buf.plane_size[i], ctx->raw_buf.stride[i]);
+	}
+
+	return 0;
+}
+
 /* Set decoding frame buffer */
 int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 {
@@ -903,6 +958,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	struct list_head *buf_queue;
 	unsigned char *dpb_vir;
 	unsigned int reg = 0;
+	unsigned int j;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -934,6 +990,13 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		WRITEL(tiled_ref->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
 		mfc_debug(2, "Tiled Plane size : 0 = %d, 1 = %d\n",
 			tiled_ref->plane_size[0], tiled_ref->plane_size[1]);
+	} else if (IS_MFCv8X(dev)) {
+		WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
+		mfc_debug(2, "raw->num_planes %d\n", raw->num_planes);
+		for (i = 0; i < raw->num_planes; i++) {
+			mfc_debug(2, "raw->plane_size[%d]= %d\n", i, raw->plane_size[i]);
+			WRITEL(raw->plane_size[i], S5P_FIMV_D_FIRST_PLANE_DPB_SIZE + i*4);
+		}
 	} else {
 		WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
 		WRITEL(raw->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
@@ -995,6 +1058,28 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			buf_addr1 += tiled_ref->plane_size[1];
 			buf_size1 -= tiled_ref->plane_size[1];
 		}
+	} else if(IS_MFCv8X(dev)) {
+		i = 0;
+		list_for_each_entry(buf, buf_queue, list) {
+			/* Do not setting DPB */
+			if (dec->is_dynamic_dpb)
+				break;
+			for (j = 0; j < raw->num_planes; j++) {
+				WRITEL(buf->planes.raw[j], S5P_FIMV_D_LUMA_DPB + (j*0x100 + i*4));
+			}
+
+			if ((i == 0) && (!ctx->is_drm)) {
+				int j, color[3] = { 0x0, 0x80, 0x80 };
+				for (j = 0; j < raw->num_planes; j++) {
+					dpb_vir = vb2_plane_vaddr(&buf->vb, j);
+					if (dpb_vir)
+						memset(dpb_vir, color[j],
+							raw->plane_size[j]);
+				}
+				s5p_mfc_mem_clean_vb(&buf->vb, j);
+			}
+			i++;
+		}
 	} else {
 		i = 0;
 		list_for_each_entry(buf, buf_queue, list) {
@@ -1024,6 +1109,8 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 		mfc_set_dec_dis_buffer(ctx, buf_queue);
+	else if(IS_MFCv8X(dev))
+		mfc_set_dec_stride_buffer(ctx, buf_queue);
 
 	WRITEL(dec->mv_count, S5P_FIMV_D_NUM_MV);
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC ||
@@ -1077,7 +1164,7 @@ void s5p_mfc_set_enc_frame_buffer(struct s5p_mfc_ctx *ctx,
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int i;
 
-	if (IS_MFCv7X(dev)) {
+	if (IS_MFCv7X(dev) || IS_MFCv8X(dev)) {
 		for (i = 0; i < num_planes; i++)
 			WRITEL(addr[i], S5P_FIMV_E_SOURCE_FIRST_ADDR + (i*4));
 	} else {
@@ -1093,7 +1180,7 @@ void s5p_mfc_get_enc_frame_buffer(struct s5p_mfc_ctx *ctx,
 	unsigned long enc_recon_y_addr, enc_recon_c_addr;
 	int i, addr_offset;
 
-	if (IS_MFCv7X(dev))
+	if (IS_MFCv7X(dev) || IS_MFCv8X(dev))
 		addr_offset = S5P_FIMV_E_ENCODED_SOURCE_FIRST_ADDR;
 	else
 		addr_offset = S5P_FIMV_E_ENCODED_SOURCE_LUMA_ADDR;
@@ -2042,7 +2129,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		pix_val = 1;
 		break;
 	case V4L2_PIX_FMT_YVU420M:
-		if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
+		if ((IS_MFCv7X(dev) && dec->is_dual_dpb) || (IS_MFCv8X(dev))) {
 			pix_val = 2;
 		} else {
 			pix_val = 0;
@@ -2050,7 +2137,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		}
 		break;
 	case V4L2_PIX_FMT_YUV420M:
-		if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
+		if ((IS_MFCv7X(dev) && dec->is_dual_dpb) || (IS_MFCv8X(dev))) {
 			pix_val = 3;
 		} else {
 			pix_val = 0;
@@ -2273,12 +2360,11 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 					raw->plane_size[i], raw->stride[i]);
 		}
 	} else {
-		WRITEL(dst_vb->planes.raw[0],
-				S5P_FIMV_D_LUMA_DPB + (dst_index * 4));
-		WRITEL(dst_vb->planes.raw[1],
-				S5P_FIMV_D_CHROMA_DPB + (dst_index * 4));
-		WRITEL(raw->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
-		WRITEL(raw->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
+		for (i = 0; i < raw->num_planes; i++) {
+			WRITEL(raw->plane_size[i], S5P_FIMV_D_LUMA_DPB_SIZE + i*4);
+			WRITEL(dst_vb->planes.raw[i],
+					S5P_FIMV_D_LUMA_DPB + (i*0x100 + dst_index*4));
+		}
 	}
 
 	return 0;
@@ -2556,7 +2642,7 @@ static inline void s5p_mfc_set_stride_enc(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int i;
 
-	if (IS_MFCv7X(dev)) {
+	if (IS_MFCv7X(dev) || IS_MFCv8X(dev)) {
 		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
 			WRITEL(ctx->raw_buf.stride[i],
 				S5P_FIMV_E_SOURCE_FIRST_STRIDE + (i * 4));
