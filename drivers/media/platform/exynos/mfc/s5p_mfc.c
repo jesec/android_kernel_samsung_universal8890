@@ -2294,7 +2294,6 @@ err_req_mem:
 err_res_mem:
 	s5p_mfc_final_pm(dev);
 err_pm:
-	kfree(dev);
 	return ret;
 }
 
