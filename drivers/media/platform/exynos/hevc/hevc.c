@@ -2074,7 +2074,6 @@ err_req_mem:
 err_res_mem:
 	hevc_final_pm(dev);
 err_pm:
-	kfree(dev);
 	return ret;
 }
 
