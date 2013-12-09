@@ -133,7 +133,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 		clk_parent = clk_get(dev->device, "aclk_mfc0_333");
 		if (IS_ERR(clk_parent)) {
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-			return PTR_ERR(clk_child);
+			return PTR_ERR(clk_parent);
 		}
 		clk_set_parent(clk_child, clk_parent);
 	} else if (dev->id == 1) {
@@ -145,7 +145,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 		clk_parent = clk_get(dev->device, "aclk_mfc1_333");
 		if (IS_ERR(clk_parent)) {
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-			return PTR_ERR(clk_child);
+			return PTR_ERR(clk_parent);
 		}
 		clk_set_parent(clk_child, clk_parent);
 	}
@@ -158,7 +158,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	clk_parent = clk_get(dev->device, "mout_aclk_333_sw");
 	if (IS_ERR(clk_parent)) {
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-		return PTR_ERR(clk_child);
+		return PTR_ERR(clk_parent);
 	}
 	clk_set_parent(clk_child, clk_parent);
 #endif
@@ -175,9 +175,30 @@ extern spinlock_t int_div_lock;
 static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 {
 	struct clk *clk_child = NULL;
+#if defined(CONFIG_SOC_EXYNOS5430_REV_1)
+	struct clk *clk_parent = NULL;
+#endif
 
 #if defined(CONFIG_SOC_EXYNOS5430)
 	if (dev->id == 0) {
+#if defined(CONFIG_SOC_EXYNOS5430_REV_1)
+		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_a");
+		if (IS_ERR(clk_child)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+			return PTR_ERR(clk_child);
+		}
+
+		if(dev->curr_rate == 552000)
+			clk_parent = clk_get(dev->device, "mout_isp_pll");
+		else
+			clk_parent = clk_get(dev->device, "mout_mfc_pll_user");
+		if (IS_ERR(clk_parent)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+			return PTR_ERR(clk_parent);
+		}
+
+		clk_set_parent(clk_child, clk_parent);
+#endif
 		clk_child = clk_get(dev->device, "dout_aclk_mfc0_333");
 		if (IS_ERR(clk_child)) {
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
@@ -185,6 +206,24 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 		}
 
 	} else if (dev->id == 1) {
+#if defined(CONFIG_SOC_EXYNOS5430_REV_1)
+		clk_child = clk_get(dev->device, "mout_aclk_mfc1_333_a");
+		if (IS_ERR(clk_child)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+			return PTR_ERR(clk_child);
+		}
+
+		if(dev->curr_rate == 552000)
+			clk_parent = clk_get(dev->device, "mout_isp_pll");
+		else
+			clk_parent = clk_get(dev->device, "mout_mfc_pll_user");
+		if (IS_ERR(clk_parent)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+			return PTR_ERR(clk_parent);
+		}
+
+		clk_set_parent(clk_child, clk_parent);
+#endif
 		clk_child = clk_get(dev->device, "dout_aclk_mfc1_333");
 		if (IS_ERR(clk_child)) {
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
