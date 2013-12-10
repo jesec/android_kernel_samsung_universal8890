@@ -289,7 +289,7 @@ static int exynos5_i2c_set_timing(struct exynos5_i2c *i2c, int mode)
 	unsigned int t_sr_release;
 	unsigned int t_ftl_cycle;
 	unsigned int clkin = clk_get_rate(i2c->rate_clk);
-	unsigned int div, utemp0 = 0, utemp1 = 0, clk_cycle;
+	unsigned int div, utemp0 = 0, utemp1 = 0, clk_cycle = 0;
 	unsigned int op_clk = (mode == HSI2C_HIGH_SPD) ?
 				i2c->hs_clock : i2c->fs_clock;
 
