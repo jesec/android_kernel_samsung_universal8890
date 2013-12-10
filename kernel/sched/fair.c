@@ -5210,6 +5210,11 @@ int set_hmp_boostpulse(int duration)
 	return 0;
 }
 
+int get_hmp_boost(void)
+{
+	return hmp_boost();
+}
+
 int set_hmp_up_threshold(int value)
 {
 	return hmp_up_threshold_from_sysfs(value);
