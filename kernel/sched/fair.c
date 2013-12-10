@@ -2373,6 +2373,8 @@ static u64 hmp_variable_scale_convert(u64 delta);
 #define SCHED_FREQSCALE_SHIFT 10
 struct cpufreq_extents {
 	u32 curr_scale;
+	u32 cpufreq_min;
+	u32 cpufreq_max;
 	u32 min;
 	u32 max;
 	u32 flags;
@@ -9476,6 +9478,12 @@ static u32 cpufreq_calc_scale(u32 min, u32 max, u32 curr)
 	return result;
 }
 
+static void extents_update_max_min(struct cpufreq_extents *extents)
+{
+	extents->min = extents->cpufreq_min;
+	extents->max = extents->cpufreq_max;
+}
+
 /* Called when the CPU Frequency is changed.
  * Once for each CPU.
  */
@@ -9548,8 +9556,10 @@ static int cpufreq_policy_callback(struct notifier_block *nb,
 	 */
 	for_each_cpu(cpu, policy->cpus) {
 		extents = &freq_scale[cpu];
-		extents->max = policy->max >> SCHED_FREQSCALE_SHIFT;
-		extents->min = policy->min >> SCHED_FREQSCALE_SHIFT;
+		extents->cpufreq_max = policy->max >> SCHED_FREQSCALE_SHIFT;
+		extents->cpufreq_min = policy->min >> SCHED_FREQSCALE_SHIFT;
+		extents_update_max_min(extents);
+
 		if (!hmp_data.freqinvar_load_scale_enabled) {
 			extents->curr_scale = 1024;
 		} else if (singleFreq) {
@@ -9579,9 +9589,11 @@ static int __init register_sched_cpufreq_notifier(void)
 	/* init safe defaults since there are no policies at registration */
 	for (ret = 0; ret < CONFIG_NR_CPUS; ret++) {
 		/* safe defaults */
-		freq_scale[ret].max = 1024;
-		freq_scale[ret].min = 1024;
+		freq_scale[ret].cpufreq_max = 1024;
+		freq_scale[ret].cpufreq_min = 1024;
 		freq_scale[ret].curr_scale = 1024;
+
+		extents_update_max_min(&freq_scale[ret]);
 	}
 
 	pr_info("sched: registering cpufreq notifiers for scale-invariant loads\n");
