@@ -1013,7 +1013,7 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 
 	if ((h_ratio > sc->variant->sc_down_min) ||
 				(v_ratio > sc->variant->sc_down_min)) {
-		struct v4l2_rect crop;
+		struct v4l2_rect crop = ctx->d_frame.crop;
 		struct sc_size_limit *limit;
 		unsigned int halign = 0, walign = 0;
 		__u32 pixfmt;
