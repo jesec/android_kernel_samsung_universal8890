@@ -2349,6 +2349,7 @@ static int __init exynos_set_sysmmu(struct device *dev, void *unused)
 		if (!sysmmu) {
 			dev_err(dev, "sysmmu node '%s' is not found\n",
 				np->name);
+			continue;
 		}
 
 		sdev = &sysmmu->dev;
