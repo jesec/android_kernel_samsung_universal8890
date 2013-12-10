@@ -310,6 +310,11 @@ static int s3c2410wdt_set_min_max_timeout(struct watchdog_device *wdd)
 	struct s3c2410_wdt *wdt = watchdog_get_drvdata(wdd);
 	unsigned long freq = clk_get_rate(wdt->rate_clock);
 
+	if(freq == 0) {
+		dev_err(wdd->dev, "failed to get platdata\n");
+		return -EINVAL;
+	}
+
 	wdd->min_timeout = 1;
 	wdd->max_timeout = S3C2410_WTCNT_MAX *
 		(S3C2410_WTCON_PRESCALE_MAX + 1) * S3C2410_WTCON_DIVMAX / freq;
@@ -604,7 +609,12 @@ static int s3c2410wdt_probe(struct platform_device *pdev)
 	/* see if we can actually set the requested timer margin, and if
 	 * not, try the default value */
 
-	s3c2410wdt_set_min_max_timeout(&s3c2410_wdd);
+	ret = s3c2410wdt_set_min_max_timeout(&s3c2410_wdd);
+	if (ret != 0) {
+		dev_err(dev, "clock rate is 0\n");
+		goto err_clk;
+	}
+
 	watchdog_init_timeout(&wdt->wdt_device, tmr_margin, &pdev->dev);
 	ret = s3c2410wdt_set_heartbeat(&wdt->wdt_device,
 					wdt->wdt_device.timeout);
