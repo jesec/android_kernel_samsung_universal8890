@@ -854,6 +854,9 @@ static int dwc3_prepare(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
 
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc3_otg_stop(dwc);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	switch (dwc->dr_mode) {
@@ -893,6 +896,9 @@ static void dwc3_complete(struct device *dev)
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc3_otg_start(dwc);
 }
 
 static int dwc3_suspend(struct device *dev)
