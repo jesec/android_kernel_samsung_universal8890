@@ -36,10 +36,11 @@
 #include <linux/sysfs.h>
 #include <linux/vmalloc.h>
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
-/* Include cpufreq header to add a notifier so that cpu frequency
- * scaling can track the current CPU frequency
+/* Include cpufreq and ipa headers to add a notifier so that cpu
+ * frequency scaling can track the current CPU frequency and limits.
  */
 #include <linux/cpufreq.h>
+#include <linux/ipa.h>
 #endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
 #endif /* CONFIG_HMP_VARIABLE_SCALE */
 
@@ -2375,6 +2376,8 @@ struct cpufreq_extents {
 	u32 curr_scale;
 	u32 cpufreq_min;
 	u32 cpufreq_max;
+	u32 thermal_min;
+	u32 thermal_max;
 	u32 min;
 	u32 max;
 	u32 flags;
@@ -9480,8 +9483,8 @@ static u32 cpufreq_calc_scale(u32 min, u32 max, u32 curr)
 
 static void extents_update_max_min(struct cpufreq_extents *extents)
 {
-	extents->min = extents->cpufreq_min;
-	extents->max = extents->cpufreq_max;
+	extents->min = max(extents->cpufreq_min, extents->thermal_min);
+	extents->max = min(extents->cpufreq_max, extents->thermal_max);
 }
 
 /* Called when the CPU Frequency is changed.
@@ -9575,11 +9578,38 @@ static int cpufreq_policy_callback(struct notifier_block *nb,
 	return 0;
 }
 
+static int thermal_callback(struct notifier_block *nb,
+			unsigned long val, void *data)
+{
+	struct thermal_limits *limits = data;
+	int cpu;
+
+	if (val != THERMAL_NEW_MAX_FREQ)
+		return NOTIFY_DONE;
+
+	for_each_cpu(cpu, &limits->cpus) {
+		struct cpufreq_extents *extents = &freq_scale[cpu];
+		extents->thermal_max = limits->max_freq >> SCHED_FREQSCALE_SHIFT;
+		extents_update_max_min(extents);
+
+		if (!hmp_data.freqinvar_load_scale_enabled)
+			extents->curr_scale = 1024;
+		else
+			extents->curr_scale = cpufreq_calc_scale(extents->min,
+					extents->max, limits->cur_freq);
+	}
+
+	return NOTIFY_OK;
+}
+
 static struct notifier_block cpufreq_notifier = {
 	.notifier_call  = cpufreq_callback,
 };
 static struct notifier_block cpufreq_policy_notifier = {
 	.notifier_call  = cpufreq_policy_callback,
+};
+static struct notifier_block thermal_notifier = {
+	.notifier_call  = thermal_callback,
 };
 
 static int __init register_sched_cpufreq_notifier(void)
@@ -9591,6 +9621,8 @@ static int __init register_sched_cpufreq_notifier(void)
 		/* safe defaults */
 		freq_scale[ret].cpufreq_max = 1024;
 		freq_scale[ret].cpufreq_min = 1024;
+		freq_scale[ret].thermal_max = 1024;
+		freq_scale[ret].thermal_min = 0;
 		freq_scale[ret].curr_scale = 1024;
 
 		extents_update_max_min(&freq_scale[ret]);
@@ -9603,6 +9635,9 @@ static int __init register_sched_cpufreq_notifier(void)
 	if (ret != -EINVAL)
 		ret = cpufreq_register_notifier(&cpufreq_notifier,
 			CPUFREQ_TRANSITION_NOTIFIER);
+
+	if (ret != -EINVAL)
+		ret = thermal_register_notifier(&thermal_notifier);
 
 	return ret;
 }
