@@ -46,9 +46,10 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	unsigned int dfso_downdifferential = DFSO_DOWNDIFFERENCTIAL;
 	struct devfreq_simple_ondemand_data *data = df->data;
 	unsigned long max = (df->max_freq) ? df->max_freq : UINT_MAX;
-	unsigned long pm_qos_min;
+	unsigned long pm_qos_min = 0;
 
-	pm_qos_min = pm_qos_request(data->pm_qos_class);
+	if (data)
+		pm_qos_min = pm_qos_request(data->pm_qos_class);
 
 	if (err)
 		return err;
