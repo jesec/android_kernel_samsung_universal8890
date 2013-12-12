@@ -209,13 +209,6 @@ int dwc3_exynos_rsw_start(struct device *dev)
 	rsw->fsm->b_sess_vld = dwc3_exynos_get_b_sess_state(rsw);
 
 	if (gpio_is_valid(rsw->id_gpio)) {
-		ret = devm_gpio_request(exynos->dev, rsw->id_gpio,
-						"dwc3_id_gpio");
-		if (ret) {
-			dev_err(exynos->dev, "failed to request dwc3 id gpio");
-			return ret;
-		}
-
 		irq = gpio_to_irq(rsw->id_gpio);
 		ret = devm_request_threaded_irq(exynos->dev, irq,
 					dwc3_exynos_id_interrupt,
@@ -229,13 +222,6 @@ int dwc3_exynos_rsw_start(struct device *dev)
 	}
 
 	if (gpio_is_valid(rsw->b_sess_gpio)) {
-		ret = devm_gpio_request_one(exynos->dev, rsw->b_sess_gpio,
-						GPIOF_IN, "dwc3_b_sess_gpio");
-		if (ret) {
-			dev_err(exynos->dev, "failed to request dwc3 b_sess gpio");
-			return ret;
-		}
-
 		irq = gpio_to_irq(rsw->b_sess_gpio);
 		ret = devm_request_threaded_irq(exynos->dev, irq,
 					dwc3_exynos_b_sess_interrupt,
@@ -274,8 +260,27 @@ int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
 {
 	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
 	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+	int			ret;
 
 	dev_dbg(dev, "%s\n", __func__);
+
+	if (gpio_is_valid(rsw->id_gpio)) {
+		ret = devm_gpio_request(exynos->dev, rsw->id_gpio,
+						"dwc3_id_gpio");
+		if (ret) {
+			dev_err(exynos->dev, "failed to request dwc3 id gpio");
+			return ret;
+		}
+	}
+
+	if (gpio_is_valid(rsw->b_sess_gpio)) {
+		ret = devm_gpio_request_one(exynos->dev, rsw->b_sess_gpio,
+						GPIOF_IN, "dwc3_b_sess_gpio");
+		if (ret) {
+			dev_err(exynos->dev, "failed to request dwc3 b_sess gpio");
+			return ret;
+		}
+	}
 
 	rsw->fsm = fsm;
 
