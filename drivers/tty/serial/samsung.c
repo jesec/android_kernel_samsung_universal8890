@@ -496,6 +496,9 @@ static int s3c24xx_serial_startup(struct uart_port *port)
 	dbg("s3c24xx_serial_startup: port=%p (%08llx,%p)\n",
 	    port, (unsigned long long)port->mapbase, port->membase);
 
+	ourport->cfg->wake_peer[port->line] =
+				s3c2410_serial_wake_peer[port->line];
+
 	rx_enabled(port) = 1;
 
 	ret = request_irq(ourport->rx_irq, s3c24xx_serial_rx_chars, 0,
@@ -541,6 +544,9 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 
 	dbg("s3c64xx_serial_startup: port=%p (%08llx,%p)\n",
 	    port, (unsigned long long)port->mapbase, port->membase);
+
+	ourport->cfg->wake_peer[port->line] =
+				s3c2410_serial_wake_peer[port->line];
 
 	wr_regl(port, S3C64XX_UINTM, 0xf);
 
@@ -950,8 +956,8 @@ static void s3c24xx_serial_wake_peer(struct uart_port *port)
 {
 	struct s3c2410_uartcfg *cfg = s3c24xx_port_to_cfg(port);
 
-	if (cfg->wake_peer)
-		cfg->wake_peer(port);
+	if (cfg->wake_peer[port->line])
+		cfg->wake_peer[port->line](port);
 }
 
 #ifdef CONFIG_SERIAL_SAMSUNG_CONSOLE
