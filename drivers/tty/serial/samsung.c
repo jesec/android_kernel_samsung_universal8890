@@ -581,6 +581,41 @@ static void aud_uart_put_sync(struct platform_device *pdev)
 	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
 		lpass_put_sync(&pdev->dev);
 }
+static int aud_uart_gpio_cfg(struct platform_device *pdev, int level)
+{
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
+	int status = 0;
+
+	pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		dev_err(&pdev->dev, "could not get pinctrl\n");
+		goto err_no_pinctrl;
+	}
+
+	if (level)
+		pins_default =
+		    pinctrl_lookup_state(pinctrl, PINCTRL_STATE_IDLE);
+	else
+		pins_default =
+		    pinctrl_lookup_state(pinctrl, PINCTRL_STATE_DEFAULT);
+
+	if (!IS_ERR(pins_default)) {
+		status = pinctrl_select_state(pinctrl, pins_default);
+		if (status) {
+			dev_err(&pdev->dev, "could not set default pins\n");
+			goto err_no_pinctrl;
+		}
+	} else {
+		dev_err(&pdev->dev, "could not get default pinstate\n");
+		goto err_no_pinctrl;
+	}
+
+	return 0;
+
+err_no_pinctrl:
+	return -ENODEV;
+}
 #else
 static void aud_uart_get_sync(struct platform_device *pdev, struct uart_port *port)
 {
@@ -588,6 +623,11 @@ static void aud_uart_get_sync(struct platform_device *pdev, struct uart_port *po
 
 static void aud_uart_put_sync(struct platform_device *pdev)
 {
+}
+
+static int aud_uart_gpio_cfg(struct platform_device *pdev, int level)
+{
+	return 0;
 }
 #endif
 
@@ -602,6 +642,14 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 
 	switch (level) {
 	case 3:
+#ifdef CONFIG_PM_RUNTIME
+		if (of_find_property(ourport->pdev->dev.of_node,
+						"samsung,lpass-subip", NULL)) {
+			if (aud_uart_gpio_cfg(ourport->pdev, level))
+				dev_err(port->dev,
+					"failed to configure gpio for audio\n");
+		}
+#endif
 		clk_disable_unprepare(ourport->clk);
 		aud_uart_put_sync(ourport->pdev);
 		break;
@@ -610,8 +658,14 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 		aud_uart_get_sync(ourport->pdev, port);
 		clk_prepare_enable(ourport->clk);
 #ifdef CONFIG_PM_RUNTIME
-		if (of_find_property(ourport->pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		if (of_find_property(ourport->pdev->dev.of_node,
+						"samsung,lpass-subip", NULL)) {
+			if (aud_uart_gpio_cfg(ourport->pdev, level))
+				dev_err(port->dev,
+					"failed to configure gpio for audio\n");
+
 			s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
+		}
 #endif
 		break;
 	default:
