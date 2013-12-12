@@ -43,6 +43,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/cpufreq.h>
+#include <linux/suspend.h>
 #include <linux/of.h>
 
 #include <sound/exynos.h>
@@ -1360,6 +1361,33 @@ static inline struct s3c24xx_serial_drv_data *s3c24xx_get_driver_data(
 			platform_get_device_id(pdev)->driver_data;
 }
 
+static int exynos_aud_uart_notifier(struct notifier_block *notifier,
+					unsigned long event, void *v)
+{
+	struct s3c24xx_uart_port *ourport = container_of(notifier,
+						struct s3c24xx_uart_port,
+							aud_uart_notifier);
+	struct uart_port *port = &ourport->port;
+	struct platform_device *pdev = ourport->pdev;
+
+	if (!of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		goto exit;
+
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		uart_suspend_port(&s3c24xx_uart_drv, port);
+		return NOTIFY_OK;
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		uart_resume_port(&s3c24xx_uart_drv, port);
+
+		return NOTIFY_OK;
+	}
+
+exit:
+	return NOTIFY_DONE;
+}
+
 static int s3c24xx_serial_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1415,6 +1443,13 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* Registering notifier for audio uart */
+	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL)) {
+		ourport->aud_uart_notifier.notifier_call =
+						exynos_aud_uart_notifier;
+		register_pm_notifier(&ourport->aud_uart_notifier);
+	}
+
 	dbg("%s: adding port\n", __func__);
 	uart_add_one_port(&s3c24xx_uart_drv, &ourport->port);
 	platform_set_drvdata(pdev, &ourport->port);
@@ -1461,6 +1496,13 @@ static int s3c24xx_serial_remove(struct platform_device *dev)
 static int s3c24xx_serial_suspend(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
+#ifdef CONFIG_PM_RUNTIME
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	struct platform_device *pdev = ourport->pdev;
+
+	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
+		return 0;
+#endif
 
 	if (port)
 		uart_suspend_port(&s3c24xx_uart_drv, port);
