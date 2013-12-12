@@ -38,8 +38,8 @@ struct devfreq;
  */
 struct devfreq_dev_status {
 	/* both since the last measure */
-	unsigned long total_time;
-	unsigned long busy_time;
+	unsigned long long total_time;
+	unsigned long long busy_time;
 	unsigned long current_frequency;
 	void *private_data;
 };
