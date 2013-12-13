@@ -2218,6 +2218,11 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	 * The caller must check the range of address space before calling this.
 	 */
 	vma = find_vma(mm, vaddr);
+	if (IS_ERR_OR_NULL(vma)) {
+		pr_err("%s: invalid vma\n", __func__);
+		return -EFAULT;
+	}
+
 	is_pfnmap = vma->vm_flags & VM_PFNMAP;
 
 	start = vaddr & PAGE_MASK;
@@ -2280,6 +2285,11 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 	 * The caller must check the range of address space before calling this.
 	 */
 	vma = find_vma(mm, vaddr);
+	if (IS_ERR_OR_NULL(vma)) {
+		pr_err("%s: invalid vma\n", __func__);
+		return -EFAULT;
+	}
+
 	is_pfnmap = vma->vm_flags & VM_PFNMAP;
 
 	start = vaddr & PAGE_MASK;
