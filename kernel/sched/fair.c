@@ -5553,13 +5553,13 @@ unlock:
 #ifdef CONFIG_SCHED_HMP
 	if (hmp_up_migration(prev_cpu, &new_cpu, &p->se)) {
 		hmp_next_up_delay(&p->se, new_cpu);
-		trace_sched_hmp_migrate(p, new_cpu, 0);
+		trace_sched_hmp_migrate(p, new_cpu, HMP_MIGRATE_WAKEUP);
 		return new_cpu;
 	}
 	if (hmp_down_migration(prev_cpu, &p->se)) {
 		new_cpu = hmp_select_slower_cpu(p, prev_cpu);
 		hmp_next_down_delay(&p->se, new_cpu);
-		trace_sched_hmp_migrate(p, new_cpu, 0);
+		trace_sched_hmp_migrate(p, new_cpu, HMP_MIGRATE_WAKEUP);
 		return new_cpu;
 	}
 	/* Make sure that the task stays in its previous hmp domain */
@@ -8818,7 +8818,8 @@ static void hmp_force_up_migration(int this_cpu)
 				target->push_cpu = target_cpu;
 				target->migrate_task = p;
 				force = 1;
-				trace_sched_hmp_migrate(p, target->push_cpu, 1);
+				trace_sched_hmp_migrate(p, target->push_cpu,
+					HMP_MIGRATE_FORCE);
 				hmp_next_up_delay(&p->se, target->push_cpu);
 			}
 		}
@@ -8836,7 +8837,8 @@ static void hmp_force_up_migration(int this_cpu)
 				target->active_balance = 1;
 				target->migrate_task = p;
 				force = 1;
-				trace_sched_hmp_migrate(p, target->push_cpu, 2);
+				trace_sched_hmp_migrate(p, target->push_cpu,
+					HMP_MIGRATE_OFFLOAD);
 				hmp_next_down_delay(&p->se, target->push_cpu);
 			}
 		}
@@ -8922,7 +8924,8 @@ static unsigned int hmp_idle_pull(int this_cpu)
 		target->push_cpu = this_cpu;
 		target->migrate_task = p;
 		force = 1;
-		trace_sched_hmp_migrate(p, target->push_cpu, 3);
+		trace_sched_hmp_migrate(p, target->push_cpu,
+			HMP_MIGRATE_IDLE_PULL);
 		hmp_next_up_delay(&p->se, target->push_cpu);
 	}
 	raw_spin_unlock_irqrestore(&target->lock, flags);

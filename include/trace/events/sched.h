@@ -733,6 +733,10 @@ TRACE_EVENT(sched_task_usage_ratio,
 /*
  * Tracepoint for HMP (CONFIG_SCHED_HMP) task migrations.
  */
+#define HMP_MIGRATE_WAKEUP	0
+#define HMP_MIGRATE_FORCE	1
+#define HMP_MIGRATE_OFFLOAD	2
+#define HMP_MIGRATE_IDLE_PULL	3
 TRACE_EVENT(sched_hmp_migrate,
 
 	TP_PROTO(struct task_struct *tsk, int dest, int force),
