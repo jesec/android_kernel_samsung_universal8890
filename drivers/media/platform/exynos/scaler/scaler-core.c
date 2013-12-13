@@ -1752,17 +1752,17 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 	src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 	dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 
-	if (__measure_hw_latency) {
-		struct v4l2_m2m_buffer *mb =
+	if (src_vb && dst_vb) {
+		if (__measure_hw_latency) {
+			struct v4l2_m2m_buffer *mb =
 					container_of(dst_vb, typeof(*mb), vb);
-		struct vb2_scaler_buffer *svb =
+			struct vb2_scaler_buffer *svb =
 					container_of(mb, typeof(*svb), mb);
 
-		dst_vb->v4l2_buf.reserved2 =
+			dst_vb->v4l2_buf.reserved2 =
 				(__u32)(sched_clock() - svb->hw_latency);
-	}
+		}
 
-	if (src_vb && dst_vb) {
 		if (val & SCALER_INT_STATUS_FRAME_END) {
 			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_DONE);
 			v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_DONE);
