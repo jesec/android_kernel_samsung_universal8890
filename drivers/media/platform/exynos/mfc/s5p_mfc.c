@@ -2063,7 +2063,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 
 	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_dec_videodev.name, dev->id);
 
-	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_DEC + 2*dev->id);
+	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_DEC + 60*dev->id);
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
@@ -2091,7 +2091,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	vfd->vfl_dir = VFL_DIR_M2M;
 	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_enc_videodev.name, dev->id);
 
-	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_ENC + 2*dev->id);
+	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_ENC + 60*dev->id);
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
@@ -2120,7 +2120,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 
 	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_dec_drm_videodev.name, dev->id);
 
-	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_DEC_DRM + 2*dev->id);
+	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_DEC_DRM + 60*dev->id);
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
@@ -2148,7 +2148,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	vfd->vfl_dir = VFL_DIR_M2M;
 	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_enc_videodev.name, dev->id);
 
-	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_ENC_DRM + 2*dev->id);
+	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_ENC_DRM + 60*dev->id);
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
