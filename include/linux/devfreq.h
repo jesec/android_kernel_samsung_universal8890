@@ -226,6 +226,7 @@ struct devfreq_notifier_block {
  * the governor uses the default values.
  */
 struct devfreq_simple_ondemand_data {
+	unsigned int multiplication_weight;
 	unsigned int upthreshold;
 	unsigned int downdifferential;
 	unsigned long cal_qos_max;
@@ -236,6 +237,7 @@ struct devfreq_simple_ondemand_data {
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_USAGE)
 struct devfreq_simple_usage_data {
+	unsigned int multiplication_weight;
 	unsigned int proportional;
 	unsigned int upthreshold;
 	unsigned int target_percentage;
