@@ -36,6 +36,7 @@ static int devfreq_simple_ondemand_notifier(struct notifier_block *nb, unsigned 
 /* Default constants for DevFreq-Simple-Ondemand (DFSO) */
 #define DFSO_UPTHRESHOLD	(90)
 #define DFSO_DOWNDIFFERENCTIAL	(5)
+#define DFSO_WEIGHT		(100)
 static int devfreq_simple_ondemand_func(struct devfreq *df,
 					unsigned long *freq)
 {
@@ -44,6 +45,7 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	unsigned long long a, b;
 	unsigned int dfso_upthreshold = DFSO_UPTHRESHOLD;
 	unsigned int dfso_downdifferential = DFSO_DOWNDIFFERENCTIAL;
+	unsigned int dfso_multiplication_weight = DFSO_WEIGHT;
 	struct devfreq_simple_ondemand_data *data = df->data;
 	unsigned long max = (df->max_freq) ? df->max_freq : UINT_MAX;
 	unsigned long pm_qos_min = 0;
@@ -59,6 +61,8 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 			dfso_upthreshold = data->upthreshold;
 		if (data->downdifferential)
 			dfso_downdifferential = data->downdifferential;
+		if (data->multiplication_weight)
+			dfso_multiplication_weight = data->multiplication_weight;
 	}
 	if (dfso_upthreshold > 100 ||
 	    dfso_upthreshold < dfso_downdifferential)
@@ -80,6 +84,9 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 		stat.busy_time >>= 7;
 		stat.total_time >>= 7;
 	}
+
+	stat.busy_time *= dfso_multiplication_weight;
+	stat.busy_time = div_u64(stat.busy_time, 100);
 
 	/* Set MAX if it's busy enough */
 	if (stat.busy_time * 100 >
