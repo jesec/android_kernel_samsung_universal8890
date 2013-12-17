@@ -971,9 +971,6 @@ static bool allocate_intermediate_frame(struct sc_ctx *ctx)
 			ctx->i_frame = NULL;
 			return false;
 		}
-
-		memcpy(&ctx->i_frame->frame, &ctx->d_frame,
-			sizeof(ctx->d_frame));
 	}
 
 	return true;
@@ -1017,6 +1014,7 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 		struct sc_size_limit *limit;
 		unsigned int halign = 0, walign = 0;
 		__u32 pixfmt;
+		struct sc_fmt *target_fmt = ctx->d_frame.sc_fmt;
 
 		if (!allocate_intermediate_frame(ctx))
 			return -ENOMEM;
@@ -1027,7 +1025,7 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 		if (h_ratio > sc->variant->sc_down_min)
 			crop.width = ((src_width + 7) / 8) * 2;
 
-		pixfmt = ctx->i_frame->frame.sc_fmt->pixelformat;
+		pixfmt = target_fmt->pixelformat;
 
 		if (sc_fmt_is_yuv422(pixfmt)) {
 			walign = 1;
@@ -1052,7 +1050,10 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 		h_ratio = SCALE_RATIO(src_width, crop.width);
 		v_ratio = SCALE_RATIO(src_height, crop.height);
 
-		if (memcmp(&crop, &ctx->i_frame->frame.crop, sizeof(crop))) {
+		if ((ctx->i_frame->frame.sc_fmt != ctx->d_frame.sc_fmt) ||
+		    memcmp(&crop, &ctx->i_frame->frame.crop, sizeof(crop))) {
+			memcpy(&ctx->i_frame->frame, &ctx->d_frame,
+					sizeof(ctx->d_frame));
 			memcpy(&ctx->i_frame->frame.crop, &crop, sizeof(crop));
 			free_intermediate_frame(ctx);
 			if (!initialize_initermediate_frame(ctx)) {
@@ -1214,8 +1215,6 @@ static int sc_vb2_stop_streaming(struct vb2_queue *vq)
 		dev_err(ctx->sc_dev->dev, "wait timeout\n");
 
 	clear_bit(CTX_STREAMING, &ctx->flags);
-
-	free_intermediate_frame(ctx);
 
 	return ret;
 }
