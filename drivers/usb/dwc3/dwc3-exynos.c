@@ -77,8 +77,7 @@ static int dwc3_exynos_get_b_sess_state(struct dwc3_exynos_rsw *rsw)
 	if (gpio_is_valid(rsw->b_sess_gpio))
 		return gpio_get_value(rsw->b_sess_gpio);
 	else
-		/* B-Session is active by default */
-		return 1;
+		return 0;
 }
 
 static irqreturn_t dwc3_exynos_rsw_thread_interrupt(int irq, void *_rsw)
