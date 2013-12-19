@@ -1749,7 +1749,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	if (FW_HAS_POC_TYPE_CTRL(dev)) {
 		reg = READL(S5P_FIMV_E_H264_OPTIONS_2);
 		reg &= ~(0x3 << 0);
-		reg |= (0x1 << 0); /* TODO: add new CID for this */
+		reg |= (0x0 << 0); /* TODO: add new CID for this */
 		WRITEL(reg, S5P_FIMV_E_H264_OPTIONS_2);
 	}
 
