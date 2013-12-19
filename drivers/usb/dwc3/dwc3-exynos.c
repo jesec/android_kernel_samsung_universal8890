@@ -456,6 +456,9 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(exynos->clk);
 
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
 	dwc3_exynos_rsw_init(exynos);
 
 	exynos->vdd33 = devm_regulator_get(dev, "vdd33");
@@ -505,7 +508,9 @@ err3:
 	if (exynos->vdd33)
 		regulator_disable(exynos->vdd33);
 err2:
+	pm_runtime_disable(&pdev->dev);
 	clk_disable_unprepare(clk);
+	pm_runtime_set_suspended(&pdev->dev);
 	return ret;
 }
 
@@ -517,20 +522,54 @@ static int dwc3_exynos_remove(struct platform_device *pdev)
 	platform_device_unregister(exynos->usb2_phy);
 	platform_device_unregister(exynos->usb3_phy);
 
-	clk_disable_unprepare(exynos->clk);
-
 	if (exynos->vdd33)
 		regulator_disable(exynos->vdd33);
 	if (exynos->vdd10)
 		regulator_disable(exynos->vdd10);
 
+	pm_runtime_disable(&pdev->dev);
+	if (!pm_runtime_status_suspended(&pdev->dev)) {
+		clk_disable(exynos->clk);
+		pm_runtime_set_suspended(&pdev->dev);
+	}
+	clk_unprepare(exynos->clk);
+
 	return 0;
 }
+
+#ifdef CONFIG_PM_RUNTIME
+static int dwc3_exynos_runtime_suspend(struct device *dev)
+{
+	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	clk_disable(exynos->clk);
+
+	return 0;
+}
+
+static int dwc3_exynos_runtime_resume(struct device *dev)
+{
+	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	clk_enable(exynos->clk);
+
+	return 0;
+}
+#endif
 
 #ifdef CONFIG_PM_SLEEP
 static int dwc3_exynos_suspend(struct device *dev)
 {
 	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (pm_runtime_suspended(dev))
+		return 0;
 
 	clk_disable(exynos->clk);
 
@@ -561,6 +600,7 @@ static int dwc3_exynos_resume(struct device *dev)
 			return ret;
 		}
 	}
+	dev_dbg(dev, "%s\n", __func__);
 
 	clk_enable(exynos->clk);
 
@@ -574,6 +614,8 @@ static int dwc3_exynos_resume(struct device *dev)
 
 static const struct dev_pm_ops dwc3_exynos_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_exynos_suspend, dwc3_exynos_resume)
+	SET_RUNTIME_PM_OPS(dwc3_exynos_runtime_suspend,
+			dwc3_exynos_runtime_resume, NULL)
 };
 
 #define DEV_PM_OPS	(&dwc3_exynos_dev_pm_ops)

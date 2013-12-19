@@ -21,6 +21,7 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
 
 #include "core.h"
 #include "otg.h"
@@ -206,6 +207,7 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 
 	if (on) {
 		wake_lock(&dotg->wakelock);
+		pm_runtime_get_sync(dev);
 		if (dwc->needs_reinit) {
 			ret = dwc3_core_init(dwc);
 			if (ret) {
@@ -226,6 +228,7 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 		platform_device_del(dwc->xhci);
 		dwc3_core_exit(dwc);
 		dwc->needs_reinit = 1;
+		pm_runtime_put_sync(dev);
 		wake_unlock(&dotg->wakelock);
 	}
 
@@ -247,10 +250,12 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 
 	if (on) {
 		wake_lock(&dotg->wakelock);
+		pm_runtime_get_sync(dev);
 		dwc3_otg_set_peripheral_mode(dotg);
 		ret = usb_gadget_vbus_connect(otg->gadget);
 	} else {
 		ret = usb_gadget_vbus_disconnect(otg->gadget);
+		pm_runtime_put_sync(dev);
 		wake_lock(&dotg->wakelock);
 	}
 

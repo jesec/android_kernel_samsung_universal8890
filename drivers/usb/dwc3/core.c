@@ -625,6 +625,9 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 			return ret;
 		}
 
+		/* Unblock runtime PM for OTG */
+		pm_runtime_put_sync(dev);
+
 		break;
 	default:
 		dev_err(dev, "Unsupported mode of operation %d\n", dwc->dr_mode);
@@ -842,7 +845,8 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	dwc3_core_exit(dwc);
 
-	pm_runtime_put_sync(&pdev->dev);
+	if (dwc->dr_mode != USB_DR_MODE_OTG)
+		pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
@@ -853,6 +857,9 @@ static int dwc3_prepare(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
+
+	/* bring to full power */
+	pm_runtime_get_sync(dev);
 
 	if (dwc->dr_mode == USB_DR_MODE_OTG)
 		dwc3_otg_stop(dwc);
@@ -899,6 +906,9 @@ static void dwc3_complete(struct device *dev)
 
 	if (dwc->dr_mode == USB_DR_MODE_OTG)
 		dwc3_otg_start(dwc);
+
+	/* Compensate usage count incremented during prepare */
+	pm_runtime_put_sync(dev);
 }
 
 static int dwc3_suspend(struct device *dev)
