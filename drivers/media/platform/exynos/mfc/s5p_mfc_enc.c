@@ -2827,10 +2827,13 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->vbv_buf_size = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEADER_MODE:
-		p->seq_hdr_mode = ctrl->value;
+		p->seq_hdr_mode =
+			(enum v4l2_mpeg_video_header_mode)(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE:
-		p->frame_skip_mode = ctrl->value;
+		p->frame_skip_mode =
+			(enum v4l2_mpeg_mfc51_video_frame_skip_mode)
+			(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_RC_FIXED_TARGET_BIT: /* MFC5.x Only */
 		p->fixed_target_bit = ctrl->value;
@@ -2839,7 +2842,7 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->num_b_frame = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		switch (ctrl->value) {
+		switch ((enum v4l2_mpeg_video_h264_profile)(ctrl->value)) {
 		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
 			p->codec.h264.profile =
 				S5P_FIMV_ENC_PROFILE_H264_MAIN;
@@ -2865,13 +2868,14 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		p->codec.h264.level =
-		h264_level((enum v4l2_mpeg_video_h264_level)ctrl->value);
+		h264_level((enum v4l2_mpeg_video_h264_level)(ctrl->value));
 		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_H264_INTERLACE:
 		p->codec.h264.interlace = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE:
-		p->codec.h264.loop_filter_mode = ctrl->value;
+		p->codec.h264.loop_filter_mode =
+		(enum v4l2_mpeg_video_h264_loop_filter_mode)(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA:
 		p->codec.h264.loop_filter_alpha = ctrl->value;
@@ -2880,7 +2884,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.h264.loop_filter_beta = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
-		p->codec.h264.entropy_mode = ctrl->value;
+		p->codec.h264.entropy_mode =
+			(enum v4l2_mpeg_video_h264_entropy_mode)(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_H264_NUM_REF_PIC_FOR_P:
 		p->codec.h264.num_ref_pic_4p = ctrl->value;
@@ -2925,7 +2930,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.h264.ar_vui = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_IDC:
-		p->codec.h264.ar_vui_idc = vui_sar_idc(ctrl->value);
+		p->codec.h264.ar_vui_idc =
+		vui_sar_idc((enum v4l2_mpeg_video_h264_vui_sar_idc)(ctrl->value));
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_WIDTH:
 		p->codec.h264.ext_sar_width = ctrl->value;
@@ -2943,7 +2949,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.h264.hier_qp = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_TYPE:
-		p->codec.h264.hier_qp_type = ctrl->value;
+		p->codec.h264.hier_qp_type =
+		(enum v4l2_mpeg_video_h264_hierarchical_coding_type)(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER:
 		p->codec.h264.hier_qp_layer = ctrl->value;
@@ -2965,7 +2972,7 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.h264.fmo_enable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE:
-		switch (ctrl->value) {
+		switch ((enum v4l2_mpeg_video_h264_fmo_map_type)(ctrl->value)) {
 		case V4L2_MPEG_VIDEO_H264_FMO_MAP_TYPE_INTERLEAVED_SLICES:
 		case V4L2_MPEG_VIDEO_H264_FMO_MAP_TYPE_SCATTERED_SLICES:
 		case V4L2_MPEG_VIDEO_H264_FMO_MAP_TYPE_RASTER_SCAN:
@@ -3003,7 +3010,7 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.h264.prepend_sps_pps_to_idr = ctrl->value ? 1 : 0;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
-		switch (ctrl->value) {
+		switch ((enum v4l2_mpeg_video_mpeg4_profile)(ctrl->value)) {
 		case V4L2_MPEG_VIDEO_MPEG4_PROFILE_SIMPLE:
 			p->codec.mpeg4.profile =
 				S5P_FIMV_ENC_PROFILE_MPEG4_SIMPLE;
@@ -3017,7 +3024,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
-		p->codec.mpeg4.level = mpeg4_level(ctrl->value);
+		p->codec.mpeg4.level =
+		mpeg4_level((enum v4l2_mpeg_video_mpeg4_level)(ctrl->value));
 		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP:
 		p->codec.mpeg4.rc_frame_qp = ctrl->value;
