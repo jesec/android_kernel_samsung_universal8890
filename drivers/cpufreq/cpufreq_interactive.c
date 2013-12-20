@@ -31,6 +31,10 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+#include <soc/samsung/cpufreq.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
@@ -522,8 +526,9 @@ static int cpufreq_interactive_speedchange_task(void *data)
 		}
 
 		set_current_state(TASK_RUNNING);
-		tmp_mask = speedchange_cpumask;
-		cpumask_clear(&speedchange_cpumask);
+		pcpu = &per_cpu(cpuinfo, smp_processor_id());
+		cpumask_and(&tmp_mask, &speedchange_cpumask, pcpu->policy->cpus);
+		cpumask_andnot(&speedchange_cpumask, &speedchange_cpumask, pcpu->policy->cpus);
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		for_each_cpu(cpu, &tmp_mask) {
@@ -1267,6 +1272,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 
 		sched_setscheduler_nocheck(tunables->speedchange_task, SCHED_FIFO, &param);
 		get_task_struct(tunables->speedchange_task);
+
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+		kthread_bind(tunables->speedchange_task, policy->cpu);
+#endif
 
 		/* NB: wake up so the thread does not look hung to the freezer */
 		wake_up_process(tunables->speedchange_task);
