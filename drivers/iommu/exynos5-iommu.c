@@ -1106,7 +1106,10 @@ static void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx)
 	if ((maj == 1) || (maj == 2))
 		goto set_cfg;
 
-	BUG_ON(maj != 3);
+	if (maj != 3)
+		panic("%s: Failed to read version (%d.%d), master: %s\n",
+			dev_name(drvdata->sysmmu), maj, min,
+			dev_name(drvdata->master));
 
 	if (min < 2)
 		goto set_pb;
