@@ -638,9 +638,9 @@ static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 	case V4L2_PIX_FMT_NV12MT:
 	case V4L2_PIX_FMT_NV12M:
 	case V4L2_PIX_FMT_NV21M:
-		raw->stride[0] = ctx->buf_stride ?
+		raw->stride[0] = (ctx->buf_stride > ctx->img_width) ?
 				ALIGN(ctx->img_width, 16) : ctx->img_width;
-		raw->stride[1] = ctx->buf_stride ?
+		raw->stride[1] = (ctx->buf_stride > ctx->img_width) ?
 				ALIGN(ctx->img_width, 16) : ctx->img_width;
 		raw->stride[2] = 0;
 		break;
@@ -657,7 +657,8 @@ static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 	case V4L2_PIX_FMT_RGB32X:
 	case V4L2_PIX_FMT_BGR32:
 	case V4L2_PIX_FMT_ARGB32:
-		ctx->raw_buf.stride[0] = ctx->img_width * 4;
+		ctx->raw_buf.stride[0] = (ctx->buf_stride > ctx->img_width) ?
+			(ALIGN(ctx->img_width, 16) * 4) : (ctx->img_width * 4);
 		ctx->raw_buf.stride[1] = 0;
 		ctx->raw_buf.stride[2] = 0;
 		break;
