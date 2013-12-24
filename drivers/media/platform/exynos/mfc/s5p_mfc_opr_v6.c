@@ -245,6 +245,9 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		if (mfc_version(dev) == 0x61)
 			ctx->scratch_buf_size =
 				DEC_V61_VP8_SCRATCH_SIZE(mb_width, mb_height);
+		else if (IS_MFCv8X(dev))
+			ctx->scratch_buf_size =
+				DEC_V80_VP8_SCRATCH_SIZE(mb_width, mb_height);
 		else
 			ctx->scratch_buf_size =
 				DEC_V65_VP8_SCRATCH_SIZE(mb_width, mb_height);
@@ -285,8 +288,13 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		ctx->port_b_size = 0;
 		break;
 	case S5P_FIMV_CODEC_VP8_ENC:
-		ctx->scratch_buf_size =
-			ENC_V70_VP8_SCRATCH_SIZE(mb_width, mb_height);
+		if (IS_MFCv8X(dev))
+			ctx->scratch_buf_size =
+				ENC_V80_VP8_SCRATCH_SIZE(mb_width, mb_height);
+		else
+			ctx->scratch_buf_size =
+				ENC_V70_VP8_SCRATCH_SIZE(mb_width, mb_height);
+
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
 		ctx->port_a_size =
 			ctx->scratch_buf_size + enc->tmv_buffer_size +

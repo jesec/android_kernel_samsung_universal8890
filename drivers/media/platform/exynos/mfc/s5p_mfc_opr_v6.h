@@ -215,14 +215,15 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 /* Scratch buffer size for MFC v8.0 */
 #define DEC_V80_H264_SCRATCH_SIZE(x, y)				\
 		((x * 704) + 2176)
-/*
-#define DEC_V80_MPEG4_SCRATCH_SIZE(x, y)			\
-		(((x) * 592) + ((y) * 4096) + 1048576)
-*/
 #define DEC_V80_MPEG4_SCRATCH_SIZE(x, y)			\
 		(((x) * 592) + ((y) * 4096) + (2*1048576))
+#define DEC_V80_VP8_SCRATCH_SIZE(x, y)				\
+		((((x) * 576) * ((y) * 128) + 4128))
 #define ENC_V80_H264_SCRATCH_SIZE(x, y)				\
 		(((x) * 592) + 2336)
+#define ENC_V80_VP8_SCRATCH_SIZE(x, y)				\
+		(((x) * 576) + 10512 +	\
+		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
 
 void s5p_mfc_try_run(struct s5p_mfc_dev *dev);
 
