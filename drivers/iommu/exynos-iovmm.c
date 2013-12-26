@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/scatterlist.h>
 #include <linux/err.h>
+#include <linux/debugfs.h>
 
 #include <linux/exynos_iovmm.h>
 #include <plat/cpu.h>
@@ -139,6 +140,7 @@ again:
 	list_add_tail(&region->node, &vmm->regions_list);
 	vmm->allocated_size[id] += region->size;
 	vmm->num_areas[id]++;
+	vmm->num_map++;
 	spin_unlock(&vmm->vmlist_lock);
 
 	return region->start;
@@ -182,6 +184,7 @@ static struct exynos_vm_region *remove_iovm_region(struct exynos_iovmm *vmm,
 			list_del(&region->node);
 			vmm->allocated_size[id] -= region->size;
 			vmm->num_areas[id]--;
+			vmm->num_unmap++;
 			spin_unlock(&vmm->vmlist_lock);
 			return region;
 		}
@@ -549,6 +552,87 @@ void iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
 	}
 }
 
+static struct dentry *exynos_iovmm_debugfs_root;
+static int exynos_iovmm_create_debugfs(void)
+{
+	exynos_iovmm_debugfs_root = debugfs_create_dir("iovmm", NULL);
+	if (!exynos_iovmm_debugfs_root)
+		pr_err("IOVMM: Failed to create debugfs entry\n");
+	else
+		pr_info("IOVMMU: Created debugfs entry at debugfs/iovmm\n");
+
+	return 0;
+}
+subsys_initcall(exynos_iovmm_create_debugfs);
+
+static int iovmm_debug_show(struct seq_file *s, void *unused)
+{
+	struct exynos_iovmm *vmm = s->private;
+	int i = 0;
+
+	seq_printf(s, "%.6s  %10.s  %10.s  %10.s  %6.s\n",
+			"REGION", "VASTART", "SIZE", "FREE", "CHUNKS");
+	seq_puts(s, "---------------------------------------------\n");
+
+	spin_lock(&vmm->vmlist_lock);
+	while (i < vmm->inplanes) {
+		seq_printf(s, "%3s[%d]  %#10x  %#10x  %#10x  %d\n",
+				"in", i, vmm->iova_start[i], vmm->iovm_size[i],
+				vmm->iovm_size[i] - vmm->allocated_size[i],
+				vmm->num_areas[i]);
+		i++;
+	}
+	while (i < (vmm->inplanes + vmm->onplanes)) {
+		seq_printf(s, "%3s[%d]  %#10x  %#10x  %#10x  %d\n",
+				"out", i - vmm->inplanes, vmm->iova_start[i],
+				vmm->iovm_size[i],
+				vmm->iovm_size[i] - vmm->allocated_size[i],
+				vmm->num_areas[i]);
+		i++;
+	}
+	seq_puts(s, "---------------------------------------------\n");
+	seq_printf(s, "Total number of mappings  : %d\n", vmm->num_map);
+	seq_printf(s, "Total number of unmappings: %d\n", vmm->num_unmap);
+	spin_unlock(&vmm->vmlist_lock);
+
+	return 0;
+}
+
+static int iovmm_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, iovmm_debug_show, inode->i_private);
+}
+
+static ssize_t iovmm_debug_write(struct file *filp, const char __user *p,
+				size_t len, loff_t *off)
+{
+	struct seq_file *s = filp->private_data;
+	struct exynos_iovmm *vmm = s->private;
+	/* clears the map count in IOVMM */
+	spin_lock(&vmm->vmlist_lock);
+	vmm->num_map = 0;
+	vmm->num_unmap = 0;
+	spin_unlock(&vmm->vmlist_lock);
+	return len;
+}
+
+static const struct file_operations iovmm_debug_fops = {
+	.open = iovmm_debug_open,
+	.read = seq_read,
+	.write = iovmm_debug_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static void iovmm_register_debugfs(struct exynos_iovmm *vmm)
+{
+	if (!exynos_iovmm_debugfs_root)
+		return;
+
+	debugfs_create_file(dev_name(vmm->dev), 0664,
+			exynos_iovmm_debugfs_root, vmm, &iovmm_debug_fops);
+}
+
 int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes)
 {
 	static unsigned long iovmcfg[MAX_NUM_PLANE][MAX_NUM_PLANE] = {
@@ -608,6 +692,8 @@ int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes)
 
 	vmm->dev = dev;
 	owner->vmm_data = vmm;
+
+	iovmm_register_debugfs(vmm);
 
 	dev_dbg(dev, "IOVMM: Created %#x B IOVMM from %#x.\n",
 						IOVM_SIZE, IOVA_START);

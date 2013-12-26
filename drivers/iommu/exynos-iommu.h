@@ -94,6 +94,8 @@ struct exynos_iovmm {
 	int num_areas[MAX_NUM_PLANE];
 	int inplanes;
 	int onplanes;
+	unsigned int num_map;
+	unsigned int num_unmap;
 };
 
 void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
