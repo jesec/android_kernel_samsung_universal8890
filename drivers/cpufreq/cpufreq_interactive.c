@@ -31,6 +31,11 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 
+#ifdef CONFIG_ANDROID
+#include <linux/syscalls.h>
+#include <linux/android_aid.h>
+#endif
+
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 #include <soc/samsung/cpufreq.h>
 #endif
@@ -1106,6 +1111,22 @@ static struct attribute_group interactive_attr_group_gov_pol = {
 	.name = "interactive",
 };
 
+#ifdef CONFIG_ANDROID
+static const char *interactive_sysfs[] = {
+	"target_loads",
+	"above_hispeed_delay",
+	"hispeed_freq",
+	"go_hispeed_load",
+	"min_sample_time",
+	"timer_rate",
+	"timer_slack",
+	"boost",
+	"boostpulse",
+	"boostpulse_duration",
+	"io_is_busy",
+};
+#endif
+
 static struct attribute_group *get_sysfs_attr(void)
 {
 	if (have_governor_per_policy())
@@ -1127,6 +1148,31 @@ static int cpufreq_interactive_idle_notifier(struct notifier_block *nb,
 static struct notifier_block cpufreq_interactive_idle_nb = {
 	.notifier_call = cpufreq_interactive_idle_notifier,
 };
+
+#ifdef CONFIG_ANDROID
+static void change_sysfs_owner(struct cpufreq_policy *policy)
+{
+	char buf[NAME_MAX];
+	mm_segment_t oldfs;
+	int i;
+	char *path = kobject_get_path(get_governor_parent_kobj(policy),
+			GFP_KERNEL);
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+
+	for (i = 0; i < ARRAY_SIZE(interactive_sysfs); i++) {
+		snprintf(buf, sizeof(buf), "/sys%s/interactive/%s", path,
+				interactive_sysfs[i]);
+		sys_chown(buf, __kgid_val(AID_SYSTEM), __kgid_val(AID_SYSTEM));
+	}
+
+	set_fs(oldfs);
+	kfree(path);
+}
+#else
+static inline void change_sysfs_owner(struct cpufreq_policy *policy) { }
+#endif
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event)
@@ -1203,6 +1249,8 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			}
 			return rc;
 		}
+
+		change_sysfs_owner(policy);
 
 		if (!policy->governor->initialized) {
 			idle_notifier_register(&cpufreq_interactive_idle_nb);
