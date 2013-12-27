@@ -44,7 +44,6 @@ struct s3c24xx_serial_drv_data {
 struct s3c24xx_uart_port {
 	unsigned char			rx_claimed;
 	unsigned char			tx_claimed;
-	unsigned int			pm_level;
 	unsigned long			baudclk_rate;
 
 	unsigned int			rx_irq;
@@ -61,9 +60,6 @@ struct s3c24xx_uart_port {
 	/* reference to platform data */
 	struct s3c2410_uartcfg		*cfg;
 
-#ifdef CONFIG_CPU_FREQ
-	struct notifier_block		freq_transition;
-#endif
 	struct notifier_block		aud_uart_notifier;
 	struct platform_device		*pdev;
 };
