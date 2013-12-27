@@ -1802,6 +1802,7 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 	if (lv1ent_fault(sent)) {
 		sysmmu_pte_t *pent;
 		struct exynos_iommu_owner *owner;
+		unsigned long flags;
 
 		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
 		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
@@ -1831,8 +1832,10 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 		 * blocking because the target address of TLB invalidation is not
 		 * currently mapped.
 		 */
+		spin_lock_irqsave(&priv->lock, flags);
 		list_for_each_entry(owner, &priv->clients, client)
 			sysmmu_tlb_invalidate_flpdcache(owner->dev, iova);
+		spin_unlock_irqrestore(&priv->lock, flags);
 	} else if (!lv1ent_page(sent)) {
 		return ERR_PTR(-EADDRINUSE);
 	}
@@ -1962,14 +1965,18 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	if (size >= SECT_SIZE) {
 		int num_entry = size / SECT_SIZE;
 		struct exynos_iommu_owner *owner;
-		int i;
+		unsigned long flags2;
 
-		list_for_each_entry(owner, &priv->clients, client)
+		spin_lock_irqsave(&priv->lock, flags2);
+		list_for_each_entry(owner, &priv->clients, client) {
+			int i;
 			for (i = 0; i < num_entry; i++)
 				if (entry[i] == ZERO_LV2LINK)
 					sysmmu_tlb_invalidate_flpdcache(
-						owner->dev,
-						iova + i * SECT_SIZE);
+							owner->dev,
+							iova + i * SECT_SIZE);
+		}
+		spin_unlock_irqrestore(&priv->lock, flags2);
 
 		ret = lv1set_section(entry, paddr, size,
 					&priv->lv2entcnt[lv1ent_offset(iova)]);
