@@ -861,7 +861,8 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 		  unsigned int start_num_byte, unsigned int strm_size)
 {
 	struct s5p_mfc_dev *dev;
-	struct s5p_mfc_buf_size *buf_size;
+	struct s5p_mfc_dec *dec;
+	size_t cpb_buf_size;
 
 	mfc_debug_enter();
 	if (!ctx) {
@@ -873,12 +874,21 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 		mfc_err("no mfc device to run\n");
 		return -EINVAL;
 	}
-	buf_size = dev->variant->buf_size;
-	mfc_debug(2, "inst_no: %d, buf_addr: 0x%08x, buf_size: 0x"
-		"%08x (%d)\n",  ctx->inst_no, buf_addr, strm_size, strm_size);
+	dec = ctx->dec_priv;
+	if (!dec) {
+		mfc_err("no mfc decoder to run\n");
+		return -EINVAL;
+	}
+
+	cpb_buf_size = ALIGN(dec->src_buf_size, S5P_FIMV_NV12M_HALIGN);
+
+	mfc_debug(2, "inst_no: %d, buf_addr: 0x%08x\n", ctx->inst_no, buf_addr);
+	mfc_debug(2, "strm_size: 0x%08x cpb_buf_size 0x%x\n",
+			strm_size, cpb_buf_size);
+
 	WRITEL(strm_size, S5P_FIMV_D_STREAM_DATA_SIZE);
 	WRITEL(buf_addr, S5P_FIMV_D_CPB_BUFFER_ADDR);
-	WRITEL(buf_size->cpb_buf, S5P_FIMV_D_CPB_BUFFER_SIZE);
+	WRITEL(cpb_buf_size, S5P_FIMV_D_CPB_BUFFER_SIZE);
 	WRITEL(start_num_byte, S5P_FIMV_D_CPB_BUFFER_OFFSET);
 
 	mfc_debug_leave();
