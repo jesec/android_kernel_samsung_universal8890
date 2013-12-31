@@ -422,7 +422,8 @@ int hevc_set_dec_stream_buffer(struct hevc_ctx *ctx, dma_addr_t buf_addr,
 		  unsigned int start_num_byte, unsigned int strm_size)
 {
 	struct hevc_dev *dev;
-	struct hevc_buf_size *buf_size;
+	struct hevc_dec *dec;
+	size_t cpb_buf_size;
 
 	hevc_debug_enter();
 	if (!ctx) {
@@ -434,12 +435,21 @@ int hevc_set_dec_stream_buffer(struct hevc_ctx *ctx, dma_addr_t buf_addr,
 		hevc_err("no hevc device to run\n");
 		return -EINVAL;
 	}
-	buf_size = dev->variant->buf_size;
-	hevc_debug(2, "inst_no: %d, buf_addr: 0x%08x, buf_size: 0x"
-		"%08x (%d) buf_size->cpb_buf : 0x%x\n",  ctx->inst_no, buf_addr, strm_size, strm_size, buf_size->cpb_buf);
+	dec = ctx->dec_priv;
+	if (!dec) {
+		hevc_err("no mfc decoder to run\n");
+		return -EINVAL;
+	}
+
+	cpb_buf_size = ALIGN(dec->src_buf_size, HEVC_NV12M_HALIGN);
+
+	hevc_debug(2, "inst_no: %d, buf_addr: 0x%x\n", ctx->inst_no, buf_addr);
+	hevc_debug(2, "strm_size: 0x%08x cpb_buf_size: 0x%x\n",
+			 strm_size, cpb_buf_size);
+
 	WRITEL(strm_size, HEVC_D_STREAM_DATA_SIZE);
 	WRITEL(buf_addr, HEVC_D_CPB_BUFFER_ADDR);
-	WRITEL(buf_size->cpb_buf, HEVC_D_CPB_BUFFER_SIZE);
+	WRITEL(cpb_buf_size, HEVC_D_CPB_BUFFER_SIZE);
 	WRITEL(start_num_byte, HEVC_D_CPB_BUFFER_OFFSET);
 
 	hevc_debug_leave();

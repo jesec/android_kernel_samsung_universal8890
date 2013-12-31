@@ -102,6 +102,8 @@
 #define HEVC_GET_ADR(target)						\
 	(hevc_read_reg(HEVC_##target##_ADR_ADDR) << HEVC_##target##_ADR_SHFT)
 
+#define HEVC_NV12M_HALIGN			16
+
 void hevc_init_reg(void __iomem *base);
 void hevc_write_reg(unsigned int data, unsigned int offset);
 unsigned int hevc_read_reg(unsigned int offset);
