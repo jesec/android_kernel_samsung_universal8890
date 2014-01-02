@@ -104,6 +104,7 @@ typedef u32 exynos_iova_t;
  * to the same owner device.
  */
 struct exynos_iommu_owner {
+	struct list_head entry; /* entry of exynos_iommu_owner list */
 	struct list_head client; /* entry of exynos_iommu_domain.clients */
 	struct device *dev;
 	void *vmm_data;         /* IO virtual memory manager's data */
@@ -153,6 +154,7 @@ enum sysmmu_property {
  * Metadata attached to each System MMU devices.
  */
 struct sysmmu_drvdata {
+	struct list_head entry;	/* entry of sysmmu debug drvdata list */
 	struct list_head node;	/* entry of exynos_iommu_owner.mmu_list */
 	struct device *sysmmu;	/* System MMU's device descriptor */
 	struct device *master;	/* Client device that needs System MMU */

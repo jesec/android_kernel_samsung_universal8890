@@ -31,6 +31,9 @@ struct sysmmu_list_data {
 		&((struct exynos_iommu_owner *)dev->archdata.iommu)->mmu_list,\
 		node)
 
+static LIST_HEAD(sysmmu_drvdata_list);
+static LIST_HEAD(sysmmu_owner_list);
+
 static struct kmem_cache *lv2table_kmem_cache;
 static phys_addr_t fault_page;
 unsigned long *zero_lv2_table;
@@ -666,12 +669,15 @@ static int __init __sysmmu_init_master(struct device *dev)
 				ret = -ENOMEM;
 				goto err;
 			}
+
 			INIT_LIST_HEAD(&owner->mmu_list);
 			INIT_LIST_HEAD(&owner->client);
+			INIT_LIST_HEAD(&owner->entry);
 			owner->dev = &master->dev;
 			spin_lock_init(&owner->lock);
 
 			master->dev.archdata.iommu = owner;
+			list_add_tail(&owner->entry, &sysmmu_owner_list);
 		}
 
 		list_data = devm_kzalloc(dev, sizeof(*list_data), GFP_KERNEL);
@@ -845,8 +851,10 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 	if (!ret) {
 		data->runtime_active = !pm_runtime_enabled(dev);
 		data->sysmmu = dev;
+		INIT_LIST_HEAD(&data->entry);
 		spin_lock_init(&data->lock);
 
+		list_add_tail(&data->entry, &sysmmu_drvdata_list);
 		platform_set_drvdata(pdev, data);
 
 		dev_info(dev, "[OK]\n");
