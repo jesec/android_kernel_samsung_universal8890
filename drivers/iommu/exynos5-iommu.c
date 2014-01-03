@@ -25,13 +25,8 @@
 #include "exynos-iommu.h"
 
 #define CFG_LRU		0x1
-#define CFG_QOS(n)	((n & 0xF) << 7)
 #define CFG_MASK	0x0150FFFF /* Selecting bit 0-15, 20, 22 and 24 */
-#define CFG_ACGEN	(1 << 24) /* System MMU 3.3 only */
 #define CFG_SYSSEL	(1 << 22) /* System MMU 3.2 only */
-#define CFG_FLPDCACHE	(1 << 20) /* System MMU 3.2+ only */
-#define CFG_SHAREABLE	(1 << 12) /* System MMU 3.x only */
-#define CFG_QOS_OVRRIDE (1 << 11) /* System MMU 3.3 only */
 
 #define PB_INFO_NUM(reg)	((reg) & 0xFF) /* System MMU 3.3 only */
 

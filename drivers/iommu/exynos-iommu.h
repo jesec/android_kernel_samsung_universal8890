@@ -99,6 +99,12 @@ typedef u32 exynos_iova_t;
 #define CTRL_BLOCK	0x7
 #define CTRL_DISABLE	0x0
 
+#define CFG_ACGEN	(1 << 24) /* System MMU 3.3+ */
+#define CFG_FLPDCACHE	(1 << 20) /* System MMU 3.2+ */
+#define CFG_SHAREABLE	(1 << 12) /* System MMU 3.0+ */
+#define CFG_QOS_OVRRIDE (1 << 11) /* System MMU 3.3+ */
+#define CFG_QOS(n)	(((n) & 0xF) << 7)
+
 /*
  * Metadata attached to the owner of a group of System MMUs that belong
  * to the same owner device.
@@ -283,6 +289,11 @@ static inline bool set_sysmmu_inactive(struct sysmmu_drvdata *data)
 static inline bool is_sysmmu_active(struct sysmmu_drvdata *data)
 {
 	return data->activations > 0;
+}
+
+static inline bool is_sysmmu_really_enabled(struct sysmmu_drvdata *data)
+{
+	return is_sysmmu_active(data) && data->runtime_active;
 }
 
 #define MMU_MAJ_VER(val)	((val) >> 7)

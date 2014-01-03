@@ -24,12 +24,7 @@
 
 #include "exynos-iommu.h"
 
-#define CFG_QOS(n)	(((n) & 0xF) << 7)
 #define CFG_MASK	0x01101FBC /* Selecting bit 24, 20, 12-7, 5-2 */
-#define CFG_ACGEN	(1 << 24)
-#define CFG_FLPDCACHE	(1 << 20)
-#define CFG_SHAREABLE	(1 << 12)
-#define CFG_QOS_OVRRIDE (1 << 11)
 
 #define PB_INFO_NUM(reg)	((reg) & 0xFF)
 #define L1TLB_ATTR_IM	(1 << 16)
