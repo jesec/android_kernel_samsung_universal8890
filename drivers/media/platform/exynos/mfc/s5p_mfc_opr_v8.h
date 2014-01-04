@@ -213,7 +213,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define DEC_V80_MPEG4_SCRATCH_SIZE(x, y)			\
 		(((x) * 592) + ((y) * 4096) + (2*1048576))
 #define DEC_V80_VP8_SCRATCH_SIZE(x, y)				\
-		((((x) * 576) * ((y) * 128) + 4128))
+		((((x) * 576) + ((y) * 128) + 4128))
 #define ENC_V80_H264_SCRATCH_SIZE(x, y)				\
 		(((x) * 592) + 2336)
 #define ENC_V80_VP8_SCRATCH_SIZE(x, y)				\
