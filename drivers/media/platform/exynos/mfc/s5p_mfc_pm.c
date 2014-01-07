@@ -20,6 +20,7 @@
 
 #include <plat/cpu.h>
 #include <mach/smc.h>
+#include <mach/bts.h>
 
 #include "s5p_mfc_common.h"
 #include "s5p_mfc_debug.h"
@@ -372,13 +373,23 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
 {
+	int ret;
 	atomic_set(&dev->pm.power, 1);
 
-	return pm_runtime_get_sync(dev->pm.device);
+	ret = pm_runtime_get_sync(dev->pm.device);
+
+#if defined(CONFIG_SOC_EXYNOS5422)
+	bts_initialize("pd-mfc", true);
+#endif
+
+	return ret;
 }
 
 int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 {
+#if defined(CONFIG_SOC_EXYNOS5422)
+	bts_initialize("pd-mfc", false);
+#endif
 	atomic_set(&dev->pm.power, 0);
 
 	return pm_runtime_put_sync(dev->pm.device);

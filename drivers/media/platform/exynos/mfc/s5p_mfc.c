@@ -28,9 +28,10 @@
 #include <linux/of.h>
 #include <linux/exynos_iovmm.h>
 #include <mach/smc.h>
+#include <mach/bts.h>
+#include <mach/devfreq.h>
 
 #include "s5p_mfc_common.h"
-
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_inst.h"
 #include "s5p_mfc_mem.h"
@@ -1700,6 +1701,22 @@ static int s5p_mfc_release(struct file *file)
 			enc->in_slice = 0;
 		}
 	}
+
+#if defined(CONFIG_SOC_EXYNOS5422)
+	if ((ctx->type == MFCINST_ENCODER) && (ctx->img_width == 3840)
+			&& (ctx->img_height == 2160)) {
+		bts_scen_update(TYPE_MFC_UD_ENCODING, 0);
+		exynos5_update_media_layers(TYPE_UD_ENCODING, 0);
+		mfc_info("UHD encoding stop\n");
+	}
+
+	if ((ctx->type == MFCINST_DECODER) && (ctx->img_width == 3840)
+			&& (ctx->img_height == 2160)) {
+		bts_scen_update(TYPE_MFC_UD_DECODING, 0);
+		exynos5_update_media_layers(TYPE_UD_DECODING, 0);
+		mfc_info("UHD decoding stop\n");
+	}
+#endif
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	s5p_mfc_qos_off(ctx);

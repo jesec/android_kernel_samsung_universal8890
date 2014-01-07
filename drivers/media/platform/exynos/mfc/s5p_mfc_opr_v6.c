@@ -28,9 +28,10 @@
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 #include <linux/exynos_iovmm.h>
 #endif
+#include <mach/bts.h>
+#include <mach/devfreq.h>
 
 #include "s5p_mfc_common.h"
-
 #include "s5p_mfc_cmd.h"
 #include "s5p_mfc_mem.h"
 #include "s5p_mfc_intr.h"
@@ -1525,6 +1526,11 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	if((ctx->img_width == 3840) && (ctx->img_height == 2160)) {
 		p_264->level = 51;
 		p_264->profile = 0x2;
+#if defined(CONFIG_SOC_EXYNOS5422)
+		bts_scen_update(TYPE_MFC_UD_ENCODING, 1);
+		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
+		mfc_info("UHD encoding start\n");
+#endif
 	}
 
 	/* profile & level */
@@ -2727,6 +2733,14 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 			"before starting processing.\n");
 		return -EAGAIN;
 	}
+
+#if defined(CONFIG_SOC_EXYNOS5422)
+	if((ctx->img_width == 3840) && (ctx->img_height == 2160)) {
+		bts_scen_update(TYPE_MFC_UD_DECODING, 1);
+		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
+		mfc_info("UHD decoding start\n");
+	}
+#endif
 
 	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
