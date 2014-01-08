@@ -867,6 +867,7 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
  * IS_MFCv6X : For MFC v6.X only
  * IS_MFCv5X : For MFC v5.X only
  * IS_MFCV6 : For MFC v6 architecure
+ * IS_OVER_MFCv78 : For MFC v7.8 and later version
  */
 #define IS_MFCv7X(dev)		((mfc_version(dev) == 0x72) || \
 				 (mfc_version(dev) == 0x723))
@@ -875,6 +876,7 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
 #define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) || IS_MFCv8X(dev))
 #define IS_MFCv8X(dev)		(mfc_version(dev) == 0x80)
+#define IS_OVER_MFCv78(dev)		(mfc_version(dev) >= 0x78)
 
 /* supported feature macros by F/W version */
 #define FW_HAS_BUS_RESET(dev)		(dev->fw.date >= 0x120206)
