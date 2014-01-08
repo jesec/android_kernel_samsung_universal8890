@@ -189,7 +189,7 @@ struct exynos_iommu_domain {
 #define lv1ent_section(sent) ((*(sent) & 3) == 2)
 #define lv1ent_dsection(sent) 0 /* Large section is not defined */
 #define lv1ent_spsection(sent) (((*(sent) & 3) == 2) && \
-			       ((*(sent) & (0x1 << 18)) == 1))
+			       (((*(sent) >> 18) & 1) == 1))
 #define lv2ent_fault(pent) ((*(pent) & 3) == 0 || \
 			   ((*(pent) & SPAGE_MASK) == fault_page))
 #define lv2ent_small(pent) ((*(pent) & 2) == 2)
