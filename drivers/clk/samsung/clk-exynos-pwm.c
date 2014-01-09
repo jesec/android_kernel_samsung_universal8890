@@ -71,6 +71,8 @@ static struct clk_onecell_data clk_data;
 #define REG_TCFG1			0x04
 #define REG_TCON			0x08
 #define REG_TINT_CSTAT			0x44
+#define MASK_TCFG0_PRESCALE0		0x00FF
+#define MASK_TCFG0_PRESCALE1		0xFF00
 
 enum exynos_pwm_clks {
 	pwm_clock = 0,
@@ -110,6 +112,7 @@ static const struct clk_div_table pwm_div_table[5] = {
 void __init exynos_pwm_clk_init(struct device_node *np)
 {
 	static void __iomem *reg_base;
+	unsigned int reg_tcfg0;
 
 	reg_base = of_iomap(np, 0);
 
@@ -128,6 +131,11 @@ void __init exynos_pwm_clk_init(struct device_node *np)
 	clk_data.clks = clk_table;
 	clk_data.clk_num = exynos_pwm_max_clks;
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
+
+	reg_tcfg0 = __raw_readl(reg_base + REG_TCFG0);
+	reg_tcfg0 &= ~(MASK_TCFG0_PRESCALE0 | MASK_TCFG0_PRESCALE1);
+	__raw_writel(reg_tcfg0, reg_base + REG_TCFG0);
+	__raw_writel(0, reg_base + REG_TCFG1);
 
 	clk_table[pwm_scaler0] = clk_register_divider(NULL, "pwm-scaler0",
 				"pwm-clock", 0, reg_base + REG_TCFG0, 0, 8,
