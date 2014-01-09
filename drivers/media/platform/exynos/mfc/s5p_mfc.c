@@ -1706,14 +1706,18 @@ static int s5p_mfc_release(struct file *file)
 	if ((ctx->type == MFCINST_ENCODER) && (ctx->img_width == 3840)
 			&& (ctx->img_height == 2160)) {
 		bts_scen_update(TYPE_MFC_UD_ENCODING, 0);
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_ENCODING, 0);
+#endif
 		mfc_info("UHD encoding stop\n");
 	}
 
 	if ((ctx->type == MFCINST_DECODER) && (ctx->img_width == 3840)
 			&& (ctx->img_height == 2160)) {
 		bts_scen_update(TYPE_MFC_UD_DECODING, 0);
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_DECODING, 0);
+#endif
 		mfc_info("UHD decoding stop\n");
 	}
 #endif

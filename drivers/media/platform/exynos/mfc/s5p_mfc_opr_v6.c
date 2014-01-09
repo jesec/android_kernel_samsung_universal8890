@@ -1528,7 +1528,9 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		p_264->profile = 0x2;
 #if defined(CONFIG_SOC_EXYNOS5422)
 		bts_scen_update(TYPE_MFC_UD_ENCODING, 1);
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
+#endif
 		mfc_info("UHD encoding start\n");
 #endif
 	}
@@ -2737,7 +2739,9 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 #if defined(CONFIG_SOC_EXYNOS5422)
 	if((ctx->img_width == 3840) && (ctx->img_height == 2160)) {
 		bts_scen_update(TYPE_MFC_UD_DECODING, 1);
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
+#endif
 		mfc_info("UHD decoding start\n");
 	}
 #endif
