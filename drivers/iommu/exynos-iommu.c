@@ -565,10 +565,9 @@ static void __sysmmu_set_qos(struct device *dev, unsigned int qosval)
 		data->qos = qosval;
 		if (is_sysmmu_really_enabled(data)) {
 			__master_clk_enable(data);
-			__sysmmu_set_ptwqos(data->sfrbase);
+			__sysmmu_set_ptwqos(data);
 			__master_clk_disable(data);
 		}
-		__master_clk_disable(data);
 		spin_unlock(&data->lock);
 	}
 
