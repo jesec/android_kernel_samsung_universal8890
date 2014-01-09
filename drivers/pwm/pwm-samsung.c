@@ -99,6 +99,7 @@ struct samsung_pwm_chip {
 	struct clk *base_clk;
 	struct clk *tclk0;
 	struct clk *tclk1;
+	unsigned int	reg_tcfg0;
 };
 
 #ifndef CONFIG_CLKSRC_SAMSUNG_PWM
@@ -655,6 +656,8 @@ static int pwm_samsung_suspend(struct device *dev)
 		chan->period_ns = -1;
 		chan->duty_ns = -1;
 	}
+	/* Save pwm registers*/
+	chip->reg_tcfg0 = __raw_readl(chip->base + REG_TCFG0);
 
 	return 0;
 }
@@ -663,6 +666,9 @@ static int pwm_samsung_resume(struct device *dev)
 {
 	struct samsung_pwm_chip *chip = dev_get_drvdata(dev);
 	unsigned int chan;
+
+	/* Restore pwm registers*/
+	__raw_writel(chip->reg_tcfg0, chip->base + REG_TCFG0);
 
 	for (chan = 0; chan < SAMSUNG_PWM_NUM; ++chan) {
 		if (chip->variant.output_mask & BIT(chan)) {
