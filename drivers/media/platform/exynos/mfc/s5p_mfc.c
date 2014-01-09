@@ -1705,6 +1705,7 @@ static int s5p_mfc_release(struct file *file)
 #if defined(CONFIG_SOC_EXYNOS5422)
 	if ((ctx->type == MFCINST_ENCODER) && (ctx->img_width == 3840)
 			&& (ctx->img_height == 2160)) {
+		sysmmu_set_qos(dev->device, 0x8);
 		bts_scen_update(TYPE_MFC_UD_ENCODING, 0);
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_ENCODING, 0);

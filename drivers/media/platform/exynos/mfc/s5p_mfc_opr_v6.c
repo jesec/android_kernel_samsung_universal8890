@@ -1527,6 +1527,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		p_264->level = 51;
 		p_264->profile = 0x2;
 #if defined(CONFIG_SOC_EXYNOS5422)
+		sysmmu_set_qos(dev->device, 0xF);
 		bts_scen_update(TYPE_MFC_UD_ENCODING, 1);
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
