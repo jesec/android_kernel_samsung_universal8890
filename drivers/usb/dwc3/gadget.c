@@ -1060,6 +1060,12 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	list_add_tail(&req->list, &dep->request_list);
 
+	/* prevent starting transfer if controller is stopped */
+	if (!dwc->pullups_connected) {
+		dev_dbg(dwc->dev, "queue request while udc is stopped");
+		return 0;
+	}
+
 	/*
 	 * There are a few special cases:
 	 *
