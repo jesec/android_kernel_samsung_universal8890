@@ -1666,7 +1666,7 @@ err_fault_page:
 	kmem_cache_destroy(lv2table_kmem_cache);
 	return ret;
 }
-subsys_initcall(exynos_iommu_init);
+arch_initcall(exynos_iommu_init);
 
 #ifdef CONFIG_PM_SLEEP
 static int sysmmu_pm_genpd_suspend(struct device *dev)
@@ -1911,7 +1911,7 @@ static int __init exynos_iommu_prepare(void)
 {
 	return bus_register_notifier(&platform_bus_type, &sysmmu_notifier);
 }
-subsys_initcall_sync(exynos_iommu_prepare);
+arch_initcall_sync(exynos_iommu_prepare);
 
 static void sysmmu_dump_lv2_page_table(unsigned int lv1idx, sysmmu_pte_t *base)
 {
