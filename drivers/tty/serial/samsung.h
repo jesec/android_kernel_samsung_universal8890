@@ -12,6 +12,8 @@
  * published by the Free Software Foundation.
 */
 
+#include <linux/pm_qos.h>
+
 struct s3c24xx_uart_info {
 	char			*name;
 	unsigned int		type;
@@ -57,11 +59,17 @@ struct s3c24xx_uart_port {
 	struct uart_port		port;
 	struct s3c24xx_serial_drv_data	*drv_data;
 
+	s32				mif_qos_val;
+	unsigned long			mif_qos_timeout;
+
 	/* reference to platform data */
 	struct s3c2410_uartcfg		*cfg;
 
 	struct notifier_block		aud_uart_notifier;
 	struct platform_device		*pdev;
+
+	struct pm_qos_request		s3c24xx_uart_mif_qos;
+	struct delayed_work		mif_qos_work;
 };
 
 /* conversion functions */

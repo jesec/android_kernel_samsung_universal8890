@@ -382,6 +382,17 @@ static irqreturn_t s3c24xx_serial_tx_chars(int irq, void *id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_PM_DEVFREQ
+static void s3c64xx_serial_mif_qos_func(struct work_struct *work)
+{
+	struct s3c24xx_uart_port *ourport =
+		container_of(work, struct s3c24xx_uart_port, mif_qos_work.work);
+
+	pm_qos_update_request_timeout(&ourport->s3c24xx_uart_mif_qos,
+			ourport->mif_qos_val, ourport->mif_qos_timeout);
+}
+#endif
+
 /* interrupt handler for s3c64xx and later SoC's.*/
 static irqreturn_t s3c64xx_serial_handle_irq(int irq, void *id)
 {
@@ -389,6 +400,12 @@ static irqreturn_t s3c64xx_serial_handle_irq(int irq, void *id)
 	struct uart_port *port = &ourport->port;
 	unsigned int pend = rd_regl(port, S3C64XX_UINTP);
 	irqreturn_t ret = IRQ_HANDLED;
+
+#ifdef CONFIG_PM_DEVFREQ
+	if (ourport->mif_qos_val && ourport->mif_qos_timeout)
+		schedule_delayed_work(&ourport->mif_qos_work,
+						msecs_to_jiffies(100));
+#endif
 
 	if (pend & S3C64XX_UINTM_RXD_MSK) {
 		ret = s3c24xx_serial_rx_chars(irq, id);
@@ -1405,6 +1422,22 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 
 	dbg("%s: initialising port %p...\n", __func__, ourport);
 
+#ifdef CONFIG_PM_DEVFREQ
+	if (of_property_read_u32(pdev->dev.of_node, "mif_qos_val",
+						&ourport->mif_qos_val))
+		ourport->mif_qos_val = 0;
+	if (of_property_read_u32(pdev->dev.of_node, "mif_qos_timeout",
+					(u32 *)&ourport->mif_qos_timeout))
+		ourport->mif_qos_timeout = 0;
+
+	if (ourport->mif_qos_val && ourport->mif_qos_timeout) {
+		INIT_DELAYED_WORK(&ourport->mif_qos_work,
+						s3c64xx_serial_mif_qos_func);
+		pm_qos_add_request(&ourport->s3c24xx_uart_mif_qos,
+						PM_QOS_BUS_THROUGHPUT, 0);
+	}
+#endif
+
 	ret = s3c24xx_serial_init_port(ourport, pdev);
 	if (ret < 0)
 		return ret;
@@ -1447,6 +1480,13 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 static int s3c24xx_serial_remove(struct platform_device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
+
+#ifdef CONFIG_PM_DEVFREQ
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+
+	if (ourport->mif_qos_val && ourport->mif_qos_timeout)
+		pm_qos_remove_request(&ourport->s3c24xx_uart_mif_qos);
+#endif
 
 	if (port) {
 #ifdef CONFIG_SAMSUNG_CLOCK
