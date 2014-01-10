@@ -1405,6 +1405,56 @@ irq_poweron_err:
 }
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+static int s5p_mfc_mem_isolate(uint32_t region_id, uint32_t isolate)
+{
+	if (isolate) {
+		int ret;
+		ret = ion_exynos_contig_heap_isolate(region_id);
+		if (ret < 0)
+			return ret;
+	} else {
+		ion_exynos_contig_heap_deisolate(region_id);
+	}
+
+	return 0;
+}
+
+static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
+{
+	int ret;
+
+	ret = s5p_mfc_mem_isolate(ION_EXYNOS_ID_MFC_INPUT, protect);
+	if (ret < 0)
+		return ret;
+
+	ret = s5p_mfc_mem_isolate(ION_EXYNOS_ID_VIDEO, protect);
+	if (ret < 0)
+		goto err_isolate_video;
+
+	if (protect) {
+		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 1);
+		if (ret < 0) {
+			mfc_err("Protection failed.\n");
+			goto err_prot_enable;
+		}
+	} else {
+		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 0);
+		if (ret < 0)
+			goto err_mem_prot;
+	}
+
+	return 0;
+
+err_prot_enable:
+	exynos_smc(SMC_MEM_PROT_SET, 0, 0, 0);
+err_mem_prot:
+	s5p_mfc_mem_isolate(ION_EXYNOS_ID_VIDEO, 0);
+err_isolate_video:
+	s5p_mfc_mem_isolate(ION_EXYNOS_ID_MFC_INPUT, 0);
+
+	return ret;
+}
+
 static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
 {
 	int ret;
@@ -1454,6 +1504,7 @@ static int s5p_mfc_open(struct file *file)
 	int ret = 0;
 	enum s5p_mfc_node_type node;
 	struct video_device *vdev = NULL;
+	int prot_flag = 0;
 
 	mfc_debug(2, "mfc driver open called\n");
 
@@ -1549,6 +1600,16 @@ static int s5p_mfc_open(struct file *file)
 
 			mfc_info_ctx("DRM instance is opened [%d:%d]\n",
 					dev->num_drm_inst, dev->num_inst);
+			if (dev->num_drm_inst == 1) {
+				ret = s5p_mfc_secmem_isolate_and_protect(1);
+				if (ret) {
+					ret = -EINVAL;
+					goto err_drm_start;
+				} else {
+					prot_flag = 1;
+				}
+			}
+
 		} else {
 			mfc_err_ctx("Too many instance are opened for DRM\n");
 			ret = -EINVAL;
@@ -1677,8 +1738,11 @@ err_fw_alloc:
 	del_timer_sync(&dev->watchdog_timer);
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 //err_drm_inst:
-	if (ctx->is_drm)
+	if (ctx->is_drm) {
 		dev->num_drm_inst--;
+		if (prot_flag)
+			s5p_mfc_secmem_isolate_and_protect(0);
+	}
 
 err_drm_start:
 #endif
@@ -1726,6 +1790,7 @@ static int s5p_mfc_release(struct file *file)
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
 	struct s5p_mfc_dev *dev = NULL;
 	struct s5p_mfc_enc *enc = NULL;
+	int ret = 0;
 
 	dev = ctx->dev;
 	if (!dev) {
@@ -1840,6 +1905,14 @@ static int s5p_mfc_release(struct file *file)
 
 				mfc_info_dev("Failed to release MFC inst[%d:%d]\n",
 						dev->num_drm_inst, dev->num_inst);
+				if (ctx->is_drm && dev->num_drm_inst == 0) {
+					ret = s5p_mfc_secmem_isolate_and_protect(0);
+					if (ret) {
+						ret = -EINVAL;
+						mfc_err("Failed to unprotect secure memory\n");
+					}
+				}
+
 				mutex_unlock(&dev->mfc_mutex);
 
 				return -EIO;
@@ -1855,6 +1928,14 @@ static int s5p_mfc_release(struct file *file)
 	if (ctx->is_drm)
 		dev->num_drm_inst--;
 	dev->num_inst--;
+
+	if (ctx->is_drm && dev->num_drm_inst == 0) {
+		ret = s5p_mfc_secmem_isolate_and_protect(0);
+		if (ret) {
+			ret = -EINVAL;
+			mfc_err("Failed to unprotect secure memory\n");
+		}
+	}
 
 	if (dev->num_inst == 0) {
 		s5p_mfc_deinit_hw(dev);
