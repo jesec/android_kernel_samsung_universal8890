@@ -74,10 +74,33 @@
 #define SMC_PROTECTION_SET	0x81000000
 #define SMC_DRM_FW_LOADING	0x81000001
 #define SMC_DCPP_SUPPORT	0x81000002
+#define SMC_DRM_MAKE_PGTABLE	0x81000003
+#define SMC_DRM_CLEAR_PGTABLE	0x81000004
 
 /* Parameter for smc */
 #define SMC_PROTECTION_ENABLE	1
 #define SMC_PROTECTION_DISABLE	0
+
+/*
+ *  MFC region id for smc
+ */
+enum {
+	FC_MFC_EXYNOS_ID_MFC_SH        = 0,
+	FC_MFC_EXYNOS_ID_VIDEO         = 1,
+	FC_MFC_EXYNOS_ID_MFC_INPUT     = 2,
+	FC_MFC_EXYNOS_ID_MFC_FW        = 3,
+	FC_MFC_EXYNOS_ID_SECTBL        = 4,
+	FC_MFC_EXYNOS_ID_G2D_WFD       = 5,
+	FC_MFC_EXYNOS_ID_MFC_NFW       = 6,
+};
+
+#define SMC_FC_ID_MFC_SH(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_SH)
+#define SMC_FC_ID_VIDEO(id)		((id) * 10 + FC_MFC_EXYNOS_ID_VIDEO)
+#define SMC_FC_ID_MFC_INPUT(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_INPUT)
+#define SMC_FC_ID_MFC_FW(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_FW)
+#define SMC_FC_ID_SECTBL(id)		((id) * 10 + FC_MFC_EXYNOS_ID_SECTBL)
+#define SMC_FC_ID_G2D_WFD(id)		((id) * 10 + FC_MFC_EXYNOS_ID_G2D_WFD)
+#define SMC_FC_ID_MFC_NFW(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_NFW)
 
 /**
  * enum s5p_mfc_inst_type - The type of an MFC device node.

@@ -27,6 +27,7 @@
 #include <media/videobuf2-core.h>
 #include <linux/of.h>
 #include <linux/exynos_iovmm.h>
+#include <linux/exynos_ion.h>
 #include <mach/smc.h>
 #include <mach/bts.h>
 #include <mach/devfreq.h>
@@ -1403,6 +1404,48 @@ irq_poweron_err:
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
+{
+	int ret;
+	uint32_t base;
+	size_t size;
+
+	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &base, &size);
+	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_FW(dev->id), base, size);
+	if (ret)
+		return -1;
+
+	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_INPUT, &base, &size);
+	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_INPUT(dev->id), base, size);
+	if (ret)
+		return -1;
+
+	ion_exynos_contig_heap_info(ION_EXYNOS_ID_VIDEO, &base, &size);
+	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_VIDEO(dev->id), base, size);
+	if (ret)
+		return -1;
+
+	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_SH, &base, &size);
+	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_SH(dev->id), base, size);
+	if (ret)
+		return -1;
+
+	return 0;
+}
+
+static int s5p_mfc_release_sec_pgtable(struct s5p_mfc_dev *dev)
+{
+	int ret;
+
+	ret = exynos_smc(SMC_DRM_CLEAR_PGTABLE, dev->id, 0, 0);
+	if (ret)
+		mfc_err("Failed to clear secure sysmmu page table.\n");
+
+	return -1;
+}
+#endif
+
 /* Open an MFC node */
 static int s5p_mfc_open(struct file *file)
 {
@@ -1545,13 +1588,29 @@ static int s5p_mfc_open(struct file *file)
 				mfc_err_ctx("DRM F/W buffer is not allocated.\n");
 				dev->drm_fw_status = 0;
 			} else {
-				ret = exynos_smc(SMC_DRM_FW_LOADING, dev->fw_size,
-						dev->drm_fw_info.ofs, 0);
+				uint32_t nfw_base, fw_base, sectbl_base, offset;
+				size_t size;
+
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &nfw_base, &size);
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &fw_base, &size);
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_SECTBL, &sectbl_base, &size);
+
+				offset = dev->drm_fw_info.ofs - fw_base;
+				nfw_base += offset;
+				fw_base += offset;
+
+				ret = exynos_smc(SMC_DRM_FW_LOADING, fw_base, nfw_base, sectbl_base);
 				if (ret) {
 					mfc_err_ctx("MFC DRM F/W(%x) is skipped\n", ret);
 					dev->drm_fw_status = 0;
 				} else {
 					dev->drm_fw_status = 1;
+				}
+
+				ret = s5p_mfc_request_sec_pgtable(dev);
+				if (ret < 0) {
+					mfc_err("Fail to make MFC secure sysmmu page tables. ret = %d\n", ret);
+					dev->drm_fw_status = 0;
 				}
 			}
 		}
@@ -1605,6 +1664,12 @@ err_pwr_enable:
 	s5p_mfc_release_dev_context_buffer(dev);
 
 err_fw_load:
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	if (dev->drm_fw_status) {
+		s5p_mfc_release_sec_pgtable(dev);
+		dev->drm_fw_status = 0;
+	}
+#endif
 	s5p_mfc_release_firmware(dev);
 	dev->fw_status = 0;
 
@@ -1804,6 +1869,9 @@ static int s5p_mfc_release(struct file *file)
 		s5p_mfc_release_firmware(dev);
 		s5p_mfc_release_dev_context_buffer(dev);
 		dev->fw_status = 0;
+		dev->drm_fw_status = 0;
+
+		s5p_mfc_release_sec_pgtable(dev);
 	}
 
 	/* Free resources */
