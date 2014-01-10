@@ -71,8 +71,13 @@
 #define FLITE_MAX_ENTITIES		MAX_CAMIF_CHANNEL
 #define CSIS_MAX_ENTITIES		MAX_CAMIF_CHANNEL
 
-enum decon_update_bit {
+enum decon_ioctl_for_sync {
 	S3CFB_FLUSH_WORKQUEUE,
+	S3CFB_READY_TO_SETBUF,
+};
+
+enum gsc_ioctl_for_sync {
+	GSC_SET_BUF,
 };
 
 enum mdev_node {
