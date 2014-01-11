@@ -1141,6 +1141,11 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		goto irq_cleanup_err;
 	}
 
+	if (atomic_read(&dev->pm.power) == 0) {
+		mfc_err("no mfc power on\n");
+		goto irq_poweron_err;
+	}
+
 	/* Reset the timeout watchdog */
 	atomic_set(&dev->watchdog_cnt, 0);
 	/* Get the reason of interrupt and the error code */
@@ -1389,6 +1394,7 @@ irq_cleanup_err:
 	if (dev)
 		queue_work(dev->sched_wq, &dev->sched_work);
 
+irq_poweron_err:
 	mfc_debug(2, "via irq_cleanup_hw\n");
 	return IRQ_HANDLED;
 }
