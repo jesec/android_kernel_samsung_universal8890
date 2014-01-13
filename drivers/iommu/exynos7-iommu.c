@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/device.h>
+#include <linux/sched.h>
 
 #include <asm/pgtable.h>
 
