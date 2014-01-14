@@ -1004,6 +1004,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			if (offset > STUFF_BYTE)
 				dec->consumed += offset;
 
+#if 0
 			s5p_mfc_set_dec_stream_buffer(ctx,
 				src_buf->planes.stream, dec->consumed,
 				src_buf->vb.v4l2_planes[0].bytesused -
@@ -1016,6 +1017,11 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			spin_unlock_irqrestore(&dev->irqlock, flags);
 			s5p_mfc_decode_one_frame(ctx, 0);
 			return;
+#else
+			dec->remained_size = src_buf->vb.v4l2_planes[0].bytesused -
+							dec->consumed;
+			/* Do not move src buffer to done_list */
+#endif
 		} else {
 			index = src_buf->vb.v4l2_buf.index;
 			if (call_cop(ctx, recover_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
@@ -1023,6 +1029,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 
 			mfc_debug(2, "MFC needs next buffer.\n");
 			dec->consumed = 0;
+			dec->remained_size = 0;
 			list_del(&src_buf->list);
 			ctx->src_queue_cnt--;
 

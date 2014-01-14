@@ -659,6 +659,7 @@ struct s5p_mfc_dec {
 
 	struct s5p_mfc_extra_buf dsc;
 	unsigned long consumed;
+	unsigned long remained_size;
 	unsigned long dpb_status;
 	unsigned int dpb_flush;
 
