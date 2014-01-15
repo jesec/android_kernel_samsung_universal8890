@@ -1350,6 +1350,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 
 		kthread_stop(tunables->speedchange_task);
 		put_task_struct(tunables->speedchange_task);
+		tunables->speedchange_task = NULL;
 
 		mutex_unlock(&gov_lock);
 		break;
