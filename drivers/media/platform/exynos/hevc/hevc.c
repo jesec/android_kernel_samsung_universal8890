@@ -980,6 +980,7 @@ static void hevc_handle_frame(struct hevc_ctx *ctx,
 
 			hevc_debug(2, "HEVC needs next buffer.\n");
 			dec->consumed = 0;
+			dec->src_offset = 0;
 			list_del(&src_buf->list);
 			ctx->src_queue_cnt--;
 
@@ -1212,7 +1213,10 @@ static irqreturn_t hevc_irq(int irq, void *priv)
 						src_buf->vb.v4l2_planes[0].bytesused);
 				if (hevc_get_consumed_stream() <
 						src_buf->vb.v4l2_planes[0].bytesused)
+				{
+					dec->src_offset = hevc_get_consumed_stream();
 					dec->remained = 1;
+				}
 			}
 		}
 

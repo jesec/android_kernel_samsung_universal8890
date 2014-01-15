@@ -473,6 +473,8 @@ struct hevc_dec {
 	struct dec_dpb_ref_info *ref_info;
 	int assigned_fd[HEVC_MAX_DPBS];
 	struct hevc_user_shared_handle sh_handle;
+
+	int src_offset;
 };
 
 

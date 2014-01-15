@@ -421,8 +421,8 @@ void hevc_dec_calc_dpb_size(struct hevc_ctx *ctx)
 int hevc_set_dec_stream_buffer(struct hevc_ctx *ctx, dma_addr_t buf_addr,
 		  unsigned int start_num_byte, unsigned int strm_size)
 {
-	struct hevc_dev *dev;
 	struct hevc_dec *dec;
+	struct hevc_dev *dev;
 	size_t cpb_buf_size;
 
 	hevc_debug_enter();
@@ -884,7 +884,7 @@ static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 		(unsigned long)hevc_mem_plane_addr(ctx, &temp_vb->vb, 0));
 	hevc_set_dec_stream_buffer(ctx,
 			hevc_mem_plane_addr(ctx, &temp_vb->vb, 0),
-			0, temp_vb->vb.v4l2_planes[0].bytesused);
+			dec->src_offset, temp_vb->vb.v4l2_planes[0].bytesused);
 
 	index = temp_vb->vb.v4l2_buf.index;
 	if (call_cop(ctx, set_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
@@ -915,6 +915,7 @@ static inline int hevc_run_dec_frame(struct hevc_ctx *ctx)
 static inline void hevc_run_init_dec(struct hevc_ctx *ctx)
 {
 	struct hevc_dev *dev;
+	struct hevc_dec *dec;
 	unsigned long flags;
 	struct hevc_buf *temp_vb;
 
@@ -927,6 +928,8 @@ static inline void hevc_run_init_dec(struct hevc_ctx *ctx)
 		hevc_err("no hevc device to run\n");
 		return;
 	}
+	dec = ctx->dec_priv;
+
 	/* Initializing decoding - parsing header */
 	spin_lock_irqsave(&dev->irqlock, flags);
 	hevc_info("Preparing to init decoding.\n");
@@ -934,7 +937,7 @@ static inline void hevc_run_init_dec(struct hevc_ctx *ctx)
 	hevc_info("Header size: %d\n", temp_vb->vb.v4l2_planes[0].bytesused);
 	hevc_set_dec_stream_buffer(ctx,
 			hevc_mem_plane_addr(ctx, &temp_vb->vb, 0),
-			0, temp_vb->vb.v4l2_planes[0].bytesused);
+			dec->src_offset, temp_vb->vb.v4l2_planes[0].bytesused);
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 	dev->curr_ctx = ctx->num;
 	hevc_debug(2, "Header addr: 0x%08lx\n",

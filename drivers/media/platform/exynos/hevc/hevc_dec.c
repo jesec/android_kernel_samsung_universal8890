@@ -2478,6 +2478,7 @@ static int hevc_stop_streaming(struct vb2_queue *q)
 		ctx->is_dpb_realloc = 0;
 		dec->dpb_flush = 1;
 		dec->dpb_status = 0;
+		dec->src_offset = 0;
 
 		INIT_LIST_HEAD(&dec->dpb_queue);
 		dec->dpb_queue_cnt = 0;
