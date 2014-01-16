@@ -1707,7 +1707,7 @@ static int sysmmu_pm_genpd_resume(struct device *dev)
 	TRACE_LOG("%s(%s) ----->\n", __func__, dev_name(dev));
 
 	for_each_sysmmu_list(dev, list) {
-		struct sysmmu_drvdata *drvdata = dev_get_drvdata(dev);
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
 		unsigned long flags;
 		spin_lock_irqsave(&drvdata->lock, flags);
 		if (drvdata->suspended && is_sysmmu_active(drvdata) &&
