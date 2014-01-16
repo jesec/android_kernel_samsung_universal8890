@@ -270,11 +270,12 @@ static int s3c2410wdt_stop(struct watchdog_device *wdd)
 	return 0;
 }
 
-static int s3c2410wdt_int_clear(struct watchdog_device *wdd)
+static int s3c2410wdt_stop_intclear(struct watchdog_device *wdd)
 {
 	struct s3c2410_wdt *wdt = watchdog_get_drvdata(wdd);
 
 	spin_lock(&wdt->lock);
+	__s3c2410wdt_stop(wdt);
 	writel(1,  wdt->reg_base + S3C2410_WTCLRINT);
 	spin_unlock(&wdt->lock);
 
@@ -659,8 +660,8 @@ static int s3c2410wdt_probe(struct platform_device *pdev)
 		dev_err(dev, "cannot register watchdog (%d)\n", ret);
 		goto err_cpufreq;
 	}
-
-	s3c2410wdt_int_clear(&s3c2410_wdd);
+	/* Prevent watchdog reset while setting */
+	s3c2410wdt_stop_intclear(&s3c2410_wdd);
 	/* Enable pmu watchdog reset control */
 	ret = s3c2410wdt_mask_and_disable_reset(wdt, false);
 	if (ret < 0)
@@ -769,8 +770,7 @@ static int s3c2410wdt_resume(struct device *dev)
 	writel(wdt->wtdat_save, wdt->reg_base + S3C2410_WTCNT);/* Reset count */
 	writel(wdt->wtcon_save, wdt->reg_base + S3C2410_WTCON);
 
-	s3c2410wdt_stop(&s3c2410_wdd);
-	s3c2410wdt_int_clear(&s3c2410_wdd);
+	s3c2410wdt_stop_intclear(&s3c2410_wdd);
 	/* Enable pmu watchdog reset control */
 	ret = s3c2410wdt_mask_and_disable_reset(wdt, false);
 	if (ret < 0)
