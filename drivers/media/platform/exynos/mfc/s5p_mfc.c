@@ -2322,7 +2322,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	vfd->lock = &dev->mfc_mutex;
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	vfd->vfl_dir = VFL_DIR_M2M;
-	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_enc_videodev.name, dev->id);
+	snprintf(vfd->name, sizeof(vfd->name), "%s%d", s5p_mfc_enc_drm_videodev.name, dev->id);
 
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, S5P_VIDEONODE_MFC_ENC_DRM + 60*dev->id);
 	if (ret) {
