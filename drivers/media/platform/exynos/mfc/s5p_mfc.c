@@ -1405,6 +1405,7 @@ irq_poweron_err:
 }
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+#if 0
 static int s5p_mfc_mem_isolate(uint32_t region_id, uint32_t isolate)
 {
 	if (isolate) {
@@ -1418,11 +1419,12 @@ static int s5p_mfc_mem_isolate(uint32_t region_id, uint32_t isolate)
 
 	return 0;
 }
+#endif
 
 static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
 {
 	int ret;
-
+#if 0
 	ret = s5p_mfc_mem_isolate(ION_EXYNOS_ID_MFC_INPUT, protect);
 	if (ret < 0)
 		return ret;
@@ -1430,7 +1432,7 @@ static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
 	ret = s5p_mfc_mem_isolate(ION_EXYNOS_ID_VIDEO, protect);
 	if (ret < 0)
 		goto err_isolate_video;
-
+#endif
 	if (protect) {
 		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 1);
 		if (ret < 0) {
@@ -1448,9 +1450,9 @@ static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
 err_prot_enable:
 	exynos_smc(SMC_MEM_PROT_SET, 0, 0, 0);
 err_mem_prot:
-	s5p_mfc_mem_isolate(ION_EXYNOS_ID_VIDEO, 0);
-err_isolate_video:
-	s5p_mfc_mem_isolate(ION_EXYNOS_ID_MFC_INPUT, 0);
+//	s5p_mfc_mem_isolate(ION_EXYNOS_ID_VIDEO, 0);
+//err_isolate_video:
+//	s5p_mfc_mem_isolate(ION_EXYNOS_ID_MFC_INPUT, 0);
 
 	return ret;
 }
