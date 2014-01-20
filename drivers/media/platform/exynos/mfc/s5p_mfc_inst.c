@@ -26,7 +26,7 @@ int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_open_inst_cmd(ctx);
 	if (ret) {
-		mfc_err("Failed to create a new instance.\n");
+		mfc_err_ctx("Failed to create a new instance.\n");
 		ctx->state = MFCINST_ERROR;
 	}
 	return ret;
@@ -45,7 +45,7 @@ int s5p_mfc_close_inst(struct s5p_mfc_ctx *ctx)
 		ret = s5p_mfc_close_inst_cmd(ctx);
 
 	if (ret) {
-		mfc_err("Failed to return an instance.\n");
+		mfc_err_ctx("Failed to return an instance.\n");
 		ctx->state = MFCINST_ERROR;
 		return ret;
 	}

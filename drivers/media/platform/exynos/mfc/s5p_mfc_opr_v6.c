@@ -390,7 +390,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 		break;
 	default:
 		ctx->ctx_buf_size = 0;
-		mfc_err("Codec type(%d) should be checked!\n", ctx->codec_mode);
+		mfc_err_ctx("Codec type(%d) should be checked!\n", ctx->codec_mode);
 		break;
 	}
 
@@ -399,7 +399,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 
 	ctx->ctx.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, ctx->ctx_buf_size);
 	if (IS_ERR(ctx->ctx.alloc)) {
-		mfc_err("Allocating context buffer failed.\n");
+		mfc_err_ctx("Allocating context buffer failed.\n");
 		return PTR_ERR(ctx->ctx.alloc);
 	}
 
@@ -411,7 +411,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 		ctx->ctx.ofs = 0;
 		ctx->ctx.virt = NULL;
 
-		mfc_err("Remapping context buffer failed.\n");
+		mfc_err_ctx("Remapping context buffer failed.\n");
 		return -ENOMEM;
 	}
 
@@ -457,7 +457,7 @@ int alloc_dev_dis_shared_buffer(struct s5p_mfc_dev *dev, void *alloc_ctx,
 	dis_shm_buf->alloc =
 			s5p_mfc_mem_alloc_priv(alloc_ctx, PAGE_SIZE);
 	if (IS_ERR(dis_shm_buf->alloc)) {
-		mfc_err("Allocating Display shared buffer failed.\n");
+		mfc_err_dev("Allocating Display shared buffer failed.\n");
 		return PTR_ERR(dis_shm_buf->alloc);
 	}
 
@@ -468,7 +468,7 @@ int alloc_dev_dis_shared_buffer(struct s5p_mfc_dev *dev, void *alloc_ctx,
 		dis_shm_buf->alloc = NULL;
 		dis_shm_buf->ofs = 0;
 
-		mfc_err("Get vaddr for dis_shared is failed\n");
+		mfc_err_dev("Get vaddr for dis_shared is failed\n");
 		return -ENOMEM;
 	}
 
@@ -507,7 +507,7 @@ int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 	ctx_buf->alloc =
 			s5p_mfc_mem_alloc_priv(alloc_ctx, buf_size->dev_ctx);
 	if (IS_ERR(ctx_buf->alloc)) {
-		mfc_err("Allocating DESC buffer failed.\n");
+		mfc_err_dev("Allocating DESC buffer failed.\n");
 		return PTR_ERR(ctx_buf->alloc);
 	}
 
@@ -518,7 +518,7 @@ int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 		ctx_buf->alloc = NULL;
 		ctx_buf->ofs = 0;
 
-		mfc_err("Remapping DESC buffer failed.\n");
+		mfc_err_dev("Remapping DESC buffer failed.\n");
 		return -ENOMEM;
 	}
 
@@ -528,7 +528,7 @@ int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 			ctx_buf->alloc = NULL;
 			ctx_buf->ofs = 0;
 
-			mfc_err("Alloc shared memory failed.\n");
+			mfc_err_dev("Alloc shared memory failed.\n");
 			return -ENOMEM;
 		}
 	}
@@ -703,7 +703,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 
 	ctx->buf_width = ALIGN(ctx->img_width, S5P_FIMV_NV12MT_HALIGN);
 	ctx->buf_height = ALIGN(ctx->img_height, S5P_FIMV_NV12MT_VALIGN);
-	mfc_info("SEQ Done: Movie dimensions %dx%d, "
+	mfc_info_ctx("SEQ Done: Movie dimensions %dx%d, "
 			"buffer dimensions: %dx%d\n", ctx->img_width,
 			ctx->img_height, ctx->buf_width, ctx->buf_height);
 
@@ -736,7 +736,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		raw->plane_size[0] = 0;
 		raw->plane_size[1] = 0;
 		raw->plane_size[2] = 0;
-		mfc_err("Invalid pixelformat : %s\n", ctx->dst_fmt->name);
+		mfc_err_ctx("Invalid pixelformat : %s\n", ctx->dst_fmt->name);
 		break;
 	}
 
@@ -845,7 +845,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 		raw->plane_size[0] = 0;
 		raw->plane_size[1] = 0;
 		raw->plane_size[2] = 0;
-		mfc_err("Invalid pixel format(%d)\n", ctx->src_fmt->fourcc);
+		mfc_err_ctx("Invalid pixel format(%d)\n", ctx->src_fmt->fourcc);
 		break;
 	}
 
@@ -1532,7 +1532,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
 #endif
-		mfc_info("UHD encoding start\n");
+		mfc_info_ctx("UHD encoding start\n");
 #endif
 	}
 
@@ -1810,7 +1810,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 			WRITEL(p_264->fmo_sg_rate, S5P_FIMV_E_H264_FMO_SLICE_GRP_CHANGE_RATE_MINUS1);
 			break;
 		default:
-			mfc_err("Unsupported map type for FMO: %d\n",
+			mfc_err_ctx("Unsupported map type for FMO: %d\n",
 					p_264->fmo_slice_map_type);
 			p_264->fmo_slice_map_type = 0;
 			p_264->fmo_slice_num_grp = 1;
@@ -2161,7 +2161,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 			pix_val = 2;
 		} else {
 			pix_val = 0;
-			mfc_err("Not supported format : YV12\n");
+			mfc_err_ctx("Not supported format : YV12\n");
 		}
 		break;
 	case V4L2_PIX_FMT_YUV420M:
@@ -2169,7 +2169,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 			pix_val = 3;
 		} else {
 			pix_val = 0;
-			mfc_err("Not supported format : I420\n");
+			mfc_err_ctx("Not supported format : I420\n");
 		}
 		break;
 	default:
@@ -2267,7 +2267,7 @@ static int s5p_mfc_init_encode(struct s5p_mfc_ctx *ctx)
 	else if (ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)
 		s5p_mfc_set_enc_params_vp8(ctx);
 	else {
-		mfc_err("Unknown codec for encoding (%x).\n",
+		mfc_err_ctx("Unknown codec for encoding (%x).\n",
 			ctx->codec_mode);
 		return -EINVAL;
 	}
@@ -2496,7 +2496,7 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 
 	index = temp_vb->vb.v4l2_buf.index;
 	if (call_cop(ctx, set_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
-		mfc_err("failed in set_buf_ctrls_val\n");
+		mfc_err_ctx("failed in set_buf_ctrls_val\n");
 
 	if (dec->is_dynamic_dpb) {
 		dst_vb = list_entry(ctx->dst_queue.next,
@@ -2625,7 +2625,7 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 
 	index = src_mb->vb.v4l2_buf.index;
 	if (call_cop(ctx, set_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
-		mfc_err("failed in set_buf_ctrls_val\n");
+		mfc_err_ctx("failed in set_buf_ctrls_val\n");
 
 	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
@@ -2731,7 +2731,7 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 	 * s5p_mfc_alloc_dec_buffers(ctx); */
 
 	if (!dec->is_dynamic_dpb && (ctx->capture_state != QUEUE_BUFS_MMAPED)) {
-		mfc_err("It seems that not all destionation buffers were "
+		mfc_err_ctx("It seems that not all destionation buffers were "
 			"mmaped.\nMFC requires that all destination are mmaped "
 			"before starting processing.\n");
 		return -EAGAIN;
@@ -2743,7 +2743,7 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
 #endif
-		mfc_info("UHD decoding start\n");
+		mfc_info_ctx("UHD decoding start\n");
 	}
 #endif
 
@@ -2751,7 +2751,7 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_set_dec_frame_buffer(ctx);
 	if (ret) {
-		mfc_err("Failed to alloc frame mem.\n");
+		mfc_err_ctx("Failed to alloc frame mem.\n");
 		ctx->state = MFCINST_ERROR;
 	}
 	return ret;
@@ -2764,7 +2764,7 @@ static inline int s5p_mfc_run_init_enc_buffers(struct s5p_mfc_ctx *ctx)
 
 	ret = s5p_mfc_alloc_codec_buffers(ctx);
 	if (ret) {
-		mfc_err("Failed to allocate encoding buffers.\n");
+		mfc_err_ctx("Failed to allocate encoding buffers.\n");
 		return -ENOMEM;
 	}
 
@@ -2772,7 +2772,7 @@ static inline int s5p_mfc_run_init_enc_buffers(struct s5p_mfc_ctx *ctx)
 	 * First set the reference frame buffers
 	 */
 	if (ctx->capture_state != QUEUE_BUFS_REQUESTED) {
-		mfc_err("It seems that destionation buffers were not "
+		mfc_err_ctx("It seems that destionation buffers were not "
 			"requested.\nMFC requires that header should be generated "
 			"before allocating codec buffer.\n");
 		return -EAGAIN;
@@ -2782,7 +2782,7 @@ static inline int s5p_mfc_run_init_enc_buffers(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_set_enc_ref_buffer(ctx);
 	if (ret) {
-		mfc_err("Failed to alloc frame mem.\n");
+		mfc_err_ctx("Failed to alloc frame mem.\n");
 		ctx->state = MFCINST_ERROR;
 	}
 	return ret;
@@ -2875,7 +2875,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 
 	if (test_and_set_bit(ctx->num, &dev->hw_lock) != 0) {
 		spin_unlock_irq(&dev->condlock);
-		mfc_err("Failed to lock hardware.\n");
+		mfc_err_ctx("Failed to lock hardware.\n");
 		return;
 	}
 	spin_unlock_irq(&dev->condlock);
@@ -2905,7 +2905,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 
 			s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_CACHE_FLUSH, NULL);
 			if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET)) {
-				mfc_err("Failed to flush cache\n");
+				mfc_err_ctx("Failed to flush cache\n");
 			}
 
 			s5p_mfc_init_memctrl(dev, (ctx->is_drm ? MFCBUF_DRM : MFCBUF_NORMAL));
@@ -2984,7 +2984,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 			ret = -EAGAIN;
 		}
 	} else {
-		mfc_err("invalid context type: %d\n", ctx->type);
+		mfc_err_ctx("invalid context type: %d\n", ctx->type);
 		ret = -EAGAIN;
 	}
 
@@ -2999,7 +2999,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 
 		/* Free hardware lock */
 		if (clear_hw_bit(ctx) == 0)
-			mfc_err("Failed to unlock hardware.\n");
+			mfc_err_ctx("Failed to unlock hardware.\n");
 
 		s5p_mfc_clock_off(dev);
 

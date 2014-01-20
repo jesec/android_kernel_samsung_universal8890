@@ -333,7 +333,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 			/* Check bus status */
 			do {
 				if (time_after(jiffies, timeout)) {
-					mfc_err("Timeout while resetting MFC.\n");
+					mfc_err_dev("Timeout while resetting MFC.\n");
 					break;
 				}
 				val = s5p_mfc_read_reg(dev,
@@ -347,7 +347,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 
 	state = atomic_read(&dev->clk_ref);
 	if (state < 0) {
-		mfc_err("Clock state is wrong(%d)\n", state);
+		mfc_err_dev("Clock state is wrong(%d)\n", state);
 		atomic_set(&dev->clk_ref, 0);
 	} else {
 		if (dev->curr_ctx_drm && dev->is_support_smc) {

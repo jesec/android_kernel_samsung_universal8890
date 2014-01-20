@@ -98,7 +98,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		mfc_debug(5, "QoS remove\n");
 		break;
 	default:
-		mfc_err("Unknown request for opr [%d]\n", opr_type);
+		mfc_err_ctx("Unknown request for opr [%d]\n", opr_type);
 		break;
 	}
 }
@@ -183,7 +183,7 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 
 	if (list_empty(&dev->qos_queue)) {
 		if (atomic_read(&dev->qos_req_cur) != 0) {
-			mfc_err("MFC request count is wrong!\n");
+			mfc_err_ctx("MFC request count is wrong!\n");
 			mfc_qos_operate(ctx, MFC_QOS_REMOVE, 0);
 		}
 

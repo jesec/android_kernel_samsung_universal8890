@@ -35,7 +35,7 @@ int s5p_mfc_wait_for_done_dev(struct s5p_mfc_dev *dev, int command)
 			wait_condition(dev, command),
 			msecs_to_jiffies(MFC_INT_TIMEOUT));
 	if (ret == 0) {
-		mfc_err("Interrupt (dev->int_type:%d, command:%d) timed out.\n",
+		mfc_err_dev("Interrupt (dev->int_type:%d, command:%d) timed out.\n",
 							dev->int_type, command);
 		return 1;
 	}
@@ -59,14 +59,14 @@ int s5p_mfc_wait_for_done_ctx(struct s5p_mfc_ctx *ctx, int command)
 			wait_condition(ctx, command),
 			msecs_to_jiffies(MFC_INT_TIMEOUT));
 	if (ret == 0) {
-		mfc_err("Interrupt (ctx->int_type:%d, command:%d) timed out.\n",
+		mfc_err_ctx("Interrupt (ctx->int_type:%d, command:%d) timed out.\n",
 							ctx->int_type, command);
 		return 1;
 	} else if (ret > 0) {
 		if (is_err_cond(ctx)) {
-			mfc_err("Finished (ctx->int_type:%d, command: %d).\n",
+			mfc_err_ctx("Finished (ctx->int_type:%d, command: %d).\n",
 					ctx->int_type, command);
-			mfc_err("But error (ctx->int_err:%d).\n", ctx->int_err);
+			mfc_err_ctx("But error (ctx->int_err:%d).\n", ctx->int_err);
 			return -1;
 		}
 	}

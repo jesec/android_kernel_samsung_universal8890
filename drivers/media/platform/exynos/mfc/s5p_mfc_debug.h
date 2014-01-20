@@ -39,10 +39,32 @@ extern int debug;
 		       __func__, __LINE__, ##args);	\
 	} while (0)
 
-#define mfc_info(fmt, args...)				\
+#define mfc_err_dev(fmt, args...)			\
 	do {						\
-		printk(KERN_INFO "%s:%d: " fmt,		\
+		printk(KERN_ERR "[d:%d] %s:%d: " fmt,	\
+			dev->id,			\
+		       __func__, __LINE__, ##args);	\
+	} while (0)
+
+#define mfc_err_ctx(fmt, args...)				\
+	do {							\
+		printk(KERN_ERR "[d:%d, c:%d] %s:%d: " fmt,	\
+			ctx->dev->id, ctx->num,			\
+		       __func__, __LINE__, ##args);		\
+	} while (0)
+
+#define mfc_info_dev(fmt, args...)			\
+	do {						\
+		printk(KERN_INFO "[d:%d] %s:%d: " fmt,	\
+			dev->id,			\
 			__func__, __LINE__, ##args);	\
+	} while (0)
+
+#define mfc_info_ctx(fmt, args...)				\
+	do {							\
+		printk(KERN_INFO "[d:%d, c:%d] %s:%d: " fmt,	\
+			ctx->dev->id, ctx->num,			\
+			__func__, __LINE__, ##args);		\
 	} while (0)
 
 #endif /* S5P_MFC_DEBUG_H_ */
