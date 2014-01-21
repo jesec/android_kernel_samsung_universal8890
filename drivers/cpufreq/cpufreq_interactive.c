@@ -629,7 +629,7 @@ static void cpufreq_interactive_boost(struct cpufreq_interactive_tunables *tunab
 
 	spin_unlock_irqrestore(&speedchange_cpumask_lock, flags[0]);
 
-	if (anyboost)
+	if (anyboost && tunables->speedchange_task)
 		wake_up_process(tunables->speedchange_task);
 }
 
