@@ -1733,6 +1733,16 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
+	dev_dbg(dwc->dev, "%s: pullup = %d, vbus = %d\n",
+			   __func__, is_on, dwc->vbus_session);
+
+	if (is_on == dwc->softconnect) {
+		dev_dbg(dwc->dev, "pullup is already %s\n",
+				   is_on ? "on" : "off");
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return 0;
+	}
+
 	dwc->softconnect = is_on;
 
 	if (dwc->dotg && !dwc->vbus_session) {
