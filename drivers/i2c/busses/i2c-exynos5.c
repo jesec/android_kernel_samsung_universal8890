@@ -19,7 +19,6 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/io.h>
@@ -159,13 +158,12 @@ static LIST_HEAD(drvdata_list);
 
 #define EXYNOS5_I2C_TIMEOUT (msecs_to_jiffies(1000))
 
-/* timeout for pm runtime autosuspend */
-#define EXYNOS5_I2C_PM_TIMEOUT		1000	/* ms */
 #define EXYNOS5_FIFO_SIZE		16
 
 struct exynos5_i2c {
-	struct list_head		node;
+	struct list_head	node;
 	struct i2c_adapter	adap;
+	unsigned int		need_hw_init;
 	unsigned int		suspended:1;
 
 	struct i2c_msg		*msg;
@@ -397,6 +395,8 @@ static void exynos5_i2c_init(struct exynos5_i2c *i2c)
 	}
 
 	writel(i2c_conf | HSI2C_AUTO_MODE, i2c->regs + HSI2C_CONF);
+
+	i2c->need_hw_init = 0;
 }
 
 static void exynos5_i2c_reset(struct exynos5_i2c *i2c)
@@ -631,7 +631,7 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	struct exynos5_i2c *i2c = (struct exynos5_i2c *)adap->algo_data;
 	struct i2c_msg *msgs_ptr = msgs;
 	int retry, i = 0;
-	int ret = 0, ret_pm;
+	int ret = 0;
 	int stop = 0;
 
 	if (i2c->suspended) {
@@ -639,13 +639,9 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 		return -EIO;
 	}
 
-	ret_pm = pm_runtime_get_sync(i2c->dev);
-	if (IS_ERR_VALUE(ret_pm)) {
-		ret = -EIO;
-		goto out;
-	}
-
 	clk_prepare_enable(i2c->clk);
+	if (i2c->need_hw_init)
+		exynos5_i2c_reset(i2c);
 
 	for (retry = 0; retry < adap->retries; retry++) {
 		for (i = 0; i < num; i++) {
@@ -684,8 +680,6 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 
  out:
 	clk_disable_unprepare(i2c->clk);
-	pm_runtime_mark_last_busy(i2c->dev);
-	pm_runtime_put_autosuspend(i2c->dev);
 	return ret;
 }
 
@@ -707,13 +701,8 @@ static int exynos5_i2c_notifier(struct notifier_block *self,
 
 	switch (cmd) {
 	case LPA_EXIT:
-		list_for_each_entry(i2c, &drvdata_list, node) {
-			i2c_lock_adapter(&i2c->adap);
-			clk_prepare_enable(i2c->clk);
-			exynos5_i2c_reset(i2c);
-			clk_disable_unprepare(i2c->clk);
-			i2c_unlock_adapter(&i2c->adap);
-		}
+		list_for_each_entry(i2c, &drvdata_list, node)
+			i2c->need_hw_init = 1;
 		break;
 	}
 
@@ -814,21 +803,9 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		goto err_clk;
 	}
 
-	/*
-	 * TODO: Use private lock to avoid race conditions as
-	 * mentioned in pm_runtime.txt
-	 */
-	pm_runtime_enable(i2c->dev);
-	pm_runtime_set_autosuspend_delay(i2c->dev, EXYNOS5_I2C_PM_TIMEOUT);
-	pm_runtime_use_autosuspend(i2c->dev);
-
-	ret = pm_runtime_get_sync(i2c->dev);
-	if (IS_ERR_VALUE(ret))
-		goto err_clk;
-
 	ret = exynos5_hsi2c_clock_setup(i2c);
 	if (ret)
-		goto err_pm;
+		goto err_clk;
 
 	i2c->bus_id = of_alias_get_id(i2c->adap.dev.of_node, "hsi2c");
 
@@ -838,23 +815,18 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	ret = i2c_add_numbered_adapter(&i2c->adap);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to add bus to i2c core\n");
-		goto err_pm;
+		goto err_clk;
 	}
 
 	of_i2c_register_devices(&i2c->adap);
 	platform_set_drvdata(pdev, i2c);
 
 	clk_disable_unprepare(i2c->clk);
-	pm_runtime_mark_last_busy(i2c->dev);
-	pm_runtime_put_autosuspend(i2c->dev);
 
 	list_add_tail(&i2c->node, &drvdata_list);
 
 	return 0;
 
- err_pm:
-	pm_runtime_put(i2c->dev);
-	pm_runtime_disable(&pdev->dev);
  err_clk:
 	clk_disable_unprepare(i2c->clk);
 	return ret;
@@ -863,18 +835,8 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 static int exynos5_i2c_remove(struct platform_device *pdev)
 {
 	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
-	int ret;
-
-	ret = pm_runtime_get_sync(&pdev->dev);
-	if (IS_ERR_VALUE(ret))
-		return ret;
 
 	i2c_del_adapter(&i2c->adap);
-
-	pm_runtime_put(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
-
-	clk_disable_unprepare(i2c->clk);
 
 	return 0;
 }
