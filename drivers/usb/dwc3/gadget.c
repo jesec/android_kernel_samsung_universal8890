@@ -1528,7 +1528,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 {
 	u32			reg;
 	u32			timeout = 500;
-	int			ret;
+	int			ret = 0;
 
 	if (is_on) {
 		/*
@@ -1598,8 +1598,11 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 				break;
 		}
 		timeout--;
-		if (!timeout)
-			return -ETIMEDOUT;
+		if (!timeout) {
+			dev_vdbg(dwc->dev, "gadget run/stop timeout\n");
+			ret = -ETIMEDOUT;
+			break;
+		}
 		udelay(1);
 	} while (1);
 
@@ -1609,12 +1612,13 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		dwc->needs_reinit = 1;
 	}
 
-	dev_vdbg(dwc->dev, "gadget %s data soft-%s\n",
+	if (!ret)
+		dev_vdbg(dwc->dev, "gadget %s data soft-%s\n",
 			dwc->gadget_driver
 			? dwc->gadget_driver->function : "no-function",
 			is_on ? "connect" : "disconnect");
 
-	return 0;
+	return ret;
 }
 
 static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
