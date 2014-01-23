@@ -28,7 +28,9 @@
 
 #include <mach/exynos-pm.h>
 
+#ifdef CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP
 static LIST_HEAD(drvdata_list);
+#endif
 
 /*
  * HSI2C controller from Samsung supports 2 modes of operation
@@ -693,7 +695,7 @@ static const struct i2c_algorithm exynos5_i2c_algorithm = {
 	.functionality		= exynos5_i2c_func,
 };
 
-#ifdef CONFIG_CPU_IDLE
+#ifdef CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP
 static int exynos5_i2c_notifier(struct notifier_block *self,
 				unsigned long cmd, void *v)
 {
@@ -712,7 +714,7 @@ static int exynos5_i2c_notifier(struct notifier_block *self,
 static struct notifier_block exynos5_i2c_notifier_block = {
 	.notifier_call = exynos5_i2c_notifier,
 };
-#endif /*CONFIG_CPU_IDLE */
+#endif /* CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP */
 
 static int exynos5_i2c_probe(struct platform_device *pdev)
 {
@@ -823,7 +825,9 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 
 	clk_disable_unprepare(i2c->clk);
 
+#ifdef CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP
 	list_add_tail(&i2c->node, &drvdata_list);
+#endif
 
 	return 0;
 
@@ -892,7 +896,7 @@ static struct platform_driver exynos5_i2c_driver = {
 
 static int __init i2c_adap_exynos5_init(void)
 {
-#ifdef CONFIG_CPU_IDLE
+#ifdef CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP
 	exynos_pm_register_notifier(&exynos5_i2c_notifier_block);
 #endif
 	return platform_driver_register(&exynos5_i2c_driver);
