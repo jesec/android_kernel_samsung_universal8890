@@ -9542,8 +9542,13 @@ static u32 cpufreq_calc_scale(u32 min, u32 max, u32 curr)
 
 static void extents_update_max_min(struct cpufreq_extents *extents)
 {
+#ifdef CONFIG_CPU_THERMAL_IPA
 	extents->min = max(extents->cpufreq_min, extents->thermal_min);
 	extents->max = min(extents->cpufreq_max, extents->thermal_max);
+#else
+	extents->min = extents->cpufreq_min;
+	extents->max = extents->cpufreq_max;
+#endif
 }
 
 /* Called when the CPU Frequency is changed.
