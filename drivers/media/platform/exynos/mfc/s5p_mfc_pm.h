@@ -20,6 +20,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev);
 void s5p_mfc_clock_off(struct s5p_mfc_dev *dev);
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev);
 int s5p_mfc_power_off(struct s5p_mfc_dev *dev);
+int s5p_mfc_get_power_ref_cnt(struct s5p_mfc_dev *dev);
 int s5p_mfc_get_clk_ref_cnt(struct s5p_mfc_dev *dev);
 int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev);
 

@@ -28,9 +28,15 @@
 #include <linux/of.h>
 #include <linux/exynos_iovmm.h>
 #include <linux/exynos_ion.h>
+#include <linux/delay.h>
 #include <mach/smc.h>
 #include <mach/bts.h>
 #include <mach/devfreq.h>
+
+#if defined(CONFIG_SOC_EXYNOS5422)
+#include <mach/regs-clock-exynos5422.h>
+#include <mach/regs-pmu-exynos5422.h>
+#endif
 
 #include "s5p_mfc_common.h"
 #include "s5p_mfc_intr.h"
@@ -99,15 +105,8 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 	}
 }
 
-int exynos_mfc_sysmmu_fault_handler(struct iommu_domain *iodmn, struct device *dev,
-		unsigned long addr, int id, void *param)
+static int mfc_disp_dev_state(struct s5p_mfc_dev *m_dev)
 {
-	struct s5p_mfc_dev *m_dev;
-
-	m_dev = (struct s5p_mfc_dev *)param;
-
-	s5p_mfc_dump_regs(m_dev);
-
 	pr_err("dumping device info...\n-----------------------\n");
 	pr_err("dev->id: %d\nnum_inst: %d\nint_cond: %d\nint_type: %d\nint_err: %u\n"
 		"hw_lock: %lu\ncurr_ctx: %d\npreempt_ctx: %d\n"
@@ -120,6 +119,19 @@ int exynos_mfc_sysmmu_fault_handler(struct iommu_domain *iodmn, struct device *d
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	pr_err("curr_rate: %d\n\n", m_dev->curr_rate);
 #endif
+
+	return 0;
+}
+
+int exynos_mfc_sysmmu_fault_handler(struct iommu_domain *iodmn, struct device *dev,
+		unsigned long addr, int id, void *param)
+{
+	struct s5p_mfc_dev *m_dev;
+
+	m_dev = (struct s5p_mfc_dev *)param;
+
+	s5p_mfc_dump_regs(m_dev);
+	mfc_disp_dev_state(m_dev);
 
 	return 0;
 }
@@ -261,11 +273,111 @@ void s5p_mfc_watchdog(unsigned long arg)
 	add_timer(&dev->watchdog_timer);
 }
 
+#if defined(CONFIG_SOC_EXYNOS5422)
+static int mfc_check_power_state(struct s5p_mfc_dev *dev)
+{
+	int reg_val, ref_val;
+
+	ref_val = s5p_mfc_get_power_ref_cnt(dev);
+	reg_val = readl(EXYNOS5422_MFC_CONFIGURATION);
+	mfc_err("* MFC power state = 0x%x, ref cnt = %d\n", reg_val, ref_val);
+
+	if (reg_val)
+		return 1;
+
+	return 0;
+}
+
+#define MFC_CMU_INFO_CNT	7
+static int mfc_check_clock_state(struct s5p_mfc_dev *dev)
+{
+	int i, ref_val, is_enabled = 0;
+	int reg_val[MFC_CMU_INFO_CNT];
+	char *reg_desc[MFC_CMU_INFO_CNT] = {
+		"CLK_SRC_TOP1",
+		"CLK_SRC_TOP11",
+		"CLK_SRC_TOP4",
+		"CLK_DIV_TOP1",
+		"CLK_SRC_MASK_TOP1",
+		"CLK_GATE_BUS_MFC",
+		"CLKGATE_IP_MFC",
+	};
+	int reg_offset[MFC_CMU_INFO_CNT] = {
+		(int)EXYNOS5_CLK_SRC_TOP1,
+		(int)EXYNOS5_CLK_SRC_TOP11,
+		(int)EXYNOS5_CLK_SRC_TOP4,
+		(int)EXYNOS5_CLK_DIV_TOP1,
+		(int)EXYNOS5_CLK_SRC_MASK_TOP1,
+		(int)EXYNOS5_CLK_GATE_BUS_MFC,
+		(int)EXYNOS5_CLK_GATE_IP_MFC,
+	};
+
+
+	ref_val = s5p_mfc_get_clk_ref_cnt(dev);
+	mfc_err("** CMU ref cnt = %d\n", ref_val);
+
+	for (i = 0; i < MFC_CMU_INFO_CNT; i++) {
+		reg_val[i] = readl((int *)reg_offset[i]);
+		mfc_err("** CMU %s = 0x%x\n", reg_desc[i], reg_val[i]);
+		if (reg_offset[i] == (int)EXYNOS5_CLK_GATE_IP_MFC) {
+			is_enabled = (reg_val[i] >> 0) & 0x1;
+		}
+	}
+
+	if (is_enabled)
+		return 1;
+
+	return 0;
+}
+static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
+{
+	int ret;
+
+	if (mfc_check_power_state(dev)) {
+		ret = mfc_check_clock_state(dev);
+		if (ret)
+			s5p_mfc_dump_regs(dev);
+	}
+	mfc_disp_dev_state(dev);
+
+	return 0;
+}
+#else
+static int mfc_check_power_state(struct s5p_mfc_dev *dev)
+{
+	int ref_val;
+
+	ref_val = s5p_mfc_get_power_ref_cnt(dev);
+	mfc_err("* MFC power state = UNKNOWN, ref cnt = %d\n", ref_val);
+
+	return 0;
+}
+
+static int mfc_check_clock_state(struct s5p_mfc_dev *dev)
+{
+	int ref_val;
+
+	ref_val = s5p_mfc_get_clk_ref_cnt(dev);
+	mfc_err("* MFC clock state = UNKNOWN, ref cnt = %d\n", ref_val);
+
+	return 0;
+}
+
+static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
+{
+	mfc_check_power_state(dev);
+	mfc_check_clock_state(dev);
+	mfc_disp_dev_state(dev);
+
+	return 0;
+}
+#endif
+
 static void s5p_mfc_watchdog_worker(struct work_struct *work)
 {
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_ctx *ctx;
-	int i, ret;
+	int i;
 	int mutex_locked;
 	unsigned long flags;
 	int ref_cnt;
@@ -287,6 +399,17 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 		mfc_err_dev("This is not good. Some instance may be "
 							"closing/opening.\n");
 
+#if 1
+	/* Reset the timeout watchdog */
+	atomic_set(&dev->watchdog_cnt, 0);
+	s5p_mfc_check_hw_state(dev);
+
+	ref_cnt = s5p_mfc_get_clk_ref_cnt(dev);
+	if (ref_cnt > 0) {
+		for (i = ref_cnt; i > 0; i--)
+			s5p_mfc_clock_off(dev);
+	}
+#else
 	/* Call clock on/off to make ref count 0 */
 	ref_cnt = s5p_mfc_get_clk_ref_cnt(dev);
 	mfc_debug(2, "Clock reference count: %d\n", ref_cnt);
@@ -297,6 +420,7 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 		for (i = ref_cnt; i > 0; i--)
 			s5p_mfc_clock_off(dev);
 	}
+#endif
 
 	spin_lock_irqsave(&dev->irqlock, flags);
 
@@ -326,6 +450,19 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 	dev->hw_lock = 0;
 	spin_unlock_irq(&dev->condlock);
 
+#if 1
+	/* Power off to disable MFC H/W.
+	 * No need to laod firmware again, it is useless. */
+	s5p_mfc_power_off(dev);
+	mfc_info_dev("MFC power off to disable H/W.\n");
+
+	mdelay(500);
+
+	/* Power on again. Power will be off when release is called. */
+	mfc_info_dev("MFC power on again.\n");
+	s5p_mfc_power_on(dev);
+
+#else
 	/* Double check if there is at least one instance running.
 	 * If no instance is in memory than no firmware should be present */
 	if (dev->num_inst > 0) {
@@ -341,8 +478,11 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 			goto watchdog_exit;
 		}
 	}
+#endif
 
+#if 0
 watchdog_exit:
+#endif
 	if (mutex_locked)
 		mutex_unlock(&dev->mfc_mutex);
 

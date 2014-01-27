@@ -395,6 +395,11 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 	return pm_runtime_put_sync(dev->pm.device);
 }
 
+int s5p_mfc_get_power_ref_cnt(struct s5p_mfc_dev *dev)
+{
+	return atomic_read(&dev->pm.power);
+}
+
 int s5p_mfc_get_clk_ref_cnt(struct s5p_mfc_dev *dev)
 {
 	return atomic_read(&dev->clk_ref);
