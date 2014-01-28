@@ -1876,7 +1876,10 @@ err_pwr_enable:
 err_fw_load:
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (dev->drm_fw_status) {
-		s5p_mfc_release_sec_pgtable(dev);
+		if (dev->is_support_smc) {
+			s5p_mfc_release_sec_pgtable(dev);
+			dev->is_support_smc = 0;
+		}
 		dev->drm_fw_status = 0;
 	}
 #endif
@@ -2062,6 +2065,28 @@ static int s5p_mfc_release(struct file *file)
 					}
 				}
 
+				if (dev->num_inst == 0) {
+					s5p_mfc_deinit_hw(dev);
+					del_timer_sync(&dev->watchdog_timer);
+
+					flush_workqueue(dev->sched_wq);
+
+					mfc_debug(2, "power off\n");
+					s5p_mfc_power_off(dev);
+
+					/* reset <-> F/W release */
+					s5p_mfc_release_firmware(dev);
+					s5p_mfc_release_dev_context_buffer(dev);
+					dev->fw_status = 0;
+					dev->drm_fw_status = 0;
+
+					if (dev->is_support_smc) {
+						s5p_mfc_release_sec_pgtable(dev);
+						dev->is_support_smc = 0;
+					}
+				}
+
+
 				mutex_unlock(&dev->mfc_mutex);
 
 				return -EIO;
@@ -2101,7 +2126,10 @@ static int s5p_mfc_release(struct file *file)
 		dev->fw_status = 0;
 		dev->drm_fw_status = 0;
 
-		s5p_mfc_release_sec_pgtable(dev);
+		if (dev->is_support_smc) {
+			s5p_mfc_release_sec_pgtable(dev);
+			dev->is_support_smc = 0;
+		}
 	}
 
 	/* Free resources */
