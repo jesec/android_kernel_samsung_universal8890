@@ -359,6 +359,9 @@ static void exynos_adc_v2_exit_hw(struct exynos_adc *info)
 	con = readl(ADC_V2_CON1(info->regs));
 	con &= ~ADC_CON_EN_START;
 	writel(con, ADC_V2_CON1(info->regs));
+
+	/* Disable interrupts */
+	writel(0, ADC_V2_INT_EN(info->regs));
 }
 
 static void exynos_adc_v2_clear_irq(struct exynos_adc *info)
@@ -460,6 +463,10 @@ static int exynos_read_raw(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
+	enable_irq(info->irq);
+	if (info->data->init_hw)
+		info->data->init_hw(info);
+
 	/* Select the channel to be used and Trigger conversion */
 	if (info->data->start_conv)
 		info->data->start_conv(info, chan->address);
@@ -468,8 +475,6 @@ static int exynos_read_raw(struct iio_dev *indio_dev,
 			(&info->completion, EXYNOS_ADC_TIMEOUT);
 	if (timeout == 0) {
 		dev_warn(&indio_dev->dev, "Conversion timed out! Resetting\n");
-		if (info->data->init_hw)
-			info->data->init_hw(info);
 		ret = -ETIMEDOUT;
 	} else {
 		*val = info->value;
@@ -477,7 +482,9 @@ static int exynos_read_raw(struct iio_dev *indio_dev,
 		ret = IIO_VAL_INT;
 	}
 
+	disable_irq(info->irq);
 	exynos_adc_disable_access(info);
+
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
@@ -670,6 +677,7 @@ static int exynos_adc_probe(struct platform_device *pdev)
 		goto err_disable_clk;
 	}
 
+	disable_irq(info->irq);
 	exynos_adc_disable_clk(info);
 	exynos_adc_unprepare_clk(info);
 	if (info->vdd)
@@ -716,7 +724,6 @@ static int exynos_adc_remove(struct platform_device *pdev)
 	device_for_each_child(&indio_dev->dev, NULL,
 				exynos_adc_remove_devices);
 	iio_device_unregister(indio_dev);
-	free_irq(info->irq, info);
 
 	ret = exynos_adc_enable_access(info);
 	if (ret)
