@@ -60,7 +60,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 				qos_table[idx].freq_kfc);
 #endif
 		atomic_set(&dev->qos_req_cur, idx + 1);
-		mfc_debug(5, "QoS request: %d\n", idx + 1);
+		mfc_info_ctx("QoS request: %d\n", idx + 1);
 		break;
 	case MFC_QOS_UPDATE:
 		pm_qos_update_request(&dev->qos_req_int,
@@ -80,7 +80,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 				qos_table[idx].freq_kfc);
 #endif
 		atomic_set(&dev->qos_req_cur, idx + 1);
-		mfc_debug(5, "QoS update: %d\n", idx + 1);
+		mfc_info_ctx("QoS update: %d\n", idx + 1);
 		break;
 	case MFC_QOS_REMOVE:
 		pm_qos_remove_request(&dev->qos_req_int);
@@ -95,7 +95,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		pm_qos_remove_request(&dev->qos_req_kfc);
 #endif
 		atomic_set(&dev->qos_req_cur, 0);
-		mfc_debug(5, "QoS remove\n");
+		mfc_info_ctx("QoS remove\n");
 		break;
 	default:
 		mfc_err_ctx("Unknown request for opr [%d]\n", opr_type);
@@ -120,7 +120,7 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 					qos_table[i].freq_cpu);
 #endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-			mfc_debug(2, "\tint: %d, mif: %d, cpu: %d, kfc: %d\n",
+			mfc_info_ctx("\tint: %d, mif: %d, cpu: %d, kfc: %d\n",
 					qos_table[i].freq_int,
 					qos_table[i].freq_mif,
 					qos_table[i].freq_cpu,

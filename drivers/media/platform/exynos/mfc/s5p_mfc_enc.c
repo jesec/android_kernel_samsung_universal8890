@@ -2584,8 +2584,12 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 #ifdef MFC_ENC_AVG_FPS_MODE
 			if (ctx->src_queue_cnt > 0) {
 				if (ctx->frame_count > ENC_AVG_FRAMES &&
-					ctx->framerate == ENC_MAX_FPS)
-					goto out;
+					ctx->framerate == ENC_MAX_FPS) {
+					if (ctx->is_max_fps)
+						goto out;
+					else
+						goto calc_again;
+				}
 
 				ctx->frame_count++;
 				ctx->avg_framerate =
@@ -2598,14 +2602,17 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 					goto out;
 
 				if (ctx->avg_framerate > ENC_HIGH_FPS) {
-					if (ctx->frame_count == ENC_AVG_FRAMES)
+					if (ctx->frame_count == ENC_AVG_FRAMES) {
 						mfc_debug(2, "force fps: %d\n", ENC_MAX_FPS);
+						ctx->is_max_fps = 1;
+					}
 					goto out;
 				}
 			} else {
 				ctx->last_framerate = ENC_MAX_FPS;
 				mfc_debug(2, "fps set to %d\n", ctx->last_framerate);
 			}
+calc_again:
 #endif
 			if (ctx->last_framerate != 0 &&
 				ctx->last_framerate != ctx->framerate) {
@@ -2658,6 +2665,7 @@ static int vidioc_streamon(struct file *file, void *priv,
 
 		if (!ret) {
 			ctx->frame_count = 0;
+			ctx->is_max_fps = 0;
 			ctx->avg_framerate = 0;
 			s5p_mfc_qos_on(ctx);
 		}

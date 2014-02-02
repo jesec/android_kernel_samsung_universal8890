@@ -815,6 +815,8 @@ struct s5p_mfc_ctx {
 	struct timeval last_timestamp;
 	int qp_min_change;
 	int qp_max_change;
+
+	int is_max_fps;
 };
 
 #define fh_to_mfc_ctx(x)	\
