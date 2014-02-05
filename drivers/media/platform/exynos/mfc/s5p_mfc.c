@@ -1924,10 +1924,11 @@ err_ctx_alloc:
 /* err_drm_playback: // unused label */
 #endif
 err_node_type:
-	mutex_unlock(&dev->mfc_mutex);
-err_no_device:
 	mfc_info_dev("MFC driver open is failed [%d:%d]\n",
 			dev->num_drm_inst, dev->num_inst);
+	mutex_unlock(&dev->mfc_mutex);
+
+err_no_device:
 
 	return ret;
 }
