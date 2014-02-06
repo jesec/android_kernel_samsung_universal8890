@@ -683,7 +683,6 @@ struct dwc3_scratchpad_array {
  * @needs_fifo_resize: not all users might want fifo resizing, flag it
  * @pullups_connected: true when Run/Stop bit is set
  * @resize_fifos: tells us it's ok to reconfigure our TxFIFO sizes.
- * @needs_reinit: signals that the core should be reinitialized.
  * @setup_packet_pending: true when there's a Setup Packet in FIFO. Workaround
  * @start_config_issued: true when StartConfig command has been issued
  * @three_stage_setup: set if we perform a three phase setup
@@ -792,7 +791,6 @@ struct dwc3 {
 	unsigned		is_selfpowered:1;
 	unsigned		needs_fifo_resize:1;
 	unsigned		pullups_connected:1;
-	unsigned		needs_reinit:1;
 	unsigned		resize_fifos:1;
 	unsigned		setup_packet_pending:1;
 	unsigned		start_config_issued:1;
@@ -951,6 +949,7 @@ int dwc3_otg_start(struct dwc3 *dwc);
 void dwc3_otg_stop(struct dwc3 *dwc);
 int dwc3_otg_init(struct dwc3 *dwc);
 void dwc3_otg_exit(struct dwc3 *dwc);
+int dwc3_udc_reset(struct dwc3 *dwc);
 int dwc3_core_init(struct dwc3 *dwc);
 void dwc3_core_exit(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);

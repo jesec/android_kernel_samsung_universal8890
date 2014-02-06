@@ -146,8 +146,6 @@ static void dwc3_otg_set_host_mode(struct dwc3_otg *dotg)
 	struct dwc3	*dwc = dotg->dwc;
 	u32		reg;
 
-	dwc->needs_reinit = 1;
-
 	if (dotg->regs) {
 		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
 		reg &= ~DWC3_OTG_OCTL_PERIMODE;
@@ -161,8 +159,6 @@ static void dwc3_otg_set_peripheral_mode(struct dwc3_otg *dotg)
 {
 	struct dwc3	*dwc = dotg->dwc;
 	u32		reg;
-
-	dwc->needs_reinit = 1;
 
 	if (dotg->regs) {
 		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
@@ -208,15 +204,11 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 	if (on) {
 		wake_lock(&dotg->wakelock);
 		pm_runtime_get_sync(dev);
-		if (dwc->needs_reinit) {
-			ret = dwc3_core_init(dwc);
-			if (ret) {
-				dev_err(dwc->dev, "%s: failed to reinitialize core\n",
-						__func__);
-				return ret;
-			} else {
-				dwc->needs_reinit = 0;
-			}
+		ret = dwc3_core_init(dwc);
+		if (ret) {
+			dev_err(dwc->dev, "%s: failed to reinitialize core\n",
+					__func__);
+			return ret;
 		}
 		dwc3_otg_set_host_mode(dotg);
 		ret = platform_device_add(dwc->xhci);
@@ -227,7 +219,6 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 	} else {
 		platform_device_del(dwc->xhci);
 		dwc3_core_exit(dwc);
-		dwc->needs_reinit = 1;
 		pm_runtime_put_sync(dev);
 		wake_unlock(&dotg->wakelock);
 	}
@@ -239,6 +230,7 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 {
 	struct usb_otg	*otg = fsm->otg;
 	struct dwc3_otg	*dotg = container_of(otg, struct dwc3_otg, otg);
+	struct dwc3	*dwc = dotg->dwc;
 	struct device	*dev = dotg->dwc->dev;
 	int		ret;
 
@@ -251,10 +243,17 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 	if (on) {
 		wake_lock(&dotg->wakelock);
 		pm_runtime_get_sync(dev);
+		ret = dwc3_core_init(dwc);
+		if (ret) {
+			dev_err(dwc->dev, "%s: failed to reinitialize core\n",
+					__func__);
+			return ret;
+		}
 		dwc3_otg_set_peripheral_mode(dotg);
 		ret = usb_gadget_vbus_connect(otg->gadget);
 	} else {
 		ret = usb_gadget_vbus_disconnect(otg->gadget);
+		dwc3_core_exit(dwc);
 		pm_runtime_put_sync(dev);
 		wake_lock(&dotg->wakelock);
 	}
