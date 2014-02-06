@@ -270,7 +270,12 @@ static struct otg_fsm_ops dwc3_otg_fsm_ops = {
 
 void dwc3_otg_run_sm(struct otg_fsm *fsm)
 {
-	int	state_changed;
+	struct dwc3_otg	*dotg = container_of(fsm, struct dwc3_otg, fsm);
+	int		state_changed;
+
+	/* Prevent running SM on early system resume */
+	if (!dotg->ready)
+		return;
 
 	mutex_lock(&fsm->lock);
 	do {
@@ -548,6 +553,8 @@ int dwc3_otg_start(struct dwc3 *dwc)
 		dwc3_otg_enable_irq(dotg);
 	}
 
+	dotg->ready = 1;
+
 	dwc3_otg_run_sm(fsm);
 
 	return 0;
@@ -567,6 +574,8 @@ void dwc3_otg_stop(struct dwc3 *dwc)
 		dwc3_otg_disable_irq(dotg);
 		free_irq(dotg->irq, dotg);
 	}
+
+	dotg->ready = 0;
 }
 
 /**

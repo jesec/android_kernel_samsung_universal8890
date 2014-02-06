@@ -40,6 +40,7 @@ struct dwc3_ext_otg_ops {
  * @regs: ioremapped register base address.
  * @wakelock: prevents the system from entering suspend while
  * 	      host or peripheral mode is active.
+ * @ready: is one when OTG is ready for operation.
  * @vbus_reg: Vbus regulator.
  * @ext_otg_ops: external OTG engine ops.
  */
@@ -50,6 +51,8 @@ struct dwc3_otg {
 	int                     irq;
 	void __iomem            *regs;
 	struct wake_lock	wakelock;
+
+	unsigned		ready:1;
 
 	struct regulator	*vbus_reg;
 
