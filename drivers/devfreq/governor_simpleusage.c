@@ -69,9 +69,9 @@ static int devfreq_simple_usage_func(struct devfreq *df, unsigned long *freq)
 		dfso_multiplication_weight = data->multiplication_weight;
 
 	a = stat.busy_time * dfso_multiplication_weight;
-	a = div_u64(a, 100);
+	a = div64_u64(a, 100);
 	a = a * dfso_proportional;
-	b = div_u64(a, stat.total_time);
+	b = div64_u64(a, stat.total_time);
 
 	/* If percentage is larger than upthreshold, set with max freq */
 	if (b >= data->upthreshold) {
@@ -86,7 +86,7 @@ static int devfreq_simple_usage_func(struct devfreq *df, unsigned long *freq)
 
 	b *= stat.current_frequency;
 
-	a = div_u64(b, dfso_target_percentage);
+	a = div64_u64(b, dfso_target_percentage);
 
 	if (a > data->cal_qos_max)
 		a = data->cal_qos_max;

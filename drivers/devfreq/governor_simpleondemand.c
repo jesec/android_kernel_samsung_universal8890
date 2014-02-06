@@ -86,7 +86,7 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	}
 
 	stat.busy_time *= dfso_multiplication_weight;
-	stat.busy_time = div_u64(stat.busy_time, 100);
+	stat.busy_time = div64_u64(stat.busy_time, 100);
 
 	/* Set MAX if it's busy enough */
 	if (stat.busy_time * 100 >
@@ -115,9 +115,9 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	/* Set the desired frequency based on the load */
 	a = stat.busy_time;
 	a *= stat.current_frequency;
-	b = div_u64(a, stat.total_time);
+	b = div64_u64(a, stat.total_time);
 	b *= 100;
-	b = div_u64(b, (dfso_upthreshold - dfso_downdifferential / 2));
+	b = div64_u64(b, (dfso_upthreshold - dfso_downdifferential / 2));
 
 	if (data && data->cal_qos_max) {
 		if (b > data->cal_qos_max)
