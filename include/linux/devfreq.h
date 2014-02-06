@@ -248,6 +248,21 @@ struct devfreq_simple_usage_data {
 };
 #endif
 
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_EXYNOS)
+struct devfreq_simple_exynos_data {
+	unsigned int urgentthreshold;
+	unsigned int upthreshold;
+	unsigned int downthreshold;
+	unsigned int idlethreshold;
+	unsigned long above_freq;
+	unsigned long below_freq;
+	int pm_qos_class;
+	unsigned long cal_qos_max;
+	bool en_monitoring;
+	struct devfreq_notifier_block nb;
+};
+#endif
+
 #else /* !CONFIG_PM_DEVFREQ */
 static inline struct devfreq *devfreq_add_device(struct device *dev,
 					  struct devfreq_dev_profile *profile,
