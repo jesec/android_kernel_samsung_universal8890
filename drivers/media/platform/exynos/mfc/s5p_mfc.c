@@ -78,10 +78,16 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 {
 	int i;
 	int addr[MFC_SFR_AREA_COUNT][2] = {
-		{ 0x0, 0x50 },
+		{ 0x0, 0x80 },
 		{ 0x1000, 0xCD0 },
+		{ 0xF000, 0xFF8 },
+#if 0
 		{ 0x2000, 0xF70 },
 		{ 0x3000, 0x904 },
+#else
+		{ 0x2000, 0xA00 },
+		{ 0x3000, 0x40 },
+#endif
 		{ 0x5000, 0x9C4 },
 		{ 0x6000, 0xC4 },
 		{ 0x7000, 0x21C },
@@ -91,11 +97,13 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 		{ 0xB000, 0x444 },
 		{ 0xC000, 0x84 },
 		{ 0xD000, 0x74 },
-		{ 0xF000, 0xFF8 },
 	};
 
 	pr_err("[d:%d] dumping registers (SFR base = %p, dev = %p)\n",
 			dev->id, dev->regs_base, dev);
+
+	/* Enable all FW clock gating */
+	writel(0xFFFFFFFF, dev->regs_base + 0x1060);
 
 	for (i = 0; i < MFC_SFR_AREA_COUNT; i++) {
 		printk("[%04X .. %04X]\n", addr[i][0], addr[i][0] + addr[i][1]);
@@ -483,6 +491,10 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 #if 0
 watchdog_exit:
 #endif
+
+	/* Stop */
+	BUG();
+
 	if (mutex_locked)
 		mutex_unlock(&dev->mfc_mutex);
 
