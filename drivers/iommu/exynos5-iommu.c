@@ -179,6 +179,10 @@ static void __sysmmu_set_pbuf_ver31(struct sysmmu_drvdata *drvdata,
 static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 				struct sysmmu_prefbuf prefbuf[], int num_bufs)
 {
+	static char pbidx[3][3] = { /* [numbufs][PB index] */
+		/* Index of Prefetch buffer entries */
+		{1, 0, 0}, {3, 1, 0}, {3, 2, 1},
+	};
 	int i;
 	unsigned long cfg =
 		__raw_readl(drvdata->sfrbase + REG_MMU_CFG) & CFG_MASK;
@@ -200,15 +204,18 @@ static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 		num_bufs = 3; /* Only the first 3 buffers are set to PB */
 	}
 
-	for (i = 0; i < num_bufs; i++) {
-		if (prefbuf[i].size == 0) {
-			dev_err(drvdata->sysmmu,
-				"%s: Trying to init PB[%d/%d]with zero-size\n",
-				__func__, i, num_bufs);
-			prefbuf[i].size = 1;
+	for (i = 0; i < 3; i++) {
+		if (pbidx[num_bufs - 1][i]) {
+			if (prefbuf[i].size == 0) {
+				dev_err(drvdata->sysmmu,
+					"%s: Trying to init PB[%d/%d]with zero-size\n",
+					__func__, i, num_bufs);
+				prefbuf[i].size = 1;
+			}
+			__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[2],
+					prefbuf[i].base, prefbuf[i].size,
+					pbidx[num_bufs - 1][i] - 1);
 		}
-		__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[2],
-			prefbuf[i].base, prefbuf[i].size, i);
 	}
 
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
