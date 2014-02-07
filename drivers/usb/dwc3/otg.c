@@ -194,7 +194,7 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 	struct dwc3_otg	*dotg = container_of(otg, struct dwc3_otg, otg);
 	struct dwc3	*dwc = dotg->dwc;
 	struct device	*dev = dotg->dwc->dev;
-	int		ret;
+	int		ret = 0;
 
 	if (!dotg->dwc->xhci)
 		return -EINVAL;
@@ -208,22 +208,24 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 		if (ret) {
 			dev_err(dwc->dev, "%s: failed to reinitialize core\n",
 					__func__);
-			return ret;
+			goto err1;
 		}
 		dwc3_otg_set_host_mode(dotg);
 		ret = platform_device_add(dwc->xhci);
 		if (ret) {
 			dev_err(dev, "%s: cannot add xhci\n", __func__);
-			return ret;
+			goto err2;
 		}
 	} else {
 		platform_device_del(dwc->xhci);
+err2:
 		dwc3_core_exit(dwc);
+err1:
 		pm_runtime_put_sync(dev);
 		wake_unlock(&dotg->wakelock);
 	}
 
-	return 0;
+	return ret;
 }
 
 static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
@@ -232,7 +234,7 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 	struct dwc3_otg	*dotg = container_of(otg, struct dwc3_otg, otg);
 	struct dwc3	*dwc = dotg->dwc;
 	struct device	*dev = dotg->dwc->dev;
-	int		ret;
+	int		ret = 0;
 
 	if (!otg->gadget)
 		return -EINVAL;
@@ -247,13 +249,23 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 		if (ret) {
 			dev_err(dwc->dev, "%s: failed to reinitialize core\n",
 					__func__);
-			return ret;
+			goto err1;
 		}
 		dwc3_otg_set_peripheral_mode(dotg);
 		ret = usb_gadget_vbus_connect(otg->gadget);
+		if (ret) {
+			dev_err(dwc->dev, "%s: vbus connect failed\n",
+					__func__);
+			goto err2;
+		}
 	} else {
 		ret = usb_gadget_vbus_disconnect(otg->gadget);
+		if (ret)
+			dev_err(dwc->dev, "%s: vbus disconnect failed\n",
+					__func__);
+err2:
 		dwc3_core_exit(dwc);
+err1:
 		pm_runtime_put_sync(dev);
 		wake_lock(&dotg->wakelock);
 	}
