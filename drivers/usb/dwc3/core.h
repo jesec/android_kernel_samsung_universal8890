@@ -381,6 +381,10 @@
 #define DWC3_OTG_OSTS_BSESVALID		(1 << 2)
 #define DWC3_OTG_OSTS_CONIDSTS		(1 << 0)
 
+#define DWC3_DEPEVT_CmdTyp_SHIFT		24
+#define DWC3_DEPCMDx_CmdTyp_MASK		(0xf << 0)
+#define DWC3_DEPEVT_EventStatus_BusTimeExp	(2 << 12)
+
 /* Structures */
 
 struct dwc3_trb;
@@ -436,6 +440,7 @@ struct dwc3_event_buffer {
  * @type: set to bmAttributes & USB_ENDPOINT_XFERTYPE_MASK
  * @resource_index: Resource transfer index
  * @interval: the interval on which the ISOC transfer is started
+ * @current_uf: uframe number on which the ISOC transfer is started
  * @name: a human readable name e.g. ep1out-bulk
  * @direction: true for TX, false for RX
  * @stream_capable: true when streams are enabled
@@ -470,6 +475,7 @@ struct dwc3_ep {
 	u8			type;
 	u8			resource_index;
 	u32			interval;
+	u32			current_uf;
 
 	char			name[20];
 

@@ -966,11 +966,13 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 	}
 
 	memset(&params, 0, sizeof(params));
+	params.param0 = upper_32_bits(req->trb_dma);
+	params.param1 = lower_32_bits(req->trb_dma);
 
 	if (start_new) {
-		params.param0 = upper_32_bits(req->trb_dma);
-		params.param1 = lower_32_bits(req->trb_dma);
 		cmd = DWC3_DEPCMD_STARTTRANSFER;
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc))
+			cmd |= DWC3_DEPCMD_CMDIOC;
 	} else {
 		cmd = DWC3_DEPCMD_UPDATETRANSFER;
 	}
@@ -1007,6 +1009,7 @@ static void __dwc3_gadget_start_isoc(struct dwc3 *dwc,
 {
 	u32 uf;
 
+	dep->current_uf = cur_uf;
 	if (list_empty(&dep->request_list)) {
 		dev_vdbg(dwc->dev, "ISOC ep %s run out for requests.\n",
 			dep->name);
@@ -1085,10 +1088,17 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		 * notion of current microframe.
 		 */
 		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
-			if (list_empty(&dep->req_queued)) {
+			/* If xfernotready event is recieved before issuing
+			 * START TRANSFER command, don't issue END TRANSFER.
+			 * Rather start queueing the requests by issuing START
+			 * TRANSFER command.
+			 */
+			if (list_empty(&dep->req_queued) && dep->resource_index)
 				dwc3_stop_active_transfer(dwc, dep->number, true);
-				dep->flags = DWC3_EP_ENABLED;
-			}
+			else
+				__dwc3_gadget_start_isoc(dwc, dep,
+					dep->current_uf);
+			dep->flags &= ~DWC3_EP_PENDING_REQUEST;
 			return 0;
 		}
 
@@ -1869,7 +1879,7 @@ static int __dwc3_cleanup_done_trbs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		if (count) {
 			trb_status = DWC3_TRB_SIZE_TRBSTS(trb->size);
 			if (trb_status == DWC3_TRBSTS_MISSED_ISOC) {
-				dev_dbg(dwc->dev, "incomplete IN transfer %s\n",
+				dev_vdbg(dwc->dev, "missed is interval %s\n",
 						dep->name);
 				/*
 				 * If missed isoc occurred and there is
@@ -1958,18 +1968,17 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 
 	if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
 			list_empty(&dep->req_queued)) {
-		if (list_empty(&dep->request_list)) {
+		if (list_empty(&dep->request_list))
 			/*
 			 * If there is no entry in request list then do
 			 * not issue END TRANSFER now. Just set PENDING
 			 * flag, so that END TRANSFER is issued when an
 			 * entry is added into request list.
 			 */
-			dep->flags = DWC3_EP_PENDING_REQUEST;
-		} else {
+			dep->flags |= DWC3_EP_PENDING_REQUEST;
+		else
 			dwc3_stop_active_transfer(dwc, dep->number, true);
-			dep->flags = DWC3_EP_ENABLED;
-		}
+		dep->flags &= ~DWC3_EP_MISSED_ISOC;
 		return 1;
 	}
 
@@ -2012,6 +2021,49 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 
 		dwc->u1u2 = 0;
+	}
+}
+
+static void dwc3_endpoint_command_complete(struct dwc3 *dwc,
+		struct dwc3_ep *dep, const struct dwc3_event_depevt *event)
+{
+	u32			cmdtyp, temp;
+	struct dwc3_request	*req1, *n;
+
+	temp = *(u32 *)event;
+	cmdtyp = (temp >> DWC3_DEPEVT_CmdTyp_SHIFT) &
+		DWC3_DEPCMDx_CmdTyp_MASK;
+
+	if (cmdtyp == DWC3_DEPCMD_STARTTRANSFER) {
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
+				(temp & DWC3_DEPEVT_EventStatus_BusTimeExp)) {
+
+			if (!dep->resource_index) {
+				dep->resource_index =
+					dwc3_gadget_ep_get_transfer_index(dwc,
+							dep->number);
+				WARN_ON_ONCE(!dep->resource_index);
+			}
+
+			dwc3_stop_active_transfer(dwc, dep->number, true);
+
+			list_for_each_entry_safe_reverse(req1, n,
+					&dep->req_queued, list) {
+
+				req1->trb = NULL;
+				dwc3_gadget_move_request_list_front(req1);
+
+				if (req1->request.num_mapped_sgs)
+					dep->busy_slot +=
+						req1->request.num_mapped_sgs;
+				else
+					dep->busy_slot++;
+
+				if ((dep->busy_slot & DWC3_TRB_MASK) ==
+						DWC3_TRB_NUM - 1)
+					dep->busy_slot++;
+			}
+		}
 	}
 }
 
@@ -2091,6 +2143,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		break;
 	case DWC3_DEPEVT_EPCMDCMPLT:
 		dev_vdbg(dwc->dev, "Endpoint Command Complete\n");
+		dwc3_endpoint_command_complete(dwc, dep, event);
 		break;
 	}
 }
