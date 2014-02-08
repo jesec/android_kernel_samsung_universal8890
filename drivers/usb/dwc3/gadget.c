@@ -1750,7 +1750,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 }
 
 static irqreturn_t dwc3_interrupt(int irq, void *_dwc);
-static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc);
+//static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc);
 
 static int dwc3_gadget_start(struct usb_gadget *g,
 		struct usb_gadget_driver *driver)
@@ -1761,7 +1761,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	int			irq;
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
+	ret = devm_request_irq(dwc->dev, irq, dwc3_interrupt,
 			IRQF_SHARED, "dwc3", dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
@@ -2746,13 +2746,14 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 	struct dwc3_event_buffer *evt;
 	irqreturn_t ret = IRQ_NONE;
 	int left;
-	u32 reg;
+	u32 count;
 
 	evt = dwc->ev_buffs[buf];
-	left = evt->count;
 
-	if (!(evt->flags & DWC3_EVENT_PENDING))
-		return IRQ_NONE;
+	count = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(buf));
+	count &= DWC3_GEVNTCOUNT_MASK;
+	evt->count = count;
+	left = evt->count;
 
 	while (left > 0) {
 		union dwc3_event event;
@@ -2777,17 +2778,20 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 	}
 
 	evt->count = 0;
-	evt->flags &= ~DWC3_EVENT_PENDING;
 	ret = IRQ_HANDLED;
 
+	/* To improve the performance of RNDIS, thread_irq is not used.
+	 * However, to track the history, it is not removed.
+	 */
+#if 0
 	/* Unmask interrupt */
 	reg = dwc3_readl(dwc->regs, DWC3_GEVNTSIZ(buf));
 	reg &= ~DWC3_GEVNTSIZ_INTMASK;
 	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(buf), reg);
-
+#endif
 	return ret;
 }
-
+#if 0
 static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 {
 	struct dwc3 *dwc = _dwc;
@@ -2828,6 +2832,7 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3 *dwc, u32 buf)
 
 	return IRQ_WAKE_THREAD;
 }
+#endif
 
 static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 {
@@ -2837,16 +2842,10 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 
 	spin_lock(&dwc->lock);
 
-	for (i = 0; i < dwc->num_event_buffers; i++) {
-		irqreturn_t status;
-
-		status = dwc3_check_event_buf(dwc, i);
-		if (status == IRQ_WAKE_THREAD)
-			ret = status;
-	}
+	for (i = 0; i < dwc->num_event_buffers; i++)
+		ret |= dwc3_process_event_buf(dwc, i);
 
 	spin_unlock(&dwc->lock);
-
 	return ret;
 }
 
