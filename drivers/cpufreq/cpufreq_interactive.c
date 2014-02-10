@@ -514,6 +514,7 @@ static int cpufreq_interactive_speedchange_task(void *data)
 {
 	unsigned int cpu;
 	cpumask_t tmp_mask;
+	cpumask_t policy_mask;
 	unsigned long flags;
 	struct cpufreq_interactive_cpuinfo *pcpu;
 
@@ -521,7 +522,9 @@ static int cpufreq_interactive_speedchange_task(void *data)
 		set_current_state(TASK_INTERRUPTIBLE);
 		spin_lock_irqsave(&speedchange_cpumask_lock, flags);
 
-		if (cpumask_empty(&speedchange_cpumask)) {
+		pcpu = &per_cpu(cpuinfo, smp_processor_id());
+		cpumask_and(&policy_mask, &speedchange_cpumask, pcpu->policy->related_cpus);
+		if (cpumask_empty(&policy_mask)) {
 			spin_unlock_irqrestore(&speedchange_cpumask_lock,
 					       flags);
 
@@ -537,9 +540,8 @@ static int cpufreq_interactive_speedchange_task(void *data)
 		}
 
 		set_current_state(TASK_RUNNING);
-		pcpu = &per_cpu(cpuinfo, smp_processor_id());
-		cpumask_and(&tmp_mask, &speedchange_cpumask, pcpu->policy->cpus);
-		cpumask_andnot(&speedchange_cpumask, &speedchange_cpumask, pcpu->policy->cpus);
+		cpumask_and(&tmp_mask, &speedchange_cpumask, pcpu->policy->related_cpus);
+		cpumask_andnot(&speedchange_cpumask, &speedchange_cpumask, pcpu->policy->related_cpus);
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		for_each_cpu(cpu, &tmp_mask) {
