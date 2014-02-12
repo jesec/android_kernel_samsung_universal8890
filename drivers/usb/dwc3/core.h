@@ -26,6 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/debugfs.h>
+#include <linux/completion.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -722,6 +723,7 @@ struct dwc3_scratchpad_array {
  * @three_stage_setup: set if we perform a three phase setup
  * @vbus_session: Indicates if the gadget was powered by the otg driver
  * @softconnect: Indicates if pullup was issued by the usb_gadget_driver
+ * @disconnect: signals that Disconnection interrupt happend
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -790,6 +792,8 @@ struct dwc3 {
 #define DWC3_REVISION_260A	0x5533260a
 #define DWC3_REVISION_270A	0x5533270a
 #define DWC3_REVISION_280A	0x5533280a
+
+	struct completion       disconnect;
 
 	enum dwc3_ep0_next	ep0_next_event;
 	enum dwc3_ep0_state	ep0state;

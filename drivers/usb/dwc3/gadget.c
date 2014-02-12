@@ -2292,6 +2292,8 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 	dwc->setup_packet_pending = false;
+
+	complete(&dwc->disconnect);
 }
 
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)

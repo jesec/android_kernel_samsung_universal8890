@@ -259,7 +259,9 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 			goto err2;
 		}
 	} else {
-		msleep(200);
+		/* avoid missing disconnect interrupt */
+		wait_for_completion_timeout(&dwc->disconnect,
+				msecs_to_jiffies(200));
 		ret = usb_gadget_vbus_disconnect(otg->gadget);
 		if (ret)
 			dev_err(dwc->dev, "%s: vbus disconnect failed\n",
