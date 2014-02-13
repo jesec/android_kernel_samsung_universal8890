@@ -691,6 +691,8 @@ struct s5p_mfc_dec {
 	struct dec_dpb_ref_info *ref_info;
 	int assigned_fd[MFC_MAX_DPBS];
 	struct mfc_user_shared_handle sh_handle;
+
+	int dynamic_ref_filled;
 };
 
 struct s5p_mfc_enc {
