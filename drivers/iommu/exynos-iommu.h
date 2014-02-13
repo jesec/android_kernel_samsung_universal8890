@@ -311,6 +311,7 @@ static inline void __raw_sysmmu_disable(void __iomem *sfrbase)
 {
 	__raw_writel(0, sfrbase + REG_MMU_CFG);
 	__raw_writel(CTRL_DISABLE, sfrbase + REG_MMU_CTRL);
+	BUG_ON(__raw_readl(sfrbase + REG_MMU_CTRL) & 0x7);
 }
 
 static inline void __raw_sysmmu_enable(void __iomem *sfrbase)
