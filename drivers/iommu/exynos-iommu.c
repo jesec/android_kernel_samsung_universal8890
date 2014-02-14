@@ -452,10 +452,10 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 	for_each_sysmmu_list(dev, list) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
 
-		spin_lock_irqsave(&drvdata->lock, flags);
+		spin_lock(&drvdata->lock);
 
 		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
-			spin_unlock_irqrestore(&drvdata->lock, flags);
+			spin_unlock(&drvdata->lock);
 			continue;
 		}
 
@@ -465,7 +465,7 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 
 		__master_clk_disable(drvdata);
 
-		spin_unlock_irqrestore(&drvdata->lock, flags);
+		spin_unlock(&drvdata->lock);
 	}
 
 	spin_unlock_irqrestore(&owner->lock, flags);
@@ -503,10 +503,10 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 	for_each_sysmmu_list(dev, list) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
 
-		spin_lock_irqsave(&drvdata->lock, flags);
+		spin_lock(&drvdata->lock);
 
 		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
-			spin_unlock_irqrestore(&drvdata->lock, flags);
+			spin_unlock(&drvdata->lock);
 			continue;
 		}
 
@@ -517,7 +517,7 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 
 		__master_clk_disable(drvdata);
 
-		spin_unlock_irqrestore(&drvdata->lock, flags);
+		spin_unlock(&drvdata->lock);
 	}
 
 	spin_unlock_irqrestore(&owner->lock, flags);
@@ -611,7 +611,7 @@ void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 	for_each_sysmmu_list(dev, list) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
 
-		spin_lock_irqsave(&drvdata->lock, flags);
+		spin_lock(&drvdata->lock);
 
 		if (is_sysmmu_active(drvdata) && drvdata->runtime_active) {
 			__master_clk_enable(drvdata);
@@ -626,7 +626,7 @@ void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 			}
 			__master_clk_disable(drvdata);
 		}
-		spin_unlock_irqrestore(&drvdata->lock, flags);
+		spin_unlock(&drvdata->lock);
 	}
 
 	spin_unlock_irqrestore(&owner->lock, flags);
@@ -645,13 +645,13 @@ void exynos_sysmmu_release_df(struct device *dev)
 	for_each_sysmmu_list(dev, list) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
 
-		spin_lock_irqsave(&drvdata->lock, flags);
+		spin_lock(&drvdata->lock);
 		if (is_sysmmu_active(drvdata) && drvdata->runtime_active) {
 			__master_clk_enable(drvdata);
 			__exynos_sysmmu_release_df(drvdata);
 			__master_clk_disable(drvdata);
 		}
-		spin_unlock_irqrestore(&drvdata->lock, flags);
+		spin_unlock(&drvdata->lock);
 	}
 
 	spin_unlock_irqrestore(&owner->lock, flags);
@@ -1231,9 +1231,8 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	if (size >= SECT_SIZE) {
 		int num_entry = size / SECT_SIZE;
 		struct exynos_iommu_owner *owner;
-		unsigned long flags2;
 
-		spin_lock_irqsave(&priv->lock, flags2);
+		spin_lock(&priv->lock);
 		list_for_each_entry(owner, &priv->clients, client) {
 			int i;
 			for (i = 0; i < num_entry; i++)
@@ -1242,7 +1241,7 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 							owner->dev,
 							iova + i * SECT_SIZE);
 		}
-		spin_unlock_irqrestore(&priv->lock, flags2);
+		spin_unlock(&priv->lock);
 
 		ret = lv1set_section(entry, paddr, size,
 					&priv->lv2entcnt[lv1ent_offset(iova)]);
