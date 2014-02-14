@@ -69,13 +69,17 @@ void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
 	}
 }
 
-void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova)
+static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova,
+					bool force)
 {
 	struct sysmmu_list_data *list;
 
 	for_each_sysmmu_list(dev, list) {
 		unsigned long flags;
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+		if (!force && !(drvdata->prop & SYSMMU_PROP_NONBLOCK_TLBINV))
+			continue;
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 		if (is_sysmmu_active(drvdata) && drvdata->runtime_active) {
@@ -100,6 +104,9 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 	for_each_sysmmu_list(dev, list) {
 		unsigned long flags;
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+		if (!!(drvdata->prop & SYSMMU_PROP_NONBLOCK_TLBINV))
+			continue;
 
 		spin_lock_irqsave(&drvdata->lock, flags);
 		if (!is_sysmmu_active(drvdata) ||
@@ -342,7 +349,7 @@ int recover_fault_handler (struct iommu_domain *domain,
 		spin_lock_irqsave(&priv->lock, flags);
 		list_for_each_entry(owner, &priv->clients, client)
 			sysmmu_tlb_invalidate_entry(owner->dev,
-						    (dma_addr_t)fault_addr);
+						(dma_addr_t)fault_addr, true);
 		spin_unlock_irqrestore(&priv->lock, flags);
 
 		pr_err("[%s] occured at 0x%lx by '%s'\n",
@@ -834,6 +841,10 @@ static int __init __sysmmu_init_prop(struct device *sysmmu,
 		}
 	}
 
+	if (!of_property_read_string(prop_node, "tlbinv-nonblock", &s))
+		if (strnicmp(s, "yes", 3) == 0)
+			drvdata->prop |= SYSMMU_PROP_NONBLOCK_TLBINV;
+
 	return 0;
 }
 
@@ -1268,6 +1279,20 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+static void exynos_iommu_tlb_invalidate_entry(struct exynos_iommu_domain *priv,
+					unsigned long iova)
+{
+	struct exynos_iommu_owner *owner;
+	unsigned long flags;
+
+	spin_lock_irqsave(&priv->lock, flags);
+
+	list_for_each_entry(owner, &priv->clients, client)
+		sysmmu_tlb_invalidate_entry(owner->dev, iova, false);
+
+	spin_unlock_irqrestore(&priv->lock, flags);
+}
+
 static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 					unsigned long iova, size_t size)
 {
@@ -1356,6 +1381,8 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 	priv->lv2entcnt[lv1ent_offset(iova)] += SPAGES_PER_LPAGE;
 done:
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
+
+	exynos_iommu_tlb_invalidate_entry(priv, iova);
 
 	/* TLB invalidation is performed by IOVMM */
 	return size;
