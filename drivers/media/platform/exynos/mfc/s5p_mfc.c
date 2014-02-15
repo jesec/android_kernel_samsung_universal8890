@@ -2045,7 +2045,7 @@ static int s5p_mfc_release(struct file *file)
 		/* Wait for hw_lock == 0 for this context */
 		wait_event_timeout(ctx->queue,
 				(test_bit(ctx->num, &dev->hw_lock) == 0),
-				msecs_to_jiffies(MFC_INT_TIMEOUT));
+				msecs_to_jiffies(MFC_INT_SHORT_TIMEOUT));
 
 		/* To issue the command 'CLOSE_INSTANCE' */
 		s5p_mfc_try_run(dev);

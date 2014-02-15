@@ -48,12 +48,14 @@
 #define MFC_MAX_DRM_CTX		2
 /* Interrupt timeout */
 #define MFC_INT_TIMEOUT		2000
+/* Interrupt short timeout */
+#define MFC_INT_SHORT_TIMEOUT	800
 /* Busy wait timeout */
 #define MFC_BW_TIMEOUT		500
 /* Watchdog interval */
 #define MFC_WATCHDOG_INTERVAL   1000
 /* After how many executions watchdog should assume lock up */
-#define MFC_WATCHDOG_CNT        10
+#define MFC_WATCHDOG_CNT        3
 
 #define MFC_NO_INSTANCE_SET	-1
 
