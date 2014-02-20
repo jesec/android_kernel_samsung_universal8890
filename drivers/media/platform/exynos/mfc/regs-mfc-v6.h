@@ -113,6 +113,7 @@ static inline unsigned int r2h_bits(int cmd)
 	if (cmd == S5P_FIMV_R2H_CMD_FRAME_DONE_RET)
 		mask |= (R2H_BIT(S5P_FIMV_R2H_CMD_FIELD_DONE_RET) |
 			 R2H_BIT(S5P_FIMV_R2H_CMD_SLICE_DONE_RET) |
+			 R2H_BIT(S5P_FIMV_R2H_CMD_COMPLETE_SEQ_RET) |
 			 R2H_BIT(S5P_FIMV_R2H_CMD_ENC_BUFFER_FUL_RET));
 	/* FIXME: Temporal mask for S3D SEI processing */
 	else if (cmd == S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET)
