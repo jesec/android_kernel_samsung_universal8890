@@ -417,6 +417,10 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 			if (dwc->speed != DWC3_DSTS_SUPERSPEED)
 				return -EINVAL;
 
+			/* see NEGATIVE RX DETECTION comment */
+			if (set && dwc->revision < DWC3_REVISION_230A)
+				return 0;
+
 			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 			if (set)
 				reg |= DWC3_DCTL_INITU1ENA;
@@ -430,6 +434,10 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 				return -EINVAL;
 			if (dwc->speed != DWC3_DSTS_SUPERSPEED)
 				return -EINVAL;
+
+			/* see NEGATIVE RX DETECTION comment */
+			if (set && dwc->revision < DWC3_REVISION_230A)
+				return 0;
 
 			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 			if (set)
@@ -568,12 +576,26 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 						USB_STATE_CONFIGURED);
 
 			/*
-			 * Enable transition to U1/U2 state when
-			 * nothing is pending from application.
+			 * NEGATIVE RX DETECTION
+			 * Some host controllers (e.g. Intel) perform far-end
+			 * receiver termination _negative_ detection while link
+			 * is in U2 state. Synopsys PIPE PHY considers this
+			 * signalling as U2 LFPS exit, moves to Recovery state
+			 * and waits for training sequence which never comes.
+			 * This finally leads to reconnection. Starting from
+			 * DWC3 core 2.30a, GCTL register has bit U2EXIT_LFPS,
+			 * which improves interoperability with such HCs.
 			 */
-			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-			reg |= (DWC3_DCTL_ACCEPTU1ENA | DWC3_DCTL_ACCEPTU2ENA);
-			dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+			if (dwc->revision >= DWC3_REVISION_230A) {
+				/*
+				 * Enable transition to U1/U2 state when
+				 * nothing is pending from application.
+				 */
+				reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+				reg |= (DWC3_DCTL_ACCEPTU1ENA |
+						DWC3_DCTL_ACCEPTU2ENA);
+				dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+			}
 
 			dwc->resize_fifos = true;
 			dwc3_trace(trace_dwc3_ep0, "resize FIFOs flag SET");
