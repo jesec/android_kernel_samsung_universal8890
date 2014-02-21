@@ -2280,7 +2280,7 @@ static struct video_device s5p_mfc_enc_drm_videodev = {
 static void *mfc_get_drv_data(struct platform_device *pdev);
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-#if defined(CONFIG_SOC_EXYNOS5430_REV_1)
+#if defined(CONFIG_SOC_EXYNOS5430_REV_1) || defined(CONFIG_SOC_EXYNOS5422_REV_0)
 #define QOS_STEP_NUM (5)
 #else
 #define QOS_STEP_NUM (4)
@@ -2331,7 +2331,7 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_1", &g_mfc_qos_table[1]);
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_2", &g_mfc_qos_table[2]);
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_3", &g_mfc_qos_table[3]);
-#if defined(CONFIG_SOC_EXYNOS5430_REV_1)
+#if defined(CONFIG_SOC_EXYNOS5430_REV_1) || defined(CONFIG_SOC_EXYNOS5422_REV_0)
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_4", &g_mfc_qos_table[4]);
 #endif
 #endif
