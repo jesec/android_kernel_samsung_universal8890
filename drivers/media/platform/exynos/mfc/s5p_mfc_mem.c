@@ -41,7 +41,6 @@ void **s5p_mfc_mem_init_multi(struct device *dev, unsigned int ctx_num)
 				IS_MFCV6(m_dev) ? SZ_4K : SZ_128K,
 				VB2ION_CTX_VMCONTIG |
 				VB2ION_CTX_IOMMU |
-				VB2ION_CTX_KVA_STATIC |
 				VB2ION_CTX_UNCACHED);
 		if (IS_ERR(alloc_ctxes[i]))
 			break;
