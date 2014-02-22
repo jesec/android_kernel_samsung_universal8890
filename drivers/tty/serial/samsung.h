@@ -14,6 +14,13 @@
 
 #include <linux/pm_qos.h>
 
+#define S3C24XX_UART_PORT_RESUME		0x0
+#define S3C24XX_UART_PORT_SUSPEND		0x3
+#define S3C24XX_UART_PORT_LPM			0x5
+
+#define S3C24XX_SERIAL_CTRL_NUM			0x4
+#define S3C24XX_SERIAL_BUAD_NUM			0x2
+
 struct s3c24xx_uart_info {
 	char			*name;
 	unsigned int		type;
@@ -62,10 +69,19 @@ struct s3c24xx_uart_port {
 	s32				mif_qos_val;
 	unsigned long			mif_qos_timeout;
 
+	atomic_t			serial_suspend;
+	unsigned int			uart_lpm_wake;
+	struct work_struct		uart_port_lpm_work;
+
+	/* uart port sfr save/restore */
+	unsigned int			serial_ctrl[S3C24XX_SERIAL_CTRL_NUM];
+	unsigned int			serial_baud[S3C24XX_SERIAL_BUAD_NUM];
+
 	/* reference to platform data */
 	struct s3c2410_uartcfg		*cfg;
 
 	struct notifier_block		aud_uart_notifier;
+	unsigned int			aud_uart_notifier_suspend;
 	struct platform_device		*pdev;
 
 	struct pm_qos_request		s3c24xx_uart_mif_qos;
