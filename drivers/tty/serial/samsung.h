@@ -66,8 +66,10 @@ struct s3c24xx_uart_port {
 	struct uart_port		port;
 	struct s3c24xx_serial_drv_data	*drv_data;
 
+	u32				uart_irq_affinity;
 	s32				mif_qos_val;
-	unsigned long			mif_qos_timeout;
+	s32				cpu_qos_val;
+	unsigned long			qos_timeout;
 
 	atomic_t			serial_suspend;
 	unsigned int			uart_lpm_wake;
@@ -85,7 +87,8 @@ struct s3c24xx_uart_port {
 	struct platform_device		*pdev;
 
 	struct pm_qos_request		s3c24xx_uart_mif_qos;
-	struct delayed_work		mif_qos_work;
+	struct pm_qos_request		s3c24xx_uart_cpu_qos;
+	struct delayed_work		qos_work;
 };
 
 /* conversion functions */
