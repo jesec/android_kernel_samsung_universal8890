@@ -36,6 +36,9 @@
 #if defined(CONFIG_SOC_EXYNOS5422)
 #include <mach/regs-clock-exynos5422.h>
 #include <mach/regs-pmu-exynos5422.h>
+#elif defined(CONFIG_SOC_EXYNOS5430_REV_1)
+#include <mach/regs-clock-exynos5430.h>
+#include <mach/regs-pmu.h>
 #endif
 
 #include "s5p_mfc_common.h"
@@ -350,13 +353,20 @@ static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
 
 	return 0;
 }
-#else
+#elif defined(CONFIG_SOC_EXYNOS5430_REV_1)
 static int mfc_check_power_state(struct s5p_mfc_dev *dev)
 {
-	int ref_val;
+	int reg_val, ref_val;
 
 	ref_val = s5p_mfc_get_power_ref_cnt(dev);
-	mfc_err("* MFC power state = UNKNOWN, ref cnt = %d\n", ref_val);
+	if (dev->id == 0)
+		reg_val = readl(EXYNOS5430_MFC0_CONFIGURATION);
+	else
+		reg_val = readl(EXYNOS5430_MFC1_CONFIGURATION);
+	mfc_err("* MFC power state = 0x%x, ref cnt = %d\n", reg_val, ref_val);
+
+	if (reg_val)
+		return 1;
 
 	return 0;
 }
@@ -366,16 +376,55 @@ static int mfc_check_clock_state(struct s5p_mfc_dev *dev)
 	int ref_val;
 
 	ref_val = s5p_mfc_get_clk_ref_cnt(dev);
-	mfc_err("* MFC clock state = UNKNOWN, ref cnt = %d\n", ref_val);
+	mfc_err("** CMU ref cnt = %d\n", ref_val);
 
-	return 0;
+	return ref_val;
 }
 
 static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
 {
-	mfc_check_power_state(dev);
-	mfc_check_clock_state(dev);
+	int ret;
+
+	if (mfc_check_power_state(dev)) {
+		ret = mfc_check_clock_state(dev);
+		if (ret)
+			s5p_mfc_dump_regs(dev);
+	}
 	mfc_disp_dev_state(dev);
+
+	return 0;
+}
+#else
+static int mfc_check_power_state(struct s5p_mfc_dev *dev)
+{
+	int ref_val;
+
+	ref_val = s5p_mfc_get_power_ref_cnt(dev);
+	mfc_err("* MFC power state = UNKNOWN, ref cnt = %d\n", ref_val);
+
+	return ref_val;
+}
+
+static int mfc_check_clock_state(struct s5p_mfc_dev *dev)
+{
+	int ref_val;
+
+	ref_val = s5p_mfc_get_clk_ref_cnt(dev);
+	mfc_err("* MFC clock state = UNKNOWN, ref cnt = %d\n", ref_val);
+
+	return ref_val;
+}
+
+static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
+{
+	int pwr_state, clk_state;
+
+	pwr_state = mfc_check_power_state(dev);
+	clk_state = mfc_check_clock_state(dev);
+	mfc_disp_dev_state(dev);
+
+	if (pwr_state && clk_state)
+		s5p_mfc_dump_regs(dev);
 
 	return 0;
 }
