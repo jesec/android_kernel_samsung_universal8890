@@ -2687,6 +2687,14 @@ static inline void update_rq_runnable_avg(struct rq *rq, int runnable) {}
 
 unsigned int hmp_up_threshold = 700;
 unsigned int hmp_down_threshold = 256;
+
+/*
+ * Needed to determine heaviest tasks etc.
+ */
+static inline unsigned int hmp_cpu_is_fastest(int cpu);
+static inline unsigned int hmp_cpu_is_slowest(int cpu);
+static inline struct hmp_domain *hmp_slower_domain(int cpu);
+static inline struct hmp_domain *hmp_faster_domain(int cpu);
 #endif
 
 static inline void __update_task_entity_contrib(struct sched_entity *se)
@@ -2702,7 +2710,8 @@ static inline void __update_task_entity_contrib(struct sched_entity *se)
 	contrib /= (se->avg.runnable_avg_period + 1);
 	se->avg.load_avg_ratio = scale_load(contrib);
 #ifdef CONFIG_SCHED_HMP
-	if (se->avg.load_avg_ratio > hmp_up_threshold)
+	if (!hmp_cpu_is_fastest(cpu_of(se->cfs_rq->rq)) &&
+		se->avg.load_avg_ratio > hmp_up_threshold)
 		cpu_rq(smp_processor_id())->next_balance = jiffies;
 #endif
 	trace_sched_task_runnable_ratio(task_of(se), se->avg.load_avg_ratio);
@@ -4819,14 +4828,6 @@ static void hmp_offline_cpu(int cpu)
 	if(domain)
 		cpumask_clear_cpu(cpu, &domain->cpus);
 }
-
-/*
- * Needed to determine heaviest tasks etc.
- */
-static inline unsigned int hmp_cpu_is_fastest(int cpu);
-static inline unsigned int hmp_cpu_is_slowest(int cpu);
-static inline struct hmp_domain *hmp_slower_domain(int cpu);
-static inline struct hmp_domain *hmp_faster_domain(int cpu);
 
 /* must hold runqueue lock for queue se is currently on */
 
