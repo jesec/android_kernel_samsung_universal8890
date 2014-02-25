@@ -1832,21 +1832,15 @@ static int s5p_mfc_open(struct file *file)
 				dev->drm_fw_status = 0;
 			} else {
 				uint32_t nfw_base, fw_base, sectbl_base, offset;
-				size_t fw_size, size;
+				size_t size;
 
 				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &nfw_base, &size);
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &fw_base, &fw_size);
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &fw_base, &size);
 				ion_exynos_contig_heap_info(ION_EXYNOS_ID_SECTBL, &sectbl_base, &size);
 
 				offset = dev->drm_fw_info.ofs - fw_base;
 				nfw_base += offset;
 				fw_base += offset;
-
-				ret = exynos_smc(SMC_DRM_SECMEM_INFO, sectbl_base, fw_base, fw_size);
-				if (ret < 0) {
-					mfc_err("Fail to pass secure page table base address. ret = %d\n", ret);
-					dev->drm_fw_status = 0;
-				}
 
 				ret = exynos_smc(SMC_DRM_FW_LOADING, fw_base, nfw_base, sectbl_base);
 				if (ret) {
