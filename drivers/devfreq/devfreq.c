@@ -226,7 +226,7 @@ static void devfreq_monitor(struct work_struct *work)
 
 	mutex_lock(&devfreq->lock);
 	err = update_devfreq(devfreq);
-	if (err)
+	if (err && err != -EAGAIN)
 		dev_err(&devfreq->dev, "dvfs failed with (%d) error\n", err);
 #ifdef CONFIG_SCHED_HMP
 	mod_delayed_work_on(0, devfreq_wq, &devfreq->work,
