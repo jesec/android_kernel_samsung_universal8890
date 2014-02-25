@@ -90,16 +90,14 @@
 enum {
 	FC_MFC_EXYNOS_ID_MFC_SH        = 0,
 	FC_MFC_EXYNOS_ID_VIDEO         = 1,
-	FC_MFC_EXYNOS_ID_MFC_INPUT     = 2,
-	FC_MFC_EXYNOS_ID_MFC_FW        = 3,
-	FC_MFC_EXYNOS_ID_SECTBL        = 4,
-	FC_MFC_EXYNOS_ID_G2D_WFD       = 5,
-	FC_MFC_EXYNOS_ID_MFC_NFW       = 6,
+	FC_MFC_EXYNOS_ID_MFC_FW        = 2,
+	FC_MFC_EXYNOS_ID_SECTBL        = 3,
+	FC_MFC_EXYNOS_ID_G2D_WFD       = 4,
+	FC_MFC_EXYNOS_ID_MFC_NFW       = 5,
 };
 
 #define SMC_FC_ID_MFC_SH(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_SH)
 #define SMC_FC_ID_VIDEO(id)		((id) * 10 + FC_MFC_EXYNOS_ID_VIDEO)
-#define SMC_FC_ID_MFC_INPUT(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_INPUT)
 #define SMC_FC_ID_MFC_FW(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_FW)
 #define SMC_FC_ID_SECTBL(id)		((id) * 10 + FC_MFC_EXYNOS_ID_SECTBL)
 #define SMC_FC_ID_G2D_WFD(id)		((id) * 10 + FC_MFC_EXYNOS_ID_G2D_WFD)

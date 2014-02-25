@@ -1634,34 +1634,10 @@ irq_poweron_err:
 }
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-#if 0
-static int s5p_mfc_mem_isolate(uint32_t region_id, uint32_t isolate)
-{
-	if (isolate) {
-		int ret;
-		ret = ion_exynos_contig_heap_isolate(region_id);
-		if (ret < 0)
-			return ret;
-	} else {
-		ion_exynos_contig_heap_deisolate(region_id);
-	}
-
-	return 0;
-}
-#endif
-
 static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
 {
 	int ret;
-#if 0
-	ret = s5p_mfc_mem_isolate(ION_EXYNOS_ID_MFC_INPUT, protect);
-	if (ret < 0)
-		return ret;
 
-	ret = s5p_mfc_mem_isolate(ION_EXYNOS_ID_VIDEO, protect);
-	if (ret < 0)
-		goto err_isolate_video;
-#endif
 	if (protect) {
 		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 1);
 		if (ret < 0) {
@@ -1670,18 +1646,16 @@ static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
 		}
 	} else {
 		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 0);
-		if (ret < 0)
-			goto err_mem_prot;
+		if (ret < 0) {
+			mfc_err("Protection disable failed.\n");
+			return ret;
+		}
 	}
 
 	return 0;
 
 err_prot_enable:
 	exynos_smc(SMC_MEM_PROT_SET, 0, 0, 0);
-err_mem_prot:
-//	s5p_mfc_mem_isolate(ION_EXYNOS_ID_VIDEO, 0);
-//err_isolate_video:
-//	s5p_mfc_mem_isolate(ION_EXYNOS_ID_MFC_INPUT, 0);
 
 	return ret;
 }
@@ -1694,11 +1668,6 @@ static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
 
 	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &base, &size);
 	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_FW(dev->id), base, size);
-	if (ret)
-		return -1;
-
-	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_INPUT, &base, &size);
-	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_INPUT(dev->id), base, size);
 	if (ret)
 		return -1;
 
