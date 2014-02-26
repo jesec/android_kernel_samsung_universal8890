@@ -32,6 +32,7 @@
 #include <mach/smc.h>
 #include <mach/bts.h>
 #include <mach/devfreq.h>
+#include <mach/secmem.h>
 
 #if defined(CONFIG_SOC_EXYNOS5422)
 #include <mach/regs-clock-exynos5422.h>
@@ -1808,6 +1809,12 @@ static int s5p_mfc_open(struct file *file)
 				} else {
 					prot_flag = 1;
 				}
+
+				ret = drm_gsc_enable_locked(1);
+				if (ret < 0) {
+					mfc_err("Fail to lock DRM enabled. ret = %d\n", ret);
+					goto err_drm_start;
+				}
 			}
 
 		} else {
@@ -1943,8 +1950,10 @@ err_fw_alloc:
 //err_drm_inst:
 	if (ctx->is_drm) {
 		dev->num_drm_inst--;
-		if (prot_flag)
+		if (prot_flag) {
 			s5p_mfc_secmem_isolate_and_protect(0);
+			drm_gsc_enable_locked(0);
+		}
 	}
 
 err_drm_start:
@@ -2111,10 +2120,12 @@ static int s5p_mfc_release(struct file *file)
 						dev->num_drm_inst, dev->num_inst);
 				if (ctx->is_drm && dev->num_drm_inst == 0) {
 					ret = s5p_mfc_secmem_isolate_and_protect(0);
-					if (ret) {
-						ret = -EINVAL;
+					if (ret)
 						mfc_err("Failed to unprotect secure memory\n");
-					}
+
+					ret = drm_gsc_enable_locked(0);
+					if (ret < 0)
+						mfc_err("Fail to lock DRM enabled. ret = %d\n", ret);
 				}
 
 				if (dev->num_inst == 0) {
@@ -2157,10 +2168,12 @@ static int s5p_mfc_release(struct file *file)
 
 	if (ctx->is_drm && dev->num_drm_inst == 0) {
 		ret = s5p_mfc_secmem_isolate_and_protect(0);
-		if (ret) {
-			ret = -EINVAL;
+		if (ret)
 			mfc_err("Failed to unprotect secure memory\n");
-		}
+
+		ret = drm_gsc_enable_locked(0);
+		if (ret < 0)
+			mfc_err("Fail to lock DRM enabled. ret = %d\n", ret);
 	}
 
 	if (dev->num_inst == 0) {
