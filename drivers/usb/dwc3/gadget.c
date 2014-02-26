@@ -1673,8 +1673,12 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 		return 0;
 	}
 
-	if (is_on)
+	if (is_on) {
 		dwc3_udc_reset(dwc);
+		/* udc reset clears CR port settings */
+		usb_phy_tune(dwc->usb3_phy);
+	}
+
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
