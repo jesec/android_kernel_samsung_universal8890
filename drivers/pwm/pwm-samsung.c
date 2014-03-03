@@ -154,6 +154,7 @@ static unsigned long pwm_samsung_get_tin_rate(struct samsung_pwm_chip *chip,
 	unsigned long rate;
 
 	rate = clk_get_rate(clk_get_parent(channel->clk_div));
+	clk_set_rate(clk_get_parent(channel->clk_div), rate);
 
 	return rate;
 }
