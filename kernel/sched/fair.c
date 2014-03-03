@@ -2688,6 +2688,10 @@ static inline void update_rq_runnable_avg(struct rq *rq, int runnable) {}
 unsigned int hmp_up_threshold = 700;
 unsigned int hmp_down_threshold = 400;
 
+unsigned int hmp_boost_up_threshold = 400;
+unsigned int hmp_boost_down_threshold = 150;
+unsigned int hmp_boost_multiplier;
+
 /*
  * Needed to determine heaviest tasks etc.
  */
@@ -5076,8 +5080,14 @@ static u64 hmp_variable_scale_convert(u64 delta)
 {
 	u64 high = delta >> 32ULL;
 	u64 low = delta & 0xffffffffULL;
-	low *= hmp_data.multiplier;
-	high *= hmp_data.multiplier;
+
+	if (hmp_boost()) {
+		low *= hmp_boost_multiplier;
+		high *= hmp_boost_multiplier;
+	} else {
+		low *= hmp_data.multiplier;
+		high *= hmp_data.multiplier;
+	}
 	return (low >> HMP_VARIABLE_SCALE_SHIFT)
 			+ (high << (32ULL - HMP_VARIABLE_SCALE_SHIFT));
 }
@@ -5275,6 +5285,7 @@ static int hmp_attr_init(void)
 	 * meaning no change
 	 */
 	hmp_data.multiplier = hmp_period_to_sysfs(LOAD_AVG_PERIOD);
+	hmp_boost_multiplier = hmp_period_to_sysfs(LOAD_AVG_PERIOD / 2);
 
 	hmp_attr_add("load_avg_period_ms",
 		&hmp_data.multiplier,
@@ -8478,6 +8489,7 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 {
 	struct task_struct *p = task_of(se);
 	int temp_target_cpu;
+	unsigned int up_threshold;
 	u64 now;
 
 	if (hmp_cpu_is_fastest(cpu))
@@ -8488,7 +8500,12 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 	if (p->prio >= hmp_up_prio)
 		return 0;
 #endif
-	if (!hmp_boost() && se->avg.load_avg_ratio < hmp_up_threshold)
+	if (hmp_boost())
+		up_threshold = hmp_boost_up_threshold;
+	else
+		up_threshold = hmp_up_threshold;
+
+	if (se->avg.load_avg_ratio < up_threshold)
 		return 0;
 
 	/* Let the task load settle before doing another up migration */
@@ -8530,10 +8547,6 @@ static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 	}
 #endif
 
-	if (hmp_boost())
-		if (!hmp_domain_min_load(hmp_cpu_domain(cpu), NULL, NULL))
-			return 0;
-
 	/* Let the task load settle before doing another down migration */
 	now = cpu_rq(cpu)->clock_task;
 	if (((now - se->avg.hmp_last_down_migration) >> 10)
@@ -8541,9 +8554,16 @@ static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 		return 0;
 
 	if (cpumask_intersects(&hmp_slower_domain(cpu)->cpus,
-					tsk_cpus_allowed(p))
-		&& se->avg.load_avg_ratio < hmp_down_threshold) {
-		return 1;
+					tsk_cpus_allowed(p))) {
+		unsigned int down_threshold;
+
+		if (hmp_boost())
+			down_threshold = hmp_boost_down_threshold;
+		else
+			down_threshold = hmp_down_threshold;
+
+		if (se->avg.load_avg_ratio < down_threshold)
+			return 1;
 	}
 	return 0;
 }
@@ -8900,6 +8920,7 @@ static unsigned int hmp_idle_pull(int this_cpu)
 	struct rq *target, *rq;
 	unsigned long flags,ratio = 0;
 	unsigned int force=0;
+	unsigned int up_threshold;
 	struct task_struct *p = NULL;
 
 	if (!hmp_cpu_is_slowest(this_cpu))
@@ -8934,7 +8955,12 @@ static unsigned int hmp_idle_pull(int this_cpu)
 		}
 		orig = curr;
 		curr = hmp_get_heaviest_task(curr, 1);
-		if (hmp_boost() || curr->avg.load_avg_ratio > hmp_up_threshold)
+		if (hmp_boost())
+			up_threshold = hmp_boost_up_threshold;
+		else
+			up_threshold = hmp_up_threshold;
+
+		if (curr->avg.load_avg_ratio > up_threshold)
 			if (curr->avg.load_avg_ratio > ratio) {
 				p = task_of(curr);
 				target = rq;
