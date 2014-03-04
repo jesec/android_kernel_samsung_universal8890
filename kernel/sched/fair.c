@@ -2324,10 +2324,12 @@ struct hmp_data_struct {
 	int freqinvar_load_scale_enabled;
 #endif
 	int multiplier; /* used to scale the time delta */
+	int boost_multiplier;
 	struct attribute_group attr_group;
 	struct attribute *attributes[HMP_DATA_SYSFS_MAX + 1];
 	struct hmp_global_attr attr[HMP_DATA_SYSFS_MAX];
-} hmp_data;
+} hmp_data = {.multiplier = 1 << HMP_VARIABLE_SCALE_SHIFT,
+	      .boost_multiplier = 2 << HMP_VARIABLE_SCALE_SHIFT};
 
 static u64 hmp_variable_scale_convert(u64 delta);
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
@@ -2690,7 +2692,6 @@ unsigned int hmp_down_threshold = 400;
 
 unsigned int hmp_boost_up_threshold = 400;
 unsigned int hmp_boost_down_threshold = 150;
-unsigned int hmp_boost_multiplier;
 
 /*
  * Needed to determine heaviest tasks etc.
@@ -5082,8 +5083,8 @@ static u64 hmp_variable_scale_convert(u64 delta)
 	u64 low = delta & 0xffffffffULL;
 
 	if (hmp_boost()) {
-		low *= hmp_boost_multiplier;
-		high *= hmp_boost_multiplier;
+		low *= hmp_data.boost_multiplier;
+		high *= hmp_data.boost_multiplier;
 	} else {
 		low *= hmp_data.multiplier;
 		high *= hmp_data.multiplier;
@@ -5280,12 +5281,6 @@ static void hmp_attr_add(
 static int hmp_attr_init(void)
 {
 	int ret;
-	memset(&hmp_data, sizeof(hmp_data), 0);
-	/* by default load_avg_period_ms == LOAD_AVG_PERIOD
-	 * meaning no change
-	 */
-	hmp_data.multiplier = hmp_period_to_sysfs(LOAD_AVG_PERIOD);
-	hmp_boost_multiplier = hmp_period_to_sysfs(LOAD_AVG_PERIOD / 2);
 
 	hmp_attr_add("load_avg_period_ms",
 		&hmp_data.multiplier,
