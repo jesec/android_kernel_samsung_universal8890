@@ -2688,7 +2688,7 @@ static inline void update_rq_runnable_avg(struct rq *rq, int runnable) {}
  */
 
 unsigned int hmp_up_threshold = 700;
-unsigned int hmp_down_threshold = 400;
+unsigned int hmp_down_threshold = 256;
 
 unsigned int hmp_semiboost_up_threshold = 400;
 unsigned int hmp_semiboost_down_threshold = 150;
