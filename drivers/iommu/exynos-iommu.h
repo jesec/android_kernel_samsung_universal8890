@@ -97,7 +97,7 @@ typedef u32 exynos_iova_t;
 
 #define CTRL_ENABLE	0x5
 #define CTRL_BLOCK	0x7
-#define CTRL_DISABLE	0x3
+#define CTRL_DISABLE	0x0
 
 #define CFG_ACGEN	(1 << 24) /* System MMU 3.3+ */
 #define CFG_FLPDCACHE	(1 << 20) /* System MMU 3.2+ */
@@ -312,7 +312,7 @@ static inline void __raw_sysmmu_disable(void __iomem *sfrbase)
 {
 	__raw_writel(0, sfrbase + REG_MMU_CFG);
 	__raw_writel(CTRL_DISABLE, sfrbase + REG_MMU_CTRL);
-	BUG_ON(__raw_readl(sfrbase + REG_MMU_CTRL) != 0x3);
+	BUG_ON(__raw_readl(sfrbase + REG_MMU_CTRL) & 0x7);
 }
 
 static inline void __raw_sysmmu_enable(void __iomem *sfrbase)
