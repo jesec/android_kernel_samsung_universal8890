@@ -468,7 +468,10 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 
 		__master_clk_enable(drvdata);
 
-		__exynos_sysmmu_set_prefbuf_by_region(drvdata, pb_reg, num_reg);
+		if (sysmmu_block(drvdata->sfrbase)) {
+			__exynos_sysmmu_set_prefbuf_by_region(drvdata, pb_reg, num_reg);
+			sysmmu_unblock(drvdata->sfrbase);
+		}
 
 		__master_clk_disable(drvdata);
 
@@ -519,8 +522,11 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 
 		__master_clk_enable(drvdata);
 
-		__exynos_sysmmu_set_prefbuf_by_plane(drvdata,
+		if (sysmmu_block(drvdata->sfrbase)) {
+			__exynos_sysmmu_set_prefbuf_by_plane(drvdata,
 					inplanes, onplanes, ipoption, opoption);
+			sysmmu_unblock(drvdata->sfrbase);
+		}
 
 		__master_clk_disable(drvdata);
 
