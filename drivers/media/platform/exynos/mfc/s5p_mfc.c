@@ -2311,6 +2311,7 @@ static void *mfc_get_drv_data(struct platform_device *pdev);
 #define QOS_STEP_NUM (4)
 #endif
 static struct s5p_mfc_qos g_mfc_qos_table[QOS_STEP_NUM];
+static struct s5p_mfc_qos g_mfc_qos_extra[QOS_STEP_NUM];
 #endif
 
 
@@ -2337,6 +2338,40 @@ static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
 
 	return ret;
 }
+
+#if defined(CONFIG_SOC_EXYNOS5422_REV_0)
+static int parse_mfc_qos_extra(struct device_node *np, char *node_name,
+	struct s5p_mfc_qos *pdata)
+{
+	int ret = 0;
+	struct device_node *np_qos;
+
+	np_qos = of_find_node_by_name(np, node_name);
+	if (!np_qos) {
+		pr_err("%s: could not find mfc_qos_platdata extra node\n",
+			node_name);
+		return -EINVAL;
+	}
+
+	of_property_read_u32(np_qos, "thrd_mb", &pdata->thrd_mb);
+	if (pdata->thrd_mb != MFC_QOS_FLAG_NODATA) {
+		of_property_read_u32(np_qos, "freq_mfc", &pdata->freq_mfc);
+		of_property_read_u32(np_qos, "freq_int", &pdata->freq_int);
+		of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
+		of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
+		of_property_read_u32(np_qos, "freq_kfc", &pdata->freq_kfc);
+	}
+
+	return ret;
+}
+#else
+static int parse_mfc_qos_extra_init(struct s5p_mfc_qos *pdata)
+{
+	pdata->thrd_mb = MFC_QOS_FLAG_NODATA;
+
+	return 0;
+}
+#endif
 #endif
 
 static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
@@ -2358,6 +2393,21 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_3", &g_mfc_qos_table[3]);
 #if defined(CONFIG_SOC_EXYNOS5430_REV_1) || defined(CONFIG_SOC_EXYNOS5422_REV_0)
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_4", &g_mfc_qos_table[4]);
+#endif
+#if defined(CONFIG_SOC_EXYNOS5422_REV_0)
+	parse_mfc_qos_extra(np, "mfc_qos_extra_var_0", &g_mfc_qos_extra[0]);
+	parse_mfc_qos_extra(np, "mfc_qos_extra_var_1", &g_mfc_qos_extra[1]);
+	parse_mfc_qos_extra(np, "mfc_qos_extra_var_2", &g_mfc_qos_extra[2]);
+	parse_mfc_qos_extra(np, "mfc_qos_extra_var_3", &g_mfc_qos_extra[3]);
+	parse_mfc_qos_extra(np, "mfc_qos_extra_var_4", &g_mfc_qos_extra[4]);
+#else
+	parse_mfc_qos_extra_init(&g_mfc_qos_extra[0]);
+	parse_mfc_qos_extra_init(&g_mfc_qos_extra[1]);
+	parse_mfc_qos_extra_init(&g_mfc_qos_extra[2]);
+	parse_mfc_qos_extra_init(&g_mfc_qos_extra[3]);
+#if defined(CONFIG_SOC_EXYNOS5430)
+	parse_mfc_qos_extra_init(&g_mfc_qos_extra[4]);
+#endif
 #endif
 #endif
 }
@@ -2411,6 +2461,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	/* initial clock rate should be min rate */
 	dev->curr_rate = dev->min_rate = dev->pdata->min_rate;
 	dev->pdata->qos_table = g_mfc_qos_table;
+	dev->pdata->qos_extra = g_mfc_qos_extra;
 #endif
 
 	ret = s5p_mfc_init_pm(dev);

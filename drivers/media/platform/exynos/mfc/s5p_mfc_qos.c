@@ -36,6 +36,20 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 	struct s5p_mfc_platdata *pdata = dev->pdata;
 	struct s5p_mfc_qos *qos_table = pdata->qos_table;
 
+	if (ctx->buf_process_type & MFCBUFPROC_COPY) {
+		if (pdata->qos_extra[idx].thrd_mb != MFC_QOS_FLAG_NODATA) {
+			qos_table = pdata->qos_extra;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+			mfc_info_ctx("[Replace QOS] int: %d(%d), mif: %d, cpu: %d, kfc: %d\n",
+					qos_table[idx].freq_int,
+					qos_table[idx].freq_mfc,
+					qos_table[idx].freq_mif,
+					qos_table[idx].freq_cpu,
+					qos_table[idx].freq_kfc);
+#endif
+		}
+	}
+
 	switch (opr_type) {
 	case MFC_QOS_ADD:
 		pm_qos_add_request(&dev->qos_req_int,
@@ -103,6 +117,25 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 	}
 }
 
+static void mfc_qos_print(struct s5p_mfc_ctx *ctx,
+		struct s5p_mfc_qos *qos_table, int index)
+{
+#ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
+	mfc_debug(2, "\tint: %d(%d), mif: %d, cpu: %d\n",
+			qos_table[index].freq_int,
+			qos_table[index].freq_mfc,
+			qos_table[index].freq_mif,
+			qos_table[index].freq_cpu);
+#endif
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	mfc_info_ctx("\tint: %d(%d), mif: %d, cpu: %d, kfc: %d\n",
+			qos_table[index].freq_int,
+			qos_table[index].freq_mfc,
+			qos_table[index].freq_mif,
+			qos_table[index].freq_cpu,
+			qos_table[index].freq_kfc);
+#endif
+}
 static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -113,24 +146,13 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 	for (i = (pdata->num_qos_steps - 1); i >= 0; i--) {
 		mfc_debug(7, "QoS index: %d\n", i + 1);
 		if (total_mb > qos_table[i].thrd_mb) {
-#ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-			mfc_debug(2, "\tint: %d, mif: %d, cpu: %d\n",
-					qos_table[i].freq_int,
-					qos_table[i].freq_mif,
-					qos_table[i].freq_cpu);
-#endif
-#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-			mfc_info_ctx("\tint: %d, mif: %d, cpu: %d, kfc: %d\n",
-					qos_table[i].freq_int,
-					qos_table[i].freq_mif,
-					qos_table[i].freq_cpu,
-					qos_table[i].freq_kfc);
-#endif
-			if (atomic_read(&dev->qos_req_cur) == 0)
+			if (atomic_read(&dev->qos_req_cur) == 0) {
+				mfc_qos_print(ctx, qos_table, i);
 				mfc_qos_operate(ctx, MFC_QOS_ADD, i);
-			else if (atomic_read(&dev->qos_req_cur) != (i + 1))
+			} else if (atomic_read(&dev->qos_req_cur) != (i + 1)) {
+				mfc_qos_print(ctx, qos_table, i);
 				mfc_qos_operate(ctx, MFC_QOS_UPDATE, i);
-
+			}
 			break;
 		}
 	}

@@ -410,6 +410,15 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_SET_BUF_PROCESS_TYPE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Set buffer process type",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -1813,7 +1822,8 @@ static int vidioc_streamoff(struct file *file, void *priv,
 		memset(&ctx->last_timestamp, 0, sizeof(struct timeval));
 		ret = vb2_streamoff(&ctx->vq_src, type);
 	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		s5p_mfc_qos_off(ctx);
+		if (!(ctx->buf_process_type & MFCBUFPROC_COPY))
+			s5p_mfc_qos_off(ctx);
 		ret = vb2_streamoff(&ctx->vq_dst, type);
 	} else {
 		mfc_err_ctx("unknown v4l2 buffer type\n");
@@ -2141,6 +2151,9 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 			dec->sh_handle.fd = -1;
 			return -EINVAL;
 		}
+		break;
+	case V4L2_CID_MPEG_MFC_SET_BUF_PROCESS_TYPE:
+		ctx->buf_process_type = ctrl->value;
 		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {

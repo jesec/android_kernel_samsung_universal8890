@@ -187,6 +187,15 @@ enum mfc_buf_usage_type {
 	MFCBUF_DRM,
 };
 
+enum mfc_buf_process_type {
+	MFCBUFPROC_DEFAULT 		= 0x0,
+	MFCBUFPROC_COPY 		= (1 << 0),
+	MFCBUFPROC_SHARE 		= (1 << 1),
+	MFCBUFPROC_META 		= (1 << 2),
+	MFCBUFPROC_ANBSHARE		= (1 << 3),
+	MFCBUFPROC_ANBSHARE_NV12L	= (1 << 4),
+};
+
 struct s5p_mfc_ctx;
 struct s5p_mfc_extra_buf;
 
@@ -820,6 +829,7 @@ struct s5p_mfc_ctx {
 	int qp_max_change;
 
 	int is_max_fps;
+	int buf_process_type;
 };
 
 #define fh_to_mfc_ctx(x)	\
@@ -942,6 +952,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 /* Extra information for Encoder */
 #define	ENC_SET_RGB_INPUT		(1 << 0)
 #define	ENC_SET_SPARE_SIZE		(1 << 1)
+
+#define MFC_QOS_FLAG_NODATA		0xFFFFFFFF
 
 struct s5p_mfc_fmt {
 	char *name;
