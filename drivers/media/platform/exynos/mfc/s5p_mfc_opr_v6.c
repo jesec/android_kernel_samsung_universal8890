@@ -165,7 +165,6 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	switch (ctx->codec_mode) {
 	case S5P_FIMV_CODEC_H264_DEC:
 	case S5P_FIMV_CODEC_H264_MVC_DEC:
-		dec->mv_count = dec->total_dpb_count;
 		if (dec->is_dual_dpb && dec->mv_count < dec->tiled_buf_cnt)
 			dec->mv_count = dec->tiled_buf_cnt;
 		if (mfc_version(dev) == 0x61)

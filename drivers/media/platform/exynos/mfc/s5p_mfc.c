@@ -1514,6 +1514,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			}
 			dec->internal_dpb = 0;
 			s5p_mfc_dec_store_crop_info(ctx);
+			dec->mv_count = s5p_mfc_get_mv_count();
 			if (ctx->img_width == 0 || ctx->img_height == 0)
 				ctx->state = MFCINST_ERROR;
 			else
