@@ -98,6 +98,7 @@ typedef u32 exynos_iova_t;
 #define CTRL_ENABLE	0x5
 #define CTRL_BLOCK	0x7
 #define CTRL_DISABLE	0x0
+#define CTRL_BLOCK_DISABLE 0x3
 
 #define CFG_ACGEN	(1 << 24) /* System MMU 3.3+ */
 #define CFG_FLPDCACHE	(1 << 20) /* System MMU 3.2+ */
@@ -153,6 +154,7 @@ enum sysmmu_property {
 	SYSMMU_PROP_READWRITE = SYSMMU_PROP_READ | SYSMMU_PROP_WRITE,
 	SYSMMU_PROP_RW_MASK = SYSMMU_PROP_READWRITE,
 	SYSMMU_PROP_NONBLOCK_TLBINV = 0x10,
+	SYSMMU_PROP_STOP_BLOCK = 0x20,
 	SYSMMU_PROP_WINDOW_SHIFT = 16,
 	SYSMMU_PROP_WINDOW_MASK = 0x1F << SYSMMU_PROP_WINDOW_SHIFT,
 };
@@ -308,11 +310,11 @@ static inline unsigned int __raw_sysmmu_version(void __iomem *sfrbase)
 	return MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
 }
 
-static inline void __raw_sysmmu_disable(void __iomem *sfrbase)
+static inline void __raw_sysmmu_disable(void __iomem *sfrbase, int disable)
 {
 	__raw_writel(0, sfrbase + REG_MMU_CFG);
-	__raw_writel(CTRL_DISABLE, sfrbase + REG_MMU_CTRL);
-	BUG_ON(__raw_readl(sfrbase + REG_MMU_CTRL) & 0x7);
+	__raw_writel(disable, sfrbase + REG_MMU_CTRL);
+	BUG_ON(__raw_readl(sfrbase + REG_MMU_CTRL) != disable);
 }
 
 static inline void __raw_sysmmu_enable(void __iomem *sfrbase)

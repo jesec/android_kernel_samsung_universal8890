@@ -132,7 +132,10 @@ void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 
 static inline void __sysmmu_disable_nocount(struct sysmmu_drvdata *drvdata)
 {
-	__raw_sysmmu_disable(drvdata->sfrbase);
+	int disable = (drvdata->prop & SYSMMU_PROP_STOP_BLOCK) ?
+					CTRL_BLOCK_DISABLE : CTRL_DISABLE;
+
+	__raw_sysmmu_disable(drvdata->sfrbase, disable);
 
 	__sysmmu_clk_disable(drvdata);
 	if (IS_ENABLED(CONFIG_EXYNOS_IOMMU_NO_MASTER_CLKGATE))
@@ -851,6 +854,9 @@ static int __init __sysmmu_init_prop(struct device *sysmmu,
 		if (strnicmp(s, "yes", 3) == 0)
 			drvdata->prop |= SYSMMU_PROP_NONBLOCK_TLBINV;
 
+	if (!of_property_read_string(prop_node, "block-stop", &s))
+		if (strnicmp(s, "yes", 3) == 0)
+			drvdata->prop |= SYSMMU_PROP_STOP_BLOCK;
 	return 0;
 }
 
