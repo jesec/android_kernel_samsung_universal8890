@@ -269,6 +269,7 @@ static int __exynos_sysmmu_enable(struct device *dev, phys_addr_t pgtable,
 				__sysmmu_disable(dev_get_drvdata(iter->sysmmu));
 				drvdata->master = NULL;
 			}
+			break;
 		}
 	}
 
