@@ -92,9 +92,11 @@ static void dbg(const char *fmt, ...)
 /* flag to ignore all characters coming in */
 #define RXSTAT_DUMMY_READ (0x10000000)
 
+static bool s3c24xx_serial_lpm_suspend(struct s3c24xx_uart_port *ourport);
 static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg);
-
+static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
+			      unsigned int old);
 static struct uart_driver s3c24xx_uart_drv;
 
 static inline struct s3c24xx_uart_port *to_ourport(struct uart_port *port)
@@ -199,6 +201,12 @@ static void s3c24xx_serial_stop_tx(struct uart_port *port)
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
 	if (tx_enabled(port)) {
+		if (s3c24xx_serial_lpm_suspend(ourport)) {
+			pr_info("%s: s3c24xx serial power off!\n", __func__);
+			tx_enabled(port) = 0;
+			return;
+		}
+
 		if (s3c24xx_serial_has_interrupt_mask(port))
 			__set_bit(S3C64XX_UINTM_TXD,
 				portaddrl(port, S3C64XX_UINTM));
@@ -510,7 +518,15 @@ static unsigned int s3c24xx_serial_tx_empty(struct uart_port *port)
 /* no modem control lines */
 static unsigned int s3c24xx_serial_get_mctrl(struct uart_port *port)
 {
-	unsigned int umstat = rd_regb(port, S3C2410_UMSTAT);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	unsigned int umstat;
+
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		pr_info("%s: s3c24xx serial power off!\n", __func__);
+		return 0;
+	}
+
+	umstat = rd_regb(port, S3C2410_UMSTAT);
 
 	if (umstat & S3C2410_UMSTAT_CTS)
 		return TIOCM_CAR | TIOCM_DSR | TIOCM_CTS;
@@ -532,8 +548,14 @@ static void s3c24xx_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static void s3c24xx_serial_break_ctl(struct uart_port *port, int break_state)
 {
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	unsigned long flags;
 	unsigned int ucon;
+
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		pr_info("%s: s3c24xx serial power off!\n", __func__);
+		return;
+	}
 
 	spin_lock_irqsave(&port->lock, flags);
 
@@ -638,10 +660,8 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 	dbg("s3c64xx_serial_startup: port=%p (%08llx,%p)\n",
 	    port, (unsigned long long)port->mapbase, port->membase);
 
-	if (s3c24xx_serial_lpm_suspend(ourport)) {
-		uart_resume_port(&s3c24xx_uart_drv, port);
-		return 0;
-	}
+	if (s3c24xx_serial_lpm_suspend(ourport))
+		s3c24xx_serial_pm(port, UART_PM_STATE_ON, 0);
 
 	ourport->cfg->wake_peer[port->line] =
 				s3c2410_serial_wake_peer[port->line];
@@ -1007,6 +1027,10 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	termios->c_cflag &= ~(HUPCL | CMSPAR);
 	termios->c_cflag |= CLOCAL;
 
+	if (s3c24xx_serial_lpm_suspend(ourport)) {
+		pr_info("%s: s3c24xx serial power off!\n", __func__);
+		return;
+	}
 	/*
 	 * Ask the core to calculate the divisor for us.
 	 */
