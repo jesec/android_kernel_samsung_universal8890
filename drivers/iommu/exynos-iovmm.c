@@ -432,6 +432,14 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	TRACE_LOG_DEV(dev, "IOVMM: Allocated VM region @ %#x/%#x bytes.\n",
 								start, size);
 
+	{
+		struct exynos_vm_region *reg = find_iovm_region(vmm, start);
+		BUG_ON(!reg);
+
+		SYSMMU_EVENT_LOG_IOVMM_MAP(IOVMM_TO_LOG(vmm),
+					start, start + size, reg->size - size);
+	}
+
 	return start;
 
 err_map_map:
@@ -495,6 +503,9 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 
 		TRACE_LOG_DEV(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
 						unmap_size, iova);
+
+		SYSMMU_EVENT_LOG_IOVMM_UNMAP(IOVMM_TO_LOG(vmm),
+				region->start, region->start + region->size);
 	} else {
 		dev_err(dev, "IOVMM: No IOVM region %#x to free.\n", iova);
 	}
@@ -553,13 +564,21 @@ void iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
 }
 
 static struct dentry *exynos_iovmm_debugfs_root;
+static struct dentry *exynos_iommu_debugfs_root;
+
 static int exynos_iovmm_create_debugfs(void)
 {
 	exynos_iovmm_debugfs_root = debugfs_create_dir("iovmm", NULL);
 	if (!exynos_iovmm_debugfs_root)
 		pr_err("IOVMM: Failed to create debugfs entry\n");
 	else
-		pr_info("IOVMMU: Created debugfs entry at debugfs/iovmm\n");
+		pr_info("IOVMM: Created debugfs entry at debugfs/iovmm\n");
+
+	exynos_iommu_debugfs_root = debugfs_create_dir("iommu", NULL);
+	if (!exynos_iommu_debugfs_root)
+		pr_err("IOMMU: Failed to create debugfs entry\n");
+	else
+		pr_info("IOMMU: Created debugfs entry at debugfs/iommu\n");
 
 	return 0;
 }
@@ -685,6 +704,17 @@ int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes)
 		goto err_setup_domain;
 	}
 
+	ret = exynos_iommu_init_event_log(IOVMM_TO_LOG(vmm), IOVMM_LOG_LEN);
+	if (!ret) {
+		iovmm_add_log_to_debugfs(exynos_iovmm_debugfs_root,
+					IOVMM_TO_LOG(vmm), dev_name(dev));
+
+		iommu_add_log_to_debugfs(exynos_iommu_debugfs_root,
+				IOMMU_TO_LOG(vmm->domain), dev_name(dev));
+	} else {
+		goto err_init_event_log;
+	}
+
 	spin_lock_init(&vmm->vmlist_lock);
 	spin_lock_init(&vmm->bitmap_lock);
 
@@ -698,6 +728,9 @@ int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes)
 	dev_dbg(dev, "IOVMM: Created %#x B IOVMM from %#x.\n",
 						IOVM_SIZE, IOVA_START);
 	return 0;
+
+err_init_event_log:
+	iommu_domain_free(vmm->domain);
 err_setup_domain:
 	for (i = 0; i < nplanes; i++)
 		kfree(vmm->vm_map[i]);

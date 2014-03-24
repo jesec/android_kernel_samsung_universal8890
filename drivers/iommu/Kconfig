@@ -228,6 +228,11 @@ config EXYNOS_IOMMU_NO_MASTER_CLKGATE
 	  if System MMU is enabled to guarantee that the master's clock is not
 	  gated by System MMU driver.
 
+config EXYNOS_IOMMU_EVENT_LOG
+	bool "Logging System MMU events in private uncached buffer"
+	depends on EXYNOS_IOMMU
+	default y
+
 config EXYNOS_IOMMU_DEBUG
 	bool "Debugging log for Exynos IOMMU"
 	depends on EXYNOS_IOMMU

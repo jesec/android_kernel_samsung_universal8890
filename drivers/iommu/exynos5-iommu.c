@@ -105,11 +105,15 @@ static bool has_sysmmu_capable_pbuf(void __iomem *sfrbase, int *min)
 	return MMU_MAJ_VER(ver) == 3;
 }
 
-void __sysmmu_tlb_invalidate(void __iomem *sfrbase,
+void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size)
 {
-	if (!WARN_ON(!sysmmu_block(sfrbase)))
+	void * __iomem sfrbase = drvdata->sfrbase;
+
+	if (!WARN_ON(!sysmmu_block(sfrbase))) {
 		__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+		SYSMMU_EVENT_LOG_TLB_INV_ALL(SYSMMU_DRVDATA_TO_LOG(drvdata));
+	}
 	sysmmu_unblock(sfrbase);
 }
 
@@ -161,12 +165,20 @@ static void __sysmmu_set_pbuf_ver31(struct sysmmu_drvdata *drvdata,
 			prefbuf[1].size = 1;
 		__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[1],
 					prefbuf[1].base, prefbuf[1].size, 1);
+		SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata),
+					cfg, num_bufs);
+		SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
+					1, prefbuf[1].base,
+					prefbuf[1].base +  prefbuf[1].size - 1);
 	} else {
 		/* Combined PB mode */
 		cfg |= 3 << 28;
 		drvdata->num_pbufs = 1;
 		drvdata->pbufs[0] = prefbuf[0];
+		SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata),
+					cfg, num_bufs);
 	}
+
 
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
 
@@ -174,6 +186,9 @@ static void __sysmmu_set_pbuf_ver31(struct sysmmu_drvdata *drvdata,
 		prefbuf[0].size = 1;
 	__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[1],
 				prefbuf[0].base, prefbuf[0].size, 0);
+	SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
+				0, prefbuf[0].base,
+				prefbuf[0].base +  prefbuf[0].size - 1);
 }
 
 static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
@@ -204,6 +219,8 @@ static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 		num_bufs = 3; /* Only the first 3 buffers are set to PB */
 	}
 
+	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), cfg, num_bufs);
+
 	for (i = 0; i < 3; i++) {
 		if (pbidx[num_bufs - 1][i]) {
 			if (prefbuf[i].size == 0) {
@@ -215,6 +232,11 @@ static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 			__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[2],
 					prefbuf[i].base, prefbuf[i].size,
 					pbidx[num_bufs - 1][i] - 1);
+
+			SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
+					pbidx[num_bufs - 1][i] - 1,
+					prefbuf[i].base,
+					prefbuf[i].base + prefbuf[i].size - 1);
 		}
 	}
 
@@ -266,21 +288,29 @@ static void __sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
 
 	__raw_writel(lmm, drvdata->sfrbase + REG_PB_LMM);
 
+	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), lmm, num_bufs);
+
 	for (i = 0; i < num_pb; i++) {
 		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
 		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
-		if (prefbuf[i].size == 0) {
-			dev_err(drvdata->sysmmu,
+		if ((prefbuf[i].size > 0) && (i < num_bufs)) {
+			__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[3],
+					prefbuf[i].base, prefbuf[i].size, 0);
+			__raw_writel(prefbuf[i].config | 1,
+						drvdata->sfrbase + REG_PB_CFG);
+			SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
+				prefbuf[i].config | 1, prefbuf[i].base,
+				prefbuf[i].size - 1 + prefbuf[i].base);
+		} else {
+			if (prefbuf[i].size == 0) {
+				dev_err(drvdata->sysmmu,
 				"%s: Trying to init PB[%d/%d]with zero-size\n",
 				__func__, i, num_bufs);
-			continue;
+			}
+
+			SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
+						0, 0, 0);
 		}
-		if (num_bufs <= i)
-			continue; /* unused PB */
-		__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[3],
-					prefbuf[i].base, prefbuf[i].size, 0);
-		__raw_writel(prefbuf[i].config | 1,
-					drvdata->sfrbase + REG_PB_CFG);
 	}
 }
 
@@ -293,28 +323,37 @@ static void (*func_set_pbuf[NUM_MINOR_OF_SYSMMU_V3])
 };
 
 
-static void __sysmmu_disable_pbuf_ver31(void __iomem *sfrbase)
+static void __sysmmu_disable_pbuf_ver31(struct sysmmu_drvdata *drvdata)
 {
-	__raw_writel(__raw_readl(sfrbase + REG_MMU_CFG) & CFG_MASK,
-			sfrbase + REG_MMU_CFG);
+	unsigned int cfg = __raw_readl(drvdata->sfrbase + REG_MMU_CFG);
+
+	cfg &= CFG_MASK;
+	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
+
+	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), cfg, 0);
 }
 
 #define __sysmmu_disable_pbuf_ver32 __sysmmu_disable_pbuf_ver31
 
-static void __sysmmu_disable_pbuf_ver33(void __iomem *sfrbase)
+static void __sysmmu_disable_pbuf_ver33(struct sysmmu_drvdata *drvdata)
 {
 	unsigned int i, num_pb;
-	num_pb = PB_INFO_NUM(__raw_readl(sfrbase + REG_PB_INFO));
 
-	__raw_writel(0, sfrbase + REG_PB_LMM);
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
+
+	__raw_writel(0, drvdata->sfrbase + REG_PB_LMM);
+
+	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0);
 
 	for (i = 0; i < num_pb; i++) {
-		__raw_writel(i, sfrbase + REG_PB_INDICATE);
-		__raw_writel(0, sfrbase + REG_PB_CFG);
+		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
+		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
+		SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0, 0);
 	}
 }
 
-static void (*func_disable_pbuf[NUM_MINOR_OF_SYSMMU_V3]) (void __iomem *) = {
+static void (*func_disable_pbuf[NUM_MINOR_OF_SYSMMU_V3])
+					(struct sysmmu_drvdata *) = {
 		__sysmmu_disable_pbuf_ver31,
 		__sysmmu_disable_pbuf_ver31,
 		__sysmmu_disable_pbuf_ver32,
@@ -388,7 +427,7 @@ void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
 			ipoption, opoption);
 
 	if (num_bufs == 0)
-		func_disable_pbuf[min](drvdata->sfrbase);
+		func_disable_pbuf[min](drvdata);
 	else
 		func_set_pbuf[min](drvdata, prefbuf, num_bufs);
 }

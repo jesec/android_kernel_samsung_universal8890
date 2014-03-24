@@ -8,6 +8,9 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#ifndef _EXYNOS_IOMMU_H_
+#define _EXYNOS_IOMMU_H_
+
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
 #include <linux/list.h>
@@ -19,6 +22,8 @@
 #include <linux/clk.h>
 
 #include <linux/exynos_iovmm.h>
+
+#include "exynos-iommu-log.h"
 
 #define TRACE_LOG trace_printk
 #define TRACE_LOG_DEV(dev, fmt, args...)  \
@@ -140,6 +145,9 @@ struct exynos_iovmm {
 	int onplanes;
 	unsigned int num_map;
 	unsigned int num_unmap;
+#ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
+	struct exynos_iommu_event_log log;
+#endif
 };
 
 void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
@@ -180,6 +188,9 @@ struct sysmmu_drvdata {
 	bool runtime_active;
 	bool suspended;
 	enum sysmmu_property prop; /* mach/sysmmu.h */
+#ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
+	struct exynos_iommu_event_log log;
+#endif
 };
 
 struct exynos_iommu_domain {
@@ -188,6 +199,9 @@ struct exynos_iommu_domain {
 	short *lv2entcnt; /* free lv2 entry counter for each section */
 	spinlock_t lock; /* lock for this structure */
 	spinlock_t pgtablelock; /* lock for modifying page table @ pgtable */
+#ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
+	struct exynos_iommu_event_log log;
+#endif
 };
 
 #if defined(CONFIG_EXYNOS7_IOMMU) && defined(CONFIG_EXYNOS5_IOMMU)
@@ -375,7 +389,7 @@ int __prepare_prefetch_buffers_by_plane(struct sysmmu_drvdata *drvdata,
 				int inplanes, int onplanes,
 				int ipoption, int opoption);
 void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova);
-void __sysmmu_tlb_invalidate(void __iomem *sfrbase,
+void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size);
 
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
@@ -416,4 +430,6 @@ static inline int find_iovmm_plane(struct exynos_iovmm *vmm, dma_addr_t iova)
 {
 	return -1;
 }
-#endif
+#endif /* CONFIG_EXYNOS_IOVMM */
+
+#endif /* _EXYNOS_IOMMU_H_ */

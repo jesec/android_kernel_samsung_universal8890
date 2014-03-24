@@ -95,16 +95,23 @@ void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova)
 	__raw_writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
 }
 
-void __sysmmu_tlb_invalidate(void __iomem *sfrbase,
+void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size)
 {
+	void * __iomem sfrbase = drvdata->sfrbase;
+
 	if (__raw_sysmmu_version(sfrbase) >= MAKE_MMU_VER(5, 1)) {
 		__raw_writel(iova, sfrbase + REG_FLUSH_RANGE_START);
 		__raw_writel(size - 1 + iova, sfrbase + REG_FLUSH_RANGE_END);
 		__raw_writel(0x1, sfrbase + REG_MMU_FLUSH_RANGE);
+		SYSMMU_EVENT_LOG_TLB_INV_RANGE(SYSMMU_DRVDATA_TO_LOG(drvdata),
+						iova, iova + size);
 	} else {
-		if (sysmmu_block(sfrbase))
+		if (sysmmu_block(sfrbase)) {
 			__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+			SYSMMU_EVENT_LOG_TLB_INV_ALL(
+					SYSMMU_DRVDATA_TO_LOG(drvdata));
+		}
 		sysmmu_unblock(sfrbase);
 	}
 }
@@ -116,17 +123,20 @@ void __sysmmu_set_ptbase(void __iomem *sfrbase, phys_addr_t pfn_pgtable)
 	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
 }
 
-static void __sysmmu_disable_pbuf(void __iomem *sfrbase)
+static void __sysmmu_disable_pbuf(struct sysmmu_drvdata *drvdata)
 {
 	unsigned int i, num_pb;
 
-	num_pb = PB_INFO_NUM(__raw_readl(sfrbase + REG_PB_INFO));
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
 
-	__raw_writel(0, sfrbase + REG_PB_LMM);
+	__raw_writel(0, drvdata->sfrbase + REG_PB_LMM);
+
+	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0);
 
 	for (i = 0; i < num_pb; i++) {
-		__raw_writel(i, sfrbase + REG_PB_INDICATE);
-		__raw_writel(0, sfrbase + REG_PB_CFG);
+		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
+		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
+		SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0, 0);
 	}
 }
 
@@ -175,23 +185,31 @@ static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 
 	__raw_writel(lmm, drvdata->sfrbase + REG_PB_LMM);
 
+	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), lmm, num_bufs);
+
 	for (i = 0; i < num_pb; i++) {
 		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
 		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
-		if (prefbuf[i].size == 0) {
-			dev_err(drvdata->sysmmu,
+		if ((prefbuf[i].size > 0) && (i < num_bufs)) {
+			__raw_writel(prefbuf[i].base,
+				     drvdata->sfrbase + REG_PB_START_ADDR);
+			__raw_writel(prefbuf[i].size - 1 + prefbuf[i].base,
+					drvdata->sfrbase + REG_PB_END_ADDR);
+			__raw_writel(prefbuf[i].config | 1,
+						drvdata->sfrbase + REG_PB_CFG);
+			SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
+				prefbuf[i].config | 1, prefbuf[i].base,
+				prefbuf[i].size - 1 + prefbuf[i].base);
+		} else {
+			if (prefbuf[i].size == 0) {
+				dev_err(drvdata->sysmmu,
 				"%s: Trying to init PB[%d/%d]with zero-size\n",
 				__func__, i, num_bufs);
-			continue;
+			}
+
+			SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
+						0, 0, 0);
 		}
-		if (num_bufs <= i)
-			continue; /* unused PB */
-		__raw_writel(prefbuf[i].base,
-			     drvdata->sfrbase + REG_PB_START_ADDR);
-		__raw_writel(prefbuf[i].size - 1 + prefbuf[i].base,
-				drvdata->sfrbase + REG_PB_END_ADDR);
-		__raw_writel(prefbuf[i].config | 1,
-					drvdata->sfrbase + REG_PB_CFG);
 	}
 }
 
@@ -207,7 +225,7 @@ void __exynos_sysmmu_set_prefbuf_by_region(struct sysmmu_drvdata *drvdata,
 
 	if ((num_reg == 0) || (pb_reg == NULL)) {
 		/* Disabling prefetch buffers */
-		__sysmmu_disable_pbuf(drvdata->sfrbase);
+		__sysmmu_disable_pbuf(drvdata);
 		return;
 	}
 
@@ -246,7 +264,7 @@ void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
 			ipoption, opoption);
 
 	if (num_bufs == 0)
-		__sysmmu_disable_pbuf(drvdata->sfrbase);
+		__sysmmu_disable_pbuf(drvdata);
 	else
 		__sysmmu_set_pbuf(drvdata, prefbuf, num_bufs);
 }
@@ -287,20 +305,26 @@ void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata, dma_addr_t iova)
 
 	cfg = __raw_readl(drvdata->sfrbase + REG_SW_DF_VPN_CMD_NUM);
 
-	if ((cfg & 0xFF) > 9)
+	if ((cfg & 0xFF) > 9) {
 		dev_info(drvdata->sysmmu,
 			"%s: DF command queue is full\n", __func__);
-	else
+		return;
+	} else
 #endif
+	{
 		__sysmmu_set_df(drvdata->sfrbase, iova);
+		SYSMMU_EVENT_LOG_DF(SYSMMU_DRVDATA_TO_LOG(drvdata), iova);
+	}
 }
 
 void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata)
 {
-	if (__raw_sysmmu_version(drvdata->sfrbase) >= MAKE_MMU_VER(5, 1))
+	if (__raw_sysmmu_version(drvdata->sfrbase) >= MAKE_MMU_VER(5, 1)) {
 		__raw_writel(0x1, drvdata->sfrbase + REG_L1TLB_CTRL);
-	else
+		SYSMMU_EVENT_LOG_DF_UNLOCK_ALL(SYSMMU_DRVDATA_TO_LOG(drvdata));
+	} else {
 		dev_err(drvdata->sysmmu, "DF is not supported");
+	}
 }
 
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
