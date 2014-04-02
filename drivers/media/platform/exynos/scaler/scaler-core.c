@@ -626,6 +626,15 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 			x_align, &cr->c.top, 0, frame->height - cr->c.height,
 			y_align, 0);
 
+	if ((frame->width < (cr->c.left + cr->c.width)) ||
+		(frame->height < (cr->c.top + cr->c.height))) {
+		v4l2_err(&ctx->sc_dev->m2m.v4l2_dev,
+			"Out of crop range: (%d,%d,%d,%d) from %dx%d\n",
+			cr->c.left, cr->c.top, cr->c.width, cr->c.height,
+			frame->width, frame->height);
+		return -EINVAL;
+	}
+
 	frame->crop.top = cr->c.top;
 	frame->crop.left = cr->c.left;
 	frame->crop.height = cr->c.height;
