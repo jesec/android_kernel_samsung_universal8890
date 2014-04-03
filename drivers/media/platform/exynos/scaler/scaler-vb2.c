@@ -37,7 +37,5 @@ const struct sc_vb2 sc_vb2_ion = {
 	.init		= sc_ion_init,
 	.cleanup	= vb2_ion_destroy_context,
 	.plane_addr	= sc_vb2_plane_addr,
-	.resume		= vb2_ion_attach_iommu,
-	.suspend	= vb2_ion_detach_iommu,
 	.set_cacheable	= vb2_ion_set_cached,
 };

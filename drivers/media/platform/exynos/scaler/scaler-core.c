@@ -2288,7 +2288,7 @@ static int sc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, sc);
 
 	exynos_create_iovmm(&pdev->dev, 3, 3);
-	sc->vb2->resume(sc->alloc_ctx);
+	vb2_ion_attach_iommu(sc->alloc_ctx);
 
 	pm_runtime_enable(&pdev->dev);
 
@@ -2336,7 +2336,7 @@ static int sc_remove(struct platform_device *pdev)
 {
 	struct sc_dev *sc = platform_get_drvdata(pdev);
 
-	sc->vb2->suspend(sc->alloc_ctx);
+	vb2_ion_detach_iommu(sc->alloc_ctx);
 
 	sc_clk_put(sc);
 
