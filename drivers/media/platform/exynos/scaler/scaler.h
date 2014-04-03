@@ -336,7 +336,6 @@ struct sc_dev {
 	struct device			*dev;
 	struct sc_variant		*variant;
 	struct sc_m2m_device		m2m;
-	int				ver;
 	struct clk			*aclk;
 	struct clk			*pclk;
 	struct clk			*clk_chld;

@@ -2276,10 +2276,8 @@ static int sc_probe(struct platform_device *pdev)
 	sc->alloc_ctx = vb2_ion_create_context(sc->dev, SZ_4K,
 		VB2ION_CTX_VMCONTIG | VB2ION_CTX_IOMMU | VB2ION_CTX_UNCACHED);
 
-	if (IS_ERR(sc->alloc_ctx)) {
-		ret = PTR_ERR(sc->alloc_ctx);
-		goto err_clk;
-	}
+	if (IS_ERR(sc->alloc_ctx))
+		return PTR_ERR(sc->alloc_ctx);
 
 	platform_set_drvdata(pdev, sc);
 
@@ -2287,23 +2285,6 @@ static int sc_probe(struct platform_device *pdev)
 	vb2_ion_attach_iommu(sc->alloc_ctx);
 
 	pm_runtime_enable(&pdev->dev);
-
-	ret = pm_runtime_get_sync(sc->dev);
-	if (ret < 0)
-		goto err_clk;
-
-	ret = sc_clock_gating(sc, SC_CLK_ON);
-	if (ret < 0) {
-		pm_runtime_put_sync(sc->dev);
-		goto err_clk;
-	}
-
-	sc->ver = sc_hwget_version(sc);
-	dev_info(&pdev->dev, "scaler version is 0x%08x\n", sc->ver);
-
-	sc_clock_gating(sc, SC_CLK_OFF);
-
-	pm_runtime_put_sync(sc->dev);
 
 	sc->variant = &variant;
 
@@ -2315,17 +2296,12 @@ static int sc_probe(struct platform_device *pdev)
 	ret = sc_register_m2m_device(sc, dev_id);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register m2m device\n");
-		ret = -EPERM;
-		goto err_clk;
+		return ret;
 	}
 
 	dev_info(&pdev->dev, "scaler registered successfully\n");
 
 	return 0;
-
-err_clk:
-	sc_clk_put(sc);
-	return ret;
 }
 
 static int sc_remove(struct platform_device *pdev)
