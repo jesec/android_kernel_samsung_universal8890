@@ -39,6 +39,13 @@ module_param_named(sc_log_level, sc_log_level, uint, 0644);
 int __measure_hw_latency;
 module_param_named(measure_hw_latency, __measure_hw_latency, int, 0644);
 
+struct vb2_sc_buffer {
+	struct v4l2_m2m_buffer mb;
+	struct sc_ctx *ctx;
+	unsigned long long hw_latency;
+	struct work_struct work;
+};
+
 static const struct sc_fmt sc_formats[] = {
 	{
 		.name		= "RGB565",
@@ -1061,6 +1068,38 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 	return 0;
 }
 
+static void sc_fence_work(struct work_struct *work)
+{
+	struct vb2_sc_buffer *svb =
+			container_of(work, struct vb2_sc_buffer, work);
+	struct sc_ctx *ctx = vb2_get_drv_priv(svb->mb.vb.vb2_queue);
+	struct sync_fence *fence;
+	int ret;
+
+	/* Buffers do not have acquire_fence are never pushed to workqueue */
+	BUG_ON(svb->mb.vb.acquire_fence == NULL);
+	BUG_ON(!ctx->m2m_ctx);
+
+	fence = svb->mb.vb.acquire_fence;
+	svb->mb.vb.acquire_fence = NULL;
+
+	ret = sync_fence_wait(fence, 1000);
+	if (ret == -ETIME) {
+		dev_warn(ctx->sc_dev->dev, "sync_fence_wait() timeout\n");
+		ret = sync_fence_wait(fence, 10 * MSEC_PER_SEC);
+
+		if (ret)
+			dev_warn(ctx->sc_dev->dev,
+					"sync_fence_wait() error (%d)\n", ret);
+
+		sync_fence_put(fence);
+	}
+
+	/* OK to preceed the timed out buffers: It does not harm the system */
+	v4l2_m2m_buf_queue(ctx->m2m_ctx, &svb->mb.vb);
+	v4l2_m2m_try_schedule(ctx->m2m_ctx);
+}
+
 static int sc_vb2_queue_setup(struct vb2_queue *vq,
 		const struct v4l2_format *fmt, unsigned int *num_buffers,
 		unsigned int *num_planes, unsigned int sizes[],
@@ -1089,6 +1128,16 @@ static int sc_vb2_queue_setup(struct vb2_queue *vq,
 	return vb2_queue_init(vq);
 }
 
+static int sc_vb2_buf_init(struct vb2_buffer *vb)
+{
+	struct v4l2_m2m_buffer *mb = container_of(vb, typeof(*mb), vb);
+	struct vb2_sc_buffer *svb = container_of(mb, typeof(*svb), mb);
+
+	INIT_WORK(&svb->work, sc_fence_work);
+
+	return 0;
+}
+
 static int sc_vb2_buf_prepare(struct vb2_buffer *vb)
 {
 	struct sc_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
@@ -1112,63 +1161,14 @@ static int sc_vb2_buf_finish(struct vb2_buffer *vb)
 	return sc_buf_sync_finish(vb);
 }
 
-static void sc_fence_work(struct work_struct *work)
-{
-	struct sc_ctx *ctx = container_of(work, struct sc_ctx, fence_work);
-	struct v4l2_m2m_buffer *buffer;
-	struct sync_fence *fence;
-	unsigned long flags;
-	int ret;
-
-	spin_lock_irqsave(&ctx->slock, flags);
-
-	while (!list_empty(&ctx->fence_wait_list)) {
-		buffer = list_first_entry(&ctx->fence_wait_list,
-					  struct v4l2_m2m_buffer, wait);
-		list_del(&buffer->wait);
-		spin_unlock_irqrestore(&ctx->slock, flags);
-
-		fence = buffer->vb.acquire_fence;
-		if (fence) {
-			buffer->vb.acquire_fence = NULL;
-			ret = sync_fence_wait(fence, 1000);
-			if (ret == -ETIME) {
-				dev_warn(ctx->sc_dev->dev,
-					"sync_fence_wait() timeout\n");
-				ret = sync_fence_wait(fence, 10 * MSEC_PER_SEC);
-			}
-			if (ret)
-				dev_warn(ctx->sc_dev->dev,
-					"sync_fence_wait() error\n");
-			sync_fence_put(fence);
-		}
-
-		if (ctx->m2m_ctx) {
-			v4l2_m2m_buf_queue(ctx->m2m_ctx, &buffer->vb);
-			v4l2_m2m_try_schedule(ctx->m2m_ctx);
-		}
-
-		spin_lock_irqsave(&ctx->slock, flags);
-	}
-
-	spin_unlock_irqrestore(&ctx->slock, flags);
-}
-
 static void sc_vb2_buf_queue(struct vb2_buffer *vb)
 {
 	struct sc_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
-	struct v4l2_m2m_buffer *b =
-		container_of(vb, struct v4l2_m2m_buffer, vb);
-	struct sync_fence *fence;
-	unsigned long flags;
 
-	fence = vb->acquire_fence;
-	if (fence) {
-		spin_lock_irqsave(&ctx->slock, flags);
-		list_add_tail(&b->wait, &ctx->fence_wait_list);
-		spin_unlock_irqrestore(&ctx->slock, flags);
-
-		queue_work(ctx->fence_wq, &ctx->fence_work);
+	if (vb->acquire_fence) {
+		struct v4l2_m2m_buffer *mb = container_of(vb, typeof(*mb), vb);
+		struct vb2_sc_buffer *svb = container_of(mb, typeof(*svb), mb);
+		queue_work(ctx->sc_dev->fence_wq, &svb->work);
 	} else {
 		if (ctx->m2m_ctx)
 			v4l2_m2m_buf_queue(ctx->m2m_ctx, vb);
@@ -1210,19 +1210,15 @@ static int sc_vb2_stop_streaming(struct vb2_queue *vq)
 }
 
 static struct vb2_ops sc_vb2_ops = {
-	.queue_setup		 = sc_vb2_queue_setup,
-	.buf_prepare		 = sc_vb2_buf_prepare,
-	.buf_finish		 = sc_vb2_buf_finish,
-	.buf_queue		 = sc_vb2_buf_queue,
-	.wait_finish		 = sc_vb2_lock,
-	.wait_prepare		 = sc_vb2_unlock,
-	.start_streaming	 = sc_vb2_start_streaming,
-	.stop_streaming		 = sc_vb2_stop_streaming,
-};
-
-struct vb2_scaler_buffer {
-	struct v4l2_m2m_buffer mb;
-	unsigned long long hw_latency;
+	.queue_setup		= sc_vb2_queue_setup,
+	.buf_init		= sc_vb2_buf_init,
+	.buf_prepare		= sc_vb2_buf_prepare,
+	.buf_finish		= sc_vb2_buf_finish,
+	.buf_queue		= sc_vb2_buf_queue,
+	.wait_finish		= sc_vb2_lock,
+	.wait_prepare		= sc_vb2_unlock,
+	.start_streaming	= sc_vb2_start_streaming,
+	.stop_streaming		= sc_vb2_stop_streaming,
 };
 
 static int queue_init(void *priv, struct vb2_queue *src_vq,
@@ -1237,7 +1233,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->ops = &sc_vb2_ops;
 	src_vq->mem_ops = &vb2_ion_memops;
 	src_vq->drv_priv = ctx;
-	src_vq->buf_struct_size = sizeof(struct vb2_scaler_buffer);
+	src_vq->buf_struct_size = sizeof(struct vb2_sc_buffer);
 	src_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	ret = vb2_queue_init(src_vq);
@@ -1250,7 +1246,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->ops = &sc_vb2_ops;
 	dst_vq->mem_ops = &vb2_ion_memops;
 	dst_vq->drv_priv = ctx;
-	dst_vq->buf_struct_size = sizeof(struct vb2_scaler_buffer);
+	dst_vq->buf_struct_size = sizeof(struct vb2_sc_buffer);
 	dst_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	return vb2_queue_init(dst_vq);
@@ -1426,15 +1422,6 @@ static int sc_open(struct file *file)
 	ctx->s_frame.sc_fmt = &sc_formats[0];
 	ctx->d_frame.sc_fmt = &sc_formats[0];
 	init_waitqueue_head(&sc->wait);
-	spin_lock_init(&ctx->slock);
-
-	INIT_LIST_HEAD(&ctx->fence_wait_list);
-	INIT_WORK(&ctx->fence_work, sc_fence_work);
-	ctx->fence_wq = create_singlethread_workqueue("sc_wq");
-	if (ctx->fence_wq == NULL) {
-		dev_err(sc->dev, "failed to create work queue\n");
-		goto err_wq;
-	}
 
 	/* Setup the device context for mem2mem mode. */
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(sc->m2m.m2m_dev, ctx, queue_init);
@@ -1446,9 +1433,6 @@ static int sc_open(struct file *file)
 	return 0;
 
 err_ctx:
-	if (ctx->fence_wq)
-		destroy_workqueue(ctx->fence_wq);
-err_wq:
 	v4l2_fh_del(&ctx->fh);
 err_fh:
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
@@ -1468,8 +1452,6 @@ static int sc_release(struct file *file)
 
 	destroy_intermediate_frame(ctx);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
-	if (ctx->fence_wq)
-		destroy_workqueue(ctx->fence_wq);
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
@@ -1725,7 +1707,7 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 		if (__measure_hw_latency) {
 			struct v4l2_m2m_buffer *mb =
 					container_of(dst_vb, typeof(*mb), vb);
-			struct vb2_scaler_buffer *svb =
+			struct vb2_sc_buffer *svb =
 					container_of(mb, typeof(*svb), mb);
 
 			dst_vb->v4l2_buf.reserved2 =
@@ -2015,8 +1997,7 @@ static void sc_m2m_device_run(void *priv)
 	if (__measure_hw_latency) {
 		struct vb2_buffer *vb = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 		struct v4l2_m2m_buffer *mb = container_of(vb, typeof(*mb), vb);
-		struct vb2_scaler_buffer *svb =
-					container_of(mb, typeof(*svb), mb);
+		struct vb2_sc_buffer *svb = container_of(mb, typeof(*svb), mb);
 
 		svb->hw_latency = sched_clock();
 	}
@@ -2261,9 +2242,16 @@ static int sc_probe(struct platform_device *pdev)
 	else
 		dev_id = pdev->id;
 
+	sc->fence_wq = create_singlethread_workqueue("scaler_fence_work");
+	if (!sc->fence_wq) {
+		dev_err(&pdev->dev, "Failed to create workqueue for fence\n");
+		return -ENOMEM;
+	}
+
 	ret = sc_register_m2m_device(sc, dev_id);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register m2m device\n");
+		destroy_workqueue(sc->fence_wq);
 		return ret;
 	}
 
@@ -2275,6 +2263,8 @@ static int sc_probe(struct platform_device *pdev)
 static int sc_remove(struct platform_device *pdev)
 {
 	struct sc_dev *sc = platform_get_drvdata(pdev);
+
+	destroy_workqueue(sc->fence_wq);
 
 	vb2_ion_detach_iommu(sc->alloc_ctx);
 

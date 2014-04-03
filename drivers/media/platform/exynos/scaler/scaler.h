@@ -341,6 +341,7 @@ struct sc_dev {
 	struct vb2_alloc_ctx		*alloc_ctx;
 	spinlock_t			slock;
 	struct mutex			lock;
+	struct workqueue_struct		*fence_wq;
 	struct sc_wdt			wdt;
 };
 
@@ -351,9 +352,6 @@ struct sc_dev {
  * @frame:		source frame properties
  * @ctrl_handler:	v4l2 controls handler
  * @fh:			v4l2 file handle
- * @fence_work:		work struct for sync fence work
- * @fence_wq:		workqueue for sync fence work
- * @fence_wait_list:	wait list for sync fence
  * @rotation:		image clockwise scation in degrees
  * @flip:		image flip mode
  * @bl_op:		image blend mode
@@ -362,7 +360,6 @@ struct sc_dev {
  * @color_fill:		enable color fill
  * @color:		color fill value
  * @flags:		context state flags
- * @slock:		spinlock pscecting this data structure
  * @cacheable:		cacheability of current frame
  * @pre_multi:		pre-multiplied format
  * @csc:		csc equation value
@@ -375,9 +372,6 @@ struct sc_ctx {
 	struct sc_frame			d_frame;
 	struct v4l2_ctrl_handler	ctrl_handler;
 	struct v4l2_fh			fh;
-	struct work_struct		fence_work;
-	struct workqueue_struct		*fence_wq;
-	struct list_head		fence_wait_list;
 	int				rotation;
 	u32				flip;
 	enum sc_blend_op		bl_op;
@@ -388,7 +382,6 @@ struct sc_ctx {
 	unsigned int			h_ratio;
 	unsigned int			v_ratio;
 	unsigned long			flags;
-	spinlock_t			slock;
 	bool				cacheable;
 	bool				pre_multi;
 	struct sc_csc			csc;
