@@ -323,7 +323,6 @@ struct sc_vb2;
 /*
  * struct sc_dev - the abstraction for Rotator device
  * @dev:	pointer to the Rotator device
- * @pdata:	pointer to the device platform data
  * @variant:	the IP variant information
  * @m2m:	memory-to-memory V4L2 device information
  * @aclk:	aclk required for scaler operation
@@ -344,7 +343,6 @@ struct sc_vb2;
  */
 struct sc_dev {
 	struct device			*dev;
-	struct exynos_platform_sc	*pdata;
 	struct sc_variant		*variant;
 	struct sc_m2m_device		m2m;
 	int				ver;
