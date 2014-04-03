@@ -39,182 +39,165 @@ module_param_named(sc_log_level, sc_log_level, uint, 0644);
 int __measure_hw_latency;
 module_param_named(measure_hw_latency, __measure_hw_latency, int, 0644);
 
-static struct sc_fmt sc_formats[] = {
+static const struct sc_fmt sc_formats[] = {
 	{
 		.name		= "RGB565",
 		.pixelformat	= V4L2_PIX_FMT_RGB565,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_RGB,
+		.is_rgb		= 1,
 	}, {
 		.name		= "RGB1555",
 		.pixelformat	= V4L2_PIX_FMT_RGB555X,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_RGB,
+		.is_rgb		= 1,
 	}, {
 		.name		= "ARGB4444",
 		.pixelformat	= V4L2_PIX_FMT_RGB444,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_RGB,
+		.is_rgb		= 1,
 	}, {
 		.name		= "RGBA8888",
 		.pixelformat	= V4L2_PIX_FMT_RGB32,
+		.bitperpixel	= { 32 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 32 },
-		.color		= SC_COLOR_RGB,
+		.is_rgb		= 1,
 	}, {
 		.name		= "BGRA8888",
 		.pixelformat	= V4L2_PIX_FMT_BGR32,
+		.bitperpixel	= { 32 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 32 },
-		.color		= SC_COLOR_RGB,
+		.is_rgb		= 1,
 	}, {
 		.name		= "YUV 4:2:0 contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV12,
+		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 2,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 12 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:0 contiguous 2-planar, Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV21,
+		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 2,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 12 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV12M,
+		.bitperpixel	= { 8, 4 },
 		.num_planes	= 2,
 		.num_comp	= 2,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 8, 4 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 2-planar, Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV21M,
+		.bitperpixel	= { 8, 4 },
 		.num_planes	= 2,
 		.num_comp	= 2,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 8, 4 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 2-planar, Y/CbCr, tiled",
 		.pixelformat	= V4L2_PIX_FMT_NV12MT_16X16,
+		.bitperpixel	= { 8, 4 },
 		.num_planes	= 2,
 		.num_comp	= 2,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 8, 4 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:0 contiguous 3-planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV420,	/* I420 */
+		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 3,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 12 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YVU 4:2:0 contiguous 3-planar, Y/Cr/Cb",
 		.pixelformat	= V4L2_PIX_FMT_YVU420,	/* YV12 */
+		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 3,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 12 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 3-planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV420M,
+		.bitperpixel	= { 8, 2, 2 },
 		.num_planes	= 3,
 		.num_comp	= 3,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 8, 2, 2 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YVU 4:2:0 non-contiguous 3-planar, Y/Cr/Cb",
 		.pixelformat	= V4L2_PIX_FMT_YVU420M,
+		.bitperpixel	= { 8, 2, 2 },
 		.num_planes	= 3,
 		.num_comp	= 3,
 		.h_shift	= 1,
 		.v_shift	= 1,
-		.bitperpixel	= { 8, 2, 2 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:2 packed, YCbYCr",
 		.pixelformat	= V4L2_PIX_FMT_YUYV,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:2 packed, CbYCrY",
 		.pixelformat	= V4L2_PIX_FMT_UYVY,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:2 packed, YCrYCb",
 		.pixelformat	= V4L2_PIX_FMT_YVYU,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:2 contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV16,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 2,
 		.h_shift	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:2 contiguous 2-planar, Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV61,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 2,
 		.h_shift	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:2:2 contiguous 3-planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV422P,
+		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 3,
 		.h_shift	= 1,
-		.bitperpixel	= { 16 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:4:4 contiguous Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV24,
+		.bitperpixel	= { 24 },
 		.num_planes	= 1,
 		.num_comp	= 2,
-		.bitperpixel	= { 24 },
-		.color		= SC_COLOR_YUV,
 	}, {
 		.name		= "YUV 4:4:4 contiguous Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV42,
+		.bitperpixel	= { 24 },
 		.num_planes	= 1,
 		.num_comp	= 2,
-		.bitperpixel	= { 24 },
-		.color		= SC_COLOR_YUV,
 	},
 };
 
@@ -243,9 +226,10 @@ static struct sc_variant variant = {
 };
 
 /* Find the matches format */
-static struct sc_fmt *sc_find_format(struct sc_dev *sc, struct v4l2_format *f)
+static const struct sc_fmt *sc_find_format(
+				struct sc_dev *sc, struct v4l2_format *f)
 {
-	struct sc_fmt *sc_fmt;
+	const struct sc_fmt *sc_fmt;
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(sc_formats); ++i) {
@@ -278,7 +262,7 @@ static int sc_v4l2_querycap(struct file *file, void *fh,
 static int sc_v4l2_enum_fmt_mplane(struct file *file, void *fh,
 			     struct v4l2_fmtdesc *f)
 {
-	struct sc_fmt *sc_fmt;
+	const struct sc_fmt *sc_fmt;
 
 	if (f->index >= ARRAY_SIZE(sc_formats))
 		return -EINVAL;
@@ -294,7 +278,7 @@ static int sc_v4l2_g_fmt_mplane(struct file *file, void *fh,
 			  struct v4l2_format *f)
 {
 	struct sc_ctx *ctx = fh_to_sc_ctx(fh);
-	struct sc_fmt *sc_fmt;
+	const struct sc_fmt *sc_fmt;
 	struct sc_frame *frame;
 	struct v4l2_pix_format_mplane *pixm = &f->fmt.pix_mp;
 	int i;
@@ -339,7 +323,7 @@ static int sc_v4l2_try_fmt_mplane(struct file *file, void *fh,
 			    struct v4l2_format *f)
 {
 	struct sc_ctx *ctx = fh_to_sc_ctx(fh);
-	struct sc_fmt *sc_fmt;
+	const struct sc_fmt *sc_fmt;
 	struct v4l2_pix_format_mplane *pixm = &f->fmt.pix_mp;
 	struct sc_size_limit *limit;
 	int i;
@@ -1020,7 +1004,7 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 		struct sc_size_limit *limit;
 		unsigned int halign = 0, walign = 0;
 		__u32 pixfmt;
-		struct sc_fmt *target_fmt = ctx->d_frame.sc_fmt;
+		const struct sc_fmt *target_fmt = ctx->d_frame.sc_fmt;
 
 		if (!allocate_intermediate_frame(ctx))
 			return -ENOMEM;
@@ -1597,9 +1581,9 @@ static void sc_set_csc_coef(struct sc_ctx *ctx)
 	s_frame = &ctx->s_frame;
 	d_frame = &ctx->d_frame;
 
-	if (s_frame->sc_fmt->color == d_frame->sc_fmt->color)
+	if (s_frame->sc_fmt->is_rgb == d_frame->sc_fmt->is_rgb)
 		idx = NO_CSC;
-	else if (sc_fmt_is_rgb(s_frame->sc_fmt->color))
+	else if (s_frame->sc_fmt->is_rgb)
 		idx = CSC_R2Y;
 	else
 		idx = CSC_Y2R;

@@ -803,7 +803,7 @@ void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame)
 }
 
 void sc_hwset_src_crop(struct sc_dev *sc, struct v4l2_rect *rect,
-		       struct sc_fmt *fmt)
+		       const struct sc_fmt *fmt)
 {
 	unsigned long cfg1, cfg2;
 

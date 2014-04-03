@@ -77,7 +77,6 @@ extern int sc_log_level;
 #define SC_CSC_709	1
 
 #define fh_to_sc_ctx(__fh)	container_of(__fh, struct sc_ctx, fh)
-#define sc_fmt_is_rgb(x)	(!!((x) & 0x10))
 #define sc_fmt_is_yuv422(x)	((x == V4L2_PIX_FMT_YUYV) || \
 		(x == V4L2_PIX_FMT_UYVY) || (x == V4L2_PIX_FMT_YVYU) || \
 		(x == V4L2_PIX_FMT_YUV422P) || (x == V4L2_PIX_FMT_NV16) || \
@@ -121,11 +120,6 @@ enum sc_clocks {
 	SC_GATE_CLK,
 	SC_CHLD_CLK,
 	SC_PARN_CLK
-};
-
-enum sc_color_fmt {
-	SC_COLOR_RGB = 0x10,
-	SC_COLOR_YUV = 0x20,
 };
 
 enum sc_dith {
@@ -244,12 +238,12 @@ struct sc_variant {
 struct sc_fmt {
 	char	*name;
 	u32	pixelformat;
-	u8	num_planes;
-	u8	num_comp;
-	u8	h_shift;
-	u8	v_shift;
-	u32	bitperpixel[SC_MAX_PLANES];
-	u32	color;
+	u8	bitperpixel[SC_MAX_PLANES];
+	u8	num_planes:2;
+	u8	num_comp:2;
+	u8	h_shift:1;
+	u8	v_shift:1;
+	u8	is_rgb:1;
 };
 
 struct sc_addr {
@@ -269,7 +263,7 @@ struct sc_addr {
  * @bytesused:	image size in bytes (w x h x bpp)
  */
 struct sc_frame {
-	struct sc_fmt			*sc_fmt;
+	const struct sc_fmt		*sc_fmt;
 	unsigned short		width;
 	unsigned short		height;
 	__u32			pixelformat;
@@ -432,7 +426,7 @@ void sc_hwset_flip_rotation(struct sc_dev *sc, u32 direction, int degree);
 void sc_hwset_src_imgsize(struct sc_dev *sc, struct sc_frame *frame);
 void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame);
 void sc_hwset_src_crop(struct sc_dev *sc, struct v4l2_rect *rect,
-		       struct sc_fmt *fmt);
+		       const struct sc_fmt *fmt);
 void sc_hwset_dst_crop(struct sc_dev *sc, struct v4l2_rect *rect);
 void sc_hwset_src_addr(struct sc_dev *sc, struct sc_addr *addr);
 void sc_hwset_dst_addr(struct sc_dev *sc, struct sc_addr *addr);
