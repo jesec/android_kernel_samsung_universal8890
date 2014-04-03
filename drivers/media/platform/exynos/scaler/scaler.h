@@ -326,7 +326,6 @@ struct sc_vb2;
  * @pdata:	pointer to the device platform data
  * @variant:	the IP variant information
  * @m2m:	memory-to-memory V4L2 device information
- * @id:		scaler device index (0..SC_MAX_DEVS)
  * @aclk:	aclk required for scaler operation
  * @pclk:	pclk required for scaler operation
  * @clk_chld:	child clk of mux required for scaler operation
@@ -348,7 +347,6 @@ struct sc_dev {
 	struct exynos_platform_sc	*pdata;
 	struct sc_variant		*variant;
 	struct sc_m2m_device		m2m;
-	int				id;
 	int				ver;
 	struct clk			*aclk;
 	struct clk			*pclk;

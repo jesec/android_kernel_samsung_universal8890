@@ -2078,7 +2078,7 @@ static struct v4l2_m2m_ops sc_m2m_ops = {
 	.job_abort	= sc_m2m_job_abort,
 };
 
-static int sc_register_m2m_device(struct sc_dev *sc)
+static int sc_register_m2m_device(struct sc_dev *sc, int dev_id)
 {
 	struct v4l2_device *v4l2_dev;
 	struct device *dev;
@@ -2124,7 +2124,7 @@ static int sc_register_m2m_device(struct sc_dev *sc)
 	}
 
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER,
-				EXYNOS_VIDEONODE_SCALER(sc->id));
+				EXYNOS_VIDEONODE_SCALER(dev_id));
 	if (ret) {
 		dev_err(sc->dev, "failed to register video device\n");
 		goto err_m2m_dev;
@@ -2245,6 +2245,7 @@ static int sc_probe(struct platform_device *pdev)
 	struct sc_dev *sc;
 	struct resource *res;
 	int ret = 0;
+	int dev_id;
 
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct sc_dev), GFP_KERNEL);
 	if (!sc) {
@@ -2253,11 +2254,6 @@ static int sc_probe(struct platform_device *pdev)
 	}
 
 	sc->dev = &pdev->dev;
-
-	if (pdev->dev.of_node)
-		sc->id = of_alias_get_id(pdev->dev.of_node, "scaler");
-	else
-		sc->id = pdev->id;
 
 	spin_lock_init(&sc->slock);
 	mutex_init(&sc->lock);
@@ -2330,7 +2326,12 @@ static int sc_probe(struct platform_device *pdev)
 
 	sc->variant = &variant;
 
-	ret = sc_register_m2m_device(sc);
+	if (pdev->dev.of_node)
+		dev_id = of_alias_get_id(pdev->dev.of_node, "scaler");
+	else
+		dev_id = pdev->id;
+
+	ret = sc_register_m2m_device(sc, dev_id);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register m2m device\n");
 		ret = -EPERM;
