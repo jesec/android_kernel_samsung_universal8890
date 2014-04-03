@@ -339,7 +339,6 @@ struct sc_vb2;
  * @slock:	the spinlock pscecting this data structure
  * @lock:	the mutex pscecting this data structure
  * @wdt:	watchdog timer information
- * @clk_cnt:	scalor clock on/off count
  */
 struct sc_dev {
 	struct device			*dev;
@@ -359,7 +358,6 @@ struct sc_dev {
 	spinlock_t			slock;
 	struct mutex			lock;
 	struct sc_wdt			wdt;
-	atomic_t			clk_cnt;
 };
 
 /*

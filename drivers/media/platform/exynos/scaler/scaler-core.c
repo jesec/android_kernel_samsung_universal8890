@@ -1547,18 +1547,11 @@ static int sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
 				return ret;
 			}
 		}
-
-		atomic_inc(&sc->clk_cnt);
 		dev_dbg(sc->dev, "clock enabled\n");
 	} else if (status == SC_CLK_OFF) {
-		if (WARN_ON(atomic_dec_return(&sc->clk_cnt) < 0)) {
-			dev_err(sc->dev, "scaler clock control is wrong!!\n");
-			atomic_set(&sc->clk_cnt, 0);
-		} else {
-			if (sc->aclk)
-				clk_disable(sc->aclk);
-			dev_dbg(sc->dev, "clock disabled\n");
-		}
+		if (sc->aclk)
+			clk_disable(sc->aclk);
+		dev_dbg(sc->dev, "clock disabled\n");
 	}
 
 	return 0;
