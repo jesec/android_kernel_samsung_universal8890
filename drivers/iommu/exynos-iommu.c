@@ -1878,6 +1878,7 @@ static struct gpd_dev_ops sysmmu_devpm_ops = {
 };
 #endif /* CONFIG_PM_GENERIC_DOMAINS */
 
+#ifdef CONFIG_PM_GENERIC_DOMAINS
 static int sysmmu_hook_driver_register(struct notifier_block *nb,
 					unsigned long val,
 					void *p)
@@ -1950,6 +1951,7 @@ static int __init exynos_iommu_prepare(void)
 	return bus_register_notifier(&platform_bus_type, &sysmmu_notifier);
 }
 arch_initcall_sync(exynos_iommu_prepare);
+#endif
 
 static void sysmmu_dump_lv2_page_table(unsigned int lv1idx, sysmmu_pte_t *base)
 {
