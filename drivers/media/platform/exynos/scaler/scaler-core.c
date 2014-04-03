@@ -2246,8 +2246,6 @@ static int sc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret = 0;
 
-	dev_info(&pdev->dev, "++%s\n", __func__);
-
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct sc_dev), GFP_KERNEL);
 	if (!sc) {
 		dev_err(&pdev->dev, "no memory for scaler device\n");
