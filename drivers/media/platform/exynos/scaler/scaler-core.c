@@ -2075,9 +2075,6 @@ static int sc_register_m2m_device(struct sc_dev *sc, int dev_id)
 	struct video_device *vfd;
 	int ret = 0;
 
-	if (!sc)
-		return -ENODEV;
-
 	dev = sc->dev;
 	v4l2_dev = &sc->m2m.v4l2_dev;
 
