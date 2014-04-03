@@ -91,8 +91,6 @@ extern int sc_log_level;
 #define sc_dith_val(a, b, c)	((a << SCALER_DITH_R_SHIFT) |	\
 		(b << SCALER_DITH_G_SHIFT) | (c << SCALER_DITH_B_SHIFT))
 
-extern const struct sc_vb2 sc_vb2_ion;
-
 #ifdef CONFIG_VIDEOBUF2_ION
 #define sc_buf_sync_prepare vb2_ion_buf_prepare
 #define sc_buf_sync_finish vb2_ion_buf_finish
@@ -314,7 +312,6 @@ struct sc_csc {
 };
 
 struct sc_ctx;
-struct sc_vb2;
 
 /*
  * struct sc_dev - the abstraction for Rotator device
@@ -331,7 +328,6 @@ struct sc_vb2;
  * @ws:		work struct
  * @state:	device state flags
  * @alloc_ctx:	videobuf2 memory allocator context
- * @sc_vb2:	videobuf2 memory allocator callbacks
  * @slock:	the spinlock pscecting this data structure
  * @lock:	the mutex pscecting this data structure
  * @wdt:	watchdog timer information
@@ -350,7 +346,6 @@ struct sc_dev {
 	wait_queue_head_t		wait;
 	unsigned long			state;
 	struct vb2_alloc_ctx		*alloc_ctx;
-	const struct sc_vb2		*vb2;
 	spinlock_t			slock;
 	struct mutex			lock;
 	struct sc_wdt			wdt;
@@ -404,18 +399,6 @@ struct sc_ctx {
 	bool				cacheable;
 	bool				pre_multi;
 	struct sc_csc			csc;
-};
-
-struct sc_vb2 {
-	const struct vb2_mem_ops *ops;
-	void *(*init)(struct sc_dev *sc);
-	void (*cleanup)(void *alloc_ctx);
-
-	unsigned long (*plane_addr)(struct vb2_buffer *vb, u32 plane_no);
-
-	int (*cache_flush)(struct vb2_buffer *vb, u32 num_planes);
-	void (*set_cacheable)(void *alloc_ctx, bool cacheable);
-	void (*set_sharable)(void *alloc_ctx, bool sharable);
 };
 
 static inline struct sc_frame *ctx_get_frame(struct sc_ctx *ctx,

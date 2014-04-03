@@ -488,9 +488,6 @@ static int sc_v4l2_reqbufs(struct file *file, void *fh,
 			    struct v4l2_requestbuffers *reqbufs)
 {
 	struct sc_ctx *ctx = fh_to_sc_ctx(fh);
-	struct sc_dev *sc = ctx->sc_dev;
-
-	sc->vb2->set_cacheable(sc->alloc_ctx, ctx->cacheable);
 
 	return v4l2_m2m_reqbufs(file, ctx->m2m_ctx, reqbufs);
 }
@@ -1254,7 +1251,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	src_vq->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 	src_vq->ops = &sc_vb2_ops;
-	src_vq->mem_ops = ctx->sc_dev->vb2->ops;
+	src_vq->mem_ops = &vb2_ion_memops;
 	src_vq->drv_priv = ctx;
 	src_vq->buf_struct_size = sizeof(struct vb2_scaler_buffer);
 	src_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
@@ -1267,7 +1264,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	dst_vq->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 	dst_vq->ops = &sc_vb2_ops;
-	dst_vq->mem_ops = ctx->sc_dev->vb2->ops;
+	dst_vq->mem_ops = &vb2_ion_memops;
 	dst_vq->drv_priv = ctx;
 	dst_vq->buf_struct_size = sizeof(struct vb2_scaler_buffer);
 	dst_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
@@ -2276,12 +2273,11 @@ static int sc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	sc->vb2 = &sc_vb2_ion;
+	sc->alloc_ctx = vb2_ion_create_context(sc->dev, SZ_4K,
+		VB2ION_CTX_VMCONTIG | VB2ION_CTX_IOMMU | VB2ION_CTX_UNCACHED);
 
-	sc->alloc_ctx = sc->vb2->init(sc);
-	if (IS_ERR_OR_NULL(sc->alloc_ctx)) {
+	if (IS_ERR(sc->alloc_ctx)) {
 		ret = PTR_ERR(sc->alloc_ctx);
-		dev_err(&pdev->dev, "failed to alloc_ctx\n");
 		goto err_clk;
 	}
 
@@ -2337,6 +2333,8 @@ static int sc_remove(struct platform_device *pdev)
 	struct sc_dev *sc = platform_get_drvdata(pdev);
 
 	vb2_ion_detach_iommu(sc->alloc_ctx);
+
+	vb2_ion_destroy_context(sc->alloc_ctx);
 
 	sc_clk_put(sc);
 

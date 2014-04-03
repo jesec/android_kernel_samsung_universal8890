@@ -5,7 +5,7 @@
 # Licensed under GPLv2
 #
 
-scaler-objs := scaler-core.o scaler-regs.o scaler-vb2.o
+scaler-objs := scaler-core.o scaler-regs.o
 obj-$(CONFIG_VIDEO_EXYNOS_SCALER)	+= scaler.o
 
 ccflags-$(CONFIG_SCALER_NO_SOFTRST) += -DSC_NO_SOFTRST
