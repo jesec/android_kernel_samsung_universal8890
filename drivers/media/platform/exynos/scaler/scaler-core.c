@@ -2254,10 +2254,8 @@ static int sc_probe(struct platform_device *pdev)
 	/* Get memory resource and map SFR region. */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sc->regs = devm_request_and_ioremap(&pdev->dev, res);
-	if (sc->regs == NULL) {
-		dev_err(&pdev->dev, "failed to claim register region\n");
+	if (sc->regs == NULL)
 		return -ENOENT;
-	}
 
 	/* Get IRQ resource and register IRQ handler. */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
