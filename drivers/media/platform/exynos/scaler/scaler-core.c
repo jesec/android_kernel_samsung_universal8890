@@ -2259,7 +2259,7 @@ static int sc_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "failed to get IRQ resource\n");
-		return -ENXIO;
+		return -ENOENT;
 	}
 
 	ret = devm_request_irq(&pdev->dev, res->start, sc_irq_handler, 0,
