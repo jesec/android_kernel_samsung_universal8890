@@ -1295,9 +1295,6 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_ROTATE:
 		ctx->rotation = ctrl->val;
 		break;
-	case V4L2_CID_CACHEABLE:
-		ctx->cacheable = (bool)ctrl->val;
-		break;
 	case V4L2_CID_GLOBAL_ALPHA:
 		ctx->g_alpha = ctrl->val;
 		break;
@@ -1327,16 +1324,6 @@ static const struct v4l2_ctrl_ops sc_ctrl_ops = {
 
 static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 	{
-		.ops = &sc_ctrl_ops,
-		.id = V4L2_CID_CACHEABLE,
-		.name = "set cacheable",
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.flags = V4L2_CTRL_FLAG_SLIDER,
-		.step = 1,
-		.min = false,
-		.max = true,
-		.def = true,
-	}, {
 		.ops = &sc_ctrl_ops,
 		.id = V4L2_CID_GLOBAL_ALPHA,
 		.name = "Set constant src alpha",
