@@ -2081,7 +2081,7 @@ static int sc_register_m2m_device(struct sc_dev *sc, int dev_id)
 	dev = sc->dev;
 	v4l2_dev = &sc->m2m.v4l2_dev;
 
-	snprintf(v4l2_dev->name, sizeof(v4l2_dev->name), "%s.m2m",
+	scnprintf(v4l2_dev->name, sizeof(v4l2_dev->name), "%s.m2m",
 			MODULE_NAME);
 
 	ret = v4l2_device_register(dev, v4l2_dev);
@@ -2101,7 +2101,7 @@ static int sc_register_m2m_device(struct sc_dev *sc, int dev_id)
 	vfd->release	= video_device_release;
 	vfd->lock	= &sc->lock;
 	vfd->vfl_dir	= VFL_DIR_M2M;
-	snprintf(vfd->name, sizeof(vfd->name), "%s:m2m", MODULE_NAME);
+	scnprintf(vfd->name, sizeof(vfd->name), "%s:m2m", MODULE_NAME);
 
 	video_set_drvdata(vfd, sc);
 
