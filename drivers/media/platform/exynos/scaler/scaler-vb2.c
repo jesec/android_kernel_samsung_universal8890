@@ -12,29 +12,10 @@
 #include <linux/platform_device.h>
 #include "scaler.h"
 
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-void *sc_cma_init(struct sc_dev *sc)
-{
-	return vb2_cma_phys_init(sc->dev, NULL, 0, false);
-}
+#ifndef CONFIG_VIDEOBUF2_ION
+#error "videobuf2-ion(VIDEOBUF2_ION) must be configured"
+#endif
 
-int sc_cma_resume(void *alloc_ctx) {}
-void sc_cma_suspend(void *alloc_ctx) {}
-void sc_cma_set_cacheable(void *alloc_ctx, bool cacheable) {}
-int sc_cma_cache_flush(struct vb2_buffer *vb, u32 plane_no) { return 0; }
-
-const struct sc_vb2 sc_vb2_cma = {
-	.ops		= &vb2_cma_phys_memops,
-	.init		= sc_cma_init,
-	.cleanup	= vb2_cma_phys_cleanup,
-	.plane_addr	= vb2_cma_phys_plane_paddr,
-	.resume		= sc_cma_resume,
-	.suspend	= sc_cma_suspend,
-	.cache_flush	= sc_cma_cache_flush,
-	.set_cacheable	= sc_cma_set_cacheable,
-};
-
-#elif defined(CONFIG_VIDEOBUF2_ION)
 void *sc_ion_init(struct sc_dev *sc)
 {
 	return vb2_ion_create_context(sc->dev, SZ_4K,
@@ -60,4 +41,3 @@ const struct sc_vb2 sc_vb2_ion = {
 	.suspend	= vb2_ion_detach_iommu,
 	.set_cacheable	= vb2_ion_set_cached,
 };
-#endif

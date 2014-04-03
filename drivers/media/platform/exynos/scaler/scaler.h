@@ -91,11 +91,7 @@ extern int sc_log_level;
 #define sc_dith_val(a, b, c)	((a << SCALER_DITH_R_SHIFT) |	\
 		(b << SCALER_DITH_G_SHIFT) | (c << SCALER_DITH_B_SHIFT))
 
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-extern const struct sc_vb2 sc_vb2_cma;
-#elif defined(CONFIG_VIDEOBUF2_ION)
 extern const struct sc_vb2 sc_vb2_ion;
-#endif
 
 #ifdef CONFIG_VIDEOBUF2_ION
 #define sc_buf_sync_prepare vb2_ion_buf_prepare

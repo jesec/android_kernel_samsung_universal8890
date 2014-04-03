@@ -2276,11 +2276,7 @@ static int sc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-#if defined(CONFIG_VIDEOBUF2_CMA_PHYS)
-	sc->vb2 = &sc_vb2_cma;
-#elif defined(CONFIG_VIDEOBUF2_ION)
 	sc->vb2 = &sc_vb2_ion;
-#endif
 
 	sc->alloc_ctx = sc->vb2->init(sc);
 	if (IS_ERR_OR_NULL(sc->alloc_ctx)) {
