@@ -59,6 +59,7 @@ static int lowmem_minfree[6] = {
 	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_size = 4;
+static uint32_t lowmem_lmkcount = 0;
 
 static unsigned long lowmem_deathpending_timeout;
 
@@ -200,6 +201,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		send_sig(SIGKILL, selected, 0);
 		rem += selected_tasksize;
+		lowmem_lmkcount++;
 	}
 
 	lowmem_print(4, "lowmem_scan %lu, %x, return %lu\n",
@@ -314,6 +316,7 @@ module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
+module_param_named(lmkcount, lowmem_lmkcount, uint, S_IRUGO);
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);
