@@ -90,7 +90,9 @@ static LIST_HEAD(drvdata_list);
 #define HSI2C_INT_TX_ALMOSTEMPTY_EN		(1u << 0)
 #define HSI2C_INT_RX_ALMOSTFULL_EN		(1u << 1)
 #define HSI2C_INT_TRAILING_EN			(1u << 6)
+#define HSI2C_INT_TRANSFER_DONE			(1u << 7)
 #define HSI2C_INT_I2C_EN			(1u << 9)
+#define HSI2C_INT_CHK_TRANS_STATE		(0xf << 8)
 
 /* I2C_INT_STAT Register bits */
 #define HSI2C_INT_TX_ALMOSTEMPTY		(1u << 0)
@@ -200,6 +202,7 @@ struct exynos5_i2c {
 	int			speed_mode;
 	int			operation_mode;
 	int			bus_id;
+	int			check_transdone_int;
 };
 
 static const struct of_device_id exynos5_i2c_match[] = {
@@ -450,9 +453,8 @@ static irqreturn_t exynos5_i2c_irq(int irqno, void *dev_id)
 		if (i2c->msg_ptr >= i2c->msg->len)
 			exynos5_i2c_stop(i2c);
 	} else {
-		if ((readl(i2c->regs + HSI2C_FIFO_STATUS)
-				& HSI2C_TX_FIFO_LVL_MASK) < EXYNOS5_FIFO_SIZE)
-		{
+		while ((readl(i2c->regs + HSI2C_FIFO_STATUS) &
+			0x80) == 0) {
 			byte = i2c->msg->buf[i2c->msg_ptr++];
 			writel(byte, i2c->regs + HSI2C_TX_DATA);
 
@@ -467,8 +469,56 @@ static irqreturn_t exynos5_i2c_irq(int irqno, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c,
-			      struct i2c_msg *msgs, int stop)
+static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
+{
+	struct exynos5_i2c *i2c = dev_id;
+	unsigned long reg_val;
+	unsigned char byte;
+
+	if (i2c->msg->flags & I2C_M_RD) {
+		while ((readl(i2c->regs + HSI2C_FIFO_STATUS) &
+			0x1000000) == 0) {
+			byte = (unsigned char)readl(i2c->regs + HSI2C_RX_DATA);
+			i2c->msg->buf[i2c->msg_ptr++] = byte;
+		}
+
+		reg_val = readl(i2c->regs + HSI2C_INT_ENABLE);
+		reg_val &= ~(HSI2C_INT_RX_ALMOSTFULL_EN);
+		writel(reg_val, i2c->regs + HSI2C_INT_ENABLE);
+	} else {
+		while ((readl(i2c->regs + HSI2C_FIFO_STATUS) &
+			0x80) == 0) {
+			if (i2c->msg_ptr >= i2c->msg->len) {
+				reg_val = readl(i2c->regs + HSI2C_INT_ENABLE);
+				reg_val &= ~(HSI2C_INT_TX_ALMOSTEMPTY_EN);
+				writel(reg_val, i2c->regs + HSI2C_INT_ENABLE);
+				break;
+			}
+			byte = i2c->msg->buf[i2c->msg_ptr++];
+			writel(byte, i2c->regs + HSI2C_TX_DATA);
+		}
+	}
+
+	reg_val = readl(i2c->regs + HSI2C_INT_STATUS);
+	writel(reg_val, i2c->regs +  HSI2C_INT_STATUS);
+
+	/*
+	 * Checking Error State in INT_STATUS register
+	 * If error state is occured, TX timeout will be occured
+	 */
+	if (reg_val & HSI2C_INT_CHK_TRANS_STATE) {
+		writel(0, i2c->regs + HSI2C_INT_ENABLE);
+		return IRQ_HANDLED;
+	}
+
+	/* Checking INT_TRANSFER_DONE */
+	if (reg_val & HSI2C_INT_TRANSFER_DONE)
+		exynos5_i2c_stop(i2c);
+
+	return IRQ_HANDLED;
+}
+
+static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, int stop)
 {
 	unsigned long timeout;
 	unsigned long trans_status;
@@ -515,6 +565,10 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c,
 
 		i2c_int_en |= HSI2C_INT_TX_ALMOSTEMPTY_EN;
 	}
+
+	if (i2c->check_transdone_int)
+		i2c_int_en |= HSI2C_INT_CHK_TRANS_STATE |
+			HSI2C_INT_TRANSFER_DONE;
 
 	if (stop == 1)
 		i2c_auto_conf |= HSI2C_STOP_AFTER_TRANS;
@@ -605,6 +659,10 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c,
 
 			timeout = jiffies + timeout;
 		}
+
+		if (i2c->check_transdone_int)
+			return 0;
+
 		while (time_before(jiffies, timeout)) {
 			i2c_fifo_stat = readl(i2c->regs + HSI2C_FIFO_STATUS);
 			trans_status = readl(i2c->regs + HSI2C_TRANS_STATUS);
@@ -753,6 +811,11 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		i2c->operation_mode = HSI2C_INTERRUPT;
 	}
 
+	if (of_get_property(np, "samsung,check-transdone-int", NULL))
+		i2c->check_transdone_int = 1;
+	else
+		i2c->check_transdone_int = 0;
+
 	strlcpy(i2c->adap.name, "exynos5-i2c", sizeof(i2c->adap.name));
 	i2c->adap.owner   = THIS_MODULE;
 	i2c->adap.algo    = &exynos5_i2c_algorithm;
@@ -797,8 +860,12 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		goto err_clk;
 	}
 
-	ret = devm_request_irq(&pdev->dev, i2c->irq, exynos5_i2c_irq,
-				0, dev_name(&pdev->dev), i2c);
+	if (i2c->check_transdone_int == 1)
+		ret = devm_request_irq(&pdev->dev, i2c->irq,
+			exynos5_i2c_irq_chkdone, 0, dev_name(&pdev->dev), i2c);
+	else
+		ret = devm_request_irq(&pdev->dev, i2c->irq, exynos5_i2c_irq,
+					0, dev_name(&pdev->dev), i2c);
 
 	if (ret != 0) {
 		dev_err(&pdev->dev, "cannot request HS-I2C IRQ %d\n", i2c->irq);
