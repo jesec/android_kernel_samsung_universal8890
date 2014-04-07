@@ -124,6 +124,8 @@ static LIST_HEAD(drvdata_list);
 #define HSI2C_AUTO_MODE				(1u << 31)
 #define HSI2C_10BIT_ADDR_MODE			(1u << 30)
 #define HSI2C_HS_MODE				(1u << 29)
+#define HSI2C_FTL_CYCLE_SCL_MASK		(0x7 << 16)
+#define HSI2C_FTL_CYCLE_SDA_MASK		(0x7 << 13)
 
 /* I2C_AUTO_CONF Register bits */
 #define HSI2C_READ_WRITE			(1u << 16)
@@ -303,7 +305,10 @@ static int exynos5_i2c_set_timing(struct exynos5_i2c *i2c, int mode)
 	 * utemp1 = (TSCLK_L + TSCLK_H + 2)
 	 */
 	t_ftl_cycle = (readl(i2c->regs + HSI2C_CONF) >> 16) & 0x7;
-	utemp0 = (clkin / op_clk) - 8 - 2 * t_ftl_cycle;
+	if (i2c->check_transdone_int)
+		utemp0 = (clkin / op_clk) - 8 - t_ftl_cycle;
+	else
+		utemp0 = (clkin / op_clk) - 8 - 2 * t_ftl_cycle;
 
 	/* CLK_DIV max is 256 */
 	for (div = 0; div < 256; div++) {
