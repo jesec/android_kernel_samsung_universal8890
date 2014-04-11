@@ -477,7 +477,7 @@ static irqreturn_t exynos5_i2c_irq(int irqno, void *dev_id)
 static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 {
 	struct exynos5_i2c *i2c = dev_id;
-	unsigned long reg_val, chk_done;
+	unsigned long reg_val;
 	unsigned char byte;
 
 	if (i2c->msg->flags & I2C_M_RD) {
@@ -505,12 +505,6 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 			byte = i2c->msg->buf[i2c->msg_ptr++];
 			writel(byte, i2c->regs + HSI2C_TX_DATA);
 		}
-
-		chk_done = readl(i2c->regs + HSI2C_INT_STATUS);
-		/* Checking INT_TRANSFER_DONE */
-		if ((chk_done & HSI2C_INT_TRANSFER_DONE) &&
-			(i2c->msg_ptr >= i2c->msg->len))
-			exynos5_i2c_stop(i2c);
 	}
 
 	reg_val = readl(i2c->regs + HSI2C_INT_STATUS);
@@ -524,7 +518,11 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 		writel(0, i2c->regs + HSI2C_INT_ENABLE);
 		return IRQ_HANDLED;
 	}
-
+	/* Checking INT_TRANSFER_DONE - to avoid lost trans_done */
+	if ((reg_val & HSI2C_INT_TRANSFER_DONE) &&
+		(i2c->msg_ptr >= i2c->msg->len) &&
+		!(i2c->msg->flags & I2C_M_RD))
+		exynos5_i2c_stop(i2c);
 
 	writel(reg_val, i2c->regs +  HSI2C_INT_STATUS);
 
@@ -579,9 +577,11 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 		i2c_int_en |= HSI2C_INT_TX_ALMOSTEMPTY_EN;
 	}
 
-	if (i2c->check_transdone_int)
+	if (i2c->check_transdone_int) {
 		i2c_int_en |= HSI2C_INT_CHK_TRANS_STATE |
 			HSI2C_INT_TRANSFER_DONE;
+		exynos5_i2c_clr_pend_irq(i2c);
+	}
 
 	if (stop == 1)
 		i2c_auto_conf |= HSI2C_STOP_AFTER_TRANS;
@@ -607,6 +607,12 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 	writel(i2c_auto_conf, i2c->regs + HSI2C_AUTO_CONF);
 	if (operation_mode != HSI2C_POLLING)
 		writel(i2c_int_en, i2c->regs + HSI2C_INT_ENABLE);
+	else {
+		if (i2c->check_transdone_int) {
+			disable_irq(i2c->irq);
+			writel(i2c_int_en, i2c->regs + HSI2C_INT_ENABLE);
+		}
+	}
 
 	ret = -EAGAIN;
 	if (msgs->flags & I2C_M_RD) {
@@ -659,6 +665,7 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 						i2c->regs + HSI2C_TX_DATA);
 				}
 			}
+
 		} else {
 			timeout = wait_for_completion_timeout
 				(&i2c->msg_complete, EXYNOS5_I2C_TIMEOUT);
@@ -673,8 +680,26 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 			timeout = jiffies + timeout;
 		}
 
-		if (i2c->check_transdone_int)
+		if (i2c->check_transdone_int) {
+			if (operation_mode == HSI2C_POLLING) {
+				while (time_before(jiffies, timeout)) {
+					trans_status = readl(i2c->regs + HSI2C_INT_STATUS);
+					writel(trans_status, i2c->regs +  HSI2C_INT_STATUS);
+					if (trans_status & HSI2C_INT_TRANSFER_DONE) {
+						ret = 0;
+						break;
+					}
+					udelay(100);
+				}
+				if (ret == -EAGAIN) {
+					dump_i2c_register(i2c);
+					exynos5_i2c_reset(i2c);
+					dev_warn(i2c->dev, "tx timeout\n");
+					return ret;
+				}
+			}
 			return 0;
+		}
 
 		while (time_before(jiffies, timeout)) {
 			i2c_fifo_stat = readl(i2c->regs + HSI2C_FIFO_STATUS);
