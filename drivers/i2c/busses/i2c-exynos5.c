@@ -477,7 +477,7 @@ static irqreturn_t exynos5_i2c_irq(int irqno, void *dev_id)
 static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 {
 	struct exynos5_i2c *i2c = dev_id;
-	unsigned long reg_val;
+	unsigned long reg_val, chk_done;
 	unsigned char byte;
 
 	if (i2c->msg->flags & I2C_M_RD) {
@@ -487,9 +487,12 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 			i2c->msg->buf[i2c->msg_ptr++] = byte;
 		}
 
-		reg_val = readl(i2c->regs + HSI2C_INT_ENABLE);
-		reg_val &= ~(HSI2C_INT_RX_ALMOSTFULL_EN);
-		writel(reg_val, i2c->regs + HSI2C_INT_ENABLE);
+		if (i2c->msg_ptr >= i2c->msg->len) {
+			reg_val = readl(i2c->regs + HSI2C_INT_ENABLE);
+			reg_val &= ~(HSI2C_INT_RX_ALMOSTFULL_EN);
+			writel(reg_val, i2c->regs + HSI2C_INT_ENABLE);
+			exynos5_i2c_stop(i2c);
+		}
 	} else {
 		while ((readl(i2c->regs + HSI2C_FIFO_STATUS) &
 			0x80) == 0) {
@@ -502,23 +505,28 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 			byte = i2c->msg->buf[i2c->msg_ptr++];
 			writel(byte, i2c->regs + HSI2C_TX_DATA);
 		}
+
+		chk_done = readl(i2c->regs + HSI2C_INT_STATUS);
+		/* Checking INT_TRANSFER_DONE */
+		if ((chk_done & HSI2C_INT_TRANSFER_DONE) &&
+			(i2c->msg_ptr >= i2c->msg->len))
+			exynos5_i2c_stop(i2c);
 	}
 
 	reg_val = readl(i2c->regs + HSI2C_INT_STATUS);
-	writel(reg_val, i2c->regs +  HSI2C_INT_STATUS);
 
 	/*
 	 * Checking Error State in INT_STATUS register
 	 * If error state is occured, TX timeout will be occured
 	 */
 	if (reg_val & HSI2C_INT_CHK_TRANS_STATE) {
+		dev_err(i2c->dev, "HSI2C Error status is occured!\n");
 		writel(0, i2c->regs + HSI2C_INT_ENABLE);
 		return IRQ_HANDLED;
 	}
 
-	/* Checking INT_TRANSFER_DONE */
-	if (reg_val & HSI2C_INT_TRANSFER_DONE)
-		exynos5_i2c_stop(i2c);
+
+	writel(reg_val, i2c->regs +  HSI2C_INT_STATUS);
 
 	return IRQ_HANDLED;
 }
