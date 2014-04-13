@@ -1565,6 +1565,8 @@ static void sc_watchdog(unsigned long arg)
 	}
 
 	if (test_bit(DEV_RUN, &sc->state)) {
+		sc_hwregs_dump(sc);
+		exynos_sysmmu_show_status(sc->dev);
 		atomic_inc(&sc->wdt.cnt);
 		dev_err(sc->dev, "scaler is still running\n");
 		sc->wdt.timer.expires = jiffies + SC_TIMEOUT;
@@ -2463,6 +2465,9 @@ static void sc_m2m1shot_timeout_task(struct m2m1shot_context *m21ctx,
 	struct sc_ctx *ctx = m21ctx->priv;
 	struct sc_dev *sc = ctx->sc_dev;
 	unsigned long flags;
+
+	sc_hwregs_dump(sc);
+	exynos_sysmmu_show_status(sc->dev);
 
 	sc_hwset_soft_reset(sc);
 

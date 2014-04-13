@@ -456,6 +456,8 @@ int sc_hwget_version(struct sc_dev *sc);
 void sc_hwset_soft_reset(struct sc_dev *sc);
 void sc_hwset_start(struct sc_dev *sc);
 
+void sc_hwregs_dump(struct sc_dev *sc);
+
 #ifdef CONFIG_VIDEOBUF2_ION
 static inline int sc_get_dma_address(void *cookie, dma_addr_t *addr)
 {

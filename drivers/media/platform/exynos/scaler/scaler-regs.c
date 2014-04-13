@@ -915,3 +915,53 @@ void sc_hwset_start(struct sc_dev *sc)
 	cfg |= SCALER_CFG_START_CMD;
 	writel(cfg, sc->regs + SCALER_CFG);
 }
+
+void sc_hwregs_dump(struct sc_dev *sc)
+{
+	dev_notice(sc->dev, "Dumping control registers...\n");
+	pr_notice("------------------------------------------------\n");
+
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x000, 0x02C - 0x000 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x030, 0x044 - 0x030 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x050, 0x058 - 0x050 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x060, 0x134 - 0x060 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x140, 0x214 - 0x140 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x240, 0x240 - 0x220 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x250, 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x260, 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x278, 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x280, 0x298 - 0x280 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x2A8, 0x2A8 - 0x2A0 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x2B0, 0x2C4 - 0x2B0 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1004, 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1010, 0x1028 - 0x1010 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1030, 0x1044 - 0x1030 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1050, 0x1058 - 0x1050 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1060, 0x1134 - 0x1060 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1140, 0x1214 - 0x1140 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1220, 0x1240 - 0x1220 + 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1250, 4, false);
+	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1280, 0x1298 - 0x1220 + 4, false);
+	pr_notice("------------------------------------------------\n");
+}
