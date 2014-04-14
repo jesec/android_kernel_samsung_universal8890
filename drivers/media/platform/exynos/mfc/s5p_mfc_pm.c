@@ -88,6 +88,8 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 		dev->pm.clock = clk_get(dev->device, "gate_mfc1");
 #elif defined(CONFIG_SOC_EXYNOS5422)
 	dev->pm.clock = clk_get(dev->device, "mfc");
+#elif defined(CONFIG_SOC_EXYNOS5433)
+	dev->pm.clock = clk_get(dev->device, "aclk_mfc");
 #endif
 
 	if (IS_ERR(dev->pm.clock)) {
@@ -162,6 +164,24 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 		return PTR_ERR(clk_parent);
 	}
 	clk_set_parent(clk_child, clk_parent);
+#elif defined(CONFIG_SOC_EXYNOS5433)
+	clk_child = clk_get(dev->device, "mout_aclk_mfc_400_user");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+	clk_parent = clk_get(dev->device, "aclk_mfc_400");
+	if (IS_ERR(clk_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_parent);
+	}
+	/* before set mux register, all source clock have to enabled */
+	clk_prepare_enable(clk_parent);
+	clk_set_parent(clk_child, clk_parent);
+	clk_disable_unprepare(clk_parent);
+
+	clk_put(clk_child);
+	clk_put(clk_parent);
 #endif
 	return 0;
 }
@@ -194,6 +214,12 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 	}
 #elif defined(CONFIG_SOC_EXYNOS5422)
 	clk_child = clk_get(dev->device, "dout_aclk_333");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+#elif defined(CONFIG_SOC_EXYNOS5433)
+	clk_child = clk_get(dev->device, "dout_aclk_mfc_400");
 	if (IS_ERR(clk_child)) {
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 		return PTR_ERR(clk_child);
