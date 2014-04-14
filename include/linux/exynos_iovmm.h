@@ -1,4 +1,4 @@
-/* linux/arch/arm/plat-s5p/include/plat/iovmm.h
+/* /include/linux/exynos_iovmm.h
  *
  * Copyright (c) 2011 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com
@@ -14,6 +14,8 @@
 #ifdef CONFIG_EXYNOS_IOVMM
 #include <linux/dma-direction.h>
 #include <linux/iommu.h>
+
+#include <asm/page.h>
 
 struct scatterlist;
 struct device;
