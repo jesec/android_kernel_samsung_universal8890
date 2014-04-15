@@ -1636,7 +1636,7 @@ out_unmap:
 	up_read(&mm->mmap_sem);
 
 	if (ret) {
-		pr_err("%s: Failed to map for %#lx ~ %#lx\n",
+		pr_debug("%s: Ignoring mapping for %#lx ~ %#lx\n",
 					__func__, start, end);
 		__sysmmu_unmap_user_pages(dev, mm, vaddr, start - vaddr);
 	}
