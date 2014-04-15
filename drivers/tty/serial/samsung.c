@@ -739,16 +739,9 @@ err_no_pinctrl:
 	dev_err(dev, "failed to configure gpio for audio\n");
 }
 #else
-static void aud_uart_get_sync(struct platform_device *pdev)
-{
-}
-
-static void aud_uart_put_sync(struct platform_device *pdev)
-{
-}
-static int aud_uart_gpio_cfg(struct platform_device *pdev, int level)
-{
-}
+#define aud_uart_get_sync(c)   do {} while(0)
+#define aud_uart_put_sync(c)   do {} while(0)
+#define aud_uart_gpio_cfg(c,d) do {} while(0)
 #endif
 
 void aud_uart_gpio_idle(struct device *dev)
@@ -758,6 +751,7 @@ void aud_uart_gpio_idle(struct device *dev)
 	aud_uart_gpio_cfg(dev, S3C24XX_UART_PORT_SUSPEND);
 }
 
+#ifdef CONFIG_PM_RUNTIME
 /* serial port save/restore */
 static void s3c24xx_serial_save_restore(struct uart_port *port,
 						unsigned int level)
@@ -797,6 +791,7 @@ static void s3c24xx_serial_save_restore(struct uart_port *port,
 		dev_err(port->dev, "%s: unknown pm %d\n", __func__, level);
 	}
 }
+#endif
 
 /* power power management control */
 
@@ -1685,8 +1680,9 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 
 		INIT_WORK(&ourport->uart_port_lpm_work,
 					s3c64xx_serial_lpm);
-
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 		lpass_set_gpio_cb(&pdev->dev, &aud_uart_gpio_idle);
+#endif
 
 		atomic_set(&ourport->serial_suspend, S3C24XX_UART_PORT_SUSPEND);
 	}
