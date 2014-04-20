@@ -2695,7 +2695,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	}
 #endif
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	dev->alloc_ctx_fw = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
@@ -2707,6 +2706,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		goto alloc_ctx_fw_fail;
 	}
 
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	dev->alloc_ctx_drm_fw = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
@@ -2787,10 +2787,10 @@ alloc_ctx_drm_fail:
 alloc_ctx_sh_fail:
 	vb2_ion_destroy_context(dev->alloc_ctx_drm_fw);
 alloc_ctx_drm_fw_fail:
+#endif
 	vb2_ion_destroy_context(dev->alloc_ctx_fw);
 alloc_ctx_fw_fail:
 	destroy_workqueue(dev->sched_wq);
-#endif
 #ifdef CONFIG_ION_EXYNOS
 	ion_client_destroy(dev->mfc_ion_client);
 err_ion_client:
@@ -2845,8 +2845,8 @@ static int s5p_mfc_remove(struct platform_device *pdev)
 	vb2_ion_destroy_context(dev->alloc_ctx_drm);
 	s5p_mfc_mem_free_priv(dev->drm_info.alloc);
 	vb2_ion_destroy_context(dev->alloc_ctx_sh);
-	vb2_ion_destroy_context(dev->alloc_ctx_fw);
 #endif
+	vb2_ion_destroy_context(dev->alloc_ctx_fw);
 #ifdef CONFIG_ION_EXYNOS
 	ion_client_destroy(dev->mfc_ion_client);
 #endif

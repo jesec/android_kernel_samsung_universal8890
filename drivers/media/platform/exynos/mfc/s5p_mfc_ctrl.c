@@ -54,9 +54,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 
 	mfc_debug(2, "Allocating memory for firmware.\n");
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	alloc_ctx = dev->alloc_ctx_fw;
-#endif
 
 	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
 	if (IS_ERR(dev->fw_info.alloc)) {
