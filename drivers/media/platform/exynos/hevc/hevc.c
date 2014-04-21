@@ -1476,7 +1476,10 @@ static int hevc_open(struct file *file)
 		}
 #else
 		/* Load the FW */
-		ret = hevc_alloc_firmware(dev);
+		if (!dev->fw_status) {
+			ret = hevc_alloc_firmware(dev);
+			dev->fw_status = 1;
+		}
 		if (ret)
 			goto err_fw_alloc;
 		ret = hevc_load_firmware(dev);
@@ -1668,9 +1671,8 @@ static int hevc_release(struct file *file)
 		hevc_power_off();
 
 		/* reset <-> F/W release */
-		hevc_release_firmware(dev);
+
 		hevc_release_dev_context_buffer(dev);
-		dev->fw_status = 0;
 
 
 	}
