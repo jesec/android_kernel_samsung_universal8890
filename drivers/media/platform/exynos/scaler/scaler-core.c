@@ -1915,10 +1915,11 @@ static void sc_m2m_device_run(void *priv)
 
 	sc = ctx->sc_dev;
 
-	if (test_bit(DEV_RUN, &sc->state)) {
-		dev_err(sc->dev, "Scaler is already in progress\n");
-		return;
-	}
+	/*
+	 * sc_m2m_device_run() must not reenter while sc->state is DEV_RUN.
+	 * DEV_RUN is cleared when an operation is finished.
+	 */
+	BUG_ON(test_bit(DEV_RUN, &sc->state));
 
 	if (test_bit(DEV_SUSPEND, &sc->state)) {
 		dev_err(sc->dev, "Scaler is in suspend state\n");
