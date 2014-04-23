@@ -1573,24 +1573,23 @@ static void sc_set_csc_coef(struct sc_ctx *ctx)
 	sc_hwset_csc_coef(sc, idx, &ctx->csc);
 }
 
-static int sc_get_scale_filter(unsigned int ratio)
-{
-	int filter;
+static const __u32 sc_scaling_ratio[] = {
+	65536,	/* 0: 8:8 scaing or zoom-in */
+	74898,	/* 1: 8:7 zoom-out */
+	87381,	/* 2: 8:6 zoom-out */
+	104857,	/* 3: 8:5 zoom-out */
+	131072,	/* 4: 8:4 zoom-out */
+	174762,	/* 5: 8:3 zoom-out */
+	/* higher ratio -> 6: 8:2 zoom-out */
+};
 
-	if (ratio <= 65536)
-		filter = 0;	/* 8:8 or zoom-in */
-	else if (ratio <= 74898)
-		filter = 1;	/* 8:7 zoom-out */
-	else if (ratio <= 87381)
-		filter = 2;	/* 8:6 zoom-out */
-	else if (ratio <= 104857)
-		filter = 3;	/* 8:5 zoom-out */
-	else if (ratio <= 131072)
-		filter = 4;	/* 8:4 zoom-out */
-	else if (ratio <= 174762)
-		filter = 5;	/* 8:3 zoom-out */
-	else
-		filter = 6;	/* 8:2 zoom-out */
+static unsigned int sc_get_scale_filter(unsigned int ratio)
+{
+	unsigned int filter;
+
+	for (filter = 0; filter < ARRAY_SIZE(sc_scaling_ratio); filter++)
+		if (ratio < sc_scaling_ratio[filter])
+			return filter;
 
 	return filter;
 }
@@ -1598,7 +1597,7 @@ static int sc_get_scale_filter(unsigned int ratio)
 static void sc_set_scale_coef(struct sc_dev *sc, unsigned int h_ratio,
 				unsigned int v_ratio)
 {
-	int h_coef, v_coef;
+	unsigned int h_coef, v_coef;
 
 	h_coef = sc_get_scale_filter(h_ratio);
 	v_coef = sc_get_scale_filter(v_ratio);
