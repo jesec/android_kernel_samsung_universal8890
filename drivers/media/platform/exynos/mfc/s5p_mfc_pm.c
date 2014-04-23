@@ -172,14 +172,17 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	}
 	clk_parent = clk_get(dev->device, "aclk_mfc_400");
 	if (IS_ERR(clk_parent)) {
+		clk_put(clk_child);
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
 		return PTR_ERR(clk_parent);
 	}
 	/* before set mux register, all source clock have to enabled */
 	clk_prepare_enable(clk_parent);
-	clk_set_parent(clk_child, clk_parent);
-	clk_disable_unprepare(clk_parent);
-
+	if (clk_set_parent(clk_child, clk_parent)) {
+		pr_err("Unable to set parent %s of clock %s \n",
+			__clk_get_name(clk_parent), __clk_get_name(clk_child));
+	}
+	/* expected mfc related ref clock value be set above 1 */
 	clk_put(clk_child);
 	clk_put(clk_parent);
 #endif
@@ -398,9 +401,10 @@ int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
 
 int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 {
-#if defined(CONFIG_SOC_EXYNOS5430)
+#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	struct clk *clk_child = NULL;
 	struct clk *clk_parent = NULL;
+	struct clk *clk_old_parent = NULL;
 #endif
 
 #if defined(CONFIG_SOC_EXYNOS5422)
@@ -425,6 +429,41 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 		clk_disable_unprepare(clk_child);
 	}
 #endif
+
+#if defined(CONFIG_SOC_EXYNOS5433)
+	clk_old_parent = clk_get(dev->device, "aclk_mfc_400");
+	if (IS_ERR(clk_old_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_old_parent));
+		return PTR_ERR(clk_old_parent);
+	}
+	clk_child = clk_get(dev->device, "mout_aclk_mfc_400_user");
+	if (IS_ERR(clk_child)) {
+		clk_put(clk_old_parent);
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+	clk_parent = clk_get(dev->device, "oscclk");
+	if (IS_ERR(clk_parent)) {
+		clk_put(clk_child);
+		clk_put(clk_old_parent);
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_parent);
+	}
+	/* before set mux register, all source clock have to enabled */
+	clk_prepare_enable(clk_parent);
+	if (clk_set_parent(clk_child, clk_parent)) {
+		pr_err("Unable to set parent %s of clock %s \n",
+			__clk_get_name(clk_parent), __clk_get_name(clk_child));
+	}
+	clk_disable_unprepare(clk_parent);
+	clk_disable_unprepare(clk_old_parent);
+
+	clk_put(clk_child);
+	clk_put(clk_parent);
+	clk_put(clk_old_parent);
+	/* expected mfc related ref clock value be set 0 */
+#endif
+
 	atomic_set(&dev->pm.power, 0);
 
 	return pm_runtime_put_sync(dev->pm.device);
