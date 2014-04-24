@@ -364,11 +364,6 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
 {
 	int ret;
-#if defined(CONFIG_SOC_EXYNOS5430)
-	struct clk *clk_child = NULL;
-	struct clk *clk_parent = NULL;
-#endif
-
 	atomic_set(&dev->pm.power, 1);
 
 	ret = pm_runtime_get_sync(dev->pm.device);
@@ -377,60 +372,19 @@ int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
 	bts_initialize("pd-mfc", true);
 #endif
 
-#if defined(CONFIG_SOC_EXYNOS5430)
-	if (dev->id == 0) {
-		clk_child = clk_get(dev->device, "mout_mphy_pll");
-		if (IS_ERR(clk_child)) {
-			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
-			return PTR_ERR(clk_child);
-		}
-		clk_parent = clk_get(dev->device, "fout_mphy_pll");
-		if (IS_ERR(clk_parent)) {
-			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-			return PTR_ERR(clk_parent);
-		}
-		/* 1. Enable MPHY_PLL */
-		clk_prepare_enable(clk_child);
-		/* 2. Set parent as Fout_mphy */
-		clk_set_parent(clk_child, clk_parent);
-	}
-#endif
-
 	return ret;
 }
 
 int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 {
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
+#if defined(CONFIG_SOC_EXYNOS5433)
 	struct clk *clk_child = NULL;
 	struct clk *clk_parent = NULL;
-#endif
-
-#if defined(CONFIG_SOC_EXYNOS5433)
 	struct clk *clk_old_parent = NULL;
 #endif
 
 #if defined(CONFIG_SOC_EXYNOS5422)
 	bts_initialize("pd-mfc", false);
-#endif
-
-#if defined(CONFIG_SOC_EXYNOS5430)
-	if (dev->id == 0) {
-		clk_child = clk_get(dev->device, "mout_mphy_pll");
-		if (IS_ERR(clk_child)) {
-			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
-			return PTR_ERR(clk_child);
-		}
-		clk_parent = clk_get(dev->device, "fin_pll");
-		if (IS_ERR(clk_parent)) {
-			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
-			return PTR_ERR(clk_parent);
-		}
-		/* 1. Set parent as OSC */
-		clk_set_parent(clk_child, clk_parent);
-		/* 2. Disable MPHY_PLL */
-		clk_disable_unprepare(clk_child);
-	}
 #endif
 
 #if defined(CONFIG_SOC_EXYNOS5433)
