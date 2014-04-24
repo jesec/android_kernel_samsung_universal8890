@@ -124,10 +124,19 @@ int hevc_set_clock_parent(struct hevc_dev *dev)
 	}
 	clk_parent = clk_get(dev->device, "aclk_hevc_400");
 	if (IS_ERR(clk_parent)) {
+		clk_put(clk_child);
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
 		return PTR_ERR(clk_parent);
 	}
-	clk_set_parent(clk_child, clk_parent);
+	/* before set mux register, all source clock have to enabled */
+	clk_prepare_enable(clk_parent);
+	if (clk_set_parent(clk_child, clk_parent)) {
+		pr_err("Unable to set parent %s of clock %s \n",
+			__clk_get_name(clk_parent), __clk_get_name(clk_child));
+	}
+	/* expected hevc related ref clock value be set above 1 */
+	clk_put(clk_child);
+	clk_put(clk_parent);
 
 	return 0;
 }
@@ -244,15 +253,49 @@ int hevc_power_on(void)
 
 	power_on_flag = 1;
 	return pm_runtime_get_sync(pm->device);
-	return 0;
 }
 
-int hevc_power_off(void)
+int hevc_power_off(struct hevc_dev *dev)
 {
+	struct clk *clk_child = NULL;
+	struct clk *clk_parent = NULL;
+	struct clk *clk_old_parent = NULL;
+
+	clk_old_parent = clk_get(dev->device, "aclk_hevc_400");
+	if (IS_ERR(clk_old_parent)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_old_parent));
+		return PTR_ERR(clk_old_parent);
+	}
+	clk_child = clk_get(dev->device, "mout_aclk_hevc_400_user");
+	if (IS_ERR(clk_child)) {
+		clk_put(clk_old_parent);
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
+	}
+	clk_parent = clk_get(dev->device, "oscclk");
+	if (IS_ERR(clk_parent)) {
+		clk_put(clk_child);
+		clk_put(clk_old_parent);
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_parent);
+	}
+	/* before set mux register, all source clock have to enabled */
+	clk_prepare_enable(clk_parent);
+	if (clk_set_parent(clk_child, clk_parent)) {
+		pr_err("Unable to set parent %s of clock %s \n",
+			__clk_get_name(clk_parent), __clk_get_name(clk_child));
+	}
+	clk_disable_unprepare(clk_parent);
+	clk_disable_unprepare(clk_old_parent);
+
+	clk_put(clk_child);
+	clk_put(clk_parent);
+	clk_put(clk_old_parent);
+	/* expected hevc related ref clock value be set 0 */
+
 	atomic_set(&pm->power, 0);
 
 	return pm_runtime_put_sync(pm->device);
-	return 0;
 }
 
 int hevc_get_clk_ref_cnt(void)

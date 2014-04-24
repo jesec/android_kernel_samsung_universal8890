@@ -1520,7 +1520,7 @@ static int hevc_open(struct file *file)
 
 	/* Deinit when failure occured */
 err_hw_init:
-	hevc_power_off();
+	hevc_power_off(dev);
 
 err_pwr_enable:
 	hevc_release_dev_context_buffer(dev);
@@ -1668,7 +1668,7 @@ static int hevc_release(struct file *file)
 		flush_workqueue(dev->sched_wq);
 
 		hevc_info("power off\n");
-		hevc_power_off();
+		hevc_power_off(dev);
 
 		/* reset <-> F/W release */
 
