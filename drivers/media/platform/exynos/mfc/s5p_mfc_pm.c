@@ -404,6 +404,9 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 #if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS5433)
 	struct clk *clk_child = NULL;
 	struct clk *clk_parent = NULL;
+#endif
+
+#if defined(CONFIG_SOC_EXYNOS5433)
 	struct clk *clk_old_parent = NULL;
 #endif
 
