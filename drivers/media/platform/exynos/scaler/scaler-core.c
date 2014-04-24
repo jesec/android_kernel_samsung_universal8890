@@ -1421,7 +1421,6 @@ static int sc_open(struct file *file)
 	/* Default color format */
 	ctx->s_frame.sc_fmt = &sc_formats[0];
 	ctx->d_frame.sc_fmt = &sc_formats[0];
-	init_waitqueue_head(&sc->wait);
 
 	/* Setup the device context for mem2mem mode. */
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(sc->m2m.m2m_dev, ctx, queue_init);
@@ -2196,6 +2195,7 @@ static int sc_probe(struct platform_device *pdev)
 
 	spin_lock_init(&sc->slock);
 	mutex_init(&sc->lock);
+	init_waitqueue_head(&sc->wait);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sc->regs = devm_request_and_ioremap(&pdev->dev, res);
