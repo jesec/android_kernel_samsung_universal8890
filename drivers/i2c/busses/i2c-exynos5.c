@@ -515,6 +515,7 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 	 */
 	if (reg_val & HSI2C_INT_CHK_TRANS_STATE) {
 		dev_err(i2c->dev, "HSI2C Error status is occured!\n");
+		writel(reg_val, i2c->regs +  HSI2C_INT_STATUS);
 		writel(0, i2c->regs + HSI2C_INT_ENABLE);
 		return IRQ_HANDLED;
 	}
@@ -605,9 +606,11 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 	i2c_auto_conf = readl(i2c->regs + HSI2C_AUTO_CONF);
 	i2c_auto_conf |= HSI2C_MASTER_RUN;
 	writel(i2c_auto_conf, i2c->regs + HSI2C_AUTO_CONF);
-	if (operation_mode != HSI2C_POLLING)
+	if (operation_mode != HSI2C_POLLING) {
 		writel(i2c_int_en, i2c->regs + HSI2C_INT_ENABLE);
-	else {
+		if (i2c->check_transdone_int)
+			enable_irq(i2c->irq);
+	} else {
 		if (i2c->check_transdone_int) {
 			disable_irq(i2c->irq);
 			writel(i2c_int_en, i2c->regs + HSI2C_INT_ENABLE);
@@ -642,6 +645,8 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 		} else {
 			timeout = wait_for_completion_timeout
 				(&i2c->msg_complete, EXYNOS5_I2C_TIMEOUT);
+			if (i2c->check_transdone_int)
+				disable_irq(i2c->irq);
 
 			if (timeout == 0) {
 				dump_i2c_register(i2c);
@@ -669,6 +674,8 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 		} else {
 			timeout = wait_for_completion_timeout
 				(&i2c->msg_complete, EXYNOS5_I2C_TIMEOUT);
+			if (i2c->check_transdone_int)
+				disable_irq(i2c->irq);
 
 			if (timeout == 0) {
 				dump_i2c_register(i2c);
@@ -898,10 +905,11 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		goto err_clk;
 	}
 
-	if (i2c->check_transdone_int == 1)
+	if (i2c->check_transdone_int == 1) {
 		ret = devm_request_irq(&pdev->dev, i2c->irq,
 			exynos5_i2c_irq_chkdone, 0, dev_name(&pdev->dev), i2c);
-	else
+		disable_irq(i2c->irq);
+	} else
 		ret = devm_request_irq(&pdev->dev, i2c->irq, exynos5_i2c_irq,
 					0, dev_name(&pdev->dev), i2c);
 
