@@ -78,7 +78,7 @@ enum decon_ioctl_for_sync {
 
 enum gsc_ioctl_for_sync {
 	GSC_SFR_UPDATE,
-	GSC_SET_BUF,
+	GSC_WAIT_STOP,
 };
 
 enum mdev_node {
