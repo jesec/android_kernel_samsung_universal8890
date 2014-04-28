@@ -1483,7 +1483,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 		lpass_register_subip(&platdev->dev, "aud-uart");
 #endif
 
-	snprintf(clkname, sizeof(clkname), "gate_uart%d", ourport->port.line);
+	snprintf(clkname, sizeof(clkname), "gatepclk_uart%d", ourport->port.line);
 	ourport->clk = clk_get(&platdev->dev, clkname);
 	if (IS_ERR(ourport->clk)) {
 		pr_err("%s: Controller clock not found\n",
@@ -1515,6 +1515,20 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 		return ret;
 	}
 
+	snprintf(clkname, sizeof(clkname), "gatesclk_uart%d", ourport->port.line);
+	ourport->clk = clk_get(&platdev->dev, clkname);
+	if (IS_ERR(ourport->clk)) {
+		pr_err("%s: Controller clock not found\n",
+				dev_name(&platdev->dev));
+		return PTR_ERR(ourport->clk);
+	}
+
+	ret = clk_prepare_enable(ourport->clk);
+	if (ret) {
+		pr_err("uart: clock failed to prepare+enable: %d\n", ret);
+		clk_put(ourport->clk);
+		return ret;
+	}
 	/* Keep all interrupts masked and cleared */
 	if (s3c24xx_serial_has_interrupt_mask(port)) {
 		wr_regl(port, S3C64XX_UINTM, 0xf);
