@@ -1143,6 +1143,12 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 		dec->remained = 0;
 
 	spin_lock_irqsave(&dev->irqlock, flags);
+
+	if (!ctx->src_queue_cnt && !ctx->dst_queue_cnt) {
+		mfc_err("Queue count is zero for src/dst\n");
+		goto leave_handle_frame;
+	}
+
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC &&
 		dst_frame_status == S5P_FIMV_DEC_STATUS_DECODING_ONLY &&
 		FW_HAS_SEI_S3D_REALLOC(dev) && sei_avail_status) {
