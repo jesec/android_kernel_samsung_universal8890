@@ -1520,11 +1520,17 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 
 	down_read(&mm->mmap_sem);
 
+	BUG_ON((vaddr + size) < vaddr);
 	/*
 	 * Assumes that the VMA is safe.
 	 * The caller must check the range of address space before calling this.
 	 */
 	vma = find_vma(mm, vaddr);
+	if (!vma || (vma->vm_end < (vaddr + size))) {
+		up_read(&mm->mmap_sem);
+		return -EINVAL;
+	}
+
 	is_pfnmap = vma->vm_flags & VM_PFNMAP;
 
 	start = vaddr & PAGE_MASK;
@@ -1612,6 +1618,11 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 	 * The caller must check the range of address space before calling this.
 	 */
 	vma = find_vma(mm, vaddr);
+	if (!vma || (vma->vm_end < (vaddr + size))) {
+		up_read(&mm->mmap_sem);
+		return -EINVAL;
+	}
+
 	is_pfnmap = vma->vm_flags & VM_PFNMAP;
 
 	start = vaddr & PAGE_MASK;
