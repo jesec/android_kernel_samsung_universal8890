@@ -2640,7 +2640,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (!vfd) {
 		v4l2_err(&dev->v4l2_dev, "Failed to allocate video device\n");
 		ret = -ENOMEM;
-		goto alloc_vdev_dec;
+		goto alloc_vdev_dec_drm;
 	}
 	*vfd = s5p_mfc_dec_drm_videodev;
 
@@ -2656,7 +2656,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
-		goto reg_vdev_dec;
+		goto reg_vdev_dec_drm;
 	}
 	v4l2_info(&dev->v4l2_dev, "secure decoder registered as /dev/video%d\n",
 								vfd->num);
@@ -2669,7 +2669,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (!vfd) {
 		v4l2_err(&dev->v4l2_dev, "Failed to allocate video device\n");
 		ret = -ENOMEM;
-		goto alloc_vdev_enc;
+		goto alloc_vdev_enc_drm;
 	}
 	*vfd = s5p_mfc_enc_drm_videodev;
 
@@ -2684,7 +2684,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
 		video_device_release(vfd);
-		goto reg_vdev_enc;
+		goto reg_vdev_enc_drm;
 	}
 	v4l2_info(&dev->v4l2_dev, "secure encoder registered as /dev/video%d\n",
 								vfd->num);
@@ -2836,17 +2836,23 @@ alloc_ctx_drm_fw_fail:
 #endif
 	vb2_ion_destroy_context(dev->alloc_ctx_fw);
 alloc_ctx_fw_fail:
-	destroy_workqueue(dev->sched_wq);
 #ifdef CONFIG_ION_EXYNOS
 	ion_client_destroy(dev->mfc_ion_client);
 err_ion_client:
 #endif
+	destroy_workqueue(dev->sched_wq);
 err_wq_sched:
 	s5p_mfc_mem_cleanup_multi((void **)dev->alloc_ctx,
 			alloc_ctx_num);
 alloc_ctx_fail:
 	destroy_workqueue(dev->watchdog_wq);
 err_wq_watchdog:
+	video_unregister_device(dev->vfd_enc_drm);
+reg_vdev_enc_drm:
+alloc_vdev_enc_drm:
+	video_unregister_device(dev->vfd_dec_drm);
+reg_vdev_dec_drm:
+alloc_vdev_dec_drm:
 	video_unregister_device(dev->vfd_enc);
 reg_vdev_enc:
 alloc_vdev_enc:
