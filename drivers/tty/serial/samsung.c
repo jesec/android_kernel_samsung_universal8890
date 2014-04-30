@@ -1231,6 +1231,24 @@ static struct console s3c24xx_serial_console;
 
 static int __init s3c24xx_serial_console_init(void)
 {
+	struct clk *console_clk;
+
+	pr_info("Enable Console Clock to add refference counter\n");
+
+	console_clk = clk_get_sys(NULL, "console-sclk");
+	if (IS_ERR(console_clk)) {
+		pr_err("Can't get Console sclk!(it's not err)\n");
+	} else {
+		clk_prepare_enable(console_clk);
+	}
+
+	console_clk = clk_get_sys(NULL, "console-pclk");
+	if (IS_ERR(console_clk)) {
+		pr_err("Can't get Console pclk!(it's not err)\n");
+	} else {
+		clk_prepare_enable(console_clk);
+	}
+
 	register_console(&s3c24xx_serial_console);
 	return 0;
 }
