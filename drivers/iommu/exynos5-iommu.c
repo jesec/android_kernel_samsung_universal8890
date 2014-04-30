@@ -432,33 +432,173 @@ void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
 		func_set_pbuf[min](drvdata, prefbuf, num_bufs);
 }
 
+static void dump_sysmmu_pb_v31(void __iomem *sfrbase)
+{
+	unsigned int cfg, i;
+	cfg = __raw_readl(sfrbase + REG_MMU_CFG);
+
+	switch ((cfg >> 28) & 0x3) {
+	case 2:
+		pr_crit("PB[1] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x54),
+				__raw_readl(sfrbase + 0x58),
+				__raw_readl(sfrbase + 0x60));
+		for (i = 0; i < 16; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0x70);
+			pr_crit("PB[1][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0x74));
+		}
+		/* fall trhough */
+	case 1:
+		pr_crit("PB[0] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x4C),
+				__raw_readl(sfrbase + 0x50),
+				__raw_readl(sfrbase + 0x5C));
+		for (i = 0; i < 16; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0x68);
+			pr_crit("PB[0][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0x6C));
+		}
+		break;
+	case 3:
+		pr_crit("PB[0] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x4C),
+				__raw_readl(sfrbase + 0x50),
+				__raw_readl(sfrbase + 0x5C));
+		for (i = 0; i < 32; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0x68);
+			pr_crit("PB[0][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0x6C));
+		}
+	case 0:
+		break;
+	}
+}
+
+static void dump_sysmmu_pb_v32(void __iomem *sfrbase)
+{
+	unsigned int cfg, i;
+	cfg = __raw_readl(sfrbase + REG_MMU_CFG);
+
+	if (cfg & (1 << 19)) {
+		pr_crit("PB[0] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x70),
+				__raw_readl(sfrbase + 0x74),
+				__raw_readl(sfrbase + 0x88));
+		for (i = 0; i < 64; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0x98);
+			pr_crit("PB[0][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0x9C));
+		}
+		return;
+	} else if (cfg & (1 << 21)) {
+		pr_crit("PB[0] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x70),
+				__raw_readl(sfrbase + 0x74),
+				__raw_readl(sfrbase + 0x88));
+		for (i = 0; i < 32; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0x98);
+			pr_crit("PB[0][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0x9C));
+		}
+
+		if ((cfg & (1 << 18)) == 0)
+			return;
+
+		pr_crit("PB[2] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x80),
+				__raw_readl(sfrbase + 0x84),
+				__raw_readl(sfrbase + 0x90));
+		for (i = 0; i < 32; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0xA8);
+			pr_crit("PB[2][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0xAC));
+		}
+
+		return;
+	}
+
+	if (cfg & (1 << 16)) {
+		pr_crit("PB[0] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x70),
+				__raw_readl(sfrbase + 0x74),
+				__raw_readl(sfrbase + 0x88));
+		for (i = 0; i < 16; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0x98);
+			pr_crit("PB[0][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0x9C));
+		}
+	}
+
+	if (cfg & (1 << 17)) {
+		pr_crit("PB[1] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x78),
+				__raw_readl(sfrbase + 0x7C),
+				__raw_readl(sfrbase + 0x8C));
+		for (i = 0; i < 16; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0xA0);
+			pr_crit("PB[1][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0xA4));
+		}
+	}
+
+	if (cfg & (1 << 18)) {
+		pr_crit("PB[2] [%#010x, %#010x] Cached VA: %08x\n",
+				__raw_readl(sfrbase + 0x80),
+				__raw_readl(sfrbase + 0x84),
+				__raw_readl(sfrbase + 0x90));
+		for (i = 0; i < 32; i++) {
+			__raw_writel((i << 4) | 1, sfrbase + 0xA8);
+			pr_crit("PB[2][%2d] %08x\n", i,
+				__raw_readl(sfrbase + 0xAC));
+		}
+	}
+}
+
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 {
-	unsigned int i, capa, lmm, tlb_ent_num;
+	unsigned int i, capa, lmm, tlb_ent_num, ver;
 
-	lmm = MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
+	ver = MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
 
 	pr_crit("---------- System MMU Status -----------------------------\n");
 	pr_crit("VERSION %d.%d, MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
-		MMU_MAJ_VER(lmm), MMU_MIN_VER(lmm),
+		MMU_MAJ_VER(ver), MMU_MIN_VER(ver),
 		__raw_readl(sfrbase + REG_MMU_CFG),
 		__raw_readl(sfrbase + REG_MMU_STATUS));
 
+	/* TODO: dump tlb with vpn for sysmmu v1 */
+	if (MMU_MAJ_VER(ver) < 2)
+		return;
 
 	pr_crit("---------- Level 1 TLB -----------------------------------\n");
 
 	tlb_ent_num = MMU_TLB_ENT_NUM(__raw_readl(sfrbase + REG_MMU_VERSION));
 	for (i = 0; i < tlb_ent_num; i++) {
-		__raw_writel(i, sfrbase + REG_L1TLB_READ_ENTRY);
+		__raw_writel((i << 4) | 1, sfrbase + REG_L1TLB_READ_ENTRY);
 		pr_crit("[%02d] VPN: %#010x, PPN: %#010x\n",
 			i, __raw_readl(sfrbase + REG_L1TLB_ENTRY_VPN),
 			__raw_readl(sfrbase + REG_L1TLB_ENTRY_PPN));
 	}
 
+	if (MMU_MAJ_VER(ver) < 3)
+		return;
+
+	pr_crit("---------- Prefetch Buffers ------------------------------\n");
+
+	if (MMU_MIN_VER(ver) < 2) {
+		dump_sysmmu_pb_v31(sfrbase);
+		return;
+	}
+
+	if (MMU_MIN_VER(ver) < 3) {
+		dump_sysmmu_pb_v32(sfrbase);
+		return;
+	}
+
 	capa = __raw_readl(sfrbase + REG_PB_INFO);
 	lmm = __raw_readl(sfrbase + REG_PB_LMM);
 
-	pr_crit("---------- Prefetch Buffers ------------------------------\n");
 	pr_crit("PB_INFO: %#010x, PB_LMM: %#010x\n", capa, lmm);
 
 	capa = find_num_pb(capa & 0xFF, lmm);
@@ -533,8 +673,7 @@ static void show_fault_information(struct sysmmu_drvdata *drvdata,
 		}
 	}
 
-	if (MMU_MIN_VER(version) == 3)
-		dump_sysmmu_tlb_pb(drvdata->sfrbase);
+	dump_sysmmu_tlb_pb(drvdata->sfrbase);
 
 finish:
 	pr_crit("----------------------------------------------------------\n");
