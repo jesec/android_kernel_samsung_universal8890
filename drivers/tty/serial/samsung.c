@@ -99,6 +99,20 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 			      unsigned int old);
 static struct uart_driver s3c24xx_uart_drv;
 
+static inline void uart_clock_enable(struct s3c24xx_uart_port *ourport)
+{
+	clk_prepare_enable(ourport->clk);
+	if (ourport->check_separated_clk)
+		clk_prepare_enable(ourport->separated_clk);
+}
+
+static inline void uart_clock_disable(struct s3c24xx_uart_port *ourport)
+{
+	clk_disable_unprepare(ourport->clk);
+	if (ourport->check_separated_clk)
+		clk_disable_unprepare(ourport->separated_clk);
+}
+
 static inline struct s3c24xx_uart_port *to_ourport(struct uart_port *port)
 {
 	return container_of(port, struct s3c24xx_uart_port, port);
