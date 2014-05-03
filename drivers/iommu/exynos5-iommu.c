@@ -395,7 +395,7 @@ void __exynos_sysmmu_set_prefbuf_by_region(struct sysmmu_drvdata *drvdata,
 
 	if ((num_reg == 0) || (pb_reg == NULL)) {
 		/* Disabling prefetch buffers */
-		func_disable_pbuf[MMU_MIN_VER(version)](drvdata->sfrbase);
+		func_disable_pbuf[MMU_MIN_VER(version)](drvdata);
 		return;
 	}
 
