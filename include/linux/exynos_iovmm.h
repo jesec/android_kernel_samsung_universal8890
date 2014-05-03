@@ -162,7 +162,7 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
-#define iovmm_map(dev, sg, offset, size) (-ENOSYS)
+#define iovmm_map(dev, sg, offset, size, direction, id) (-ENOSYS)
 #define iovmm_unmap(dev, iova)		do { } while (0)
 #define iovmm_map_oto(dev, phys, size)	(-ENOSYS)
 #define iovmm_unmap_oto(dev, phys)	do { } while (0)
