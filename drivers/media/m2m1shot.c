@@ -188,6 +188,7 @@ static int m2m1shot_buffer_get_userptr_plane(struct m2m1shot_device *m21dev,
 		sg_dma_address(sgl) = page_to_phys(sg_page(sgl));
 	}
 
+	return 0;
 err_sg:
 	kfree(plane->sgt);
 err_sgtable:
@@ -525,7 +526,7 @@ static int m2m1shot_process(struct m2m1shot_context *ctx,
 
 	m2m1shot_task_schedule(m21dev);
 
-	if (m21dev->timeout_jiffies) {
+	if (m21dev->timeout_jiffies != -1) {
 		unsigned long elapsed;
 		elapsed = wait_for_completion_timeout(&task->complete,
 					m21dev->timeout_jiffies);
