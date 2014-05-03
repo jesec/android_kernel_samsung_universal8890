@@ -110,8 +110,8 @@ struct exynos_iommu_event_log {
 };
 
 /* sizeof(struct sysmmu_event_log) = 8 + 4 * 3 + 4 = 24 bytes */
-#define SYSMMU_LOG_LEN 512
-#define IOMMU_LOG_LEN 512
+#define SYSMMU_LOG_LEN 1024
+#define IOMMU_LOG_LEN 4096
 #define IOVMM_LOG_LEN 512
 
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
