@@ -101,9 +101,9 @@ static struct uart_driver s3c24xx_uart_drv;
 
 static inline void uart_clock_enable(struct s3c24xx_uart_port *ourport)
 {
-	clk_prepare_enable(ourport->clk);
 	if (ourport->check_separated_clk)
 		clk_prepare_enable(ourport->separated_clk);
+	clk_prepare_enable(ourport->clk);
 }
 
 static inline void uart_clock_disable(struct s3c24xx_uart_port *ourport)
@@ -1249,16 +1249,16 @@ static int __init s3c24xx_serial_console_init(void)
 
 	pr_info("Enable Console Clock to add refference counter\n");
 
-	console_clk = clk_get_sys(NULL, "console-sclk");
+	console_clk = clk_get(NULL, "console-pclk");
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get Console sclk!(it's not err)\n");
+		pr_err("Can't get Console pclk!(it's not err)\n");
 	} else {
 		clk_prepare_enable(console_clk);
 	}
 
-	console_clk = clk_get_sys(NULL, "console-pclk");
+	console_clk = clk_get(NULL, "console-sclk");
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get Console pclk!(it's not err)\n");
+		pr_err("Can't get Console sclk!(it's not err)\n");
 	} else {
 		clk_prepare_enable(console_clk);
 	}
@@ -1529,20 +1529,8 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 		return ret;
 	}
 
-	snprintf(clkname, sizeof(clkname), "gatesclk_uart%d", ourport->port.line);
-	ourport->clk = clk_get(&platdev->dev, clkname);
-	if (IS_ERR(ourport->clk)) {
-		pr_err("%s: Controller clock not found\n",
-				dev_name(&platdev->dev));
-		return PTR_ERR(ourport->clk);
-	}
+	uart_clock_enable(ourport);
 
-	ret = clk_prepare_enable(ourport->clk);
-	if (ret) {
-		pr_err("uart: clock failed to prepare+enable: %d\n", ret);
-		clk_put(ourport->clk);
-		return ret;
-	}
 	/* Keep all interrupts masked and cleared */
 	if (s3c24xx_serial_has_interrupt_mask(port)) {
 		wr_regl(port, S3C64XX_UINTM, 0xf);
@@ -1556,6 +1544,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 
 	/* reset the fifos (and setup the uart) */
 	s3c24xx_serial_resetport(port, cfg);
+	uart_clock_disable(ourport);
 	return 0;
 }
 
