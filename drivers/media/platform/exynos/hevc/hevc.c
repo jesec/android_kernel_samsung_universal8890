@@ -2220,7 +2220,7 @@ struct hevc_buf_size_v6 hevc_buf_size_v6 = {
 };
 
 struct hevc_buf_size buf_size_v1 = {
-	.firmware_code	= PAGE_ALIGN(0x300000),	/* 1MB */
+	.firmware_code	= PAGE_ALIGN(0x100000),	/* 1MB */
 	.cpb_buf	= PAGE_ALIGN(0x100000),	/* 3MB */
 	.buf		= &hevc_buf_size_v6,
 };
