@@ -1300,19 +1300,17 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 		int num_entry = size / SECT_SIZE;
 		struct exynos_iommu_owner *owner;
 
+		ret = lv1set_section(priv, entry, paddr, size,
+					&priv->lv2entcnt[lv1ent_offset(iova)]);
+
 		spin_lock(&priv->lock);
 		list_for_each_entry(owner, &priv->clients, client) {
 			int i;
 			for (i = 0; i < num_entry; i++)
-				if (entry[i] == ZERO_LV2LINK)
-					sysmmu_tlb_invalidate_flpdcache(
-							owner->dev,
-							iova + i * SECT_SIZE);
+				sysmmu_tlb_invalidate_flpdcache(owner->dev,
+						iova + i * SECT_SIZE);
 		}
 		spin_unlock(&priv->lock);
-
-		ret = lv1set_section(priv, entry, paddr, size,
-					&priv->lv2entcnt[lv1ent_offset(iova)]);
 
 		SYSMMU_EVENT_LOG_IOMMU_MAP(IOMMU_PRIV_TO_LOG(priv),
 				iova, iova + size, paddr / SPAGE_SIZE);
