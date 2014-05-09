@@ -113,6 +113,71 @@ void m2m1shot_task_cancel(struct m2m1shot_device *m21dev,
 }
 EXPORT_SYMBOL(m2m1shot_task_cancel);
 
+static void m2m1shot_buffer_put_dma_buf_plane(
+				struct m2m1shot_buffer_plane_dma *plane)
+{
+	dma_buf_detach(plane->dmabuf, plane->attachment);
+	dma_buf_put(plane->dmabuf);
+	plane->dmabuf = NULL;
+}
+
+static void m2m1shot_buffer_put_dma_buf(struct m2m1shot_buffer *buffer,
+					struct m2m1shot_buffer_dma *dma_buffer)
+{
+	int i;
+
+	for (i = 0; i < buffer->num_planes; i++)
+		m2m1shot_buffer_put_dma_buf_plane(&dma_buffer->plane[i]);
+}
+
+static int m2m1shot_buffer_get_dma_buf(struct m2m1shot_device *m21dev,
+					struct m2m1shot_buffer *buffer,
+					struct m2m1shot_buffer_dma *dma_buffer)
+{
+	struct m2m1shot_buffer_plane_dma *plane;
+	int i, ret;
+
+	for (i = 0; i < buffer->num_planes; i++) {
+		plane = &dma_buffer->plane[i];
+
+		plane->dmabuf = dma_buf_get(buffer->plane[i].fd);
+		if (IS_ERR(plane->dmabuf)) {
+			dev_err(m21dev->dev,
+				"%s: failed to get dmabuf of fd %d\n",
+				__func__, buffer->plane[i].fd);
+			ret = PTR_ERR(plane->dmabuf);
+			goto err;
+		}
+
+		if (plane->dmabuf->size < plane->bytes_used) {
+			dev_err(m21dev->dev,
+				"%s: needs %zx bytes but dmabuf is %zx\n",
+				__func__, plane->bytes_used,
+				plane->dmabuf->size);
+			ret = -EINVAL;
+			goto err;
+		}
+
+		plane->attachment = dma_buf_attach(plane->dmabuf, m21dev->dev);
+		if (IS_ERR(plane->attachment)) {
+			dev_err(m21dev->dev,
+				"%s: Failed to attach dmabuf\n", __func__);
+			ret = PTR_ERR(plane->attachment);
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	if (!IS_ERR(plane->dmabuf)) /* release dmabuf of the last iteration */
+		dma_buf_put(plane->dmabuf);
+
+	while (i-- > 0)
+		m2m1shot_buffer_put_dma_buf_plane(&dma_buffer->plane[i]);
+
+	return ret;
+}
+
 static int m2m1shot_buffer_get_userptr_plane(struct m2m1shot_device *m21dev,
 				struct m2m1shot_buffer_plane_dma *plane,
 				unsigned long start, size_t len, int write)
@@ -204,18 +269,46 @@ err_get:
 static void m2m1shot_buffer_put_userptr_plane(
 			struct m2m1shot_buffer_plane_dma *plane, int write)
 {
-	struct sg_table *sgt = plane->sgt;
-	struct scatterlist *sg;
-	int i;
+	if (plane->dmabuf) {
+		m2m1shot_buffer_put_dma_buf_plane(plane);
+	} else {
+		struct sg_table *sgt = plane->sgt;
+		struct scatterlist *sg;
+		int i;
 
-	for_each_sg(sgt->sgl, sg, sgt->orig_nents, i) {
-		if (write)
-			set_page_dirty_lock(sg_page(sg));
-		put_page(sg_page(sg));
+		for_each_sg(sgt->sgl, sg, sgt->orig_nents, i) {
+			if (write)
+				set_page_dirty_lock(sg_page(sg));
+			put_page(sg_page(sg));
+		}
+
+		sg_free_table(sgt);
+		kfree(sgt);
+	}
+}
+
+static struct dma_buf *m2m1shot_buffer_check_userptr(
+		struct m2m1shot_device *m21dev, unsigned long start, size_t len)
+{
+	struct dma_buf *dmabuf = NULL;
+	struct vm_area_struct *vma;
+
+	down_read(&current->mm->mmap_sem);
+	vma = find_vma(current->mm, start);
+	if (!vma || (start < vma->vm_start)) {
+		dev_err(m21dev->dev, "%s: Incorrect user buffer @ %#lx/%#zx\n",
+			__func__, start, len);
+		dmabuf = ERR_PTR(-EINVAL);
+		goto finish;
 	}
 
-	sg_free_table(sgt);
-	kfree(sgt);
+	if (!vma->vm_file)
+		goto finish;
+
+	dmabuf = get_dma_buf_file(vma->vm_file);
+finish:
+	up_read(&current->mm->mmap_sem);
+	return dmabuf;
 }
 
 static int m2m1shot_buffer_get_userptr(struct m2m1shot_device *m21dev,
@@ -224,13 +317,44 @@ static int m2m1shot_buffer_get_userptr(struct m2m1shot_device *m21dev,
 					int write)
 {
 	int i, ret;
+	struct dma_buf *dmabuf;
 
 	for (i = 0; i < buffer->num_planes; i++) {
-		ret = m2m1shot_buffer_get_userptr_plane(m21dev,
+		dmabuf = m2m1shot_buffer_check_userptr(m21dev,
+				buffer->plane[i].userptr, buffer->plane[i].len);
+		if (IS_ERR(dmabuf)) {
+			ret = PTR_ERR(dmabuf);
+			goto err;
+		} else if (dmabuf) {
+			if (dmabuf->size < dma_buffer->plane[i].bytes_used) {
+				dev_err(m21dev->dev,
+				"%s: needs %zu bytes but dmabuf is %zu\n",
+					__func__,
+					dma_buffer->plane[i].bytes_used,
+					dmabuf->size);
+				ret = -EINVAL;
+				goto err;
+			}
+
+			dma_buffer->plane[i].dmabuf = dmabuf;
+			dma_buffer->plane[i].attachment = dma_buf_attach(
+							dmabuf, m21dev->dev);
+			if (IS_ERR(dma_buffer->plane[i].attachment)) {
+				dev_err(m21dev->dev,
+					"%s: Failed to attach dmabuf\n",
+					__func__);
+				ret = PTR_ERR(dma_buffer->plane[i].attachment);
+				dma_buf_put(dmabuf);
+				goto err;
+			}
+		} else {
+			ret = m2m1shot_buffer_get_userptr_plane(m21dev,
 						&dma_buffer->plane[i],
 						buffer->plane[i].userptr,
 						buffer->plane[i].len,
 						write);
+		}
+
 		if (ret)
 			goto err;
 	}
@@ -251,72 +375,6 @@ static void m2m1shot_buffer_put_userptr(struct m2m1shot_buffer *buffer,
 
 	for (i = 0; i < buffer->num_planes; i++)
 		m2m1shot_buffer_put_userptr_plane(&dma_buffer->plane[i], write);
-}
-
-static int m2m1shot_buffer_get_dma_buf(struct m2m1shot_device *m21dev,
-					struct m2m1shot_buffer *buffer,
-					struct m2m1shot_buffer_dma *dma_buffer)
-{
-	struct m2m1shot_buffer_plane_dma *plane;
-	int i, ret;
-
-	for (i = 0; i < buffer->num_planes; i++) {
-		plane = &dma_buffer->plane[i];
-
-		plane->dmabuf = dma_buf_get(buffer->plane[i].fd);
-		if (IS_ERR(plane->dmabuf)) {
-			dev_err(m21dev->dev,
-				"%s: failed to get dmabuf of fd %d\n",
-				__func__, buffer->plane[i].fd);
-			ret = PTR_ERR(plane->dmabuf);
-			goto err;
-		}
-
-		if (plane->dmabuf->size < plane->bytes_used) {
-			dev_err(m21dev->dev,
-				"%s: needs %zx bytes but dmabuf is %zx\n",
-				__func__, plane->bytes_used,
-				plane->dmabuf->size);
-			ret = -EINVAL;
-			goto err;
-		}
-
-		plane->attachment = dma_buf_attach(plane->dmabuf, m21dev->dev);
-		if (IS_ERR(plane->attachment)) {
-			dev_err(m21dev->dev,
-				"%s: Failed to attach dmabuf\n", __func__);
-			ret = PTR_ERR(plane->attachment);
-			goto err;
-		}
-	}
-
-	return 0;
-err:
-	if (!IS_ERR(plane->dmabuf)) /* release dmabuf of the last iteration */
-		dma_buf_put(plane->dmabuf);
-
-	while (i-- > 0) {
-		plane = &dma_buffer->plane[i];
-		dma_buf_detach(plane->dmabuf, plane->attachment);
-		dma_buf_put(plane->dmabuf);
-		plane->dmabuf = NULL;
-	}
-
-	return ret;
-}
-
-static void m2m1shot_buffer_put_dma_buf(struct m2m1shot_buffer *buffer,
-					struct m2m1shot_buffer_dma *dma_buffer)
-{
-	struct m2m1shot_buffer_plane_dma *plane;
-	int i;
-
-	for (i = 0; i < buffer->num_planes; i++) {
-		plane = &dma_buffer->plane[i];
-		dma_buf_detach(plane->dmabuf, plane->attachment);
-		dma_buf_put(plane->dmabuf);
-		plane->dmabuf = NULL;
-	}
 }
 
 static int m2m1shot_prepare_get_buffer(struct m2m1shot_context *ctx,
