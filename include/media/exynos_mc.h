@@ -60,6 +60,7 @@
 #define FIMD_ENTITY_NAME		"s3c-fb-window"
 #define FLITE_MODULE_NAME		"exynos-fimc-lite"
 #define CSIS_MODULE_NAME		"s5p-mipi-csis"
+#define DEX_WB_NAME			"dex-wb-sd"
 
 #define GSC_CAP_GRP_ID			(1 << 0)
 #define FLITE_GRP_ID			(1 << 1)
@@ -115,6 +116,7 @@ struct exynos_md {
 	struct v4l2_device	v4l2_dev;
 	struct platform_device	*pdev;
 	struct v4l2_subdev	*gsc_sd[MAX_GSC_SUBDEV];
+	struct v4l2_subdev	*gsc_wb_sd;
 	struct v4l2_subdev	*gsc_cap_sd[MAX_GSC_SUBDEV];
 	struct v4l2_subdev	*csis_sd[CSIS_MAX_ENTITIES];
 	struct v4l2_subdev	*flite_sd[FLITE_MAX_ENTITIES];
