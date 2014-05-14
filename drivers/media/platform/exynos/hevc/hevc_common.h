@@ -46,13 +46,13 @@
 #define HEVC_MAX_DRM_CTX		2
 
 /* Interrupt timeout */
-#define HEVC_INT_TIMEOUT		20000
+#define HEVC_INT_TIMEOUT		2000
 /* Busy wait timeout */
 #define HEVC_BW_TIMEOUT		500
 /* Watchdog interval */
 #define HEVC_WATCHDOG_INTERVAL   1000
 /* After how many executions watchdog should assume lock up */
-#define HEVC_WATCHDOG_CNT        10
+#define HEVC_WATCHDOG_CNT        3
 
 #define HEVC_NO_INSTANCE_SET	-1
 
