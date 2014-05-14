@@ -514,10 +514,11 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 	 * If error state is occured, TX timeout will be occured
 	 */
 	if (reg_val & HSI2C_INT_CHK_TRANS_STATE) {
-		dev_err(i2c->dev, "HSI2C Error status is occured!\n");
-		writel(reg_val, i2c->regs +  HSI2C_INT_STATUS);
-		writel(0, i2c->regs + HSI2C_INT_ENABLE);
-		return IRQ_HANDLED;
+		dev_err(i2c->dev, "HSI2C Error status is occured!(0x%x)\n",
+			(unsigned int)reg_val);
+		i2c->trans_done = -ENXIO;
+		exynos5_i2c_stop(i2c);
+		goto out;
 	}
 	/* Checking INT_TRANSFER_DONE - to avoid lost trans_done */
 	if ((reg_val & HSI2C_INT_TRANSFER_DONE) &&
@@ -525,6 +526,7 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 		!(i2c->msg->flags & I2C_M_RD))
 		exynos5_i2c_stop(i2c);
 
+out:
 	writel(reg_val, i2c->regs +  HSI2C_INT_STATUS);
 
 	return IRQ_HANDLED;
@@ -547,6 +549,7 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 
 	i2c->msg = msgs;
 	i2c->msg_ptr = 0;
+	i2c->trans_done = 0;
 
 	INIT_COMPLETION(i2c->msg_complete);
 
@@ -704,8 +707,17 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 					dev_warn(i2c->dev, "tx timeout\n");
 					return ret;
 				}
+			} else {
+				if (i2c->trans_done < 0) {
+					dev_dbg(i2c->dev, "ack was not received\n");
+					ret = i2c->trans_done;
+					exynos5_i2c_reset(i2c);
+				} else {
+					ret = 0;
+				}
 			}
-			return 0;
+
+			return ret;
 		}
 
 		while (time_before(jiffies, timeout)) {
