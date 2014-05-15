@@ -1427,6 +1427,13 @@ static int sc_open(struct file *file)
 	ctx->s_frame.sc_fmt = &sc_formats[0];
 	ctx->d_frame.sc_fmt = &sc_formats[0];
 
+	ret = clk_prepare(sc->aclk);
+	if (ret) {
+		dev_err(sc->dev, "%s: failed to prepare ACLK(err %d)\n",
+				__func__, ret);
+		goto err_clk_prepare;
+	}
+
 	/* Setup the device context for mem2mem mode. */
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(sc->m2m.m2m_dev, ctx, queue_init);
 	if (IS_ERR(ctx->m2m_ctx)) {
@@ -1437,6 +1444,8 @@ static int sc_open(struct file *file)
 	return 0;
 
 err_ctx:
+	clk_unprepare(sc->aclk);
+err_clk_prepare:
 	v4l2_fh_del(&ctx->fh);
 err_fh:
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
@@ -1456,6 +1465,7 @@ static int sc_release(struct file *file)
 
 	destroy_intermediate_frame(ctx);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
+	clk_unprepare(sc->aclk);
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
@@ -1489,28 +1499,6 @@ static const struct v4l2_file_operations sc_v4l2_fops = {
 	.mmap		= sc_mmap,
 };
 
-static int sc_clock_gating(struct sc_dev *sc, enum sc_clk_status status)
-{
-	if (status == SC_CLK_ON) {
-		if (sc->aclk) {
-			int ret = clk_enable(sc->aclk);
-			if (ret) {
-				dev_err(sc->dev,
-					"%s: Failed to enable clock: %d\n",
-					__func__, ret);
-				return ret;
-			}
-		}
-		dev_dbg(sc->dev, "clock enabled\n");
-	} else if (status == SC_CLK_OFF) {
-		if (sc->aclk)
-			clk_disable(sc->aclk);
-		dev_dbg(sc->dev, "clock disabled\n");
-	}
-
-	return 0;
-}
-
 static void sc_watchdog(unsigned long arg)
 {
 	struct sc_dev *sc = (struct sc_dev *)arg;
@@ -1521,7 +1509,7 @@ static void sc_watchdog(unsigned long arg)
 	sc_dbg("timeout watchdog\n");
 	if (atomic_read(&sc->wdt.cnt) >= SC_WDT_CNT) {
 		sc_hwset_soft_reset(sc);
-		sc_clock_gating(sc, SC_CLK_OFF);
+		clk_disable(sc->aclk);
 		pm_runtime_put(sc->dev);
 
 		sc_dbg("wakeup blocked process\n");
@@ -1790,11 +1778,11 @@ static int sc_run_next_job(struct sc_dev *sc)
 		return ret;
 	}
 
-	ret = sc_clock_gating(sc, SC_CLK_ON);
-	if (ret < 0) {
+	ret = clk_enable(sc->aclk);
+	if (ret) {
+		dev_err(sc->dev, "%s: Failed to enable clock (err %d)\n",
+			__func__, ret);
 		pm_runtime_put(sc->dev);
-		dev_err(sc->dev,
-			"%s=%d: Failed to enable clock\n", __func__, ret);
 		return ret;
 	}
 
@@ -1894,7 +1882,8 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 	if (sc_process_2nd_stage(sc, ctx))
 		goto isr_unlock;
 
-	sc_clock_gating(sc, SC_CLK_OFF);
+	clk_disable(sc->aclk);
+
 	pm_runtime_put(sc->dev);
 
 	clear_bit(CTX_RUN, &ctx->flags);
@@ -2174,12 +2163,21 @@ static int sc_m2m1shot_init_context(struct m2m1shot_context *m21ctx)
 {
 	struct sc_dev *sc = dev_get_drvdata(m21ctx->m21dev->dev);
 	struct sc_ctx *ctx;
+	int ret;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
 
 	atomic_inc(&sc->m2m.in_use);
+
+	ret = clk_prepare(sc->aclk);
+	if (ret) {
+		dev_err(sc->dev, "%s: failed to prepare ACLK(err %d)\n",
+				__func__, ret);
+		kfree(ctx);
+		return ret;
+	}
 
 	ctx->context_type = SC_CTX_M2M1SHOT_TYPE;
 	INIT_LIST_HEAD(&ctx->node);
@@ -2199,6 +2197,7 @@ static int sc_m2m1shot_free_context(struct m2m1shot_context *m21ctx)
 	struct sc_ctx *ctx = m21ctx->priv;
 
 	atomic_dec(&ctx->sc_dev->m2m.in_use);
+	clk_unprepare(ctx->sc_dev->aclk);
 	BUG_ON(!list_empty(&ctx->node));
 	destroy_intermediate_frame(ctx);
 	kfree(ctx);
@@ -2471,7 +2470,7 @@ static void sc_m2m1shot_timeout_task(struct m2m1shot_context *m21ctx,
 
 	sc_hwset_soft_reset(sc);
 
-	sc_clock_gating(sc, SC_CLK_OFF);
+	clk_disable(sc->aclk);
 	pm_runtime_put(sc->dev);
 
 	spin_lock_irqsave(&sc->ctxlist_lock, flags);
@@ -2525,11 +2524,11 @@ static int sc_clk_get(struct sc_dev *sc)
 				sc->clk_parn = NULL;
 			else
 				return PTR_ERR(sc->clk_parn);
-		dev_info(sc->dev, "'mux_src' clock is not present\n");
+			dev_info(sc->dev, "'mux_src' clock is not present\n");
 		}
 	}
 
-	return clk_prepare(sc->aclk);
+	return 0;
 }
 
 static void sc_clk_put(struct sc_dev *sc)
