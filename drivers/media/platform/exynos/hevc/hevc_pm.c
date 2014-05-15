@@ -30,49 +30,6 @@ static struct hevc_pm *pm;
 atomic_t clk_ref_hevc;
 static int power_on_flag;
 
-#if defined(CONFIG_ARCH_EXYNOS4)
-
-#define HEVC_PARENT_CLK_NAME	"mout_hevc0"
-#define HEVC_CLKNAME		"sclk_hevc"
-#define HEVC_GATE_CLK_NAME	"hevc"
-
-int hevc_init_pm(struct hevc_dev *dev)
-{
-	struct clk *parent, *sclk;
-	int ret = 0;
-
-	pm = &dev->pm;
-
-	parent = clk_get(dev->device, "gate_hevc");
-	if (IS_ERR(parent)) {
-		printk(KERN_ERR "failed to get parent clock\n");
-		ret = -ENOENT;
-		goto err_p_clk;
-	}
-
-	ret = clk_prepare(parent);
-	if (ret) {
-		printk(KERN_ERR "clk_prepare() failed\n");
-		return ret;
-	}
-
-	atomic_set(&pm->power, 0);
-	atomic_set(&clk_ref_hevc, 0);
-
-	pm->device = dev->device;
-	pm_runtime_enable(pm->device);
-
-	return 0;
-
-err_g_clk:
-	clk_put(sclk);
-err_s_clk:
-	clk_put(parent);
-err_p_clk:
-	return ret;
-}
-
-#elif defined(CONFIG_ARCH_EXYNOS5)
 
 #define HEVC_PARENT_CLK_NAME	"aclk_333"
 #define HEVC_CLKNAME		"sclk_hevc"
@@ -141,7 +98,7 @@ int hevc_set_clock_parent(struct hevc_dev *dev)
 	return 0;
 }
 
-#ifdef CONFIG_ARM_EXYNOS5430_BUS_DEVFREQ
+#ifdef CONFIG_HEVC_USE_BUS_DEVFREQ
 static int hevc_clock_set_rate(struct hevc_dev *dev, unsigned long rate)
 {
 	struct clk *parent_clk = NULL;
@@ -164,7 +121,6 @@ err_g_clk:
 	return ret;
 }
 #endif
-#endif
 
 void hevc_final_pm(struct hevc_dev *dev)
 {
@@ -180,7 +136,7 @@ int hevc_clock_on(void)
 	struct hevc_dev *dev = platform_get_drvdata(to_platform_device(pm->device));
 	unsigned long flags;
 
-#ifdef CONFIG_ARM_EXYNOS5430_BUS_DEVFREQ
+#ifdef CONFIG_HEVC_USE_BUS_DEVFREQ
 	hevc_clock_set_rate(dev, dev->curr_rate);
 #endif
 	ret = clk_enable(pm->clock);
