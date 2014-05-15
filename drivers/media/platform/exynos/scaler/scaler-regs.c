@@ -314,162 +314,25 @@ static struct sc_bl_op_val sc_bl_op_tbl[] = {
 	{ONE,	 ONE,	ONE,	ONE},		/* ADD */
 };
 
-int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat)
+int sc_hwset_src_image_format(struct sc_dev *sc, const struct sc_fmt *fmt)
 {
-	unsigned long cfg = readl(sc->regs + SCALER_SRC_CFG);
-
-	cfg &= ~(SCALER_CFG_TILE_EN|SCALER_CFG_SWAP_MASK|SCALER_CFG_FMT_MASK);
-
-	switch (pixelformat) {
-	case V4L2_PIX_FMT_RGB565:
-		cfg |= SCALER_CFG_FMT_RGB565;
-		break;
-	case V4L2_PIX_FMT_RGB555X:
-		cfg |= SCALER_CFG_FMT_ARGB1555;
-		break;
-	case V4L2_PIX_FMT_RGB444:
-		cfg |= SCALER_CFG_FMT_ARGB4444;
-		break;
-	case V4L2_PIX_FMT_RGB32:
-		cfg |= SCALER_CFG_FMT_RGBA8888;
-		cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
-		break;
-	case V4L2_PIX_FMT_BGR32:
-		cfg |= SCALER_CFG_FMT_ARGB8888;
-		break;
-	case V4L2_PIX_FMT_YUYV:
-		cfg |= SCALER_CFG_FMT_YUYV;
-		break;
-	case V4L2_PIX_FMT_UYVY:
-		cfg |= SCALER_CFG_FMT_UYVY;
-		break;
-	case V4L2_PIX_FMT_YVYU:
-		cfg |= SCALER_CFG_FMT_YVYU;
-		break;
-	case V4L2_PIX_FMT_NV12:
-	case V4L2_PIX_FMT_NV12M:
-		cfg |= SCALER_CFG_FMT_YCBCR420_2P;
-		break;
-	case V4L2_PIX_FMT_NV12MT_16X16:
-		cfg |= SCALER_CFG_TILE_EN;
-		cfg |= SCALER_CFG_FMT_YCBCR420_2P;
-		break;
-	case V4L2_PIX_FMT_NV21:
-	case V4L2_PIX_FMT_NV21M:
-		cfg |= SCALER_CFG_FMT_YCRCB420_2P;
-		break;
-	case V4L2_PIX_FMT_NV16:
-		cfg |= SCALER_CFG_FMT_YCBCR422_2P;
-		break;
-	case V4L2_PIX_FMT_NV61:
-		cfg |= SCALER_CFG_FMT_YCRCB422_2P;
-		break;
-	case V4L2_PIX_FMT_YUV422P:
-		cfg |= SCALER_CFG_FMT_YCBCR422_3P;
-		break;
-	case V4L2_PIX_FMT_NV24:
-		cfg |= SCALER_CFG_FMT_YCBCR444_2P;
-		break;
-	case V4L2_PIX_FMT_NV42:
-		cfg |= SCALER_CFG_FMT_YCRCB444_2P;
-		break;
-	case V4L2_PIX_FMT_YUV420:
-	case V4L2_PIX_FMT_YUV420M:
-	case V4L2_PIX_FMT_YVU420:
-	case V4L2_PIX_FMT_YVU420M:
-		cfg |= SCALER_CFG_FMT_YCBCR420_3P;
-		break;
-	/* TODO: add L8A8 and L8 source format */
-	default:
-		dev_err(sc->dev, "invalid pixelformat type\n");
-		return -EINVAL;
-	}
-	writel(cfg, sc->regs + SCALER_SRC_CFG);
+	writel(fmt->cfg_val, sc->regs + SCALER_SRC_CFG);
 	return 0;
 }
 
-int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat)
+int sc_hwset_dst_image_format(struct sc_dev *sc, const struct sc_fmt *fmt)
 {
-	unsigned long cfg = readl(sc->regs + SCALER_DST_CFG);
-	bool is_rgb = false;
-
-	cfg &= ~(SCALER_CFG_SWAP_MASK|SCALER_CFG_FMT_MASK);
-
-	switch (pixelformat) {
-	case V4L2_PIX_FMT_RGB565:
-		cfg |= SCALER_CFG_FMT_RGB565;
-		is_rgb = true;
-		break;
-	case V4L2_PIX_FMT_RGB555X:
-		cfg |= SCALER_CFG_FMT_ARGB1555;
-		is_rgb = true;
-		break;
-	case V4L2_PIX_FMT_RGB444:
-		cfg |= SCALER_CFG_FMT_ARGB4444;
-		is_rgb = true;
-		break;
-	case V4L2_PIX_FMT_RGB32:
-		cfg |= SCALER_CFG_FMT_RGBA8888;
-		cfg |= SCALER_CFG_BYTE_HWORD_SWAP;
-		is_rgb = true;
-		break;
-	case V4L2_PIX_FMT_BGR32:
-		cfg |= SCALER_CFG_FMT_ARGB8888;
-		is_rgb = true;
-		break;
-	case V4L2_PIX_FMT_YUYV:
-		cfg |= SCALER_CFG_FMT_YUYV;
-		break;
-	case V4L2_PIX_FMT_UYVY:
-		cfg |= SCALER_CFG_FMT_UYVY;
-		break;
-	case V4L2_PIX_FMT_YVYU:
-		cfg |= SCALER_CFG_FMT_YVYU;
-		break;
-	case V4L2_PIX_FMT_NV12:
-	case V4L2_PIX_FMT_NV12M:
-		cfg |= SCALER_CFG_FMT_YCBCR420_2P;
-		break;
-	case V4L2_PIX_FMT_NV21:
-	case V4L2_PIX_FMT_NV21M:
-		cfg |= SCALER_CFG_FMT_YCRCB420_2P;
-		break;
-	case V4L2_PIX_FMT_NV16:
-		cfg |= SCALER_CFG_FMT_YCBCR422_2P;
-		break;
-	case V4L2_PIX_FMT_NV61:
-		cfg |= SCALER_CFG_FMT_YCRCB422_2P;
-		break;
-	case V4L2_PIX_FMT_YUV422P:
-		cfg |= SCALER_CFG_FMT_YCBCR422_3P;
-		break;
-	case V4L2_PIX_FMT_NV24:
-		cfg |= SCALER_CFG_FMT_YCBCR444_2P;
-		break;
-	case V4L2_PIX_FMT_NV42:
-		cfg |= SCALER_CFG_FMT_YCRCB444_2P;
-		break;
-	case V4L2_PIX_FMT_YUV420:
-	case V4L2_PIX_FMT_YUV420M:
-	case V4L2_PIX_FMT_YVU420:
-	case V4L2_PIX_FMT_YVU420M:
-		cfg |= SCALER_CFG_FMT_YCBCR420_3P;
-		break;
-	default:
-		dev_err(sc->dev, "invalid pixelformat type\n");
-		return -EINVAL;
-	}
-	writel(cfg, sc->regs + SCALER_DST_CFG);
+	writel(fmt->cfg_val, sc->regs + SCALER_DST_CFG);
 
 	/*
 	 * When output format is RGB,
 	 * CSC_Y_OFFSET_DST_EN should be 0
 	 * to avoid color distortion
 	 */
-	if (is_rgb) {
-		cfg = readl(sc->regs + SCALER_CFG);
-		cfg &= ~SCALER_CFG_CSC_Y_OFFSET_DST;
-		writel(cfg, sc->regs + SCALER_CFG);
+	if (fmt->is_rgb) {
+		writel(readl(sc->regs + SCALER_CFG) &
+					~SCALER_CFG_CSC_Y_OFFSET_DST,
+				sc->regs + SCALER_CFG);
 	}
 
 	return 0;

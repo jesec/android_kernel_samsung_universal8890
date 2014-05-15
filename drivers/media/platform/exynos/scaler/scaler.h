@@ -204,24 +204,21 @@ struct sc_bl_op_val {
  * @min_h: minimum pixel height size
  * @max_w: maximum pixel width size
  * @max_h: maximum pixel height size
- * @align_w: pixel width align
- * @align_h: pixel height align
  */
 struct sc_size_limit {
-	u32 min_w;
-	u32 min_h;
-	u32 max_w;
-	u32 max_h;
-	u32 align_w;
-	u32 align_h;
+	u16 min_w;
+	u16 min_h;
+	u16 max_w;
+	u16 max_h;
 };
 
 struct sc_variant {
 	struct sc_size_limit limit_input;
 	struct sc_size_limit limit_output;
-	int sc_up_max;
-	int sc_down_min;
-	int sc_down_swmin;
+	u32 version;
+	u32 sc_up_max;
+	u32 sc_down_min;
+	u32 sc_down_swmin;
 };
 
 /*
@@ -238,6 +235,7 @@ struct sc_variant {
 struct sc_fmt {
 	char	*name;
 	u32	pixelformat;
+	u32	cfg_val;
 	u8	bitperpixel[SC_MAX_PLANES];
 	u8	num_planes:2;
 	u8	num_comp:2;
@@ -325,10 +323,11 @@ struct sc_ctx;
  * @slock:	the spinlock pscecting this data structure
  * @lock:	the mutex pscecting this data structure
  * @wdt:	watchdog timer information
+ * @version:	IP version number
  */
 struct sc_dev {
 	struct device			*dev;
-	struct sc_variant		*variant;
+	const struct sc_variant		*variant;
 	struct sc_m2m_device		m2m;
 	struct m2m1shot_device		*m21dev;
 	struct clk			*aclk;
@@ -347,6 +346,7 @@ struct sc_dev {
 	spinlock_t			ctxlist_lock;
 	struct sc_ctx			*current_ctx;
 	struct list_head		context_list; /* for sc_ctx_abs.node */
+	u32				version;
 };
 
 enum SC_CONTEXT_TYPE {
@@ -427,8 +427,8 @@ static inline struct sc_frame *ctx_get_frame(struct sc_ctx *ctx,
 	return frame;
 }
 
-int sc_hwset_src_image_format(struct sc_dev *sc, u32 pixelformat);
-int sc_hwset_dst_image_format(struct sc_dev *sc, u32 pixelformat);
+int sc_hwset_src_image_format(struct sc_dev *sc, const struct sc_fmt *);
+int sc_hwset_dst_image_format(struct sc_dev *sc, const struct sc_fmt *);
 void sc_hwset_pre_multi_format(struct sc_dev *sc);
 void sc_hwset_blend(struct sc_dev *sc, enum sc_blend_op bl_op, bool pre_multi,
 		unsigned char g_alpha);

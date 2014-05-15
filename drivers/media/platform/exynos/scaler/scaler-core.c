@@ -53,6 +53,7 @@ static const struct sc_fmt sc_formats[] = {
 	{
 		.name		= "RGB565",
 		.pixelformat	= V4L2_PIX_FMT_RGB565,
+		.cfg_val	= SCALER_CFG_FMT_RGB565,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
@@ -60,6 +61,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "RGB1555",
 		.pixelformat	= V4L2_PIX_FMT_RGB555X,
+		.cfg_val	= SCALER_CFG_FMT_ARGB1555,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
@@ -67,13 +69,16 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "ARGB4444",
 		.pixelformat	= V4L2_PIX_FMT_RGB444,
+		.cfg_val	= SCALER_CFG_FMT_ARGB4444,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
 		.is_rgb		= 1,
-	}, {
+	}, {	/* swaps of ARGB32 in bytes in half word, half words in word */
 		.name		= "RGBA8888",
 		.pixelformat	= V4L2_PIX_FMT_RGB32,
+		.cfg_val	= SCALER_CFG_FMT_RGBA8888 |
+					SCALER_CFG_BYTE_HWORD_SWAP,
 		.bitperpixel	= { 32 },
 		.num_planes	= 1,
 		.num_comp	= 1,
@@ -81,6 +86,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "BGRA8888",
 		.pixelformat	= V4L2_PIX_FMT_BGR32,
+		.cfg_val	= SCALER_CFG_FMT_ARGB8888,
 		.bitperpixel	= { 32 },
 		.num_planes	= 1,
 		.num_comp	= 1,
@@ -88,6 +94,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:0 contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV12,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_2P,
 		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 2,
@@ -96,6 +103,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:0 contiguous 2-planar, Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV21,
+		.cfg_val	= SCALER_CFG_FMT_YCRCB420_2P,
 		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 2,
@@ -104,6 +112,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV12M,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_2P,
 		.bitperpixel	= { 8, 4 },
 		.num_planes	= 2,
 		.num_comp	= 2,
@@ -112,6 +121,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 2-planar, Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV21M,
+		.cfg_val	= SCALER_CFG_FMT_YCRCB420_2P,
 		.bitperpixel	= { 8, 4 },
 		.num_planes	= 2,
 		.num_comp	= 2,
@@ -120,6 +130,8 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 2-planar, Y/CbCr, tiled",
 		.pixelformat	= V4L2_PIX_FMT_NV12MT_16X16,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_2P |
+					SCALER_CFG_TILE_EN,
 		.bitperpixel	= { 8, 4 },
 		.num_planes	= 2,
 		.num_comp	= 2,
@@ -128,6 +140,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:0 contiguous 3-planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV420,	/* I420 */
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_3P,
 		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 3,
@@ -136,6 +149,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YVU 4:2:0 contiguous 3-planar, Y/Cr/Cb",
 		.pixelformat	= V4L2_PIX_FMT_YVU420,	/* YV12 */
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_3P,
 		.bitperpixel	= { 12 },
 		.num_planes	= 1,
 		.num_comp	= 3,
@@ -144,6 +158,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:0 non-contiguous 3-planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV420M,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_3P,
 		.bitperpixel	= { 8, 2, 2 },
 		.num_planes	= 3,
 		.num_comp	= 3,
@@ -152,6 +167,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YVU 4:2:0 non-contiguous 3-planar, Y/Cr/Cb",
 		.pixelformat	= V4L2_PIX_FMT_YVU420M,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_3P,
 		.bitperpixel	= { 8, 2, 2 },
 		.num_planes	= 3,
 		.num_comp	= 3,
@@ -160,24 +176,28 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:2 packed, YCbYCr",
 		.pixelformat	= V4L2_PIX_FMT_YUYV,
+		.cfg_val	= SCALER_CFG_FMT_YUYV,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
 	}, {
 		.name		= "YUV 4:2:2 packed, CbYCrY",
 		.pixelformat	= V4L2_PIX_FMT_UYVY,
+		.cfg_val	= SCALER_CFG_FMT_UYVY,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
 	}, {
 		.name		= "YUV 4:2:2 packed, YCrYCb",
 		.pixelformat	= V4L2_PIX_FMT_YVYU,
+		.cfg_val	= SCALER_CFG_FMT_YVYU,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
 	}, {
 		.name		= "YUV 4:2:2 contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV16,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR422_2P,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 2,
@@ -185,6 +205,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:2 contiguous 2-planar, Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV61,
+		.cfg_val	= SCALER_CFG_FMT_YCRCB422_2P,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 2,
@@ -192,6 +213,7 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:2:2 contiguous 3-planar, Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV422P,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR422_3P,
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 3,
@@ -199,12 +221,14 @@ static const struct sc_fmt sc_formats[] = {
 	}, {
 		.name		= "YUV 4:4:4 contiguous Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV24,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR444_2P,
 		.bitperpixel	= { 24 },
 		.num_planes	= 1,
 		.num_comp	= 2,
 	}, {
 		.name		= "YUV 4:4:4 contiguous Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV42,
+		.cfg_val	= SCALER_CFG_FMT_YCRCB444_2P,
 		.bitperpixel	= { 24 },
 		.num_planes	= 1,
 		.num_comp	= 2,
@@ -213,26 +237,53 @@ static const struct sc_fmt sc_formats[] = {
 
 #define SCALE_RATIO(x, y)	((65536 * x) / y)
 
-static struct sc_variant variant = {
-	.limit_input = {
-		.min_w		= 16,
-		.min_h		= 16,
-		.max_w		= 8192,
-		.max_h		= 8192,
-		.align_w	= 0,
-		.align_h	= 0,
+#define SCALER_VERSION(x, y, z) (((x) << 16) | ((y) << 8) | (z))
+
+/* must specify in revers order of SCALER_VERSION(xyz) */
+static const u32 sc_version_table[][2] = {
+	{ 0x80000064, SCALER_VERSION(3, 0, 0) },
+	{ 0x80000008, SCALER_VERSION(2, 1, 1) },
+	{ 0x80000048, SCALER_VERSION(2, 1, 0) },
+	{ 0x80010000, SCALER_VERSION(2, 0, 1) },
+	{ 0x80000047, SCALER_VERSION(2, 0, 0) },
+};
+
+static const struct sc_variant sc_variant[] = {
+	{
+		.limit_input = {
+			.min_w		= 16,
+			.min_h		= 16,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.limit_output = {
+			.min_w		= 4,
+			.min_h		= 4,
+			.max_w		= 4096,
+			.max_h		= 4096,
+		},
+		.version		= SCALER_VERSION(2, 0, 0),
+		.sc_up_max		= SCALE_RATIO(1, 16),
+		.sc_down_min		= SCALE_RATIO(4, 1),
+		.sc_down_swmin		= SCALE_RATIO(16, 1),
+	}, {
+		.limit_input = {
+			.min_w		= 16,
+			.min_h		= 16,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.limit_output = {
+			.min_w		= 4,
+			.min_h		= 4,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.version		= SCALER_VERSION(2, 0, 1),
+		.sc_up_max		= SCALE_RATIO(1, 16),
+		.sc_down_min		= SCALE_RATIO(4, 1),
+		.sc_down_swmin		= SCALE_RATIO(16, 1),
 	},
-	.limit_output = {
-		.min_w		= 4,
-		.min_h		= 4,
-		.max_w		= 8192,
-		.max_h		= 8192,
-		.align_w	= 0,
-		.align_h	= 0,
-	},
-	.sc_up_max		= SCALE_RATIO(1, 16),
-	.sc_down_min		= SCALE_RATIO(4, 1),
-	.sc_down_swmin		= SCALE_RATIO(16, 1),
 };
 
 /* Find the matches format */
@@ -245,10 +296,18 @@ static const struct sc_fmt *sc_find_format(struct sc_dev *sc,
 	for (i = 0; i < ARRAY_SIZE(sc_formats); ++i) {
 		sc_fmt = &sc_formats[i];
 		if (sc_fmt->pixelformat == pixfmt) {
-			if (!output_buf && pixfmt == V4L2_PIX_FMT_NV12MT_16X16)
+			if (!!(sc_fmt->cfg_val & SCALER_CFG_TILE_EN)) {
+				/* tile mode is not supported from v3.0.0 */
+				if (sc->version < SCALER_VERSION(3, 0, 0))
+					return NULL;
+				if (output_buf)
+					return NULL;
+			}
+			/* bytes swap is not supported under v2.1.0 */
+			if (!!(sc_fmt->cfg_val & SCALER_CFG_SWAP_MASK) &&
+					(sc->version < SCALER_VERSION(2, 1, 0)))
 				return NULL;
-			else
-				return &sc_formats[i];
+			return &sc_formats[i];
 		}
 	}
 
@@ -334,8 +393,10 @@ static int sc_v4l2_try_fmt_mplane(struct file *file, void *fh,
 	struct sc_ctx *ctx = fh_to_sc_ctx(fh);
 	const struct sc_fmt *sc_fmt;
 	struct v4l2_pix_format_mplane *pixm = &f->fmt.pix_mp;
-	struct sc_size_limit *limit;
+	const struct sc_size_limit *limit;
 	int i;
+	int h_align = 0;
+	int w_align = 0;
 
 	if (!V4L2_TYPE_IS_MULTIPLANAR(f->type)) {
 		v4l2_err(&ctx->sc_dev->m2m.v4l2_dev,
@@ -361,12 +422,12 @@ static int sc_v4l2_try_fmt_mplane(struct file *file, void *fh,
 	 */
 	if (sc_fmt_is_yuv422(sc_fmt->pixelformat) ||
 			sc_fmt_is_yuv420(sc_fmt->pixelformat))
-		limit->align_w = 1;
+		w_align = 1;
 
 	/* Bound an image to have width and height in limit */
 	v4l_bound_align_image(&pixm->width, limit->min_w, limit->max_w,
-			limit->align_w, &pixm->height, limit->min_h,
-			limit->max_h, limit->align_h, 0);
+			w_align, &pixm->height, limit->min_h,
+			limit->max_h, h_align, 0);
 
 	pixm->num_planes = sc_fmt->num_planes;
 	pixm->colorspace = 0;
@@ -402,8 +463,10 @@ static int sc_v4l2_s_fmt_mplane(struct file *file, void *fh,
 	struct vb2_queue *vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
 	struct sc_frame *frame;
 	struct v4l2_pix_format_mplane *pixm = &f->fmt.pix_mp;
-	struct sc_size_limit *limitout = &ctx->sc_dev->variant->limit_input;
-	struct sc_size_limit *limitcap = &ctx->sc_dev->variant->limit_output;
+	const struct sc_size_limit *limitout =
+				&ctx->sc_dev->variant->limit_input;
+	const struct sc_size_limit *limitcap =
+				&ctx->sc_dev->variant->limit_output;
 	int i, ret = 0;
 
 	if (vb2_is_streaming(vq)) {
@@ -559,8 +622,10 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	struct sc_ctx *ctx = fh_to_sc_ctx(fh);
 	struct sc_dev *sc = ctx->sc_dev;
 	struct sc_frame *frame;
-	struct sc_size_limit *limit = NULL;
+	const struct sc_size_limit *limit = NULL;
 	int x_align = 0, y_align = 0;
+	int w_align = 0;
+	int h_align = 0;
 
 	frame = ctx_get_frame(ctx, cr->type);
 	if (IS_ERR(frame))
@@ -588,16 +653,16 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	}
 
 	if (sc_fmt_is_yuv422(frame->sc_fmt->pixelformat)) {
-		limit->align_w = 1;
+		w_align = 1;
 	} else if (sc_fmt_is_yuv420(frame->sc_fmt->pixelformat)) {
-		limit->align_w = 1;
-		limit->align_h = 1;
+		w_align = 1;
+		h_align = 1;
 	}
 
 	/* Bound an image to have crop width and height in limit */
 	v4l_bound_align_image(&cr->c.width, limit->min_w, limit->max_w,
-			limit->align_w, &cr->c.height, limit->min_h,
-			limit->max_h, limit->align_h, 0);
+			w_align, &cr->c.height, limit->min_h,
+			limit->max_h, h_align, 0);
 
 	if (V4L2_TYPE_IS_OUTPUT(cr->type)) {
 		if (sc_fmt_is_yuv422(frame->sc_fmt->pixelformat))
@@ -1010,7 +1075,7 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 	if ((h_ratio > sc->variant->sc_down_min) ||
 				(v_ratio > sc->variant->sc_down_min)) {
 		struct v4l2_rect crop = ctx->d_frame.crop;
-		struct sc_size_limit *limit;
+		const struct sc_size_limit *limit;
 		unsigned int halign = 0, walign = 0;
 		__u32 pixfmt;
 		const struct sc_fmt *target_fmt = ctx->d_frame.sc_fmt;
@@ -1281,6 +1346,12 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->g_alpha = ctrl->val;
 		break;
 	case V4L2_CID_2D_BLEND_OP:
+		if (ctx->sc_dev->version >= SCALER_VERSION(2, 2, 0)) {
+			dev_err(ctx->sc_dev->dev,
+				"%s: blending is not supported from v2.2.0\n",
+				__func__);
+			return -EINVAL;
+		}
 		ctx->bl_op = ctrl->val;
 		break;
 	case V4L2_CID_2D_FMT_PREMULTI:
@@ -1629,7 +1700,7 @@ static void sc_set_scale_ratio(struct sc_dev *sc,
 static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 {
 	struct sc_frame *s_frame, *d_frame;
-	struct sc_size_limit *limit;
+	const struct sc_size_limit *limit;
 	unsigned int halign = 0, walign = 0;
 
 	if (!test_bit(CTX_INT_FRAME, &ctx->flags))
@@ -1658,8 +1729,8 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 		SCALE_RATIO(s_frame->crop.width, d_frame->crop.width),
 		SCALE_RATIO(s_frame->crop.height, d_frame->crop.height));
 
-	sc_hwset_src_image_format(sc, s_frame->sc_fmt->pixelformat);
-	sc_hwset_dst_image_format(sc, d_frame->sc_fmt->pixelformat);
+	sc_hwset_src_image_format(sc, s_frame->sc_fmt);
+	sc_hwset_dst_image_format(sc, d_frame->sc_fmt);
 	sc_hwset_src_imgsize(sc, s_frame);
 	sc_hwset_dst_imgsize(sc, d_frame);
 	sc_hwset_src_crop(sc, &s_frame->crop, s_frame->sc_fmt);
@@ -1797,8 +1868,8 @@ static int sc_run_next_job(struct sc_dev *sc)
 
 	sc_set_csc_coef(ctx);
 
-	sc_hwset_src_image_format(sc, s_frame->sc_fmt->pixelformat);
-	sc_hwset_dst_image_format(sc, d_frame->sc_fmt->pixelformat);
+	sc_hwset_src_image_format(sc, s_frame->sc_fmt);
+	sc_hwset_dst_image_format(sc, d_frame->sc_fmt);
 	if (ctx->pre_multi)
 		sc_hwset_pre_multi_format(sc);
 
@@ -2598,6 +2669,8 @@ static int sc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret = 0;
 	int dev_id;
+	size_t ivar;
+	u32 hwver;
 
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct sc_dev), GFP_KERNEL);
 	if (!sc) {
@@ -2656,36 +2729,74 @@ static int sc_probe(struct platform_device *pdev)
 
 	if (IS_ERR(sc->alloc_ctx)) {
 		ret = PTR_ERR(sc->alloc_ctx);
-		goto err;
+		goto err_ctx;
 	}
 
 	platform_set_drvdata(pdev, sc);
 
-	exynos_create_iovmm(&pdev->dev, 3, 3);
-	vb2_ion_attach_iommu(sc->alloc_ctx);
-
 	pm_runtime_enable(&pdev->dev);
 
-	sc->variant = &variant;
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "%s: failed to local power on (err %d)\n",
+			__func__, ret);
+		goto err_ver;
+	}
+
+	ret = clk_prepare_enable(sc->aclk);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: failed to enable clock (err %d)\n",
+			__func__, ret);
+		pm_runtime_put(&pdev->dev);
+		goto err_ver;
+	}
+
+	sc->version = SCALER_VERSION(2, 0, 0);
+
+	hwver = __raw_readl(sc->regs + SCALER_VER);
+
+	/* selects the lowest version number if no version is matched */
+	for (ivar = 0; ivar < ARRAY_SIZE(sc_version_table); ivar++) {
+		sc->version = sc_version_table[ivar][1];
+		if (hwver == sc_version_table[ivar][0])
+			break;
+	}
+
+	for (ivar = 0; ivar < ARRAY_SIZE(sc_variant); ivar++) {
+		sc->variant = &sc_variant[ivar];
+		if (sc->version < sc_variant[ivar].version)
+			break;
+	}
+
+	clk_disable_unprepare(sc->aclk);
+	pm_runtime_put(&pdev->dev);
+
+	exynos_create_iovmm(&pdev->dev, 3, 3);
+	vb2_ion_attach_iommu(sc->alloc_ctx);
 
 	sc->fence_wq = create_singlethread_workqueue("scaler_fence_work");
 	if (!sc->fence_wq) {
 		dev_err(&pdev->dev, "Failed to create workqueue for fence\n");
 		ret = -ENOMEM;
-		goto err;
+		goto err_wq;
 	}
 
 	ret = sc_register_m2m_device(sc, dev_id);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register m2m device\n");
-		destroy_workqueue(sc->fence_wq);
-		goto err;
+		goto err_m2m;
 	}
 
-	dev_info(&pdev->dev, "scaler registered successfully\n");
+	dev_info(&pdev->dev,
+		"Driver probed successfully(version: %08x)\n", hwver);
 
 	return 0;
-err:
+err_m2m:
+	destroy_workqueue(sc->fence_wq);
+err_wq:
+err_ver:
+	vb2_ion_destroy_context(sc->alloc_ctx);
+err_ctx:
 	m2m1shot_destroy_device(sc->m21dev);
 
 	return ret;
