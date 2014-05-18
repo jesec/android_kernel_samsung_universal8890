@@ -1846,13 +1846,11 @@ static int s5p_mfc_open(struct file *file)
 			ret = s5p_mfc_alloc_firmware(dev);
 			if (ret)
 				goto err_fw_alloc;
-
-			ret = s5p_mfc_load_firmware(dev);
-			if (ret)
-				goto err_fw_load;
-
 			dev->fw_status = 1;
 		}
+		ret = s5p_mfc_load_firmware(dev);
+		if (ret)
+			goto err_fw_load;
 
 		/* Check for supporting smc */
 		ret = exynos_smc(SMC_DCPP_SUPPORT, 0, 0, 0);
@@ -1892,9 +1890,12 @@ static int s5p_mfc_open(struct file *file)
 		}
 #else
 		/* Load the FW */
-		ret = s5p_mfc_alloc_firmware(dev);
-		if (ret)
-			goto err_fw_alloc;
+		if (!dev->fw_status) {
+			ret = s5p_mfc_alloc_firmware(dev);
+			if (ret)
+				goto err_fw_alloc;
+			dev->fw_status = 1;
+		}
 
 		ret = s5p_mfc_load_firmware(dev);
 		if (ret)
@@ -2149,10 +2150,7 @@ static int s5p_mfc_release(struct file *file)
 					mfc_debug(2, "power off\n");
 					s5p_mfc_power_off(dev);
 
-					/* reset <-> F/W release */
-					s5p_mfc_release_firmware(dev);
 					s5p_mfc_release_dev_context_buffer(dev);
-					dev->fw_status = 0;
 					dev->drm_fw_status = 0;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
@@ -2201,10 +2199,7 @@ static int s5p_mfc_release(struct file *file)
 		mfc_debug(2, "power off\n");
 		s5p_mfc_power_off(dev);
 
-		/* reset <-> F/W release */
-		s5p_mfc_release_firmware(dev);
 		s5p_mfc_release_dev_context_buffer(dev);
-		dev->fw_status = 0;
 		dev->drm_fw_status = 0;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
