@@ -27,6 +27,7 @@
 #include <linux/device.h>
 #include <linux/dma-buf.h>
 #include <linux/vmalloc.h>
+#include <linux/sched.h>
 
 #include <media/m2m1shot.h>
 
