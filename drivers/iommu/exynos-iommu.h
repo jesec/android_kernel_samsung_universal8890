@@ -25,7 +25,7 @@
 
 #include "exynos-iommu-log.h"
 
-#define TRACE_LOG trace_printk
+#define TRACE_LOG(...) do { } while (0) /* trace_printk */
 #define TRACE_LOG_DEV(dev, fmt, args...)  \
 		TRACE_LOG("%s: " fmt, dev_name(dev), ##args)
 
