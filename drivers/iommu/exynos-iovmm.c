@@ -215,6 +215,9 @@ static void free_iovm_region(struct exynos_iovmm *vmm,
 			region->size >> PAGE_SHIFT);
 	spin_unlock(&vmm->bitmap_lock);
 
+	SYSMMU_EVENT_LOG_IOVMM_UNMAP(IOVMM_TO_LOG(vmm),
+			region->start, region->start + region->size);
+
 	kfree(region);
 }
 
@@ -503,9 +506,6 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 
 		TRACE_LOG_DEV(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
 						unmap_size, iova);
-
-		SYSMMU_EVENT_LOG_IOVMM_UNMAP(IOVMM_TO_LOG(vmm),
-				region->start, region->start + region->size);
 	} else {
 		dev_err(dev, "IOVMM: No IOVM region %#x to free.\n", iova);
 	}
