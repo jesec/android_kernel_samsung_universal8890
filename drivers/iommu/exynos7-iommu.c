@@ -541,3 +541,42 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
 }
+
+void dump_sysmmu_ppc_cnt(struct sysmmu_drvdata *drvdata)
+{
+	unsigned int cfg;
+	int i;
+
+	pr_crit("------------- System MMU PPC Status --------------\n");
+	for (i = 0; i < drvdata->event_cnt; i++) {
+		cfg = __raw_readl(drvdata->sfrbase +
+				REG_PPC_EVENT_SEL(i));
+		pr_crit("%s %s %s CNT : %d", dev_name(drvdata->sysmmu),
+			cfg & 0x10 ? "WRITE" : "READ",
+			ppc_event_name[cfg & 0x7],
+			__raw_readl(drvdata->sfrbase + REG_PPC_PMCNT(i)));
+	}
+	pr_crit("--------------------------------------------------\n");
+}
+
+int sysmmu_set_ppc_event(struct sysmmu_drvdata *drvdata, int event)
+{
+	unsigned int cfg;
+
+	if (event < 0 || event > TOTAL_ID_NUM ||
+	    event == READ_TLB_MISS || event == WRITE_TLB_MISS ||
+	    event == READ_FLPD_MISS_PREFETCH ||
+	    event == WRITE_FLPD_MISS_PREFETCH)
+		return -EINVAL;
+
+	if (!drvdata->event_cnt)
+		__raw_writel(0x1, drvdata->sfrbase + REG_PPC_PMNC);
+
+	__raw_writel(event, drvdata->sfrbase +
+			REG_PPC_EVENT_SEL(drvdata->event_cnt));
+	cfg = __raw_readl(drvdata->sfrbase +
+			REG_PPC_CNTENS);
+	__raw_writel(cfg | 0x1 << drvdata->event_cnt,
+			drvdata->sfrbase + REG_PPC_CNTENS);
+	return 0;
+}

@@ -22,6 +22,21 @@
 
 #include "exynos-iommu.h"
 
+#define MAX_NUM_PPC	4
+
+const char *ppc_event_name[] = {
+	"TOTAL",
+	"L1TLB MISS",
+	"L2TLB MISS",
+	"FLPD CACHE MISS",
+	"PB LOOK-UP",
+	"PB MISS",
+	"BLOCK NUM BY PREFETCHING",
+	"BLOCK CYCLE BY PREFETCHING",
+	"TLB MISS",
+	"FLPD MISS ON PREFETCHING",
+};
+
 static int iova_from_sent(sysmmu_pte_t *base, sysmmu_pte_t *sent)
 {
 	return ((unsigned long)sent - (unsigned long)base) *
@@ -2086,4 +2101,101 @@ void exynos_sysmmu_show_status(struct device *dev)
 
 		sysmmu_dump_page_table(phys_to_virt(drvdata->pgtable));
 	}
+}
+
+void exynos_sysmmu_show_ppc_event(struct device *dev)
+{
+	struct sysmmu_list_data *list;
+	unsigned long flags;
+
+	for_each_sysmmu_list(dev, list) {
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+		spin_lock_irqsave(&drvdata->lock, flags);
+		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
+			dev_info(drvdata->sysmmu,
+				"%s: System MMU is not active\n", __func__);
+			spin_unlock_irqrestore(&drvdata->lock, flags);
+			continue;
+		}
+
+		__master_clk_enable(drvdata);
+		if (sysmmu_block(drvdata->sfrbase))
+			dump_sysmmu_ppc_cnt(drvdata);
+		else
+			pr_err("!!Failed to block Sytem MMU!\n");
+		sysmmu_unblock(drvdata->sfrbase);
+		__master_clk_disable(drvdata);
+		spin_unlock_irqrestore(&drvdata->lock, flags);
+	}
+}
+
+void exynos_sysmmu_clear_ppc_event(struct device *dev)
+{
+	struct sysmmu_list_data *list;
+	unsigned long flags;
+
+	for_each_sysmmu_list(dev, list) {
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+		spin_lock_irqsave(&drvdata->lock, flags);
+		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
+			dev_info(drvdata->sysmmu,
+				"%s: System MMU is not active\n", __func__);
+			spin_unlock_irqrestore(&drvdata->lock, flags);
+			continue;
+		}
+
+		__master_clk_enable(drvdata);
+		if (sysmmu_block(drvdata->sfrbase)) {
+			dump_sysmmu_ppc_cnt(drvdata);
+			__raw_writel(0x2, drvdata->sfrbase + REG_PPC_PMNC);
+			__raw_writel(0, drvdata->sfrbase + REG_PPC_CNTENS);
+			__raw_writel(0, drvdata->sfrbase + REG_PPC_INTENS);
+			drvdata->event_cnt = 0;
+		} else
+			pr_err("!!Failed to block Sytem MMU!\n");
+		sysmmu_unblock(drvdata->sfrbase);
+		__master_clk_disable(drvdata);
+
+		spin_unlock_irqrestore(&drvdata->lock, flags);
+	}
+}
+
+int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
+{
+	struct sysmmu_list_data *list;
+	unsigned long flags;
+	int ret = 0;
+
+	for_each_sysmmu_list(dev, list) {
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+		spin_lock_irqsave(&drvdata->lock, flags);
+		if (!is_sysmmu_active(drvdata) || !drvdata->runtime_active) {
+			dev_info(drvdata->sysmmu,
+				"%s: System MMU is not active\n", __func__);
+			spin_unlock_irqrestore(&drvdata->lock, flags);
+			continue;
+		}
+
+		__master_clk_enable(drvdata);
+		if (sysmmu_block(drvdata->sfrbase)) {
+			if (drvdata->event_cnt < MAX_NUM_PPC) {
+				ret = sysmmu_set_ppc_event(drvdata, event);
+				if (ret)
+					pr_err("Not supported Event ID (%d)",
+						event);
+				else
+					drvdata->event_cnt++;
+			}
+		} else
+			pr_err("!!Failed to block Sytem MMU!\n");
+		sysmmu_unblock(drvdata->sfrbase);
+		__master_clk_disable(drvdata);
+
+		spin_unlock_irqrestore(&drvdata->lock, flags);
+	}
+
+	return ret;
 }

@@ -101,6 +101,44 @@ int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes);
 void iovmm_set_fault_handler(struct device *dev,
 			     iommu_fault_handler_t handler, void *token);
 
+/* SYSMMU PPC Event ID */
+enum sysmmu_ppc_event {
+	READ_TOTAL,
+	READ_L1TLB_MISS,
+	READ_L2TLB_MISS,
+	READ_FLPD_MISS,
+	READ_PB_LOOKUP,
+	READ_PB_MISS,
+	READ_BLOCK_NUM_BY_PREFETCH,
+	READ_BLOCK_CYCLE_BRY_PREFETCH,
+	READ_TLB_MISS,
+	READ_FLPD_MISS_PREFETCH,
+	WRITE_TOTAL = 0x10,
+	WRITE_L1TLB_MISS,
+	WRITE_L2TLB_MISS,
+	WRITE_FLPD_MISS,
+	WRITE_PB_LOOKUP,
+	WRITE_PB_MISS,
+	WRITE_BLOCK_NUM_BY_PREFETCH,
+	WRITE_BLOCK_CYCLE_BY_PREFETCH,
+	WRITE_TLB_MISS,
+	WRITE_FLPD_MISS_PREFETCH,
+	TOTAL_ID_NUM,
+};
+
+/*
+ * exynos_sysmmu_set/clear/show_ppc_event() -
+ *		set/clear/show system mmu ppc event
+ *
+ * @dev: device descriptor of master device.
+ * @event: system mmu ppc event id.
+ * Returns 0 if setting is successful. -EINVAL if the argument is invalid.
+ *
+ */
+int exynos_sysmmu_set_ppc_event(struct device *dev, int event);
+void exynos_sysmmu_clear_ppc_event(struct device *dev);
+void exynos_sysmmu_show_ppc_event(struct device *dev);
+
 /*
  * flags to option_iplanes and option_oplanes.
  * inplanes and onplanes is 'input planes' and 'output planes', respectively.
@@ -305,11 +343,18 @@ int exynos_sysmmu_unmap_user_pages(struct device *dev,
 	return -ENODEV;
 }
 
+int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
+{
+	return -ENOSYS;
+}
+
 #define sysmmu_set_qos(dev, qos) do { } while (0)
 #define sysmmu_reset_qos(dev) do { } while (0)
 
 #define exynos_sysmmu_show_status(dev) do { } while (0)
 #define exynos_sysmmu_set_df(dev, iova)	do { } while (0)
 #define exynos_sysmmu_release_df(dev)	do { } while (0)
+#define exynos_sysmmu_clear_ppc_event(dev) do { } while (0)
+#define exynos_sysmmu_show_ppc_event(dev) do { } while (0)
 #endif
 #endif /*__ASM_PLAT_IOVMM_H*/

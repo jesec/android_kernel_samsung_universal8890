@@ -191,6 +191,7 @@ struct sysmmu_drvdata {
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
 	struct exynos_iommu_event_log log;
 #endif
+	unsigned char event_cnt;
 };
 
 struct exynos_iommu_domain {
@@ -204,11 +205,25 @@ struct exynos_iommu_domain {
 #endif
 };
 
+int sysmmu_set_ppc_event(struct sysmmu_drvdata *drvdata, int event);
+void dump_sysmmu_ppc_cnt(struct sysmmu_drvdata *drvdata);
+extern const char *ppc_event_name[];
+
 #if defined(CONFIG_EXYNOS7_IOMMU) && defined(CONFIG_EXYNOS5_IOMMU)
 #error "CONFIG_IOMMU_EXYNOS5 and CONFIG_IOMMU_EXYNOS7 defined together"
 #endif
 
 #if defined(CONFIG_EXYNOS5_IOMMU) /* System MMU v1/2/3 */
+
+#define REG_PPC_PMNC		0x800
+#define REG_PPC_CNTENS		0x810
+#define REG_PPC_CNTENC		0x820
+#define REG_PPC_INTENS		0x830
+#define REG_PPC_INTENC		0x840
+#define REG_PPC_FLAG		0x850
+#define REG_PPC_CCNT		0x900
+#define REG_PPC_PMCNT(x)	(0x910 + 0x10 * (x))
+#define REG_PPC_EVENT_SEL(offset, cnt)	((offset) + 0x4 * (cnt))
 
 #define SYSMMU_OF_COMPAT_STRING "samsung,exynos4210-sysmmu"
 #define DEFAULT_QOS_VALUE	8
@@ -242,6 +257,16 @@ struct exynos_iommu_domain {
 #define __sysmmu_show_status(drvdata) do { } while (0) /* TODO */
 
 #elif defined(CONFIG_EXYNOS7_IOMMU) /* System MMU v5 ~ */
+
+#define REG_PPC_EVENT_SEL(x)	(0x600 + 0x4 * (x))
+#define REG_PPC_PMNC		0x620
+#define REG_PPC_CNTENS		0x624
+#define REG_PPC_CNTENC		0x628
+#define REG_PPC_INTENS		0x62C
+#define REG_PPC_INTENC		0x630
+#define REG_PPC_FLAG		0x634
+#define REG_PPC_CCNT		0x640
+#define REG_PPC_PMCNT(x)	(0x644 + 0x4 * (x))
 
 #define SYSMMU_OF_COMPAT_STRING "samsung,exynos5430-sysmmu"
 #define DEFAULT_QOS_VALUE	-1 /* Inherited from master */

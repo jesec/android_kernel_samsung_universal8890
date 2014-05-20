@@ -744,3 +744,111 @@ set_cfg:
 	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
 }
+
+void dump_sysmmu_ppc_cnt(struct sysmmu_drvdata *drvdata)
+{
+	static char ppc_event_name_preset[4][8] = { /* [type][event_name] */
+		{8, 8, -1, -1, 0, 0, -1, -1}, /*SYSMMU v1.2 */
+		{1, 1, 2, 2, 0, 0, -1, -1}, /* SYSMMU v2.1 */
+		{8, 8, 5, 5, 0, 0, 4, 4}, /* SYSMMU v3.1/2 */
+		{0, 8, 4, 5, 3, 9, 6, 7}, /* SYSMMU v3.3 */
+	};
+
+	unsigned int ver, type, offset;
+	int i, maj;
+	u32 cfg;
+
+	ver = __raw_sysmmu_version(drvdata->sfrbase);
+	maj = MMU_MAJ_VER(ver);
+
+	offset = (maj < 2) ? 0x40 : 0x58;
+
+	pr_crit("------------- System MMU PPC Status --------------\n");
+	for (i = 0; i < drvdata->event_cnt; i++) {
+		int event, write = 0;
+		unsigned char preset;
+		cfg = __raw_readl(drvdata->sfrbase +
+				REG_PPC_EVENT_SEL(offset, i));
+		event = cfg & 0xf;
+		if (ver == MAKE_MMU_VER(3, 3)) {
+			type = maj;
+			if (event > 0x7) {
+				write = 1;
+				event -= 0x8;
+			};
+		} else {
+			type = maj - 1;
+			write = !(event % 2);
+		}
+
+		if (ppc_event_name_preset[type][event] < 0) {
+			pr_err("PPC event value is unknown");
+			continue;
+		}
+
+		preset = ppc_event_name_preset[type][event];
+		pr_crit("%s %s %s CNT : %d", dev_name(drvdata->sysmmu),
+			write ? "WRITE" : "READ", ppc_event_name[preset],
+			__raw_readl(drvdata->sfrbase + REG_PPC_PMCNT(i)));
+	}
+	pr_crit("--------------------------------------------------\n");
+}
+
+int sysmmu_set_ppc_event(struct sysmmu_drvdata *drvdata, int event)
+{
+	static char ppc_event_preset[4][2][10] = { /* [type][write][event] */
+		{ /* SYSMMU v1.2 */
+		{5, -1, -1, -1, -1, -1, -1, -1, 1, -1},
+		{4, -1, -1, -1, -1, -1, -1, -1, 0, -1},
+		},
+		{ /* SYSMMU v2.x */
+		{5, 1, 3, -1, -1, -1, -1, -1, -1, -1},
+		{4, 0, 2, -1, -1, -1, -1, -1, -1, -1},
+		},
+		{ /* SYSMMU v3.1/2 */
+		{5, -1, -1, -1, 7, 3, -1, -1, 1, -1},
+		{4, -1, -1, -1, 6, 2, -1, -1, 0, -1},
+		},
+		{ /* SYSMMU v3.3 */
+		{0, -1, -1, 4, 2, 3, 6, 7, 1, 5},
+		{8, -1, -1, 12, 10, 11, 14, 15, 9, 13},
+		},
+	};
+	unsigned int ver, type, offset;
+	u32 cfg, write = 0;
+	char event_sel;
+
+	if (event < 0 || event > TOTAL_ID_NUM)
+		return -EINVAL;
+
+	if (event > READ_FLPD_MISS_PREFETCH) {
+		write = 1;
+		event -= 0x10;
+	}
+
+	ver = __raw_sysmmu_version(drvdata->sfrbase);
+
+	offset = (MMU_MAJ_VER(ver) < 2) ? 0x40 : 0x58;
+
+	if (!(ver == MAKE_MMU_VER(3, 3)))
+		type = MMU_MAJ_VER(ver) - 1;
+	else
+		type = MMU_MAJ_VER(ver);
+
+
+	event_sel = ppc_event_preset[type][write][event];
+	if (event_sel < 0)
+		return -EINVAL;
+
+	if (!drvdata->event_cnt)
+		__raw_writel(0x1, drvdata->sfrbase + REG_PPC_PMNC);
+
+	__raw_writel(event_sel, drvdata->sfrbase +
+			REG_PPC_EVENT_SEL(offset, drvdata->event_cnt));
+	cfg = __raw_readl(drvdata->sfrbase +
+			REG_PPC_CNTENS);
+	__raw_writel(cfg | 0x1 << drvdata->event_cnt,
+			drvdata->sfrbase + REG_PPC_CNTENS);
+
+	return 0;
+}
