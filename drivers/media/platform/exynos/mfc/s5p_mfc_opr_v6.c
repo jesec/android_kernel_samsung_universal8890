@@ -1753,7 +1753,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		WRITEL(reg, S5P_FIMV_E_H264_OPTIONS_2);
 	}
 
-#if defined(CONFIG_SOC_EXYNOS5422)
+#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
 	reg = READL(S5P_FIMV_E_H264_OPTIONS_2);
 	reg |= (0x1 << 3); /* Enable ECO MODE */
 	WRITEL(reg, S5P_FIMV_E_H264_OPTIONS_2);
