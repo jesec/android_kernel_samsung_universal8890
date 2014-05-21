@@ -1782,6 +1782,20 @@ static int parse_hevc_qos_platdata(struct device_node *np, char *node_name,
 
 	return ret;
 }
+
+#if defined(CONFIG_EXYNOS5430_HD)
+static int mif_for_hd[QOS_STEP_NUM] =
+	/* For HEVC */
+	{ 127000, 127000, 211000, 413000 };
+
+static void parse_hevc_qos_mif_update(struct hevc_dev *dev, int num_steps)
+{
+	int i;
+
+	for (i = 0; i < num_steps; i++)
+		g_hevc_qos_table[i].freq_mif = mif_for_hd[i];
+}
+#endif
 #endif
 
 static void hevc_parse_dt(struct device_node *np, struct hevc_dev *hevc)
@@ -1801,6 +1815,9 @@ static void hevc_parse_dt(struct device_node *np, struct hevc_dev *hevc)
 	parse_hevc_qos_platdata(np, "hevc_qos_variant_1", &g_hevc_qos_table[1]);
 	parse_hevc_qos_platdata(np, "hevc_qos_variant_2", &g_hevc_qos_table[2]);
 	parse_hevc_qos_platdata(np, "hevc_qos_variant_3", &g_hevc_qos_table[3]);
+#if defined(CONFIG_EXYNOS5430_HD)
+	parse_hevc_qos_mif_update(hevc, pdata->num_qos_steps);
+#endif
 #endif
 }
 
