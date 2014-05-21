@@ -2387,6 +2387,23 @@ static int parse_mfc_qos_extra_init(struct s5p_mfc_qos *pdata)
 	return 0;
 }
 #endif
+
+#if defined(CONFIG_EXYNOS5430_HD)
+static int mif_for_hd[2][QOS_STEP_NUM] = {
+	/* For MFC0 */
+	{ 127000, 127000, 158000, 211000, 825000, 413000 },
+	/* For MFC1 */
+	{ 127000, 127000, 158000, 211000, 825000, 0 },
+};
+
+static void parse_mfc_qos_mif_update(struct s5p_mfc_dev *dev, int num_steps)
+{
+	int i;
+
+	for (i = 0; i < num_steps; i++)
+		g_mfc_qos_table[i].freq_mif = mif_for_hd[dev->id][i];
+}
+#endif
 #endif
 
 static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
@@ -2430,6 +2447,9 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 	parse_mfc_qos_extra_init(&g_mfc_qos_extra[4]);
 	parse_mfc_qos_extra_init(&g_mfc_qos_extra[5]);
 #endif
+#endif
+#if defined(CONFIG_EXYNOS5430_HD)
+	parse_mfc_qos_mif_update(mfc, pdata->num_qos_steps);
 #endif
 #endif
 }
