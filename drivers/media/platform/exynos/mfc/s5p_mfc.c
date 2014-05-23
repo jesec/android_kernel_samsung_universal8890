@@ -2319,7 +2319,7 @@ static void *mfc_get_drv_data(struct platform_device *pdev);
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 #if defined(CONFIG_SOC_EXYNOS5430_REV_1)
-#define QOS_STEP_NUM (6)
+#define QOS_STEP_NUM (7)
 #elif defined(CONFIG_SOC_EXYNOS5422_REV_0) || defined(CONFIG_SOC_EXYNOS5433)
 #define QOS_STEP_NUM (5)
 #else
@@ -2391,9 +2391,9 @@ static int parse_mfc_qos_extra_init(struct s5p_mfc_qos *pdata)
 #if defined(CONFIG_EXYNOS5430_HD)
 static int mif_for_hd[2][QOS_STEP_NUM] = {
 	/* For MFC0 */
-	{ 127000, 127000, 158000, 211000, 825000, 413000 },
+	{ 127000, 127000, 127000, 158000, 211000, 825000, 413000 },
 	/* For MFC1 */
-	{ 127000, 127000, 158000, 211000, 825000, 0 },
+	{ 127000, 127000, 127000, 158000, 211000, 825000, 0 },
 };
 
 static void parse_mfc_qos_mif_update(struct s5p_mfc_dev *dev, int num_steps)
@@ -2430,6 +2430,7 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 #if defined(CONFIG_SOC_EXYNOS5430_REV_1)
 	/* Max table for Decoder */
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_5", &g_mfc_qos_table[5]);
+	parse_mfc_qos_platdata(np, "mfc_qos_variant_6", &g_mfc_qos_table[6]);
 #endif
 #endif
 #if defined(CONFIG_SOC_EXYNOS5422_REV_0)
@@ -2446,6 +2447,7 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 #if defined(CONFIG_SOC_EXYNOS5430)
 	parse_mfc_qos_extra_init(&g_mfc_qos_extra[4]);
 	parse_mfc_qos_extra_init(&g_mfc_qos_extra[5]);
+	parse_mfc_qos_extra_init(&g_mfc_qos_extra[6]);
 #endif
 #endif
 #if defined(CONFIG_EXYNOS5430_HD)
