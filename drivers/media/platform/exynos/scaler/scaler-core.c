@@ -1158,9 +1158,9 @@ static void sc_fence_work(struct work_struct *work)
 		if (ret)
 			dev_warn(ctx->sc_dev->dev,
 					"sync_fence_wait() error (%d)\n", ret);
-
-		sync_fence_put(fence);
 	}
+
+	sync_fence_put(fence);
 
 	/* OK to preceed the timed out buffers: It does not harm the system */
 	v4l2_m2m_buf_queue(ctx->m2m_ctx, &svb->mb.vb);
