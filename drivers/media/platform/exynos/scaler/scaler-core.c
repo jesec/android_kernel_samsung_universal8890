@@ -298,9 +298,9 @@ static const struct sc_fmt *sc_find_format(struct sc_dev *sc,
 		if (sc_fmt->pixelformat == pixfmt) {
 			if (!!(sc_fmt->cfg_val & SCALER_CFG_TILE_EN)) {
 				/* tile mode is not supported from v3.0.0 */
-				if (sc->version < SCALER_VERSION(3, 0, 0))
+				if (sc->version >= SCALER_VERSION(3, 0, 0))
 					return NULL;
-				if (output_buf)
+				if (!output_buf)
 					return NULL;
 			}
 			/* bytes swap is not supported under v2.1.0 */
