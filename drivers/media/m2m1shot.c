@@ -254,6 +254,8 @@ static int m2m1shot_buffer_get_userptr_plane(struct m2m1shot_device *m21dev,
 		sg_dma_address(sgl) = page_to_phys(sg_page(sgl));
 	}
 
+	vfree(pages);
+
 	return 0;
 err_sg:
 	kfree(plane->sgt);
