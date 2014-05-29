@@ -1651,8 +1651,10 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 		unsigned long pmd_next;
 		pmd_t *pmd;
 
-		if (pgd_none_or_clear_bad(pgd))
+		if (pgd_none_or_clear_bad(pgd)) {
+			ret = -EBADR;
 			goto out_unmap;
+		}
 
 		pgd_next = pgd_addr_end(start, end);
 		pmd = pmd_offset((pud_t *)pgd, start);
@@ -1662,8 +1664,10 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 			sysmmu_pte_t *pent, *pent_first;
 			sysmmu_pte_t *sent;
 
-			if (pmd_none_or_clear_bad(pmd))
+			if (pmd_none_or_clear_bad(pmd)) {
+				ret = -EBADR;
 				goto out_unmap;
+			}
 
 			pmd_next = pmd_addr_end(start, pgd_next);
 			pmd_next = min(ALIGN(start + 1, SECT_SIZE), pmd_next);
@@ -1674,14 +1678,16 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 			sent = section_entry(priv->pgtable, start);
 			pent = alloc_lv2entry_fast(priv, sent, start);
 			if (IS_ERR(pent)) {
-				ret = PTR_ERR(pent);
+				ret = PTR_ERR(pent); /* ENOMEM or EADDRINUSE */
 				goto out_unmap;
 			}
 
 			pent_first = pent;
 			do {
-				if (!pte_present(*pte))
+				if (!pte_present(*pte)) {
+					ret = -EPERM;
 					goto out_unmap;
+				}
 
 				if (write && (!pte_write(*pte) ||
 						!pte_dirty(*pte))) {
@@ -1689,8 +1695,10 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 							vma, start,
 							pte, pmd,
 							FAULT_FLAG_WRITE);
-					if (IS_ERR_VALUE(ret))
+					if (IS_ERR_VALUE(ret)) {
+						ret = -EIO;
 						goto out_unmap;
+					}
 				}
 
 				if (lv2ent_fault(pent)) {
@@ -1714,8 +1722,8 @@ out_unmap:
 	up_read(&mm->mmap_sem);
 
 	if (ret) {
-		pr_debug("%s: Ignoring mapping for %#lx ~ %#lx\n",
-					__func__, start, end);
+		pr_debug("%s: Ignoring mapping for %#lx ~ %#lx (%d)\n",
+					__func__, start, end, ret);
 		__sysmmu_unmap_user_pages(dev, mm, vaddr, start - vaddr);
 	}
 
