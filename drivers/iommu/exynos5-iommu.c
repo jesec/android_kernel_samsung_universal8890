@@ -202,6 +202,8 @@ static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 	unsigned long cfg =
 		__raw_readl(drvdata->sfrbase + REG_MMU_CFG) & CFG_MASK;
 
+	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+
 	cfg |= 7 << 16; /* enabling PB0 ~ PB2 */
 
 	switch (num_bufs) {
@@ -276,12 +278,28 @@ static unsigned int find_num_pb(unsigned int num_pb, unsigned int lmm)
 	return num_pb;
 }
 
+static void __sysmmu_init_pb(void __iomem *sfrbase, unsigned int num_pb)
+{
+	unsigned int i = 0;
+
+	for (i = 0; i < num_pb; i++) {
+		__raw_writel(i, sfrbase + REG_PB_INDICATE);
+		__raw_writel(0, sfrbase + REG_PB_CFG);
+	}
+
+	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+}
+
 static void __sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
 				struct sysmmu_prefbuf prefbuf[], int num_bufs)
 {
 	unsigned int i, num_pb, lmm;
 
 	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
+
+	__sysmmu_init_pb(drvdata->sfrbase,
+			find_num_pb(num_pb,
+				__raw_readl(drvdata->sfrbase + REG_PB_LMM)));
 
 	lmm = find_lmm_preset(num_pb, (unsigned int)num_bufs);
 	num_pb = find_num_pb(num_pb, lmm);
@@ -292,7 +310,6 @@ static void __sysmmu_set_pbuf_ver33(struct sysmmu_drvdata *drvdata,
 
 	for (i = 0; i < num_pb; i++) {
 		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
-		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
 		if ((prefbuf[i].size > 0) && (i < num_bufs)) {
 			__sysmmu_set_prefbuf(drvdata->sfrbase + pbuf_offset[3],
 					prefbuf[i].base, prefbuf[i].size, 0);
@@ -340,6 +357,10 @@ static void __sysmmu_disable_pbuf_ver33(struct sysmmu_drvdata *drvdata)
 	unsigned int i, num_pb;
 
 	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
+
+	__sysmmu_init_pb(drvdata->sfrbase,
+			find_num_pb(num_pb,
+				__raw_readl(drvdata->sfrbase + REG_PB_LMM)));
 
 	__raw_writel(0, drvdata->sfrbase + REG_PB_LMM);
 

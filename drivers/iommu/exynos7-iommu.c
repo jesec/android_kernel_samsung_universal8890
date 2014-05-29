@@ -123,23 +123,6 @@ void __sysmmu_set_ptbase(void __iomem *sfrbase, phys_addr_t pfn_pgtable)
 	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
 }
 
-static void __sysmmu_disable_pbuf(struct sysmmu_drvdata *drvdata)
-{
-	unsigned int i, num_pb;
-
-	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
-
-	__raw_writel(0, drvdata->sfrbase + REG_PB_LMM);
-
-	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0);
-
-	for (i = 0; i < num_pb; i++) {
-		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
-		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
-		SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0, 0);
-	}
-}
-
 static unsigned int find_lmm_preset(unsigned int num_pb, unsigned int num_bufs)
 {
 	static char lmm_preset[4][6] = {  /* [num of PB][num of buffers] */
@@ -173,12 +156,28 @@ static unsigned int find_num_pb(unsigned int num_pb, unsigned int lmm)
 	return num_pb;
 }
 
+static void __sysmmu_init_pb(void __iomem *sfrbase, unsigned int num_pb)
+{
+	unsigned int i = 0;
+
+	for (i = 0; i < num_pb; i++) {
+		__raw_writel(i, sfrbase + REG_PB_INDICATE);
+		__raw_writel(0, sfrbase + REG_PB_CFG);
+	}
+
+	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+}
+
 static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 		struct sysmmu_prefbuf prefbuf[], int num_bufs)
 {
 	unsigned int i, num_pb, lmm;
 
 	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
+
+	__sysmmu_init_pb(drvdata->sfrbase,
+			find_num_pb(num_pb,
+				__raw_readl(drvdata->sfrbase + REG_PB_LMM)));
 
 	lmm = find_lmm_preset(num_pb, (unsigned int)num_bufs);
 	num_pb = find_num_pb(num_pb, lmm);
@@ -189,7 +188,6 @@ static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 
 	for (i = 0; i < num_pb; i++) {
 		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
-		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
 		if ((prefbuf[i].size > 0) && (i < num_bufs)) {
 			__raw_writel(prefbuf[i].base,
 				     drvdata->sfrbase + REG_PB_START_ADDR);
@@ -210,6 +208,27 @@ static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata,
 			SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
 						0, 0, 0);
 		}
+	}
+}
+
+static void __sysmmu_disable_pbuf(struct sysmmu_drvdata *drvdata)
+{
+	unsigned int i, num_pb;
+
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
+
+	__sysmmu_init_pb(drvdata->sfrbase,
+			find_num_pb(num_pb,
+				__raw_readl(drvdata->sfrbase + REG_PB_LMM)));
+
+	__raw_writel(0, drvdata->sfrbase + REG_PB_LMM);
+
+	SYSMMU_EVENT_LOG_PBLMM(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0);
+
+	for (i = 0; i < num_pb; i++) {
+		__raw_writel(i, drvdata->sfrbase + REG_PB_INDICATE);
+		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
+		SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata), 0, 0, 0);
 	}
 }
 
