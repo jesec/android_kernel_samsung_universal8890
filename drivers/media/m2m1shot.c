@@ -317,7 +317,7 @@ static int m2m1shot_buffer_get_userptr(struct m2m1shot_device *m21dev,
 					struct m2m1shot_buffer_dma *dma_buffer,
 					int write)
 {
-	int i, ret;
+	int i, ret = 0;
 	struct dma_buf *dmabuf;
 
 	for (i = 0; i < buffer->num_planes; i++) {
