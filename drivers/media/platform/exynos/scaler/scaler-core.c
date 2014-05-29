@@ -1860,11 +1860,10 @@ static int sc_run_next_job(struct sc_dev *sc)
 	sc_hwset_soft_reset(sc);
 
 	sc_set_scale_ratio(sc, ctx->h_ratio, ctx->v_ratio);
-	if (ctx->i_frame)
+	if (ctx->i_frame) {
 		set_bit(CTX_INT_FRAME, &ctx->flags);
-
-	if (test_bit(CTX_INT_FRAME, &ctx->flags))
 		d_frame = &ctx->i_frame->frame;
+	}
 
 	sc_set_csc_coef(ctx);
 
