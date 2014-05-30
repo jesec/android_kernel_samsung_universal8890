@@ -1246,19 +1246,23 @@ static struct console s3c24xx_serial_console;
 static int __init s3c24xx_serial_console_init(void)
 {
 	struct clk *console_clk;
+	char pclk_name[16], sclk_name[16];
+
+	sprintf(pclk_name, "console-pclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
+	sprintf(sclk_name, "console-sclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
 
 	pr_info("Enable Console Clock to add refference counter\n");
 
-	console_clk = clk_get(NULL, "console-pclk");
+	console_clk = clk_get(NULL, pclk_name);
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get Console pclk!(it's not err)\n");
+		pr_err("Can't get %s!(it's not err)\n", pclk_name);
 	} else {
 		clk_prepare_enable(console_clk);
 	}
 
-	console_clk = clk_get(NULL, "console-sclk");
+	console_clk = clk_get(NULL, sclk_name);
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get Console sclk!(it's not err)\n");
+		pr_err("Can't get %s!(it's not err)\n", sclk_name);
 	} else {
 		clk_prepare_enable(console_clk);
 	}
