@@ -2007,6 +2007,8 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	WRITEL(reg, S5P_FIMV_E_PICTURE_PROFILE);
 
 	reg = 0;
+	/* Disable IVF header */
+	reg |= (0x1 << 12);
 	reg |= (p_vp8->hierarchy_qp_enable & 0x1) << 11;
 	reg |= (p_vp8->intra_4x4mode_disable & 0x1) << 10;
 	reg |= (p_vp8->vp8_numberofpartitions & 0xF) << 3;
