@@ -2692,8 +2692,9 @@ static int vidioc_streamoff(struct file *file, void *priv,
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		ctx->last_framerate = 0;
 		memset(&ctx->last_timestamp, 0, sizeof(struct timeval));
-		s5p_mfc_qos_off(ctx);
 		ret = vb2_streamoff(&ctx->vq_src, type);
+		if (!ret)
+			s5p_mfc_qos_off(ctx);
 	} else {
 		ret = vb2_streamoff(&ctx->vq_dst, type);
 	}

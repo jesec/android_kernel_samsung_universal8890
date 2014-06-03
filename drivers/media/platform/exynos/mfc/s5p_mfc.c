@@ -2077,10 +2077,6 @@ static int s5p_mfc_release(struct file *file)
 	}
 #endif
 
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-	s5p_mfc_qos_off(ctx);
-#endif
-
 	if (call_cop(ctx, cleanup_ctx_ctrls, ctx) < 0)
 		mfc_err_ctx("failed in cleanup_ctx_ctrl\n");
 
@@ -2209,6 +2205,8 @@ static int s5p_mfc_release(struct file *file)
 		}
 #endif
 	}
+
+	s5p_mfc_qos_off(ctx);
 
 	/* Free resources */
 	vb2_queue_release(&ctx->vq_src);
