@@ -910,26 +910,30 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 
 	init_completion(&i2c->msg_complete);
 
-	i2c->irq = ret = irq_of_parse_and_map(np, 0);
-	if (ret <= 0) {
-		dev_err(&pdev->dev, "cannot find HS-I2C IRQ\n");
-		ret = -EINVAL;
-		goto err_clk;
-	}
+	if (i2c->operation_mode == HSI2C_INTERRUPT) {
+		i2c->irq = ret = irq_of_parse_and_map(np, 0);
+		if (ret <= 0) {
+			dev_err(&pdev->dev, "cannot find HS-I2C IRQ\n");
+			ret = -EINVAL;
+			goto err_clk;
+		}
 
-	if (i2c->check_transdone_int == 1) {
-		ret = devm_request_irq(&pdev->dev, i2c->irq,
-			exynos5_i2c_irq_chkdone, 0, dev_name(&pdev->dev), i2c);
-		disable_irq(i2c->irq);
-	} else
-		ret = devm_request_irq(&pdev->dev, i2c->irq, exynos5_i2c_irq,
+		if (i2c->check_transdone_int == 1) {
+			ret = devm_request_irq(&pdev->dev, i2c->irq,
+					exynos5_i2c_irq_chkdone,
+					0, dev_name(&pdev->dev), i2c);
+			disable_irq(i2c->irq);
+		} else
+			ret = devm_request_irq(&pdev->dev, i2c->irq,
+					exynos5_i2c_irq,
 					0, dev_name(&pdev->dev), i2c);
 
-	if (ret != 0) {
-		dev_err(&pdev->dev, "cannot request HS-I2C IRQ %d\n", i2c->irq);
-		goto err_clk;
+		if (ret != 0) {
+			dev_err(&pdev->dev, "cannot request HS-I2C IRQ %d\n",
+					i2c->irq);
+			goto err_clk;
+		}
 	}
-
 	ret = exynos5_hsi2c_clock_setup(i2c);
 	if (ret)
 		goto err_clk;
