@@ -527,9 +527,9 @@ int s5p_mfc_sleep(struct s5p_mfc_dev *dev)
 		return ret;
 	}
 
-	spin_lock(&dev->condlock);
+	spin_lock_irq(&dev->condlock);
 	set_bit(ctx->num, &dev->hw_lock);
-	spin_unlock(&dev->condlock);
+	spin_unlock_irq(&dev->condlock);
 
 	s5p_mfc_clock_on(dev);
 	s5p_mfc_clean_dev_int_flags(dev);

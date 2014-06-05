@@ -1914,9 +1914,9 @@ static int enc_post_seq_start(struct s5p_mfc_ctx *ctx)
 		ctx->state = MFCINST_RUNNING;
 
 		if (s5p_mfc_enc_ctx_ready(ctx)) {
-			spin_lock(&dev->condlock);
+			spin_lock_irq(&dev->condlock);
 			set_bit(ctx->num, &dev->ctx_work_bits);
-			spin_unlock(&dev->condlock);
+			spin_unlock_irq(&dev->condlock);
 		}
 		queue_work(dev->sched_wq, &dev->sched_work);
 	}
@@ -2036,9 +2036,9 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 
 	if (enc->in_slice) {
 		if (ctx->dst_queue_cnt == 0) {
-			spin_lock(&dev->condlock);
+			spin_lock_irq(&dev->condlock);
 			clear_bit(ctx->num, &dev->ctx_work_bits);
-			spin_unlock(&dev->condlock);
+			spin_unlock_irq(&dev->condlock);
 		}
 
 		spin_unlock_irqrestore(&dev->irqlock, flags);
@@ -2128,9 +2128,9 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 	}
 
 	if ((ctx->src_queue_cnt == 0) || (ctx->dst_queue_cnt == 0)) {
-		spin_lock(&dev->condlock);
+		spin_lock_irq(&dev->condlock);
 		clear_bit(ctx->num, &dev->ctx_work_bits);
-		spin_unlock(&dev->condlock);
+		spin_unlock_irq(&dev->condlock);
 	}
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);

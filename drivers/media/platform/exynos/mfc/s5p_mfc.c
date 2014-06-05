@@ -222,9 +222,9 @@ inline void clear_work_bit(struct s5p_mfc_ctx *ctx)
 		return;
 	}
 
-	spin_lock(&dev->condlock);
+	spin_lock_irq(&dev->condlock);
 	clear_bit(ctx->num, &dev->ctx_work_bits);
-	spin_unlock(&dev->condlock);
+	spin_unlock_irq(&dev->condlock);
 }
 
 /* Wake up context wait_queue */
@@ -1558,9 +1558,9 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		ctx->int_type = reason;
 		ctx->int_err = err;
 		ctx->int_cond = 1;
-		spin_lock(&dev->condlock);
+		spin_lock_irq(&dev->condlock);
 		clear_bit(ctx->num, &dev->ctx_work_bits);
-		spin_unlock(&dev->condlock);
+		spin_unlock_irq(&dev->condlock);
 		if (err != 0) {
 			if (clear_hw_bit(ctx) == 0)
 				BUG();
@@ -1596,15 +1596,15 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			if (ctx->is_dpb_realloc)
 				ctx->is_dpb_realloc = 0;
 			if (s5p_mfc_dec_ctx_ready(ctx)) {
-				spin_lock(&dev->condlock);
+				spin_lock_irq(&dev->condlock);
 				set_bit(ctx->num, &dev->ctx_work_bits);
-				spin_unlock(&dev->condlock);
+				spin_unlock_irq(&dev->condlock);
 			}
 		} else if (ctx->type == MFCINST_ENCODER) {
 			if (s5p_mfc_enc_ctx_ready(ctx)) {
-				spin_lock(&dev->condlock);
+				spin_lock_irq(&dev->condlock);
 				set_bit(ctx->num, &dev->ctx_work_bits);
-				spin_unlock(&dev->condlock);
+				spin_unlock_irq(&dev->condlock);
 			}
 		}
 
