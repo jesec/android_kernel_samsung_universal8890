@@ -631,11 +631,13 @@ int s5p_mfc_dec_ctx_ready(struct s5p_mfc_ctx *ctx)
 		ctx->state == MFCINST_RUNNING &&
 		ctx->wait_state == WAIT_NONE &&
 		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1) ||
+		 (dec->is_dynamic_dpb && is_h264(ctx) && dec->ref_queue_cnt == (ctx->dpb_count + 5)) ||
 		(!dec->is_dynamic_dpb && ctx->dst_queue_cnt >= ctx->dpb_count)))
 		return 1;
 	/* Context is to return last frame */
 	if (ctx->state == MFCINST_FINISHING &&
 		((dec->is_dynamic_dpb && ctx->dst_queue_cnt >= 1) ||
+		 (dec->is_dynamic_dpb && is_h264(ctx) && dec->ref_queue_cnt == (ctx->dpb_count + 5)) ||
 		(!dec->is_dynamic_dpb && ctx->dst_queue_cnt >= ctx->dpb_count)))
 		return 1;
 	/* Context is to set buffers */

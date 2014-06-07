@@ -2459,6 +2459,68 @@ static inline int s5p_mfc_run_dec_last_frames(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
+#define is_full_DPB(ctx, total)		(((ctx)->dst_queue_cnt == 1) &&		\
+					((total) >= (ctx->dpb_count + 5)))
+#define is_full_refered(ctx, dec)	(((ctx)->dst_queue_cnt == 0) &&		\
+					(((dec)->ref_queue_cnt) == ((ctx)->dpb_count + 5)))
+/* Try to search non-referenced DPB on ref-queue */
+static struct s5p_mfc_buf *search_for_DPB(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dec *dec = ctx->dec_priv;
+	struct s5p_mfc_buf *dst_vb = NULL;
+	int found = 0, temp_index, sum_dpb;
+
+	mfc_debug(2, "Failed to find non-referenced DPB\n");
+
+	list_for_each_entry(dst_vb, &dec->ref_queue, list) {
+		temp_index = dst_vb->vb.v4l2_buf.index;
+		if ((dec->dynamic_used & (1 << temp_index)) == 0) {
+			found = 1;
+			break;
+		}
+	}
+
+	if (!found) {
+		dst_vb = list_entry(ctx->dst_queue.next,
+				struct s5p_mfc_buf, list);
+
+		sum_dpb = ctx->dst_queue_cnt + dec->ref_queue_cnt;
+
+		if (is_full_DPB(ctx, sum_dpb)) {
+			mfc_debug(2, "We should use this buffer.\n");
+		} else if (is_full_refered(ctx, dec)) {
+			mfc_debug(2, "All buffers are referenced.\n");
+			dst_vb = list_entry(dec->ref_queue.next,
+					struct s5p_mfc_buf, list);
+
+			list_del(&dst_vb->list);
+			dec->ref_queue_cnt--;
+
+			list_add_tail(&dst_vb->list, &ctx->dst_queue);
+			ctx->dst_queue_cnt++;
+		} else {
+			list_del(&dst_vb->list);
+			ctx->dst_queue_cnt--;
+
+			list_add_tail(&dst_vb->list, &dec->ref_queue);
+			dec->ref_queue_cnt++;
+
+			mfc_debug(2, "Failed to start, ref = %d, dst = %d\n",
+					dec->ref_queue_cnt, ctx->dst_queue_cnt);
+
+			return NULL;
+		}
+	} else {
+		list_del(&dst_vb->list);
+		dec->ref_queue_cnt--;
+
+		list_add_tail(&dst_vb->list, &ctx->dst_queue);
+		ctx->dst_queue_cnt++;
+	}
+
+	return dst_vb;
+}
+
 static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev;
@@ -2486,7 +2548,14 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 		return -EAGAIN;
 	}
-	if ((dec->is_dynamic_dpb && ctx->dst_queue_cnt == 0) ||
+	if (is_h264(ctx)) {
+		if (dec->is_dynamic_dpb && ctx->dst_queue_cnt == 0 &&
+			dec->ref_queue_cnt < (ctx->dpb_count + 5)) {
+			spin_unlock_irqrestore(&dev->irqlock, flags);
+			return -EAGAIN;
+		}
+
+	} else if ((dec->is_dynamic_dpb && ctx->dst_queue_cnt == 0) ||
 		(!dec->is_dynamic_dpb && ctx->dst_queue_cnt < ctx->dpb_count)) {
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 		return -EAGAIN;
@@ -2513,8 +2582,30 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 		mfc_err_ctx("failed in set_buf_ctrls_val\n");
 
 	if (dec->is_dynamic_dpb) {
-		dst_vb = list_entry(ctx->dst_queue.next,
-						struct s5p_mfc_buf, list);
+		if (is_h264(ctx)) {
+			int found = 0, temp_index;
+
+			/* Try to use the non-referenced DPB on dst-queue */
+			list_for_each_entry(dst_vb, &ctx->dst_queue, list) {
+				temp_index = dst_vb->vb.v4l2_buf.index;
+				if ((dec->dynamic_used & (1 << temp_index)) == 0) {
+					found = 1;
+					break;
+				}
+			}
+
+			if (!found) {
+				dst_vb = search_for_DPB(ctx);
+				if (!dst_vb) {
+					spin_unlock_irqrestore(&dev->irqlock, flags);
+					return -EAGAIN;
+				}
+			}
+		} else {
+			dst_vb = list_entry(ctx->dst_queue.next,
+					struct s5p_mfc_buf, list);
+		}
+
 		mfc_set_dynamic_dpb(ctx, dst_vb);
 	}
 
