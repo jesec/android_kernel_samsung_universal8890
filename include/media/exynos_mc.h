@@ -27,8 +27,10 @@
 
 #define MDEV_MODULE_NAME "exynos-mdev"
 #define MAX_GSC_SUBDEV		3
+#define MAX_VPP_SUBDEV		4
 #define MDEV_MAX_NUM		3
 
+#define VPP_PAD_SOURCE		0
 #define GSC_OUT_PAD_SINK	0
 #define GSC_OUT_PAD_SOURCE	1
 
@@ -82,6 +84,11 @@ enum gsc_ioctl_for_sync {
 	GSC_WAIT_STOP,
 };
 
+enum vpp_sd_ioctl {
+	VPP_WIN_CONFIG,
+	VPP_STOP,
+};
+
 enum mdev_node {
 	MDEV_OUTPUT,
 	MDEV_CAPTURE,
@@ -115,6 +122,7 @@ struct exynos_md {
 	struct media_device	media_dev;
 	struct v4l2_device	v4l2_dev;
 	struct platform_device	*pdev;
+	struct v4l2_subdev	*vpp_sd[MAX_VPP_SUBDEV];
 	struct v4l2_subdev	*gsc_sd[MAX_GSC_SUBDEV];
 	struct v4l2_subdev	*gsc_wb_sd;
 	struct v4l2_subdev	*gsc_cap_sd[MAX_GSC_SUBDEV];
