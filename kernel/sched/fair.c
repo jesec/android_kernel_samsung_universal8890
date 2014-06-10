@@ -5448,13 +5448,6 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 			avg->hmp_last_up_migration : avg->hmp_last_down_migration;
 
 		contrib = avg->load_avg_ratio;
-		/*
-		 * Consider a runqueue completely busy if there is any load
-		 * on it. Definitely not the best for overall fairness, but
-		 * does well in typical Android use cases.
-		 */
-		if(contrib)
-			contrib = 1023;
 
 		if ((contrib < min_runnable_load) ||
 			(contrib == min_runnable_load &&
@@ -8597,7 +8590,7 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 		return 0;
 
 	/* hmp_domain_min_load only returns 0 for an
-	 * idle CPU or 1023 for any partly-busy one.
+	 * idle CPU.
 	 * Be explicit about requirement for an idle CPU.
 	 */
 	if (hmp_domain_min_load(hmp_faster_domain(cpu), &temp_target_cpu,
