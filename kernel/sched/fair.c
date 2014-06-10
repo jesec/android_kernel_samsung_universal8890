@@ -8621,14 +8621,15 @@ static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 	}
 #endif
 
-	if (hmp_boost())
-		if (!hmp_domain_min_load(hmp_cpu_domain(cpu), NULL, NULL))
-			return 0;
-
 	/* Let the task load settle before doing another down migration */
 	now = cpu_rq(cpu)->clock_task;
 	if (((now - se->avg.hmp_last_down_migration) >> 10)
 					< hmp_next_down_threshold)
+		return 0;
+
+	if (hmp_domain_min_load(hmp_cpu_domain(cpu), NULL, NULL))
+		return 1;
+	else if (hmp_boost())
 		return 0;
 
 	if (cpumask_intersects(&hmp_slower_domain(cpu)->cpus,
