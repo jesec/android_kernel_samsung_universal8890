@@ -5435,10 +5435,11 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 	struct cpumask temp_cpumask;
 	/*
 	 * only look at CPUs allowed if specified,
-	 * otherwise look at all online CPUs in the
-	 * right HMP domain
+	 * always consider online CPUs in the right HMP domain
 	 */
-	cpumask_and(&temp_cpumask, &hmpd->cpus, affinity ? affinity : cpu_online_mask);
+	cpumask_and(&temp_cpumask, &hmpd->cpus, cpu_online_mask);
+	if (affinity)
+		cpumask_and(&temp_cpumask, &temp_cpumask, affinity);
 
 	for_each_cpu_mask(cpu, temp_cpumask) {
 		avg = &cpu_rq(cpu)->avg;
