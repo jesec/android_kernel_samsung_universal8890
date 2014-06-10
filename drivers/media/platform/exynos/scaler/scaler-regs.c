@@ -544,21 +544,34 @@ void sc_hwset_vratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
 
 static void __sc_hwset_hcoef(void __iomem *regs, const __u32 sc_coef[][4])
 {
-	unsigned int phase, cnt = 0;
+	unsigned int phase;
 
 	for (phase = 0; phase < 9; phase++) {
-		int tab;
-		for (tab = 4; tab != 0; tab--) {
-			__u32 val = sc_coef[phase][tab - 1];
-			writel(val, regs + SCALER_YHCOEF + cnt * 0x4);
-			writel(val, regs + SCALER_CHCOEF + cnt * 0x4);
-			cnt++;
-		}
+		writel(sc_coef[phase][3],
+				regs + SCALER_YHCOEF + phase * 16);
+		writel(sc_coef[phase][2],
+				regs + SCALER_YHCOEF + phase * 16 + 4);
+		writel(sc_coef[phase][1],
+				regs + SCALER_YHCOEF + phase * 16 + 8);
+		writel(sc_coef[phase][0],
+				regs + SCALER_YHCOEF + phase * 16 + 12);
+		writel(sc_coef[phase][3],
+				regs + SCALER_CHCOEF + phase * 16);
+		writel(sc_coef[phase][2],
+				regs + SCALER_CHCOEF + phase * 16 + 4);
+		writel(sc_coef[phase][1],
+				regs + SCALER_CHCOEF + phase * 16 + 8);
+		writel(sc_coef[phase][0],
+				regs + SCALER_CHCOEF + phase * 16 + 12);
 	}
 }
 
 void sc_hwset_hcoef(struct sc_dev *sc, unsigned int coef)
 {
+	/* reset value of the coefficient registers are the 8:8 table */
+	if (!IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) && (coef == 0))
+		return;
+
 	BUG_ON(coef >= ARRAY_SIZE(sc_coef_8t));
 
 	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_8t[coef]) < 9);
@@ -568,21 +581,22 @@ void sc_hwset_hcoef(struct sc_dev *sc, unsigned int coef)
 
 static void __sc_hwset_vcoef(void __iomem *regs, const __u32 sc_coef[][2])
 {
-	unsigned int phase, cnt = 0;
+	unsigned int phase;
 
 	for (phase = 0; phase < 9; phase++) {
-		int tab;
-		for (tab = 2; tab != 0; tab--) {
-			__u32 val = sc_coef[phase][tab - 1];
-			writel(val, regs + SCALER_YVCOEF + cnt * 0x4);
-			writel(val, regs + SCALER_CVCOEF + cnt * 0x4);
-			cnt++;
-		}
+		writel(sc_coef[phase][1], regs + SCALER_YVCOEF + phase * 8);
+		writel(sc_coef[phase][0], regs + SCALER_YVCOEF + phase * 8 + 4);
+		writel(sc_coef[phase][1], regs + SCALER_CVCOEF + phase * 8);
+		writel(sc_coef[phase][0], regs + SCALER_CVCOEF + phase * 8 + 4);
 	}
 }
 
 void sc_hwset_vcoef(struct sc_dev *sc, unsigned int coef)
 {
+	/* reset value of the coefficient registers are the 8:8 table */
+	if (!IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) && (coef == 0))
+		return;
+
 	BUG_ON(coef >= ARRAY_SIZE(sc_coef_4t));
 
 	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_4t[coef]) < 9);
