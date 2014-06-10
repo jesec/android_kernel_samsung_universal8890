@@ -532,24 +532,14 @@ void sc_hwset_flip_rotation(struct sc_dev *sc, u32 direction, int degree)
 	writel(cfg, sc->regs + SCALER_ROT_CFG);
 }
 
-void sc_hwset_hratio(struct sc_dev *sc, u32 ratio)
+void sc_hwset_hratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
 {
-	unsigned long cfg = readl(sc->regs + SCALER_H_RATIO);
-
-	sc_dbg("h-ratio is %d\n", ratio);
-	cfg &= ~SCALER_RATIO_MASK;
-	cfg |= ratio;
-	writel(cfg, sc->regs + SCALER_H_RATIO);
+	writel((pre_ratio << 28) | ratio, sc->regs + SCALER_H_RATIO);
 }
 
-void sc_hwset_vratio(struct sc_dev *sc, u32 ratio)
+void sc_hwset_vratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
 {
-	unsigned long cfg = readl(sc->regs + SCALER_V_RATIO);
-
-	sc_dbg("v-ratio is %d\n", ratio);
-	cfg &= ~SCALER_RATIO_MASK;
-	cfg |= ratio;
-	writel(cfg, sc->regs + SCALER_V_RATIO);
+	writel((pre_ratio << 28) | ratio, sc->regs + SCALER_V_RATIO);
 }
 
 static void __sc_hwset_hcoef(void __iomem *regs, const __u32 sc_coef[][4])
@@ -669,7 +659,8 @@ void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame)
 }
 
 void sc_hwset_src_crop(struct sc_dev *sc, struct v4l2_rect *rect,
-		       const struct sc_fmt *fmt)
+		       const struct sc_fmt *fmt,
+		       unsigned int pre_h_ratio, unsigned int pre_v_ratio)
 {
 	unsigned long cfg1, cfg2;
 
@@ -685,6 +676,12 @@ void sc_hwset_src_crop(struct sc_dev *sc, struct v4l2_rect *rect,
 	writel(cfg1, sc->regs + SCALER_SRC_C_POS);
 
 	cfg2 = SCALER_SRC_W(rect->width) | SCALER_SRC_H(rect->height);
+
+	writel(cfg2, sc->regs + SCALER_SRC_PRESC_WH);
+
+	cfg2 = SCALER_SRC_W(rect->width >> pre_h_ratio) |
+		SCALER_SRC_H(rect->height >> pre_v_ratio);
+
 	writel(cfg2, sc->regs + SCALER_SRC_WH);
 }
 

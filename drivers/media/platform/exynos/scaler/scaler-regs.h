@@ -79,6 +79,7 @@
 #define SCALER_SRC_C_POS_FRACTION	0x30003
 
 #define SCALER_SRC_WH			0x24
+#define SCALER_SRC_PRESC_WH		0x2C
 #define SCALER_SRC_W(x)			((x) << 16)
 #define SCALER_SRC_H(x)			((x) << 0)
 
@@ -102,7 +103,6 @@
 
 #define SCALER_H_RATIO			0x50
 #define SCALER_V_RATIO			0x54
-#define SCALER_RATIO_MASK		(0x7ffff << 0)
 
 #define SCALER_ROT_CFG			0x58
 #define SCALER_ROT_MASK			(3 << 0)

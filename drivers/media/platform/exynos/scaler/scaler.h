@@ -442,13 +442,13 @@ void sc_hwset_flip_rotation(struct sc_dev *sc, u32 direction, int degree);
 void sc_hwset_src_imgsize(struct sc_dev *sc, struct sc_frame *frame);
 void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame);
 void sc_hwset_src_crop(struct sc_dev *sc, struct v4l2_rect *rect,
-		       const struct sc_fmt *fmt);
+		       const struct sc_fmt *fmt,
+		       unsigned int pre_h_ratio, unsigned int pre_v_ratio);
 void sc_hwset_dst_crop(struct sc_dev *sc, struct v4l2_rect *rect);
 void sc_hwset_src_addr(struct sc_dev *sc, struct sc_addr *addr);
 void sc_hwset_dst_addr(struct sc_dev *sc, struct sc_addr *addr);
-void sc_hwset_hratio(struct sc_dev *sc, u32 ratio);
-void sc_hwset_vratio(struct sc_dev *sc, u32 ratio);
-void sc_hwset_hratio(struct sc_dev *sc, u32 ratio);
+void sc_hwset_hratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio);
+void sc_hwset_vratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio);
 void sc_hwset_hcoef(struct sc_dev *sc, unsigned int coef);
 void sc_hwset_vcoef(struct sc_dev *sc, unsigned int coef);
 void sc_hwset_int_en(struct sc_dev *sc, u32 enable);
