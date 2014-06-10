@@ -785,9 +785,7 @@ void sc_hwregs_dump(struct sc_dev *sc)
 	pr_notice("------------------------------------------------\n");
 
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x000, 0x02C - 0x000 + 4, false);
-	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x030, 0x044 - 0x030 + 4, false);
+			sc->regs + 0x000, 0x044 - 0x000 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x050, 0x058 - 0x050 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
@@ -795,25 +793,33 @@ void sc_hwregs_dump(struct sc_dev *sc)
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x140, 0x214 - 0x140 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x240, 0x240 - 0x220 + 4, false);
+			sc->regs + 0x220, 0x240 - 0x220 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x250, 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x260, 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x278, 4, false);
+	if (sc->version <= SCALER_VERSION(2, 1, 1))
+		print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x280, 0x28C - 0x280 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x280, 0x298 - 0x280 + 4, false);
-	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x290, 0x298 - 0x290 + 4, false);
+	if (sc->version <= SCALER_VERSION(2, 1, 1))
+		print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x2A8, 0x2A8 - 0x2A0 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x2B0, 0x2C4 - 0x2B0 + 4, false);
+	if (sc->version >= SCALER_VERSION(3, 0, 0))
+		print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x2D0, 0x2DC - 0x2D0 + 4, false);
+
+	/* shadow registers */
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x1004, 4, false);
+			sc->regs + 0x1004, 0x1004 - 0x1004 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x1010, 0x1028 - 0x1010 + 4, false);
-	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x1030, 0x1044 - 0x1030 + 4, false);
+			sc->regs + 0x1010, 0x1044 - 0x1010 + 4, false);
+
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x1050, 0x1058 - 0x1050 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
@@ -824,7 +830,13 @@ void sc_hwregs_dump(struct sc_dev *sc)
 			sc->regs + 0x1220, 0x1240 - 0x1220 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x1250, 4, false);
+	if (sc->version <= SCALER_VERSION(2, 1, 1))
+		print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x1280, 0x128C - 0x1280 + 4, false);
 	print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
-			sc->regs + 0x1280, 0x1298 - 0x1220 + 4, false);
+			sc->regs + 0x1290, 0x1298 - 0x1290 + 4, false);
+	if (sc->version >= SCALER_VERSION(3, 0, 0))
+		print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
+			sc->regs + 0x12D0, 0x12DC - 0x12D0 + 4, false);
 	pr_notice("------------------------------------------------\n");
 }

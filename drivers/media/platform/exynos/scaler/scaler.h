@@ -90,6 +90,8 @@ extern int sc_log_level;
 #define sc_dith_val(a, b, c)	((a << SCALER_DITH_R_SHIFT) |	\
 		(b << SCALER_DITH_G_SHIFT) | (c << SCALER_DITH_B_SHIFT))
 
+#define SCALER_VERSION(x, y, z) (((x) << 16) | ((y) << 8) | (z))
+
 #ifdef CONFIG_VIDEOBUF2_ION
 #define sc_buf_sync_prepare vb2_ion_buf_prepare
 #define sc_buf_sync_finish vb2_ion_buf_finish
