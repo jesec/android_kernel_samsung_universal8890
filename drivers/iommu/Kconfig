@@ -175,7 +175,19 @@ config TEGRA_IOMMU_SMMU
 # EXYNOS IOMMU support
 config EXYNOS_IOMMU
 	bool "Exynos IOMMU Support"
-	depends on ARCH_EXYNOS
+	depends on ARCH_EXYNOS && !SOC_EXYNOS7420
+	select IOMMU_API
+	help
+	  Support for the IOMMU(System MMU) of Samsung Exynos application
+	  processor family. This enables H/W multimedia accellerators to see
+	  non-linear physical memory chunks as a linear memory in their
+	  address spaces
+
+	  If unsure, say N here.
+
+config EXYNOS_IOMMU_V6
+	bool "Exynos IOMMU Support"
+	depends on ARCH_EXYNOS && SOC_EXYNOS7420
 	select IOMMU_API
 	select ARM_DMA_USE_IOMMU
 	help
@@ -199,7 +211,7 @@ endchoice
 
 config EXYNOS7_IOMMU_CHECK_DF
 	bool "Check direct fetch capability"
-	depends on EXYNOS7_IOMMU
+	depends on EXYNOS7_IOMMU || EXYNOS_IOMMU_V6
 	default y
 	help
 	  Support for Direct fetch functionality. This allows to check
@@ -215,9 +227,20 @@ config EXYNOS_IOVMM
 	  an IO virtual memory region with a physical memory region
 	  and managing the allocated virtual memory regions.
 
+config EXYNOS_IOVMM_V6
+	bool "IO Virtual Memory Manager for Exynos IOMMU V6"
+	select GENERIC_ALLOCATOR
+	depends on EXYNOS_IOMMU_V6
+	default y
+	help
+	  Supporting the users of Exynos IOMMU for allocating and mapping
+	  an IO virtual memory region with a physical memory region
+	  and managing the allocated virtual memory regions.
+	  This config supports SYSMMU V6 version.
+
 config EXYNOS_IOMMU_NO_MASTER_CLKGATE
 	bool "Always enable master's clock when System MMU is enabled"
-	depends on EXYNOS_IOMMU || EXYNOS7_IOMMU
+	depends on EXYNOS_IOMMU || EXYNOS7_IOMMU || EXYNOS_IOMMU_V6
 	default y
 	help
 	  Exynos IOMMU driver gates master's clock when access to the MMIO of
@@ -230,12 +253,12 @@ config EXYNOS_IOMMU_NO_MASTER_CLKGATE
 
 config EXYNOS_IOMMU_EVENT_LOG
 	bool "Logging System MMU events in private uncached buffer"
-	depends on EXYNOS_IOMMU
+	depends on EXYNOS_IOMMU || EXYNOS_IOMMU_V6
 	default y
 
 config EXYNOS_IOMMU_DEBUG
 	bool "Debugging log for Exynos IOMMU"
-	depends on EXYNOS_IOMMU
+	depends on EXYNOS_IOMMU || EXYNOS_IOMMU_V6
 	help
 	  Select this to see the detailed log message that shows what
 	  happens in the IOMMU driver.

@@ -145,6 +145,7 @@ struct exynos_iovmm {
 	int onplanes;
 	unsigned int num_map;
 	unsigned int num_unmap;
+	const char *domain_name;
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
 	struct exynos_iommu_event_log log;
 #endif
@@ -173,6 +174,7 @@ enum sysmmu_property {
 struct sysmmu_drvdata {
 	struct list_head entry;	/* entry of sysmmu debug drvdata list */
 	struct list_head node;	/* entry of exynos_iommu_owner.mmu_list */
+	struct list_head pb_grp_list;	/* list of pb groups */
 	struct device *sysmmu;	/* System MMU's device descriptor */
 	struct device *master;	/* Client device that needs System MMU */
 	void __iomem *sfrbase;
@@ -203,6 +205,16 @@ struct exynos_iommu_domain {
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
 	struct exynos_iommu_event_log log;
 #endif
+};
+
+struct pb_info {
+	struct list_head node;
+	int in_num;
+	int out_num;
+	int grp_num;
+	int in_axi_id[MAX_NUM_PBUF];
+	int out_axi_id[MAX_NUM_PBUF];
+	struct device *master;
 };
 
 int sysmmu_set_ppc_event(struct sysmmu_drvdata *drvdata, int event);
@@ -254,9 +266,8 @@ extern const char *ppc_event_name[];
 #define __exynos_sysmmu_set_df(drvdata, iova) do { } while (0)
 #define __exynos_sysmmu_release_df(drvdata) do { } while (0)
 
-#define __sysmmu_show_status(drvdata) do { } while (0) /* TODO */
-
-#elif defined(CONFIG_EXYNOS7_IOMMU) /* System MMU v5 ~ */
+ /* System MMU v5 ~ */
+#elif defined(CONFIG_EXYNOS7_IOMMU) || defined(CONFIG_EXYNOS_IOMMU_V6)
 
 #define REG_PPC_EVENT_SEL(x)	(0x600 + 0x4 * (x))
 #define REG_PPC_PMNC		0x620
@@ -313,6 +324,22 @@ void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata);
 #if defined(CONFIG_EXYNOS7_IOMMU) && defined(CONFIG_EXYNOS5_IOMMU)
 #error "CONFIG_IOMMU_EXYNOS5 and CONFIG_IOMMU_EXYNOS7 defined together"
 #endif
+
+static inline bool get_sysmmu_runtime_active(struct sysmmu_drvdata *data)
+{
+	return ++data->runtime_active == 1;
+}
+
+static inline bool put_sysmmu_runtime_active(struct sysmmu_drvdata *data)
+{
+	BUG_ON(data->runtime_active < 1);
+	return --data->runtime_active == 0;
+}
+
+static inline bool is_sysmmu_runtime_active(struct sysmmu_drvdata *data)
+{
+	return data->runtime_active > 0;
+}
 
 static inline bool set_sysmmu_active(struct sysmmu_drvdata *data)
 {
@@ -403,6 +430,10 @@ static inline sysmmu_pte_t *section_entry(
 
 irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id);
 void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova);
+void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova);
+void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
+				dma_addr_t iova, size_t size);
+#if defined(CONFIG_EXYNOS_IOMMU)
 void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
 			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption, unsigned int opoption);
@@ -413,13 +444,11 @@ int __prepare_prefetch_buffers_by_plane(struct sysmmu_drvdata *drvdata,
 				struct sysmmu_prefbuf prefbuf[], int num_pb,
 				int inplanes, int onplanes,
 				int ipoption, int opoption);
-void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova);
-void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
-				dma_addr_t iova, size_t size);
+#endif
 
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
 
-#ifdef CONFIG_EXYNOS_IOVMM
+#if defined(CONFIG_EXYNOS_IOVMM) || defined(CONFIG_EXYNOS_IOVMM_V6)
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
 {
 	return ((struct exynos_iommu_owner *)dev->archdata.iommu)->vmm_data;
@@ -439,6 +468,9 @@ static inline int find_iovmm_plane(struct exynos_iovmm *vmm, dma_addr_t iova)
 	return -1;
 }
 
+#if defined(CONFIG_EXYNOS_IOVMM_V6)
+struct exynos_iovmm *exynos_create_single_iovmm(const char *name);
+#endif
 #else
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
 {
@@ -454,6 +486,11 @@ struct exynos_vm_region *find_iovm_region(struct exynos_iovmm *vmm,
 static inline int find_iovmm_plane(struct exynos_iovmm *vmm, dma_addr_t iova)
 {
 	return -1;
+}
+
+static inline struct exynos_iovmm *exynos_create_single_iovmm(const char *name)
+{
+	return NULL;
 }
 #endif /* CONFIG_EXYNOS_IOVMM */
 

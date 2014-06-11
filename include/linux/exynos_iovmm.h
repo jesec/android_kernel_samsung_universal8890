@@ -11,7 +11,7 @@
 #ifndef __ASM_PLAT_IOVMM_H
 #define __ASM_PLAT_IOVMM_H
 
-#ifdef CONFIG_EXYNOS_IOVMM
+#if defined(CONFIG_EXYNOS_IOVMM) || defined(CONFIG_EXYNOS_IOVMM_V6)
 #include <linux/dma-direction.h>
 #include <linux/iommu.h>
 
@@ -215,7 +215,7 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 }
 #endif /* CONFIG_EXYNOS_IOVMM */
 
-#ifdef CONFIG_EXYNOS_IOMMU
+#if defined(CONFIG_EXYNOS_IOMMU) || defined(CONFIG_EXYNOS_IOMMU_V6)
 /**
  * exynos_sysmmu_enable() - enable system mmu
  * @dev: The device whose System MMU is about to be enabled.
