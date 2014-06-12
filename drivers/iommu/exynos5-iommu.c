@@ -202,7 +202,7 @@ static void __sysmmu_set_pbuf_ver32(struct sysmmu_drvdata *drvdata,
 	unsigned long cfg =
 		__raw_readl(drvdata->sfrbase + REG_MMU_CFG) & CFG_MASK;
 
-	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+	__raw_writel(0x1, drvdata->sfrbase + REG_MMU_FLUSH);
 
 	cfg |= 7 << 16; /* enabling PB0 ~ PB2 */
 
