@@ -8,6 +8,7 @@
  * This file contains the utility functions for composite clocks.
  */
 
+#include <linux/syscore_ops.h>
 #include <linux/errno.h>
 #include <linux/clk-private.h>
 #include <linux/log2.h>
@@ -25,6 +26,7 @@
 
 static DEFINE_SPINLOCK(lock);
 static struct clk **clk_table;
+static void __iomem *reg_base;
 #ifdef CONFIG_OF
 static struct clk_onecell_data clk_data;
 #endif
@@ -67,6 +69,8 @@ void __init samsung_clk_init(struct device_node *np, void __iomem *base,
 {
 #ifdef CONFIG_PM_SLEEP
 	reg_base = base;
+#else
+	reg_base = 0;
 #endif
 	if (!np)
 		return;
@@ -404,7 +408,10 @@ static int samsung_pll1460x_set_rate(struct clk_hw *hw, unsigned long drate,
 	}
 
 	/* Set PLL lock time */
-	writel(rate->pdiv * PLL1460X_LOCK_FACTOR, pll->lock_reg);
+	if (rate->kdiv)
+		writel(rate->pdiv * PLL1460X_LOCK_FACTOR, pll->lock_reg);
+	else
+		writel(rate->pdiv * PLL145XX_LOCK_FACTOR, pll->lock_reg);
 	pll_con0 &= ~((PLL1460X_MDIV_MASK << PLL1460X_MDIV_SHIFT) |
 			(PLL1460X_PDIV_MASK << PLL1460X_PDIV_SHIFT) |
 			(PLL1460X_SDIV_MASK << PLL1460X_SDIV_SHIFT));
