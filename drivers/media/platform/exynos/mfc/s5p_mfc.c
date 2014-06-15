@@ -1067,19 +1067,21 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 		list_add_tail(&dec_buf->list, &dec->ref_queue);
 		dec->ref_queue_cnt++;
 	} else if (is_h264(ctx)) {
-		int found = 0, temp_index;
+		int found = 0;
 
 		/* Try to search decoded address in whole dst queue */
 		list_for_each_entry(dec_buf, &ctx->dst_queue, list) {
-			temp_index = dec_buf->vb.v4l2_buf.index;
-			if ((dec->dynamic_used & (1 << temp_index)) == 0) {
+			buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
+			if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
 				found = 1;
 				break;
 			}
 		}
 
 		if (found) {
-			mfc_debug(2, "Dec buffer y in dst queue = 0x%x\n", dec_addr);
+			buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
+			mfc_debug(2, "Found in dst queue = 0x%x, buf = 0x%x\n",
+							dec_addr, buf_addr);
 
 			list_del(&dec_buf->list);
 			ctx->dst_queue_cnt--;
