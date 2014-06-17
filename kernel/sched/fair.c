@@ -2314,9 +2314,9 @@ struct hmp_global_attr {
 };
 
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
-#define HMP_DATA_SYSFS_MAX 11
+#define HMP_DATA_SYSFS_MAX 12
 #else
-#define HMP_DATA_SYSFS_MAX 10
+#define HMP_DATA_SYSFS_MAX 11
 #endif
 
 struct hmp_data_struct {
@@ -4916,8 +4916,10 @@ static u64 hmp_boostpulse_endtime;
 static int hmp_boost_val;
 static int hmp_semiboost_val;
 static int hmp_boostpulse;
+static int hmp_active_down_migration;
 static DEFINE_RAW_SPINLOCK(hmp_boost_lock);
 static DEFINE_RAW_SPINLOCK(hmp_semiboost_lock);
+static DEFINE_RAW_SPINLOCK(hmp_active_dm_lock);
 
 #define BOOT_BOOST_DURATION 40000000 /* microseconds */
 
@@ -5263,6 +5265,26 @@ static int hmp_semiboost_from_sysfs(int value)
 	return ret;
 }
 
+static int hmp_active_dm_from_sysfs(int value)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	raw_spin_lock_irqsave(&hmp_active_dm_lock, flags);
+	if (value == 1)
+		hmp_active_down_migration++;
+	else if (value == 0)
+		if (hmp_active_down_migration >= 1)
+			hmp_active_down_migration--;
+		else
+			ret = -EINVAL;
+	else
+		ret = -EINVAL;
+	raw_spin_unlock_irqrestore(&hmp_active_dm_lock, flags);
+
+	return ret;
+}
+
 int set_hmp_boost(int enable)
 {
 	return hmp_boost_from_sysfs(enable);
@@ -5289,6 +5311,11 @@ int set_hmp_boostpulse(int duration)
 	raw_spin_unlock_irqrestore(&hmp_boost_lock, flags);
 
 	return 0;
+}
+
+int set_active_down_migration(int enable)
+{
+	return hmp_active_dm_from_sysfs(enable);
 }
 
 int get_hmp_boost(void)
@@ -5389,6 +5416,12 @@ static int hmp_attr_init(void)
 		&hmp_boost_val,
 		NULL,
 		hmp_boost_from_sysfs);
+
+	hmp_attr_add("active_down_migration",
+		&hmp_active_down_migration,
+		NULL,
+		hmp_active_dm_from_sysfs);
+
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
 	/* default frequency-invariant scaling ON */
 	hmp_data.freqinvar_load_scale_enabled = 1;
@@ -8627,10 +8660,12 @@ static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 					< hmp_next_down_threshold)
 		return 0;
 
-	if (hmp_domain_min_load(hmp_cpu_domain(cpu), NULL, NULL))
-		return 1;
-	else if (hmp_boost())
+	if (hmp_domain_min_load(hmp_cpu_domain(cpu), NULL, NULL)) {
+		if (hmp_active_down_migration)
+			return 1;
+	} else if (hmp_boost()) {
 		return 0;
+	}
 
 	if (cpumask_intersects(&hmp_slower_domain(cpu)->cpus,
 					tsk_cpus_allowed(p))) {
