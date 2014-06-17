@@ -235,7 +235,23 @@ static const struct sc_fmt sc_formats[] = {
 	},
 };
 
-#define SCALE_RATIO(x, y)	((1048576 * x) / y)
+#define SCALE_RATIO_CONST(x, y) (u32)((1048576ULL * (x)) / (y))
+
+#define SCALE_RATIO(x, y)						\
+({									\
+		u32 ratio;						\
+		if (__builtin_constant_p(x) && __builtin_constant_p(y))	{\
+			ratio = SCALE_RATIO_CONST(x, y);		\
+		} else if ((x) < 2048) {				\
+			ratio = (u32)((1048576UL * (x)) / (y));		\
+		} else {						\
+			unsigned long long dividend = 1048576ULL;	\
+			dividend *= x;					\
+			do_div(dividend, y);				\
+			ratio = (u32)dividend;				\
+		}							\
+		ratio;							\
+})
 
 /* must specify in revers order of SCALER_VERSION(xyz) */
 static const u32 sc_version_table[][2] = {
@@ -261,9 +277,9 @@ static const struct sc_variant sc_variant[] = {
 			.max_h		= 4096,
 		},
 		.version		= SCALER_VERSION(2, 0, 0),
-		.sc_up_max		= SCALE_RATIO(1, 16),
-		.sc_down_min		= SCALE_RATIO(4, 1),
-		.sc_down_swmin		= SCALE_RATIO(16, 1),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 16),
+		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
 	}, {
 		.limit_input = {
 			.min_w		= 16,
@@ -278,9 +294,9 @@ static const struct sc_variant sc_variant[] = {
 			.max_h		= 8192,
 		},
 		.version		= SCALER_VERSION(2, 0, 1),
-		.sc_up_max		= SCALE_RATIO(1, 16),
-		.sc_down_min		= SCALE_RATIO(4, 1),
-		.sc_down_swmin		= SCALE_RATIO(16, 1),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 16),
+		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
 	}, {
 		.limit_input = {
 			.min_w		= 16,
@@ -295,9 +311,9 @@ static const struct sc_variant sc_variant[] = {
 			.max_h		= 8192,
 		},
 		.version		= SCALER_VERSION(3, 0, 0),
-		.sc_up_max		= SCALE_RATIO(1, 16),
-		.sc_down_min		= SCALE_RATIO(16, 1),
-		.sc_down_swmin		= SCALE_RATIO(256, 1),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 16),
+		.sc_down_min		= SCALE_RATIO_CONST(16, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(256, 1),
 	},
 };
 
@@ -1705,38 +1721,42 @@ static void sc_set_scale_coef(struct sc_dev *sc, unsigned int h_ratio,
 
 static void sc_set_scale_ratio(struct sc_dev *sc,
 			unsigned int h_ratio, unsigned int v_ratio,
-			unsigned int *pre_h_ratio, unsigned int *pre_v_ratio)
+			unsigned int *pre_h_ratio, unsigned int *pre_v_ratio,
+			unsigned rotate)
 {
 	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
-		BUG_ON(h_ratio < SCALE_RATIO(16, 1));
-		BUG_ON(v_ratio < SCALE_RATIO(16, 1));
+		BUG_ON(h_ratio > SCALE_RATIO(16, 1));
+		BUG_ON(v_ratio > SCALE_RATIO(16, 1));
 
-		if (h_ratio < SCALE_RATIO(8, 1)) {
+		if (h_ratio > SCALE_RATIO(8, 1)) {
 			*pre_h_ratio = 2; /* 1/4 prescaling */
-			h_ratio *= 4;
-		} else if (h_ratio < SCALE_RATIO(4, 1)) {
+			h_ratio /= 4;
+		} else if (h_ratio > SCALE_RATIO(4, 1)) {
 			*pre_h_ratio = 1; /* 1/2 prescaling */
-			h_ratio *= 2;
+			h_ratio /= 2;
 		}
 
-		if (v_ratio < SCALE_RATIO(8, 1)) {
+		if (v_ratio > SCALE_RATIO(8, 1)) {
 			*pre_v_ratio = 2; /* 1/4 prescaling */
-			v_ratio *= 4;
-		} else if (v_ratio < SCALE_RATIO(4, 1)) {
+			v_ratio /= 4;
+		} else if (v_ratio > SCALE_RATIO(4, 1)) {
 			*pre_v_ratio = 1; /* 1/2 prescaling */
-			v_ratio *= 2;
+			v_ratio /= 2;
 		}
 	}
 
 	sc_set_scale_coef(sc, h_ratio, v_ratio);
 
 	if (sc->version < SCALER_VERSION(3, 0, 0)) {
-		BUG_ON(h_ratio < SCALE_RATIO(4, 1));
-		BUG_ON(v_ratio < SCALE_RATIO(4, 1));
+		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
+		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
 		/* scaling precision from v3 increased by x1/16 */
 		h_ratio >>= 4;
 		v_ratio >>= 4;
 	}
+
+	if ((rotate == 90) || (rotate == 270))
+		swap(*pre_h_ratio, *pre_v_ratio);
 
 	sc_hwset_hratio(sc, h_ratio, *pre_h_ratio);
 	sc_hwset_vratio(sc, v_ratio, *pre_v_ratio);
@@ -1775,7 +1795,7 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 	sc_set_scale_ratio(sc,
 		SCALE_RATIO(s_frame->crop.width, d_frame->crop.width),
 		SCALE_RATIO(s_frame->crop.height, d_frame->crop.height),
-		&pre_h_ratio, &pre_v_ratio);
+		&pre_h_ratio, &pre_v_ratio, 0);
 
 	sc_hwset_src_image_format(sc, s_frame->sc_fmt);
 	sc_hwset_dst_image_format(sc, d_frame->sc_fmt);
@@ -1911,7 +1931,8 @@ static int sc_run_next_job(struct sc_dev *sc)
 	sc_hwset_soft_reset(sc);
 
 	sc_set_scale_ratio(sc, ctx->h_ratio, ctx->v_ratio,
-				&pre_h_ratio, &pre_v_ratio);
+				&pre_h_ratio, &pre_v_ratio,
+				ctx->rotation);
 	if (ctx->i_frame) {
 		set_bit(CTX_INT_FRAME, &ctx->flags);
 		d_frame = &ctx->i_frame->frame;
