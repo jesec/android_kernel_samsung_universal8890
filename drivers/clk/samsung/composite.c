@@ -277,8 +277,8 @@ static void samsung_composite_pll_disable(struct clk_hw *hw)
 		reg |= (1 << pll->enable_bit);
 	else
 		reg &= ~(1 << pll->enable_bit);
-	writel(reg, pll->enable_reg);
 
+	writel(reg, pll->enable_reg);
 }
 
 static unsigned long samsung_pll145xx_recalc_rate(struct clk_hw *hw,
@@ -471,17 +471,17 @@ static void __init _samsung_register_comp_pll(struct samsung_composite_pll *list
 		clk = clk_register_composite(NULL, list->name, pname, 1,
 				NULL, NULL,
 				&list->hw, &samsung_pll145xx_clk_ops,
-				&list->hw, &samsung_pll145xx_clk_ops, 0);
+				&list->hw, &samsung_pll145xx_clk_ops, list->pll_flag);
 	else if (list->type == pll_1451x || list->type == pll_1452x)
 		clk = clk_register_composite(NULL, list->name, pname, 1,
 				NULL, NULL,
 				&list->hw, &samsung_pll145xx_clk_ops,
-				&list->hw, &samsung_pll145xx_clk_ops, 0);
+				&list->hw, &samsung_pll145xx_clk_ops, list->pll_flag);
 	else if (list->type == pll_1460x)
 		clk = clk_register_composite(NULL, list->name, pname, 1,
 				NULL, NULL,
 				&list->hw, &samsung_pll1460x_clk_ops,
-				&list->hw, &samsung_pll1460x_clk_ops, 0);
+				&list->hw, &samsung_pll1460x_clk_ops, list->pll_flag);
 	else {
 		pr_err("%s: invalid pll type %d\n", __func__, list->type);
 		return;
