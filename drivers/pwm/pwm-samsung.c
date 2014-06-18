@@ -354,6 +354,9 @@ static int pwm_samsung_config(struct pwm_chip *chip, struct pwm_device *pwm,
 						duty_ns, period_ns, period);
 
 		tin_rate = pwm_samsung_calc_tin(our_chip, pwm->hwpwm, period);
+		if(!tin_rate)
+			return -EINVAL;
+
 		tin_ns = NSEC_PER_SEC / tin_rate;
 		tcnt = DIV_ROUND_CLOSEST(period_ns, tin_ns);
 	}
