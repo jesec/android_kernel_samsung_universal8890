@@ -185,7 +185,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_MIN_SECOND_PLANE_DPB_SIZE                    0xF0F8
 #define S5P_FIMV_D_MIN_THIRD_PLANE_DPB_SIZE                     0xF0FC
 #define S5P_FIMV_D_MIN_NUM_MV                                   0xF100
-#define S5P_FIMV_D_MVC_VIEW_ID                                  0xF104
+#define S5P_FIMV_D_MVC_NUM_VIEWS                                0xF104
 
 /* Buffers */
 #define S5P_FIMV_D_NUM_DPB                                      0xF130
@@ -275,6 +275,9 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_METADATA_SIZE_SEI_NAL                        0xF6C4
 #define S5P_FIMV_D_METADATA_ADDR_VUI                            0xF6C8
 #define S5P_FIMV_D_METADATA_SIZE_VUI                            0xF6CC
+
+#define S5P_FIMV_D_MVC_VIEW_ID			                0xF6D8
+#define S5P_FIMV_D_MVC_VIEW_ID_DISP_MASK	                0xFFFF
 
 #define S5P_FIMV_D_FRAME_PACK_SEI_AVAIL                         0xF6DC
 #define S5P_FIMV_D_FRAME_PACK_ARRGMENT_ID                       0xF6E0
