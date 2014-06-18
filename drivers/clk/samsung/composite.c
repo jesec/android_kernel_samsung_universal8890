@@ -147,7 +147,7 @@ void __init samsung_register_fixed_factor(
 		struct samsung_fixed_factor *list, unsigned int nr_clk)
 {
 	struct clk *clk;
-	unsigned int idx;
+	unsigned int idx, ret;
 
 	for (idx = 0; idx < nr_clk; idx++, list++) {
 		clk = clk_register_fixed_factor(NULL, list->name,
@@ -159,6 +159,11 @@ void __init samsung_register_fixed_factor(
 		}
 
 		samsung_clk_add_lookup(clk, list->id);
+
+		ret = clk_register_clkdev(clk, list->name, NULL);
+		if (ret)
+			pr_err("%s: failed to register clock lookup for %s",
+				__func__, list->name);
 	}
 }
 
@@ -495,10 +500,10 @@ static void __init _samsung_register_comp_pll(struct samsung_composite_pll *list
 
 	/* register a clock lookup only if a clock alias is specified */
 	if (list->alias)
-		ret = clk_register_clkdev(clk, list->name, NULL);
+		ret = clk_register_clkdev(clk, list->alias, NULL);
 		if (ret)
 			pr_err("%s: failed to register lookup %s\n",
-					__func__, list->name);
+					__func__, list->alias);
 }
 
 void __init samsung_register_comp_pll(struct samsung_composite_pll *list,
@@ -550,7 +555,7 @@ static int samsung_mux_set_parent(struct clk_hw *hw, u8 index)
 				return -ETIMEDOUT;
 			}
 			val = readl(mux->stat_reg);
-			val &= BIT(mux->stat_width - 1) << mux->stat_bit;
+			val &= BIT(mux->stat_bit + mux->stat_width - 1);
 		} while (val);
 
 	if (mux->lock)
@@ -585,10 +590,10 @@ static void __init _samsung_register_comp_mux(struct samsung_composite_mux *list
 
 	/* register a clock lookup only if a clock alias is specified */
 	if (list->alias)
-		ret = clk_register_clkdev(clk, list->name, NULL);
+		ret = clk_register_clkdev(clk, list->alias, NULL);
 		if (ret)
 			pr_err("%s: failed to register lookup %s\n",
-					__func__, list->name);
+					__func__, list->alias);
 }
 
 void __init samsung_register_comp_mux(struct samsung_composite_mux *list,
@@ -752,8 +757,57 @@ void __init samsung_register_comp_divider(struct samsung_composite_divider *list
 		_samsung_register_comp_divider(&list[cnt]);
 }
 
+struct dummy_gate_clk {
+	unsigned long	offset;
+	u8		bit_idx;
+	struct clk	*clk;
+};
+
+static struct dummy_gate_clk **gate_clk_list;
+static unsigned int gate_clk_nr = 0;
+
+int samsung_add_clk_gate_list(struct clk *clk, unsigned long offset, u8 bit_idx, const char *name)
+{
+	struct dummy_gate_clk *tmp_clk;
+
+	if (!clk || !offset)
+		return -EINVAL;
+
+	tmp_clk = kzalloc(sizeof(struct dummy_gate_clk *), GFP_KERNEL);
+	if (!tmp_clk) {
+		pr_err("%s: fail to alloc for gate_clk\n", __func__);
+		return -ENOMEM;
+	}
+
+	tmp_clk->offset = offset;
+	tmp_clk->bit_idx = bit_idx;
+	tmp_clk->clk = clk;
+
+	gate_clk_list[gate_clk_nr] = tmp_clk;
+
+	gate_clk_nr++;
+
+	return 0;
+}
+
+struct clk *samsung_clk_get_by_reg(unsigned long offset, u8 bit_idx)
+{
+	unsigned int i;
+
+	for(i = 0; i < gate_clk_nr; i++) {
+		if (gate_clk_list[i]->offset == offset) {
+			if (gate_clk_list[i]->bit_idx == bit_idx)
+				return gate_clk_list[i]->clk;
+		}
+	}
+
+	pr_err("%s: Fail to get clk by register offset\n", __func__);
+
+	return 0;
+}
+
 /* existing register function for gate clocks */
-static void __init _samsung_register_gate(struct samsung_gate *list)
+static struct clk * __init _samsung_register_gate(struct samsung_gate *list)
 {
 	struct clk *clk;
 	unsigned int ret = 0;
@@ -762,9 +816,11 @@ static void __init _samsung_register_gate(struct samsung_gate *list)
 			list->flag, list->reg, list->bit,
 			0, &lock);
 
-	if (IS_ERR(clk))
+	if (IS_ERR(clk)) {
 		pr_err("%s: failed to register clock %s\n", __func__,
 				list->name);
+		return 0;
+	}
 
 	samsung_clk_add_lookup(clk, list->id);
 
@@ -774,15 +830,30 @@ static void __init _samsung_register_gate(struct samsung_gate *list)
 			pr_err("%s: failed to register lookup %s\n",
 					__func__, list->alias);
 	}
+
+	return clk;
 }
 
 void __init samsung_register_gate(struct samsung_gate *list,
 			unsigned int nr_gate)
 {
 	int cnt;
+	struct clk *clk;
+	bool gate_list_fail = false;
 
-	for (cnt = 0; cnt < nr_gate; cnt++)
-		_samsung_register_gate(&list[cnt]);
+	gate_clk_list = kzalloc(sizeof(struct dummy_gate_clk *) * nr_gate, GFP_KERNEL);
+	if (!gate_clk_list) {
+		pr_err("%s: can not alloc for gate clock list\n", __func__);
+		gate_list_fail = true;
+	}
+
+	for (cnt = 0; cnt < nr_gate; cnt++) {
+		clk = _samsung_register_gate(&list[cnt]);
+		/* Make list for gate clk to used by samsung_clk_get_by_reg */
+		if (!gate_list_fail)
+			samsung_add_clk_gate_list(clk, (unsigned long)(list->reg), list->bit, list->name);
+
+	}
 }
 
 /* operation functions for usermux clocks */
@@ -871,7 +942,7 @@ static const struct clk_ops samsung_usermux_ops = {
 };
 
 /* register function for usermux clocks */
-static struct clk *_samsung_register_comp_usermux(struct samsung_usermux *list)
+static struct clk * __init _samsung_register_comp_usermux(struct samsung_usermux *list)
 {
 	struct clk_samsung_usermux *usermux;
 	struct clk *clk;
@@ -914,18 +985,17 @@ void __init samsung_register_usermux(struct samsung_usermux *list,
 
 	for (cnt = 0; cnt < nr_usermux; cnt++) {
 		clk = _samsung_register_comp_usermux(&list[cnt]);
-
 		if (IS_ERR(clk))
 			pr_err("%s: failed to register clock %s\n", __func__,
-					list->name);
+					(&list[cnt])->name);
 
-		samsung_clk_add_lookup(clk, list->id);
+		samsung_clk_add_lookup(clk, (&list[cnt])->id);
 
-		if (list->alias) {
-			ret = clk_register_clkdev(clk, list->alias, NULL);
+		if ((&list[cnt])->alias) {
+			ret = clk_register_clkdev(clk, (&list[cnt])->alias, NULL);
 			if (ret)
 				pr_err("%s: failed to register lookup %s\n",
-						__func__, list->alias);
+						__func__, (&list[cnt])->alias);
 		}
 	}
 }
