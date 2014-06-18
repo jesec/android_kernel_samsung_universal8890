@@ -567,6 +567,7 @@ static int m2m1shot_process(struct m2m1shot_context *ctx,
 			struct m2m1shot_task *task)
 {
 	struct m2m1shot_device *m21dev = ctx->m21dev;
+	unsigned long flags;
 	int ret;
 
 	INIT_LIST_HEAD(&task->task_node);
@@ -581,9 +582,9 @@ static int m2m1shot_process(struct m2m1shot_context *ctx,
 	task->ctx = ctx;
 	task->state = M2M1SHOT_BUFSTATE_READY;
 
-	spin_lock(&m21dev->lock_task);
+	spin_lock_irqsave(&m21dev->lock_task, flags);
 	list_add_tail(&m21dev->tasks, &task->task_node);
-	spin_unlock(&m21dev->lock_task);
+	spin_unlock_irqrestore(&m21dev->lock_task, flags);
 
 	m2m1shot_task_schedule(m21dev);
 
