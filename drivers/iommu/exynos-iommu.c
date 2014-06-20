@@ -16,6 +16,8 @@
 #include <linux/pm_domain.h>
 #include <linux/vmalloc.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
+#include <linux/kmemleak.h>
 
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
@@ -59,15 +61,27 @@ static LIST_HEAD(sysmmu_owner_list);
 
 static struct kmem_cache *lv2table_kmem_cache;
 static phys_addr_t fault_page;
-unsigned long *zero_lv2_table;
+sysmmu_pte_t *zero_lv2_table;
 static struct dentry *exynos_sysmmu_debugfs_root;
 
+#ifdef CONFIG_ARM
 static inline void pgtable_flush(void *vastart, void *vaend)
 {
 	dmac_flush_range(vastart, vaend);
 	outer_flush_range(virt_to_phys(vastart),
 				virt_to_phys(vaend));
 }
+#else /* ARM64 */
+static inline void pgtable_flush(void *vastart, void *vaend)
+{
+	dma_sync_single_for_device(NULL,
+			virt_to_phys(vastart),
+			(size_t)(virt_to_phys(vaend) - virt_to_phys(vastart)),
+			DMA_TO_DEVICE);
+}
+#endif
+
+
 
 void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
 {
@@ -355,7 +369,7 @@ int recover_fault_handler (struct iommu_domain *domain,
 			if (!pent)
 				return -ENOMEM;
 
-			*sent = mk_lv1ent_page(__pa(pent));
+			*sent = mk_lv1ent_page(virt_to_phys(pent));
 			pgtable_flush(sent, sent + 1);
 		}
 		pent = page_entry(sent, fault_addr);
@@ -651,7 +665,7 @@ void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 
 	plane = find_iovmm_plane(vmm, iova);
 	if (plane < 0) {
-		dev_err(dev, "%s: IOVA %#x is out of IOVMM\n", __func__, iova);
+		dev_err(dev, "%s: IOVA %pa is out of IOVMM\n", __func__, &iova);
 		return;
 	}
 
@@ -943,7 +957,7 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 
 	data->sfrbase = devm_request_and_ioremap(dev, res);
 	if (!data->sfrbase) {
-		dev_err(dev, "Unable to map IOMEM @ PA:%#x\n", res->start);
+		dev_err(dev, "Unable to map IOMEM @ PA:%pa\n", &res->start);
 		return -EBUSY;
 	}
 
@@ -1078,7 +1092,7 @@ static void exynos_iommu_domain_destroy(struct iommu_domain *domain)
 	for (i = 0; i < NUM_LV1ENTRIES; i++)
 		if (lv1ent_page(priv->pgtable + i))
 			kmem_cache_free(lv2table_kmem_cache,
-					__va(lv2table_base(priv->pgtable + i)));
+				phys_to_virt(lv2table_base(priv->pgtable + i)));
 
 	exynos_iommu_free_event_log(IOMMU_PRIV_TO_LOG(priv), IOMMU_LOG_LEN);
 
@@ -1093,12 +1107,13 @@ static int exynos_iommu_attach_device(struct iommu_domain *domain,
 {
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	struct exynos_iommu_domain *priv = domain->priv;
+	phys_addr_t pgtable = virt_to_phys(priv->pgtable);
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	ret = __exynos_sysmmu_enable(dev, __pa(priv->pgtable), domain);
+	ret = __exynos_sysmmu_enable(dev, virt_to_phys(priv->pgtable), domain);
 
 	if (ret == 0)
 		list_add_tail(&owner->client, &priv->clients);
@@ -1106,14 +1121,13 @@ static int exynos_iommu_attach_device(struct iommu_domain *domain,
 	spin_unlock_irqrestore(&priv->lock, flags);
 
 	if (ret < 0) {
-		dev_err(dev, "%s: Failed to attach IOMMU with pgtable %#lx\n",
-				__func__, __pa(priv->pgtable));
+		dev_err(dev, "%s: Failed to attach IOMMU with pgtable %pa\n",
+				__func__, &pgtable);
 	} else {
 		SYSMMU_EVENT_LOG_IOMMU_ATTACH(IOMMU_PRIV_TO_LOG(priv), dev);
 		TRACE_LOG_DEV(dev,
-			"%s: Attached new IOMMU with pgtable %#lx %s\n",
-			__func__, __pa(priv->pgtable),
-			(ret == 0) ? "" : ", again");
+			"%s: Attached new IOMMU with pgtable %pa %s\n",
+			__func__, &pgtable, (ret == 0) ? "" : ", again");
 	}
 
 	return ret;
@@ -1141,7 +1155,7 @@ static void exynos_iommu_detach_device(struct iommu_domain *domain,
 	if (owner == dev->archdata.iommu) {
 		SYSMMU_EVENT_LOG_IOMMU_DETACH(IOMMU_PRIV_TO_LOG(priv), dev);
 		TRACE_LOG_DEV(dev, "%s: Detached IOMMU with pgtable %#lx\n",
-					__func__, __pa(priv->pgtable));
+					__func__, virt_to_phys(priv->pgtable));
 	} else {
 		dev_err(dev, "%s: No IOMMU is attached\n", __func__);
 	}
@@ -1160,7 +1174,7 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 		if (!pent)
 			return ERR_PTR(-ENOMEM);
 
-		*sent = mk_lv1ent_page(__pa(pent));
+		*sent = mk_lv1ent_page(virt_to_phys(pent));
 		kmemleak_ignore(pent);
 		*pgcounter = NUM_LV2ENTRIES;
 		pgtable_flush(pent, pent + NUM_LV2ENTRIES);
@@ -1347,8 +1361,8 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	}
 
 	if (ret)
-		pr_err("%s: Failed(%d) to map %#x bytes @ %#lx\n",
-			__func__, ret, size, iova);
+		pr_err("%s: Failed(%d) to map %#zx bytes @ %pa\n",
+			__func__, ret, size, &iova);
 
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
@@ -1468,8 +1482,8 @@ done:
 err:
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
-	pr_err("%s: Failed: size(%#lx) @ %#x is smaller than page size %#x\n",
-		__func__, iova, size, err_pgsize);
+	pr_err("%s: Failed: size(%#zx) @ %pa is smaller than page size %#zx\n",
+		__func__, size, &iova, err_pgsize);
 
 	return 0;
 }
@@ -1594,7 +1608,7 @@ static sysmmu_pte_t *alloc_lv2entry_fast(struct exynos_iommu_domain *priv,
 		if (!pent)
 			return ERR_PTR(-ENOMEM);
 
-		*sent = mk_lv1ent_page(__pa(pent));
+		*sent = mk_lv1ent_page(virt_to_phys(pent));
 		kmemleak_ignore(pent);
 		pgtable_flush(sent, sent + 1);
 	} else if (WARN_ON(!lv1ent_page(sent))) {
@@ -2062,9 +2076,10 @@ static void sysmmu_dump_lv2_page_table(unsigned int lv1idx, sysmmu_pte_t *base)
 static void sysmmu_dump_page_table(sysmmu_pte_t *base)
 {
 	unsigned int i;
+	phys_addr_t phys_base = virt_to_phys(base);
 
-	pr_info("---- System MMU Page Table @ %#010x (ZeroLv2Desc: %#x) ----\n",
-		virt_to_phys(base), ZERO_LV2LINK);
+	pr_info("---- System MMU Page Table @ %pa (ZeroLv2Desc: %#x) ----\n",
+		&phys_base, ZERO_LV2LINK);
 
 	for (i = 0; i < NUM_LV1ENTRIES; i += 4) {
 		unsigned int j;

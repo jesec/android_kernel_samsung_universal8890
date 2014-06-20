@@ -334,38 +334,40 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *pte;
+	phys_addr_t phys;
 
 	pr_crit("---------- System MMU Status -----------------------------\n");
 
 	pgd = pgd_offset_k((unsigned long)sfrbase);
 	if (!pgd) {
-		pr_crit("Invalid virtual address %p\n", sfrbase);
+		pr_crit("Invalid virtual address %pK\n", sfrbase);
 		return;
 	}
 
 	pud = pud_offset(pgd, (unsigned long)sfrbase);
 	if (!pud) {
-		pr_crit("Invalid virtual address %p\n", sfrbase);
+		pr_crit("Invalid virtual address %pK\n", sfrbase);
 		return;
 	}
 
 	pmd = pmd_offset(pud, (unsigned long)sfrbase);
 	if (!pmd) {
-		pr_crit("Invalid virtual address %p\n", sfrbase);
+		pr_crit("Invalid virtual address %pK\n", sfrbase);
 		return;
 	}
 
 	pte = pte_offset_kernel(pmd, (unsigned long)sfrbase);
 	if (!pte) {
-		pr_crit("Invalid virtual address %p\n", sfrbase);
+		pr_crit("Invalid virtual address %pK\n", sfrbase);
 		return;
 	}
 
 	capa = __raw_readl(sfrbase + REG_MMU_CAPA);
 	lmm = MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
 
-	pr_crit("ADDR: %#010lx(VA: 0x%p), MMU_CTRL: %#010x, PT_BASE: %#010x\n",
-		pte_pfn(*pte) << PAGE_SHIFT, sfrbase,
+	phys = pte_pfn(*pte) << PAGE_SHIFT;
+	pr_crit("ADDR: 0x%pa(VA: 0x%pK), MMU_CTRL: %#010x, PT_BASE: %#010x\n",
+		&phys, sfrbase,
 		__raw_readl(sfrbase + REG_MMU_CTRL),
 		__raw_readl(sfrbase + REG_PT_BASE_PPN));
 	pr_crit("VERSION %d.%d, MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
@@ -426,11 +428,11 @@ static void show_fault_information(struct sysmmu_drvdata *drvdata,
 	pgtable <<= PAGE_SHIFT;
 
 	pr_crit("----------------------------------------------------------\n");
-	pr_crit("%s %s %s at %#010lx by %s (page table @ %#010x)\n",
+	pr_crit("%s %s %s at %#010lx by %s (page table @ %pa)\n",
 		dev_name(drvdata->sysmmu),
 		(flags & IOMMU_FAULT_WRITE) ? "WRITE" : "READ",
 		sysmmu_fault_name[fault_id], fault_addr,
-		dev_name(drvdata->master), pgtable);
+		dev_name(drvdata->master), &pgtable);
 
 	if (fault_id == SYSMMU_FAULT_UNKNOWN) {
 		pr_crit("The fault is not caused by this System MMU.\n");
@@ -444,8 +446,8 @@ static void show_fault_information(struct sysmmu_drvdata *drvdata,
 	pr_crit("AxID: %#x, AxLEN: %#x\n", info & 0xFFFF, (info >> 16) & 0xF);
 
 	if (pgtable != drvdata->pgtable)
-		pr_crit("Page table base of driver: %#010x\n",
-			drvdata->pgtable);
+		pr_crit("Page table base of driver: %pa\n",
+			&drvdata->pgtable);
 
 	if (fault_id == SYSMMU_FAULT_PTW_ACCESS) {
 		pr_crit("System MMU has failed to access page table\n");

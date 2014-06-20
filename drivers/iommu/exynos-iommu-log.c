@@ -23,7 +23,6 @@ int exynos_iommu_init_event_log(struct exynos_iommu_event_log *log,
 	struct page *page;
 	struct page **pages;
 	int i, order;
-	dma_addr_t dmaaddr;
 	size_t fit_size = PAGE_ALIGN(sizeof(*(log->log)) * log_len);
 	int fit_pages = fit_size / PAGE_SIZE;
 
@@ -51,9 +50,10 @@ int exynos_iommu_init_event_log(struct exynos_iommu_event_log *log,
 	for (i = 0; i < fit_pages; i++)
 		pages[i] = &page[i];
 
-	dmaaddr = dma_map_page(NULL, page, 0,
-				fit_size / PAGE_SIZE, DMA_BIDIRECTIONAL);
-	dma_unmap_page(NULL, dmaaddr, fit_size / PAGE_SIZE, DMA_BIDIRECTIONAL);
+	dma_sync_single_for_device(NULL, page_to_phys(page),
+			fit_size, DMA_BIDIRECTIONAL);
+	dma_sync_single_for_cpu(NULL, page_to_phys(page),
+			fit_size, DMA_BIDIRECTIONAL);
 
 	log->log = vmap(pages, fit_pages, VM_MAP,
 			pgprot_writecombine(PAGE_KERNEL));

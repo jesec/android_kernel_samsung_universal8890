@@ -91,7 +91,7 @@ typedef u32 exynos_iova_t;
 #define spage_phys(pent) PGBASE_TO_PHYS(*(pent) & SPAGE_ENT_MASK)
 #define spage_offs(iova) ((iova) & (SPAGE_SIZE - 1))
 
-#define lv2table_base(sent) ((*((phys_addr_t *)(sent)) & ~0x3F) << PG_ENT_SHIFT)
+#define lv2table_base(sent) ((*(sent) & ~0x3F) << PG_ENT_SHIFT)
 
 #define SYSMMU_BLOCK_POLLING_COUNT 120
 
@@ -413,12 +413,12 @@ static inline bool sysmmu_block(void __iomem *sfrbase)
 void __sysmmu_init_config(struct sysmmu_drvdata *drvdata);
 void __sysmmu_set_ptbase(void __iomem *sfrbase, phys_addr_t pfn_pgtable);
 
-extern unsigned long *zero_lv2_table;
-#define ZERO_LV2LINK mk_lv1ent_page(__pa(zero_lv2_table))
+extern sysmmu_pte_t *zero_lv2_table;
+#define ZERO_LV2LINK mk_lv1ent_page(virt_to_phys(zero_lv2_table))
 
 static inline sysmmu_pte_t *page_entry(sysmmu_pte_t *sent, unsigned long iova)
 {
-	return (sysmmu_pte_t *)(__va(lv2table_base(sent))) +
+	return (sysmmu_pte_t *)(phys_to_virt(lv2table_base(sent))) +
 				lv2ent_offset(iova);
 }
 
