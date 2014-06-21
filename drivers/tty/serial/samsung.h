@@ -50,8 +50,10 @@ struct s3c24xx_uart_port {
 	unsigned int			rx_irq;
 	unsigned int			tx_irq;
 
+	int				check_separated_clk;
 	struct s3c24xx_uart_info	*info;
 	struct clk			*clk;
+	struct clk			*separated_clk;
 	struct clk			*baudclk;
 	struct uart_port		port;
 	struct s3c24xx_serial_drv_data	*drv_data;

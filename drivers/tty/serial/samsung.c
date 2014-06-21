@@ -1146,6 +1146,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	struct uart_port *port = &ourport->port;
 	struct s3c2410_uartcfg *cfg = ourport->cfg;
 	struct resource *res;
+	char clkname[MAX_CLK_NAME_LENGTH];
 	int ret;
 
 	dbg("s3c24xx_serial_init_port: port=%p, platdev=%p\n", port, platdev);
@@ -1200,11 +1201,35 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	if (ret > 0)
 		ourport->tx_irq = ret;
 
-	ourport->clk	= clk_get(&platdev->dev, "uart");
+	if (of_get_property(platdev->dev.of_node,
+			"samsung,separate-uart-clk", NULL))
+		ourport->check_separated_clk = 1;
+	else
+		ourport->check_separated_clk = 0;
+
+	snprintf(clkname, sizeof(clkname), "gate_uart%d", ourport->port.line);
+	ourport->clk = clk_get(&platdev->dev, clkname);
 	if (IS_ERR(ourport->clk)) {
 		pr_err("%s: Controller clock not found\n",
 				dev_name(&platdev->dev));
 		return PTR_ERR(ourport->clk);
+	}
+
+	if (ourport->check_separated_clk) {
+		snprintf(clkname, sizeof(clkname), "gate_pclk%d", ourport->port.line);
+		ourport->separated_clk = clk_get(&platdev->dev, clkname);
+		if (IS_ERR(ourport->separated_clk)) {
+			pr_err("%s: Controller clock not found\n",
+					dev_name(&platdev->dev));
+			return PTR_ERR(ourport->separated_clk);
+		}
+
+		ret = clk_prepare_enable(ourport->separated_clk);
+		if (ret) {
+			pr_err("uart: clock failed to prepare+enable: %d\n", ret);
+			clk_put(ourport->separated_clk);
+			return ret;
+		}
 	}
 
 	ret = clk_prepare_enable(ourport->clk);
