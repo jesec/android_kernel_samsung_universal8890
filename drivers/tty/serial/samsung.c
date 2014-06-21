@@ -1251,18 +1251,20 @@ static int __init s3c24xx_serial_console_init(void)
 	sprintf(pclk_name, "console-pclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
 	sprintf(sclk_name, "console-sclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
 
-	pr_info("Enable Console Clock to add refference counter\n");
+	pr_info("Enable clock for console to add reference counter\n");
 
 	console_clk = clk_get(NULL, pclk_name);
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get %s!(it's not err)\n", pclk_name);
+		pr_err("Can't get Console pclk(%d)!(it's not err)\n",
+					CONFIG_S3C_LOWLEVEL_UART_PORT);
 	} else {
 		clk_prepare_enable(console_clk);
 	}
 
 	console_clk = clk_get(NULL, sclk_name);
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get %s!(it's not err)\n", sclk_name);
+		pr_err("Can't get Console sclk(%d)!(it's not err)\n",
+					CONFIG_S3C_LOWLEVEL_UART_PORT);
 	} else {
 		clk_prepare_enable(console_clk);
 	}
