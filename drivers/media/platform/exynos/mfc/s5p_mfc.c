@@ -2341,7 +2341,8 @@ static void *mfc_get_drv_data(struct platform_device *pdev);
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 #if defined(CONFIG_SOC_EXYNOS5430)
 #define QOS_STEP_NUM (7)
-#elif defined(CONFIG_SOC_EXYNOS5422_REV_0) || defined(CONFIG_SOC_EXYNOS5433)
+#elif defined(CONFIG_SOC_EXYNOS5422_REV_0) || defined(CONFIG_SOC_EXYNOS5433) \
+	|| defined(CONFIG_SOC_EXYNOS7420)
 #define QOS_STEP_NUM (5)
 #else
 #define QOS_STEP_NUM (4)
@@ -2446,7 +2447,8 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_3", &g_mfc_qos_table[3]);
 #if defined(CONFIG_SOC_EXYNOS5430) ||	\
 	defined(CONFIG_SOC_EXYNOS5422_REV_0) ||	\
-	defined(CONFIG_SOC_EXYNOS5433)
+	defined(CONFIG_SOC_EXYNOS5433) || \
+	defined(CONFIG_SOC_EXYNOS7420)
 	parse_mfc_qos_platdata(np, "mfc_qos_variant_4", &g_mfc_qos_table[4]);
 #if defined(CONFIG_SOC_EXYNOS5430)
 	/* Max table for Decoder */
@@ -2723,8 +2725,9 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(dev->alloc_ctx);
 		goto alloc_ctx_fail;
 	}
-
+#ifndef CONFIG_SOC_EXYNOS7420
 	exynos_create_iovmm(&pdev->dev, 3, 3);
+#endif
 	dev->sched_wq = alloc_workqueue("s5p_mfc/sched", WQ_UNBOUND
 					| WQ_MEM_RECLAIM | WQ_HIGHPRI, 1);
 	if (dev->sched_wq == NULL) {

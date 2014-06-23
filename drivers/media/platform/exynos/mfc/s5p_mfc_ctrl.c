@@ -255,8 +255,8 @@ static int s5p_mfc_reset(struct s5p_mfc_dev *dev)
 		if (IS_MFCv6X(dev))
 			if (s5p_mfc_bus_reset(dev))
 				return -EIO;
-
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC_ON);
+		if (!IS_MFCv8X(dev))
+			s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC_ON);
 		s5p_mfc_write_reg(dev, 0x1FFF, S5P_FIMV_MFC_RESET);
 		s5p_mfc_write_reg(dev, 0, S5P_FIMV_MFC_RESET);
 	} else {
