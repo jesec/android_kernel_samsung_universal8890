@@ -831,7 +831,7 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 
 				s3c24xx_serial_save_restore(port, level);
 
-				clk_disable_unprepare(ourport->clk);
+				uart_clock_disable(ourport);
 
 				aud_uart_put_sync(ourport->pdev);
 
@@ -840,10 +840,10 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 				pr_info("%s: aud_uart_pm_suspend\n", __func__);
 			}
 		} else {
-			clk_disable_unprepare(ourport->clk);
+			uart_clock_disable(ourport);
 		}
 #else
-		clk_disable_unprepare(ourport->clk);
+		uart_clock_disable(ourport);
 #endif
 		break;
 
@@ -856,7 +856,7 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 
 				aud_uart_get_sync(ourport->pdev);
 
-				clk_prepare_enable(ourport->clk);
+				uart_clock_enable(ourport);
 
 				s3c24xx_serial_save_restore(port, level);
 
@@ -876,14 +876,14 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 			}
 
 		} else {
-			clk_prepare_enable(ourport->clk);
+			uart_clock_enable(ourport);
 
 			s3c24xx_serial_resetport(port,
 					s3c24xx_port_to_cfg(port));
 		}
 
 #else
-		clk_prepare_enable(ourport->clk);
+		uart_clock_enable(ourport);
 
 		s3c24xx_serial_resetport(port,
 				s3c24xx_port_to_cfg(port));
@@ -1502,6 +1502,11 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	if (of_find_property(platdev->dev.of_node, "samsung,lpass-subip", NULL))
 		lpass_register_subip(&platdev->dev, "aud-uart");
 #endif
+	if (of_get_property(platdev->dev.of_node,
+			"samsung,separate-uart-clk", NULL))
+		ourport->check_separated_clk = 1;
+	else
+		ourport->check_separated_clk = 0;
 
 	snprintf(clkname, sizeof(clkname), "gatepclk_uart%d", ourport->port.line);
 	ourport->clk = clk_get(&platdev->dev, clkname);
@@ -1798,9 +1803,9 @@ static int s3c24xx_serial_resume(struct device *dev)
 #endif
 
 	if (port) {
-		clk_prepare_enable(ourport->clk);
+		uart_clock_enable(ourport);
 		s3c24xx_serial_resetport(port, s3c24xx_port_to_cfg(port));
-		clk_disable_unprepare(ourport->clk);
+		uart_clock_disable(ourport);
 
 		uart_resume_port(&s3c24xx_uart_drv, port);
 	}
@@ -1825,9 +1830,9 @@ static int s3c24xx_serial_resume_noirq(struct device *dev)
 				uintm &= ~S3C64XX_UINTM_TXD_MSK;
 			if (rx_enabled(port))
 				uintm &= ~S3C64XX_UINTM_RXD_MSK;
-			clk_prepare_enable(ourport->clk);
+			uart_clock_enable(ourport);
 			wr_regl(port, S3C64XX_UINTM, uintm);
-			clk_disable_unprepare(ourport->clk);
+			uart_clock_disable(ourport);
 		}
 	}
 
