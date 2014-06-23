@@ -249,6 +249,7 @@ static bool s3c24xx_serial_lpm_suspend(struct s3c24xx_uart_port *ourport)
 static void s3c24xx_serial_start_tx(struct uart_port *port)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+	unsigned int umcon;
 
 	if (s3c24xx_serial_lpm_suspend(ourport)) {
 		/* wakeup serial port */
@@ -257,6 +258,14 @@ static void s3c24xx_serial_start_tx(struct uart_port *port)
 	}
 
 	if (!tx_enabled(port)) {
+		if (of_find_property(ourport->pdev->dev.of_node,
+					"samsung,lpass-subip", NULL)) {
+			umcon = rd_regl(port, S3C2410_UMCON);
+			if (!(umcon &= S3C2410_UMCOM_AFC)) {
+				umcon |= S3C2410_UMCOM_AFC;
+				wr_regl(port, S3C2410_UMCON, umcon);
+			}
+		}
 		if (port->flags & UPF_CONS_FLOW)
 			s3c24xx_serial_rx_disable(port);
 
