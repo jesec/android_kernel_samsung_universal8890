@@ -98,13 +98,15 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 	/* Set MAX if it's busy enough */
 	if (usage_rate > dfe_urgentthreshold)
 		*freq = max3(max, cal_qos_max, pm_qos_min);
-	else if (usage_rate >= dfe_upthreshold)
-		*freq = data->above_freq;
-	else if (usage_rate > dfe_downthreshold)
+	else if (usage_rate >= dfe_upthreshold) {
+		if (data)
+			*freq = data->above_freq;
+	} else if (usage_rate > dfe_downthreshold)
 		*freq = stat.current_frequency;
-	else if (usage_rate > dfe_idlethreshold)
-		*freq = data->below_freq;
-	else
+	else if (usage_rate > dfe_idlethreshold) {
+		if (data)
+			*freq = data->below_freq;
+	} else
 		*freq = 0;
 
 	if (*freq > cal_qos_max)
