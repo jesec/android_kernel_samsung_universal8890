@@ -1519,13 +1519,6 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 					dev_name(&platdev->dev));
 			return PTR_ERR(ourport->separated_clk);
 		}
-
-		ret = clk_prepare_enable(ourport->separated_clk);
-		if (ret) {
-			pr_err("uart: clock failed to prepare+enable: %d\n", ret);
-			clk_put(ourport->separated_clk);
-			return ret;
-		}
 	}
 
 	ret = clk_prepare_enable(ourport->clk);
