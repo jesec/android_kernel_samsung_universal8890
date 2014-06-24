@@ -484,6 +484,18 @@ static int m2m1shot_prepare_format(struct m2m1shot_device *m21dev,
 	size_t out_sizes[M2M1SHOT_MAX_PLANES] = { 0 };
 	size_t cap_sizes[M2M1SHOT_MAX_PLANES] = { 0 };
 
+	if (task->task.buf_out.num_planes > M2M1SHOT_MAX_PLANES) {
+		dev_err(m21dev->dev, "Invalid number of output planes %d.\n",
+			task->task.buf_out.num_planes);
+		return -EINVAL;
+	}
+
+	if (task->task.buf_cap.num_planes > M2M1SHOT_MAX_PLANES) {
+		dev_err(m21dev->dev, "Invalid number of capture planes %d.\n",
+			task->task.buf_cap.num_planes);
+		return -EINVAL;
+	}
+
 	ret = m21dev->ops->prepare_format(ctx, &task->task.fmt_out,
 					DMA_TO_DEVICE, out_sizes);
 	if (ret < 0)
