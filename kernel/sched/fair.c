@@ -2314,9 +2314,9 @@ struct hmp_global_attr {
 };
 
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
-#define HMP_DATA_SYSFS_MAX 12
+#define HMP_DATA_SYSFS_MAX 13
 #else
-#define HMP_DATA_SYSFS_MAX 11
+#define HMP_DATA_SYSFS_MAX 12
 #endif
 
 struct hmp_data_struct {
@@ -4917,9 +4917,10 @@ static int hmp_boost_val;
 static int hmp_semiboost_val;
 static int hmp_boostpulse;
 static int hmp_active_down_migration;
+static int hmp_aggressive_up_migration;
 static DEFINE_RAW_SPINLOCK(hmp_boost_lock);
 static DEFINE_RAW_SPINLOCK(hmp_semiboost_lock);
-static DEFINE_RAW_SPINLOCK(hmp_active_dm_lock);
+static DEFINE_RAW_SPINLOCK(hmp_sysfs_lock);
 
 #define BOOT_BOOST_DURATION 40000000 /* microseconds */
 
@@ -5270,7 +5271,7 @@ static int hmp_active_dm_from_sysfs(int value)
 	unsigned long flags;
 	int ret = 0;
 
-	raw_spin_lock_irqsave(&hmp_active_dm_lock, flags);
+	raw_spin_lock_irqsave(&hmp_sysfs_lock, flags);
 	if (value == 1)
 		hmp_active_down_migration++;
 	else if (value == 0)
@@ -5280,7 +5281,27 @@ static int hmp_active_dm_from_sysfs(int value)
 			ret = -EINVAL;
 	else
 		ret = -EINVAL;
-	raw_spin_unlock_irqrestore(&hmp_active_dm_lock, flags);
+	raw_spin_unlock_irqrestore(&hmp_sysfs_lock, flags);
+
+	return ret;
+}
+
+static int hmp_aggressive_up_migration_from_sysfs(int value)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	raw_spin_lock_irqsave(&hmp_sysfs_lock, flags);
+	if (value == 1)
+		hmp_aggressive_up_migration++;
+	else if (value == 0)
+		if (hmp_aggressive_up_migration >= 1)
+			hmp_aggressive_up_migration--;
+		else
+			ret = -EINVAL;
+	else
+		ret = -EINVAL;
+	raw_spin_unlock_irqrestore(&hmp_sysfs_lock, flags);
 
 	return ret;
 }
@@ -5316,6 +5337,11 @@ int set_hmp_boostpulse(int duration)
 int set_active_down_migration(int enable)
 {
 	return hmp_active_dm_from_sysfs(enable);
+}
+
+int set_hmp_aggressive_up_migration(int enable)
+{
+	return hmp_aggressive_up_migration_from_sysfs(enable);
 }
 
 int get_hmp_boost(void)
@@ -5422,6 +5448,11 @@ static int hmp_attr_init(void)
 		NULL,
 		hmp_active_dm_from_sysfs);
 
+	hmp_attr_add("aggressive_up_migration",
+		&hmp_aggressive_up_migration,
+		NULL,
+		hmp_aggressive_up_migration_from_sysfs);
+
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
 	/* default frequency-invariant scaling ON */
 	hmp_data.freqinvar_load_scale_enabled = 1;
@@ -5525,7 +5556,7 @@ static inline unsigned int hmp_offload_down(int cpu, struct sched_entity *se)
 	int min_usage;
 	int dest_cpu = NR_CPUS;
 
-	if (hmp_cpu_is_slowest(cpu))
+	if (hmp_cpu_is_slowest(cpu) || hmp_aggressive_up_migration)
 		return NR_CPUS;
 
 	/* Is there an idle CPU in the current domain */
@@ -8595,6 +8626,7 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 	struct task_struct *p = task_of(se);
 	int temp_target_cpu;
 	unsigned int up_threshold;
+	unsigned int min_load;
 	u64 now;
 
 	if (hmp_cpu_is_fastest(cpu))
@@ -8626,11 +8658,21 @@ static unsigned int hmp_up_migration(int cpu, int *target_cpu, struct sched_enti
 	 * idle CPU.
 	 * Be explicit about requirement for an idle CPU.
 	 */
-	if (hmp_domain_min_load(hmp_faster_domain(cpu), &temp_target_cpu,
-			tsk_cpus_allowed(p)) == 0 && temp_target_cpu != NR_CPUS) {
-		if (target_cpu)
-			*target_cpu = temp_target_cpu;
-		return 1;
+	min_load = hmp_domain_min_load(hmp_faster_domain(cpu),
+			&temp_target_cpu, tsk_cpus_allowed(p));
+
+	if (temp_target_cpu != NR_CPUS) {
+		if (hmp_aggressive_up_migration) {
+			if (target_cpu)
+				*target_cpu = temp_target_cpu;
+			return 1;
+		} else {
+			if (min_load == 0) {
+				if (target_cpu)
+					*target_cpu = temp_target_cpu;
+				return 1;
+			}
+		}
 	}
 
 	return 0;
@@ -8660,11 +8702,16 @@ static unsigned int hmp_down_migration(int cpu, struct sched_entity *se)
 					< hmp_next_down_threshold)
 		return 0;
 
-	if (hmp_domain_min_load(hmp_cpu_domain(cpu), NULL, NULL)) {
-		if (hmp_active_down_migration)
-			return 1;
-	} else if (hmp_boost()) {
-		return 0;
+	if (hmp_aggressive_up_migration) {
+		if (hmp_boost())
+			return 0;
+	} else {
+		if (hmp_domain_min_load(hmp_cpu_domain(cpu), NULL, NULL)) {
+			if (hmp_active_down_migration)
+				return 1;
+		} else if (hmp_boost()) {
+			return 0;
+		}
 	}
 
 	if (cpumask_intersects(&hmp_slower_domain(cpu)->cpus,
