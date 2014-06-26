@@ -1057,6 +1057,7 @@ extern int set_hmp_up_threshold(int value);
 extern int set_hmp_down_threshold(int value);
 extern int set_active_down_migration(int enable);
 extern int set_hmp_aggressive_up_migration(int enable);
+extern int set_hmp_aggressive_yield(int enable);
 #endif /* CONFIG_SCHED_HMP */
 #else /* CONFIG_SMP */
 

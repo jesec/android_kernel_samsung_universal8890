@@ -2314,9 +2314,9 @@ struct hmp_global_attr {
 };
 
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
-#define HMP_DATA_SYSFS_MAX 13
+#define HMP_DATA_SYSFS_MAX 14
 #else
-#define HMP_DATA_SYSFS_MAX 12
+#define HMP_DATA_SYSFS_MAX 13
 #endif
 
 struct hmp_data_struct {
@@ -4918,11 +4918,13 @@ static int hmp_semiboost_val;
 static int hmp_boostpulse;
 static int hmp_active_down_migration;
 static int hmp_aggressive_up_migration;
+static int hmp_aggressive_yield;
 static DEFINE_RAW_SPINLOCK(hmp_boost_lock);
 static DEFINE_RAW_SPINLOCK(hmp_semiboost_lock);
 static DEFINE_RAW_SPINLOCK(hmp_sysfs_lock);
 
 #define BOOT_BOOST_DURATION 40000000 /* microseconds */
+#define YIELD_CORRECTION_TIME 10000000 /* nanoseconds */
 
 #ifdef CONFIG_SCHED_HMP_PRIO_FILTER
 unsigned int hmp_up_prio = NICE_TO_PRIO(CONFIG_SCHED_HMP_PRIO_FILTER_VAL);
@@ -5306,6 +5308,26 @@ static int hmp_aggressive_up_migration_from_sysfs(int value)
 	return ret;
 }
 
+static int hmp_aggressive_yield_from_sysfs(int value)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	raw_spin_lock_irqsave(&hmp_sysfs_lock, flags);
+	if (value == 1)
+		hmp_aggressive_yield++;
+	else if (value == 0)
+		if (hmp_aggressive_yield >= 1)
+			hmp_aggressive_yield--;
+		else
+			ret = -EINVAL;
+	else
+		ret = -EINVAL;
+	raw_spin_unlock_irqrestore(&hmp_sysfs_lock, flags);
+
+	return ret;
+}
+
 int set_hmp_boost(int enable)
 {
 	return hmp_boost_from_sysfs(enable);
@@ -5342,6 +5364,11 @@ int set_active_down_migration(int enable)
 int set_hmp_aggressive_up_migration(int enable)
 {
 	return hmp_aggressive_up_migration_from_sysfs(enable);
+}
+
+int set_hmp_aggressive_yield(int enable)
+{
+	return hmp_aggressive_yield_from_sysfs(enable);
 }
 
 int get_hmp_boost(void)
@@ -5452,6 +5479,11 @@ static int hmp_attr_init(void)
 		&hmp_aggressive_up_migration,
 		NULL,
 		hmp_aggressive_up_migration_from_sysfs);
+
+	hmp_attr_add("aggressive_yield",
+		&hmp_aggressive_yield,
+		NULL,
+		hmp_aggressive_yield_from_sysfs);
 
 #ifdef CONFIG_HMP_FREQUENCY_INVARIANT_SCALE
 	/* default frequency-invariant scaling ON */
@@ -6069,6 +6101,11 @@ static void yield_task_fair(struct rq *rq)
 
 	if (curr->policy != SCHED_BATCH) {
 		update_rq_clock(rq);
+
+#ifdef CONFIG_SCHED_HMP
+		if (hmp_aggressive_yield && cfs_rq->curr)
+			cfs_rq->curr->exec_start -= YIELD_CORRECTION_TIME;
+#endif
 		/*
 		 * Update run-time statistics of the 'current'.
 		 */
