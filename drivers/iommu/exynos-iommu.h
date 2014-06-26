@@ -187,7 +187,7 @@ struct sysmmu_drvdata {
 	struct sysmmu_prefbuf pbufs[MAX_NUM_PBUF];
 	short qos;
 	short num_pbufs;
-	bool runtime_active;
+	int runtime_active;
 	bool suspended;
 	enum sysmmu_property prop; /* mach/sysmmu.h */
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
