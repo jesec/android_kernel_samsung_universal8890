@@ -1114,11 +1114,44 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 		if (!allocate_intermediate_frame(ctx))
 			return -ENOMEM;
 
-		if (v_ratio > sc->variant->sc_down_min)
+		limit = &sc->variant->limit_input;
+		if (v_ratio > sc->variant->sc_down_min) {
 			crop.height = ((src_height + 7) / 8) * 2;
+			if (crop.height < limit->min_h) {
+				if (SCALE_RATIO(limit->min_h,
+					ctx->d_frame.crop.height) >
+						sc->variant->sc_down_min) {
+					dev_err(sc->dev,
+					"Failed height scale down %d -> %d\n",
+					src_height,
+					ctx->d_frame.crop.height);
 
-		if (h_ratio > sc->variant->sc_down_min)
+					free_intermediate_frame(ctx);
+					return -EINVAL;
+				}
+
+				crop.height = limit->min_h;
+			}
+		}
+
+		if (h_ratio > sc->variant->sc_down_min) {
 			crop.width = ((src_width + 7) / 8) * 2;
+			if (crop.width < limit->min_w) {
+				if (SCALE_RATIO(limit->min_w,
+					ctx->d_frame.crop.width) >
+						sc->variant->sc_down_min) {
+					dev_err(sc->dev,
+					"Failed width scale down %d -> %d\n",
+					src_width,
+					ctx->d_frame.crop.width);
+
+					free_intermediate_frame(ctx);
+					return -EINVAL;
+				}
+
+				crop.width = limit->min_w;
+			}
+		}
 
 		pixfmt = target_fmt->pixelformat;
 
