@@ -113,6 +113,12 @@ static inline void uart_clock_disable(struct s3c24xx_uart_port *ourport)
 		clk_disable_unprepare(ourport->separated_clk);
 }
 
+#define MAX_AUD_UART_PIN_STATE	3
+#define AUD_UART_PIN_IDLE	0
+#define AUD_UART_PIN_LPM	1
+#define AUD_UART_PIN_DEFAULT	2
+struct pinctrl_state *uart_pin_state[MAX_AUD_UART_PIN_STATE];
+
 static inline struct s3c24xx_uart_port *to_ourport(struct uart_port *port)
 {
 	return container_of(port, struct s3c24xx_uart_port, port);
@@ -196,6 +202,9 @@ static int s3c24xx_serial_set_wake(struct uart_port *port, unsigned int state)
 	struct s3c24xx_uart_port *ourport =
 		container_of(port, struct s3c24xx_uart_port, port);
 	bool lpass_subip_uart;
+
+	if (!state)
+		disable_irq(port->irq);
 
 	lpass_subip_uart = of_property_read_bool(ourport->pdev->dev.of_node,
 							"samsung,lpass-subip");
@@ -736,14 +745,23 @@ static void aud_uart_gpio_cfg(struct device *dev, int level)
 	}
 
 	if (level == S3C24XX_UART_PORT_SUSPEND)
-		pins_default =
-		    pinctrl_lookup_state(pinctrl, PINCTRL_STATE_IDLE);
+		pins_default = uart_pin_state[AUD_UART_PIN_IDLE];
 	else if (level == S3C24XX_UART_PORT_LPM)
-		pins_default =
-		    pinctrl_lookup_state(pinctrl, "lpm");
+		pins_default = uart_pin_state[AUD_UART_PIN_LPM];
 	else
-		pins_default =
-		    pinctrl_lookup_state(pinctrl, PINCTRL_STATE_DEFAULT);
+		pins_default = uart_pin_state[AUD_UART_PIN_DEFAULT];
+
+	if (IS_ERR(pins_default)) {
+		dev_info(dev, "Uart is still not probed!!!\n");
+		if (level == S3C24XX_UART_PORT_SUSPEND)
+			pins_default = pinctrl_lookup_state(pinctrl,
+						PINCTRL_STATE_IDLE);
+		else if (level == S3C24XX_UART_PORT_LPM)
+			pins_default = pinctrl_lookup_state(pinctrl, "lpm");
+		else
+			pins_default = pinctrl_lookup_state(pinctrl,
+						PINCTRL_STATE_DEFAULT);
+	}
 
 	if (!IS_ERR(pins_default)) {
 		status = pinctrl_select_state(pinctrl, pins_default);
@@ -882,6 +900,7 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 				atomic_set(&ourport->serial_suspend, level);
 
 				pr_info("%s: aud_uart_pm_resume\n", __func__);
+				enable_irq(port->irq);
 			}
 
 		} else {
@@ -1636,6 +1655,7 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	struct s3c24xx_uart_port *ourport;
 	int index = probe_index;
 	int ret;
+	struct pinctrl *pinctrl;
 
 	if (np) {
 		ret = of_alias_get_id(np, "serial");
@@ -1733,6 +1753,17 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 #endif
 
 		atomic_set(&ourport->serial_suspend, S3C24XX_UART_PORT_SUSPEND);
+		pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR(pinctrl)) {
+			dev_err(&pdev->dev, "could not get AUD pinctrl\n");
+			goto probe_err;
+		}
+		uart_pin_state[AUD_UART_PIN_IDLE] =
+			pinctrl_lookup_state(pinctrl, PINCTRL_STATE_IDLE);
+		uart_pin_state[AUD_UART_PIN_LPM] =
+			pinctrl_lookup_state(pinctrl, "lpm");
+		uart_pin_state[AUD_UART_PIN_DEFAULT] =
+			pinctrl_lookup_state(pinctrl, PINCTRL_STATE_DEFAULT);
 	}
 
 	dbg("%s: adding port\n", __func__);
