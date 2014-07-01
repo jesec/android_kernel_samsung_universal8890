@@ -1408,6 +1408,15 @@ static int __init __sysmmu_init_master_info(struct device *sysmmu,
 
 		of_node_put(master_node);
 
+		ret = of_property_read_u32_index(master_info, "grp_num", 0, &grp_num);
+		if ((ret == 0) && (grp_num > 2)) {
+			dev_err(sysmmu, "%s: Invalid PB group number %d specified\n",
+					__func__, grp_num);
+			grp_num = 0;
+		} else if (ret) {
+			grp_num = 0;
+		}
+
 		/* Update System MMU PB AXI ID information */
 		pb_node = of_find_node_by_name(master_info, "pb_axi_id");
 		if (!pb_node) {
@@ -1431,7 +1440,6 @@ static int __init __sysmmu_init_master_info(struct device *sysmmu,
 			ret = -EINVAL;
 			break;
 		}
-		grp_num++;
 		of_node_put(master_info);
 	}
 
