@@ -84,6 +84,8 @@ static char *sysmmu_fault_name[SYSMMU_FAULTS_NUM] = {
 	"UNKNOWN FAULT"
 };
 
+static char *sysmmu_clock_names[SYSMMU_CLK_NUM] = {"aclk", "pclk", "master"};
+
 static int iova_from_sent(sysmmu_pte_t *base, sysmmu_pte_t *sent)
 {
 	return ((unsigned long)sent - (unsigned long)base) *
@@ -1198,41 +1200,35 @@ void exynos_sysmmu_release_df(struct device *dev)
 static int __init __sysmmu_init_clock(struct device *sysmmu,
 					struct sysmmu_drvdata *drvdata)
 {
-	int ret;
+	int i, ret;
 
-	drvdata->clk = devm_clk_get(sysmmu, "sysmmu");
-	if (IS_ERR(drvdata->clk)) {
-		if (PTR_ERR(drvdata->clk) == -ENOENT) {
-			dev_info(sysmmu, "No gating clock found.\n");
-			drvdata->clk = NULL;
-			return 0;
+	/* Initialize SYSMMU clocks */
+	for (i = 0; i < SYSMMU_CLK_NUM; i++)
+		drvdata->clocks[i] = ERR_PTR(-ENOENT);
+
+	for (i = 0; i < SYSMMU_CLK_NUM; i++) {
+		drvdata->clocks[i] =
+			devm_clk_get(sysmmu, sysmmu_clock_names[i]);
+		if (IS_ERR(drvdata->clocks[i]) &&
+			!(drvdata->clocks[i] == ERR_PTR(-ENOENT))) {
+			dev_err(sysmmu, "Failed to get sysmmu %s clock\n",
+				sysmmu_clock_names[i]);
+			return PTR_ERR(drvdata->clocks[i]);
+		} else if (drvdata->clocks[i] == ERR_PTR(-ENOENT)) {
+			continue;
 		}
 
-		dev_err(sysmmu, "Failed get sysmmu clock\n");
-		return PTR_ERR(drvdata->clk);
-	}
+		ret = clk_prepare(drvdata->clocks[i]);
+		if (ret) {
+			dev_err(sysmmu, "Failed to prepare sysmmu  %s clock\n",
+					sysmmu_clock_names[i]);
+			while (i-- > 0) {
+				if (!IS_ERR(drvdata->clocks[i]))
+					clk_unprepare(drvdata->clocks[i]);
+			}
+			return ret;
+		}
 
-	ret = clk_prepare(drvdata->clk);
-	if (ret) {
-		dev_err(sysmmu, "Failed to prepare sysmmu clock\n");
-		return ret;
-	}
-
-	drvdata->clk_master = devm_clk_get(sysmmu, "master");
-	if (PTR_ERR(drvdata->clk_master) == -ENOENT) {
-		drvdata->clk_master = NULL;
-		return 0;
-	} else if (IS_ERR(drvdata->clk_master)) {
-		dev_err(sysmmu, "Failed to get master clock\n");
-		clk_unprepare(drvdata->clk);
-		return PTR_ERR(drvdata->clk_master);
-	}
-
-	ret = clk_prepare(drvdata->clk_master);
-	if (ret) {
-		clk_unprepare(drvdata->clk);
-		dev_err(sysmmu, "Failed to prepare master clock\n");
-		return ret;
 	}
 
 	return 0;
@@ -1502,10 +1498,11 @@ static int __init __sysmmu_setup(struct device *sysmmu,
 
 	ret = __sysmmu_init_master_info(sysmmu, drvdata);
 	if (ret) {
-		if (drvdata->clk)
-			clk_unprepare(drvdata->clk);
-		if (drvdata->clk_master)
-			clk_unprepare(drvdata->clk_master);
+		int i;
+		for (i = 0; i < SYSMMU_CLK_NUM; i++) {
+			if (!IS_ERR(drvdata->clocks[i]))
+				clk_unprepare(drvdata->clocks[i]);
+		}
 		dev_err(sysmmu, "Failed to initialize master device.\n");
 	}
 

@@ -168,6 +168,13 @@ enum sysmmu_property {
 	SYSMMU_PROP_WINDOW_MASK = 0x1F << SYSMMU_PROP_WINDOW_SHIFT,
 };
 
+enum sysmmu_clock_ids {
+	SYSMMU_ACLK,
+	SYSMMU_PCLK,
+	SYSMMU_MASTER,
+	SYSMMU_CLK_NUM,
+};
+
 /*
  * Metadata attached to each System MMU devices.
  */
@@ -178,8 +185,7 @@ struct sysmmu_drvdata {
 	struct device *sysmmu;	/* System MMU's device descriptor */
 	struct device *master;	/* Client device that needs System MMU */
 	void __iomem *sfrbase;
-	struct clk *clk;
-	struct clk *clk_master;
+	struct clk *clocks[SYSMMU_CLK_NUM];
 	int activations;
 	struct iommu_domain *domain; /* domain given to iommu_attach_device() */
 	phys_addr_t pgtable;
@@ -312,14 +318,36 @@ void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata);
 #error "Neither CONFIG_IOMMU_EXYNOS5 nor CONFIG_IOMMU_EXYNOS7 is defined"
 #endif
 
-#define __sysmmu_clk_enable(drvdata)	if (drvdata->clk) \
-						clk_enable(drvdata->clk)
-#define __sysmmu_clk_disable(drvdata)	if (drvdata->clk) \
-						clk_disable(drvdata->clk)
-#define __master_clk_enable(drvdata)	if (drvdata->clk_master) \
-						clk_enable(drvdata->clk_master)
-#define __master_clk_disable(drvdata)	if (drvdata->clk_master) \
-						clk_disable(drvdata->clk_master)
+static inline void __sysmmu_clk_enable(struct sysmmu_drvdata *data)
+{
+	if (!IS_ERR(data->clocks[SYSMMU_ACLK]))
+		clk_enable(data->clocks[SYSMMU_ACLK]);
+
+	if (!IS_ERR(data->clocks[SYSMMU_PCLK]))
+		clk_enable(data->clocks[SYSMMU_PCLK]);
+}
+
+static inline void __sysmmu_clk_disable(struct sysmmu_drvdata *data)
+{
+	if (!IS_ERR(data->clocks[SYSMMU_ACLK]))
+		clk_disable(data->clocks[SYSMMU_ACLK]);
+
+	if (!IS_ERR(data->clocks[SYSMMU_PCLK]))
+		clk_disable(data->clocks[SYSMMU_PCLK]);
+}
+
+static inline void __master_clk_enable(struct sysmmu_drvdata *data)
+{
+	if (!IS_ERR(data->clocks[SYSMMU_MASTER]))
+		clk_enable(data->clocks[SYSMMU_MASTER]);
+}
+
+static inline void __master_clk_disable(struct sysmmu_drvdata *data)
+{
+	if (!IS_ERR(data->clocks[SYSMMU_MASTER]))
+		clk_disable(data->clocks[SYSMMU_MASTER]);
+}
+
 
 #if defined(CONFIG_EXYNOS7_IOMMU) && defined(CONFIG_EXYNOS5_IOMMU)
 #error "CONFIG_IOMMU_EXYNOS5 and CONFIG_IOMMU_EXYNOS7 defined together"
