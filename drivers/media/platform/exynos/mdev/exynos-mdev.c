@@ -69,8 +69,8 @@ static int mdev_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, mdev);
-	v4l2_info(v4l2_dev, "Media%d[0x%08x] was registered successfully\n",
-		  mdev->id, (unsigned int)mdev);
+	v4l2_info(v4l2_dev, "Media%d[%pK] was registered successfully\n",
+		  mdev->id, mdev);
 	return 0;
 
 err_mdev_reg:
