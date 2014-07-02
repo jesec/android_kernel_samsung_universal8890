@@ -269,10 +269,8 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 	int ret_num_pb = 0;
 	int total_plane_num = pb->in_num + pb->out_num;
 
-	if (total_plane_num <= 0) {
-		pr_err("The number of buffers(%d) is empty\n", total_plane_num);
+	if (total_plane_num <= 0)
 		return;
-	}
 
 	if (pb->grp_num < 0) {
 		pr_err("The group number(%d) is invalid\n", pb->grp_num);
