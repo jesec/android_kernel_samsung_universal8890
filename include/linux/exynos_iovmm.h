@@ -16,6 +16,7 @@
 #include <linux/iommu.h>
 
 #include <asm/page.h>
+#include <linux/mm_types.h>
 
 struct scatterlist;
 struct device;
