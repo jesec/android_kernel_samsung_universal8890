@@ -933,8 +933,8 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 					frame->addr.ysize, DMA_TO_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.y)) {
 			dev_err(sc->dev,
-				"Failed to allocate iova of y (err %d)",
-				ctx->i_frame->src_addr.y);
+				"Failed to allocate iova of y (err %pa)",
+				&ctx->i_frame->src_addr.y);
 			ctx->i_frame->src_addr.y = 0;
 			goto err_ion_alloc;
 		}
@@ -943,8 +943,8 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 					frame->addr.ysize, DMA_FROM_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.y)) {
 			dev_err(sc->dev,
-				"Failed to allocate iova of y (err %d)",
-				ctx->i_frame->dst_addr.y);
+				"Failed to allocate iova of y (err %pa)",
+				&ctx->i_frame->dst_addr.y);
 			ctx->i_frame->dst_addr.y = 0;
 			goto err_ion_alloc;
 		}
@@ -976,8 +976,8 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 					frame->addr.cbsize, DMA_TO_DEVICE, 1);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.cb)) {
 			dev_err(sc->dev,
-				"Failed to allocate iova of cb (err %d)",
-				ctx->i_frame->src_addr.cb);
+				"Failed to allocate iova of cb (err %pa)",
+				&ctx->i_frame->src_addr.cb);
 			ctx->i_frame->src_addr.cb = 0;
 			goto err_ion_alloc;
 		}
@@ -986,8 +986,8 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 					frame->addr.cbsize, DMA_FROM_DEVICE, 1);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.cb)) {
 			dev_err(sc->dev,
-				"Failed to allocate iova of cb (err %d)",
-				ctx->i_frame->dst_addr.cb);
+				"Failed to allocate iova of cb (err %pa)",
+				&ctx->i_frame->dst_addr.cb);
 			ctx->i_frame->dst_addr.cb = 0;
 			goto err_ion_alloc;
 		}
@@ -1019,8 +1019,8 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 					frame->addr.crsize, DMA_TO_DEVICE, 2);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.cr)) {
 			dev_err(sc->dev,
-				"Failed to allocate iova of cr (err %d)",
-				ctx->i_frame->src_addr.cr);
+				"Failed to allocate iova of cr (err %pa)",
+				&ctx->i_frame->src_addr.cr);
 			ctx->i_frame->src_addr.cr = 0;
 			goto err_ion_alloc;
 		}
@@ -1029,8 +1029,8 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 					frame->addr.crsize, DMA_FROM_DEVICE, 2);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.cr)) {
 			dev_err(sc->dev,
-				"Failed to allocate iova of cr (err %d)",
-				ctx->i_frame->dst_addr.cr);
+				"Failed to allocate iova of cr (err %pa)",
+				&ctx->i_frame->dst_addr.cr);
 			ctx->i_frame->dst_addr.cr = 0;
 			goto err_ion_alloc;
 		}
@@ -2195,9 +2195,9 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 		frame->addr.cr = t_cb;
 	}
 
-	sc_dbg("y addr 0x%x y size 0x%x\n", frame->addr.y, frame->addr.ysize);
-	sc_dbg("cb addr 0x%x cb size 0x%x\n", frame->addr.cb, frame->addr.cbsize);
-	sc_dbg("cr addr 0x%x cr size 0x%x\n", frame->addr.cr, frame->addr.crsize);
+	sc_dbg("y addr %pa y size %#x\n", &frame->addr.y, frame->addr.ysize);
+	sc_dbg("cb addr %pa cb size %#x\n", &frame->addr.cb, frame->addr.cbsize);
+	sc_dbg("cr addr %pa cr size %#x\n", &frame->addr.cr, frame->addr.crsize);
 
 	return 0;
 }
