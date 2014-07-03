@@ -725,7 +725,7 @@ static long m2m1shot_ioctl(struct file *filp,
 #ifdef CONFIG_COMPAT
 struct compat_m2m1shot_rect {
 	compat_short_t left;
-	compat_shor_t top;
+	compat_short_t top;
 	compat_ushort_t width;
 	compat_ushort_t height;
 };
@@ -844,7 +844,7 @@ static long m2m1shot_compat_ioctl32(struct file *filp,
 		 * m2m1shot_process() does not wake up
 		 * until the given task finishes
 		 */
-		return m2m1shot_process(ctx, &data.task);
+		return m2m1shot_process(ctx, &task);
 	}
 	case M2M1SHOT_IOC_CUSTOM:
 	{
