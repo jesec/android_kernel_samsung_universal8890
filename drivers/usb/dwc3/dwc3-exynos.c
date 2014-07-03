@@ -49,10 +49,13 @@ struct dwc3_exynos {
 	struct platform_device	*usb3_phy;
 	struct device		*dev;
 
-	struct clk		*clk;
 	struct regulator	*vdd33;
 	struct regulator	*vdd10;
-	struct dwc3_exynos_rsw  rsw;
+
+	struct clk		*aclk;
+	struct clk		*sclk;
+
+	struct dwc3_exynos_rsw	rsw;
 };
 void dwc3_otg_run_sm(struct otg_fsm *fsm);
 
@@ -461,16 +464,25 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	clk = devm_clk_get(dev, "usbdrd30");
+	clk = devm_clk_get(dev, "aclk");
+	if (IS_ERR_OR_NULL(clk)) {
+		dev_err(dev, "couldn't get clock\n");
+		ret = -EINVAL;
+		goto err1;
+	}
+	exynos->aclk	= clk;
+
+	clk = devm_clk_get(dev, "sclk");
 	if (IS_ERR_OR_NULL(clk)) {
 		dev_err(dev, "couldn't get clock\n");
 		return -EINVAL;
 	}
+	exynos->sclk	= clk;
 
 	exynos->dev	= dev;
-	exynos->clk	= clk;
 
-	clk_prepare_enable(exynos->clk);
+	clk_prepare_enable(exynos->aclk);
+	clk_prepare_enable(exynos->sclk);
 
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
@@ -525,7 +537,8 @@ err3:
 		regulator_disable(exynos->vdd33);
 err2:
 	pm_runtime_disable(&pdev->dev);
-	clk_disable_unprepare(clk);
+	clk_disable_unprepare(exynos->aclk);
+	clk_disable_unprepare(exynos->sclk);
 	pm_runtime_set_suspended(&pdev->dev);
 	return ret;
 }
@@ -545,10 +558,12 @@ static int dwc3_exynos_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&pdev->dev);
 	if (!pm_runtime_status_suspended(&pdev->dev)) {
-		clk_disable(exynos->clk);
+		clk_disable(exynos->aclk);
+		clk_disable(exynos->sclk);
 		pm_runtime_set_suspended(&pdev->dev);
 	}
-	clk_unprepare(exynos->clk);
+	clk_unprepare(exynos->aclk);
+	clk_unprepare(exynos->sclk);
 
 	return 0;
 }
@@ -560,7 +575,8 @@ static int dwc3_exynos_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	clk_disable(exynos->clk);
+	clk_disable(exynos->aclk);
+	clk_disable(exynos->sclk);
 
 	return 0;
 }
@@ -571,7 +587,8 @@ static int dwc3_exynos_runtime_resume(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	clk_enable(exynos->clk);
+	clk_enable(exynos->aclk);
+	clk_enable(exynos->sclk);
 
 	return 0;
 }
@@ -587,7 +604,8 @@ static int dwc3_exynos_suspend(struct device *dev)
 	if (pm_runtime_suspended(dev))
 		return 0;
 
-	clk_disable(exynos->clk);
+	clk_disable(exynos->aclk);
+	clk_disable(exynos->sclk);
 
 	if (exynos->vdd33)
 		regulator_disable(exynos->vdd33);
@@ -618,7 +636,8 @@ static int dwc3_exynos_resume(struct device *dev)
 	}
 	dev_dbg(dev, "%s\n", __func__);
 
-	clk_enable(exynos->clk);
+	clk_enable(exynos->aclk);
+	clk_enable(exynos->sclk);
 
 	/* runtime set active to reflect active state. */
 	pm_runtime_disable(dev);
