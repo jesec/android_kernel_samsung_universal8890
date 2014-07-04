@@ -123,9 +123,8 @@ err_p_clk:
 int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 {
 	struct clk *clk_child = NULL;
-#ifndef CONFIG_SOC_EXYNOS7420
 	struct clk *clk_parent = NULL;
-#endif
+
 #if defined(CONFIG_SOC_EXYNOS5430)
 	if (dev->id == 0) {
 		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_user");
@@ -187,26 +186,29 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	clk_put(clk_parent);
 
 #elif defined(CONFIG_SOC_EXYNOS7420)
-	int index;
-	char *str_child[15] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
-			 "aclk_xiu_mfc_0", "aclk_xiu_mfc_1",
-			"aclk_xiu_n_async_m_mfc_0", "aclk_xiu_n_async_m_mfc_1",
-			"aclk_cp_mfc_0", "aclk_cp_mfc_1",
-			"aclk_xiu_n_async_s_mfc_0","aclk_xiu_n_async_s_mfc_1",
-			"pclk_xiu_n_async_mfc_0", "pclk_xiu_n_async_mfc_1",
-			"pclk_cp_mfc_0", "pclk_cp_mfc_1", "pclk_mfc"};
-	for (index = 0; index < 15; index++) {
-		clk_child = clk_get(dev->device, str_child[index]);
-		if (IS_ERR(clk_child)) {
-			pr_err("failed to get %s clock\n", str_child[index]);
-			return PTR_ERR(clk_child);
-		}
-		clk_prepare_enable(clk_child);
-		clk_put(clk_child);
+
+	clk_child = clk_get(dev->device, "aclk_mfc");
+	printk("%s %d\n",__func__,__LINE__);
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
 	}
+	printk("%s %d\n",__func__,__LINE__);
+	clk_parent = clk_get(dev->device, "pclk_mfc");
+	if (IS_ERR(clk_parent)) {
+		clk_put(clk_child);
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_parent);
+	}
+
+	printk("%s %d\n",__func__,__LINE__);
+	/* before set mux register, all source clock have to enabled */
+	clk_prepare_enable(clk_parent);
+	printk("%s %d\n",__func__,__LINE__);
+	clk_prepare_enable(clk_child);
+	clk_put(clk_parent);
+	clk_put(clk_child);
 #endif
-
-
 	return 0;
 }
 
@@ -492,23 +494,25 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 	/* expected mfc related ref clock value be set 0 */
 #elif defined(CONFIG_SOC_EXYNOS7420)
 	struct clk *clk_child = NULL;
-	int index;
-	char *str_child[15] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
-			 "aclk_xiu_mfc_0", "aclk_xiu_mfc_1",
-			"aclk_xiu_n_async_m_mfc_0", "aclk_xiu_n_async_m_mfc_1",
-			"aclk_cp_mfc_0", "aclk_cp_mfc_1",
-			"aclk_xiu_n_async_s_mfc_0","aclk_xiu_n_async_s_mfc_1",
-			"pclk_xiu_n_async_mfc_0", "pclk_xiu_n_async_mfc_1",
-			"pclk_cp_mfc_0", "pclk_cp_mfc_1", "pclk_mfc"};
-	for (index = 0; index < 15; index++) {
-		clk_child = clk_get(dev->device, str_child[index]);
-		if (IS_ERR(clk_child)) {
-			pr_err("failed to get %s clock\n", str_child[index]);
-			return PTR_ERR(clk_child);
-		}
-		clk_disable_unprepare(clk_child);
-		clk_put(clk_child);
+	struct clk *clk_parent = NULL;
+
+	clk_child = clk_get(dev->device, "aclk_mfc");
+	if (IS_ERR(clk_child)) {
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
+		return PTR_ERR(clk_child);
 	}
+	clk_parent = clk_get(dev->device, "pclk_mfc");
+	if (IS_ERR(clk_parent)) {
+		clk_put(clk_child);
+		pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
+		return PTR_ERR(clk_parent);
+	}
+	/* before set mux register, all source clock have to enabled */
+	clk_disable_unprepare(clk_child);
+	clk_disable_unprepare(clk_parent);
+
+	clk_put(clk_child);
+	clk_put(clk_parent);
 #endif
 
 	atomic_set(&dev->pm.power, 0);
