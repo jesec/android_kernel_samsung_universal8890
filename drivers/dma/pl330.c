@@ -476,6 +476,7 @@ struct pl330_dmac {
 	/* Used the DMA wrapper */
 	bool wrapper;
 	void __iomem *inst_wrapper;
+	int 			usage_count;
 	/* Populated by the PL330 core driver during pl330_add */
 	struct pl330_config	pcfg;
 
@@ -1594,6 +1595,12 @@ static void pl330_dotask(unsigned long data)
 
 	spin_lock_irqsave(&pl330->lock, flags);
 
+	if (!pl330->usage_count) {
+		pr_info("[%s] Channel is already free!\n",__func__);
+		spin_unlock_irqrestore(&pl330->lock, flags);
+		return;
+	}
+
 	/* The DMAC itself gone nuts */
 	if (pl330->dmac_tbd.reset_dmac) {
 		pl330->state = DYING;
@@ -1656,6 +1663,12 @@ static int pl330_update(struct pl330_dmac *pl330)
 	regs = pl330->base;
 
 	spin_lock_irqsave(&pl330->lock, flags);
+
+	if (!pl330->usage_count) {
+		dev_err(pl330->ddma.dev, "%s:%d event is not exist!\n", __func__, __LINE__);
+		spin_unlock_irqrestore(&pl330->lock, flags);
+		return 0;
+	}
 
 	val = readl(regs + FSM) & 0x1;
 	if (val)
@@ -1796,6 +1809,7 @@ static struct pl330_thread *pl330_request_channel(struct pl330_dmac *pl330)
 				thrd->req[0].desc = NULL;
 				thrd->req[1].desc = NULL;
 				thrd->req_running = -1;
+				pl330->usage_count++;
 				break;
 			}
 		}
@@ -1814,8 +1828,10 @@ static inline void _free_event(struct pl330_thread *thrd, int ev)
 
 	/* If the event is valid and was held by the thread */
 	if (ev >= 0 && ev < pl330->pcfg.num_events
-			&& pl330->events[ev] == thrd->id)
+			&& pl330->events[ev] == thrd->id) {
 		pl330->events[ev] = -1;
+		pl330->usage_count--;
+	}
 }
 
 static void pl330_release_channel(struct pl330_thread *thrd)
@@ -2033,6 +2049,7 @@ static int pl330_add(struct pl330_dmac *pl330)
 	tasklet_init(&pl330->tasks, pl330_dotask, (unsigned long) pl330);
 
 	pl330->state = INIT;
+	pl330->usage_count = 0;
 
 	return 0;
 }
