@@ -2481,22 +2481,19 @@ static int sc_m2m1shot_prepare_operation(struct m2m1shot_context *m21ctx,
 
 	ctx->rotation = shot->op.rotate;
 
+	ctx->flip &= ~(SC_VFLIP | SC_HFLIP);
+
 	if (shot->op.op & M2M1SHOT_OP_FLIP_VIRT)
 		ctx->flip |= SC_VFLIP;
 
 	if (shot->op.op & M2M1SHOT_OP_FLIP_HORI)
 		ctx->flip |= SC_HFLIP;
 
-	/* default: 601 */
-	if (shot->op.op & M2M1SHOT_OP_CSC_709)
-		ctx->csc.csc_eq = SC_CSC_709;
-
-	/* default: narrow */
-	if (shot->op.op & M2M1SHOT_OP_CSC_WIDE)
-		ctx->csc.csc_range = SC_CSC_WIDE;
-
-	if (shot->op.op & M2M1SHOT_OP_PREMULTIPLIED_ALPHA)
-		ctx->pre_multi = true;
+	ctx->csc.csc_eq = !(shot->op.op & M2M1SHOT_OP_CSC_709) ?
+						SC_CSC_601 : SC_CSC_709;
+	ctx->csc.csc_range = !(shot->op.op & M2M1SHOT_OP_CSC_WIDE) ?
+						SC_CSC_NARROW : SC_CSC_WIDE;
+	ctx->pre_multi = !!(shot->op.op & M2M1SHOT_OP_PREMULTIPLIED_ALPHA);
 
 	return sc_find_scaling_ratio(m21ctx->priv);
 }
