@@ -22,6 +22,10 @@
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 
+#if defined(CONFIG_SOC_EXYNOS5430)
+#include <mach/regs-clock.h>
+#endif
+
 #include "exynos-iommu.h"
 
 #define MAX_NUM_PPC	4
@@ -176,6 +180,42 @@ static inline void __sysmmu_disable_nocount(struct sysmmu_drvdata *drvdata)
 {
 	int disable = (drvdata->prop & SYSMMU_PROP_STOP_BLOCK) ?
 					CTRL_BLOCK_DISABLE : CTRL_DISABLE;
+
+#if defined(CONFIG_SOC_EXYNOS5430)
+	if (!strcmp(dev_name(drvdata->sysmmu), "15200000.sysmmu")) {
+		if (!(__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC0_SECURE_SMMU_MFC) & 0x1) ||
+			!(__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC0_SECURE_SMMU_MFC) & 0x1)) {
+			pr_err("MFC0_0 SYSMMU clock is disabled ACLK: [%#x], PCLK[%#x]\n",
+				__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC0_SECURE_SMMU_MFC),
+				__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC0_SECURE_SMMU_MFC));
+			BUG();
+		}
+	} else if (!strcmp(dev_name(drvdata->sysmmu), "15210000.sysmmu")) {
+		if (!(__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC0_SECURE_SMMU_MFC) & 0x2) ||
+			!(__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC0_SECURE_SMMU_MFC) & 0x2)) {
+			pr_err("MFC0_1 SYSMMU clock is disabled ACLK: [%#x], PCLK[%#x]\n",
+				__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC0_SECURE_SMMU_MFC),
+				__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC0_SECURE_SMMU_MFC));
+			BUG();
+		}
+	} else if (!strcmp(dev_name(drvdata->sysmmu), "15300000.sysmmu")) {
+		if (!(__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC1_SECURE_SMMU_MFC) & 0x1) ||
+			!(__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC1_SECURE_SMMU_MFC) & 0x1)) {
+			pr_err("MFC1_0 SYSMMU clock is disabled ACLK: [%#x], PCLK[%#x]\n",
+				__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC1_SECURE_SMMU_MFC),
+				__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC1_SECURE_SMMU_MFC));
+			BUG();
+		}
+	} else if (!strcmp(dev_name(drvdata->sysmmu), "15310000.sysmmu")) {
+		if (!(__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC1_SECURE_SMMU_MFC) & 0x2) ||
+			!(__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC1_SECURE_SMMU_MFC) & 0x2)) {
+			pr_err("MFC1_1 SYSMMU clock is disabled ACLK: [%#x], PCLK[%#x]\n",
+				__raw_readl(EXYNOS5430_ENABLE_ACLK_MFC1_SECURE_SMMU_MFC),
+				__raw_readl(EXYNOS5430_ENABLE_PCLK_MFC1_SECURE_SMMU_MFC));
+			BUG();
+		}
+	}
+#endif
 
 	__raw_sysmmu_disable(drvdata->sfrbase, disable);
 
