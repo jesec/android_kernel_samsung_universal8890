@@ -1533,7 +1533,9 @@ static struct iommu_ops exynos_iommu_ops = {
 
 static int __sysmmu_unmap_user_pages(struct device *dev,
 					struct mm_struct *mm,
-					unsigned long vaddr, size_t size)
+					unsigned long vaddr,
+					exynos_iova_t iova,
+					size_t size)
 {
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	struct exynos_iovmm *vmm = owner->vmm_data;
@@ -1563,30 +1565,37 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	start = vaddr & PAGE_MASK;
 	end = PAGE_ALIGN(vaddr + size);
 
-	TRACE_LOG_DEV(dev, "%s: Unmap starts @ %#x@%#lx\n",
+	TRACE_LOG_DEV(dev, "%s: unmap starts @ %#zx@%#lx\n",
 			__func__, size, start);
 
 	spin_lock_irqsave(&priv->pgtablelock, flags);
 
 	do {
 		sysmmu_pte_t *pent_first;
-		int i;
 
-		sent = section_entry(priv->pgtable, start);
-		pent = page_entry(sent, start);
-
+		sent = section_entry(priv->pgtable, iova);
+		pent = page_entry(sent, iova);
 		pent_first = pent;
-		do {
-			i = lv2ent_offset(start);
 
+		do {
 			if (!lv2ent_fault(pent) && !is_pfnmap)
 				put_page(phys_to_page(spage_phys(pent)));
 
 			*pent = 0;
-			start += PAGE_SIZE;
-		} while (pent++, (start != end) && (i < (NUM_LV2ENTRIES - 1)));
+			if (lv2ent_offset(iova) == NUM_LV2ENTRIES - 1) {
+				pgtable_flush(pent_first, pent);
+				iova += PAGE_SIZE;
+				sent = section_entry(priv->pgtable, iova);
+				pent = page_entry(sent, iova);
+				pent_first = pent;
+			} else {
+				iova += PAGE_SIZE;
+				pent++;
+			}
+		} while (start += PAGE_SIZE, start != end);
 
-		pgtable_flush(pent_first, pent);
+		if (pent_first != pent)
+			pgtable_flush(pent_first, pent);
 	} while (start != end);
 
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
@@ -1621,6 +1630,7 @@ static sysmmu_pte_t *alloc_lv2entry_fast(struct exynos_iommu_domain *priv,
 int exynos_sysmmu_map_user_pages(struct device *dev,
 					struct mm_struct *mm,
 					unsigned long vaddr,
+					exynos_iova_t iova,
 					size_t size, int write)
 {
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
@@ -1655,7 +1665,7 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 	start = vaddr & PAGE_MASK;
 	end = PAGE_ALIGN(vaddr + size);
 
-	TRACE_LOG_DEV(dev, "%s: map @ %#lx--%#lx, %d bytes, vm_flags: %#lx\n",
+	TRACE_LOG_DEV(dev, "%s: map @ %#lx--%#lx, %zd bytes, vm_flags: %#lx\n",
 			__func__, start, end, size, vma->vm_flags);
 
 	spin_lock_irqsave(&priv->pgtablelock, flags);
@@ -1674,7 +1684,7 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 		pmd = pmd_offset((pud_t *)pgd, start);
 
 		do {
-			pte_t *pte, *pte_first;
+			pte_t *pte;
 			sysmmu_pte_t *pent, *pent_first;
 			sysmmu_pte_t *sent;
 
@@ -1684,13 +1694,10 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 			}
 
 			pmd_next = pmd_addr_end(start, pgd_next);
-			pmd_next = min(ALIGN(start + 1, SECT_SIZE), pmd_next);
-
 			pte = pte_offset_map(pmd, start);
-			pte_first = pte;
 
-			sent = section_entry(priv->pgtable, start);
-			pent = alloc_lv2entry_fast(priv, sent, start);
+			sent = section_entry(priv->pgtable, iova);
+			pent = alloc_lv2entry_fast(priv, sent, iova);
 			if (IS_ERR(pent)) {
 				ret = PTR_ERR(pent); /* ENOMEM or EADDRINUSE */
 				goto out_unmap;
@@ -1721,11 +1728,25 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 					*pent = mk_lv2ent_spage(__pfn_to_phys(
 								pte_pfn(*pte)));
 				}
-			} while (pte++, pent++,
-				start += PAGE_SIZE, start < pmd_next);
 
-			pte_unmap(pte_first);
-			pgtable_flush(pent_first, pent);
+				if (lv2ent_offset(iova) == (NUM_LV2ENTRIES - 1)) {
+					pgtable_flush(pent_first, pent);
+					iova += PAGE_SIZE;
+					sent = section_entry(priv->pgtable, iova);
+					pent = alloc_lv2entry_fast(priv, sent, iova);
+					if (IS_ERR(pent)) {
+						ret = PTR_ERR(pent);
+						goto out_unmap;
+					}
+					pent_first = pent;
+				} else {
+					iova += PAGE_SIZE;
+					pent++;
+				}
+			} while (pte++, start += PAGE_SIZE, start < pmd_next);
+
+			if (pent_first != pent)
+				pgtable_flush(pent_first, pent);
 		} while (pmd++, start = pmd_next, start != pgd_next);
 
 	} while (pgd++, start = pgd_next, start != end);
@@ -1736,9 +1757,9 @@ out_unmap:
 	up_read(&mm->mmap_sem);
 
 	if (ret) {
-		pr_debug("%s: Ignoring mapping for %#lx ~ %#lx (%d)\n",
-					__func__, start, end, ret);
-		__sysmmu_unmap_user_pages(dev, mm, vaddr, start - vaddr);
+		pr_debug("%s: Ignoring mapping for %#lx ~ %#lx\n",
+					__func__, start, end);
+		__sysmmu_unmap_user_pages(dev, mm, vaddr, iova, start - vaddr);
 	}
 
 	return ret;
@@ -1746,12 +1767,14 @@ out_unmap:
 
 int exynos_sysmmu_unmap_user_pages(struct device *dev,
 					struct mm_struct *mm,
-					unsigned long vaddr, size_t size)
+					unsigned long vaddr,
+					exynos_iova_t iova,
+					size_t size)
 {
 	if (WARN_ON(size == 0))
 		return 0;
 
-	return __sysmmu_unmap_user_pages(dev, mm, vaddr, size);
+	return __sysmmu_unmap_user_pages(dev, mm, vaddr, iova, size);
 }
 
 static int __init exynos_iommu_init(void)

@@ -20,6 +20,8 @@
 struct scatterlist;
 struct device;
 
+typedef u32 exynos_iova_t;
+
 int iovmm_activate(struct device *dev);
 void iovmm_deactivate(struct device *dev);
 
@@ -242,6 +244,7 @@ bool exynos_sysmmu_disable(struct device *dev);
  * @dev: The device whose System MMU is about to be disabled.
  * @mm: mm struct of user requested to map
  * @vaddr: start vaddr in valid vma
+ * @iova: start io vaddr to be mapped
  * @size: size to map
  * @write: set if buffer may be written
  *
@@ -249,7 +252,9 @@ bool exynos_sysmmu_disable(struct device *dev);
  */
 int exynos_sysmmu_map_user_pages(struct device *dev,
 					struct mm_struct *mm,
-					unsigned long vaddr, size_t size,
+					unsigned long vaddr,
+					exynos_iova_t iova,
+					size_t size,
 					int write);
 
 /**
@@ -257,13 +262,16 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
  * @dev: The device whose System MMU is about to be disabled.
  * @mm: mm struct of user requested to map
  * @vaddr: start vaddr in valid vma
+ * @iova: start io vaddr to be unmapped
  * @size: size to map
  *
  * This function unmaps all user pages mapped in sysmmu page table.
  */
 int exynos_sysmmu_unmap_user_pages(struct device *dev,
 					struct mm_struct *mm,
-					unsigned long vaddr, size_t size);
+					unsigned long vaddr,
+					exynos_iova_t iova,
+					size_t size);
 
 /*
  * The handle_pte_fault() is called by exynos_sysmmu_map_user_pages().

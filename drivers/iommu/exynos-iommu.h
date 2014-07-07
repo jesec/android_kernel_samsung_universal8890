@@ -78,7 +78,6 @@
 #define lv2ent_offset(iova) ((iova & ~SECT_MASK) >> SPAGE_ORDER)
 
 typedef u32 sysmmu_pte_t;
-typedef u32 exynos_iova_t;
 
 #define LV2TABLE_SIZE (NUM_LV2ENTRIES * sizeof(sysmmu_pte_t))
 
