@@ -2037,8 +2037,8 @@ static int process_user_shared_handle(struct s5p_mfc_ctx *ctx)
 		goto map_kernel_fail;
 	}
 
-	mfc_debug(2, "User Handle: fd = %d, virt = 0x%x\n",
-				dec->sh_handle.fd, (int)dec->sh_handle.virt);
+	mfc_debug(2, "User Handle: fd = %d, virt = 0x%p\n",
+				dec->sh_handle.fd, dec->sh_handle.virt);
 
 	return 0;
 
@@ -2550,7 +2550,7 @@ static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
 			}
 		}
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		mfc_debug(2, "Plane size: %ld, ctx->dec_src_buf_size: %d\n",
+		mfc_debug(2, "Plane size: %lu, ctx->dec_src_buf_size: %zu\n",
 				vb2_plane_size(vb, 0), dec->src_buf_size);
 
 		if (vb2_plane_size(vb, 0) < dec->src_buf_size) {

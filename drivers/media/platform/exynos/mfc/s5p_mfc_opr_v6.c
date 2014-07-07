@@ -155,7 +155,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 						mb_width, mb_height));
 		enc->me_buffer_size = ALIGN(enc->me_buffer_size, 256);
 
-		mfc_debug(2, "recon luma size: %d chroma size: %d\n",
+		mfc_debug(2, "recon luma size: %zu chroma size: %zu\n",
 			  enc->luma_dpb_size, enc->chroma_dpb_size);
 	} else {
 		return -EINVAL;
@@ -886,8 +886,9 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 
 	cpb_buf_size = ALIGN(dec->src_buf_size, S5P_FIMV_NV12M_HALIGN);
 
-	mfc_debug(2, "inst_no: %d, buf_addr: 0x%08x\n", ctx->inst_no, buf_addr);
-	mfc_debug(2, "strm_size: 0x%08x cpb_buf_size 0x%x\n",
+	mfc_debug(2, "inst_no: %d, buf_addr: 0x%08llx\n", ctx->inst_no,
+		(unsigned long long)buf_addr);
+	mfc_debug(2, "strm_size: 0x%08x cpb_buf_size 0x%zu\n",
 			strm_size, cpb_buf_size);
 
 	WRITEL(strm_size, S5P_FIMV_D_STREAM_DATA_SIZE);
@@ -927,8 +928,8 @@ static int mfc_set_dec_dis_buffer(struct s5p_mfc_ctx *ctx,
 	i = 0;
 	list_for_each_entry(buf, buf_queue, list) {
 		for (j = 0; j < raw->num_planes; j++) {
-			mfc_debug(2, "# DIS plane%d addr = %x\n",
-							j, buf->planes.raw[j]);
+			mfc_debug(2, "# DIS plane%d addr = %llx\n",
+				j, (unsigned long long)buf->planes.raw[j]);
 			s5p_mfc_write_shm(dev, buf->planes.raw[j],
 					D_FIRST_DIS0 + (j * 0x100) + i * 4);
 		}
@@ -974,7 +975,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dec *dec;
 	unsigned int i, frame_size_mv;
 	size_t buf_addr1;
-	int buf_size1;
+	size_t buf_size1;
 	int align_gap;
 	struct s5p_mfc_buf *buf;
 	struct s5p_mfc_raw_info *raw, *tiled_ref;
@@ -1003,7 +1004,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 = ctx->port_a_phys;
 	buf_size1 = ctx->port_a_size;
 
-	mfc_debug(2, "Buf1: %p (%d)\n", (void *)buf_addr1, buf_size1);
+	mfc_debug(2, "Buf1: %p (%zu)\n", (void *)buf_addr1, buf_size1);
 	mfc_debug(2, "Total DPB COUNT: %d\n", dec->total_dpb_count);
 	mfc_debug(2, "Setting display delay to %d\n", dec->display_delay);
 
@@ -1071,12 +1072,12 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
 		for (i = 0; i < dec->tiled_buf_cnt; i++) {
-			mfc_debug(2, "Tiled Luma %x\n", buf_addr1);
+			mfc_debug(2, "Tiled Luma %zu\n", buf_addr1);
 			WRITEL(buf_addr1, S5P_FIMV_D_LUMA_DPB + i * 4);
 			buf_addr1 += tiled_ref->plane_size[0];
 			buf_size1 -= tiled_ref->plane_size[0];
 
-			mfc_debug(2, "\tTiled Chroma %x\n", buf_addr1);
+			mfc_debug(2, "\tTiled Chroma %zu\n", buf_addr1);
 			WRITEL(buf_addr1, S5P_FIMV_D_CHROMA_DPB + i * 4);
 			buf_addr1 += tiled_ref->plane_size[1];
 			buf_size1 -= tiled_ref->plane_size[1];
@@ -1109,10 +1110,12 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			/* Do not setting DPB */
 			if (dec->is_dynamic_dpb)
 				break;
-			mfc_debug(2, "Luma %x\n", buf->planes.raw[0]);
+			mfc_debug(2, "Luma %llx\n",
+				(unsigned long long)buf->planes.raw[0]);
 			WRITEL(buf->planes.raw[0],
 					S5P_FIMV_D_LUMA_DPB + (i * 4));
-			mfc_debug(2, "\tChroma %x\n", buf->planes.raw[1]);
+			mfc_debug(2, "\tChroma %llx\n",
+				(unsigned long long)buf->planes.raw[1]);
 			WRITEL(buf->planes.raw[1],
 					S5P_FIMV_D_CHROMA_DPB + (i * 4));
 
@@ -1145,14 +1148,14 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			align_gap = buf_addr1 - align_gap;
 			buf_size1 -= align_gap;
 
-			mfc_debug(2, "\tBuf1: %x, size: %d\n", buf_addr1, buf_size1);
+			mfc_debug(2, "\tBuf1: %zu, size: %zu\n", buf_addr1, buf_size1);
 			WRITEL(buf_addr1, S5P_FIMV_D_MV_BUFFER + i * 4);
 			buf_addr1 += frame_size_mv;
 			buf_size1 -= frame_size_mv;
 		}
 	}
 
-	mfc_debug(2, "Buf1: %u, buf_size1: %d (frames %d)\n",
+	mfc_debug(2, "Buf1: %zu, buf_size1: %zu (frames %d)\n",
 			buf_addr1, buf_size1, dec->total_dpb_count);
 	if (buf_size1 < 0) {
 		mfc_debug(2, "Not enough memory has been allocated.\n");
@@ -1224,7 +1227,7 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	size_t buf_addr1;
-	int buf_size1;
+	size_t buf_size1;
 	int i;
 
 	mfc_debug_enter();
@@ -1232,7 +1235,7 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 = ctx->port_a_phys;
 	buf_size1 = ctx->port_a_size;
 
-	mfc_debug(2, "Buf1: %p (%d)\n", (void *)buf_addr1, buf_size1);
+	mfc_debug(2, "Buf1: %p (%zu)\n", (void *)buf_addr1, buf_size1);
 
 	for (i = 0; i < ctx->dpb_count; i++) {
 		WRITEL(buf_addr1, S5P_FIMV_E_LUMA_DPB + (4 * i));
@@ -1256,7 +1259,7 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 += enc->tmv_buffer_size >> 1;
 	buf_size1 -= enc->tmv_buffer_size;
 
-	mfc_debug(2, "Buf1: %u, buf_size1: %d (ref frames %d)\n",
+	mfc_debug(2, "Buf1: %zu, buf_size1: %zu (ref frames %d)\n",
 			buf_addr1, buf_size1, ctx->dpb_count);
 	if (buf_size1 < 0) {
 		mfc_debug(2, "Not enough memory has been allocated.\n");
@@ -2409,8 +2412,8 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 	set_bit(dst_index, &dec->dpb_status);
 	dec->dynamic_set = 1 << dst_index;
 	mfc_debug(2, "ADDING Flag after: %lx\n", dec->dpb_status);
-	mfc_debug(2, "Dst addr [%d] = 0x%x\n", dst_index,
-			dst_vb->planes.raw[0]);
+	mfc_debug(2, "Dst addr [%d] = 0x%llx\n", dst_index,
+			(unsigned long long)dst_vb->planes.raw[0]);
 
 	if (dec->is_dual_dpb) {
 		for (i = 0; i < raw->num_planes; i++) {
@@ -2423,8 +2426,8 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 			s5p_mfc_write_shm(dev, raw->stride[i],
 				D_FIRST_DIS_STRIDE + (i * 4));
 
-			mfc_debug(2, "[DIS] plane%d addr = %x\n",
-					i, dst_vb->planes.raw[i]);
+			mfc_debug(2, "[DIS] plane%d addr = %llx\n", i,
+				(unsigned long long)dst_vb->planes.raw[i]);
 			mfc_debug(2, "[DIS] size = %d, stride = %d\n",
 					raw->plane_size[i], raw->stride[i]);
 		}

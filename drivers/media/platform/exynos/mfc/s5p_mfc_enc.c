@@ -3628,7 +3628,7 @@ static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
 		if (ret < 0)
 			return ret;
 
-		mfc_debug(2, "plane size: %ld, dst size: %d\n",
+		mfc_debug(2, "plane size: %lu, dst size: %zu\n",
 			vb2_plane_size(vb, 0), enc->dst_buf_size);
 
 		if (vb2_plane_size(vb, 0) < enc->dst_buf_size) {
@@ -3815,9 +3815,9 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		buf->used = 0;
 		mfc_debug(2, "dst queue: %p\n", &ctx->dst_queue);
-		mfc_debug(2, "adding to dst: %p (%08lx, %08x)\n", vb,
-			(unsigned long)s5p_mfc_mem_plane_addr(ctx, vb, 0),
-			buf->planes.stream);
+		mfc_debug(2, "adding to dst: %p (%08llx, %08llx)\n", vb,
+			(unsigned long long)s5p_mfc_mem_plane_addr(ctx, vb, 0),
+			(unsigned long long)buf->planes.stream);
 
 		/* Mark destination as available for use by MFC */
 		spin_lock_irqsave(&dev->irqlock, flags);
@@ -3829,9 +3829,9 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 		mfc_debug(2, "src queue: %p\n", &ctx->src_queue);
 
 		for (i = 0; i < ctx->src_fmt->num_planes; i++)
-			mfc_debug(2, "adding to src[%d]: %p (%08lx, %08x)\n", i, vb,
-				(unsigned long)s5p_mfc_mem_plane_addr(ctx, vb, i),
-				buf->planes.raw[i]);
+			mfc_debug(2, "adding to src[%d]: %p (%08llx, %08llx)\n", i, vb,
+				(unsigned long long)s5p_mfc_mem_plane_addr(ctx, vb, i),
+				(unsigned long long)buf->planes.raw[i]);
 
 		spin_lock_irqsave(&dev->irqlock, flags);
 

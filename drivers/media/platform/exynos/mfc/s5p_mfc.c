@@ -828,10 +828,9 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	list_for_each_entry(dst_buf, dst_queue_addr, list) {
 		mfc_debug(2, "Listing: %d\n", dst_buf->vb.v4l2_buf.index);
 		/* Check if this is the buffer we're looking for */
-		mfc_debug(2, "0x%08lx, 0x%08x",
-				(unsigned long)s5p_mfc_mem_plane_addr(
-							ctx, &dst_buf->vb, 0),
-				dspl_y_addr);
+		mfc_debug(2, "0x%08llx, 0x%08llx",
+			(unsigned long long)s5p_mfc_mem_plane_addr(ctx,
+			&dst_buf->vb, 0),(unsigned long long)dspl_y_addr);
 		if (s5p_mfc_mem_plane_addr(ctx, &dst_buf->vb, 0)
 							== dspl_y_addr) {
 			index = dst_buf->vb.v4l2_buf.index;
@@ -1059,7 +1058,8 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 	buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
 
 	if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
-		mfc_debug(2, "Find dec buffer y = 0x%x\n", dec_addr);
+		mfc_debug(2, "Find dec buffer y = 0x%llx\n",
+			(unsigned long long)dec_addr);
 
 		list_del(&dec_buf->list);
 		ctx->dst_queue_cnt--;
@@ -1080,8 +1080,9 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 
 		if (found) {
 			buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
-			mfc_debug(2, "Found in dst queue = 0x%x, buf = 0x%x\n",
-							dec_addr, buf_addr);
+			mfc_debug(2, "Found in dst queue = 0x%llx, buf = 0x%llx\n",
+				(unsigned long long)dec_addr,
+				(unsigned long long)buf_addr);
 
 			list_del(&dec_buf->list);
 			ctx->dst_queue_cnt--;
@@ -1089,9 +1090,10 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 			list_add_tail(&dec_buf->list, &dec->ref_queue);
 			dec->ref_queue_cnt++;
 		} else {
-			mfc_debug(2, "Can't find buffer for addr = 0x%x\n", dec_addr);
-			mfc_debug(2, "Expected addr = 0x%x, used = %d\n",
-					buf_addr, dec_buf->used);
+			mfc_debug(2, "Can't find buffer for addr = 0x%llx\n",
+			(unsigned long long)dec_addr);
+			mfc_debug(2, "Expected addr = 0x%llx, used = %d\n",
+			(unsigned long long)buf_addr, dec_buf->used);
 		}
 	}
 }
@@ -1737,7 +1739,6 @@ static int s5p_mfc_open(struct file *file)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	int prot_flag = 0;
 #endif
-
 	mfc_debug(2, "mfc driver open called\n");
 
 	if (!dev) {
@@ -2725,9 +2726,8 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(dev->alloc_ctx);
 		goto alloc_ctx_fail;
 	}
-#ifndef CONFIG_SOC_EXYNOS7420
+
 	exynos_create_iovmm(&pdev->dev, 3, 3);
-#endif
 	dev->sched_wq = alloc_workqueue("s5p_mfc/sched", WQ_UNBOUND
 					| WQ_MEM_RECLAIM | WQ_HIGHPRI, 1);
 	if (dev->sched_wq == NULL) {
@@ -2747,7 +2747,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->alloc_ctx_fw = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
-			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCNFW |
+			VB2ION_CTX_UNCACHED | VB2ION_CTX_VMCONTIG |
 			VB2ION_CTX_IOMMU);
 	if (IS_ERR(dev->alloc_ctx_fw)) {
 		mfc_err_dev("failed to prepare F/W allocation context\n");

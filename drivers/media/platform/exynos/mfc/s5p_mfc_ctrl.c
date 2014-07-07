@@ -35,7 +35,7 @@
 int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 {
 	unsigned int base_align;
-	unsigned int firmware_size;
+	size_t firmware_size;
 	void *alloc_ctx;
 
 	mfc_debug_enter();
@@ -55,7 +55,6 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	mfc_debug(2, "Allocating memory for firmware.\n");
 
 	alloc_ctx = dev->alloc_ctx_fw;
-
 	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
 	if (IS_ERR(dev->fw_info.alloc)) {
 		dev->fw_info.alloc = 0;
@@ -88,7 +87,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	dev->port_a = dev->fw_info.ofs;
 	dev->port_b = dev->fw_info.ofs;
 
-	mfc_debug(2, "Port A: %08x Port B: %08x (FW: %08lx size: %08x)\n",
+	mfc_debug(2, "Port A: %08zu Port B: %08zu (FW: %08lx size: %08zu)\n",
 			dev->port_a, dev->port_b,
 			dev->fw_info.ofs,
 			firmware_size);
@@ -129,7 +128,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 {
 	struct firmware *fw_blob;
-	unsigned int firmware_size;
+	size_t firmware_size;
 	int err;
 
 	if (!dev) {
@@ -151,7 +150,7 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 		return -EINVAL;
 	}
 
-	mfc_debug(2, "Ret of request_firmware: %d Size: %d\n", err, fw_blob->size);
+	mfc_debug(2, "Ret of request_firmware: %d Size: %zu\n", err, fw_blob->size);
 
 	if (fw_blob->size > firmware_size) {
 		mfc_err_dev("MFC firmware is too big to be loaded.\n");
@@ -302,7 +301,7 @@ void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 		mfc_info_dev("[%d] Base Address : %08lx\n", buf_type, fw_info->ofs);
 #else
 		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_RISC_BASE_ADDRESS);
-		mfc_debug(2, "Base Address : %08x\n", dev->port_a);
+		mfc_debug(2, "Base Address : %08zu\n", dev->port_a);
 #endif
 	} else {
 		/* channelA, port0 */
@@ -310,7 +309,7 @@ void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 		/* channelB, port1 */
 		s5p_mfc_write_reg(dev, dev->port_b, S5P_FIMV_MC_DRAMBASE_ADR_B);
 
-		mfc_debug(2, "Port A: %08x, Port B: %08x\n", dev->port_a, dev->port_b);
+		mfc_debug(2, "Port A: %08zu, Port B: %08zu\n", dev->port_a, dev->port_b);
 	}
 }
 

@@ -250,7 +250,7 @@ struct s5p_mfc_buf_size_v6 {
 };
 
 struct s5p_mfc_buf_size {
-	unsigned int firmware_code;
+	size_t firmware_code;
 	unsigned int cpb_buf;
 	void *buf;
 };
