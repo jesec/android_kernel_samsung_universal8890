@@ -535,6 +535,82 @@ void __init arch_get_hmp_domains(struct list_head *hmp_domains_list)
 }
 #endif /* CONFIG_SCHED_HMP */
 
+/*
+ * cluster_to_logical_mask - return cpu logical mask of CPUs in a cluster
+ * @socket_id:		cluster HW identifier
+ * @cluster_mask:	the cpumask location to be initialized, modified by the
+ *			function only if return value == 0
+ *
+ * Return:
+ *
+ * 0 on success
+ * -EINVAL if cluster_mask is NULL or there is no record matching socket_id
+ */
+int cluster_to_logical_mask(unsigned int socket_id, cpumask_t *cluster_mask)
+{
+	int cpu;
+
+	if (!cluster_mask)
+		return -EINVAL;
+
+	for_each_online_cpu(cpu) {
+		if (socket_id == topology_physical_package_id(cpu)) {
+			cpumask_copy(cluster_mask, topology_core_cpumask(cpu));
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+void store_cpu_topology(unsigned int cpuid)
+{
+	struct cpu_topology *cpu_topo = &cpu_topology[cpuid];
+	unsigned int mpidr;
+
+	/* If the cpu topology has been already set, just return */
+	if (cpu_topo->core_id != -1)
+		return;
+
+	mpidr = read_cpuid_mpidr();
+
+	/* create cpu topology mapping */
+	if ((mpidr & MPIDR_SMP_BITMASK) == MPIDR_SMP_VALUE) {
+		/*
+		 * This is a multiprocessor system
+		 * multiprocessor format & multiprocessor mode field are set
+		 */
+		if (mpidr & MPIDR_MT_BITMASK) {
+			/* core performance interdependency */
+			cpu_topo->thread_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+			cpu_topo->core_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+			cpu_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 2);
+		} else {
+			/* largely independent cores */
+			cpu_topo->thread_id = -1;
+			cpu_topo->core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+			cpu_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+		}
+	} else {
+		/*
+		 * This is an uniprocessor system
+		 * we are in multiprocessor format but uniprocessor system
+		 * or in the old uniprocessor format
+		 */
+		cpu_topo->thread_id = -1;
+		cpu_topo->core_id = 0;
+		cpu_topo->cluster_id = -1;
+	}
+
+	update_siblings_masks(cpuid);
+	update_cpu_power(cpuid);
+
+	pr_info("CPU%u: thread %d, cpu %d, cluster %d, mpidr %x\n",
+		cpuid, cpu_topology[cpuid].thread_id,
+		cpu_topology[cpuid].core_id,
+		cpu_topology[cpuid].cluster_id, mpidr);
+}
+
 static void __init reset_cpu_topology(void)
 {
 	unsigned int cpu;
@@ -543,7 +619,7 @@ static void __init reset_cpu_topology(void)
 		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
 
 		cpu_topo->thread_id = -1;
-		cpu_topo->core_id = 0;
+		cpu_topo->core_id = -1;
 		cpu_topo->cluster_id = -1;
 
 		cpumask_clear(&cpu_topo->core_sibling);
