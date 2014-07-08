@@ -1410,7 +1410,8 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->g_alpha = ctrl->val;
 		break;
 	case V4L2_CID_2D_BLEND_OP:
-		if (ctx->sc_dev->version >= SCALER_VERSION(2, 2, 0)) {
+		if ((ctx->sc_dev->version >= SCALER_VERSION(2, 2, 0)) &&
+				(ctrl->val > 0)) {
 			dev_err(ctx->sc_dev->dev,
 				"%s: blending is not supported from v2.2.0\n",
 				__func__);
