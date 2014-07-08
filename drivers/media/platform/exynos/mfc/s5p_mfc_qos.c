@@ -77,11 +77,19 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		mfc_info_ctx("QoS request: %d\n", idx + 1);
 		break;
 	case MFC_QOS_UPDATE:
-		pm_qos_update_request(&dev->qos_req_int,
-				qos_table[idx].freq_int);
-		pm_qos_update_request(&dev->qos_req_mif,
-				qos_table[idx].freq_mif);
-		dev->curr_rate = qos_table[idx].freq_mfc;
+		if (dev->curr_rate < qos_table[idx].freq_mfc) {
+			pm_qos_update_request(&dev->qos_req_int,
+					qos_table[idx].freq_int);
+			pm_qos_update_request(&dev->qos_req_mif,
+					qos_table[idx].freq_mif);
+			dev->curr_rate = qos_table[idx].freq_mfc;
+		} else {
+			dev->curr_rate = qos_table[idx].freq_mfc;
+			pm_qos_update_request(&dev->qos_req_int,
+					qos_table[idx].freq_int);
+			pm_qos_update_request(&dev->qos_req_mif,
+					qos_table[idx].freq_mif);
+		}
 
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
 		pm_qos_update_request(&dev->qos_req_cpu,
@@ -97,9 +105,9 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		mfc_info_ctx("QoS update: %d\n", idx + 1);
 		break;
 	case MFC_QOS_REMOVE:
+		dev->curr_rate = dev->min_rate;
 		pm_qos_remove_request(&dev->qos_req_int);
 		pm_qos_remove_request(&dev->qos_req_mif);
-		dev->curr_rate = dev->min_rate;
 
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
 		pm_qos_remove_request(&dev->qos_req_cpu);
