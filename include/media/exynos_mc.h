@@ -123,6 +123,7 @@ struct exynos_md {
 	struct v4l2_device	v4l2_dev;
 	struct platform_device	*pdev;
 	struct v4l2_subdev	*vpp_sd[MAX_VPP_SUBDEV];
+	struct device		*vpp_dev[MAX_VPP_SUBDEV];
 	struct v4l2_subdev	*gsc_sd[MAX_GSC_SUBDEV];
 	struct v4l2_subdev	*gsc_wb_sd;
 	struct v4l2_subdev	*gsc_cap_sd[MAX_GSC_SUBDEV];
