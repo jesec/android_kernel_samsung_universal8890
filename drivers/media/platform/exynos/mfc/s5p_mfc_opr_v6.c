@@ -1995,29 +1995,6 @@ static int s5p_mfc_set_enc_params_h263(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
-#define VP8_FRAME_SKIP_RATIO			6
-static int enc_vp8_need_frame_skip(struct s5p_mfc_ctx *ctx)
-{
-	struct s5p_mfc_enc *enc = ctx->enc_priv;
-	struct s5p_mfc_enc_params *p = &enc->params;
-	int weight = 0;
-	int ret = 0;
-
-	if (p->rc_frame) {
-		weight = (ctx->img_width * ctx->img_height * 10) / p->rc_bitrate;
-		if (weight < VP8_FRAME_SKIP_RATIO) {
-			mfc_info_ctx("Frame skip disabled, bitrate = %d\n",
-								p->rc_bitrate);
-		} else {
-			mfc_info_ctx("Frame skip enabled, bitrate = %d\n",
-								p->rc_bitrate);
-			ret = 1;
-		}
-	}
-
-	return ret;
-}
-
 static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -2029,13 +2006,6 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	mfc_debug_enter();
 
 	s5p_mfc_set_enc_params(ctx);
-
-	/* Frame skip enable if needed */
-	if (enc_vp8_need_frame_skip(ctx)) {
-		reg = READL(S5P_FIMV_E_ENC_OPTIONS);
-		reg |= (0x1 << 0);
-		WRITEL(reg, S5P_FIMV_E_ENC_OPTIONS);
-	}
 
 	/* profile*/
 	reg = 0;
