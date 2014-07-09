@@ -265,6 +265,8 @@ extern const char *ppc_event_name[];
 #define mk_lv1ent_page(pa) ((sysmmu_pte_t) ((pa) | 1))
 #define mk_lv2ent_lpage(pa) ((sysmmu_pte_t) ((pa) | 1))
 #define mk_lv2ent_spage(pa) ((sysmmu_pte_t) ((pa) | 2))
+#define set_lv1ent_shareable(sent) (*(sent) |= (1 << 16))
+#define set_lv2ent_shareable(pent) (*(pent) |= (1 << 10))
 
 #define PGSIZE_BITMAP (SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
 
@@ -306,6 +308,8 @@ extern const char *ppc_event_name[];
 #define mk_lv1ent_page(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 1)
 #define mk_lv2ent_lpage(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 1)
 #define mk_lv2ent_spage(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 2)
+#define set_lv1ent_shareable(sent) (*(sent) |= (1 << 6))
+#define set_lv2ent_shareable(pent) (*(pent) |= (1 << 4))
 
 #define PGSIZE_BITMAP (DSECT_SIZE | SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
 

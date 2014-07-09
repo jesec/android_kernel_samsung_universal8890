@@ -2219,7 +2219,8 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 					struct mm_struct *mm,
 					unsigned long vaddr,
 					exynos_iova_t iova,
-					size_t size, int write)
+					size_t size, bool write,
+					bool shareable)
 {
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	struct exynos_iovmm *vmm = owner->vmm_data;
@@ -2315,6 +2316,8 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 						get_page(pte_page(*pte));
 					*pent = mk_lv2ent_spage(__pfn_to_phys(
 								pte_pfn(*pte)));
+					if (shareable)
+						set_lv2ent_shareable(pent);
 				}
 
 				if (lv2ent_offset(iova) == (NUM_LV2ENTRIES - 1)) {

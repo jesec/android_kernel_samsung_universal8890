@@ -248,6 +248,7 @@ bool exynos_sysmmu_disable(struct device *dev);
  * @iova: start io vaddr to be mapped
  * @size: size to map
  * @write: set if buffer may be written
+ * @shareable: set shareable bit if true
  *
  * This function maps all user pages into sysmmu page table.
  */
@@ -255,8 +256,8 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 					struct mm_struct *mm,
 					unsigned long vaddr,
 					exynos_iova_t iova,
-					size_t size,
-					int write);
+					size_t size, bool write,
+					bool shareable);
 
 /**
  * exynos_sysmmu_unmap_user_pages() - unmaps all mapped pages
