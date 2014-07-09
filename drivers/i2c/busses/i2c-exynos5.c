@@ -786,12 +786,7 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	if (i == num) {
 		ret = num;
 	} else {
-		/* Only one message, cannot access the device */
-		if (i == 1)
-			ret = -EREMOTEIO;
-		else
-			ret = i;
-
+		ret = -EREMOTEIO;
 		dev_warn(i2c->dev, "xfer message failed\n");
 	}
 
