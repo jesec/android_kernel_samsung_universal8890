@@ -162,7 +162,7 @@ struct samsung_composite_pll {
 	unsigned int 				stat_bit;
 	const struct samsung_pll_rate_table	*rate_table;
 	unsigned int 				rate_count;
-	unsigned int				pll_flag;
+	u8					pll_flag;
 	const char				*alias;
 };
 
@@ -185,10 +185,10 @@ struct samsung_composite_pll {
 		.alias		= a,								\
 	}
 
-extern void __init samsung_register_comp_pll(struct samsung_composite_pll *pll_list,
+extern void samsung_register_comp_pll(struct samsung_composite_pll *pll_list,
 					unsigned int nr_pll);
 
-#define PNAME(x) static const char *x[] __initdata
+#define PNAME(x) static const char *x[]
 /*
  * struct samsung_composite_mux: information about composite-mux clocks
  * @id: id of the clock for binding with device tree.
@@ -237,7 +237,7 @@ struct samsung_composite_mux {
 		.alias		= a,							\
 	}
 
-extern void __init samsung_register_comp_mux(struct samsung_composite_mux *mux_list,
+extern void samsung_register_comp_mux(struct samsung_composite_mux *mux_list,
 					unsigned int nr_mux);
 
 /*
@@ -285,8 +285,10 @@ struct samsung_composite_divider {
 		.alias		= a,							\
 	}
 
-extern void __init samsung_register_comp_divider(struct samsung_composite_divider *div_list,
+extern void samsung_register_comp_divider(struct samsung_composite_divider *div_list,
 					unsigned int nr_div);
+
+#define CLK_GATE_ENABLE		BIT(20)
 
 /*
  * struct samsung_gate: information about gate clocks
