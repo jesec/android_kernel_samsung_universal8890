@@ -253,8 +253,7 @@ static void show_iovm_regions(struct exynos_iovmm *vmm)
 	pr_err("LISTING IOVMM REGIONS...\n");
 	spin_lock(&vmm->vmlist_lock);
 	list_for_each_entry(pos, &vmm->regions_list, node) {
-		pr_err("REGION: %#x ~ %#x (SIZE: %#x)\n", pos->start,
-				pos->start + pos->size, pos->size);
+		pr_err("REGION: %pa (SIZE: %#zx)\n", &pos->start, pos->size);
 	}
 	spin_unlock(&vmm->vmlist_lock);
 	pr_err("END OF LISTING IOVMM REGIONS...\n");
@@ -300,6 +299,7 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	size_t exact_align_mask = 0;
 	size_t max_align, align;
 	int ret = 0;
+	int idx;
 	struct scatterlist *tsg;
 
 	if ((id < 0) || (id >= MAX_NUM_PLANE)) {
@@ -356,9 +356,9 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 				exact_align_mask, start_off, id);
 	if (!start) {
 		spin_lock(&vmm->vmlist_lock);
-		dev_err(dev, "%s: Not enough IOVM space to allocate %#x/%#x\n",
+		dev_err(dev, "%s: Not enough IOVM space to allocate %#zx/%#zx\n",
 				__func__, size, align);
-		dev_err(dev, "%s: Total %#x (%d), Allocated %#x , Chunks %d\n",
+		dev_err(dev, "%s: Total %#zx (%d), Allocated %#zx , Chunks %d\n",
 				__func__, vmm->iovm_size[id], id,
 				vmm->allocated_size[id], vmm->num_areas[id]);
 		spin_unlock(&vmm->vmlist_lock);
@@ -410,7 +410,7 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	BUG_ON(mapped_size > size);
 
 	if (mapped_size < size) {
-		dev_err(dev, "mapped_size(%d) is smaller than size(%d)\n",
+		dev_err(dev, "mapped_size(%#zx) is smaller than size(%#zx)\n",
 				mapped_size, size);
 		if (!ret) {
 			dev_err(dev, "ret: %d\n", ret);
@@ -437,12 +437,11 @@ err_map_map:
 	free_iovm_region(vmm, remove_iovm_region(vmm, start));
 
 	dev_err(dev,
-	"Failed(%d) to map IOVMM REGION %#lx ~ %#lx (SIZE: %#x, mapped: %#x)\n",
-		ret, start - start_off, start - start_off + size,
-		size, mapped_size);
-	addr = 0;
+	"Failed(%d) to map IOVMM REGION %pa (SIZE: %#zx, mapped: %#zx)\n",
+		ret, &start, size, mapped_size);
+	idx = 0;
 	do {
-		pr_err("SGLIST[%d].size = %#x\n", addr++, tsg->length);
+		pr_err("SGLIST[%d].size = %#x\n", idx++, tsg->length);
 	} while ((tsg = sg_next(tsg)));
 
 	show_iovm_regions(vmm);
@@ -466,8 +465,8 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 	if (region) {
 		if (WARN_ON(region->start != iova)) {
 			dev_err(dev,
-			"IOVMM: iova %#x and region %#x @ %#x mismatch\n",
-				iova, region->size, region->start);
+			"IOVMM: iova %pa and region %#zx @ %pa mismatch\n",
+				&iova, region->size, &region->start);
 			show_iovm_regions(vmm);
 			/* reinsert iovm region */
 			add_iovm_region(vmm, region->start, region->size);
@@ -477,10 +476,10 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 		unmap_size = iommu_unmap(vmm->domain, iova & PAGE_MASK,
 							region->size);
 		if (unlikely(unmap_size != region->size)) {
-			dev_err(dev, "Failed to unmap IOVMM REGION %#x ~ %#x \
-				(SIZE: %#x, iova: %#x, unmapped: %#x)\n",
-				region->start, region->start + region->size,
-				region->size, iova, unmap_size);
+			dev_err(dev, "Failed to unmap IOVMM REGION %pa "
+				"(SIZE: %#zx, iova: %pa, unmapped: %#zx)\n",
+				&region->start,
+				region->size, &iova, unmap_size);
 			show_iovm_regions(vmm);
 			kfree(region);
 			BUG();
@@ -494,7 +493,7 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 		TRACE_LOG_DEV(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
 						unmap_size, iova);
 	} else {
-		dev_err(dev, "IOVMM: No IOVM region %#x to free.\n", iova);
+		dev_err(dev, "IOVMM: No IOVM region %pa to free.\n", &iova);
 	}
 }
 
@@ -508,8 +507,8 @@ int iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size)
 
 	if (WARN_ON((phys + size) >= IOVA_START)) {
 		dev_err(dev,
-			"Unable to create one to one mapping for %#x @ %#x\n",
-			size, phys);
+			"Unable to create one to one mapping for %#zx @ %pa\n",
+			size, &phys);
 		return -EINVAL;
 	}
 
@@ -568,16 +567,28 @@ arch_initcall(exynos_iovmm_create_debugfs);
 static int iovmm_debug_show(struct seq_file *s, void *unused)
 {
 	struct exynos_iovmm *vmm = s->private;
+	int i = 0;
 
 	seq_printf(s, "%.6s  %10.s  %10.s  %10.s  %6.s\n",
 			"REGION", "VASTART", "SIZE", "FREE", "CHUNKS");
 	seq_puts(s, "---------------------------------------------\n");
 
 	spin_lock(&vmm->vmlist_lock);
-	seq_printf(s, " %#10x  %#10x  %#10x  %d\n",
-			vmm->iova_start[0], vmm->iovm_size[0],
-			vmm->iovm_size[0] - vmm->allocated_size[0],
-			vmm->num_areas[0]);
+	while (i < vmm->inplanes) {
+		seq_printf(s, "%3s[%d]  %pa  %#10zx  %#10zx  %d\n",
+				"in", i, &vmm->iova_start[i], vmm->iovm_size[i],
+				vmm->iovm_size[i] - vmm->allocated_size[i],
+				vmm->num_areas[i]);
+		i++;
+	}
+	while (i < (vmm->inplanes + vmm->onplanes)) {
+		seq_printf(s, "%3s[%d]  %pa  %#10zx  %#10zx  %d\n",
+				"out", i - vmm->inplanes, &vmm->iova_start[i],
+				vmm->iovm_size[i],
+				vmm->iovm_size[i] - vmm->allocated_size[i],
+				vmm->num_areas[i]);
+		i++;
+	}
 	seq_puts(s, "---------------------------------------------\n");
 	seq_printf(s, "Total number of mappings  : %d\n", vmm->num_map);
 	seq_printf(s, "Total number of unmappings: %d\n", vmm->num_unmap);
