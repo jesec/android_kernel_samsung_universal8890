@@ -94,7 +94,7 @@ typedef u32 sysmmu_pte_t;
 
 #define lv2table_base(sent) ((*(sent) & ~0x3F) << PG_ENT_SHIFT)
 
-#define SYSMMU_BLOCK_POLLING_COUNT 120
+#define SYSMMU_BLOCK_POLLING_COUNT 4096
 
 #define REG_MMU_CTRL		0x000
 #define REG_MMU_CFG		0x004
