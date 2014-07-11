@@ -23,6 +23,8 @@
 
 #include <linux/exynos_iovmm.h>
 
+#include <mach/bts.h>
+
 #include "exynos-iommu-log.h"
 
 #define TRACE_LOG(...) do { } while (0) /* trace_printk */
@@ -433,6 +435,7 @@ static inline bool sysmmu_block(void __iomem *sfrbase)
 
 	if (!(__raw_readl(sfrbase + REG_MMU_STATUS) & 1)) {
 		dump_sysmmu_tlb_pb(sfrbase);
+		exynos5_bts_show_mo_status();
 		panic("Failed to block System MMU!");
 		sysmmu_unblock(sfrbase);
 		return false;
