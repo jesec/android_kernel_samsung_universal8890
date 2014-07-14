@@ -72,8 +72,6 @@ struct s3c24xx_uart_port {
 	unsigned long			qos_timeout;
 
 	atomic_t			serial_suspend;
-	unsigned int			uart_lpm_wake;
-	struct work_struct		uart_port_lpm_work;
 
 	/* uart port sfr save/restore */
 	unsigned int			serial_ctrl[S3C24XX_SERIAL_CTRL_NUM];
