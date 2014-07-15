@@ -1276,20 +1276,20 @@ int __sysmmu_update_pb_axi_id(struct device *sysmmu, struct device *master,
 		return 0;
 	}
 
-	for (i = 0; i < MAX_NUM_PBUF; i++) {
+	for (i = 0; i <= MAX_NUM_PBUF; i++) {
 		if (of_property_read_u32_index(pb_node, "in", i,
-					&pb->in_axi_id[i])) {
-			pb->in_num = i;
+					&pb->in_axi_id[i]))
 			break;
-		}
+		else
+			pb->in_num++;
 	}
 
-	for (i = 0; i < MAX_NUM_PBUF; i++) {
+	for (i = 0; i <= MAX_NUM_PBUF; i++) {
 		if (of_property_read_u32_index(pb_node, "out", i,
-					&pb->out_axi_id[i])) {
-			pb->out_num = i;
+					&pb->out_axi_id[i]))
 			break;
-		}
+		else
+			pb->out_num++;
 	}
 
 	dev_info(sysmmu, "device node(%d] : %s, \
