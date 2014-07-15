@@ -2090,19 +2090,21 @@ static int s5p_mfc_release(struct file *file)
 		}
 	}
 
+#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
+	if ((ctx->type == MFCINST_ENCODER) && is_UHD(ctx)) {
 #if defined(CONFIG_SOC_EXYNOS5422)
-	if ((ctx->type == MFCINST_ENCODER) && (ctx->img_width == 3840)
-			&& (ctx->img_height == 2160)) {
 		sysmmu_set_qos(dev->device, 0x8);
+#endif
 		bts_scen_update(TYPE_MFC_UD_ENCODING, 0);
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_ENCODING, 0);
 #endif
 		mfc_info_ctx("UHD encoding stop\n");
 	}
+#endif
 
-	if ((ctx->type == MFCINST_DECODER) && (ctx->img_width == 3840)
-			&& (ctx->img_height == 2160)) {
+#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
+	if ((ctx->type == MFCINST_DECODER) && is_UHD(ctx)) {
 		bts_scen_update(TYPE_MFC_UD_DECODING, 0);
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 		exynos5_update_media_layers(TYPE_UD_DECODING, 0);

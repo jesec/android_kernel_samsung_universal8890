@@ -979,6 +979,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 
 #define is_h264(ctx)		((ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC) ||\
 				(ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC))
+#define MFC_UHD_RES		(3840*2160)
+#define is_UHD(ctx)		(((ctx)->img_width * (ctx)->img_height) == MFC_UHD_RES)
 
 /* Extra information for Decoder */
 #define	DEC_SET_DUAL_DPB		(1 << 0)
