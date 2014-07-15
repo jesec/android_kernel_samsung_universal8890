@@ -419,11 +419,12 @@ int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
 		}
 		clk_parent = clk_get(dev->device, "fout_mphy_pll");
 		if (IS_ERR(clk_parent)) {
+			clk_put(clk_child);
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
 			return PTR_ERR(clk_parent);
 		}
 		/* 1. Enable MPHY_PLL */
-		clk_prepare_enable(clk_child);
+		clk_prepare_enable(clk_parent);
 		/* 2. Set parent as Fout_mphy */
 		clk_set_parent(clk_child, clk_parent);
 	}
@@ -439,6 +440,10 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 	struct clk *clk_parent = NULL;
 #endif
 
+#if defined(CONFIG_SOC_EXYNOS5430)
+	struct clk *clk_fout_mphy_pll = NULL;
+#endif
+
 #if defined(CONFIG_SOC_EXYNOS5433)
 	struct clk *clk_old_parent = NULL;
 #endif
@@ -449,20 +454,29 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 
 #if defined(CONFIG_SOC_EXYNOS5430)
 	if (dev->id == 0) {
+		clk_fout_mphy_pll = clk_get(dev->device, "fout_mphy_pll");
+		if (IS_ERR(clk_fout_mphy_pll)) {
+			pr_err("failed to get %s clock\n", __clk_get_name(clk_fout_mphy_pll));
+			return PTR_ERR(clk_fout_mphy_pll);
+		}
+
 		clk_child = clk_get(dev->device, "mout_mphy_pll");
 		if (IS_ERR(clk_child)) {
+			clk_put(clk_fout_mphy_pll);
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 			return PTR_ERR(clk_child);
 		}
 		clk_parent = clk_get(dev->device, "fin_pll");
 		if (IS_ERR(clk_parent)) {
+			clk_put(clk_child);
+			clk_put(clk_fout_mphy_pll);
 			pr_err("failed to get %s clock\n", __clk_get_name(clk_parent));
 			return PTR_ERR(clk_parent);
 		}
 		/* 1. Set parent as OSC */
 		clk_set_parent(clk_child, clk_parent);
 		/* 2. Disable MPHY_PLL */
-		clk_disable_unprepare(clk_child);
+		clk_disable_unprepare(clk_fout_mphy_pll);
 	}
 #elif defined(CONFIG_SOC_EXYNOS5433)
 	clk_old_parent = clk_get(dev->device, "aclk_mfc_400");
