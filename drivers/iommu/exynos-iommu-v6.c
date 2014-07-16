@@ -1378,9 +1378,9 @@ static int __init __sysmmu_init_master_info(struct device *sysmmu,
 
 	node = of_get_child_by_name(sysmmu->of_node, "master-info");
 	if (!node) {
-		pr_err("%s: 'master-info' node not found from '%s' node\n",
+		pr_info("%s: 'master-info' node not found from '%s' node\n",
 			__func__, dev_name(sysmmu));
-		return -EINVAL;
+		return 0;
 	}
 
 	INIT_LIST_HEAD(&data->pb_grp_list);
@@ -2388,7 +2388,7 @@ static int __init exynos_iommu_create_domain(void)
 						__func__, np->name);
 				of_node_put(np);
 				of_node_put(domain);
-				return -EINVAL;
+				return -ENOENT;
 			}
 
 			if (!vmm) {
@@ -2466,12 +2466,9 @@ static int __init exynos_iommu_init(void)
 	}
 
 	ret = exynos_iommu_create_domain();
-	if (ret) {
+	if (ret && (ret != -ENOENT)) {
 		pr_err("%s: Failed to create iommu domain\n", __func__);
-		ret = platform_driver_register(&exynos_sysmmu_driver);
-		if (ret)
-			pr_err("%s: Failed to unregister System MMU driver\n",
-					__func__);
+		platform_driver_unregister(&exynos_sysmmu_driver);
 		goto err_driver_register;
 	}
 
