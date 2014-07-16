@@ -1420,12 +1420,21 @@ static int __init __sysmmu_init_master_info(struct device *sysmmu,
 
 		of_node_put(master_node);
 
-		ret = of_property_read_u32_index(master_info, "grp_num", 0, &grp_num);
-		if ((ret == 0) && (grp_num > 2)) {
-			dev_err(sysmmu, "%s: Invalid PB group number %d specified\n",
-					__func__, grp_num);
-			grp_num = 0;
-		} else if (ret) {
+		if (of_get_property(master_info, "grp_num", NULL)) {
+			ret = of_property_read_u32_index(master_info, "grp_num",
+					0, &grp_num);
+			if ((ret == 0) && (grp_num > 2)) {
+				dev_err(sysmmu,
+					"%s: Invalid PB group number %d specified\n",
+						__func__, grp_num);
+				grp_num = 0;
+			} else if (ret < 0) {
+				dev_err(sysmmu,
+					"%s: failed to get PB group number '%s'\n",
+					__func__, dev_name(&master->dev));
+				break;
+			}
+		} else {
 			grp_num = 0;
 		}
 
