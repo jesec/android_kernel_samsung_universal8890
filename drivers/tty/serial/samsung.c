@@ -119,6 +119,7 @@ static inline void uart_clock_disable(struct s3c24xx_uart_port *ourport)
 #define AUD_UART_PIN_LPM	1
 #define AUD_UART_PIN_DEFAULT	2
 struct pinctrl_state *uart_pin_state[MAX_AUD_UART_PIN_STATE];
+struct pinctrl *aud_uart_pinctrl;
 
 static inline struct s3c24xx_uart_port *to_ourport(struct uart_port *port)
 {
@@ -706,15 +707,8 @@ static void aud_uart_put_sync(struct platform_device *pdev)
 
 static void aud_uart_gpio_cfg(struct device *dev, int level)
 {
-	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	int status = 0;
-
-	pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(pinctrl)) {
-		dev_err(dev, "could not get pinctrl\n");
-		goto err_no_pinctrl;
-	}
 
 	if (level == S3C24XX_UART_PORT_SUSPEND)
 		pins_default = uart_pin_state[AUD_UART_PIN_IDLE];
@@ -726,18 +720,18 @@ static void aud_uart_gpio_cfg(struct device *dev, int level)
 	if (IS_ERR(pins_default)) {
 		dev_info(dev, "Uart is still not probed!!!\n");
 		if (level == S3C24XX_UART_PORT_SUSPEND)
-			pins_default = pinctrl_lookup_state(pinctrl,
+			pins_default = pinctrl_lookup_state(aud_uart_pinctrl,
 						PINCTRL_STATE_IDLE);
 		else if (level == S3C24XX_UART_PORT_LPM)
-			pins_default = pinctrl_lookup_state(pinctrl, "lpm");
+			pins_default = pinctrl_lookup_state(aud_uart_pinctrl, "lpm");
 		else
-			pins_default = pinctrl_lookup_state(pinctrl,
+			pins_default = pinctrl_lookup_state(aud_uart_pinctrl,
 						PINCTRL_STATE_DEFAULT);
 	}
 
 	if (!IS_ERR(pins_default)) {
-		pinctrl->state = NULL;
-		status = pinctrl_select_state(pinctrl, pins_default);
+		aud_uart_pinctrl->state = NULL;
+		status = pinctrl_select_state(aud_uart_pinctrl, pins_default);
 		if (status) {
 			dev_err(dev, "could not set default pins\n");
 			goto err_no_pinctrl;
@@ -1623,7 +1617,6 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	struct s3c24xx_uart_port *ourport;
 	int index = probe_index;
 	int ret;
-	struct pinctrl *pinctrl;
 
 	if (np) {
 		ret = of_alias_get_id(np, "serial");
@@ -1717,17 +1710,17 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 #endif
 
 		atomic_set(&ourport->serial_suspend, S3C24XX_UART_PORT_SUSPEND);
-		pinctrl = devm_pinctrl_get(&pdev->dev);
-		if (IS_ERR(pinctrl)) {
+		aud_uart_pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR(aud_uart_pinctrl)) {
 			dev_err(&pdev->dev, "could not get AUD pinctrl\n");
 			goto probe_err;
 		}
 		uart_pin_state[AUD_UART_PIN_IDLE] =
-			pinctrl_lookup_state(pinctrl, PINCTRL_STATE_IDLE);
+			pinctrl_lookup_state(aud_uart_pinctrl, PINCTRL_STATE_IDLE);
 		uart_pin_state[AUD_UART_PIN_LPM] =
-			pinctrl_lookup_state(pinctrl, "lpm");
+			pinctrl_lookup_state(aud_uart_pinctrl, "lpm");
 		uart_pin_state[AUD_UART_PIN_DEFAULT] =
-			pinctrl_lookup_state(pinctrl, PINCTRL_STATE_DEFAULT);
+			pinctrl_lookup_state(aud_uart_pinctrl, PINCTRL_STATE_DEFAULT);
 	}
 
 	dbg("%s: adding port\n", __func__);
