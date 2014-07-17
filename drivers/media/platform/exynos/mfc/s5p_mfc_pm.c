@@ -70,7 +70,7 @@ err_p_clk:
 	return ret;
 }
 
-#elif defined(CONFIG_ARCH_EXYNOS5)
+#elif defined(CONFIG_ARCH_EXYNOS5) || defined(CONFIG_ARCH_EXYNOS7)
 
 #define MFC_PARENT_CLK_NAME	"aclk_333"
 #define MFC_CLKNAME		"sclk_mfc"
