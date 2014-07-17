@@ -143,17 +143,17 @@ static struct pm_qos_object network_throughput_pm_qos = {
 	.name = "network_throughput",
 };
 
-static BLOCKING_NOTIFIER_HEAD(cpu_freq_min_notifier);
-static struct pm_qos_constraints cpu_freq_min_constraints = {
-	.list = PLIST_HEAD_INIT(cpu_freq_min_constraints.list),
-	.target_value = PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE,
-	.default_value = PM_QOS_CPU_FREQ_MIN_DEFAULT_VALUE,
+static BLOCKING_NOTIFIER_HEAD(big_freq_min_notifier);
+static struct pm_qos_constraints big_freq_min_constraints = {
+	.list = PLIST_HEAD_INIT(big_freq_min_constraints.list),
+	.target_value = PM_QOS_BIG_FREQ_MIN_DEFAULT_VALUE,
+	.default_value = PM_QOS_BIG_FREQ_MIN_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
-	.notifiers = &cpu_freq_min_notifier,
+	.notifiers = &big_freq_min_notifier,
 };
-static struct pm_qos_object cpu_freq_min_pm_qos = {
-	.constraints = &cpu_freq_min_constraints,
-	.name = "cpu_freq_min",
+static struct pm_qos_object big_freq_min_pm_qos = {
+	.constraints = &big_freq_min_constraints,
+	.name = "big_freq_min",
 };
 
 static BLOCKING_NOTIFIER_HEAD(memory_bandwidth_notifier);
@@ -170,43 +170,43 @@ static struct pm_qos_object memory_bandwidth_pm_qos = {
 	.name = "memory_bandwidth",
 };
 
-static BLOCKING_NOTIFIER_HEAD(cpu_freq_max_notifier);
-static struct pm_qos_constraints cpu_freq_max_constraints = {
-	.list = PLIST_HEAD_INIT(cpu_freq_max_constraints.list),
-	.target_value = PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE,
-	.default_value = PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE,
+static BLOCKING_NOTIFIER_HEAD(big_freq_max_notifier);
+static struct pm_qos_constraints big_freq_max_constraints = {
+	.list = PLIST_HEAD_INIT(big_freq_max_constraints.list),
+	.target_value = PM_QOS_BIG_FREQ_MAX_DEFAULT_VALUE,
+	.default_value = PM_QOS_BIG_FREQ_MAX_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
-	.notifiers = &cpu_freq_max_notifier,
+	.notifiers = &big_freq_max_notifier,
 };
-static struct pm_qos_object cpu_freq_max_pm_qos = {
-	.constraints = &cpu_freq_max_constraints,
-	.name = "cpu_freq_max",
+static struct pm_qos_object big_freq_max_pm_qos = {
+	.constraints = &big_freq_max_constraints,
+	.name = "big_freq_max",
 };
 
-static BLOCKING_NOTIFIER_HEAD(kfc_freq_min_notifier);
-static struct pm_qos_constraints kfc_freq_min_constraints = {
-	.list = PLIST_HEAD_INIT(kfc_freq_min_constraints.list),
-	.target_value = PM_QOS_KFC_FREQ_MIN_DEFAULT_VALUE,
-	.default_value = PM_QOS_KFC_FREQ_MIN_DEFAULT_VALUE,
+static BLOCKING_NOTIFIER_HEAD(little_freq_min_notifier);
+static struct pm_qos_constraints little_freq_min_constraints = {
+	.list = PLIST_HEAD_INIT(little_freq_min_constraints.list),
+	.target_value = PM_QOS_LITTLE_FREQ_MIN_DEFAULT_VALUE,
+	.default_value = PM_QOS_LITTLE_FREQ_MIN_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
-	.notifiers = &kfc_freq_min_notifier,
+	.notifiers = &little_freq_min_notifier,
 };
-static struct pm_qos_object kfc_freq_min_pm_qos = {
-	.constraints = &kfc_freq_min_constraints,
-	.name = "kfc_freq_min",
+static struct pm_qos_object little_freq_min_pm_qos = {
+	.constraints = &little_freq_min_constraints,
+	.name = "little_freq_min",
 };
 
-static BLOCKING_NOTIFIER_HEAD(kfc_freq_max_notifier);
-static struct pm_qos_constraints kfc_freq_max_constraints = {
-	.list = PLIST_HEAD_INIT(kfc_freq_max_constraints.list),
-	.target_value = PM_QOS_KFC_FREQ_MAX_DEFAULT_VALUE,
-	.default_value = PM_QOS_KFC_FREQ_MAX_DEFAULT_VALUE,
+static BLOCKING_NOTIFIER_HEAD(little_freq_max_notifier);
+static struct pm_qos_constraints little_freq_max_constraints = {
+	.list = PLIST_HEAD_INIT(little_freq_max_constraints.list),
+	.target_value = PM_QOS_LITTLE_FREQ_MAX_DEFAULT_VALUE,
+	.default_value = PM_QOS_LITTLE_FREQ_MAX_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
-	.notifiers = &kfc_freq_max_notifier,
+	.notifiers = &little_freq_max_notifier,
 };
-static struct pm_qos_object kfc_freq_max_pm_qos = {
-	.constraints = &kfc_freq_max_constraints,
-	.name = "kfc_freq_max",
+static struct pm_qos_object little_freq_max_pm_qos = {
+	.constraints = &little_freq_max_constraints,
+	.name = "little_freq_max",
 };
 
 static BLOCKING_NOTIFIER_HEAD(display_throughput_notifier);
@@ -245,10 +245,10 @@ static struct pm_qos_object *pm_qos_array[] = {
 	&bus_throughput_max_pm_qos,
 	&network_throughput_pm_qos,
 	&memory_bandwidth_pm_qos,
-	&cpu_freq_min_pm_qos,
-	&cpu_freq_max_pm_qos,
-	&kfc_freq_min_pm_qos,
-	&kfc_freq_max_pm_qos,
+	&big_freq_min_pm_qos,
+	&big_freq_max_pm_qos,
+	&little_freq_min_pm_qos,
+	&little_freq_max_pm_qos,
 	&display_throughput_pm_qos,
 	&cam_throughput_pm_qos,
 };
@@ -327,17 +327,17 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 	int ret;
 
 #ifdef CONFIG_ARCH_EXYNOS
-	struct pm_qos_constraints *cpu_max_const;
-	struct pm_qos_constraints *kfc_max_const;
+	struct pm_qos_constraints *big_max_const;
+	struct pm_qos_constraints *little_max_const;
 #endif
 
 	spin_lock_irqsave(&pm_qos_lock, flags);
 
 #ifdef CONFIG_ARCH_EXYNOS
-	cpu_max_const = cpu_freq_max_pm_qos.constraints;
-	kfc_max_const = kfc_freq_max_pm_qos.constraints;
+	big_max_const = big_freq_max_pm_qos.constraints;
+	little_max_const = little_freq_max_pm_qos.constraints;
 
-	if ((c == cpu_max_const || c == kfc_max_const) &&
+	if ((c == big_max_const || c == little_max_const) &&
 				(value > c->default_value))
 		value = c->default_value;
 #endif
