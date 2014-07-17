@@ -3,6 +3,7 @@ config VIDEO_EXYNOS_SCALER
 	depends on VIDEO_EXYNOS
 	select V4L2_MEM2MEM_DEV
 	select MEDIA_M2M1SHOT
+	select VIDEOBUF2_ION
 	default n
 	help
 	  This is a v4l2 driver for EXYNOS Scaler (MSCL) device.
