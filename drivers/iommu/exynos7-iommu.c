@@ -20,6 +20,7 @@
 #include <linux/errno.h>
 #include <linux/device.h>
 #include <linux/sched.h>
+#include <mach/smc.h>
 
 #include <asm/pgtable.h>
 
@@ -503,9 +504,20 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	int ret = -ENOSYS;
 	int flags = 0;
 
-	WARN(!is_sysmmu_active(drvdata),
-		"Fault occurred while System MMU %s is not enabled!\n",
-		dev_name(drvdata->sysmmu));
+	if (!is_sysmmu_active(drvdata)) {
+	/* HACK for MFC fault handling */
+		if(!strncmp("15200000.sysmmu", dev_name(drvdata->sysmmu), 15) ||
+			!strncmp("15210000.sysmmu", dev_name(drvdata->sysmmu), 15))
+			exynos_smc(0x810000DD, 0, 0, 0);
+		else if(!strncmp("15300000.sysmmu", dev_name(drvdata->sysmmu), 15) ||
+			!strncmp("15310000.sysmmu", dev_name(drvdata->sysmmu), 15))
+			exynos_smc(0x810000DD, 0, 0, 1);
+	/*----------------------------*/
+
+		WARN(!is_sysmmu_active(drvdata),
+				"Fault occurred while System MMU %s is not enabled!\n",
+				dev_name(drvdata->sysmmu));
+	}
 
 	itype =  __ffs(__raw_readl(drvdata->sfrbase + REG_INT_STATUS));
 	if (itype >= REG_INT_STATUS_WRITE_BIT) {
