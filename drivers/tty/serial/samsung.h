@@ -82,6 +82,7 @@ struct s3c24xx_uart_port {
 
 	struct notifier_block		aud_uart_notifier;
 	unsigned int			aud_uart_notifier_suspend;
+	struct work_struct		aud_uart_enable_wq;
 	struct platform_device		*pdev;
 
 	struct pm_qos_request		s3c24xx_uart_mif_qos;

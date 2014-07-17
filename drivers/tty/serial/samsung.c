@@ -97,6 +97,7 @@ static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg);
 static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 			      unsigned int old);
+static bool s3c24xx_aud_uart_is_suspended(struct s3c24xx_uart_port *ourport);
 static struct uart_driver s3c24xx_uart_drv;
 
 static inline void uart_clock_enable(struct s3c24xx_uart_port *ourport)
@@ -188,6 +189,12 @@ static void s3c24xx_serial_stop_tx(struct uart_port *port)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
+	if (s3c24xx_aud_uart_is_suspended(ourport)) {
+		pr_info("%s: aud_uart is already suspended.\n", __func__);
+		tx_enabled(port) = 0;
+		return;
+	}
+
 	if (tx_enabled(port)) {
 		if (s3c24xx_serial_has_interrupt_mask(port))
 			__set_bit(S3C64XX_UINTM_TXD,
@@ -204,6 +211,13 @@ static void s3c24xx_serial_start_tx(struct uart_port *port)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	unsigned int umcon;
+
+	if (s3c24xx_aud_uart_is_suspended(ourport)) {
+		pr_info("%s: aud uart still is turned off.\n", __func__);
+		/* Run work to enable aud uart */
+		schedule_work(&ourport->aud_uart_enable_wq);
+		return;
+	}
 
 	if (!tx_enabled(port)) {
 		if (of_find_property(ourport->pdev->dev.of_node,
@@ -229,6 +243,11 @@ static void s3c24xx_serial_start_tx(struct uart_port *port)
 static void s3c24xx_serial_stop_rx(struct uart_port *port)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+
+	if (s3c24xx_aud_uart_is_suspended(ourport)) {
+		rx_enabled(port) = 0;
+		return;
+	}
 
 	if (rx_enabled(port)) {
 		dbg("s3c24xx_serial_stop_rx: port=%p\n", port);
@@ -461,8 +480,12 @@ static irqreturn_t s3c64xx_serial_handle_irq(int irq, void *id)
 static unsigned int s3c24xx_serial_tx_empty(struct uart_port *port)
 {
 	struct s3c24xx_uart_info *info = s3c24xx_port_to_info(port);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	unsigned long ufstat;
 	unsigned long ufcon;
+
+	if (s3c24xx_aud_uart_is_suspended(ourport))
+		return 1;
 
 	ufstat = rd_regl(port, S3C2410_UFSTAT);
 	ufcon = rd_regl(port, S3C2410_UFCON);
@@ -480,7 +503,11 @@ static unsigned int s3c24xx_serial_tx_empty(struct uart_port *port)
 /* no modem control lines */
 static unsigned int s3c24xx_serial_get_mctrl(struct uart_port *port)
 {
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	unsigned int umstat;
+
+	if (s3c24xx_aud_uart_is_suspended(ourport))
+		return 0;
 
 	umstat = rd_regb(port, S3C2410_UMSTAT);
 
@@ -504,8 +531,12 @@ static void s3c24xx_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static void s3c24xx_serial_break_ctl(struct uart_port *port, int break_state)
 {
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	unsigned long flags;
 	unsigned int ucon;
+
+	if (s3c24xx_aud_uart_is_suspended(ourport))
+		return;
 
 	spin_lock_irqsave(&port->lock, flags);
 
@@ -521,9 +552,37 @@ static void s3c24xx_serial_break_ctl(struct uart_port *port, int break_state)
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
+static bool s3c24xx_aud_uart_is_suspended(struct s3c24xx_uart_port *ourport)
+{
+	bool lpass_subip_uart;
+
+	lpass_subip_uart = of_property_read_bool(ourport->pdev->dev.of_node,
+							"samsung,lpass-subip");
+
+	if ((atomic_read(&ourport->serial_suspend)
+		|| ourport->port.suspended) && lpass_subip_uart)
+		return true;
+
+	return false;
+}
+
+static void s3c24xx_aud_uart_enable_wq(struct work_struct *work)
+{
+	struct s3c24xx_uart_port *ourport = container_of(work,
+			struct s3c24xx_uart_port, aud_uart_enable_wq);
+	struct uart_port *port = &ourport->port;
+
+	uart_resume_port(&s3c24xx_uart_drv, port);
+}
+
 static void s3c24xx_serial_shutdown(struct uart_port *port)
 {
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
+
+	if (s3c24xx_aud_uart_is_suspended(ourport)) {
+		free_irq(port->irq, ourport);
+		return;
+	}
 
 	if (ourport->tx_claimed) {
 		if (!s3c24xx_serial_has_interrupt_mask(port))
@@ -555,6 +614,9 @@ static int s3c24xx_serial_startup(struct uart_port *port)
 
 	dbg("s3c24xx_serial_startup: port=%p (%08llx,%p)\n",
 	    port, (unsigned long long)port->mapbase, port->membase);
+
+	if (s3c24xx_aud_uart_is_suspended(ourport))
+		s3c24xx_serial_pm(port, UART_PM_STATE_ON, 0);
 
 	ourport->cfg->wake_peer[port->line] =
 				s3c2410_serial_wake_peer[port->line];
@@ -699,7 +761,6 @@ err_no_pinctrl:
 void aud_uart_gpio_idle(struct device *dev)
 {
 	/* set aud uart gpio for idle */
-	aud_uart_gpio_cfg(dev, S3C24XX_UART_PORT_LPM);
 	aud_uart_gpio_cfg(dev, S3C24XX_UART_PORT_SUSPEND);
 }
 
@@ -980,6 +1041,9 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	 */
 	termios->c_cflag &= ~(HUPCL | CMSPAR);
 	termios->c_cflag |= CLOCAL;
+
+	if (s3c24xx_aud_uart_is_suspended(ourport))
+		return;
 
 	/*
 	 * Ask the core to calculate the divisor for us.
@@ -1536,11 +1600,13 @@ static int exynos_aud_uart_notifier(struct notifier_block *notifier,
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
+		cancel_work_sync(&ourport->aud_uart_enable_wq);
 		uart_suspend_port(&s3c24xx_uart_drv, port);
 		ourport->aud_uart_notifier_suspend = true;
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
+		cancel_work_sync(&ourport->aud_uart_enable_wq);
 		uart_resume_port(&s3c24xx_uart_drv, port);
 		ourport->aud_uart_notifier_suspend = false;
 
@@ -1644,9 +1710,8 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 		ourport->aud_uart_notifier.notifier_call =
 						exynos_aud_uart_notifier;
 		register_pm_notifier(&ourport->aud_uart_notifier);
-
 		ourport->aud_uart_notifier_suspend = false;
-
+		INIT_WORK(&ourport->aud_uart_enable_wq, s3c24xx_aud_uart_enable_wq);
 #ifdef CONFIG_SND_SAMSUNG_AUDSS
 		lpass_set_gpio_cb(&pdev->dev, &aud_uart_gpio_idle);
 #endif
