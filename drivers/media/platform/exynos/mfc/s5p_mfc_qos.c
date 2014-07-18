@@ -52,13 +52,22 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 
 	switch (opr_type) {
 	case MFC_QOS_ADD:
+		MFC_TRACE_CTX("++ QOS add[%d] (int:%d, mfc:%d)\n",
+			idx, qos_table[idx].freq_int, qos_table[idx].freq_mfc);
+
+		mutex_lock(&dev->curr_rate_lock);
 		pm_qos_add_request(&dev->qos_req_int,
 				PM_QOS_DEVICE_THROUGHPUT,
 				qos_table[idx].freq_int);
+		dev->curr_rate = qos_table[idx].freq_mfc;
+		mutex_unlock(&dev->curr_rate_lock);
+
+		MFC_TRACE_CTX("-- QOS add[%d] (int:%d, mfc:%d)\n",
+			idx, qos_table[idx].freq_int, qos_table[idx].freq_mfc);
+
 		pm_qos_add_request(&dev->qos_req_mif,
 				PM_QOS_BUS_THROUGHPUT,
 				qos_table[idx].freq_mif);
-		dev->curr_rate = qos_table[idx].freq_mfc;
 
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
 		pm_qos_add_request(&dev->qos_req_big,
@@ -78,15 +87,33 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		break;
 	case MFC_QOS_UPDATE:
 		if (dev->curr_rate < qos_table[idx].freq_mfc) {
+			MFC_TRACE_CTX("++ QOS update[%d] (int:%d, mfc:%d->%d)\n",
+				idx, qos_table[idx].freq_int, dev->curr_rate, qos_table[idx].freq_mfc);
+
+			mutex_lock(&dev->curr_rate_lock);
 			pm_qos_update_request(&dev->qos_req_int,
 					qos_table[idx].freq_int);
+			dev->curr_rate = qos_table[idx].freq_mfc;
+			mutex_unlock(&dev->curr_rate_lock);
+
+			MFC_TRACE_CTX("-- QOS update[%d] (int:%d, mfc:%d->%d)\n",
+				idx, qos_table[idx].freq_int, dev->curr_rate, qos_table[idx].freq_mfc);
+
 			pm_qos_update_request(&dev->qos_req_mif,
 					qos_table[idx].freq_mif);
-			dev->curr_rate = qos_table[idx].freq_mfc;
 		} else {
+			MFC_TRACE_CTX("++ QOS update[%d] (int:%d, mfc:%d->%d)\n",
+				idx, qos_table[idx].freq_int, dev->curr_rate, qos_table[idx].freq_mfc);
+
+			mutex_lock(&dev->curr_rate_lock);
 			dev->curr_rate = qos_table[idx].freq_mfc;
 			pm_qos_update_request(&dev->qos_req_int,
 					qos_table[idx].freq_int);
+			mutex_unlock(&dev->curr_rate_lock);
+
+			MFC_TRACE_CTX("-- QOS update[%d] (int:%d, mfc:%d->%d)\n",
+				idx, qos_table[idx].freq_int, dev->curr_rate, qos_table[idx].freq_mfc);
+
 			pm_qos_update_request(&dev->qos_req_mif,
 					qos_table[idx].freq_mif);
 		}
@@ -105,8 +132,16 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		mfc_info_ctx("QoS update: %d\n", idx + 1);
 		break;
 	case MFC_QOS_REMOVE:
+		MFC_TRACE_CTX("++ QOS remove(prev mfc:%d)\n",
+							dev->curr_rate);
+
+		mutex_lock(&dev->curr_rate_lock);
 		dev->curr_rate = dev->min_rate;
 		pm_qos_remove_request(&dev->qos_req_int);
+		mutex_unlock(&dev->curr_rate_lock);
+
+		MFC_TRACE_CTX("-- QOS remove(prev mfc:%d)\n",
+							dev->curr_rate);
 		pm_qos_remove_request(&dev->qos_req_mif);
 
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ

@@ -198,6 +198,35 @@ enum mfc_buf_process_type {
 
 struct s5p_mfc_ctx;
 struct s5p_mfc_extra_buf;
+struct s5p_mfc_dev;
+
+#define MFC_DEV_NUM_MAX			2
+#define MFC_TRACE_STR_LEN		80
+#define MFC_TRACE_COUNT_MAX		1024
+struct _mfc_trace {
+	unsigned long long time;
+	char str[MFC_TRACE_STR_LEN];
+};
+
+#define MFC_TRACE_DEV(fmt, args...)							\
+	do {											\
+		int cpu = raw_smp_processor_id();						\
+		int cnt;									\
+		cnt = atomic_inc_return(&dev->trace_ref) & (MFC_TRACE_COUNT_MAX - 1);	\
+		dev->mfc_trace[cnt].time = cpu_clock(cpu);					\
+		snprintf(dev->mfc_trace[cnt].str, MFC_TRACE_STR_LEN,			\
+				"[d:%d] " fmt, dev->id, ##args);				\
+	} while(0)
+
+#define MFC_TRACE_CTX(fmt, args...)							\
+	do {											\
+		int cpu = raw_smp_processor_id();						\
+		int cnt;									\
+		cnt = atomic_inc_return(&dev->trace_ref) & (MFC_TRACE_COUNT_MAX - 1);	\
+		dev->mfc_trace[cnt].time = cpu_clock(cpu);					\
+		snprintf(dev->mfc_trace[cnt].str, MFC_TRACE_STR_LEN,			\
+				"[d:%d, c:%d] " fmt, ctx->dev->id, ctx->num, ##args);		\
+	} while(0)
 
 /**
  * struct s5p_mfc_buf - MFC buffer
@@ -377,6 +406,11 @@ struct s5p_mfc_dev {
 	int fw_size;
 	int drm_fw_status;
 	int is_support_smc;
+
+	atomic_t trace_ref;
+	struct _mfc_trace *mfc_trace;
+
+	struct mutex curr_rate_lock;
 };
 
 /**

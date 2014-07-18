@@ -290,7 +290,10 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	unsigned long flags;
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
+	MFC_TRACE_DEV("++ clock_on: Set clock rate(%d)\n", dev->curr_rate);
+	mutex_lock(&dev->curr_rate_lock);
 	s5p_mfc_clock_set_rate(dev, dev->curr_rate);
+	mutex_unlock(&dev->curr_rate_lock);
 #endif
 	ret = clk_enable(dev->pm.clock);
 	if (ret < 0)
@@ -334,6 +337,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 
 	state = atomic_read(&dev->clk_ref);
 	mfc_debug(2, "+ %d\n", state);
+	MFC_TRACE_DEV("-- clock_on : ref state(%d)\n", state);
 
 	return 0;
 }
@@ -344,6 +348,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 	unsigned long timeout, flags;
 	int ret = 0;
 
+	MFC_TRACE_DEV("++ clock_off\n");
 	if (IS_MFCV6(dev)) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
 		if ((atomic_dec_return(&dev->clk_ref) == 0) &&
@@ -392,6 +397,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 		clk_disable(dev->pm.clock);
 	}
 	mfc_debug(2, "- %d\n", state);
+	MFC_TRACE_DEV("-- clock_off: ref state(%d)\n", state);
 }
 
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
@@ -403,6 +409,7 @@ int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
 #endif
 
 	atomic_set(&dev->pm.power, 1);
+	MFC_TRACE_DEV("++ Power on\n");
 
 	ret = pm_runtime_get_sync(dev->pm.device);
 
@@ -430,6 +437,8 @@ int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
 	}
 #endif
 
+	MFC_TRACE_DEV("-- Power on: ret(%d)\n", ret);
+
 	return ret;
 }
 
@@ -447,7 +456,9 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 #if defined(CONFIG_SOC_EXYNOS5433)
 	struct clk *clk_old_parent = NULL;
 #endif
+	int ret;
 
+	MFC_TRACE_DEV("++ Power off\n");
 #if defined(CONFIG_SOC_EXYNOS5422)
 	bts_initialize("pd-mfc", false);
 #endif
@@ -535,7 +546,10 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 
 	atomic_set(&dev->pm.power, 0);
 
-	return pm_runtime_put_sync(dev->pm.device);
+	ret = pm_runtime_put_sync(dev->pm.device);
+	MFC_TRACE_DEV("-- Power off: ret(%d)\n", ret);
+
+	return ret;
 }
 
 int s5p_mfc_get_power_ref_cnt(struct s5p_mfc_dev *dev)

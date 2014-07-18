@@ -21,6 +21,7 @@ int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd,
 				struct s5p_mfc_cmd_args *args)
 {
 	mfc_debug(2, "Issue the command: %d\n", cmd);
+	MFC_TRACE_DEV(">> Issue cmd : %d\n", cmd);
 
 	/* Reset RISC2HOST command */
 	s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_RISC2HOST_CMD);

@@ -62,6 +62,8 @@
 int debug;
 module_param(debug, int, S_IRUGO | S_IWUSR);
 
+struct _mfc_trace g_mfc_trace[MFC_DEV_NUM_MAX][MFC_TRACE_COUNT_MAX];
+
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 static struct proc_dir_entry *mfc_proc_entry;
 
@@ -1417,6 +1419,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	reason = s5p_mfc_get_int_reason();
 	err = s5p_mfc_get_int_err();
 	mfc_debug(2, "Int reason: %d (err: %d)\n", reason, err);
+	MFC_TRACE_DEV("<< Int reason: %d\n", reason);
 
 	switch (reason) {
 	case S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET:
@@ -2478,6 +2481,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 
 	spin_lock_init(&dev->irqlock);
 	spin_lock_init(&dev->condlock);
+	mutex_init(&dev->curr_rate_lock);
 
 	dev->device = &pdev->dev;
 	dev->pdata = pdev->dev.platform_data;
@@ -2506,6 +2510,9 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	/* initial clock rate should be min rate */
 	dev->curr_rate = dev->min_rate = dev->pdata->min_rate;
 #endif
+
+	atomic_set(&dev->trace_ref, 0);
+	dev->mfc_trace = g_mfc_trace[dev->id];
 
 	ret = s5p_mfc_init_pm(dev);
 	if (ret < 0) {
