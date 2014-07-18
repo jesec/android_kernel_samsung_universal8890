@@ -462,6 +462,9 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 	atomic_set(&dev->watchdog_cnt, 0);
 	s5p_mfc_check_hw_state(dev);
 
+	/* Stop */
+	BUG();
+
 	ref_cnt = s5p_mfc_get_clk_ref_cnt(dev);
 	if (ref_cnt > 0) {
 		for (i = ref_cnt; i > 0; i--)
@@ -479,7 +482,6 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 			s5p_mfc_clock_off(dev);
 	}
 #endif
-
 	spin_lock_irqsave(&dev->irqlock, flags);
 
 	for (i = 0; i < MFC_NUM_CONTEXTS; i++) {
@@ -541,9 +543,6 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 #if 0
 watchdog_exit:
 #endif
-
-	/* Stop */
-	BUG();
 
 	if (mutex_locked)
 		mutex_unlock(&dev->mfc_mutex);
