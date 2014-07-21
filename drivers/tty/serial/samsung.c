@@ -95,6 +95,8 @@ static void dbg(const char *fmt, ...)
 #define RXSTAT_DUMMY_READ (0x10000000)
 
 static LIST_HEAD(drvdata_list);
+s3c_wake_peer_t s3c2410_serial_wake_peer[CONFIG_SERIAL_SAMSUNG_UARTS];
+EXPORT_SYMBOL_GPL(s3c2410_serial_wake_peer);
 
 static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg);
