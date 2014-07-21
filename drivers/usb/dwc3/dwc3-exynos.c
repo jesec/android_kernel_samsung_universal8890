@@ -648,10 +648,15 @@ static int dwc3_exynos_runtime_suspend(struct device *dev)
 static int dwc3_exynos_runtime_resume(struct device *dev)
 {
 	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
+	int ret = 0;
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	dwc3_exynos_clk_enable(exynos);
+	ret = dwc3_exynos_clk_enable(exynos);
+	if (ret) {
+		dev_err(dev, "%s: clk_enable failed\n", __func__);
+		return ret;
+	}
 
 	return 0;
 }
@@ -680,7 +685,7 @@ static int dwc3_exynos_suspend(struct device *dev)
 static int dwc3_exynos_resume(struct device *dev)
 {
 	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
-	int ret;
+	int ret = 0;
 
 	if (exynos->vdd33) {
 		ret = regulator_enable(exynos->vdd33);
@@ -698,7 +703,11 @@ static int dwc3_exynos_resume(struct device *dev)
 	}
 	dev_dbg(dev, "%s\n", __func__);
 
-	dwc3_exynos_clk_enable(exynos);
+	ret = dwc3_exynos_clk_enable(exynos);
+	if (ret) {
+		dev_err(dev, "%s: clk_enable failed\n", __func__);
+		return ret;
+	}
 
 	/* runtime set active to reflect active state. */
 	pm_runtime_disable(dev);
