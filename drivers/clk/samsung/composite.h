@@ -22,8 +22,8 @@
  * @value: the value to be register at offset.
  */
 struct samsung_clk_reg_dump {
-	u32	offset;
-	u32	value;
+	unsigned long	offset;
+	u32		value;
 };
 
 /*
