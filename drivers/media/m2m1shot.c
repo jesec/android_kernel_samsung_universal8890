@@ -735,7 +735,7 @@ struct compat_m2m1shot_pix_format {
 	compat_uint_t fmt;
 	compat_uint_t width;
 	compat_uint_t  height;
-	struct compat_m2m1shot_rect crop;
+	struct v4l2_rect crop;
 };
 
 struct compat_m2m1shot_buffer_plane {
@@ -772,7 +772,7 @@ struct compat_m2m1shot_custom_data {
 	compat_ulong_t arg;
 };
 
-#define COMPAT_M2M1SHOT_IOC_PROCESS	_IOW('M',  0, struct compat_m2m1shot)
+#define COMPAT_M2M1SHOT_IOC_PROCESS	_IOWR('M',  0, struct compat_m2m1shot)
 #define COMPAT_M2M1SHOT_IOC_CUSTOM	\
 			_IOWR('M', 16, struct compat_m2m1shot_custom_data)
 
@@ -783,7 +783,7 @@ static long m2m1shot_compat_ioctl32(struct file *filp,
 	struct m2m1shot_device *m21dev = ctx->m21dev;
 
 	switch (cmd) {
-	case M2M1SHOT_IOC_PROCESS:
+	case COMPAT_M2M1SHOT_IOC_PROCESS:
 	{
 		struct compat_m2m1shot data;
 		struct m2m1shot_task task;
@@ -847,7 +847,7 @@ static long m2m1shot_compat_ioctl32(struct file *filp,
 		 */
 		return m2m1shot_process(ctx, &task);
 	}
-	case M2M1SHOT_IOC_CUSTOM:
+	case COMPAT_M2M1SHOT_IOC_CUSTOM:
 	{
 		struct compat_m2m1shot_custom_data data;
 
