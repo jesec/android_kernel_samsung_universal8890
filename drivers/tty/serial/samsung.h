@@ -71,18 +71,13 @@ struct s3c24xx_uart_port {
 	s32				cpu_qos_val;
 	unsigned long			qos_timeout;
 
-	atomic_t			serial_suspend;
-
-	/* uart port sfr save/restore */
-	unsigned int			serial_ctrl[S3C24XX_SERIAL_CTRL_NUM];
-	unsigned int			serial_baud[S3C24XX_SERIAL_BUAD_NUM];
+#define DOMAIN_TOP	0
+#define DOMAIN_AUD	1
+	u32				domain;
 
 	/* reference to platform data */
 	struct s3c2410_uartcfg		*cfg;
 
-	struct notifier_block		aud_uart_notifier;
-	unsigned int			aud_uart_notifier_suspend;
-	struct work_struct		aud_uart_enable_wq;
 	struct platform_device		*pdev;
 
 	struct pm_qos_request		s3c24xx_uart_mif_qos;
