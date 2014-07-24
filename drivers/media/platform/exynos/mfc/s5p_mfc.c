@@ -2348,20 +2348,6 @@ static struct video_device s5p_mfc_enc_drm_videodev = {
 static void *mfc_get_drv_data(struct platform_device *pdev);
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-#if defined(CONFIG_SOC_EXYNOS5430)
-#define QOS_STEP_NUM (7)
-#elif defined(CONFIG_SOC_EXYNOS5422_REV_0) || defined(CONFIG_SOC_EXYNOS5433) \
-	|| defined(CONFIG_SOC_EXYNOS7420)
-#define QOS_STEP_NUM (5)
-#else
-#define QOS_STEP_NUM (4)
-#endif
-static struct s5p_mfc_qos g_mfc_qos_table[QOS_STEP_NUM];
-static struct s5p_mfc_qos g_mfc_qos_extra[QOS_STEP_NUM];
-#endif
-
-
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
 	struct s5p_mfc_qos *pdata)
 {
@@ -2385,7 +2371,6 @@ static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
 	return ret;
 }
 
-#if defined(CONFIG_SOC_EXYNOS5422_REV_0)
 static int parse_mfc_qos_extra(struct device_node *np, char *node_name,
 	struct s5p_mfc_qos *pdata)
 {
@@ -2394,9 +2379,9 @@ static int parse_mfc_qos_extra(struct device_node *np, char *node_name,
 
 	np_qos = of_find_node_by_name(np, node_name);
 	if (!np_qos) {
-		pr_err("%s: could not find mfc_qos_platdata extra node\n",
-			node_name);
-		return -EINVAL;
+		/* If there is no extra table, set init value */
+		pdata->thrd_mb = MFC_QOS_FLAG_NODATA;
+		return 0;
 	}
 
 	of_property_read_u32(np_qos, "thrd_mb", &pdata->thrd_mb);
@@ -2410,29 +2395,28 @@ static int parse_mfc_qos_extra(struct device_node *np, char *node_name,
 
 	return ret;
 }
-#else
-static int parse_mfc_qos_extra_init(struct s5p_mfc_qos *pdata)
-{
-	pdata->thrd_mb = MFC_QOS_FLAG_NODATA;
-
-	return 0;
-}
-#endif
 
 #if defined(CONFIG_EXYNOS5430_HD)
-static int mif_for_hd[2][QOS_STEP_NUM] = {
+#define MIF_MAX_COUNT		7
+static int mif_for_hd[2][MIF_MAX_COUNT] = {
 	/* For MFC0 */
 	{ 127000, 127000, 127000, 158000, 211000, 825000, 413000 },
 	/* For MFC1 */
 	{ 127000, 127000, 127000, 158000, 211000, 825000, 0 },
 };
 
-static void parse_mfc_qos_mif_update(struct s5p_mfc_dev *dev, int num_steps)
+static void parse_mfc_qos_mif_update(struct s5p_mfc_dev *dev, struct s5p_mfc_qos *pdata, int num_steps)
 {
-	int i;
+	int i, min_count = num_steps;
 
-	for (i = 0; i < num_steps; i++)
-		g_mfc_qos_table[i].freq_mif = mif_for_hd[dev->id][i];
+	if (num_steps > MIF_MAX_COUNT) {
+		min_count = MIF_MAX_COUNT;
+		mfc_info_dev("MIF_MAX_COUNT = %d, steps for dev-%d : %d\n",
+				MIF_MAX_COUNT, dev->id, num_steps);
+	}
+
+	for (i = 0; i < min_count; i++)
+		pdata[i].freq_mif = mif_for_hd[dev->id][i];
 }
 #endif
 #endif
@@ -2440,6 +2424,8 @@ static void parse_mfc_qos_mif_update(struct s5p_mfc_dev *dev, int num_steps)
 static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 {
 	struct s5p_mfc_platdata	*pdata = mfc->pdata;
+	char node_name[50];
+	int i;
 
 	if (!np)
 		return;
@@ -2450,40 +2436,24 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	of_property_read_u32(np, "num_qos_steps", &pdata->num_qos_steps);
 
-	parse_mfc_qos_platdata(np, "mfc_qos_variant_0", &g_mfc_qos_table[0]);
-	parse_mfc_qos_platdata(np, "mfc_qos_variant_1", &g_mfc_qos_table[1]);
-	parse_mfc_qos_platdata(np, "mfc_qos_variant_2", &g_mfc_qos_table[2]);
-	parse_mfc_qos_platdata(np, "mfc_qos_variant_3", &g_mfc_qos_table[3]);
-#if defined(CONFIG_SOC_EXYNOS5430) ||	\
-	defined(CONFIG_SOC_EXYNOS5422_REV_0) ||	\
-	defined(CONFIG_SOC_EXYNOS5433) || \
-	defined(CONFIG_SOC_EXYNOS7420)
-	parse_mfc_qos_platdata(np, "mfc_qos_variant_4", &g_mfc_qos_table[4]);
-#if defined(CONFIG_SOC_EXYNOS5430)
-	/* Max table for Decoder */
-	parse_mfc_qos_platdata(np, "mfc_qos_variant_5", &g_mfc_qos_table[5]);
-	parse_mfc_qos_platdata(np, "mfc_qos_variant_6", &g_mfc_qos_table[6]);
-#endif
-#endif
-#if defined(CONFIG_SOC_EXYNOS5422_REV_0)
-	parse_mfc_qos_extra(np, "mfc_qos_extra_var_0", &g_mfc_qos_extra[0]);
-	parse_mfc_qos_extra(np, "mfc_qos_extra_var_1", &g_mfc_qos_extra[1]);
-	parse_mfc_qos_extra(np, "mfc_qos_extra_var_2", &g_mfc_qos_extra[2]);
-	parse_mfc_qos_extra(np, "mfc_qos_extra_var_3", &g_mfc_qos_extra[3]);
-	parse_mfc_qos_extra(np, "mfc_qos_extra_var_4", &g_mfc_qos_extra[4]);
-#else
-	parse_mfc_qos_extra_init(&g_mfc_qos_extra[0]);
-	parse_mfc_qos_extra_init(&g_mfc_qos_extra[1]);
-	parse_mfc_qos_extra_init(&g_mfc_qos_extra[2]);
-	parse_mfc_qos_extra_init(&g_mfc_qos_extra[3]);
-#if defined(CONFIG_SOC_EXYNOS5430)
-	parse_mfc_qos_extra_init(&g_mfc_qos_extra[4]);
-	parse_mfc_qos_extra_init(&g_mfc_qos_extra[5]);
-	parse_mfc_qos_extra_init(&g_mfc_qos_extra[6]);
-#endif
-#endif
+	pdata->qos_table = devm_kzalloc(mfc->device,
+			sizeof(struct s5p_mfc_qos) * pdata->num_qos_steps, GFP_KERNEL);
+
+	for (i = 0; i < pdata->num_qos_steps; i++) {
+		snprintf(node_name, sizeof(node_name), "mfc_qos_variant_%d", i);
+		parse_mfc_qos_platdata(np, node_name, &pdata->qos_table[i]);
+	}
+
+	pdata->qos_extra = devm_kzalloc(mfc->device,
+			sizeof(struct s5p_mfc_qos) * pdata->num_qos_steps, GFP_KERNEL);
+
+	for (i = 0; i < pdata->num_qos_steps; i++) {
+		snprintf(node_name, sizeof(node_name), "mfc_qos_extra_var_%d", i);
+		parse_mfc_qos_extra(np, node_name, &pdata->qos_extra[i]);
+	}
+
 #if defined(CONFIG_EXYNOS5430_HD)
-	parse_mfc_qos_mif_update(mfc, pdata->num_qos_steps);
+	parse_mfc_qos_mif_update(mfc, pdata->qos_table, pdata->num_qos_steps);
 #endif
 #endif
 }
@@ -2536,8 +2506,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	/* initial clock rate should be min rate */
 	dev->curr_rate = dev->min_rate = dev->pdata->min_rate;
-	dev->pdata->qos_table = g_mfc_qos_table;
-	dev->pdata->qos_extra = g_mfc_qos_extra;
 #endif
 
 	ret = s5p_mfc_init_pm(dev);
@@ -2822,6 +2790,20 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	}
 	for (i = 0; i < dev->pdata->num_qos_steps; i++)
 		atomic_set(&dev->qos_req_cnt[i], 0);
+
+	for (i = 0; i < dev->pdata->num_qos_steps; i++) {
+		mfc_info_dev("QoS table[%d] int : %d (mfc : %d), mif : %d\n",
+				i,
+				dev->pdata->qos_table[i].freq_int,
+				dev->pdata->qos_table[i].freq_mfc,
+				dev->pdata->qos_table[i].freq_mif);
+		if (dev->pdata->qos_extra[i].thrd_mb != MFC_QOS_FLAG_NODATA)
+			mfc_info_dev(">> Extra[%d] int : %d (mfc : %d), mif : %d\n",
+				i,
+				dev->pdata->qos_extra[i].freq_int,
+				dev->pdata->qos_extra[i].freq_mfc,
+				dev->pdata->qos_extra[i].freq_mif);
+	}
 #endif
 
 	iovmm_set_fault_handler(dev->device,
