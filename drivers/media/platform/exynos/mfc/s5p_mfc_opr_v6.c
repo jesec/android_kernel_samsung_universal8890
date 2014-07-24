@@ -1772,14 +1772,21 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	reg |= ((p_264->hier_qp & 0x1) << 8);
 	WRITEL(reg, S5P_FIMV_E_H264_OPTIONS);
 	reg = 0;
-	if (p_264->hier_qp && p_264->hier_qp_layer) {
+	if (p_264->hier_qp_layer) {
+		reg |= 0x7 << 0x4;
 		reg |= (p_264->hier_qp_type & 0x1) << 0x3;
 		reg |= p_264->hier_qp_layer & 0x7;
 		WRITEL(reg, S5P_FIMV_E_H264_NUM_T_LAYER);
 		/* QP value for each layer */
-		for (i = 0; i < (p_264->hier_qp_layer & 0x7); i++)
+		if (p_264->hier_qp) {
+			for (i = 0; i < (p_264->hier_qp_layer & 0x7); i++)
 			WRITEL(p_264->hier_qp_layer_qp[i],
-				S5P_FIMV_E_H264_HIERARCHICAL_QP_LAYER0 + i * 4);
+					S5P_FIMV_E_H264_HIERARCHICAL_QP_LAYER0 + i * 4);
+		} else {
+			for (i = 0; i < (p_264->hier_qp_layer & 0x7); i++)
+			WRITEL(p_264->hier_qp_layer_bit[i],
+					S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
+		}
 	}
 	/* number of coding layer should be zero when hierarchical is disable */
 	WRITEL(reg, S5P_FIMV_E_H264_NUM_T_LAYER);

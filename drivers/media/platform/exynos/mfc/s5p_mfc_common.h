@@ -84,6 +84,9 @@
 #define SMC_PROTECTION_ENABLE	1
 #define SMC_PROTECTION_DISABLE	0
 
+/* Maximum number of temporal layers */
+#define VIDEO_MAX_TEMPORAL_LAYERS 7
+
 /*
  *  MFC region id for smc
  */
@@ -448,6 +451,7 @@ struct s5p_mfc_h264_enc_params {
 	enum v4l2_mpeg_video_h264_hierarchical_coding_type hier_qp_type;
 	u8 hier_qp_layer;
 	u8 hier_qp_layer_qp[7];
+	u32 hier_qp_layer_bit[7];
 	u8 sei_gen_enable;
 	u8 sei_fp_curr_frame_0;
 	enum v4l2_mpeg_video_h264_sei_fp_arrangement_type sei_fp_arrangement_type;
@@ -667,6 +671,11 @@ struct dec_dpb_ref_info {
 	struct stored_dpb_info dpb[MFC_MAX_DPBS];
 };
 
+struct temporal_layer_info {
+	unsigned int temporal_layer_count;
+	unsigned int temporal_layer_bitrate[VIDEO_MAX_TEMPORAL_LAYERS];
+};
+
 struct mfc_user_shared_handle {
 	int fd;
 	struct ion_handle *ion_handle;
@@ -764,6 +773,7 @@ struct s5p_mfc_enc {
 	unsigned int in_slice;
 
 	int stored_tag;
+	struct mfc_user_shared_handle sh_handle;
 };
 
 /**

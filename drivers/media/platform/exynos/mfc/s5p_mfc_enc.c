@@ -1092,6 +1092,24 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer Bit",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer Change",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -1354,6 +1372,19 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
+	{	/* H.264 Dynamic Temporal Layer change */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0,
+		.mask = 0xFFFFFFFF,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 10,
+	},
+
 };
 
 #define NUM_CTRL_CFGS ARRAY_SIZE(mfc_ctrl_list)
@@ -1707,6 +1738,8 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	unsigned int value = 0;
+	struct temporal_layer_info temporal_LC;
+	unsigned int i;
 
 	list_for_each_entry(buf_ctrl, head, list) {
 		if (!(buf_ctrl->type & MFC_CTRL_TYPE_SET) || !buf_ctrl->has_new)
@@ -1748,6 +1781,38 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG)
 			enc->stored_tag = buf_ctrl->val;
 
+		if (buf_ctrl->id
+			== V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH) {
+			memcpy(&temporal_LC,
+				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
+
+			if((temporal_LC.temporal_layer_count < 2) ||
+				((temporal_LC.temporal_layer_count > 7) &&
+				(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC))) {
+				value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+				value &= ~(1 << 10);
+				s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+				mfc_err_ctx("temporal layer count is invalid : %d\n"
+					, temporal_LC.temporal_layer_count);
+				goto invalid_layer_count;
+			}
+
+			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+			/* enable RC_BIT_RATE_CHANGE */
+			value |= (1 << 2);
+			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+
+			mfc_debug(2, "temporal layer count : %d\n", temporal_LC.temporal_layer_count);
+			s5p_mfc_write_reg(dev,
+				temporal_LC.temporal_layer_count, S5P_FIMV_E_H264_NUM_T_LAYER);
+			for(i = 0; i < temporal_LC.temporal_layer_count; i++) {
+				mfc_debug(2, "temporal layer bitrate[%d] : %d\n",
+					i, temporal_LC.temporal_layer_bitrate[i]);
+				s5p_mfc_write_reg(dev,
+					temporal_LC.temporal_layer_bitrate[i], buf_ctrl->addr + i * 4);
+			}
+		}
+invalid_layer_count:
 		mfc_debug(8, "Set buffer control "\
 				"id: 0x%08x val: %d\n",
 				buf_ctrl->id, buf_ctrl->val);
@@ -3064,6 +3129,10 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.h264.hier_qp_layer_qp[(ctrl->value >> 16) & 0x7]
 			= ctrl->value & 0xFF;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT:
+		p->codec.h264.hier_qp_layer_bit[(ctrl->value >> 28) & 0x7]
+			= ctrl->value & 0x7FFFFFF;
+		break;
 	case V4L2_CID_MPEG_VIDEO_H264_SEI_FRAME_PACKING:
 		p->codec.h264.sei_gen_enable = ctrl->value;
 		break;
@@ -3233,6 +3302,59 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	return ret;
 }
 
+static int process_user_shared_handle_enc(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	int ret = 0;
+
+	enc->sh_handle.ion_handle =
+		ion_import_dma_buf(dev->mfc_ion_client, enc->sh_handle.fd);
+	if (IS_ERR(enc->sh_handle.ion_handle)) {
+		mfc_err_ctx("Failed to import fd\n");
+		ret = PTR_ERR(enc->sh_handle.ion_handle);
+		goto import_dma_fail;
+	}
+
+	enc->sh_handle.virt =
+		ion_map_kernel(dev->mfc_ion_client, enc->sh_handle.ion_handle);
+	if (enc->sh_handle.virt == NULL) {
+		mfc_err_ctx("Failed to get kernel virtual address\n");
+		ret = -EINVAL;
+		goto map_kernel_fail;
+	}
+
+	mfc_debug(2, "User Handle: fd = %d, virt = 0x%p\n",
+				enc->sh_handle.fd, enc->sh_handle.virt);
+
+	return 0;
+
+map_kernel_fail:
+	ion_free(dev->mfc_ion_client, enc->sh_handle.ion_handle);
+
+import_dma_fail:
+	return ret;
+}
+
+
+int enc_cleanup_user_shared_handle(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+
+	if (enc->sh_handle.fd == -1)
+		return 0;
+
+	if (enc->sh_handle.virt)
+		ion_unmap_kernel(dev->mfc_ion_client,
+					enc->sh_handle.ion_handle);
+
+	ion_free(dev->mfc_ion_client, enc->sh_handle.ion_handle);
+
+	return 0;
+}
+
+
 static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 {
 
@@ -3271,6 +3393,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH:
 	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE_CH:
 	case V4L2_CID_MPEG_MFC51_VIDEO_BIT_RATE_CH:
+	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))
 				continue;
@@ -3282,6 +3405,15 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 					V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE_CH)
 					ctx_ctrl->val *= p->rc_frame_delta;
 
+				if ((ctx_ctrl->id == \
+					V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH) &&
+					(enc->sh_handle.fd == -1)) {
+						enc->sh_handle.fd = ctrl->value;
+						if (process_user_shared_handle_enc(ctx)) {
+							enc->sh_handle.fd = -1;
+							return -EINVAL;
+						}
+				}
 				found = 1;
 				break;
 			}
@@ -3911,6 +4043,7 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 
 	INIT_LIST_HEAD(&enc->ref_queue);
 	enc->ref_queue_cnt = 0;
+	enc->sh_handle.fd = -1;
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
