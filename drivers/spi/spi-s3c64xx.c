@@ -42,6 +42,8 @@
 
 #include <mach/exynos-pm.h>
 
+#include "../pinctrl/core.h"
+
 #ifdef CONFIG_EXYNOS_SPI_RESET_DURING_DSTOP
 static LIST_HEAD(drvdata_list);
 #endif
@@ -1527,6 +1529,26 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+
+	sdd->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(sdd->pinctrl)) {
+		dev_warn(&pdev->dev, "Couldn't get pinctrl.\n");
+		sdd->pinctrl = NULL;
+	}
+
+	if (sdd->pinctrl) {
+		sdd->pin_def = pinctrl_lookup_state(sdd->pinctrl, PINCTRL_STATE_DEFAULT);
+		if (IS_ERR(sdd->pin_def)) {
+			dev_warn(&pdev->dev, "Not define default state.\n");
+			sdd->pin_def = NULL;
+		}
+
+		sdd->pin_idle = pinctrl_lookup_state(sdd->pinctrl, PINCTRL_STATE_IDLE);
+		if (IS_ERR(sdd->pin_idle)) {
+			dev_info(&pdev->dev, "Not use idle state.\n");
+			sdd->pin_idle = NULL;
+		}
+	}
 #else
 	if (clk_prepare_enable(sdd->clk)) {
 		dev_err(&pdev->dev, "Couldn't enable clock 'spi'\n");
@@ -1689,6 +1711,25 @@ static int s3c64xx_spi_resume(struct device *dev)
 #endif /* CONFIG_PM_SLEEP */
 
 #ifdef CONFIG_PM_RUNTIME
+static void s3c64xx_spi_pin_ctrl(struct device *dev, int en)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
+	struct pinctrl_state *pin_stat;
+	int stat = 0;
+
+	if (!sdd->pin_idle)
+		return;
+
+	pin_stat = en ? sdd->pin_def : sdd->pin_idle;
+	if (!IS_ERR(pin_stat)) {
+		sdd->pinctrl->state = NULL;
+		stat = pinctrl_select_state(sdd->pinctrl, pin_stat);
+	} else {
+		dev_warn(dev, "could not set default pins\n");
+	}
+}
+
 static int s3c64xx_spi_runtime_suspend(struct device *dev)
 {
 	struct spi_master *master = dev_get_drvdata(dev);
@@ -1699,6 +1740,8 @@ static int s3c64xx_spi_runtime_suspend(struct device *dev)
 	if (sdd->src_clk->enable_count)
 		clk_disable_unprepare(sdd->src_clk);
 
+	s3c64xx_spi_pin_ctrl(dev, 0);
+
 	return 0;
 }
 
@@ -1708,10 +1751,13 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
 	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
 
+	s3c64xx_spi_pin_ctrl(dev, 1);
+
 	if (sci->domain == DOMAIN_TOP) {
 		clk_prepare_enable(sdd->src_clk);
 		clk_prepare_enable(sdd->clk);
 	}
+
 #ifdef CONFIG_VIDEO_EXYNOS_FIMC_IS
 	else if (sci->domain == DOMAIN_CAM1 || sci->domain == DOMAIN_ISP) {
 		struct platform_device *fimc_is_pdev;

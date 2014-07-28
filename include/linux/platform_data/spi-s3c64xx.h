@@ -127,6 +127,11 @@ struct s3c64xx_spi_driver_data {
 	struct s3c64xx_spi_port_config	*port_conf;
 	unsigned int			port_id;
 	unsigned long			gpios[4];
+
+	struct pinctrl			*pinctrl;
+	struct pinctrl_state		*pin_def;
+	struct pinctrl_state		*pin_idle;
+
 };
 
 /**
