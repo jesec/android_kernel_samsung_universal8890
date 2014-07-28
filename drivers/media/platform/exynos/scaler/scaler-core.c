@@ -2871,9 +2871,10 @@ static int sc_probe(struct platform_device *pdev)
 	}
 
 	for (ivar = 0; ivar < ARRAY_SIZE(sc_variant); ivar++) {
-		sc->variant = &sc_variant[ivar];
-		if (sc->version < sc_variant[ivar].version)
+		if (sc->version >= sc_variant[ivar].version) {
+			sc->variant = &sc_variant[ivar];
 			break;
+		}
 	}
 
 	clk_disable_unprepare(sc->aclk);
