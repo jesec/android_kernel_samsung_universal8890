@@ -115,7 +115,7 @@ static void tx_tick(struct mbox_chan *chan, int r)
 static void poll_txdone(unsigned long data)
 {
 	struct mbox_controller *mbox = (struct mbox_controller *)data;
-	bool txdone, resched = false;
+	bool txdone;
 	int i;
 
 	for (i = 0; i < mbox->num_chans; i++) {
@@ -125,14 +125,8 @@ static void poll_txdone(unsigned long data)
 			txdone = chan->mbox->ops->last_tx_done(chan);
 			if (txdone)
 				tx_tick(chan, 0);
-			else
-				resched = true;
 		}
 	}
-
-	if (resched)
-		mod_timer(&mbox->poll, jiffies +
-				msecs_to_jiffies(mbox->txpoll_period));
 }
 
 /**
