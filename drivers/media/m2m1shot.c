@@ -787,7 +787,7 @@ static long m2m1shot_compat_ioctl32(struct file *filp,
 	{
 		struct compat_m2m1shot data;
 		struct m2m1shot_task task;
-		int i;
+		int i, ret;
 
 		memset(&task, 0, sizeof(task));
 
@@ -845,7 +845,65 @@ static long m2m1shot_compat_ioctl32(struct file *filp,
 		 * m2m1shot_process() does not wake up
 		 * until the given task finishes
 		 */
-		return m2m1shot_process(ctx, &task);
+		ret = m2m1shot_process(ctx, &task);
+		if (ret) {
+			dev_err(m21dev->dev,
+				"%s: Failed to process m2m1shot task\n",
+				__func__);
+			return ret;
+		}
+
+		data.fmt_out.fmt = task.task.fmt_out.fmt;
+		data.fmt_out.width = task.task.fmt_out.width;
+		data.fmt_out.height = task.task.fmt_out.height;
+		data.fmt_out.crop.left = task.task.fmt_out.crop.left;
+		data.fmt_out.crop.top = task.task.fmt_out.crop.top;
+		data.fmt_out.crop.width = task.task.fmt_out.crop.width;
+		data.fmt_out.crop.height = task.task.fmt_out.crop.height;
+		data.fmt_cap.fmt = task.task.fmt_cap.fmt;
+		data.fmt_cap.width = task.task.fmt_cap.width;
+		data.fmt_cap.height = task.task.fmt_cap.height;
+		data.fmt_cap.crop.left = task.task.fmt_cap.crop.left;
+		data.fmt_cap.crop.top = task.task.fmt_cap.crop.top;
+		data.fmt_cap.crop.width = task.task.fmt_cap.crop.width;
+		data.fmt_cap.crop.height = task.task.fmt_cap.crop.height;
+		for (i = 0; i < task.task.buf_out.num_planes; i++) {
+			data.buf_out.plane[i].len =
+				task.task.buf_out.plane[i].len;
+			if (task.task.buf_out.type == M2M1SHOT_BUFFER_DMABUF)
+				data.buf_out.plane[i].fd =
+					task.task.buf_out.plane[i].fd;
+			else /* buf_out.type == M2M1SHOT_BUFFER_USERPTR */
+				data.buf_out.plane[i].userptr =
+					task.task.buf_out.plane[i].userptr;
+		}
+		data.buf_out.type = task.task.buf_out.type;
+		data.buf_out.num_planes = task.task.buf_out.num_planes;
+		for (i = 0; i < task.task.buf_cap.num_planes; i++) {
+			data.buf_cap.plane[i].len =
+				task.task.buf_cap.plane[i].len;
+			if (task.task.buf_cap.type == M2M1SHOT_BUFFER_DMABUF)
+				data.buf_cap.plane[i].fd =
+					task.task.buf_cap.plane[i].fd;
+			else /* buf_cap.type == M2M1SHOT_BUFFER_USERPTR */
+				data.buf_cap.plane[i].userptr =
+					task.task.buf_cap.plane[i].userptr;
+		}
+		data.buf_cap.type = task.task.buf_cap.type;
+		data.buf_cap.num_planes = task.task.buf_cap.num_planes;
+		data.op.quality_level = task.task.op.quality_level;
+		data.op.rotate = task.task.op.rotate;
+		data.op.op = task.task.op.op;
+		data.reserved[0] = task.task.reserved[0];
+		data.reserved[1] = task.task.reserved[1];
+
+		if (copy_to_user(compat_ptr(arg), &data, sizeof(data))) {
+			dev_err(m21dev->dev,
+				"%s: Failed to copy into userdata\n", __func__);
+			return -EFAULT;
+		}
+
+		return 0;
 	}
 	case COMPAT_M2M1SHOT_IOC_CUSTOM:
 	{
