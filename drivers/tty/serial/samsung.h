@@ -51,6 +51,7 @@ struct s3c24xx_serial_drv_data {
 };
 
 struct s3c24xx_uart_port {
+	struct list_head		node;
 	unsigned char			rx_claimed;
 	unsigned char			tx_claimed;
 	unsigned long			baudclk_rate;

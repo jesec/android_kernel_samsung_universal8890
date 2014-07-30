@@ -51,6 +51,7 @@
 
 #include "samsung.h"
 #include "../../pinctrl/core.h"
+#include <mach/exynos-pm.h>
 
 #if	defined(CONFIG_SERIAL_SAMSUNG_DEBUG) &&	\
 	defined(CONFIG_DEBUG_LL) &&		\
@@ -92,6 +93,8 @@ static void dbg(const char *fmt, ...)
 
 /* flag to ignore all characters coming in */
 #define RXSTAT_DUMMY_READ (0x10000000)
+
+static LIST_HEAD(drvdata_list);
 
 static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg);
@@ -260,6 +263,16 @@ static int s3c24xx_serial_rx_fifocnt(struct s3c24xx_uart_port *ourport,
 	return (ufstat & info->rx_fifomask) >> info->rx_fifoshift;
 }
 
+static int s3c24xx_serial_tx_fifocnt(struct s3c24xx_uart_port *ourport,
+				     unsigned long ufstat)
+{
+	struct s3c24xx_uart_info *info = ourport->info;
+
+	if (ufstat & info->tx_fifofull)
+		return ourport->port.fifosize;
+
+	return (ufstat & info->tx_fifomask) >> info->tx_fifoshift;
+}
 
 /* ? - where has parity gone?? */
 #define S3C2410_UERSTAT_PARITY (0x1000)
@@ -1392,6 +1405,39 @@ static inline struct s3c24xx_serial_drv_data *s3c24xx_get_driver_data(
 			platform_get_device_id(pdev)->driver_data;
 }
 
+static int s3c24xx_serial_notifier(struct notifier_block *self,
+				unsigned long cmd, void *v)
+{
+	struct s3c24xx_uart_port *ourport;
+	struct uart_port *port;
+	unsigned int fifo_stat;
+	unsigned long wait_time;
+
+	switch (cmd) {
+	case LPA_ENTER:
+		list_for_each_entry(ourport, &drvdata_list, node) {
+			if (ourport->port.line != CONFIG_S3C_LOWLEVEL_UART_PORT)
+				continue;
+
+			uart_clock_enable(ourport);
+			wait_time = jiffies + HZ / 4;
+			do {
+				port = &ourport->port;
+				fifo_stat = rd_regl(port, S3C2410_UFSTAT);
+				cpu_relax();
+			} while (s3c24xx_serial_tx_fifocnt(ourport, fifo_stat)
+					&& time_before(jiffies, wait_time));
+		}
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block s3c24xx_serial_notifier_block = {
+	.notifier_call = s3c24xx_serial_notifier,
+};
+
 static int s3c24xx_serial_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1522,6 +1568,8 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	if (ret < 0)
 		dev_err(&pdev->dev, "failed to add clock source attr.\n");
 #endif
+
+	list_add_tail(&ourport->node, &drvdata_list);
 
 	return 0;
 }
@@ -2091,7 +2139,30 @@ static struct platform_driver samsung_serial_driver = {
 	},
 };
 
-module_platform_driver(samsung_serial_driver);
+/* module initialisation code */
+
+static int __init s3c24xx_serial_modinit(void)
+{
+	int ret;
+
+	ret = uart_register_driver(&s3c24xx_uart_drv);
+	if (ret < 0) {
+		pr_err("Failed to register Samsung UART driver\n");
+		return ret;
+	}
+
+	exynos_pm_register_notifier(&s3c24xx_serial_notifier_block);
+	return platform_driver_register(&samsung_serial_driver);
+}
+
+static void __exit s3c24xx_serial_modexit(void)
+{
+	platform_driver_unregister(&samsung_serial_driver);
+	uart_unregister_driver(&s3c24xx_uart_drv);
+}
+
+module_init(s3c24xx_serial_modinit);
+module_exit(s3c24xx_serial_modexit);
 
 MODULE_ALIAS("platform:samsung-uart");
 MODULE_DESCRIPTION("Samsung SoC Serial port driver");
