@@ -1059,6 +1059,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					 (dev->fw.date >= 0x140821)))
 #define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCV8(dev) || IS_MFCv78(dev))
 
+#define FW_NEED_SHARED_MEMORY(dev)	(IS_MFCv5X(dev) || IS_MFCv6X(dev) ||	\
+					IS_MFCv7X(dev) || IS_MFCv78(dev))
+
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
 
 #define is_h264(ctx)		((ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC) ||\

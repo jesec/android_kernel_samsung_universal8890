@@ -2785,7 +2785,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->alloc_ctx_fw = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
-			VB2ION_CTX_UNCACHED | VB2ION_CTX_VMCONTIG |
+			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCNFW |
 			VB2ION_CTX_IOMMU);
 	if (IS_ERR(dev->alloc_ctx_fw)) {
 		mfc_err_dev("failed to prepare F/W allocation context\n");
@@ -2803,32 +2803,32 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(dev->alloc_ctx_drm_fw);
 		goto alloc_ctx_drm_fw_fail;
 	}
+	if (FW_NEED_SHARED_MEMORY(dev)) {
+		dev->alloc_ctx_sh = (struct vb2_alloc_ctx *)
+			vb2_ion_create_context(&pdev->dev,
+				SZ_4K,
+				VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCSH |
+				VB2ION_CTX_KVA_STATIC);
+		if (IS_ERR(dev->alloc_ctx_sh)) {
+			mfc_err_dev("failed to prepare shared allocation context\n");
+			ret = PTR_ERR(dev->alloc_ctx_sh);
+			goto alloc_ctx_sh_fail;
+		}
 
-	dev->alloc_ctx_sh = (struct vb2_alloc_ctx *)
-		vb2_ion_create_context(&pdev->dev,
-			SZ_4K,
-			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCSH |
-			VB2ION_CTX_KVA_STATIC);
-	if (IS_ERR(dev->alloc_ctx_sh)) {
-		mfc_err_dev("failed to prepare shared allocation context\n");
-		ret = PTR_ERR(dev->alloc_ctx_sh);
-		goto alloc_ctx_sh_fail;
+		dev->drm_info.alloc = s5p_mfc_mem_alloc_priv(dev->alloc_ctx_sh,
+							PAGE_SIZE);
+		if (IS_ERR(dev->drm_info.alloc)) {
+			mfc_err_dev("failed to allocate shared region\n");
+			ret = PTR_ERR(dev->drm_info.alloc);
+			goto shared_alloc_fail;
+		}
+		dev->drm_info.virt = s5p_mfc_mem_vaddr_priv(dev->drm_info.alloc);
+		if (!dev->drm_info.virt) {
+			mfc_err_dev("failed to get vaddr for shared region\n");
+			ret = -ENOMEM;
+			goto shared_vaddr_fail;
+		}
 	}
-
-	dev->drm_info.alloc = s5p_mfc_mem_alloc_priv(dev->alloc_ctx_sh,
-						PAGE_SIZE);
-	if (IS_ERR(dev->drm_info.alloc)) {
-		mfc_err_dev("failed to allocate shared region\n");
-		ret = PTR_ERR(dev->drm_info.alloc);
-		goto shared_alloc_fail;
-	}
-	dev->drm_info.virt = s5p_mfc_mem_vaddr_priv(dev->drm_info.alloc);
-	if (!dev->drm_info.virt) {
-		mfc_err_dev("failed to get vaddr for shared region\n");
-		ret = -ENOMEM;
-		goto shared_vaddr_fail;
-	}
-
 	dev->alloc_ctx_drm = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			SZ_4K,
@@ -2836,7 +2836,10 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (IS_ERR(dev->alloc_ctx_drm)) {
 		mfc_err_dev("failed to prepare DRM allocation context\n");
 		ret = PTR_ERR(dev->alloc_ctx_drm);
-		goto alloc_ctx_drm_fail;
+			if (FW_NEED_SHARED_MEMORY(dev))
+				goto alloc_ctx_drm_fail;
+			else
+				goto alloc_ctx_sh_fail;
 	}
 #endif
 
@@ -2880,10 +2883,10 @@ err_qos_cnt:
 #endif
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	vb2_ion_destroy_context(dev->alloc_ctx_drm);
+alloc_ctx_drm_fail:
 shared_vaddr_fail:
 	s5p_mfc_mem_free_priv(dev->drm_info.alloc);
 shared_alloc_fail:
-alloc_ctx_drm_fail:
 	vb2_ion_destroy_context(dev->alloc_ctx_sh);
 alloc_ctx_sh_fail:
 	vb2_ion_destroy_context(dev->alloc_ctx_drm_fw);
