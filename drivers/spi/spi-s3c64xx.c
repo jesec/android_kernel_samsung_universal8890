@@ -1716,7 +1716,6 @@ static void s3c64xx_spi_pin_ctrl(struct device *dev, int en)
 	struct spi_master *master = dev_get_drvdata(dev);
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
 	struct pinctrl_state *pin_stat;
-	int stat = 0;
 
 	if (!sdd->pin_idle)
 		return;
@@ -1724,9 +1723,10 @@ static void s3c64xx_spi_pin_ctrl(struct device *dev, int en)
 	pin_stat = en ? sdd->pin_def : sdd->pin_idle;
 	if (!IS_ERR(pin_stat)) {
 		sdd->pinctrl->state = NULL;
-		stat = pinctrl_select_state(sdd->pinctrl, pin_stat);
+		if (pinctrl_select_state(sdd->pinctrl, pin_stat))
+			dev_err(dev, "could not set pinctrl.\n");
 	} else {
-		dev_warn(dev, "could not set default pins\n");
+		dev_warn(dev, "pinctrl stat is null pointer.\n");
 	}
 }
 
