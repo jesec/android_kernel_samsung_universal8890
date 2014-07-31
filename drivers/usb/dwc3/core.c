@@ -173,6 +173,12 @@ void dwc3_core_config(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 	}
 
+	if (dwc->revision >= DWC3_REVISION_250A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+		reg |= DWC3_GUSB3PIPECTL_DIS_RXDETP3;
+		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	}
+
 	/*
 	 * WORKAROUND: DWC3 revisions 2.10a and earlier have a bug
 	 * Race Condition in PORTSC Write Followed by Read
