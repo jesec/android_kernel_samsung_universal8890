@@ -108,6 +108,7 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 	atomic_set(&dev->clk_ref, 0);
 
 	dev->pm.device = dev->device;
+	dev->pm.clock_off_steps = 0;
 	pm_runtime_enable(dev->pm.device);
 
 	clk_put(dev->pm.clock);
@@ -348,9 +349,12 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 	unsigned long timeout, flags;
 	int ret = 0;
 
+	dev->pm.clock_off_steps = 1;
+
 	MFC_TRACE_DEV("++ clock_off\n");
 	if (IS_MFCV6(dev)) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
+		dev->pm.clock_off_steps = 2;
 		if ((atomic_dec_return(&dev->clk_ref) == 0) &&
 				FW_HAS_BUS_RESET(dev)) {
 			s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_MFC_BUS_RESET_CTRL);
@@ -365,20 +369,24 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 				val = s5p_mfc_read_reg(dev,
 						S5P_FIMV_MFC_BUS_RESET_CTRL);
 			} while ((val & 0x2) == 0);
+		dev->pm.clock_off_steps = 3;
 		}
 		spin_unlock_irqrestore(&dev->pm.clklock, flags);
 	} else {
 		atomic_dec_return(&dev->clk_ref);
 	}
 
+	dev->pm.clock_off_steps = 4;
 	state = atomic_read(&dev->clk_ref);
 	if (state < 0) {
 		mfc_err_dev("Clock state is wrong(%d)\n", state);
 		atomic_set(&dev->clk_ref, 0);
+		dev->pm.clock_off_steps = 5;
 	} else {
 		if (dev->curr_ctx_drm && dev->is_support_smc) {
 			mfc_debug(3, "Begin: disable protection\n");
 			spin_lock_irqsave(&dev->pm.clklock, flags);
+			dev->pm.clock_off_steps = 6;
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 			ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					dev->id, SMC_PROTECTION_DISABLE);
@@ -390,14 +398,19 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 				return;
 			}
 			mfc_debug(3, "End: disable protection\n");
+			dev->pm.clock_off_steps = 7;
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
 		} else {
+			dev->pm.clock_off_steps = 8;
 			s5p_mfc_mem_suspend(dev->alloc_ctx[0]);
+			dev->pm.clock_off_steps = 9;
 		}
+		dev->pm.clock_off_steps = 10;
 		clk_disable(dev->pm.clock);
 	}
 	mfc_debug(2, "- %d\n", state);
 	MFC_TRACE_DEV("-- clock_off: ref state(%d)\n", state);
+	dev->pm.clock_off_steps = 11;
 }
 
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev)
