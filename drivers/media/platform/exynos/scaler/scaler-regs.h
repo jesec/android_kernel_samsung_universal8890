@@ -9,6 +9,11 @@
  * published by the Free Software Foundation.
 */
 
+#ifndef __SCALER_REGS_H__
+#define __SCALER_REGS_H__
+
+#include "scaler.h"
+
 /* Status */
 #define SCALER_STATUS			0x00
 
@@ -71,17 +76,8 @@
 #define SCALER_SRC_YSPAN_MASK		(0xffff << 0)
 
 #define SCALER_SRC_Y_POS		0x20
-#define SCALER_SRC_YX(x)		((x) << 18)
-#define SCALER_SRC_YY(x)		((x) << 2)
-
-#define SCALER_SRC_CX(x, shift)		((x) << (18 - (shift)))
-#define SCALER_SRC_CY(x, shift)		((x) << (2 - (shift)))
-#define SCALER_SRC_C_POS_FRACTION	0x30003
-
 #define SCALER_SRC_WH			0x24
 #define SCALER_SRC_PRESC_WH		0x2C
-#define SCALER_SRC_W(x)			((x) << 16)
-#define SCALER_SRC_H(x)			((x) << 0)
 
 #define SCALER_SRC_C_POS		0x28
 
@@ -94,12 +90,8 @@
 #define SCALER_DST_YSPAN_MASK		(0xffff << 0)
 
 #define SCALER_DST_WH			0x40
-#define SCALER_DST_W(x)			((x) << 16)
-#define SCALER_DST_H(x)			((x) << 0)
 
 #define SCALER_DST_POS			0x44
-#define SCALER_DST_X(x)			((x) << 16)
-#define SCALER_DST_Y(x)			((x) << 0)
 
 #define SCALER_H_RATIO			0x50
 #define SCALER_V_RATIO			0x54
@@ -162,3 +154,56 @@
 
 #define SCALER_TIMEOUT_CTRL		0x2c0
 #define SCALER_TIMEOUT_CNT		0x2c4
+
+/* macros to make words to SFR */
+#define SCALER_VAL_WH(w, h)	  ((((w) & 0x3FFF) << 16) | ((h) & 0x3FFF))
+#define SCALER_VAL_SRC_POS(l, t)  ((((l) & 0xFFFF) << 16) | ((t) & 0xFFFF))
+#define SCALER_VAL_DST_POS(l, t)  ((((l) & 0x3FFF) << 16) | ((t) & 0x3FFF))
+
+static inline void sc_hwset_src_pos(struct sc_dev *sc, __s32 left, __s32 top,
+				unsigned int chshift, unsigned int cvshift)
+{
+	/* SRC pos have fractional part of 2 bits which is not used */
+	__raw_writel(SCALER_VAL_SRC_POS(left << 2, top << 2),
+			sc->regs + SCALER_SRC_Y_POS);
+	__raw_writel(
+		SCALER_VAL_SRC_POS(left << (2 - chshift), top << (2 - cvshift)),
+		sc->regs + SCALER_SRC_C_POS);
+}
+
+static inline void sc_hwset_src_wh(struct sc_dev *sc, __s32 width, __s32 height,
+		unsigned int pre_h_ratio, unsigned int pre_v_ratio)
+{
+	if (sc->version >= SCALER_VERSION(3, 0, 0))
+		__raw_writel(SCALER_VAL_WH(width, height),
+				sc->regs + SCALER_SRC_PRESC_WH);
+	__raw_writel(SCALER_VAL_WH(width >> pre_h_ratio, height >> pre_v_ratio),
+				sc->regs + SCALER_SRC_WH);
+}
+
+static inline void sc_hwset_dst_pos(struct sc_dev *sc, __s32 left, __s32 top)
+{
+	__raw_writel(SCALER_VAL_DST_POS(left, top), sc->regs + SCALER_DST_POS);
+}
+
+static inline void sc_hwset_dst_wh(struct sc_dev *sc, __s32 width, __s32 height)
+{
+	__raw_writel(SCALER_VAL_WH(width, height), sc->regs + SCALER_DST_WH);
+}
+
+static inline void sc_hwset_hratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
+{
+	__raw_writel((pre_ratio << 28) | ratio, sc->regs + SCALER_H_RATIO);
+}
+
+static inline void sc_hwset_vratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
+{
+	__raw_writel((pre_ratio << 28) | ratio, sc->regs + SCALER_V_RATIO);
+}
+
+void sc_hwset_polyphase_hcoef(struct sc_dev *sc,
+				unsigned int yratio, unsigned int cratio);
+void sc_hwset_polyphase_vcoef(struct sc_dev *sc,
+				unsigned int yratio, unsigned int cratio);
+
+#endif /*__SCALER_REGS_H__*/

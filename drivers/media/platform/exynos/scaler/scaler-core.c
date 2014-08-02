@@ -29,6 +29,7 @@
 #include <plat/cpu.h>
 
 #include "scaler.h"
+#include "scaler-regs.h"
 
 int sc_log_level;
 module_param_named(sc_log_level, sc_log_level, uint, 0644);
@@ -180,6 +181,7 @@ static const struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
+		.h_shift	= 1,
 	}, {
 		.name		= "YUV 4:2:2 packed, CbYCrY",
 		.pixelformat	= V4L2_PIX_FMT_UYVY,
@@ -187,6 +189,7 @@ static const struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
+		.h_shift	= 1,
 	}, {
 		.name		= "YUV 4:2:2 packed, YCrYCb",
 		.pixelformat	= V4L2_PIX_FMT_YVYU,
@@ -194,6 +197,7 @@ static const struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 16 },
 		.num_planes	= 1,
 		.num_comp	= 1,
+		.h_shift	= 1,
 	}, {
 		.name		= "YUV 4:2:2 contiguous 2-planar, Y/CbCr",
 		.pixelformat	= V4L2_PIX_FMT_NV16,
@@ -1733,80 +1737,16 @@ static void sc_set_csc_coef(struct sc_ctx *ctx)
 	sc_hwset_csc_coef(sc, idx, &ctx->csc);
 }
 
-static const __u32 sc_scaling_ratio[] = {
-	1048576,	/* 0: 8:8 scaing or zoom-in */
-	1198372,	/* 1: 8:7 zoom-out */
-	1398101,	/* 2: 8:6 zoom-out */
-	1677721,	/* 3: 8:5 zoom-out */
-	2097152,	/* 4: 8:4 zoom-out */
-	2796202,	/* 5: 8:3 zoom-out */
-	/* higher ratio -> 6: 8:2 zoom-out */
-};
-
-static unsigned int sc_get_scale_filter(unsigned int ratio)
+static unsigned int sc_find_prescaling_ratio(unsigned int ratio)
 {
-	unsigned int filter;
+	BUG_ON(ratio > SCALE_RATIO(16, 1));
 
-	for (filter = 0; filter < ARRAY_SIZE(sc_scaling_ratio); filter++)
-		if (ratio <= sc_scaling_ratio[filter])
-			return filter;
-
-	return filter;
-}
-
-static void sc_set_scale_coef(struct sc_dev *sc, unsigned int h_ratio,
-				unsigned int v_ratio)
-{
-	unsigned int h_coef, v_coef;
-
-	h_coef = sc_get_scale_filter(h_ratio);
-	v_coef = sc_get_scale_filter(v_ratio);
-
-	sc_hwset_hcoef(sc, h_coef);
-	sc_hwset_vcoef(sc, v_coef);
-}
-
-static void sc_set_scale_ratio(struct sc_dev *sc,
-			unsigned int h_ratio, unsigned int v_ratio,
-			unsigned int *pre_h_ratio, unsigned int *pre_v_ratio,
-			unsigned rotate)
-{
-	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
-		BUG_ON(h_ratio > SCALE_RATIO(16, 1));
-		BUG_ON(v_ratio > SCALE_RATIO(16, 1));
-
-		if (h_ratio > SCALE_RATIO(8, 1)) {
-			*pre_h_ratio = 2; /* 1/4 prescaling */
-			h_ratio /= 4;
-		} else if (h_ratio > SCALE_RATIO(4, 1)) {
-			*pre_h_ratio = 1; /* 1/2 prescaling */
-			h_ratio /= 2;
-		}
-
-		if (v_ratio > SCALE_RATIO(8, 1)) {
-			*pre_v_ratio = 2; /* 1/4 prescaling */
-			v_ratio /= 4;
-		} else if (v_ratio > SCALE_RATIO(4, 1)) {
-			*pre_v_ratio = 1; /* 1/2 prescaling */
-			v_ratio /= 2;
-		}
-	}
-
-	sc_set_scale_coef(sc, h_ratio, v_ratio);
-
-	if (sc->version < SCALER_VERSION(3, 0, 0)) {
-		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
-		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
-		/* scaling precision from v3 increased by x1/16 */
-		h_ratio >>= 4;
-		v_ratio >>= 4;
-	}
-
-	if ((rotate == 90) || (rotate == 270))
-		swap(*pre_h_ratio, *pre_v_ratio);
-
-	sc_hwset_hratio(sc, h_ratio, *pre_h_ratio);
-	sc_hwset_vratio(sc, v_ratio, *pre_v_ratio);
+	if (ratio > SCALE_RATIO(8, 1))
+		return 2; /* 1/4 prescaling */
+	else if (ratio > SCALE_RATIO(4, 1))
+		return 1; /* 1/2 prescaling */
+	else
+		return 0;
 }
 
 static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
@@ -1816,6 +1756,8 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 	unsigned int halign = 0, walign = 0;
 	unsigned int pre_h_ratio = 0;
 	unsigned int pre_v_ratio = 0;
+	unsigned int h_ratio = SCALE_RATIO(1, 1);
+	unsigned int v_ratio = SCALE_RATIO(1, 1);
 
 	if (!test_bit(CTX_INT_FRAME, &ctx->flags))
 		return false;
@@ -1839,18 +1781,44 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 			walign, &s_frame->crop.height, limit->min_h,
 			limit->max_h, halign, 0);
 
-	sc_set_scale_ratio(sc,
-		SCALE_RATIO(s_frame->crop.width, d_frame->crop.width),
-		SCALE_RATIO(s_frame->crop.height, d_frame->crop.height),
-		&pre_h_ratio, &pre_v_ratio, 0);
-
 	sc_hwset_src_image_format(sc, s_frame->sc_fmt);
 	sc_hwset_dst_image_format(sc, d_frame->sc_fmt);
 	sc_hwset_src_imgsize(sc, s_frame);
 	sc_hwset_dst_imgsize(sc, d_frame);
-	sc_hwset_src_crop(sc, &s_frame->crop, s_frame->sc_fmt,
-					pre_h_ratio, pre_v_ratio);
-	sc_hwset_dst_crop(sc, &d_frame->crop);
+
+	h_ratio = SCALE_RATIO(s_frame->crop.width, d_frame->crop.width);
+	v_ratio = SCALE_RATIO(s_frame->crop.height, d_frame->crop.height);
+
+	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
+		pre_h_ratio = sc_find_prescaling_ratio(h_ratio);
+		pre_v_ratio = sc_find_prescaling_ratio(v_ratio);
+
+		h_ratio >>= pre_h_ratio;
+		v_ratio >>= pre_v_ratio;
+	} else {
+		/* No prescaler, 1/4 precision */
+		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
+		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
+
+		h_ratio >>= 4;
+		v_ratio >>= 4;
+	}
+
+	/* no rotation */
+
+	sc_hwset_hratio(sc, h_ratio, pre_h_ratio);
+	sc_hwset_vratio(sc, v_ratio, pre_v_ratio);
+
+	sc_hwset_polyphase_hcoef(sc, h_ratio, h_ratio);
+	sc_hwset_polyphase_vcoef(sc, v_ratio, v_ratio);
+
+	sc_hwset_src_pos(sc, s_frame->crop.left, s_frame->crop.top,
+			s_frame->sc_fmt->h_shift, s_frame->sc_fmt->v_shift);
+	sc_hwset_src_wh(sc, s_frame->crop.width, s_frame->crop.height,
+			pre_h_ratio, pre_v_ratio);
+
+	sc_hwset_dst_pos(sc, d_frame->crop.left, d_frame->crop.top);
+	sc_hwset_dst_wh(sc, d_frame->crop.width, d_frame->crop.height);
 
 	sc_hwset_src_addr(sc, &s_frame->addr);
 	sc_hwset_dst_addr(sc, &d_frame->addr);
@@ -1930,6 +1898,11 @@ static int sc_run_next_job(struct sc_dev *sc)
 	struct sc_frame *d_frame, *s_frame;
 	unsigned int pre_h_ratio = 0;
 	unsigned int pre_v_ratio = 0;
+	unsigned int h_ratio = SCALE_RATIO(1, 1);
+	unsigned int v_ratio = SCALE_RATIO(1, 1);
+	unsigned int ch_ratio = SCALE_RATIO(1, 1);
+	unsigned int cv_ratio = SCALE_RATIO(1, 1);
+	unsigned int h_shift, v_shift;
 	int ret;
 
 	spin_lock_irqsave(&sc->ctxlist_lock, flags);
@@ -1977,9 +1950,6 @@ static int sc_run_next_job(struct sc_dev *sc)
 
 	sc_hwset_soft_reset(sc);
 
-	sc_set_scale_ratio(sc, ctx->h_ratio, ctx->v_ratio,
-				&pre_h_ratio, &pre_v_ratio,
-				ctx->rotation);
 	if (ctx->i_frame) {
 		set_bit(CTX_INT_FRAME, &ctx->flags);
 		d_frame = &ctx->i_frame->frame;
@@ -1994,9 +1964,60 @@ static int sc_run_next_job(struct sc_dev *sc)
 
 	sc_hwset_src_imgsize(sc, s_frame);
 	sc_hwset_dst_imgsize(sc, d_frame);
-	sc_hwset_src_crop(sc, &s_frame->crop, s_frame->sc_fmt,
-				pre_h_ratio, pre_v_ratio);
-	sc_hwset_dst_crop(sc, &d_frame->crop);
+
+	h_ratio = ctx->h_ratio;
+	v_ratio = ctx->v_ratio;
+
+	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
+		pre_h_ratio = sc_find_prescaling_ratio(h_ratio);
+		pre_v_ratio = sc_find_prescaling_ratio(v_ratio);
+
+		h_ratio >>= pre_h_ratio;
+		v_ratio >>= pre_v_ratio;
+	} else {
+		/* No prescaler, 1/4 precision */
+		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
+		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
+
+		h_ratio >>= 4;
+		v_ratio >>= 4;
+	}
+
+	h_shift = s_frame->sc_fmt->h_shift;
+	v_shift = s_frame->sc_fmt->v_shift;
+
+	if ((ctx->rotation == 90) || (ctx->rotation == 270)) {
+		swap(pre_h_ratio, pre_v_ratio);
+		swap(h_shift, v_shift);
+	}
+
+	if (h_shift < d_frame->sc_fmt->h_shift)
+		ch_ratio = h_ratio * 2; /* chroma scaling down */
+	else if (h_shift > d_frame->sc_fmt->h_shift)
+		ch_ratio = h_ratio / 2; /* chroma scaling up */
+	else
+		ch_ratio = h_ratio;
+
+	if (v_shift < d_frame->sc_fmt->v_shift)
+		cv_ratio = v_ratio * 2; /* chroma scaling down */
+	else if (v_shift > d_frame->sc_fmt->v_shift)
+		cv_ratio = v_ratio / 2; /* chroma scaling up */
+	else
+		cv_ratio = v_ratio;
+
+	sc_hwset_hratio(sc, h_ratio, pre_h_ratio);
+	sc_hwset_vratio(sc, v_ratio, pre_v_ratio);
+
+	sc_hwset_polyphase_hcoef(sc, h_ratio, ch_ratio);
+	sc_hwset_polyphase_vcoef(sc, v_ratio, cv_ratio);
+
+	sc_hwset_src_pos(sc, s_frame->crop.left, s_frame->crop.top,
+			s_frame->sc_fmt->h_shift, s_frame->sc_fmt->v_shift);
+	sc_hwset_src_wh(sc, s_frame->crop.width, s_frame->crop.height,
+			pre_h_ratio, pre_v_ratio);
+
+	sc_hwset_dst_pos(sc, d_frame->crop.left, d_frame->crop.top);
+	sc_hwset_dst_wh(sc, d_frame->crop.width, d_frame->crop.height);
 
 	sc_hwset_src_addr(sc, &s_frame->addr);
 	sc_hwset_dst_addr(sc, &d_frame->addr);

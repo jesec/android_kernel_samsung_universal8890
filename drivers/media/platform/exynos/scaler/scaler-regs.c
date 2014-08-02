@@ -10,6 +10,7 @@
 */
 
 #include "scaler.h"
+#include "scaler-regs.h"
 
 #define COEF(val_l, val_h) ((((val_h) & 0x1FF) << 16) | ((val_l) & 0x1FF))
 
@@ -532,76 +533,99 @@ void sc_hwset_flip_rotation(struct sc_dev *sc, u32 direction, int degree)
 	writel(cfg, sc->regs + SCALER_ROT_CFG);
 }
 
-void sc_hwset_hratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
+static const __u32 sc_scaling_ratio[] = {
+	1048576,	/* 0: 8:8 scaing or zoom-in */
+	1198372,	/* 1: 8:7 zoom-out */
+	1398101,	/* 2: 8:6 zoom-out */
+	1677721,	/* 3: 8:5 zoom-out */
+	2097152,	/* 4: 8:4 zoom-out */
+	2796202,	/* 5: 8:3 zoom-out */
+	/* higher ratio -> 6: 8:2 zoom-out */
+};
+
+static unsigned int sc_get_scale_filter(unsigned int ratio)
 {
-	writel((pre_ratio << 28) | ratio, sc->regs + SCALER_H_RATIO);
+	unsigned int filter;
+
+	for (filter = 0; filter < ARRAY_SIZE(sc_scaling_ratio); filter++)
+		if (ratio <= sc_scaling_ratio[filter])
+			return filter;
+
+	return filter;
 }
 
-void sc_hwset_vratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
-{
-	writel((pre_ratio << 28) | ratio, sc->regs + SCALER_V_RATIO);
-}
-
-static void __sc_hwset_hcoef(void __iomem *regs, const __u32 sc_coef[][4])
+void sc_hwset_polyphase_hcoef(struct sc_dev *sc,
+				unsigned int yratio, unsigned int cratio)
 {
 	unsigned int phase;
+	unsigned int yfilter = sc_get_scale_filter(yratio);
+	unsigned int cfilter = sc_get_scale_filter(cratio);
 
-	for (phase = 0; phase < 9; phase++) {
-		writel(sc_coef[phase][3],
-				regs + SCALER_YHCOEF + phase * 16);
-		writel(sc_coef[phase][2],
-				regs + SCALER_YHCOEF + phase * 16 + 4);
-		writel(sc_coef[phase][1],
-				regs + SCALER_YHCOEF + phase * 16 + 8);
-		writel(sc_coef[phase][0],
-				regs + SCALER_YHCOEF + phase * 16 + 12);
-		writel(sc_coef[phase][3],
-				regs + SCALER_CHCOEF + phase * 16);
-		writel(sc_coef[phase][2],
-				regs + SCALER_CHCOEF + phase * 16 + 4);
-		writel(sc_coef[phase][1],
-				regs + SCALER_CHCOEF + phase * 16 + 8);
-		writel(sc_coef[phase][0],
-				regs + SCALER_CHCOEF + phase * 16 + 12);
+	BUG_ON(yfilter >= ARRAY_SIZE(sc_coef_8t));
+	BUG_ON(cfilter >= ARRAY_SIZE(sc_coef_8t));
+
+	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_8t[yfilter]) < 9);
+	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_8t[cfilter]) < 9);
+
+	/* reset value of the coefficient registers are the 8:8 table */
+	if (IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) || (yfilter != 0)) {
+		for (phase = 0; phase < 9; phase++) {
+			writel(sc_coef_8t[yfilter][phase][3],
+				sc->regs + SCALER_YHCOEF + phase * 16);
+			writel(sc_coef_8t[yfilter][phase][2],
+				sc->regs + SCALER_YHCOEF + phase * 16 + 4);
+			writel(sc_coef_8t[yfilter][phase][1],
+				sc->regs + SCALER_YHCOEF + phase * 16 + 8);
+			writel(sc_coef_8t[yfilter][phase][0],
+				sc->regs + SCALER_YHCOEF + phase * 16 + 12);
+		}
+	}
+
+	if (IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) || (cfilter != 0)) {
+		for (phase = 0; phase < 9; phase++) {
+			writel(sc_coef_8t[cfilter][phase][3],
+				sc->regs + SCALER_CHCOEF + phase * 16);
+			writel(sc_coef_8t[cfilter][phase][2],
+				sc->regs + SCALER_CHCOEF + phase * 16 + 4);
+			writel(sc_coef_8t[cfilter][phase][1],
+				sc->regs + SCALER_CHCOEF + phase * 16 + 8);
+			writel(sc_coef_8t[cfilter][phase][0],
+				sc->regs + SCALER_CHCOEF + phase * 16 + 12);
+		}
 	}
 }
 
-void sc_hwset_hcoef(struct sc_dev *sc, unsigned int coef)
-{
-	/* reset value of the coefficient registers are the 8:8 table */
-	if (!IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) && (coef == 0))
-		return;
-
-	BUG_ON(coef >= ARRAY_SIZE(sc_coef_8t));
-
-	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_8t[coef]) < 9);
-
-	__sc_hwset_hcoef(sc->regs, sc_coef_8t[coef]);
-}
-
-static void __sc_hwset_vcoef(void __iomem *regs, const __u32 sc_coef[][2])
+void sc_hwset_polyphase_vcoef(struct sc_dev *sc,
+				unsigned int yratio, unsigned int cratio)
 {
 	unsigned int phase;
+	unsigned int yfilter = sc_get_scale_filter(yratio);
+	unsigned int cfilter = sc_get_scale_filter(cratio);
 
-	for (phase = 0; phase < 9; phase++) {
-		writel(sc_coef[phase][1], regs + SCALER_YVCOEF + phase * 8);
-		writel(sc_coef[phase][0], regs + SCALER_YVCOEF + phase * 8 + 4);
-		writel(sc_coef[phase][1], regs + SCALER_CVCOEF + phase * 8);
-		writel(sc_coef[phase][0], regs + SCALER_CVCOEF + phase * 8 + 4);
-	}
-}
+	BUG_ON(yfilter >= ARRAY_SIZE(sc_coef_4t));
+	BUG_ON(cfilter >= ARRAY_SIZE(sc_coef_4t));
 
-void sc_hwset_vcoef(struct sc_dev *sc, unsigned int coef)
-{
+	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_4t[yfilter]) < 9);
+	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_4t[cfilter]) < 9);
+
 	/* reset value of the coefficient registers are the 8:8 table */
-	if (!IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) && (coef == 0))
-		return;
+	if (IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) || (yfilter != 0)) {
+		for (phase = 0; phase < 9; phase++) {
+			writel(sc_coef_4t[yfilter][phase][1],
+				sc->regs + SCALER_YVCOEF + phase * 8);
+			writel(sc_coef_4t[yfilter][phase][0],
+				sc->regs + SCALER_YVCOEF + phase * 8 + 4);
+		}
+	}
 
-	BUG_ON(coef >= ARRAY_SIZE(sc_coef_4t));
-
-	BUILD_BUG_ON(ARRAY_SIZE(sc_coef_4t[coef]) < 9);
-
-	__sc_hwset_vcoef(sc->regs, sc_coef_4t[coef]);
+	if (IS_ENABLED(CONFIG_SCALER_NO_SOFTRST) || (cfilter != 0)) {
+		for (phase = 0; phase < 9; phase++) {
+			writel(sc_coef_4t[cfilter][phase][1],
+				sc->regs + SCALER_CVCOEF + phase * 8);
+			writel(sc_coef_4t[cfilter][phase][0],
+				sc->regs + SCALER_CVCOEF + phase * 8 + 4);
+		}
+	}
 }
 
 void sc_hwset_src_imgsize(struct sc_dev *sc, struct sc_frame *frame)
@@ -670,44 +694,6 @@ void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame)
 	}
 
 	writel(cfg, sc->regs + SCALER_DST_SPAN);
-}
-
-void sc_hwset_src_crop(struct sc_dev *sc, struct v4l2_rect *rect,
-		       const struct sc_fmt *fmt,
-		       unsigned int pre_h_ratio, unsigned int pre_v_ratio)
-{
-	unsigned long cfg1, cfg2;
-
-	cfg1 = SCALER_SRC_YX(rect->left) | SCALER_SRC_YY(rect->top);
-	writel(cfg1, sc->regs + SCALER_SRC_Y_POS);
-
-	cfg1 = SCALER_SRC_CX(rect->left, fmt->h_shift) |
-		SCALER_SRC_CY(rect->top, fmt->v_shift);
-	if (cfg1 & SCALER_SRC_C_POS_FRACTION)
-		dev_warn(sc->dev,
-			"Croping '%s' format @ %dx%d is not supported\n",
-			fmt->name, rect->left, rect->top);
-	writel(cfg1, sc->regs + SCALER_SRC_C_POS);
-
-	cfg2 = SCALER_SRC_W(rect->width) | SCALER_SRC_H(rect->height);
-
-	writel(cfg2, sc->regs + SCALER_SRC_PRESC_WH);
-
-	cfg2 = SCALER_SRC_W(rect->width >> pre_h_ratio) |
-		SCALER_SRC_H(rect->height >> pre_v_ratio);
-
-	writel(cfg2, sc->regs + SCALER_SRC_WH);
-}
-
-void sc_hwset_dst_crop(struct sc_dev *sc, struct v4l2_rect *rect)
-{
-	unsigned long cfg1, cfg2;
-
-	cfg1 = SCALER_DST_X(rect->left) | SCALER_DST_Y(rect->top);
-	writel(cfg1, sc->regs + SCALER_DST_POS);
-
-	cfg2 = SCALER_DST_W(rect->width) | SCALER_DST_H(rect->height);
-	writel(cfg2, sc->regs + SCALER_DST_WH);
 }
 
 void sc_hwset_src_addr(struct sc_dev *sc, struct sc_addr *addr)
