@@ -305,7 +305,8 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
 		__raw_writel((0xFFFF << 16) | pb->in_axi_id[i],
 			     drvdata->sfrbase + REG_PB_AXI_ID);
-		__raw_writel(ipoption | 1, drvdata->sfrbase + REG_PB_CFG);
+		__raw_writel(ipoption | 0x100001,
+				drvdata->sfrbase + REG_PB_CFG);
 	}
 
 	if ((num_pb > ret_num_pb)) {
@@ -315,7 +316,7 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 			__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
 			__raw_writel((0xFFFF << 16) | pb->out_axi_id[j],
 					drvdata->sfrbase + REG_PB_AXI_ID);
-			__raw_writel(opoption | 1,
+			__raw_writel(opoption | 0x100001,
 					drvdata->sfrbase + REG_PB_CFG);
 		}
 	}
