@@ -1724,6 +1724,7 @@ static int exynos_iommu_attach_device(struct iommu_domain *domain,
 		TRACE_LOG_DEV(dev,
 			"%s: Attached new IOMMU with pgtable %pa %s\n",
 			__func__, &pgtable, (ret == 0) ? "" : ", again");
+		ret = 0;
 	}
 
 	return ret;
