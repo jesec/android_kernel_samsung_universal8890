@@ -1652,7 +1652,11 @@ static void sc_watchdog(unsigned long arg)
 		atomic_set(&sc->wdt.cnt, 0);
 		clear_bit(DEV_RUN, &sc->state);
 
+		spin_lock_irqsave(&sc->ctxlist_lock, flags);
 		ctx = sc->current_ctx;
+		sc->current_ctx = NULL;
+		spin_unlock_irqrestore(&sc->ctxlist_lock, flags);
+
 		BUG_ON(!ctx);
 
 		spin_lock_irqsave(&sc->slock, flags);
