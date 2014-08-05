@@ -68,6 +68,12 @@
 #define REG_L2TLB_ENTRY_VPN	0x774
 #define REG_L2TLB_ENTRY_PPN	0x77C
 #define REG_L2TLB_ENTRY_ATTR	0x784
+#define REG_PCI_SPB0_SVPN	0x7A0
+#define REG_PCI_SPB0_EVPN	0x7A4
+#define REG_PCI_SPB0_SLOT_VALID	0x7A8
+#define REG_PCI_SPB1_SVPN	0x7B0
+#define REG_PCI_SPB1_EVPN	0x7B4
+#define REG_PCI_SPB1_SLOT_VALID	0x7B8
 
 /* 'reg' argument must be the value of REG_MMU_CAPA register */
 #define MMU_NUM_L1TLB_ENTRIES(reg) (reg & 0xFF)
@@ -533,12 +539,17 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 		num_pb = find_num_pb(num_pb, lmm);
 		for (j = 0; j < num_pb; j++) {
 			__raw_writel((i << 8) | j, sfrbase + REG_PB_INDICATE);
-			pr_crit("PB[%d][%d] = CFG: %#010x, AXI ID: %010d, ", i,
+			pr_crit("PB[%d][%d] = CFG: %#010x, AXI ID: %#010x, ", i,
 				j, __raw_readl(sfrbase + REG_PB_CFG),
-				__raw_readl(sfrbase + REG_PB_AXI_ID) & 0xFFFF);
-			pr_crit("START: %#010x, END: %#010x\n\n",
-				__raw_readl(sfrbase + REG_PB_START_ADDR),
-				__raw_readl(sfrbase + REG_PB_END_ADDR));
+				__raw_readl(sfrbase + REG_PB_AXI_ID));
+			pr_crit("SPB0 START: %#010x, END: %#010x, VALID: %#010x\n",
+				__raw_readl(sfrbase + REG_PCI_SPB0_SVPN),
+				__raw_readl(sfrbase + REG_PCI_SPB0_EVPN),
+				__raw_readl(sfrbase + REG_PCI_SPB0_SLOT_VALID));
+			pr_crit("SPB1 START: %#010x, END: %#010x, VALID: %#010x\n",
+				__raw_readl(sfrbase + REG_PCI_SPB1_SVPN),
+				__raw_readl(sfrbase + REG_PCI_SPB1_EVPN),
+				__raw_readl(sfrbase + REG_PCI_SPB1_SLOT_VALID));
 		}
 	}
 }
