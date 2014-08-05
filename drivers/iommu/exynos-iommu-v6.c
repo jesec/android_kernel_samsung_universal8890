@@ -22,6 +22,8 @@
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 
+#include <dt-bindings/sysmmu/sysmmu.h>
+
 #include "exynos-iommu.h"
 
 #define CFG_MASK	0x01101FBC /* Selecting bit 24, 20, 12-7, 5-2 */
@@ -101,6 +103,13 @@ static char *sysmmu_fault_name[SYSMMU_FAULTS_NUM] = {
 
 static char *sysmmu_clock_names[SYSMMU_CLK_NUM] = {"aclk", "pclk", "master"};
 
+static const char * const sysmmu_prop_opts[] = {
+	[SYSMMU_PROP_RESERVED]		= "Reserved",
+	[SYSMMU_PROP_READ]		= "r",
+	[SYSMMU_PROP_WRITE]		= "w",
+	[SYSMMU_PROP_READWRITE]		= "rw",	/* default */
+};
+
 static int iova_from_sent(sysmmu_pte_t *base, sysmmu_pte_t *sent)
 {
 	return ((unsigned long)sent - (unsigned long)base) *
@@ -113,7 +122,6 @@ struct sysmmu_list_data {
 };
 
 #define has_sysmmu(dev)		(dev->archdata.iommu != NULL)
-#define has_axi_id(pb)		(pb->in_num || pb->out_num)
 #define for_each_sysmmu_list(dev, sysmmu_list)			\
 	list_for_each_entry(sysmmu_list,				\
 		&((struct exynos_iommu_owner *)dev->archdata.iommu)->mmu_list,\
@@ -293,7 +301,7 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 {
 	int i, j, num_pb, lmm;
 	int ret_num_pb = 0;
-	int total_plane_num = pb->in_num + pb->out_num;
+	int total_plane_num = pb->ar_id_num + pb->aw_id_num;
 
 	if (total_plane_num <= 0)
 		return;
@@ -312,12 +320,12 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 
 	__raw_writel(lmm, drvdata->sfrbase + REG_PB_LMM);
 
-	ret_num_pb = min(pb->in_num, num_pb);
+	ret_num_pb = min(pb->ar_id_num, num_pb);
 	for (i = 0; i < ret_num_pb; i++) {
 		__raw_writel((pb->grp_num << 8) | i,
 				drvdata->sfrbase + REG_PB_INDICATE);
 		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
-		__raw_writel((0xFFFF << 16) | pb->in_axi_id[i],
+		__raw_writel((0xFFFF << 16) | pb->ar_axi_id[i],
 			     drvdata->sfrbase + REG_PB_AXI_ID);
 		__raw_writel(ipoption | 0x100001,
 				drvdata->sfrbase + REG_PB_CFG);
@@ -328,7 +336,7 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 			__raw_writel((pb->grp_num << 8) | i,
 					drvdata->sfrbase + REG_PB_INDICATE);
 			__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
-			__raw_writel((0xFFFF << 16) | pb->out_axi_id[j],
+			__raw_writel((0xFFFF << 16) | pb->aw_axi_id[j],
 					drvdata->sfrbase + REG_PB_AXI_ID);
 			__raw_writel(opoption | 0x100001,
 					drvdata->sfrbase + REG_PB_CFG);
@@ -337,7 +345,7 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 }
 
 static void __exynos_sysmmu_set_prefbuf_by_region(
-			struct sysmmu_drvdata *drvdata, int target_grp,
+			struct sysmmu_drvdata *drvdata, struct pb_info *pb,
 			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg)
 {
 	unsigned int i;
@@ -355,13 +363,13 @@ static void __exynos_sysmmu_set_prefbuf_by_region(
 
 	for (i = 0; i < num_reg; i++) {
 		if (((pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
-					(drvdata->prop & SYSMMU_PROP_WRITE)) ||
+					(pb->prop & SYSMMU_PROP_WRITE)) ||
 			(!(pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
-				 (drvdata->prop & SYSMMU_PROP_READ)))
+				 (pb->prop & SYSMMU_PROP_READ)))
 			prefbuf[num_bufs++] = pb_reg[i];
 	}
 
-	__sysmmu_set_pbuf(drvdata, target_grp, prefbuf, num_bufs);
+	__sysmmu_set_pbuf(drvdata, pb->grp_num, prefbuf, num_bufs);
 }
 
 static void __exynos_sysmmu_set_prefbuf_axi_id(struct sysmmu_drvdata *drvdata,
@@ -379,8 +387,8 @@ static void __exynos_sysmmu_set_prefbuf_axi_id(struct sysmmu_drvdata *drvdata,
 			if (pb->master == master) {
 				struct pb_info tpb;
 				memcpy(&tpb, pb, sizeof(tpb));
-				tpb.in_num = inplanes;
-				tpb.out_num = onplanes;
+				tpb.ar_id_num = inplanes;
+				tpb.aw_id_num = onplanes;
 				__sysmmu_set_pbuf_axi_id(drvdata, &tpb,
 						ipoption, opoption);
 			}
@@ -1032,8 +1040,7 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 			list_for_each_entry(pb, &drvdata->pb_grp_list, node) {
 				if (pb->master == dev)
 					__exynos_sysmmu_set_prefbuf_by_region(
-						drvdata, pb->grp_num, pb_reg,
-						num_reg);
+						drvdata, pb, pb_reg, num_reg);
 			}
 			sysmmu_unblock(drvdata->sfrbase);
 		}
@@ -1261,12 +1268,13 @@ static int __init __sysmmu_init_clock(struct device *sysmmu,
 	return 0;
 }
 
-int __sysmmu_update_pb_axi_id(struct device *sysmmu, struct device *master,
+int __sysmmu_init_pb_info(struct device *sysmmu, struct device *master,
 		    struct sysmmu_drvdata *data, struct device_node *pb_node,
-		    int grp_num)
+		    struct of_phandle_args *pb_args, int grp_num)
 {
 	struct pb_info *pb;
-	int i;
+	const char *s;
+	int i, ret;
 
 	pb = devm_kzalloc(sysmmu, sizeof(*pb), GFP_KERNEL);
 	if (!pb) {
@@ -1279,45 +1287,58 @@ int __sysmmu_update_pb_axi_id(struct device *sysmmu, struct device *master,
 
 	pb->grp_num = grp_num;
 	for (i = 0; i < MAX_NUM_PBUF; i++) {
-		pb->in_axi_id[i] = -1;
-		pb->out_axi_id[i] = -1;
+		pb->ar_axi_id[i] = -1;
+		pb->aw_axi_id[i] = -1;
 	}
 
 	INIT_LIST_HEAD(&pb->node);
+
+	for (i = 0; i < pb_args->args_count; i++) {
+		if (is_axi_id(pb_args->args[i])) {
+			if (is_ar_axi_id(pb_args->args[i])) {
+				pb->ar_axi_id[pb->ar_id_num] = pb_args->args[i];
+				pb->ar_id_num++;
+			} else {
+				pb->aw_axi_id[pb->aw_id_num] =
+					pb_args->args[i] & AXIID_MASK;
+				pb->aw_id_num++;
+			}
+		}
+	}
+
+	ret = of_property_read_string(pb_node, "dir", &s);
+	if (!ret) {
+		int val;
+		for (val = 1; val < ARRAY_SIZE(sysmmu_prop_opts); val++) {
+			if (!strcasecmp(s, sysmmu_prop_opts[val])) {
+				pb->prop &= ~SYSMMU_PROP_RW_MASK;
+				pb->prop |= val;
+				break;
+			}
+		}
+	} else if (ret && ret == -EINVAL) {
+		pb->prop = SYSMMU_PROP_READWRITE;
+	} else {
+		dev_err(sysmmu, "%s: failed to get PB Direction of %s\n",
+				__func__, pb_args->np->full_name);
+		devm_kfree(sysmmu, pb);
+		return ret;
+	}
+
 	list_add_tail(&pb->node, &data->pb_grp_list);
 
-	if (!of_device_is_available(pb_node)) {
-		pr_info("PB_GRP[%d] can't be set by AXI ID", grp_num);
-		return 0;
-	}
-
-	for (i = 0; i <= MAX_NUM_PBUF; i++) {
-		if (of_property_read_u32_index(pb_node, "in", i,
-					&pb->in_axi_id[i]))
-			break;
-		else
-			pb->in_num++;
-	}
-
-	for (i = 0; i <= MAX_NUM_PBUF; i++) {
-		if (of_property_read_u32_index(pb_node, "out", i,
-					&pb->out_axi_id[i]))
-			break;
-		else
-			pb->out_num++;
-	}
-
-	dev_info(sysmmu, "device node(%d] : %s, \
-			inp[%d] = {%d, %d, %d, %d, %d, %d}, \
-			onp[%d]= {%d, %d, %d, %d, %d, %d}\n",
-			pb->grp_num, pb_node->name, pb->in_num,
-			pb->in_axi_id[0],
-			pb->in_axi_id[1], pb->in_axi_id[2],
-			pb->in_axi_id[3], pb->in_axi_id[4],
-			pb->in_axi_id[5], pb->out_num,
-			pb->out_axi_id[0], pb->out_axi_id[1],
-			pb->out_axi_id[2], pb->out_axi_id[3],
-			pb->out_axi_id[4], pb->out_axi_id[5]);
+	dev_info(sysmmu, "device node[%d] : %s\n",
+			pb->grp_num, pb_args->np->name);
+	dev_info(sysmmu, "ar[%d] = {%d, %d, %d, %d, %d, %d}\n",
+			pb->ar_id_num,
+			pb->ar_axi_id[0], pb->ar_axi_id[1],
+			pb->ar_axi_id[2], pb->ar_axi_id[3],
+			pb->ar_axi_id[4], pb->ar_axi_id[5]);
+	dev_info(sysmmu, "aw[%d]= {%d, %d, %d, %d, %d, %d}\n",
+			pb->aw_id_num,
+			pb->aw_axi_id[0], pb->aw_axi_id[1],
+			pb->aw_axi_id[2], pb->aw_axi_id[3],
+			pb->aw_axi_id[4], pb->aw_axi_id[5]);
 	return 0;
 }
 
@@ -1325,7 +1346,6 @@ int __sysmmu_update_owner(struct device *master, struct device *sysmmu)
 {
 	struct exynos_iommu_owner *owner;
 	struct sysmmu_list_data *list_data;
-	int ret;
 
 	owner = master->archdata.iommu;
 	if (!owner) {
@@ -1333,8 +1353,7 @@ int __sysmmu_update_owner(struct device *master, struct device *sysmmu)
 		if (!owner) {
 			dev_err(master, "%s: Failed to allocate owner structure\n",
 					__func__);
-			ret = -ENOMEM;
-			goto err;
+			return -ENOMEM;
 		}
 
 		INIT_LIST_HEAD(&owner->mmu_list);
@@ -1347,12 +1366,15 @@ int __sysmmu_update_owner(struct device *master, struct device *sysmmu)
 		list_add_tail(&owner->entry, &sysmmu_owner_list);
 	}
 
+	list_for_each_entry(list_data, &owner->mmu_list, node)
+		if (list_data->sysmmu == sysmmu)
+			return 0;
+
 	list_data = devm_kzalloc(sysmmu, sizeof(*list_data), GFP_KERNEL);
 	if (!list_data) {
 		dev_err(sysmmu, "%s: Failed to allocate sysmmu_list_data\n",
 				__func__);
-		ret = -ENOMEM;
-		goto err;
+		return -ENOMEM;
 	}
 
 	INIT_LIST_HEAD(&list_data->node);
@@ -1363,36 +1385,49 @@ int __sysmmu_update_owner(struct device *master, struct device *sysmmu)
 	 * in device tree
 	 */
 	list_add_tail(&list_data->node, &owner->mmu_list);
-	dev_info(master, "--> %s\n", dev_name(master));
+	dev_info(master, "--> %s\n", dev_name(sysmmu));
 
 	return 0;
-err:
-	owner = master->archdata.iommu;
-	if (!owner)
-		return ret;
-
-	list_for_each_entry(list_data, &owner->mmu_list, node) {
-		if (list_data->sysmmu == sysmmu) {
-			list_del(&list_data->node);
-			kfree(list_data);
-			break;
-		}
-	}
-
-	return ret;
 }
 
+static struct platform_device * __init __sysmmu_init_owner(struct device *sysmmu,
+							struct sysmmu_drvdata *data,
+							struct of_phandle_args *pb_args)
+{
+	struct device_node *master_node = pb_args->np;
+	struct platform_device *master;
+	int ret;
+
+	master = of_find_device_by_node(master_node);
+	if (!master) {
+		pr_err("%s: failed to get master device in '%s'\n",
+				__func__, master_node->full_name);
+		return ERR_PTR(-EINVAL);
+	}
+
+	ret = __sysmmu_update_owner(&master->dev, sysmmu);
+	if (ret) {
+		pr_err("%s: failed to update iommu owner '%s'\n",
+				__func__, dev_name(&master->dev));
+		of_node_put(master_node);
+		return ERR_PTR(-EINVAL);
+	}
+
+	of_node_put(master_node);
+
+	return 0;
+}
 
 static int __init __sysmmu_init_master_info(struct device *sysmmu,
 					struct sysmmu_drvdata *data)
 {
 	struct device_node *node;
-	struct device_node *master_info;
+	struct device_node *pb_info;
 	int grp_num = 0;
 	int ret = 0;
 
-	node = of_get_child_by_name(sysmmu->of_node, "master-info");
-	if (!node) {
+	pb_info = of_get_child_by_name(sysmmu->of_node, "pb-info");
+	if (!pb_info) {
 		pr_info("%s: 'master-info' node not found from '%s' node\n",
 			__func__, dev_name(sysmmu));
 		return 0;
@@ -1400,94 +1435,66 @@ static int __init __sysmmu_init_master_info(struct device *sysmmu,
 
 	INIT_LIST_HEAD(&data->pb_grp_list);
 
-	for_each_child_of_node(node, master_info) {
-		struct device_node *pb_node;
-		struct device_node *master_node;
+	for_each_child_of_node(pb_info, node) {
+		struct of_phandle_args pb_args;
 		struct platform_device *master;
+		int i, master_cnt = 0;
 
-		/* Update Master Device Information */
-		master_node = of_parse_phandle(master_info, "master", 0);
-		if (!master_node) {
-			pr_err("%s: master IP in '%s' not found\n",
-					__func__, master_info->name);
-			ret = -EINVAL;
-			break;
-		}
+		master_cnt = of_count_phandle_with_args(node,
+				"master_axi_id_list",
+				"#pb-id-cells");
 
-		master = of_find_device_by_node(master_node);
-		if (!master) {
-			pr_err("%s: failed to get master device in '%s'\n",
-				__func__, dev_name(&master->dev));
-			of_node_put(master_node);
-			ret = -EINVAL;
-			break;
-		}
+		for (i = 0; i < master_cnt; i++) {
+			memset(&pb_args, 0x0, sizeof(pb_args));
+			ret = of_parse_phandle_with_args(node,
+					"master_axi_id_list",
+					"#pb-id-cells", i, &pb_args);
+			if (ret) {
+				of_node_put(node);
+				pr_err("%s: failed to get PB info of %s\n",
+					__func__, dev_name(data->sysmmu));
+				return ret;
+			}
 
+			master = __sysmmu_init_owner(sysmmu, data, &pb_args);
+			if (IS_ERR(master)) {
+				of_node_put(node);
+				of_node_put(pb_args.np);
+				pr_err("%s: failed to initialize sysmmu(%s)"
+					"owner info\n", __func__,
+					dev_name(data->sysmmu));
+				return PTR_ERR(master);
+			}
 
-		ret = __sysmmu_update_owner(&master->dev, sysmmu);
-		if (ret) {
-			pr_err("%s: failed to update iommu owner '%s'\n",
-					__func__, dev_name(&master->dev));
-			of_node_put(master_node);
-			ret = -EINVAL;
-			break;
-		}
-
-		of_node_put(master_node);
-
-		if (of_get_property(master_info, "grp_num", NULL)) {
-			ret = of_property_read_u32_index(master_info, "grp_num",
-					0, &grp_num);
-			if ((ret == 0) && (grp_num > 2)) {
-				dev_err(sysmmu,
-					"%s: Invalid PB group number %d specified\n",
-						__func__, grp_num);
-				grp_num = 0;
-			} else if (ret < 0) {
-				dev_err(sysmmu,
-					"%s: failed to get PB group number '%s'\n",
-					__func__, dev_name(&master->dev));
+			ret = __sysmmu_init_pb_info(sysmmu, &master->dev, data,
+					node, &pb_args, grp_num);
+			if (ret) {
+				of_node_put(node);
+				of_node_put(pb_args.np);
+				pr_err("%s: failed to update pb axi id '%s'\n",
+						__func__, dev_name(sysmmu));
 				break;
 			}
-		} else {
-			grp_num = 0;
+
+			of_node_put(pb_args.np);
 		}
 
-		/* Update System MMU PB AXI ID information */
-		pb_node = of_find_node_by_name(master_info, "pb_axi_id");
-		if (!pb_node) {
-			pr_info("%s: No PB is in %s\n", __func__,
-					master_info->name);
-			continue;
-		}
-
-		ret = __sysmmu_update_pb_axi_id(sysmmu, &master->dev, data,
-						pb_node, grp_num);
 		if (ret) {
 			struct pb_info *pb;
-			pr_err("%s: failed to update pb axi id '%s'\n",
-					__func__, dev_name(sysmmu));
 			while (!list_empty(&data->pb_grp_list)) {
 				pb = list_entry(data->pb_grp_list.next,
 						struct pb_info, node);
 				list_del(&pb->node);
+				kfree(pb);
 			}
-			of_node_put(master_info);
-			ret = -EINVAL;
-			break;
 		}
-		of_node_put(master_info);
+
+		of_node_put(node);
+		grp_num++;
 	}
 
 	return ret;
 }
-
-static const char * const sysmmu_prop_opts[] = {
-	[SYSMMU_PROP_RESERVED]		= "Reserved",
-	[SYSMMU_PROP_READ]		= "r",
-	[SYSMMU_PROP_WRITE]		= "w",
-	[SYSMMU_PROP_READWRITE]		= "rw",	/* default */
-};
 
 static int __init __sysmmu_init_prop(struct device *sysmmu,
 				     struct sysmmu_drvdata *drvdata)
@@ -1496,8 +1503,6 @@ static int __init __sysmmu_init_prop(struct device *sysmmu,
 	const char *s;
 	unsigned int qos = DEFAULT_QOS_VALUE;
 	int ret;
-
-	drvdata->prop = SYSMMU_PROP_READWRITE;
 
 	ret = of_property_read_u32_index(sysmmu->of_node, "qos", 0, &qos);
 

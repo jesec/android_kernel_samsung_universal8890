@@ -216,12 +216,13 @@ struct exynos_iommu_domain {
 
 struct pb_info {
 	struct list_head node;
-	int in_num;
-	int out_num;
+	int ar_id_num;
+	int aw_id_num;
 	int grp_num;
-	int in_axi_id[MAX_NUM_PBUF];
-	int out_axi_id[MAX_NUM_PBUF];
+	int ar_axi_id[MAX_NUM_PBUF];
+	int aw_axi_id[MAX_NUM_PBUF];
 	struct device *master;
+	enum sysmmu_property prop;
 };
 
 int sysmmu_set_ppc_event(struct sysmmu_drvdata *drvdata, int event);
