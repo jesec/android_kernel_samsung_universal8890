@@ -265,14 +265,22 @@ static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
 		config.direction = sdd->rx_dma.direction;
 		config.fifo = sdd->sfr_start + S3C64XX_SPI_RX_DATA;
 		config.width = sdd->cur_bpw / 8;
+	#ifdef CONFIG_ARM64
+		sdd->ops->config((unsigned long)sdd->rx_dma.ch, &config);
+	#else
 		sdd->ops->config((enum dma_ch)sdd->rx_dma.ch, &config);
+	#endif
 	} else {
 		sdd = container_of((void *)dma,
 			struct s3c64xx_spi_driver_data, tx_dma);
 		config.direction =  sdd->tx_dma.direction;
 		config.fifo = sdd->sfr_start + S3C64XX_SPI_TX_DATA;
 		config.width = sdd->cur_bpw / 8;
+	#ifdef CONFIG_ARM64
+		sdd->ops->config((unsigned long)sdd->tx_dma.ch, &config);
+	#else
 		sdd->ops->config((enum dma_ch)sdd->tx_dma.ch, &config);
+	#endif
 	}
 
 	info.cap = DMA_SLAVE;
@@ -282,8 +290,14 @@ static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
 	info.direction = dma->direction;
 	info.buf = buf;
 
+#ifdef CONFIG_ARM64
+	sdd->ops->prepare((unsigned long)dma->ch, &info);
+	sdd->ops->trigger((unsigned long)dma->ch);
+#else
 	sdd->ops->prepare((enum dma_ch)dma->ch, &info);
 	sdd->ops->trigger((enum dma_ch)dma->ch);
+#endif
+
 }
 
 static int acquire_dma(struct s3c64xx_spi_driver_data *sdd)
@@ -336,10 +350,17 @@ static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 
 	/* Free DMA channels */
 	if (sci->dma_mode == DMA_MODE) {
+	#ifdef CONFIG_ARM64
+		sdd->ops->release((unsigned long)sdd->rx_dma.ch,
+						&s3c64xx_spi_dma_client);
+		sdd->ops->release((unsigned long)sdd->tx_dma.ch,
+						&s3c64xx_spi_dma_client);
+	#else
 		sdd->ops->release((enum dma_ch)sdd->rx_dma.ch,
 						&s3c64xx_spi_dma_client);
 		sdd->ops->release((enum dma_ch)sdd->tx_dma.ch,
 						&s3c64xx_spi_dma_client);
+	#endif
 	}
 
 	pm_runtime_mark_last_busy(&sdd->pdev->dev);
@@ -353,7 +374,11 @@ static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 static void s3c64xx_spi_dma_stop(struct s3c64xx_spi_driver_data *sdd,
 				 struct s3c64xx_spi_dma_data *dma)
 {
+#ifdef CONFIG_ARM64
+	sdd->ops->stop((unsigned long)dma->ch);
+#else
 	sdd->ops->stop((enum dma_ch)dma->ch);
+#endif
 }
 #else
 
