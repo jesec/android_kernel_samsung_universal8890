@@ -39,9 +39,7 @@
 
 #include "mm.h"
 
-#include <asm/mach/map.h>
 #include <linux/vmalloc.h>
-#include <asm/mach/arch.h>
 
 static int iotable_on;
 
@@ -232,6 +230,11 @@ static void alloc_init_pmd(struct mm_struct *mm, pud_t *pud,
 			pmd_t old_pmd =*pmd;
 			set_pmd(pmd, __pmd(phys |
 					   pgprot_val(mk_sect_prot(prot))));
+			if (iotable_on == 1)
+				set_pmd(pmd, __pmd(phys | PROT_SECT_NORMAL_NC));
+			else
+				set_pmd(pmd, __pmd(phys |
+						   pgprot_val(mk_sect_prot(prot))));
 			/*
 			 * Check for previous table entries created during
 			 * boot (__create_page_tables) and flush them.
