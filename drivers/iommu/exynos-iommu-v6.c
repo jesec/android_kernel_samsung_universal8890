@@ -132,7 +132,6 @@ static LIST_HEAD(sysmmu_owner_list);
 
 static struct kmem_cache *lv2table_kmem_cache;
 static phys_addr_t fault_page;
-sysmmu_pte_t *zero_lv2_table;
 static struct dentry *exynos_sysmmu_debugfs_root;
 
 
@@ -1642,7 +1641,6 @@ static struct platform_driver exynos_sysmmu_driver __refdata = {
 static int exynos_iommu_domain_init(struct iommu_domain *domain)
 {
 	struct exynos_iommu_domain *priv;
-	int i;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -1660,17 +1658,6 @@ static int exynos_iommu_domain_init(struct iommu_domain *domain)
 
 	if (exynos_iommu_init_event_log(IOMMU_PRIV_TO_LOG(priv), IOMMU_LOG_LEN))
 		goto err_init_event_log;
-
-	for (i = 0; i < NUM_LV1ENTRIES; i += 8) {
-		priv->pgtable[i + 0] = ZERO_LV2LINK;
-		priv->pgtable[i + 1] = ZERO_LV2LINK;
-		priv->pgtable[i + 2] = ZERO_LV2LINK;
-		priv->pgtable[i + 3] = ZERO_LV2LINK;
-		priv->pgtable[i + 4] = ZERO_LV2LINK;
-		priv->pgtable[i + 5] = ZERO_LV2LINK;
-		priv->pgtable[i + 6] = ZERO_LV2LINK;
-		priv->pgtable[i + 7] = ZERO_LV2LINK;
-	}
 
 	pgtable_flush(priv->pgtable, priv->pgtable + NUM_LV1ENTRIES);
 
@@ -1847,9 +1834,8 @@ static int lv1ent_check_page(struct exynos_iommu_domain *priv,
 
 static void clear_lv1_page_table(sysmmu_pte_t *ent, int n)
 {
-	int i;
-	for (i = 0; i < n; i++)
-		ent[i] = ZERO_LV2LINK;
+	if (n > 0)
+		memset(ent, 0, sizeof(*ent) * n);
 }
 
 static void clear_lv2_page_table(sysmmu_pte_t *ent, int n)
@@ -1952,10 +1938,8 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 		list_for_each_entry(owner, &priv->clients, client) {
 			int i;
 			for (i = 0; i < num_entry; i++)
-				if (entry[i] == ZERO_LV2LINK)
-					sysmmu_tlb_invalidate_flpdcache(
-							owner->dev,
-							iova + i * SECT_SIZE);
+				sysmmu_tlb_invalidate_flpdcache(owner->dev,
+						iova + i * SECT_SIZE);
 		}
 		spin_unlock(&priv->lock);
 
@@ -2034,8 +2018,8 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 			goto err;
 		}
 
-		*ent = ZERO_LV2LINK;
-		*(++ent) = ZERO_LV2LINK;
+		*ent = 0;
+		*(++ent) = 0;
 		pgtable_flush(ent, ent + 2);
 		size = DSECT_SIZE;
 		goto done;
@@ -2047,7 +2031,7 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 			goto err;
 		}
 
-		*ent = ZERO_LV2LINK;
+		*ent = 0;
 		pgtable_flush(ent, ent + 1);
 		size = SECT_SIZE;
 		goto done;
@@ -2477,14 +2461,6 @@ static int __init exynos_iommu_init(void)
 		goto err_set_iommu;
 	}
 
-	zero_lv2_table = kmem_cache_zalloc(lv2table_kmem_cache, GFP_KERNEL);
-	if (zero_lv2_table == NULL) {
-		pr_err("%s: Failed to allocate zero level2 page table\n",
-			__func__);
-		ret = -ENOMEM;
-		goto err_zero_lv2;
-	}
-
 	exynos_sysmmu_debugfs_root = debugfs_create_dir("sysmmu", NULL);
 	if (!exynos_sysmmu_debugfs_root)
 		pr_err("%s: Failed to create debugfs entry\n", __func__);
@@ -2504,8 +2480,6 @@ static int __init exynos_iommu_init(void)
 
 	return 0;
 err_driver_register:
-	kmem_cache_free(lv2table_kmem_cache, zero_lv2_table);
-err_zero_lv2:
 	bus_set_iommu(&platform_bus_type, NULL);
 err_set_iommu:
 	__free_page(page);
@@ -2781,15 +2755,11 @@ static void sysmmu_dump_page_table(sysmmu_pte_t *base)
 	unsigned int i;
 	phys_addr_t phys_base = virt_to_phys(base);
 
-	pr_info("---- System MMU Page Table @ %pa (ZeroLv2Desc: %#x) ----\n",
-		&phys_base, ZERO_LV2LINK);
+	pr_info("---- System MMU Page Table @ %pa ----\n", &phys_base);
 
 	for (i = 0; i < NUM_LV1ENTRIES; i += 4) {
 		unsigned int j;
-		if ((base[i] == ZERO_LV2LINK) &&
-			(base[i + 1] == ZERO_LV2LINK) &&
-			(base[i + 2] == ZERO_LV2LINK) &&
-			(base[i + 3] == ZERO_LV2LINK))
+		if (!base[i])
 			continue;
 		pr_info("LV1[%04d] %08x %08x %08x %08x\n",
 			i, base[i], base[i + 1], base[i + 2], base[i + 3]);

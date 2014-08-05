@@ -292,10 +292,15 @@ extern const char *ppc_event_name[];
 #define SYSMMU_OF_COMPAT_STRING "samsung,exynos5430-sysmmu"
 #define DEFAULT_QOS_VALUE	-1 /* Inherited from master */
 #define PG_ENT_SHIFT 4 /* 36bit PA, 32bit VA */
+#ifndef CONFIG_EXYNOS_IOMMU_V6
 #define lv1ent_fault(sent) ((*(sent) == ZERO_LV2LINK) || \
 			   ((*(sent) & 7) == 0))
 #define lv1ent_page(sent) ((*(sent) != ZERO_LV2LINK) && \
 			  ((*(sent) & 7) == 1))
+#else
+#define lv1ent_fault(sent) ((*(sent) & 7) == 0)
+#define lv1ent_page(sent) ((*(sent) & 7) == 1)
+#endif
 #define lv1ent_section(sent) ((*(sent) & 7) == 2)
 #define lv1ent_dsection(sent) ((*(sent) & 7) == 4)
 #define lv1ent_spsection(sent) ((*(sent) & 7) == 6)
