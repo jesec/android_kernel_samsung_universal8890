@@ -143,6 +143,7 @@ static LIST_HEAD(drvdata_list);
 #define HSI2C_NO_DEV_ACK			(1u << 2)
 #define HSI2C_TRANS_ABORT			(1u << 1)
 #define HSI2C_TRANS_DONE			(1u << 0)
+#define HSI2C_MAST_ST_MASK			(0xf << 0)
 
 /* I2C_ADDR register bits */
 #define HSI2C_SLV_ADDR_SLV(x)			((x & 0x3ff) << 0)
@@ -205,6 +206,7 @@ struct exynos5_i2c {
 	int			operation_mode;
 	int			bus_id;
 	int			check_transdone_int;
+	unsigned int		transfer_delay;
 };
 
 static const struct of_device_id exynos5_i2c_match[] = {
@@ -697,6 +699,17 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 					ret = i2c->trans_done;
 					exynos5_i2c_reset(i2c);
 				} else {
+					int timeout = 100;
+					u32 val;
+
+					do {
+						val = readl(i2c->regs + HSI2C_TRANS_STATUS);
+						udelay(10);
+					} while((val & HSI2C_MAST_ST_MASK) && timeout--);
+
+					if (!timeout)
+						dev_err(i2c->dev, "SDA check timeout!!!\n");
+
 					ret = 0;
 				}
 			}
@@ -753,6 +766,9 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	for (retry = 0; retry < adap->retries; retry++) {
 		for (i = 0; i < num; i++) {
 			stop = (i == num - 1);
+
+			if (i2c->transfer_delay)
+				udelay(i2c->transfer_delay);
 
 			ret = exynos5_i2c_xfer_msg(i2c, msgs_ptr, stop);
 			msgs_ptr++;
@@ -857,6 +873,10 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		i2c->check_transdone_int = 1;
 	else
 		i2c->check_transdone_int = 0;
+
+	ret = of_property_read_u32(np, "samsung,transfer_delay", &i2c->transfer_delay);
+	if (!ret)
+		dev_warn(&pdev->dev, "Transfer delay is not needed.\n");
 
 	strlcpy(i2c->adap.name, "exynos5-i2c", sizeof(i2c->adap.name));
 	i2c->adap.owner   = THIS_MODULE;
