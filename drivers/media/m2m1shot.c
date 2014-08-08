@@ -583,7 +583,7 @@ static int m2m1shot_process(struct m2m1shot_context *ctx,
 	task->state = M2M1SHOT_BUFSTATE_READY;
 
 	spin_lock_irqsave(&m21dev->lock_task, flags);
-	list_add_tail(&m21dev->tasks, &task->task_node);
+	list_add_tail(&task->task_node, &m21dev->tasks);
 	spin_unlock_irqrestore(&m21dev->lock_task, flags);
 
 	m2m1shot_task_schedule(m21dev);
