@@ -224,9 +224,11 @@ inline void clear_work_bit(struct s5p_mfc_ctx *ctx)
 		return;
 	}
 
-	spin_lock_irq(&dev->condlock);
-	clear_bit(ctx->num, &dev->ctx_work_bits);
-	spin_unlock_irq(&dev->condlock);
+	if (s5p_mfc_ctx_ready(ctx) == 0) {
+		spin_lock_irq(&dev->condlock);
+		clear_bit(ctx->num, &dev->ctx_work_bits);
+		spin_unlock_irq(&dev->condlock);
+	}
 }
 
 /* Wake up context wait_queue */

@@ -3216,16 +3216,6 @@ static inline int s5p_mfc_dec_dpb_flush(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
-static inline int s5p_mfc_ctx_ready(struct s5p_mfc_ctx *ctx)
-{
-	if (ctx->type == MFCINST_DECODER)
-		return s5p_mfc_dec_ctx_ready(ctx);
-	else if (ctx->type == MFCINST_ENCODER)
-		return s5p_mfc_enc_ctx_ready(ctx);
-
-	return 0;
-}
-
 /* Try running an operation on hardware */
 void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 {

@@ -1107,6 +1107,20 @@ static inline int is_drm_node(enum s5p_mfc_node_type node)
 	return 0;
 }
 
+int s5p_mfc_dec_ctx_ready(struct s5p_mfc_ctx *ctx);
+int s5p_mfc_enc_ctx_ready(struct s5p_mfc_ctx *ctx);
+
+static inline int s5p_mfc_ctx_ready(struct s5p_mfc_ctx *ctx)
+{
+	if (ctx->type == MFCINST_DECODER)
+		return s5p_mfc_dec_ctx_ready(ctx);
+	else if (ctx->type == MFCINST_ENCODER)
+		return s5p_mfc_enc_ctx_ready(ctx);
+
+	return 0;
+}
+
+
 #if defined(CONFIG_EXYNOS_MFC_V5)
 #include "regs-mfc-v5.h"
 #include "s5p_mfc_opr_v5.h"
