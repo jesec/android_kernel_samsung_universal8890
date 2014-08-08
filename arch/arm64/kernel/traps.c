@@ -322,6 +322,13 @@ exit:
 	return fn ? fn(regs, instr) : 1;
 }
 
+#ifdef CONFIG_GENERIC_BUG
+int is_valid_bugaddr(unsigned long pc)
+{
+	return 1;
+}
+#endif
+
 asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 {
 	siginfo_t info;
