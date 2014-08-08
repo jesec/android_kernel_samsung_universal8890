@@ -1306,6 +1306,14 @@ static void sc_vb2_buf_queue(struct vb2_buffer *vb)
 	}
 }
 
+static void sc_vb2_buf_cleanup(struct vb2_buffer *vb)
+{
+	struct v4l2_m2m_buffer *mb = container_of(vb, typeof(*mb), vb);
+	struct vb2_sc_buffer *svb = container_of(mb, typeof(*svb), mb);
+
+	flush_work(&svb->work);
+}
+
 static void sc_vb2_lock(struct vb2_queue *vq)
 {
 	struct sc_ctx *ctx = vb2_get_drv_priv(vq);
@@ -1346,6 +1354,7 @@ static struct vb2_ops sc_vb2_ops = {
 	.buf_prepare		= sc_vb2_buf_prepare,
 	.buf_finish		= sc_vb2_buf_finish,
 	.buf_queue		= sc_vb2_buf_queue,
+	.buf_cleanup		= sc_vb2_buf_cleanup,
 	.wait_finish		= sc_vb2_lock,
 	.wait_prepare		= sc_vb2_unlock,
 	.start_streaming	= sc_vb2_start_streaming,
