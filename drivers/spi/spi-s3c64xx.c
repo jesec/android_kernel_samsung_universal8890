@@ -48,7 +48,7 @@
 static LIST_HEAD(drvdata_list);
 #endif
 
-#define MAX_SPI_PORTS		7
+#define MAX_SPI_PORTS		8
 #define SPI_AUTOSUSPEND_TIMEOUT		(100)
 
 /* Registers and bit-fields */
@@ -1855,6 +1855,14 @@ static struct s3c64xx_spi_port_config exynos543x_spi_port_config = {
 	.clk_from_cmu	= true,
 };
 
+static struct s3c64xx_spi_port_config exynos742x_spi_port_config = {
+	.fifo_lvl_mask	= { 0x1ff, 0x7F, 0x7F, 0x7F, 0x7F, 0x1ff, 0x1ff, 0x1ff },
+	.rx_lvl_offset	= 15,
+	.tx_st_done	= 25,
+	.high_speed	= true,
+	.clk_from_cmu	= true,
+};
+
 static struct platform_device_id s3c64xx_spi_driver_ids[] = {
 	{
 		.name		= "s3c2443-spi",
@@ -1880,6 +1888,9 @@ static struct platform_device_id s3c64xx_spi_driver_ids[] = {
 	}, {
 		.name		= "exynos543x-spi",
 		.driver_data	= (kernel_ulong_t)&exynos543x_spi_port_config,
+	}, {
+		.name		= "exynos742x-spi",
+		.driver_data	= (kernel_ulong_t)&exynos742x_spi_port_config,
 	},
 	{ },
 };
@@ -1894,6 +1905,9 @@ static const struct of_device_id s3c64xx_spi_dt_match[] = {
 	},
 	{ .compatible = "samsung,exynos543x-spi",
 			.data = (void *)&exynos543x_spi_port_config,
+	},
+	{ .compatible = "samsung,exynos742x-spi",
+			.data = (void *)&exynos742x_spi_port_config,
 	},
 	{ },
 };
