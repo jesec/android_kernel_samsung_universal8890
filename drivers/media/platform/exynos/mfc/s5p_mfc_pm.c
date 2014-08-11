@@ -189,18 +189,12 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 
 #elif defined(CONFIG_SOC_EXYNOS7420)
 	int index;
-	char *str_child[19] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
-			 "aclk_xiu_mfc_0", "aclk_xiu_mfc_1",
-			"aclk_xiu_n_async_m_mfc_0", "aclk_xiu_n_async_m_mfc_1",
-			"aclk_cp_mfc_0", "aclk_cp_mfc_1",
-			"aclk_xiu_n_async_s_mfc_0","aclk_xiu_n_async_s_mfc_1",
-			"pclk_xiu_n_async_mfc_0", "pclk_xiu_n_async_mfc_1",
-			"pclk_cp_mfc_0", "pclk_cp_mfc_1", "pclk_mfc",
-			"aclk_noc_bus1_nrt", "pclk_gpio_bus1",
-			"aclk_lh_mfc0", "aclk_lh_mfc1"};
-	for (index = 0; index < 19; index++) {
+	char *str_child[] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
+			"pclk_mfc", "aclk_lh_mfc0", "aclk_lh_mfc1",
+			"aclk_noc_bus1_nrt", "pclk_gpio_bus1"};
+	for (index = 0; index < (sizeof(str_child)/sizeof(char *)); index++) {
 		clk_child = clk_get(dev->device, str_child[index]);
-		if (IS_ERR(clk_child)) {
+		if (IS_ERR_OR_NULL(clk_child)) {
 			pr_err("failed to get %s clock\n", str_child[index]);
 			return PTR_ERR(clk_child);
 		}
@@ -253,7 +247,7 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 	}
 #elif defined(CONFIG_SOC_EXYNOS7420)
 	clk_child = clk_get(dev->device, "dout_aclk_mfc_532");
-	if (IS_ERR(clk_child)) {
+	if (IS_ERR_OR_NULL(clk_child)) {
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 		return PTR_ERR(clk_child);
 	}
@@ -469,15 +463,9 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 #if defined(CONFIG_SOC_EXYNOS7420)
 	struct clk *clk_child = NULL;
 	int index;
-	char *str_child[19] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
-				"aclk_xiu_mfc_0", "aclk_xiu_mfc_1",
-				"aclk_xiu_n_async_m_mfc_0", "aclk_xiu_n_async_m_mfc_1",
-				"aclk_cp_mfc_0", "aclk_cp_mfc_1",
-				"aclk_xiu_n_async_s_mfc_0","aclk_xiu_n_async_s_mfc_1",
-				"pclk_xiu_n_async_mfc_0", "pclk_xiu_n_async_mfc_1",
-				"pclk_cp_mfc_0", "pclk_cp_mfc_1", "pclk_mfc",
-				"aclk_noc_bus1_nrt", "pclk_gpio_bus1",
-				"aclk_lh_mfc0", "aclk_lh_mfc1"};
+	char *str_child[] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
+			"pclk_mfc", "aclk_lh_mfc0", "aclk_lh_mfc1",
+			"aclk_noc_bus1_nrt", "pclk_gpio_bus1"};
 #endif
 
 	int ret;
@@ -546,9 +534,9 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 	clk_put(clk_old_parent);
 	/* expected mfc related ref clock value be set 0 */
 #elif defined(CONFIG_SOC_EXYNOS7420)
-	for (index = 0; index < 19; index++) {
+	for (index = 0; index < (sizeof(str_child)/sizeof(char *)); index++) {
 		clk_child = clk_get(dev->device, str_child[index]);
-		if (IS_ERR(clk_child)) {
+	if (IS_ERR_OR_NULL(clk_child)) {
 			pr_err("failed to get %s clock\n", str_child[index]);
 			return PTR_ERR(clk_child);
 		}
