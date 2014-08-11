@@ -184,6 +184,20 @@ static struct s5p_mfc_fmt formats[] = {
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
 	},
+	{
+		.name = "VP9 Encoded Stream",
+		.fourcc = V4L2_PIX_FMT_VP9,
+		.codec_mode = S5P_FIMV_CODEC_VP9_DEC,
+		.type = MFC_FMT_DEC,
+		.num_planes = 1,
+	},
+	{
+		.name = "HEVC Encoded Stream",
+		.fourcc = V4L2_PIX_FMT_HEVC,
+		.codec_mode = S5P_FIMV_CODEC_HEVC_DEC,
+		.type = MFC_FMT_DEC,
+		.num_planes = 1,
+	},
 };
 
 #define NUM_FORMATS ARRAY_SIZE(formats)
@@ -1208,6 +1222,10 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 	mfc_debug_enter();
 	mfc_debug(2, "f->type = %d ctx->state = %d\n", f->type, ctx->state);
 
+	if (ctx->state == MFCINST_VPS_PARSED_ONLY) {
+		mfc_err("MFCINST_VPS_PARSED_ONLY !!!\n");
+		return -EAGAIN;
+	}
 	if (ctx->state == MFCINST_GOT_INST ||
 	    ctx->state == MFCINST_RES_CHANGE_FLUSH ||
 	    ctx->state == MFCINST_RES_CHANGE_END) {
@@ -1215,8 +1233,13 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 		 * so wait until it is finished */
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_SEQ_DONE_RET)) {
-			s5p_mfc_cleanup_timeout(ctx);
-			return -EIO;
+			if (ctx->state == MFCINST_VPS_PARSED_ONLY) {
+				mfc_err("MFCINST_VPS_PARSED_ONLY !!!\n");
+				return -EAGAIN;
+			} else {
+				s5p_mfc_cleanup_timeout(ctx);
+				return -EIO;
+			}
 		}
 	}
 
@@ -1325,7 +1348,7 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 				return -EINVAL;
 			}
 		}
-		if (IS_MFCv8X(dev)){
+		if (IS_MFCV8(dev)) {
 			if (fmt->fourcc == V4L2_PIX_FMT_NV12MT_16X16) {
 				mfc_err_dev("Not supported format.\n");
 				return -EINVAL;
@@ -1538,7 +1561,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 
 		/* Can only request buffers after
 		   an instance has been opened.*/
-		if (ctx->state == MFCINST_GOT_INST) {
+		if ((ctx->state == MFCINST_GOT_INST) ||
+			(ctx->state == MFCINST_VPS_PARSED_ONLY)) {
 			if (reqbufs->count == 0) {
 				mfc_debug(2, "Freeing buffers.\n");
 				ret = vb2_reqbufs(&ctx->vq_src, reqbufs);

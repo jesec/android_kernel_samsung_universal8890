@@ -1,5 +1,5 @@
 /*
- * drivers/media/video/exynos/mfc/s5p_mfc_opr_v6.h
+ * drivers/media/video/exynos/mfc/s5p_mfc_opr_v9.h
  *
  * Header file for Samsung MFC (Multi Function Codec - FIMV) driver
  * Contains declarations of hw related functions.
@@ -12,8 +12,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef S5P_MFC_OPR_V6_H_
-#define S5P_MFC_OPR_V6_H_
+#ifndef S5P_MFC_OPR_V9_H_
+#define S5P_MFC_OPR_V9_H_
 
 #include "s5p_mfc_mem.h"
 
@@ -81,8 +81,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 						S5P_FIMV_D_DISPLAY_FRAME_HEIGHT)
 #define s5p_mfc_get_dpb_count()		readl(dev->regs_base + \
 						S5P_FIMV_D_MIN_NUM_DPB)
-#define s5p_mfc_get_dis_count()		readl(dev->regs_base + \
-						S5P_FIMV_D_MIN_NUM_DIS)
+#define s5p_mfc_get_dis_count()		0
 #define s5p_mfc_get_mv_count()		readl(dev->regs_base + \
 						S5P_FIMV_D_MIN_NUM_MV)
 #define s5p_mfc_get_inst_no()		readl(dev->regs_base + \
@@ -99,11 +98,10 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 						S5P_FIMV_D_FRAME_PACK_SEI_AVAIL)
 #define s5p_mfc_get_mvc_num_views()	readl(dev->regs_base + \
 						S5P_FIMV_D_MVC_NUM_VIEWS)
+
 #define s5p_mfc_get_mvc_disp_view_id()	(readl(dev->regs_base +		\
 					S5P_FIMV_D_MVC_VIEW_ID)		\
 					& S5P_FIMV_D_MVC_VIEW_ID_DISP_MASK)
-#define mfc_get_dec_used_flag()		readl(dev->regs_base + \
-						S5P_FIMV_D_USED_DPB_FLAG_LOWER)
 
 #define s5p_mfc_is_interlace_picture()	((readl(dev->regs_base + \
 					S5P_FIMV_D_DECODED_STATUS) & \
@@ -117,20 +115,19 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define s5p_mfc_get_dec_frame()		(readl(dev->regs_base + \
 						S5P_FIMV_D_DECODED_FRAME_TYPE) \
 						& S5P_FIMV_DECODED_FRAME_MASK)
-#define mfc_get_disp_first_addr()	readl(dev->regs_base + \
-						S5P_FIMV_D_DISPLAY_FIRST_ADDR)
-#define mfc_get_dec_first_addr()	readl(dev->regs_base + \
-						S5P_FIMV_D_DECODED_FIRST_ADDR)
+
+#define mfc_get_disp_first_addr()	-1
+#define mfc_get_dec_first_addr()	-1
 
 #define mb_width(x_size)		((x_size + 15) / 16)
 #define mb_height(y_size)		((y_size + 15) / 16)
 #define s5p_mfc_dec_mv_size(x, y)	(mb_width(x) * (((mb_height(y)+1)/2)*2) * 64 + 128)
 
-#define dec_lcu_width(x_size)		-1
-#define enc_lcu_width(x_size)		-1
-#define dec_lcu_height(y_size)		-1
-#define enc_lcu_height(y_size)		-1
-#define s5p_mfc_dec_hevc_mv_size(x, y)	-1
+#define dec_lcu_width(x_size)		((x_size + 63) / 64)
+#define enc_lcu_width(x_size)		((x_size + 31) / 32)
+#define dec_lcu_height(y_size)		((y_size + 63) / 64)
+#define enc_lcu_height(y_size)		((y_size + 31) / 32)
+#define s5p_mfc_dec_hevc_mv_size(x, y)	(dec_lcu_width(x) * dec_lcu_height(y) * 256 + 512)
 
 #define s5p_mfc_clear_int_flags()				\
 	do {							\
@@ -153,7 +150,6 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define ENC_MPEG4_VOP_TIME_RES_MAX	((1 << 16) - 1)
 #define FRAME_DELTA_DEFAULT		1
 #define TIGHT_CBR_MAX			10
-#define I_LIMIT_CBR_MAX			5
 #define ENC_HEVC_RC_FRAME_RATE_MAX	((1 << 16) - 1)
 #define ENC_HEVC_QP_INDEX_MIN	-12
 #define ENC_HEVC_QP_INDEX_MAX	12
@@ -221,13 +217,8 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 		((((mb_x) * (mb_y) + 31) / 32) * 16))
 
 /* Encoder buffer size for hevc */
-#define ENC_HEVC_ME_SIZE(x, y)			-1
-#define ENC_V90_VP8_SCRATCH_SIZE(x, y)		-1
-#define ENC_V90_H264_SCRATCH_SIZE(x, y)		-1
-#define DEC_V90_VP9_SCRATCH_SIZE(x, y)		-1
-#define DEC_V90_HEVC_SCRATCH_SIZE(x, y, z)	-1
-#define ENC_V90_HEVC_SCRATCH_SIZE(x, y)		-1
-#define DEC_V90_STATIC_BUFFER_SIZE		-1
+#define ENC_HEVC_ME_SIZE(x, y)				\
+			((((x * 32 / 8 + 63) / 64 * 64) * ((y * 8) + 64)) + (x * y * 32))
 
 /* MV range is [16,256] for v6.1, [16,128] for v6.5 */
 #define ENC_V61_MV_RANGE		256
@@ -241,12 +232,29 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define DEC_V80_MPEG4_SCRATCH_SIZE(x, y)			\
 		(((x) * 592) + ((y) * 4096) + (2*1048576))
 #define DEC_V80_VP8_SCRATCH_SIZE(x, y)				\
-		((((x) * 576) * ((y) * 128) + 4128))
+		((((x) * 576) + ((y) * 128) + 4128))
 #define ENC_V80_H264_SCRATCH_SIZE(x, y)				\
 		(((x) * 592) + 2336)
 #define ENC_V80_VP8_SCRATCH_SIZE(x, y)				\
 		(((x) * 576) + 10512 +	\
 		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
+
+/* Scratch buffer size for MFC v9.0 */
+#define DEC_V90_STATIC_BUFFER_SIZE	16384
+#define ENC_V90_VP8_SCRATCH_SIZE(x, y)				\
+		(((x) * 608) + 10896 +	\
+		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
+#define ENC_V90_H264_SCRATCH_SIZE(x, y)				\
+		((x * 624) + 2720)
+#define DEC_V90_VP9_SCRATCH_SIZE(x, y)				\
+		(((x) * 2464) + ((y) * 8192) + (((x) * (y)) * 2112) + 2048)
+#define DEC_V90_HEVC_SCRATCH_SIZE(x, y, z)			\
+		(((x) * 64) + ((y) * 2560) + ((z) * 8192) + 2048)
+#define ENC_V90_HEVC_SCRATCH_SIZE(x, y)			\
+		(((x) * 64) + ((y) * 1056) + 2720)
+
+#define mfc_get_dec_used_flag()		readl(dev->regs_base + \
+						S5P_FIMV_D_USED_DPB_FLAG_LOWER)
 
 void s5p_mfc_try_run(struct s5p_mfc_dev *dev);
 
@@ -255,4 +263,4 @@ void s5p_mfc_cleanup_queue(struct list_head *lh, struct vb2_queue *vq);
 void s5p_mfc_write_info(struct s5p_mfc_ctx *ctx, unsigned int data, unsigned int ofs);
 unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs);
 
-#endif /* S5P_MFC_OPR_V6_H_ */
+#endif /* S5P_MFC_OPR_V9_H_ */

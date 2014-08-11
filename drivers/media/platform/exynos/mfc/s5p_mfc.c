@@ -1320,6 +1320,7 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 {
 	struct s5p_mfc_dev *dev;
 	unsigned long flags;
+	struct s5p_mfc_buf *src_buf;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -1341,6 +1342,17 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 	case MFCINST_INIT:
 		/* This error had to happen while acquireing instance */
 	case MFCINST_GOT_INST:
+		/* This error had to happen while parsing vps only */
+		if (err == S5P_FIMV_VPS_ONLY_ERROR) {
+			ctx->state = MFCINST_VPS_PARSED_ONLY;
+			if (!list_empty(&ctx->src_queue)) {
+				src_buf = list_entry(ctx->src_queue.next, struct s5p_mfc_buf,
+						list);
+				list_del(&src_buf->list);
+				ctx->src_queue_cnt--;
+				vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_DONE);
+			}
+		}
 	case MFCINST_RES_CHANGE_END:
 		/* This error had to happen while parsing the header */
 	case MFCINST_HEAD_PARSED:
@@ -3021,6 +3033,7 @@ struct s5p_mfc_buf_size_v6 mfc_buf_size_v6 = {
 	.h264_dec_ctx	= PAGE_ALIGN(0x200000),	/* 1.6MB */
 	.other_dec_ctx	= PAGE_ALIGN(0x5000),	/*  20KB */
 	.h264_enc_ctx	= PAGE_ALIGN(0x19000),	/* 100KB */
+	.hevc_enc_ctx	= PAGE_ALIGN(0x7800),	/*  30KB */
 	.other_enc_ctx	= PAGE_ALIGN(0x2800),	/*  10KB */
 };
 

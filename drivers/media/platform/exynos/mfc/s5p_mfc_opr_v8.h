@@ -123,6 +123,12 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define mb_height(y_size)		((y_size + 15) / 16)
 #define s5p_mfc_dec_mv_size(x, y)	(mb_width(x) * (((mb_height(y)+1)/2)*2) * 64 + 128)
 
+#define dec_lcu_width(x_size)		-1
+#define enc_lcu_width(x_size)		-1
+#define dec_lcu_height(y_size)		-1
+#define enc_lcu_height(y_size)		-1
+#define s5p_mfc_dec_hevc_mv_size(x, y)	-1
+
 #define s5p_mfc_clear_int_flags()				\
 	do {							\
 		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_CMD);	\
@@ -145,6 +151,13 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define FRAME_DELTA_DEFAULT		1
 #define TIGHT_CBR_MAX			10
 #define I_LIMIT_CBR_MAX			5
+#define ENC_HEVC_RC_FRAME_RATE_MAX	((1 << 16) - 1)
+#define ENC_HEVC_QP_INDEX_MIN	-12
+#define ENC_HEVC_QP_INDEX_MAX	12
+#define ENC_HEVC_LOOP_FILTER_MIN	-12
+#define ENC_HEVC_LOOP_FILTER_MAX	12
+#define ENC_HEVC_RC_FRAME_RATE_MAX	((1 << 16) - 1)
+#define ENC_HEVC_LEVEL_MAX		62
 
 /* Definitions for shared memory compatibility */
 #define PIC_TIME_TOP		S5P_FIMV_D_RET_PICTURE_TAG_TOP
@@ -203,6 +216,15 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 		((((((f_x) + 127) / 64) * 16) *			\
 		((((f_y) + 63) / 64) * 16)) +			\
 		((((mb_x) * (mb_y) + 31) / 32) * 16))
+
+/* Encoder buffer size for hevc */
+#define ENC_HEVC_ME_SIZE(x, y)			-1
+#define ENC_V90_VP8_SCRATCH_SIZE(x, y)		-1
+#define ENC_V90_H264_SCRATCH_SIZE(x, y)		-1
+#define DEC_V90_VP9_SCRATCH_SIZE(x, y)		-1
+#define DEC_V90_HEVC_SCRATCH_SIZE(x, y, z)	-1
+#define ENC_V90_HEVC_SCRATCH_SIZE(x, y)		-1
+#define DEC_V90_STATIC_BUFFER_SIZE		-1
 
 /* MV range is [16,256] for v6.1, [16,128] for v6.5 */
 #define ENC_V61_MV_RANGE		256

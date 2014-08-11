@@ -150,6 +150,13 @@ static struct s5p_mfc_fmt formats[] = {
 		.type = MFC_FMT_ENC,
 		.num_planes = 1,
 	},
+	{
+		.name = "HEVC Encoded Stream",
+		.fourcc = V4L2_PIX_FMT_HEVC,
+		.codec_mode = S5P_FIMV_CODEC_HEVC_ENC,
+		.type = MFC_FMT_ENC,
+		.num_planes = 1,
+	},
 };
 
 #define NUM_FORMATS ARRAY_SIZE(formats)
@@ -1066,6 +1073,395 @@ static struct v4l2_queryctrl controls[] = {
 		.default_value = 0,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC Frame QP value",
+		.minimum = 0,
+		.maximum = 51,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC P frame QP value",
+		.minimum = 0,
+		.maximum = 51,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC B frame QP value",
+		.minimum = 0,
+		.maximum = 51,
+		.step = 1,
+		.default_value = 0,
+	},
+
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC Minimum QP value",
+		.minimum = 0,
+		.maximum = 51,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		/* MAX_QP must be greater than or equal to MIN_QP */
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC Maximum QP value",
+		.minimum = 0,
+		.maximum = 51,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_DARK,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC dark region adaptive",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_SMOOTH,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC smooth region adaptive",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_STATIC,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC static region adaptive",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_ACTIVITY,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC activity adaptive",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC Profile",
+		.minimum = 0,
+		.maximum = 0,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC level",
+		.minimum = 10,
+		.maximum = 62,
+		.step = 1,
+		.default_value = 10,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_TIER_FLAG,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC tier_flag default is Main",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_RC_FRAME_RATE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC Frame rate",
+		.minimum = 1,
+		.maximum = ENC_HEVC_RC_FRAME_RATE_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_MAX_PARTITION_DEPTH,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC Maximum coding unit depth",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_REF_NUMBER_FOR_PFRAMES,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC Number of reference picture",
+		.minimum = 1,
+		.maximum = 2,
+		.step = 1,
+		.default_value = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_REFRESH_TYPE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC Number of reference picture",
+		.minimum = 0,
+		.maximum = 2,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_CONST_INTRA_PRED_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC refresh type",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LOSSLESS_CU_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC lossless encoding select",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_WAVEFRONT_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC Wavefront enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_DISABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC Filter disable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_SLICE_BOUNDARY,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "across or not slice boundary",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LTR_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "long term reference enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_QP_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "QP values for temporal layer",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_TYPE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "Hierarchical Coding Type",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer",
+		.minimum = 0,
+		.maximum = 7,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer QP",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer BIT",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_SIGN_DATA_HIDING,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC Sign data hiding",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_GENERAL_PB_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC General pb enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_TEMPORAL_ID_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC Temporal id enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_STRONG_SMOTHING_FLAG,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC Strong intra smoothing flag",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_DISABLE_INTRA_PU_SPLIT,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC disable intra pu split",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_DISABLE_TMV_PREDICTION,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "HEVC disable tmv prediction",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_MAX_NUM_MERGE_MV_MINUS1,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "max number of candidate MVs",
+		.minimum = 0,
+		.maximum = 4,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_WITHOUT_STARTCODE_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "ENC without startcode enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_REFRESH_PERIOD,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC Number of reference picture",
+		.minimum = 0,
+		.maximum = 10, /* need to check maximum size */
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_QP_INDEX_CR,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Chroma QP index offset Cr",
+		.minimum = ENC_HEVC_QP_INDEX_MIN,
+		.maximum = ENC_HEVC_QP_INDEX_MAX,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_QP_INDEX_CB,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Chroma QP index offset Cb",
+		.minimum = ENC_HEVC_QP_INDEX_MIN,
+		.maximum = ENC_HEVC_QP_INDEX_MAX,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_BETA_OFFSET_DIV2,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC loop filter beta offset",
+		.minimum = ENC_HEVC_LOOP_FILTER_MIN,
+		.maximum = ENC_HEVC_LOOP_FILTER_MAX,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_TC_OFFSET_DIV2,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC loop filter tc offset",
+		.minimum = ENC_HEVC_LOOP_FILTER_MIN,
+		.maximum = ENC_HEVC_LOOP_FILTER_MAX,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "HEVC size of length field",
+		.minimum = 0,
+		.maximum = 3,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_USER_REF,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "user long term reference frame",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC90_VIDEO_HEVC_STORE_REF,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "store long term reference frame",
+		.minimum = 0,
+		.maximum = 2,
+		.step = 1,
+		.default_value = 0, /* need to check defualt value */
+	},
+	{
 		.id = V4L2_CID_MPEG_MFC_GET_VERSION_INFO,
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "Get MFC version information",
@@ -1384,7 +1780,30 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 10,
 	},
-
+	{	/* HEVC QP Max change */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
+		.mask = 0xFFFFFFFF,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 4,
+	},
+	{	/* HEVC QP Min change */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
+		.mask = 0xFFFFFFFF,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 4,
+	},
 };
 
 #define NUM_CTRL_CFGS ARRAY_SIZE(mfc_ctrl_list)
@@ -2788,7 +3207,7 @@ static int enc_ext_info(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int val = 0;
 
-	if (IS_MFCv7X(dev) || IS_MFCv8X(dev)) {
+	if (IS_MFCv7X(dev) || IS_MFCV8(dev)) {
 		val |= ENC_SET_RGB_INPUT;
 		val |= ENC_SET_SPARE_SIZE;
 	}
@@ -3294,6 +3713,134 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_NUM_TEMPORAL_LAYER:
 		p->codec.vp8.num_temporal_layer = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP:
+		p->codec.hevc.rc_frame_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP:
+		p->codec.hevc.rc_p_frame_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP:
+		p->codec.hevc.rc_b_frame_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_RC_FRAME_RATE:
+		p->codec.hevc.rc_framerate = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP:
+		p->codec.hevc.rc_min_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP:
+		p->codec.hevc.rc_max_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
+		p->codec.hevc.level = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_DARK:
+		p->codec.hevc.rc_lcu_dark = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_SMOOTH:
+		p->codec.hevc.rc_lcu_smooth = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_STATIC:
+		p->codec.hevc.rc_lcu_static = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_ADAPTIVE_RC_ACTIVITY:
+		p->codec.hevc.rc_lcu_activity = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_TIER_FLAG:
+		p->codec.hevc.tier_flag = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_MAX_PARTITION_DEPTH:
+		p->codec.hevc.max_partition_depth = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_REF_NUMBER_FOR_PFRAMES:
+		p->codec.hevc.num_refs_for_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_REFRESH_TYPE:
+		p->codec.hevc.refreshtype = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_CONST_INTRA_PRED_ENABLE:
+		p->codec.hevc.const_intra_period_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LOSSLESS_CU_ENABLE:
+		p->codec.hevc.lossless_cu_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_WAVEFRONT_ENABLE:
+		p->codec.hevc.wavefront_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_DISABLE:
+		p->codec.hevc.loopfilter_disable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_SLICE_BOUNDARY:
+		p->codec.hevc.loopfilter_disable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LTR_ENABLE:
+		p->codec.hevc.longterm_ref_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_QP_ENABLE:
+		p->codec.hevc.hier_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_TYPE:
+		p->codec.hevc.hier_qp_type = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER:
+		p->codec.hevc.hier_qp_layer = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_QP:
+		p->codec.hevc.hier_qp_layer_qp = ctrl->value & 0xFF;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT:
+		p->codec.hevc.hier_qp_layer_bit = ctrl->value & 0xFF;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_SIGN_DATA_HIDING:
+		p->codec.hevc.sign_data_hiding = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_GENERAL_PB_ENABLE:
+		p->codec.hevc.general_pb_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_TEMPORAL_ID_ENABLE:
+		p->codec.hevc.temporal_id_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_STRONG_SMOTHING_FLAG:
+		p->codec.hevc.strong_intra_smooth = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_DISABLE_INTRA_PU_SPLIT:
+		p->codec.hevc.intra_pu_split_disable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_DISABLE_TMV_PREDICTION:
+		p->codec.hevc.tmv_prediction_disable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_MAX_NUM_MERGE_MV_MINUS1:
+		p->codec.hevc.max_num_merge_mv = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_WITHOUT_STARTCODE_ENABLE:
+		p->codec.hevc.encoding_nostartcode_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_REFRESH_PERIOD:
+		p->codec.hevc.refreshperiod = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_QP_INDEX_CR:
+		p->codec.hevc.croma_qp_offset_cr = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_QP_INDEX_CB:
+		p->codec.hevc.croma_qp_offset_cb = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_BETA_OFFSET_DIV2:
+		p->codec.hevc.lf_beta_offset_div2 = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_TC_OFFSET_DIV2:
+		p->codec.hevc.lf_tc_offset_div2 = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD:
+		p->codec.hevc.size_of_length_field = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_USER_REF:
+		p->codec.hevc.user_ref = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_STORE_REF:
+		p->codec.hevc.store_ref = ctrl->value;
+		break;
 	default:
 		v4l2_err(&dev->v4l2_dev, "Invalid control\n");
 		ret = -EINVAL;
@@ -3379,12 +3926,14 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H263_MAX_QP:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP:
 	case V4L2_CID_MPEG_VIDEO_VP8_MAX_QP:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP:
 		ctx->qp_max_change = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_H263_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_VP8_MIN_QP:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP:
 		ctx->qp_min_change = ctrl->value;
 		ctrl->value = ((ctx->qp_max_change << 8)
 			| (ctx->qp_min_change));

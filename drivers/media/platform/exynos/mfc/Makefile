@@ -6,3 +6,4 @@ s5p-mfc-y += s5p_mfc_mem.o s5p_mfc_reg.o s5p_mfc_pm.o s5p_mfc_qos.o
 obj-$(CONFIG_EXYNOS_MFC_V5) += s5p_mfc_opr_v5.o s5p_mfc_cmd_v5.o s5p_mfc_shm.o
 obj-$(CONFIG_EXYNOS_MFC_V6) += s5p_mfc_opr_v6.o s5p_mfc_cmd_v6.o
 obj-$(CONFIG_EXYNOS_MFC_V8) += s5p_mfc_opr_v6.o s5p_mfc_cmd_v6.o
+obj-$(CONFIG_EXYNOS_MFC_V9) += s5p_mfc_opr_v6.o s5p_mfc_cmd_v6.o

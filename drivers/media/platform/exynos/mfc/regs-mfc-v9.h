@@ -1,5 +1,5 @@
 /*
- * Register definition file for Samsung MFC V8 Driver
+ * Register definition file for Samsung MFC V9 Driver
  *
  * Copyright (c) 2010 Samsung Electronics
  * http://www.samsung.com/
@@ -9,8 +9,8 @@
  * published by the Free Software Foundation.
 */
 
-#ifndef _REGS_FIMV_V8_H
-#define _REGS_FIMV_V8_H
+#ifndef _REGS_FIMV_V9_H
+#define _REGS_FIMV_V9_H
 
 #define S5P_FIMV_REG_SIZE	(S5P_FIMV_END_ADDR - S5P_FIMV_START_ADDR)
 #define S5P_FIMV_REG_COUNT	((S5P_FIMV_END_ADDR - S5p_FIMV_START_ADDR) / 4)
@@ -124,6 +124,7 @@ static inline unsigned int r2h_bits(int cmd)
 }
 
 #define S5P_FIMV_MFC_BUS_RESET_CTRL		0x7110
+#define S5P_FIMV_MFC_BUS_STATUS			0x7018
 #define S5P_FIMV_FW_VERSION			0xF000
 
 #define S5P_FIMV_INSTANCE_ID			0xF008
@@ -207,20 +208,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_METADATA_BUFFER_ADDR                         0xF568
 #define S5P_FIMV_D_METADATA_BUFFER_SIZE                         0xF56C
 
-/* for compatibility */
-#define S5P_FIMV_D_STATIC_BUFFER_ADDR				-1
-#define S5P_FIMV_D_STATIC_BUFFER_SIZE				-1
-
-#define S5P_FIMV_D_FIRST_PLANE_DPB_PORT_ID_UPPER                0xF570
-#define S5P_FIMV_D_FIRST_PLANE_DPB_PORT_ID_LOWER                0xF574
-#define S5P_FIMV_D_SECOND_PLANE_DPB_PORT_ID_UPPER               0xF578
-#define S5P_FIMV_D_SECOND_PLANE_DPB_PORT_ID_LOWER               0xF57C
-#define S5P_FIMV_D_THIRD_PLANE_DPB_PORT_ID_UPPER                0xF580
-#define S5P_FIMV_D_THIRD_PLANE_DPB_PORT_ID_LOWER                0xF584
-#define S5P_FIMV_D_MV_BUFFER_PORT_ID_UPPER                      0xF588
-#define S5P_FIMV_D_MV_BUFFER_PORT_ID_LOWER                      0xF58C
-#define S5P_FIMV_D_OTHER_BUFFER_PORT_ID                         0xF590
-#define S5P_FIMV_D_METADATA_BUFFER_PORT_ID                      0xF594
+#define S5P_FIMV_D_STATIC_BUFFER_ADDR				0xF570
+#define S5P_FIMV_D_STATIC_BUFFER_SIZE				0xF574
 
 /* Nal cmd */
 #define S5P_FIMV_D_CPB_BUFFER_ADDR                              0xF5B0
@@ -230,7 +219,6 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_CPB_BUFFER_OFFSET                            0xF5C0
 #define S5P_FIMV_D_SLICE_IF_ENABLE                              0xF5C4
 #define S5P_FIMV_D_PICTURE_TAG                                  0xF5C8
-#define S5P_FIMV_D_CPB_BUFFER_PORT_ID                           0xF5CC
 #define S5P_FIMV_D_STREAM_DATA_SIZE                             0xF5D0
 #define S5P_FIMV_D_DYNAMIC_DPB_FLAG_UPPER			0xF5D4
 #define S5P_FIMV_D_DYNAMIC_DPB_FLAG_LOWER			0xF5D8
@@ -273,12 +261,21 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_RET_PICTURE_TIME_BOT                         0xF680
 #define S5P_FIMV_D_CHROMA_FORMAT                                0xF684
 
-#define S5P_FIMV_D_S5P_FIMV_INFO                                0xF6A0
+#define S5P_FIMV_D_VC1_INFO					0xF688
+#define S5P_FIMV_D_MPEG4_INFO					0xF68C
+#define S5P_FIMV_D_H264_INFO					0xF690
+#define S5P_FIMV_D_HEVC_INFO					0xF6A0
 
+#define S5P_FIMV_D_METADATA_ADDR_CONCEALED_MB			0xF6B0
+#define S5P_FIMV_D_METADATA_SIZE_CONCEALED_MB			0xF6B4
+#define S5P_FIMV_D_METADATA_ADDR_VC1_PARAM			0xF6B8
+#define S5P_FIMV_D_METADATA_SIZE_VC1_PARAM			0xF6BC
 #define S5P_FIMV_D_METADATA_ADDR_SEI_NAL                        0xF6C0
 #define S5P_FIMV_D_METADATA_SIZE_SEI_NAL                        0xF6C4
 #define S5P_FIMV_D_METADATA_ADDR_VUI                            0xF6C8
 #define S5P_FIMV_D_METADATA_SIZE_VUI                            0xF6CC
+#define S5P_FIMV_D_METADATA_ADDR_MVCVUI				0xF6D0
+#define S5P_FIMV_D_METADATA_SIZE_MVCVUI				0xF6D4
 
 #define S5P_FIMV_D_MVC_VIEW_ID			                0xF6D8
 #define S5P_FIMV_D_MVC_VIEW_ID_DISP_MASK	                0xFFFF
@@ -288,18 +285,11 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_FRAME_PACK_SEI_INFO                          0xF6E4
 #define S5P_FIMV_D_FRAME_PACK_GRID_POS                          0xF6E8
 
+#define S5P_FIMV_D_DISPLAY_RECOVERY_SEI_INFO			0xF6EC
+#define S5P_FIMV_D_DECODED_RECOVERY_SEI_INFO			0xF6F0
+
 #define S5P_FIMV_D_USED_DPB_FLAG_UPPER		                0xF720
 #define S5P_FIMV_D_USED_DPB_FLAG_LOWER		                0xF724
-
-/* Frame info dump */
-#define S5P_FIMV_D_SUM_FORW_COUNT                               0xF700
-#define S5P_FIMV_D_SUM_FORW_MV_X                                0xF704
-#define S5P_FIMV_D_SUM_FORW_MV_Y                                0xF708
-#define S5P_FIMV_D_SUM_BACK_CNT                                 0xF70C
-#define S5P_FIMV_D_SUM_BACK_MV_X                                0xF710
-#define S5P_FIMV_D_SUM_BACK_MV_Y                                0xF714
-#define S5P_FIMV_D_SUM_INTRA                                    0xF718
-#define S5P_FIMV_D_SUM_QP                                       0xF71C
 
 /* Display status */
 #define S5P_FIMV_DEC_STATUS_DECODING_ONLY		0
@@ -377,7 +367,6 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_ENC_ADV_TIGHT_CBR		0
 #define S5P_FIMV_ENC_ADV_LOOSE_CBR		1
 #define S5P_FIMV_ENC_ADV_CAM_CBR		2
-#define S5P_FIMV_ENC_ADV_I_LIMIT_CBR		3
 
 #define S5P_FIMV_E_MB_RC_CONFIG			0xF7A8
 #define S5P_FIMV_E_PADDING_CTRL			0xF7AC
@@ -386,6 +375,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_E_MV_HOR_RANGE			0xF7B4
 #define S5P_FIMV_E_MV_VER_RANGE			0xF7B8
 #define S5P_FIMV_E_NUM_DPB			0xF890
+#define S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE	0xF894
 
 #define S5P_FIMV_E_LUMA_DPB			0xF8C0
 #define S5P_FIMV_E_CHROMA_DPB			0xF904
@@ -424,6 +414,11 @@ static inline unsigned int r2h_bits(int cmd)
 
 #define S5P_FIMV_E_METADATA_BUFFER_ADDR		0xFA40
 #define S5P_FIMV_E_METADATA_BUFFER_SIZE		0xFA44
+
+#define S5P_FIMV_E_ENCODING_ORDER_TIME_INFO	0xFA50
+#define S5P_FIMV_E_ENCODING_ORDER_INFO		0xFA54
+#define S5P_FIMV_E_STREAM_BUFFER_OFFSET		0xFA58
+
 #define S5P_FIMV_E_ENCODED_SOURCE_FIRST_ADDR	0xFA70
 #define S5P_FIMV_E_ENCODED_SOURCE_SECOND_ADDR	0xFA74
 #define S5P_FIMV_E_ENCODED_SOURCE_THIRD_ADDR	0xFA78
@@ -443,6 +438,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_E_METADATA_ADDR_ENC_SLICE	0xFAA4
 #define S5P_FIMV_E_METADATA_SIZE_ENC_SLICE	0xFAA8
 
+#define S5P_FIMV_E_NAL_DONE_INFO		0xFAEC
+
 #define S5P_FIMV_E_MPEG4_OPTIONS		0xFB10
 #define S5P_FIMV_E_MPEG4_HEC_PERIOD		0xFB14
 #define S5P_FIMV_E_ASPECT_RATIO			0xFB4C
@@ -452,7 +449,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_E_H264_OPTIONS_2		0xFB58
 #define S5P_FIMV_E_H264_LF_ALPHA_OFFSET		0xFB5C
 #define S5P_FIMV_E_H264_LF_BETA_OFFSET		0xFB60
-#define S5P_FIMV_E_H264_I_PERIOD		0xFB64
+#define S5P_FIMV_E_H264_I_PERIOD		S5P_FIMV_E_H264_REFRESH_PERIOD
+#define S5P_FIMV_E_H264_REFRESH_PERIOD		0xFB64
 
 #define S5P_FIMV_E_H264_FMO_SLICE_GRP_MAP_TYPE			0xFB68
 #define S5P_FIMV_E_H264_FMO_NUM_SLICE_GRP_MINUS1		0xFB6C
@@ -497,6 +495,7 @@ static inline unsigned int r2h_bits(int cmd)
 
 #define S5P_FIMV_E_H264_FRAME_PACKING_SEI_INFO	0xFC4C
 
+#define S5P_FIMV_E_H264_NAL_CONTROL		0xFD14
 #define S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0	S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0
 #define S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER1	S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER1
 #define S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER2	S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER2
@@ -522,19 +521,21 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_E_VP8_OPTION			0xFDB0
 #define S5P_FIMV_E_VP8_FILTER_OPTIONS		0xFDB4
 #define S5P_FIMV_E_VP8_GOLDEN_FRAME_OPTION	0xFDB8
+
 /* For backward compatibility */
 #define S5P_FIMV_E_VP8_NUM_T_LAYER		S5P_FIMV_E_NUM_T_LAYER
 #define S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER0	S5P_FIMV_E_HIERARCHICAL_QP_LAYER0
 #define S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER1	S5P_FIMV_E_HIERARCHICAL_QP_LAYER1
 #define S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER2	S5P_FIMV_E_HIERARCHICAL_QP_LAYER2
-/* for compatibility */
-#define S5P_FIMV_E_HEVC_OPTIONS			-1
-#define S5P_FIMV_E_HEVC_REFRESH_PERIOD		-1
-#define S5P_FIMV_E_HEVC_CHROMA_QP_OFFSET	-1
-#define S5P_FIMV_E_HEVC_LF_BETA_OFFSET_DIV2	-1
-#define S5P_FIMV_E_HEVC_LF_TC_OFFSET_DIV2	-1
-#define S5P_FIMV_E_HEVC_NAL_CONTROL		-1
 
+#define S5P_FIMV_E_HEVC_OPTIONS			0xFDD4
+#define S5P_FIMV_E_HEVC_REFRESH_PERIOD		0xFDD8
+#define S5P_FIMV_E_HEVC_CHROMA_QP_OFFSET	0xFDDC
+#define S5P_FIMV_E_HEVC_LF_BETA_OFFSET_DIV2	0xFDE0
+#define S5P_FIMV_E_HEVC_LF_TC_OFFSET_DIV2	0xFDE4
+#define S5P_FIMV_E_HEVC_NAL_CONTROL		0xFDE8
+
+#define S5P_FIMV_E_VP8_NAL_CONTROL		0xFDF0
 
 /* Codec numbers  */
 #define MFC_FORMATS_NO_CODEC		-1
@@ -550,11 +551,11 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_CODEC_H263_DEC		8
 #define S5P_FIMV_CODEC_VC1RCV_DEC	9
 #define S5P_FIMV_CODEC_VC1_DEC		10
-#define S5P_FIMV_CODEC_HEVC_DEC		17
-#define S5P_FIMV_CODEC_VP9_DEC		18
 
 #define S5P_FIMV_CODEC_MPEG2_DEC	13
 #define S5P_FIMV_CODEC_VP8_DEC		14
+#define S5P_FIMV_CODEC_HEVC_DEC		17
+#define S5P_FIMV_CODEC_VP9_DEC		18
 
 #define S5P_FIMV_CODEC_H264_ENC		20
 #define S5P_FIMV_CODEC_H264_MVC_ENC	21
@@ -642,4 +643,4 @@ static inline unsigned int r2h_bits(int cmd)
 
 #define S5P_FIMV_SI_CH0_DPB_CONF_CTRL   0x2068 /* DPB Config Control Register */
 
-#endif /* _REGS_S5P_FIMV_V8_H */
+#endif /* _REGS_S5P_FIMV_V9_H */

@@ -147,6 +147,7 @@ enum s5p_mfc_inst_state {
 	MFCINST_RUNNING_NO_OUTPUT,
 	MFCINST_ABORT_INST,
 	MFCINST_DPB_FLUSHING,
+	MFCINST_VPS_PARSED_ONLY,
 };
 
 /**
@@ -280,6 +281,7 @@ struct s5p_mfc_buf_size_v6 {
 	unsigned int h264_dec_ctx;
 	unsigned int other_dec_ctx;
 	unsigned int h264_enc_ctx;
+	unsigned int hevc_enc_ctx;
 	unsigned int other_enc_ctx;
 };
 
@@ -514,6 +516,59 @@ struct s5p_mfc_vp8_enc_params {
 /**
  *
  */
+struct s5p_mfc_hevc_enc_params {
+	u8 level;
+	u8 tier_flag;
+	/* HEVC Only */
+	u32 rc_framerate;
+	u8 rc_min_qp;
+	u8 rc_max_qp;
+	u8 rc_lcu_dark;
+	u8 rc_lcu_smooth;
+	u8 rc_lcu_static;
+	u8 rc_lcu_activity;
+	u8 rc_frame_qp;
+	u8 rc_p_frame_qp;
+	u8 rc_b_frame_qp;
+	u8 max_partition_depth;
+	u8 num_refs_for_p;
+	u8 refreshtype;
+	u8 refreshperiod;
+	s8 croma_qp_offset_cr;
+	s8 croma_qp_offset_cb;
+	s8 lf_beta_offset_div2;
+	s8 lf_tc_offset_div2;
+	u8 loopfilter_disable;
+	u8 loopfilter_across;
+	u8 nal_control_length_filed;
+	u8 nal_control_user_ref;
+	u8 nal_control_store_ref;
+	u8 const_intra_period_enable;
+	u8 lossless_cu_enable;
+	u8 wavefront_enable;
+	u8 longterm_ref_enable;
+	u8 hier_qp;
+	u8 hier_qp_type;
+	u8 hier_qp_layer;
+	u8 hier_qp_layer_qp;
+	u8 hier_qp_layer_bit;
+	u8 sign_data_hiding;
+	u8 general_pb_enable;
+	u8 temporal_id_enable;
+	u8 strong_intra_smooth;
+	u8 intra_pu_split_disable;
+	u8 tmv_prediction_disable;
+	u8 max_num_merge_mv;
+	u8 eco_mode_enable;
+	u8 encoding_nostartcode_enable;
+	u8 size_of_length_field;
+	u8 user_ref;
+	u8 store_ref;
+};
+
+/**
+ *
+ */
 struct s5p_mfc_enc_params {
 	u16 width;
 	u16 height;
@@ -545,6 +600,7 @@ struct s5p_mfc_enc_params {
 		struct s5p_mfc_h264_enc_params h264;
 		struct s5p_mfc_mpeg4_enc_params mpeg4;
 		struct s5p_mfc_vp8_enc_params vp8;
+		struct s5p_mfc_hevc_enc_params hevc;
 	} codec;
 };
 
@@ -898,6 +954,7 @@ static inline unsigned int mfc_linear_buf_size(unsigned int version)
 	case 0x72:
 	case 0x723:
 	case 0x80:
+	case 0x90:
 		size = 256;
 		break;
 	default:
@@ -936,6 +993,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 	case IP_VER_MFC_7A_0:
 		version = 0x80;
 		break;
+	case IP_VER_MFC_8I_0:
+		version = 0x90;
+		break;
 	}
 
 	return version;
@@ -949,20 +1009,26 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 /*
  * Version Description
  *
- * IS_MFCv7X : For MFC v7.X only
- * IS_MFCv6X : For MFC v6.X only
  * IS_MFCv5X : For MFC v5.X only
- * IS_MFCV6 : For MFC v6 architecure
+ * IS_MFCv6X : For MFC v6.X only
+ * IS_MFCv7X : For MFC v7.X only
+ * IS_MFCv8X : For MFC v8.X only
+ * IS_MFCv9X : For MFC v9.X only
  * IS_MFCv78 : For MFC v7.8 only
+ * IS_MFCV6 : For MFC v6 architecure
+ * IS_MFCV8 : For MFC v8 architecure
  */
-#define IS_MFCv7X(dev)		((mfc_version(dev) == 0x72) || \
-				 (mfc_version(dev) == 0x723))
+#define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
 #define IS_MFCv6X(dev)		((mfc_version(dev) == 0x61) || \
 				 (mfc_version(dev) == 0x65))
-#define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
-#define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) || IS_MFCv8X(dev))
+#define IS_MFCv7X(dev)		((mfc_version(dev) == 0x72) || \
+				 (mfc_version(dev) == 0x723))
 #define IS_MFCv8X(dev)		(mfc_version(dev) == 0x80)
+#define IS_MFCv9X(dev)		(mfc_version(dev) == 0x90)
 #define IS_MFCv78(dev)		(mfc_version(dev) == 0x78)
+#define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) ||	\
+				IS_MFCv8X(dev) || IS_MFCv9X(dev))
+#define IS_MFCV8(dev)		(IS_MFCv8X(dev) || IS_MFCv9X(dev))
 
 /* supported feature macros by F/W version */
 #define FW_HAS_BUS_RESET(dev)		(dev->fw.date >= 0x120206)
@@ -985,11 +1051,11 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x140808)))
 #define FW_HAS_POC_TYPE_CTRL(dev)	(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130405))
-#define FW_HAS_DYNAMIC_DPB(dev)		((IS_MFCv7X(dev) || IS_MFCv8X(dev))&&	\
+#define FW_HAS_DYNAMIC_DPB(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
 					(dev->fw.date >= 0x131108))
-#define FW_HAS_BASE_CHANGE(dev)		((IS_MFCv7X(dev) || IS_MFCv8X(dev))&&	\
+#define FW_HAS_BASE_CHANGE(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
 					(dev->fw.date >= 0x131108))
-#define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCv8X(dev) || IS_MFCv78(dev))
+#define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCV8(dev) || IS_MFCv78(dev))
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
 
@@ -1057,6 +1123,9 @@ static inline int is_drm_node(enum s5p_mfc_node_type node)
 #elif defined(CONFIG_EXYNOS_MFC_V8)
 #include "regs-mfc-v8.h"
 #include "s5p_mfc_opr_v8.h"
+#elif defined(CONFIG_EXYNOS_MFC_V9)
+#include "regs-mfc-v9.h"
+#include "s5p_mfc_opr_v9.h"
 #endif
 
 #endif /* S5P_MFC_COMMON_H_ */

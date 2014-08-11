@@ -254,7 +254,7 @@ static int s5p_mfc_reset(struct s5p_mfc_dev *dev)
 		if (IS_MFCv6X(dev))
 			if (s5p_mfc_bus_reset(dev))
 				return -EIO;
-		if (!IS_MFCv8X(dev))
+		if (!IS_MFCV8(dev))
 			s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC_ON);
 		s5p_mfc_write_reg(dev, 0x1FFF, S5P_FIMV_MFC_RESET);
 		s5p_mfc_write_reg(dev, 0, S5P_FIMV_MFC_RESET);
@@ -490,7 +490,7 @@ void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev)
 		return;
 	}
 
-	if (!IS_MFCv7X(dev) && !IS_MFCv8X(dev)) {
+	if (!IS_MFCv7X(dev) && !IS_MFCV8(dev)) {
 		s5p_mfc_clock_on(dev);
 		s5p_mfc_reset(dev);
 		s5p_mfc_clock_off(dev);
