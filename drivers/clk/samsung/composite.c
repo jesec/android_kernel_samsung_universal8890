@@ -881,7 +881,7 @@ void __init samsung_register_gate(struct samsung_gate *list,
 
 		/* Make list for gate clk to used by samsung_clk_get_by_reg */
 		if (!gate_list_fail)
-			samsung_add_clk_gate_list(clk, (unsigned long)(list->reg), list->bit, list->name);
+			samsung_add_clk_gate_list(clk, (unsigned long)(list[cnt].reg), list[cnt].bit, list[cnt].name);
 	}
 
 	/*
