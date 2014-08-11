@@ -50,8 +50,13 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	unsigned long max = (df->max_freq) ? df->max_freq : UINT_MAX;
 	unsigned long pm_qos_min = 0;
 
-	if (data)
+	if (data) {
 		pm_qos_min = pm_qos_request(data->pm_qos_class);
+		if (data && pm_qos_min >= data->cal_qos_max) {
+			*freq = pm_qos_min;
+			return 0;
+		}
+	}
 
 	if (err)
 		return err;
@@ -108,7 +113,7 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	/* Keep the current frequency */
 	if (stat.busy_time * 100 >
 	    stat.total_time * (dfso_upthreshold - dfso_downdifferential)) {
-		*freq = stat.current_frequency;
+		*freq = max(stat.current_frequency, pm_qos_min);;
 		return 0;
 	}
 
