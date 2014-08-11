@@ -1663,7 +1663,7 @@ static int s3c64xx_spi_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int s3c64xx_spi_suspend(struct device *dev)
+static int s3c64xx_spi_suspend_operation(struct device *dev)
 {
 	struct spi_master *master = dev_get_drvdata(dev);
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
@@ -1690,7 +1690,7 @@ static int s3c64xx_spi_suspend(struct device *dev)
 	return 0;
 }
 
-static int s3c64xx_spi_resume(struct device *dev)
+static int s3c64xx_spi_resume_operation(struct device *dev)
 {
 	struct spi_master *master = dev_get_drvdata(dev);
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
@@ -1722,6 +1722,62 @@ static int s3c64xx_spi_resume(struct device *dev)
 		dev_dbg(dev, "resumed\n");
 
 	return ret;
+}
+
+static int s3c64xx_spi_suspend(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
+	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
+
+	if (sci->dma_mode != DMA_MODE)
+		return 0;
+
+	dev_dbg(dev, "spi suspend is handled in device suspend, dma mode = %d\n",
+			sci->dma_mode);
+	return s3c64xx_spi_suspend_operation(dev);
+}
+
+static int s3c64xx_spi_suspend_noirq(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
+	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
+
+	if (sci->dma_mode == DMA_MODE)
+		return 0;
+
+	dev_dbg(dev, "spi suspend is handled in suspend_noirq, dma mode = %d\n",
+			sci->dma_mode);
+	return s3c64xx_spi_suspend_operation(dev);
+}
+
+static int s3c64xx_spi_resume(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
+	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
+
+	if (sci->dma_mode != DMA_MODE)
+		return 0;
+
+	dev_dbg(dev, "spi resume is handled in device resume, dma mode = %d\n",
+			sci->dma_mode);
+	return s3c64xx_spi_resume_operation(dev);
+}
+
+static int s3c64xx_spi_resume_noirq(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(master);
+	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
+
+	if (sci->dma_mode == DMA_MODE)
+		return 0;
+
+	dev_dbg(dev, "spi resume is handled in resume_noirq, dma mode = %d\n",
+			sci->dma_mode);
+	return s3c64xx_spi_resume_operation(dev);
 }
 #else
 static int s3c64xx_spi_suspend(struct device *dev)
@@ -1807,6 +1863,8 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 static const struct dev_pm_ops s3c64xx_spi_pm = {
 	.suspend = s3c64xx_spi_suspend,
 	.resume = s3c64xx_spi_resume,
+	.suspend_noirq = s3c64xx_spi_suspend_noirq,
+	.resume_noirq = s3c64xx_spi_resume_noirq,
 	SET_RUNTIME_PM_OPS(s3c64xx_spi_runtime_suspend,
 			   s3c64xx_spi_runtime_resume, NULL)
 };
