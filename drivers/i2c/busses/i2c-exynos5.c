@@ -206,6 +206,7 @@ struct exynos5_i2c {
 	int			operation_mode;
 	int			bus_id;
 	int			check_transdone_int;
+	int			scl_clk_stretch;
 	unsigned int		transfer_delay;
 };
 
@@ -699,16 +700,20 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 					ret = i2c->trans_done;
 					exynos5_i2c_reset(i2c);
 				} else {
-					int timeout = 100;
-					u32 val;
+					if (i2c->scl_clk_stretch) {
+						unsigned long timeout = jiffies + msecs_to_jiffies(100);
 
-					do {
-						val = readl(i2c->regs + HSI2C_TRANS_STATUS);
-						udelay(10);
-					} while((val & HSI2C_MAST_ST_MASK) && timeout--);
+						do {
+							if (!(readl(i2c->regs + HSI2C_TRANS_STATUS) &
+												HSI2C_MAST_ST_MASK)) {
+								timeout = 0;
+								break;
+							}
+						} while(time_before(jiffies, timeout));
 
-					if (!timeout)
-						dev_err(i2c->dev, "SDA check timeout!!!\n");
+						if (timeout)
+							dev_err(i2c->dev, "SDA check timeout!!!\n");
+					}
 
 					ret = 0;
 				}
@@ -873,6 +878,11 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		i2c->check_transdone_int = 1;
 	else
 		i2c->check_transdone_int = 0;
+
+	if (of_get_property(np, "samsung,scl-clk-stretching", NULL))
+		i2c->scl_clk_stretch = 1;
+	else
+		i2c->scl_clk_stretch = 0;
 
 	ret = of_property_read_u32(np, "samsung,transfer_delay", &i2c->transfer_delay);
 	if (!ret)
