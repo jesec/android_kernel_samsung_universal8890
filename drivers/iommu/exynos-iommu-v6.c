@@ -18,6 +18,7 @@
 #include <linux/sched.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/delay.h>
 
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
@@ -1820,13 +1821,6 @@ static int lv1ent_check_page(struct exynos_iommu_domain *priv,
 	if (lv1ent_page(sent)) {
 		if (WARN_ON(*pgcnt != NUM_LV2ENTRIES))
 			return -EADDRINUSE;
-
-		kmem_cache_free(lv2table_kmem_cache, page_entry(sent, 0));
-
-		*pgcnt = 0;
-
-		SYSMMU_EVENT_LOG_IOMMU_FREESLPD(IOMMU_PRIV_TO_LOG(priv),
-				iova_from_sent(priv->pgtable, sent));
 	}
 
 	return 0;
@@ -1990,54 +1984,54 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 {
 	struct exynos_iommu_domain *priv = domain->priv;
 	size_t err_pgsize;
-	sysmmu_pte_t *ent;
+	sysmmu_pte_t *sent, *pent;
 	unsigned long flags;
 
 	BUG_ON(priv->pgtable == NULL);
 
 	spin_lock_irqsave(&priv->pgtablelock, flags);
 
-	ent = section_entry(priv->pgtable, iova);
+	sent = section_entry(priv->pgtable, iova);
 
-	if (lv1ent_spsection(ent)) {
+	if (lv1ent_spsection(sent)) {
 		if (WARN_ON(size < SPSECT_SIZE)) {
 			err_pgsize = SPSECT_SIZE;
 			goto err;
 		}
 
-		clear_lv1_page_table(ent, SECT_PER_SPSECT);
+		clear_lv1_page_table(sent, SECT_PER_SPSECT);
 
-		pgtable_flush(ent, ent + SECT_PER_SPSECT);
+		pgtable_flush(sent, sent + SECT_PER_SPSECT);
 		size = SPSECT_SIZE;
 		goto done;
 	}
 
-	if (lv1ent_dsection(ent)) {
+	if (lv1ent_dsection(sent)) {
 		if (WARN_ON(size < DSECT_SIZE)) {
 			err_pgsize = DSECT_SIZE;
 			goto err;
 		}
 
-		*ent = 0;
-		*(++ent) = 0;
-		pgtable_flush(ent, ent + 2);
+		*sent = 0;
+		*(++sent) = 0;
+		pgtable_flush(sent, sent + 2);
 		size = DSECT_SIZE;
 		goto done;
 	}
 
-	if (lv1ent_section(ent)) {
+	if (lv1ent_section(sent)) {
 		if (WARN_ON(size < SECT_SIZE)) {
 			err_pgsize = SECT_SIZE;
 			goto err;
 		}
 
-		*ent = 0;
-		pgtable_flush(ent, ent + 1);
+		*sent = 0;
+		pgtable_flush(sent, sent + 1);
 		size = SECT_SIZE;
 		goto done;
 	}
 
-	if (unlikely(lv1ent_fault(ent))) {
+	if (unlikely(lv1ent_fault(sent))) {
 		if (size > SECT_SIZE)
 			size = SECT_SIZE;
 		goto done;
@@ -2045,19 +2039,19 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 
 	/* lv1ent_page(sent) == true here */
 
-	ent = page_entry(ent, iova);
+	pent = page_entry(sent, iova);
 
-	if (unlikely(lv2ent_fault(ent))) {
+	if (unlikely(lv2ent_fault(pent))) {
 		size = SPAGE_SIZE;
 		goto done;
 	}
 
-	if (lv2ent_small(ent)) {
-		*ent = 0;
+	if (lv2ent_small(pent)) {
+		*pent = 0;
 		size = SPAGE_SIZE;
-		pgtable_flush(ent, ent + 1);
+		pgtable_flush(pent, pent + 1);
 		priv->lv2entcnt[lv1ent_offset(iova)] += 1;
-		goto done;
+		goto unmap_flpd;
 	}
 
 	/* lv1ent_large(ent) == true here */
@@ -2066,11 +2060,30 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 		goto err;
 	}
 
-	clear_lv2_page_table(ent, SPAGES_PER_LPAGE);
-	pgtable_flush(ent, ent + SPAGES_PER_LPAGE);
-
+	clear_lv2_page_table(pent, SPAGES_PER_LPAGE);
+	pgtable_flush(pent, pent + SPAGES_PER_LPAGE);
 	size = LPAGE_SIZE;
 	priv->lv2entcnt[lv1ent_offset(iova)] += SPAGES_PER_LPAGE;
+
+unmap_flpd:
+	if (priv->lv2entcnt[lv1ent_offset(iova)] == NUM_LV2ENTRIES) {
+		struct exynos_iommu_owner *owner;
+
+		kmem_cache_free(lv2table_kmem_cache, page_entry(sent, 0));
+		priv->lv2entcnt[lv1ent_offset(iova)] = 0;
+		*sent = 0;
+
+		SYSMMU_EVENT_LOG_IOMMU_FREESLPD(IOMMU_PRIV_TO_LOG(priv),
+				iova_from_sent(priv->pgtable, sent));
+
+		spin_lock(&priv->lock);
+		list_for_each_entry(owner, &priv->clients, client)
+			sysmmu_tlb_invalidate_flpdcache(owner->dev, iova);
+		spin_unlock(&priv->lock);
+
+		/* 60us is required to guarantee that PTW ends itself */
+		udelay(60);
+	}
 done:
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
