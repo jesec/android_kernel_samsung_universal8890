@@ -1439,7 +1439,7 @@ static struct platform_device * __init __sysmmu_init_owner(struct device *sysmmu
 
 	of_node_put(master_node);
 
-	return 0;
+	return master;
 }
 
 static int __init __sysmmu_init_master_info(struct device *sysmmu,
