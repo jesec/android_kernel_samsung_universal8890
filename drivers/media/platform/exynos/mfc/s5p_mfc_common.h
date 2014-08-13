@@ -979,6 +979,10 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x121214))
 #define FW_HAS_ADV_RC_MODE(dev)		(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130329))
+#define FW_HAS_I_LIMIT_RC_MODE(dev)	((IS_MFCv7X(dev) &&		\
+					(dev->fw.date >= 0x140801)) ||	\
+					(IS_MFCv8X(dev) &&		\
+					(dev->fw.date >= 0x140808)))
 #define FW_HAS_POC_TYPE_CTRL(dev)	(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130405))
 #define FW_HAS_DYNAMIC_DPB(dev)		((IS_MFCv7X(dev) || IS_MFCv8X(dev))&&	\

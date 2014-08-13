@@ -1445,7 +1445,10 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 
 	if (p->rc_frame) {
 		if (FW_HAS_ADV_RC_MODE(dev)) {
-			if (p->rc_reaction_coeff <= TIGHT_CBR_MAX)
+			if (FW_HAS_I_LIMIT_RC_MODE(dev) &&
+				p->rc_reaction_coeff <= I_LIMIT_CBR_MAX)
+				reg = S5P_FIMV_ENC_ADV_I_LIMIT_CBR;
+			else if (p->rc_reaction_coeff <= TIGHT_CBR_MAX)
 				reg = S5P_FIMV_ENC_ADV_TIGHT_CBR;
 			else
 				reg = S5P_FIMV_ENC_ADV_CAM_CBR;

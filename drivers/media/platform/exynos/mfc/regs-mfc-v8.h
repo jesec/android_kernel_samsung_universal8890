@@ -373,6 +373,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_ENC_ADV_TIGHT_CBR		0
 #define S5P_FIMV_ENC_ADV_LOOSE_CBR		1
 #define S5P_FIMV_ENC_ADV_CAM_CBR		2
+#define S5P_FIMV_ENC_ADV_I_LIMIT_CBR		3
 
 #define S5P_FIMV_E_MB_RC_CONFIG			0xF7A8
 #define S5P_FIMV_E_PADDING_CTRL			0xF7AC
