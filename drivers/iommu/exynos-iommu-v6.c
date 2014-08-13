@@ -542,6 +542,9 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 			pr_crit("PB[%d][%d] = CFG: %#010x, AXI ID: %#010x, ", i,
 				j, __raw_readl(sfrbase + REG_PB_CFG),
 				__raw_readl(sfrbase + REG_PB_AXI_ID));
+			pr_crit("PB[%d][%d] START: %#010x, END: %#010x\n", i, j,
+				__raw_readl(sfrbase + REG_PB_START_ADDR),
+				__raw_readl(sfrbase + REG_PB_END_ADDR));
 			pr_crit("SPB0 START: %#010x, END: %#010x, VALID: %#010x\n",
 				__raw_readl(sfrbase + REG_PCI_SPB0_SVPN),
 				__raw_readl(sfrbase + REG_PCI_SPB0_EVPN),
