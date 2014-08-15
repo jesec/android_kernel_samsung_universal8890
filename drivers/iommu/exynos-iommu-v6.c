@@ -2181,7 +2181,15 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	 * The caller must check the range of address space before calling this.
 	 */
 	vma = find_vma(mm, vaddr);
-	if (!vma || (vma->vm_end < (vaddr + size))) {
+	if (!vma) {
+		pr_err("%s: vma is null\n", __func__);
+		up_read(&mm->mmap_sem);
+		return -EINVAL;
+	}
+
+	if (vma->vm_end < (vaddr + size)) {
+		pr_err("%s: vma overflow: %#lx--%#lx, vaddr: %#lx, size: %zd\n",
+			__func__, vma->vm_start, vma->vm_end, vaddr, size);
 		up_read(&mm->mmap_sem);
 		return -EINVAL;
 	}
@@ -2282,7 +2290,15 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 	 * The caller must check the range of address space before calling this.
 	 */
 	vma = find_vma(mm, vaddr);
-	if (!vma || (vma->vm_end < (vaddr + size))) {
+	if (!vma) {
+		pr_err("%s: vma is null\n", __func__);
+		up_read(&mm->mmap_sem);
+		return -EINVAL;
+	}
+
+	if (vma->vm_end < (vaddr + size)) {
+		pr_err("%s: vma overflow: %#lx--%#lx, vaddr: %#lx, size: %zd\n",
+			__func__, vma->vm_start, vma->vm_end, vaddr, size);
 		up_read(&mm->mmap_sem);
 		return -EINVAL;
 	}
