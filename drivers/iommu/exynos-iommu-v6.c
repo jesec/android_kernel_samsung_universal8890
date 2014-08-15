@@ -2365,14 +2365,14 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 					}
 				}
 
-				if (lv2ent_fault(pent)) {
-					if (!is_pfnmap)
-						get_page(pte_page(*pte));
-					*pent = mk_lv2ent_spage(__pfn_to_phys(
-								pte_pfn(*pte)));
-					if (shareable)
-						set_lv2ent_shareable(pent);
-				}
+				WARN_ON(!lv2ent_fault(pent));
+
+				if (!is_pfnmap)
+					get_page(pte_page(*pte));
+				*pent = mk_lv2ent_spage(__pfn_to_phys(
+							pte_pfn(*pte)));
+				if (shareable)
+					set_lv2ent_shareable(pent);
 
 				if (lv2ent_offset(iova) == (NUM_LV2ENTRIES - 1)) {
 					pgtable_flush(pent_first, pent);
