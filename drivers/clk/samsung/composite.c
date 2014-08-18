@@ -676,6 +676,7 @@ static long samsung_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *prate)
 {
 	int div = 1;
+
 	div = samsung_divider_bestdiv(hw, rate, prate);
 	if (div == 0) {
 		pr_err("%s: divider value should not be %d\n", __func__, div);
@@ -711,7 +712,7 @@ static int samsung_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 		do {
 			--timeout;
 			if (!timeout) {
-				pr_err("%s: faild to set rate %s\n",
+				pr_err("%s: faild to set rate %s.\n",
 						__func__, hw->clk->name);
 				pr_err("DIV_REG: %08x, MUX_STAT_REG: %08x\n",
 						readl(divider->rate_reg), readl(divider->stat_reg));
