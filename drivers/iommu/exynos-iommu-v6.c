@@ -292,9 +292,10 @@ static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata, int target_grp,
 					prefbuf[i].config | 1, prefbuf[i].base,
 					prefbuf[i].size - 1 + prefbuf[i].base);
 		} else {
-			dev_err(drvdata->sysmmu,
-				"%s: Trying to init PB[%d/%d]with zero-size\n",
-				__func__, i, num_bufs);
+			if (i < num_bufs)
+				dev_err(drvdata->sysmmu,
+					"%s: Trying to init PB[%d/%d]with zero-size\n",
+					__func__, i, num_bufs);
 			SYSMMU_EVENT_LOG_PBSET(SYSMMU_DRVDATA_TO_LOG(drvdata),
 						0, 0, 0);
 		}
@@ -351,11 +352,12 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 }
 
 static void __exynos_sysmmu_set_prefbuf_by_region(
-			struct sysmmu_drvdata *drvdata, struct pb_info *pb,
+			struct sysmmu_drvdata *drvdata, struct device *dev,
 			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg)
 {
+	struct pb_info *pb;
 	unsigned int i;
-	int num_bufs = 0;
+	int orig_num_reg, num_bufs = 0;
 	struct sysmmu_prefbuf prefbuf[6];
 
 	if (!has_sysmmu_capable_pbuf(drvdata->sfrbase))
@@ -367,15 +369,29 @@ static void __exynos_sysmmu_set_prefbuf_by_region(
 		return;
 	}
 
-	for (i = 0; i < num_reg; i++) {
-		if (((pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
-					(pb->prop & SYSMMU_PROP_WRITE)) ||
-			(!(pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
-				 (pb->prop & SYSMMU_PROP_READ)))
-			prefbuf[num_bufs++] = pb_reg[i];
-	}
+	orig_num_reg = num_reg;
 
-	__sysmmu_set_pbuf(drvdata, pb->grp_num, prefbuf, num_bufs);
+	list_for_each_entry(pb, &drvdata->pb_grp_list, node) {
+		if (pb->master == dev) {
+			for (i = 0; i < orig_num_reg; i++) {
+				if (((pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
+						(pb->prop & SYSMMU_PROP_WRITE)) ||
+					(!(pb_reg[i].config & SYSMMU_PBUFCFG_WRITE) &&
+						 (pb->prop & SYSMMU_PROP_READ))) {
+					if (num_reg > 0)
+						num_reg--;
+					else if (num_reg == 0)
+						break;
+
+					prefbuf[num_bufs++] = pb_reg[i];
+				}
+			}
+			if (num_bufs)
+				__sysmmu_set_pbuf(drvdata, pb->grp_num, prefbuf,
+						num_bufs);
+			num_bufs = 0;
+		}
+	}
 }
 
 static void __exynos_sysmmu_set_prefbuf_axi_id(struct sysmmu_drvdata *drvdata,
@@ -1048,12 +1064,8 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 		__master_clk_enable(drvdata);
 
 		if (sysmmu_block(drvdata->sfrbase)) {
-			struct pb_info *pb;
-			list_for_each_entry(pb, &drvdata->pb_grp_list, node) {
-				if (pb->master == dev)
-					__exynos_sysmmu_set_prefbuf_by_region(
-						drvdata, pb, pb_reg, num_reg);
-			}
+			__exynos_sysmmu_set_prefbuf_by_region(
+					drvdata, dev, pb_reg, num_reg);
 			sysmmu_unblock(drvdata->sfrbase);
 		}
 
