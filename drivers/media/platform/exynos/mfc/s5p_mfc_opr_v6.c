@@ -974,7 +974,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dec *dec;
 	unsigned int i, frame_size_mv;
 	size_t buf_addr1;
-	size_t buf_size1;
+	long buf_size1;
 	int align_gap;
 	struct s5p_mfc_buf *buf;
 	struct s5p_mfc_raw_info *raw, *tiled_ref;
@@ -1003,7 +1003,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 = ctx->port_a_phys;
 	buf_size1 = ctx->port_a_size;
 
-	mfc_debug(2, "Buf1: %p (%zu)\n", (void *)buf_addr1, buf_size1);
+	mfc_debug(2, "Buf1: %p (%ld)\n", (void *)buf_addr1, buf_size1);
 	mfc_debug(2, "Total DPB COUNT: %d\n", dec->total_dpb_count);
 	mfc_debug(2, "Setting display delay to %d\n", dec->display_delay);
 
@@ -1147,14 +1147,14 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			align_gap = buf_addr1 - align_gap;
 			buf_size1 -= align_gap;
 
-			mfc_debug(2, "\tBuf1: %zu, size: %zu\n", buf_addr1, buf_size1);
+			mfc_debug(2, "\tBuf1: %zu, size: %ld\n", buf_addr1, buf_size1);
 			WRITEL(buf_addr1, S5P_FIMV_D_MV_BUFFER + i * 4);
 			buf_addr1 += frame_size_mv;
 			buf_size1 -= frame_size_mv;
 		}
 	}
 
-	mfc_debug(2, "Buf1: %zu, buf_size1: %zu (frames %d)\n",
+	mfc_debug(2, "Buf1: %zu, buf_size1: %ld (frames %d)\n",
 			buf_addr1, buf_size1, dec->total_dpb_count);
 	if (buf_size1 < 0) {
 		mfc_debug(2, "Not enough memory has been allocated.\n");
@@ -1226,7 +1226,7 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	size_t buf_addr1;
-	size_t buf_size1;
+	long buf_size1;
 	int i;
 
 	mfc_debug_enter();
@@ -1234,7 +1234,7 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 = ctx->port_a_phys;
 	buf_size1 = ctx->port_a_size;
 
-	mfc_debug(2, "Buf1: %p (%zu)\n", (void *)buf_addr1, buf_size1);
+	mfc_debug(2, "Buf1: %p (%ld)\n", (void *)buf_addr1, buf_size1);
 
 	for (i = 0; i < ctx->dpb_count; i++) {
 		WRITEL(buf_addr1, S5P_FIMV_E_LUMA_DPB + (4 * i));
@@ -1258,7 +1258,7 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 += enc->tmv_buffer_size >> 1;
 	buf_size1 -= enc->tmv_buffer_size;
 
-	mfc_debug(2, "Buf1: %zu, buf_size1: %zu (ref frames %d)\n",
+	mfc_debug(2, "Buf1: %zu, buf_size1: %ld (ref frames %d)\n",
 			buf_addr1, buf_size1, ctx->dpb_count);
 	if (buf_size1 < 0) {
 		mfc_debug(2, "Not enough memory has been allocated.\n");

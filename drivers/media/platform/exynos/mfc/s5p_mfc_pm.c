@@ -303,10 +303,8 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	if (dev->curr_ctx_drm && dev->is_support_smc) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
 		mfc_debug(3, "Begin: enable protection\n");
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 		ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					dev->id, SMC_PROTECTION_ENABLE);
-#endif
 		if (!ret) {
 			printk("Protection Enable failed! ret(%u)\n", ret);
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
@@ -387,10 +385,8 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 			mfc_debug(3, "Begin: disable protection\n");
 			spin_lock_irqsave(&dev->pm.clklock, flags);
 			dev->pm.clock_off_steps = 6;
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 			ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					dev->id, SMC_PROTECTION_DISABLE);
-#endif
 			if (!ret) {
 				printk("Protection Disable failed! ret(%u)\n", ret);
 				spin_unlock_irqrestore(&dev->pm.clklock, flags);
