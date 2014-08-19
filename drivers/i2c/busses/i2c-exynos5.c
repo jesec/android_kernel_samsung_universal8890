@@ -760,8 +760,11 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	if (i2c->need_hw_init)
 		exynos5_i2c_reset(i2c);
 
-	exynos5_hsi2c_clock_setup(i2c);
-	exynos5_i2c_init(i2c);
+	if (unlikely(!(readl(i2c->regs + HSI2C_AUTO_CONF)
+			& HSI2C_AUTO_MODE))) {
+		exynos5_hsi2c_clock_setup(i2c);
+		exynos5_i2c_init(i2c);
+	}
 
 	for (retry = 0; retry < adap->retries; retry++) {
 		for (i = 0; i < num; i++) {
