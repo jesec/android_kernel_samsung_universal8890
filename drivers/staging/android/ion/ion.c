@@ -426,9 +426,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 			for (j = 0; j < sg->length / PAGE_SIZE; j++)
 				buffer->pages[k++] = page++;
 		}
-
-		if (ret)
-			goto err;
 	}
 
 	buffer->dev = dev;
@@ -451,12 +448,9 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	mutex_unlock(&dev->buffer_lock);
 	return buffer;
 
-err:
+err1:
 	heap->ops->unmap_dma(heap, buffer);
 	heap->ops->free(buffer);
-err1:
-	if (buffer->pages)
-		vfree(buffer->pages);
 err2:
 	kfree(buffer);
 	return ERR_PTR(ret);
