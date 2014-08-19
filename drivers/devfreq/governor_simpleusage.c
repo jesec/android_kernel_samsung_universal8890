@@ -90,11 +90,6 @@ static int devfreq_simple_usage_func(struct devfreq *df, unsigned long *freq)
 	if (pm_qos_min && *freq < pm_qos_min)
 		*freq = pm_qos_min;
 
-	if (df->min_freq && *freq < df->min_freq)
-		*freq = df->min_freq;
-	if (df->max_freq && *freq > df->max_freq)
-		*freq = df->max_freq;
-
 	return 0;
 }
 

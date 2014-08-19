@@ -115,11 +115,6 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 	if (pm_qos_min)
 		*freq = max(pm_qos_min, *freq);
 
-	if (df->min_freq && *freq < df->min_freq)
-		*freq = df->min_freq;
-	if (df->max_freq && *freq > df->max_freq)
-		*freq = df->max_freq;
-
 	if (unlikely(gov_simple_exynos))
 		printk("Usage: %lu, freq: %lu, old: %lu\n", usage_rate, *freq, stat.current_frequency);
 
