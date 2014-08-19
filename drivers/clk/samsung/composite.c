@@ -279,9 +279,9 @@ static void samsung_composite_pll_disable(struct clk_hw *hw)
 	/* Setting Register */
 	reg = readl(pll->enable_reg);
 	if (set)
-		reg |= (1 << pll->enable_bit);
-	else
 		reg &= ~(1 << pll->enable_bit);
+	else
+		reg |= (1 << pll->enable_bit);
 
 	writel(reg, pll->enable_reg);
 }
@@ -345,6 +345,8 @@ static int samsung_pll145xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	pll_con |= (rate->mdiv << PLL145XX_MDIV_SHIFT) |
 			(rate->pdiv << PLL145XX_PDIV_SHIFT) |
 			(rate->sdiv << PLL145XX_SDIV_SHIFT);
+	/* Enable PLL */
+	pll_con |= BIT(31);
 	writel(pll_con, pll->con_reg);
 
 	do {
@@ -417,17 +419,19 @@ static int samsung_pll1460x_set_rate(struct clk_hw *hw, unsigned long drate,
 		writel(rate->pdiv * PLL1460X_LOCK_FACTOR, pll->lock_reg);
 	else
 		writel(rate->pdiv * PLL145XX_LOCK_FACTOR, pll->lock_reg);
+
+	pll_con1 &= ~(PLL1460X_KDIV_MASK << PLL1460X_KDIV_SHIFT);
+	pll_con1 |= (rate->kdiv << PLL1460X_KDIV_SHIFT);
+	writel(pll_con1, pll->con_reg + 4);
+
 	pll_con0 &= ~((PLL1460X_MDIV_MASK << PLL1460X_MDIV_SHIFT) |
 			(PLL1460X_PDIV_MASK << PLL1460X_PDIV_SHIFT) |
 			(PLL1460X_SDIV_MASK << PLL1460X_SDIV_SHIFT));
 	pll_con0 |= (rate->mdiv << PLL1460X_MDIV_SHIFT) |
 			(rate->pdiv << PLL1460X_PDIV_SHIFT) |
 			(rate->sdiv << PLL1460X_SDIV_SHIFT);
+	pll_con0 |= BIT(31);
 	writel(pll_con0, pll->con_reg);
-
-	pll_con1 &= ~(PLL1460X_KDIV_MASK << PLL1460X_KDIV_SHIFT);
-	pll_con1 |= (rate->kdiv << PLL1460X_KDIV_SHIFT);
-	writel(pll_con1, pll->con_reg + 4);
 
 	/* Wait lock time */
 	do {
@@ -476,34 +480,37 @@ static void _samsung_register_comp_pll(struct samsung_composite_pll *list)
 		clk = clk_register_composite(NULL, list->name, pname, 1,
 				NULL, NULL,
 				&list->hw, &samsung_pll145xx_clk_ops,
-				&list->hw, &samsung_pll145xx_clk_ops, list->pll_flag);
+				&list->hw, &samsung_pll145xx_clk_ops, list->flag);
 	else if (list->type == pll_1451x || list->type == pll_1452x)
 		clk = clk_register_composite(NULL, list->name, pname, 1,
 				NULL, NULL,
 				&list->hw, &samsung_pll145xx_clk_ops,
-				&list->hw, &samsung_pll145xx_clk_ops, list->pll_flag);
+				&list->hw, &samsung_pll145xx_clk_ops, list->flag);
 	else if (list->type == pll_1460x)
 		clk = clk_register_composite(NULL, list->name, pname, 1,
 				NULL, NULL,
 				&list->hw, &samsung_pll1460x_clk_ops,
-				&list->hw, &samsung_pll1460x_clk_ops, list->pll_flag);
+				&list->hw, &samsung_pll1460x_clk_ops, list->flag);
 	else {
 		pr_err("%s: invalid pll type %d\n", __func__, list->type);
 		return;
 	}
 
-	if (IS_ERR(clk))
+	if (IS_ERR(clk)) {
 		pr_err("%s: failed to register pll clock %s\n",
 				__func__, list->name);
+		return;
+	}
 
 	samsung_clk_add_lookup(clk, list->id);
 
 	/* register a clock lookup only if a clock alias is specified */
-	if (list->alias)
+	if (list->alias) {
 		ret = clk_register_clkdev(clk, list->alias, NULL);
 		if (ret)
 			pr_err("%s: failed to register lookup %s\n",
 					__func__, list->alias);
+	}
 }
 
 void samsung_register_comp_pll(struct samsung_composite_pll *list,
@@ -582,18 +589,21 @@ static void _samsung_register_comp_mux(struct samsung_composite_mux *list)
 			NULL, NULL,
 			NULL, NULL, list->flag);
 
-	if (IS_ERR(clk))
+	if (IS_ERR(clk)) {
 		pr_err("%s: failed to register mux clock %s\n",
 				__func__, list->name);
+		return;
+	}
 
 	samsung_clk_add_lookup(clk, list->id);
 
 	/* register a clock lookup only if a clock alias is specified */
-	if (list->alias)
+	if (list->alias) {
 		ret = clk_register_clkdev(clk, list->alias, NULL);
 		if (ret)
 			pr_err("%s: failed to register lookup %s\n",
 					__func__, list->alias);
+	}
 }
 
 void samsung_register_comp_mux(struct samsung_composite_mux *list,
@@ -665,8 +675,12 @@ static int samsung_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 static long samsung_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *prate)
 {
-	int div;
+	int div = 1;
 	div = samsung_divider_bestdiv(hw, rate, prate);
+	if (div == 0) {
+		pr_err("%s: divider value should not be %d\n", __func__, div);
+		div = 1;
+	}
 
 	return *prate / div;
 }
@@ -697,7 +711,7 @@ static int samsung_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 		do {
 			--timeout;
 			if (!timeout) {
-				pr_err("%s: faild to set rate %s. \n",
+				pr_err("%s: faild to set rate %s\n",
 						__func__, hw->clk->name);
 				pr_err("DIV_REG: %08x, MUX_STAT_REG: %08x\n",
 						readl(divider->rate_reg), readl(divider->stat_reg));
@@ -734,18 +748,21 @@ static void _samsung_register_comp_divider(struct samsung_composite_divider *lis
 			&list->hw, &samsung_composite_divider_ops,
 			NULL, NULL, list->flag);
 
-	if (IS_ERR(clk))
+	if (IS_ERR(clk)) {
 		pr_err("%s: failed to register mux clock %s\n",
 				__func__, list->name);
+		return;
+	}
 
 	samsung_clk_add_lookup(clk, list->id);
 
 	/* register a clock lookup only if a clock alias is specified */
-	if (list->alias)
+	if (list->alias) {
 		ret = clk_register_clkdev(clk, list->alias, NULL);
 		if (ret)
 			pr_err("%s: failed to register lookup %s\n",
 					__func__, list->alias);
+	}
 }
 
 void  samsung_register_comp_divider(struct samsung_composite_divider *list,
@@ -764,7 +781,7 @@ struct dummy_gate_clk {
 };
 
 static struct dummy_gate_clk **gate_clk_list;
-static unsigned int gate_clk_nr = 0;
+static unsigned int gate_clk_nr;
 
 int samsung_add_clk_gate_list(struct clk *clk, unsigned long offset, u8 bit_idx, const char *name)
 {
@@ -773,7 +790,7 @@ int samsung_add_clk_gate_list(struct clk *clk, unsigned long offset, u8 bit_idx,
 	if (!clk || !offset)
 		return -EINVAL;
 
-	tmp_clk = kzalloc(sizeof(struct dummy_gate_clk *), GFP_KERNEL);
+	tmp_clk = kzalloc(sizeof(struct dummy_gate_clk), GFP_KERNEL);
 	if (!tmp_clk) {
 		pr_err("%s: fail to alloc for gate_clk\n", __func__);
 		return -ENOMEM;
@@ -794,7 +811,7 @@ struct clk *samsung_clk_get_by_reg(unsigned long offset, u8 bit_idx)
 {
 	unsigned int i;
 
-	for(i = 0; i < gate_clk_nr; i++) {
+	for (i = 0; i < gate_clk_nr; i++) {
 		if (gate_clk_list[i]->offset == offset) {
 			if (gate_clk_list[i]->bit_idx == bit_idx)
 				return gate_clk_list[i]->clk;
@@ -942,7 +959,7 @@ static void samsung_usermux_disable(struct clk_hw *hw)
 		do {
 			--timeout;
 			if (!timeout) {
-				pr_err("%s: failed to enable clock %s.\n",
+				pr_err("%s: failed to disable clock %s.\n",
 						__func__, hw->clk->name);
 				if (usermux->lock)
 					spin_unlock_irqrestore(usermux->lock, flags);
@@ -1006,9 +1023,11 @@ void __init samsung_register_usermux(struct samsung_usermux *list,
 
 	for (cnt = 0; cnt < nr_usermux; cnt++) {
 		clk = _samsung_register_comp_usermux(&list[cnt]);
-		if (IS_ERR(clk))
+		if (IS_ERR(clk)) {
 			pr_err("%s: failed to register clock %s\n", __func__,
 					(&list[cnt])->name);
+			return;
+		}
 
 		samsung_clk_add_lookup(clk, (&list[cnt])->id);
 

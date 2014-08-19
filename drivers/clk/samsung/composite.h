@@ -122,7 +122,7 @@ enum pll_type {
 };
 
 struct samsung_pll_rate_table {
-	unsigned int rate;
+	long rate;
 	unsigned int pdiv;
 	unsigned int mdiv;
 	unsigned int sdiv;
@@ -162,11 +162,12 @@ struct samsung_composite_pll {
 	unsigned int 				stat_bit;
 	const struct samsung_pll_rate_table	*rate_table;
 	unsigned int 				rate_count;
-	u8					pll_flag;
+	unsigned int				pll_flag;
+	u8					flag;
 	const char				*alias;
 };
 
-#define PLL(_id, cname, _type, lock, con, en, enbit, sel, selbit, stat, statbit, rtable, flag, a)	\
+#define PLL(_id, cname, _type, lock, con, en, enbit, sel, selbit, stat, statbit, rtable, pf, f, a)	\
 	{											\
 		.id		= _id,								\
 		.name		= cname,							\
@@ -181,7 +182,8 @@ struct samsung_composite_pll {
 		.stat_bit	= statbit,							\
 		.rate_table	= rtable,							\
 		.rate_count	= 0,								\
-		.pll_flag	= flag,								\
+		.pll_flag	= pf,								\
+		.flag		= f,								\
 		.alias		= a,								\
 	}
 
@@ -281,7 +283,7 @@ struct samsung_composite_divider {
 		.stat_reg	= stat,							\
 		.stat_bit	= statbit,						\
 		.stat_width	= statwid,						\
-		.flag	= f,								\
+		.flag		= f,							\
 		.alias		= a,							\
 	}
 
@@ -306,7 +308,7 @@ struct samsung_gate {
 	const char			*parent_name;
 	void __iomem			*reg;
 	u8				bit;
-	unsigned long			flag;
+	unsigned int			flag;
 	const char			*alias;
 };
 
