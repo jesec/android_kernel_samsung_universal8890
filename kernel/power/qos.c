@@ -561,7 +561,8 @@ static void pm_qos_work_fn(struct work_struct *work)
  * removal.
  */
 
-void pm_qos_add_request(struct pm_qos_request *req,
+void pm_qos_add_request_trace(char *func, unsigned int line,
+			struct pm_qos_request *req,
 			int pm_qos_class, s32 value)
 {
 	if (!req) /*guard against callers passing in null */
@@ -572,12 +573,14 @@ void pm_qos_add_request(struct pm_qos_request *req,
 		return;
 	}
 	req->pm_qos_class = pm_qos_class;
+	req->func = func;
+	req->line = line;
 	INIT_DELAYED_WORK(&req->work, pm_qos_work_fn);
 	trace_pm_qos_add_request(pm_qos_class, value);
 	pm_qos_update_target(pm_qos_array[pm_qos_class]->constraints,
 			     &req->node, PM_QOS_ADD_REQ, value);
 }
-EXPORT_SYMBOL_GPL(pm_qos_add_request);
+EXPORT_SYMBOL_GPL(pm_qos_add_request_trace);
 
 /**
  * pm_qos_update_request - modifies an existing qos request
@@ -814,8 +817,10 @@ static void pm_qos_debug_show_one(struct seq_file *s, struct pm_qos_object *qos)
 	seq_printf(s, "   target value: %d\n", qos->constraints->target_value);
 	seq_printf(s, "   requests:\n");
 	plist_for_each(p, &qos->constraints->list)
-		seq_printf(s, "      %pk: %d\n",
+		seq_printf(s, "      %pk(%s:%d): %d\n",
 				container_of(p, struct pm_qos_request, node),
+				(container_of(p, struct pm_qos_request, node))->func,
+				(container_of(p, struct pm_qos_request, node))->line,
 				p->prio);
 
 	spin_unlock_irqrestore(&pm_qos_lock, flags);
