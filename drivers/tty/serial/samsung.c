@@ -1067,8 +1067,8 @@ static int __init s3c24xx_serial_console_init(void)
 	struct clk *console_clk;
 	char pclk_name[16], sclk_name[16];
 
-	sprintf(pclk_name, "console-pclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
-	sprintf(sclk_name, "console-sclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
+	snprintf(pclk_name, sizeof(pclk_name), "console-pclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
+	snprintf(sclk_name, sizeof(sclk_name), "console-sclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
 
 	pr_info("Enable clock for console to add reference counter\n");
 
