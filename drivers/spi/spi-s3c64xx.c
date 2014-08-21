@@ -1847,7 +1847,7 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 			return -EPERM;
 
 		fimc_is_pdev = to_platform_device(fimc_is_dev);
-		exynos_fimc_is_cfg_cam_clk(fimc_is_pdev);
+		exynos_fimc_is_spi_on(fimc_is_pdev);
 
 		clk_prepare_enable(sdd->src_clk);
 		clk_prepare_enable(sdd->clk);
