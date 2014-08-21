@@ -1446,6 +1446,7 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	struct s3c24xx_uart_port *ourport;
 	int index = probe_index;
 	int ret;
+	int port_index = probe_index;
 
 	if (np) {
 		ret = of_alias_get_id(np, "serial");
@@ -1455,7 +1456,16 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 
 	dbg("s3c24xx_serial_probe(%p) %d\n", pdev, index);
 
-	ourport = &s3c24xx_serial_ports[index];
+	if (pdev->dev.of_node) {
+		ret = of_alias_get_id(pdev->dev.of_node, "uart");
+		if (ret < 0) {
+			dev_err(&pdev->dev, "UART aliases are not defined(%d).\n",
+				ret);
+		} else {
+			port_index = ret;
+		}
+	}
+	ourport = &s3c24xx_serial_ports[port_index];
 
 	ourport->drv_data = s3c24xx_get_driver_data(pdev);
 	if (!ourport->drv_data) {
@@ -1469,15 +1479,9 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 			dev_get_platdata(&pdev->dev) :
 			ourport->drv_data->def_cfg;
 
-	if (np)
-		of_property_read_u32(np,
-			"samsung,uart-fifosize", &ourport->port.fifosize);
-
-	if (!ourport->port.fifosize) {
-		ourport->port.fifosize = (ourport->info->fifosize) ?
-			ourport->info->fifosize :
-			ourport->drv_data->fifosize[index];
-	}
+	ourport->port.fifosize = (ourport->info->fifosize) ?
+		ourport->info->fifosize :
+		ourport->drv_data->fifosize[port_index];
 
 	probe_index++;
 
