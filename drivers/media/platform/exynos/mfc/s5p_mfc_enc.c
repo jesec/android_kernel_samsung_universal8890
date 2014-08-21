@@ -1786,7 +1786,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			memcpy(&temporal_LC,
 				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
 
-			if((temporal_LC.temporal_layer_count < 2) ||
+			if((temporal_LC.temporal_layer_count < 1) ||
 				((temporal_LC.temporal_layer_count > 7) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC))) {
 				value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
