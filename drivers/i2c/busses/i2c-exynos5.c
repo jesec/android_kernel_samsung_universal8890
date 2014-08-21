@@ -216,56 +216,39 @@ MODULE_DEVICE_TABLE(of, exynos5_i2c_match);
 
 static inline void dump_i2c_register(struct exynos5_i2c *i2c)
 {
-	dev_err(i2c->dev, "Register dump(suspended : %d)\n"
-		": CTL          0x%08x\n"
-		": FIFO_CTL     0x%08x\n"
-		": TRAILING_CTL 0x%08x\n"
-		": CLK_CTL      0x%08x\n"
-		": CLK_SLOT     0x%08x\n"
-		": INT_EN       0x%08x\n"
-		": INT_STAT     0x%08x\n"
-		": ERR_STAT     0x%08x\n"
-		": FIFO_STAT    0x%08x\n"
-		": TXDATA       0x%08x\n"
-		": RXDATA       0x%08x\n"
-		": CONF         0x%08x\n"
-		": AUTO_CONF    0x%08x\n"
-		": TIMEOUT      0x%08x\n"
-		": MANUAL_CMD   0x%08x\n"
-		": TRANS_STAT   0x%08x\n"
-		": TIMING_HS1   0x%08x\n"
-		": TIMING_HS2   0x%08x\n"
-		": TIMING_HS3   0x%08x\n"
-		": TIMING_FS1   0x%08x\n"
-		": TIMING_FS2   0x%08x\n"
-		": TIMING_FS3   0x%08x\n"
-		": TIMING_SLA   0x%08x\n"
-		": ADDR         0x%08x\n"
-		, i2c->suspended
-		, readl(i2c->regs + HSI2C_CTL)
-		, readl(i2c->regs + HSI2C_FIFO_CTL)
-		, readl(i2c->regs + HSI2C_TRAILIG_CTL)
-		, readl(i2c->regs + HSI2C_CLK_CTL)
-		, readl(i2c->regs + HSI2C_CLK_SLOT)
-		, readl(i2c->regs + HSI2C_INT_ENABLE)
-		, readl(i2c->regs + HSI2C_INT_STATUS)
-		, readl(i2c->regs + HSI2C_ERR_STATUS)
-		, readl(i2c->regs + HSI2C_FIFO_STATUS)
-		, readl(i2c->regs + HSI2C_TX_DATA)
-		, readl(i2c->regs + HSI2C_RX_DATA)
-		, readl(i2c->regs + HSI2C_CONF)
-		, readl(i2c->regs + HSI2C_AUTO_CONF)
-		, readl(i2c->regs + HSI2C_TIMEOUT)
-		, readl(i2c->regs + HSI2C_MANUAL_CMD)
-		, readl(i2c->regs + HSI2C_TRANS_STATUS)
-		, readl(i2c->regs + HSI2C_TIMING_HS1)
-		, readl(i2c->regs + HSI2C_TIMING_HS2)
-		, readl(i2c->regs + HSI2C_TIMING_HS3)
-		, readl(i2c->regs + HSI2C_TIMING_FS1)
-		, readl(i2c->regs + HSI2C_TIMING_FS2)
-		, readl(i2c->regs + HSI2C_TIMING_FS3)
-		, readl(i2c->regs + HSI2C_TIMING_SLA)
-		, readl(i2c->regs + HSI2C_ADDR));
+	dev_err(i2c->dev, "Register dump(suspended : %d)\n", i2c->suspended);
+	dev_err(i2c->dev, ": CTL	0x%08x\n"
+			, readl(i2c->regs + HSI2C_CTL));
+	dev_err(i2c->dev, ": FIFO_CTL	0x%08x\n"
+			, readl(i2c->regs + HSI2C_FIFO_CTL));
+	dev_err(i2c->dev, ": INT_EN	0x%08x\n"
+			, readl(i2c->regs + HSI2C_INT_ENABLE));
+	dev_err(i2c->dev, ": INT_STAT	0x%08x\n"
+			, readl(i2c->regs + HSI2C_INT_STATUS));
+	dev_err(i2c->dev, ": FIFO_STAT	0x%08x\n"
+			, readl(i2c->regs + HSI2C_FIFO_STATUS));
+	dev_err(i2c->dev, ": CONF	0x%08x\n"
+			, readl(i2c->regs + HSI2C_CONF));
+	dev_err(i2c->dev, ": AUTO_CONF	0x%08x\n"
+			, readl(i2c->regs + HSI2C_AUTO_CONF));
+	dev_err(i2c->dev, ": TRANS_STAT	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TRANS_STATUS));
+	dev_err(i2c->dev, ": TIMING_HS1	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TIMING_HS1));
+	dev_err(i2c->dev, ": TIMING_HS2	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TIMING_HS2));
+	dev_err(i2c->dev, ": TIMING_HS3	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TIMING_HS3));
+	dev_err(i2c->dev, ": TIMING_FS1	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TIMING_FS1));
+	dev_err(i2c->dev, ": TIMING_FS2	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TIMING_FS2));
+	dev_err(i2c->dev, ": TIMING_FS3	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TIMING_FS3));
+	dev_err(i2c->dev, ": TIMING_SLA	0x%08x\n"
+			, readl(i2c->regs + HSI2C_TIMING_SLA));
+	dev_err(i2c->dev, ": ADDR	0x%08x\n"
+			, readl(i2c->regs + HSI2C_ADDR));
 }
 
 static void exynos5_i2c_clr_pend_irq(struct exynos5_i2c *i2c)
@@ -511,16 +494,17 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 
 	/*
 	 * Checking Error State in INT_STATUS register
-	 * If error state is occured, TX timeout will be occured
 	 */
 	if (reg_val & HSI2C_INT_CHK_TRANS_STATE) {
-		dev_err(i2c->dev, "HSI2C Error status is occured!(0x%x)\n",
-			(unsigned int)reg_val);
+		trans_status = readl(i2c->regs + HSI2C_TRANS_STATUS);
+		dev_err(i2c->dev, "HSI2C Error Interrupt "
+				"occurred(IS:0x%x0x%x)\n",
+				(unsigned int)reg_val, (unsigned int)trans_status);
 		i2c->trans_done = -ENXIO;
 		exynos5_i2c_stop(i2c);
 		goto out;
 	}
-	/* Checking INT_TRANSFER_DONE - to avoid lost trans_done */
+	/* Checking INT_TRANSFER_DONE */
 	if ((reg_val & HSI2C_INT_TRANSFER_DONE) &&
 		(i2c->msg_ptr >= i2c->msg->len) &&
 		!(i2c->msg->flags & I2C_M_RD))
