@@ -323,6 +323,7 @@ void sysmmu_set_qos(struct device *dev, unsigned int qos);
 void sysmmu_reset_qos(struct device *dev);
 
 void exynos_sysmmu_show_status(struct device *dev);
+void exynos_sysmmu_dump_pgtable(struct device *dev);
 
 void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova);
 void exynos_sysmmu_release_df(struct device *dev);
@@ -362,6 +363,8 @@ int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
 #define sysmmu_reset_qos(dev) do { } while (0)
 
 #define exynos_sysmmu_show_status(dev) do { } while (0)
+#define exynos_sysmmu_dump_pgtable(dev) do { } while (0)
+
 #define exynos_sysmmu_set_df(dev, iova)	do { } while (0)
 #define exynos_sysmmu_release_df(dev)	do { } while (0)
 #define exynos_sysmmu_clear_ppc_event(dev) do { } while (0)

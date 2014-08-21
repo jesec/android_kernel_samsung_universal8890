@@ -499,7 +499,7 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 	lmm = MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
 
 	phys = pte_pfn(*pte) << PAGE_SHIFT;
-	pr_crit("ADDR: 0x%pa(VA: 0x%pK), MMU_CTRL: %#010x, PT_BASE: %#010x\n",
+	pr_crit("ADDR: %pa(VA: %p), MMU_CTRL: %#010x, PT_BASE: %#010x\n",
 		&phys, sfrbase,
 		__raw_readl(sfrbase + REG_MMU_CTRL),
 		__raw_readl(sfrbase + REG_PT_BASE_PPN));
@@ -589,10 +589,8 @@ static void show_fault_information(struct sysmmu_drvdata *drvdata,
 		pr_crit("Page table base of driver: %pa\n",
 			&drvdata->pgtable);
 
-	if (fault_id == SYSMMU_FAULT_PTW_ACCESS) {
+	if (fault_id == SYSMMU_FAULT_PTW_ACCESS)
 		pr_crit("System MMU has failed to access page table\n");
-		goto finish;
-	}
 
 	if (!pfn_valid(pgtable >> PAGE_SHIFT)) {
 		pr_crit("Page table base is not in a valid memory region\n");
@@ -2838,9 +2836,17 @@ void exynos_sysmmu_show_status(struct device *dev)
 		sysmmu_unblock(drvdata->sfrbase);
 
 		__master_clk_disable(drvdata);
-
-		sysmmu_dump_page_table(phys_to_virt(drvdata->pgtable));
 	}
+}
+
+void exynos_sysmmu_dump_pgtable(struct device *dev)
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct sysmmu_list_data *list =
+		list_entry(&owner->mmu_list, struct sysmmu_list_data, node);
+	struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+	sysmmu_dump_page_table(phys_to_virt(drvdata->pgtable));
 }
 
 void dump_sysmmu_ppc_cnt(struct sysmmu_drvdata *drvdata)

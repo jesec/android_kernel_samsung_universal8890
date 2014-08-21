@@ -2203,9 +2203,17 @@ void exynos_sysmmu_show_status(struct device *dev)
 		sysmmu_unblock(drvdata->sfrbase);
 
 		__master_clk_disable(drvdata);
-
-		sysmmu_dump_page_table(phys_to_virt(drvdata->pgtable));
 	}
+}
+
+void exynos_sysmmu_dump_pgtable(struct device *dev)
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct sysmmu_list_data *list =
+		list_entry(&owner->mmu_list, struct sysmmu_list_data, node);
+	struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+	sysmmu_dump_page_table(phys_to_virt(drvdata->pgtable));
 }
 
 void exynos_sysmmu_show_ppc_event(struct device *dev)
