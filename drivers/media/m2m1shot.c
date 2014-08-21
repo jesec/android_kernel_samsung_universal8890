@@ -207,7 +207,7 @@ static int m2m1shot_buffer_get_userptr_plane(struct m2m1shot_device *m21dev,
 	ret = get_user_pages_fast(start, nr_pages, write, pages);
 	if (ret != nr_pages) {
 		dev_err(m21dev->dev,
-			"%s: failed to pin user pages from %ld ~ %ld\n",
+			"%s: failed to pin user pages in %#lx ~ %#lx\n",
 			__func__, start, start + len);
 
 		if (ret < 0)
@@ -419,7 +419,7 @@ static int m2m1shot_prepare_get_buffer(struct m2m1shot_context *ctx,
 
 	if ((buffer->type != M2M1SHOT_BUFFER_USERPTR) &&
 				(buffer->type != M2M1SHOT_BUFFER_DMABUF)) {
-		dev_err(m21dev->dev, "%s: unknown buffer type %d\n",
+		dev_err(m21dev->dev, "%s: unknown buffer type %u\n",
 			__func__, buffer->type);
 		return -EINVAL;
 	}
@@ -444,7 +444,7 @@ static int m2m1shot_prepare_get_buffer(struct m2m1shot_context *ctx,
 
 	return 0;
 err:
-	dev_err(m21dev->dev, "%s: Failed to prepare plane %d", __func__, i);
+	dev_err(m21dev->dev, "%s: Failed to prepare plane %u", __func__, i);
 
 	while (i-- > 0)
 		m21dev->ops->finish_buffer(ctx, dma_buffer, i, dir);
@@ -485,13 +485,13 @@ static int m2m1shot_prepare_format(struct m2m1shot_device *m21dev,
 	size_t cap_sizes[M2M1SHOT_MAX_PLANES] = { 0 };
 
 	if (task->task.buf_out.num_planes > M2M1SHOT_MAX_PLANES) {
-		dev_err(m21dev->dev, "Invalid number of output planes %d.\n",
+		dev_err(m21dev->dev, "Invalid number of output planes %u.\n",
 			task->task.buf_out.num_planes);
 		return -EINVAL;
 	}
 
 	if (task->task.buf_cap.num_planes > M2M1SHOT_MAX_PLANES) {
-		dev_err(m21dev->dev, "Invalid number of capture planes %d.\n",
+		dev_err(m21dev->dev, "Invalid number of capture planes %u.\n",
 			task->task.buf_cap.num_planes);
 		return -EINVAL;
 	}
@@ -503,7 +503,7 @@ static int m2m1shot_prepare_format(struct m2m1shot_device *m21dev,
 
 	if (task->task.buf_out.num_planes != ret) {
 		dev_err(m21dev->dev,
-			"%s: needs %d output planes but %d is given\n",
+			"%s: needs %u output planes but %u is given\n",
 				__func__, ret, task->task.buf_out.num_planes);
 		return -EINVAL;
 	}
@@ -518,7 +518,7 @@ static int m2m1shot_prepare_format(struct m2m1shot_device *m21dev,
 
 	if (task->task.buf_cap.num_planes < ret) {
 		dev_err(m21dev->dev,
-			"%s: needs %d capture planes but %d is given\n",
+			"%s: needs %u capture planes but %u is given\n",
 				__func__, ret, task->task.buf_cap.num_planes);
 		return -EINVAL;
 	}
@@ -630,7 +630,7 @@ static int m2m1shot_process(struct m2m1shot_context *ctx,
 
 			m2m1shot_finish_task(m21dev, ctx, task);
 
-			dev_notice(m21dev->dev, "%s: %d msecs timed out\n",
+			dev_notice(m21dev->dev, "%s: %u msecs timed out\n",
 				__func__,
 				jiffies_to_msecs(m21dev->timeout_jiffies));
 			ret = -ETIMEDOUT;
