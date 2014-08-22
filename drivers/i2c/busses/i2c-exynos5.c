@@ -207,6 +207,7 @@ struct exynos5_i2c {
 	int			bus_id;
 	int			check_transdone_int;
 	int			scl_clk_stretch;
+	int			stop_after_trans;
 	unsigned int		transfer_delay;
 };
 
@@ -574,7 +575,7 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 		exynos5_i2c_clr_pend_irq(i2c);
 	}
 
-	if (stop == 1)
+	if ((stop == 1) || (i2c->stop_after_trans == 1))
 		i2c_auto_conf |= HSI2C_STOP_AFTER_TRANS;
 	else
 		i2c_auto_conf &= ~HSI2C_STOP_AFTER_TRANS;
@@ -887,6 +888,11 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(np, "samsung,transfer_delay", &i2c->transfer_delay);
 	if (!ret)
 		dev_warn(&pdev->dev, "Transfer delay is not needed.\n");
+
+	if (of_get_property(np, "samsung,stop-after-trans", NULL))
+		i2c->stop_after_trans = 1;
+	else
+		i2c->stop_after_trans = 0;
 
 	strlcpy(i2c->adap.name, "exynos5-i2c", sizeof(i2c->adap.name));
 	i2c->adap.owner   = THIS_MODULE;
