@@ -429,13 +429,16 @@ static void s3c64xx_serial_qos_func(struct work_struct *work)
 		container_of(work, struct s3c24xx_uart_port, qos_work.work);
 	struct uart_port *port = &ourport->port;
 
-	pm_qos_update_request_timeout(&ourport->s3c24xx_uart_mif_qos,
-			ourport->mif_qos_val, ourport->qos_timeout);
+	if (ourport->mif_qos_val)
+		pm_qos_update_request_timeout(&ourport->s3c24xx_uart_mif_qos,
+				ourport->mif_qos_val, ourport->qos_timeout);
 
-	pm_qos_update_request_timeout(&ourport->s3c24xx_uart_cpu_qos,
-			ourport->cpu_qos_val, ourport->qos_timeout);
+	if (ourport->cpu_qos_val)
+		pm_qos_update_request_timeout(&ourport->s3c24xx_uart_cpu_qos,
+				ourport->cpu_qos_val, ourport->qos_timeout);
 
-	irq_set_affinity(port->irq, cpumask_of(ourport->uart_irq_affinity));
+	if (ourport->uart_irq_affinity)
+		irq_set_affinity(port->irq, cpumask_of(ourport->uart_irq_affinity));
 }
 #endif
 
