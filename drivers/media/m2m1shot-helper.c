@@ -54,7 +54,7 @@ void m2m1shot_unmap_dma_buf(struct device *dev,
 			enum dma_data_direction dir)
 {
 	if (plane->dmabuf) {
-		exynos_ion_sync_dmabuf_for_device(dev, plane->dmabuf,
+		exynos_ion_sync_dmabuf_for_cpu(dev, plane->dmabuf,
 							plane->bytes_used, dir);
 		dma_buf_unmap_attachment(plane->attachment, plane->sgt, dir);
 	} else {

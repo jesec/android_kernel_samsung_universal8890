@@ -544,9 +544,10 @@ static void m2m1shot_finish_task(struct m2m1shot_device *m21dev,
 				struct m2m1shot_task *task)
 {
 	m2m1shot_finish_buffer(m21dev, ctx,
-			&task->task.buf_cap, &task->dma_buf_cap, DMA_TO_DEVICE);
+			&task->task.buf_cap, &task->dma_buf_cap,
+			DMA_FROM_DEVICE);
 	m2m1shot_finish_buffer(m21dev, ctx,
-		&task->task.buf_out, &task->dma_buf_out, DMA_FROM_DEVICE);
+		&task->task.buf_out, &task->dma_buf_out, DMA_TO_DEVICE);
 }
 
 static void m2m1shot_destroy_context(struct kref *kref)
