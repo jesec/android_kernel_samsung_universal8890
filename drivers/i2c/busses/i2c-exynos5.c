@@ -498,7 +498,7 @@ static irqreturn_t exynos5_i2c_irq_chkdone(int irqno, void *dev_id)
 	if (reg_val & HSI2C_INT_CHK_TRANS_STATE) {
 		trans_status = readl(i2c->regs + HSI2C_TRANS_STATUS);
 		dev_err(i2c->dev, "HSI2C Error Interrupt "
-				"occurred(IS:0x%x0x%x)\n",
+				"occurred(IS:0x%08x, TR:0x%08x)\n",
 				(unsigned int)reg_val, (unsigned int)trans_status);
 		i2c->trans_done = -ENXIO;
 		exynos5_i2c_stop(i2c);
