@@ -506,9 +506,8 @@ struct s5p_mfc_vp8_enc_params {
 	u8 vp8_goldenframesel;
 	u8 vp8_gfrefreshperiod;
 	u8 hierarchy_qp_enable;
-	u8 hierarchy_qp_layer0;
-	u8 hierarchy_qp_layer1;
-	u8 hierarchy_qp_layer2;
+	u8 hier_qp_layer_qp[3];
+	u32 hier_qp_layer_bit[3];
 	u8 num_refs_for_p;
 	u8 intra_4x4mode_disable;
 	u8 num_temporal_layer;

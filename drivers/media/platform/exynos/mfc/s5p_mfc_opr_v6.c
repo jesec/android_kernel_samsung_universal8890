@@ -2105,6 +2105,7 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_enc_params *p = &enc->params;
 	struct s5p_mfc_vp8_enc_params *p_vp8 = &p->codec.vp8;
 	unsigned int reg = 0;
+	int i;
 
 	mfc_debug_enter();
 
@@ -2118,7 +2119,6 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	reg = 0;
 	/* Disable IVF header */
 	reg |= (0x1 << 12);
-	reg |= (p_vp8->hierarchy_qp_enable & 0x1) << 11;
 	reg |= (p_vp8->intra_4x4mode_disable & 0x1) << 10;
 	reg |= (p_vp8->vp8_numberofpartitions & 0xF) << 3;
 	reg |= (p_vp8->num_refs_for_p - 1) & 0x1;
@@ -2129,7 +2129,27 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	reg |= (p_vp8->vp8_gfrefreshperiod & 0xffff) << 1;
 	WRITEL(reg, S5P_FIMV_E_VP8_GOLDEN_FRAME_OPTION);
 
+	/* hier qp enable */
+	reg = READL(S5P_FIMV_E_VP8_OPTION);
+	reg &= ~(0x1 << 11);
+	reg |= ((p_vp8->hierarchy_qp_enable & 0x1) << 11);
+	WRITEL(reg, S5P_FIMV_E_VP8_OPTION);
 	reg = 0;
+	if (p_vp8->num_temporal_layer) {
+		reg |= p_vp8->num_temporal_layer & 0x3;
+		WRITEL(reg, S5P_FIMV_E_VP8_NUM_T_LAYER);
+		/* QP value for each layer */
+		if (p_vp8->hierarchy_qp_enable) {
+			for (i = 0; i < (p_vp8->num_temporal_layer & 0x3); i++)
+			WRITEL(p_vp8->hier_qp_layer_qp[i],
+					S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER0 + i * 4);
+		} else {
+			for (i = 0; i < (p_vp8->num_temporal_layer & 0x3); i++)
+			WRITEL(p_vp8->hier_qp_layer_bit[i],
+					S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
+		}
+	}
+	/* number of coding layer should be zero when hierarchical is disable */
 	reg |= p_vp8->num_temporal_layer;
 	WRITEL(reg, S5P_FIMV_E_VP8_NUM_T_LAYER);
 
@@ -2180,18 +2200,6 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	reg &= ~(0x3F);
 	reg |= p_vp8->rc_min_qp;
 	WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
-
-	reg = 0;
-	reg |= p_vp8->hierarchy_qp_layer0;
-	WRITEL(reg, S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER0);
-
-	reg = 0;
-	reg |= p_vp8->hierarchy_qp_layer1;
-	WRITEL(reg, S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER1);
-
-	reg = 0;
-	reg |= p_vp8->hierarchy_qp_layer1;
-	WRITEL(reg, S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER2);
 
 	mfc_debug_leave();
 
