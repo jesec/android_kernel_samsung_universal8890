@@ -37,6 +37,9 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/usb/otg-fsm.h>
 
+static const char *dwc3_exynos_clk_names[] = {"aclk", "aclk_axius", "sclk_ref",
+	"sclk", "oscclk_phy", "phyclock", "pipe_pclk", NULL};
+
 struct dwc3_exynos_rsw {
 	struct otg_fsm		*fsm;
 	struct work_struct	work;
@@ -53,8 +56,7 @@ struct dwc3_exynos {
 	struct regulator	*vdd10;
 
 	struct clk		*clk;
-	struct clk		*aclk;
-	struct clk		*sclk;
+	struct clk		**clocks;
 
 	struct dwc3_exynos_rsw	rsw;
 };
@@ -437,68 +439,128 @@ static int dwc3_exynos_remove_child(struct device *dev, void *unused)
 
 static int dwc3_exynos_clk_prepare(struct dwc3_exynos *exynos)
 {
+	int i;
 	int ret;
 
 	if (exynos->clk) {
 		ret = clk_prepare(exynos->clk);
+		if (ret)
+			return ret;
 	} else {
-		ret = clk_prepare(exynos->aclk);
-		if (ret)
-			goto err;
-
-		ret = clk_prepare(exynos->sclk);
-		if (ret)
-			clk_unprepare(exynos->aclk);
+		for (i = 0; exynos->clocks[i] != NULL; i++) {
+			ret = clk_prepare(exynos->clocks[i]);
+			if (ret)
+				goto err;
+		}
 	}
 
+	return 0;
+
 err:
+	/* roll back */
+	for (i = i - 1; i >= 0; i--)
+		clk_unprepare(exynos->clocks[i]);
+
 	return ret;
 }
 
 static int dwc3_exynos_clk_enable(struct dwc3_exynos *exynos)
 {
+	int i;
 	int ret;
 
 	if (exynos->clk) {
 		ret = clk_enable(exynos->clk);
+		if (ret)
+			return ret;
 	} else {
-		ret = clk_enable(exynos->aclk);
-		if (ret)
-			goto err;
-
-		ret = clk_enable(exynos->sclk);
-		if (ret)
-			clk_disable(exynos->aclk);
+		for (i = 0; exynos->clocks[i] != NULL; i++) {
+			ret = clk_enable(exynos->clocks[i]);
+			if (ret)
+				goto err;
+		}
 	}
 
+	return 0;
+
 err:
+	/* roll back */
+	for (i = i - 1; i >= 0; i--)
+		clk_disable(exynos->clocks[i]);
+
 	return ret;
 }
 
 static void dwc3_exynos_clk_unprepare(struct dwc3_exynos *exynos)
 {
+	int	i;
+
 	if (exynos->clk) {
 		clk_unprepare(exynos->clk);
 	} else {
-		clk_unprepare(exynos->aclk);
-		clk_unprepare(exynos->sclk);
+		for (i = 0; exynos->clocks[i] != NULL; i++)
+			clk_unprepare(exynos->clocks[i]);
 	}
 }
 
 static void dwc3_exynos_clk_disable(struct dwc3_exynos *exynos)
 {
+	int	i;
+
 	if (exynos->clk) {
 		clk_disable(exynos->clk);
 	} else {
-		clk_disable(exynos->aclk);
-		clk_disable(exynos->sclk);
+		for (i = 0; exynos->clocks[i] != NULL; i++)
+			clk_disable(exynos->clocks[i]);
 	}
+}
+
+static int dwc3_exynos_clk_get(struct dwc3_exynos *exynos)
+{
+	const char	*clk_id;
+	struct clk	*clk;
+	int		i;
+
+	clk_id = "usbdrd30";
+	clk = devm_clk_get(exynos->dev, clk_id);
+	if (IS_ERR_OR_NULL(clk)) {
+		dev_info(exynos->dev, "IP clock gating is N/A\n");
+		exynos->clk = NULL;
+		/* fallback to separate clock control */
+		exynos->clocks = (struct clk **) devm_kmalloc(exynos->dev,
+				sizeof(ARRAY_SIZE(dwc3_exynos_clk_names) *
+					sizeof(struct clk *)),
+				GFP_KERNEL);
+		if (!exynos->clocks)
+			return -ENOMEM;
+
+		for (i = 0; dwc3_exynos_clk_names[i] != NULL; i++) {
+			clk_id = dwc3_exynos_clk_names[i];
+
+			clk = devm_clk_get(exynos->dev, clk_id);
+			if (IS_ERR_OR_NULL(clk))
+				goto err;
+
+			exynos->clocks[i] = clk;
+		}
+
+		exynos->clocks[i] = NULL;
+
+	} else {
+		exynos->clk = clk;
+	}
+
+	return 0;
+
+err:
+	dev_err(exynos->dev, "couldn't get %s clock\n", clk_id);
+
+	return -EINVAL;
 }
 
 static int dwc3_exynos_probe(struct platform_device *pdev)
 {
 	struct dwc3_exynos	*exynos;
-	struct clk		*clk;
 	struct device		*dev = &pdev->dev;
 	struct device_node	*node = dev->of_node;
 
@@ -547,6 +609,10 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 	}
 
 	exynos->dev	= dev;
+
+	ret = dwc3_exynos_clk_get(exynos);
+	if (ret)
+		return ret;
 
 	dwc3_exynos_clk_prepare(exynos);
 	dwc3_exynos_clk_enable(exynos);
