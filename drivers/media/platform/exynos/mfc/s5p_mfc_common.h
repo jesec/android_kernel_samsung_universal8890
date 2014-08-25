@@ -1056,6 +1056,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x131108))
 #define FW_HAS_BASE_CHANGE(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
 					(dev->fw.date >= 0x131108))
+#define FW_HAS_TEMPORAL_SVC_CH(dev)	((IS_MFCv8X(dev) &&			\
+					 (dev->fw.date >= 0x140821)))
 #define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCV8(dev) || IS_MFCv78(dev))
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
@@ -1071,6 +1073,7 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 /* Extra information for Encoder */
 #define	ENC_SET_RGB_INPUT		(1 << 0)
 #define	ENC_SET_SPARE_SIZE		(1 << 1)
+#define	ENC_SET_TEMP_SVC_CH		(1 << 2)
 
 #define MFC_QOS_FLAG_NODATA		0xFFFFFFFF
 

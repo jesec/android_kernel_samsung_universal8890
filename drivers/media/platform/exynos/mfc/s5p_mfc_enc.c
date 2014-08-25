@@ -3211,6 +3211,8 @@ static int enc_ext_info(struct s5p_mfc_ctx *ctx)
 		val |= ENC_SET_RGB_INPUT;
 		val |= ENC_SET_SPARE_SIZE;
 	}
+	if (FW_HAS_TEMPORAL_SVC_CH(dev))
+		val |= ENC_SET_TEMP_SVC_CH;
 
 	return val;
 }
