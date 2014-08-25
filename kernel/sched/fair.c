@@ -5525,7 +5525,7 @@ static inline unsigned int hmp_domain_min_load(struct hmp_domain *hmpd,
 	int min_cpu_runnable_temp = NR_CPUS;
 	u64 min_target_last_migration = ULLONG_MAX;
 	u64 curr_last_migration;
-	unsigned long min_runnable_load = INT_MAX;
+	unsigned long min_runnable_load = ULONG_MAX;
 	unsigned long contrib;
 	struct sched_avg *avg;
 	struct cpumask temp_cpumask;
