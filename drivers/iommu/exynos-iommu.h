@@ -92,7 +92,7 @@ typedef u32 sysmmu_pte_t;
 #define spage_phys(pent) PGBASE_TO_PHYS(*(pent) & SPAGE_ENT_MASK)
 #define spage_offs(iova) ((iova) & (SPAGE_SIZE - 1))
 
-#define lv2table_base(sent) ((*(sent) & ~0x3F) << PG_ENT_SHIFT)
+#define lv2table_base(sent) ((phys_addr_t)(*(sent) & ~0x3F) << PG_ENT_SHIFT)
 
 #define SYSMMU_BLOCK_POLLING_COUNT 4096
 
