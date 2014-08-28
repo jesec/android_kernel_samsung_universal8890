@@ -1642,9 +1642,6 @@ static int s3c24xx_serial_resume_noirq(struct device *dev)
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
 	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
-	if (ourport->domain == DOMAIN_AUD)
-		return 0;
-
 	if (port) {
 		/* restore IRQ mask */
 		if (s3c24xx_serial_has_interrupt_mask(port)) {
