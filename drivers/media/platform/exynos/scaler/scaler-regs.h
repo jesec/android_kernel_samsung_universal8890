@@ -156,19 +156,18 @@
 #define SCALER_TIMEOUT_CNT		0x2c4
 
 /* macros to make words to SFR */
-#define SCALER_VAL_WH(w, h)	  ((((w) & 0x3FFF) << 16) | ((h) & 0x3FFF))
-#define SCALER_VAL_SRC_POS(l, t)  ((((l) & 0xFFFF) << 16) | ((t) & 0xFFFF))
-#define SCALER_VAL_DST_POS(l, t)  ((((l) & 0x3FFF) << 16) | ((t) & 0x3FFF))
+#define SCALER_VAL_WH(w, h)	 (((w) & 0x3FFF) << 16) | ((h) & 0x3FFF)
+#define SCALER_VAL_SRC_POS(l, t) (((l) & 0x3FFF) << 18) | (((t) & 0x3FFF) << 2)
+#define SCALER_VAL_DST_POS(l, t) (((l) & 0x3FFF) << 16) | ((t) & 0x3FFF)
 
 static inline void sc_hwset_src_pos(struct sc_dev *sc, __s32 left, __s32 top,
 				unsigned int chshift, unsigned int cvshift)
 {
 	/* SRC pos have fractional part of 2 bits which is not used */
-	__raw_writel(SCALER_VAL_SRC_POS(left << 2, top << 2),
+	__raw_writel(SCALER_VAL_SRC_POS(left, top),
 			sc->regs + SCALER_SRC_Y_POS);
-	__raw_writel(
-		SCALER_VAL_SRC_POS(left << (2 - chshift), top << (2 - cvshift)),
-		sc->regs + SCALER_SRC_C_POS);
+	__raw_writel(SCALER_VAL_SRC_POS(left >> chshift, top >> cvshift),
+			sc->regs + SCALER_SRC_C_POS);
 }
 
 static inline void sc_hwset_src_wh(struct sc_dev *sc, __s32 width, __s32 height,
