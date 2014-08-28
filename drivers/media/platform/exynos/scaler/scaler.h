@@ -242,6 +242,7 @@ struct sc_fmt {
 	u8	h_shift:1;
 	u8	v_shift:1;
 	u8	is_rgb:1;
+	u8	cspan:1;
 };
 
 struct sc_addr {

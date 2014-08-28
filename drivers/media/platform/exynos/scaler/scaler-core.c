@@ -229,6 +229,7 @@ static const struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 24 },
 		.num_planes	= 1,
 		.num_comp	= 2,
+		.cspan		= 1,
 	}, {
 		.name		= "YUV 4:4:4 contiguous Y/CrCb",
 		.pixelformat	= V4L2_PIX_FMT_NV42,
@@ -236,6 +237,7 @@ static const struct sc_fmt sc_formats[] = {
 		.bitperpixel	= { 24 },
 		.num_planes	= 1,
 		.num_comp	= 2,
+		.cspan		= 1,
 	},
 };
 

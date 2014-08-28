@@ -641,10 +641,12 @@ void sc_hwset_src_imgsize(struct sc_dev *sc, struct sc_frame *frame)
 	 * like AYV12 format
 	 */
 	if (frame->sc_fmt->num_comp == 2)
-		cfg |= frame->width << 16;
+		cfg |= (frame->width << frame->sc_fmt->cspan) << 16;
 	if (frame->sc_fmt->num_comp == 3) {
 		if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat))
 			cfg |= ALIGN(frame->width >> 1, 16) << 16;
+		else if (frame->sc_fmt->cspan) /* YUV444 */
+			cfg |= frame->width << 16;
 		else
 			cfg |= (frame->width >> 1) << 16;
 	}
@@ -685,10 +687,12 @@ void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame)
 	 * like AYV12 format
 	 */
 	if (frame->sc_fmt->num_comp == 2)
-		cfg |= frame->width << 16;
+		cfg |= (frame->width << frame->sc_fmt->cspan) << 16;
 	if (frame->sc_fmt->num_comp == 3) {
 		if (sc_fmt_is_ayv12(frame->sc_fmt->pixelformat))
 			cfg |= ALIGN(frame->width >> 1, 16) << 16;
+		else if (frame->sc_fmt->cspan) /* YUV444 */
+			cfg |= frame->width << 16;
 		else
 			cfg |= (frame->width >> 1) << 16;
 	}
