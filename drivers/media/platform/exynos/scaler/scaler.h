@@ -437,8 +437,6 @@ void sc_hwset_src_addr(struct sc_dev *sc, struct sc_addr *addr);
 void sc_hwset_dst_addr(struct sc_dev *sc, struct sc_addr *addr);
 void sc_hwset_hcoef(struct sc_dev *sc, unsigned int coef);
 void sc_hwset_vcoef(struct sc_dev *sc, unsigned int coef);
-void sc_hwset_soft_reset(struct sc_dev *sc);
-void sc_hwset_start(struct sc_dev *sc);
 
 void sc_hwregs_dump(struct sc_dev *sc);
 

@@ -1619,6 +1619,8 @@ err_pclk:
 
 static void sc_clk_power_disable(struct sc_dev *sc)
 {
+	sc_clear_aux_power_cfg(sc);
+
 	if (!IS_ERR(sc->aclk))
 		clk_disable(sc->aclk);
 
@@ -2036,7 +2038,7 @@ static int sc_run_next_job(struct sc_dev *sc)
 		return ret;
 	}
 
-	sc_hwset_soft_reset(sc);
+	sc_hwset_init(sc);
 
 	if (ctx->i_frame) {
 		set_bit(CTX_INT_FRAME, &ctx->flags);

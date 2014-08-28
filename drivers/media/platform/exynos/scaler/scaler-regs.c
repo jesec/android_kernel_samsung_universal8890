@@ -685,36 +685,6 @@ void sc_hwset_dst_addr(struct sc_dev *sc, struct sc_addr *addr)
 	writel(addr->cr, sc->regs + SCALER_DST_CR_BASE);
 }
 
-void sc_hwset_soft_reset(struct sc_dev *sc)
-{
-	unsigned long cfg;
-
-#ifdef SC_NO_SOFTRST
-	cfg = (SCALER_CFG_CSC_Y_OFFSET_SRC|SCALER_CFG_CSC_Y_OFFSET_DST);
-#else
-	cfg = SCALER_CFG_SOFT_RST;
-#endif
-	writel(cfg, sc->regs + SCALER_CFG);
-	sc_dbg("done soft reset\n");
-
-	/*
-	 * TODO: check the reset completion
-	 * 1. wait until it becomes '0'
-	 * 2. backup the SCALER_INT_EN value
-	 * 3. write 0x1 to SCALER_INT_EN and re-read
-	 * 4. if re-read is 0x1, successfully complete
-	 * 5. restore the SCALER_INT_EN register
-	 */
-}
-
-void sc_hwset_start(struct sc_dev *sc)
-{
-	unsigned long cfg = readl(sc->regs + SCALER_CFG);
-
-	cfg |= SCALER_CFG_START_CMD;
-	writel(cfg, sc->regs + SCALER_CFG);
-}
-
 void sc_hwregs_dump(struct sc_dev *sc)
 {
 	dev_notice(sc->dev, "Dumping control registers...\n");

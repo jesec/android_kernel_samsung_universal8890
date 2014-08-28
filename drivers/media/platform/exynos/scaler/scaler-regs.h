@@ -19,6 +19,9 @@
 
 /* Configuration */
 #define SCALER_CFG			0x04
+#define SCALER_CFG_DRCG_EN		(1 << 31)
+#define SCALER_CFG_CORE_BYP_EN		(1 << 30)
+#define SCALER_CFG_SRAM_CG_EN		(1 << 28)
 #define SCALER_CFG_FILL_EN		(1 << 24)
 #define SCALER_CFG_BL_DIV_ALPHA_EN	(1 << 17)
 #define SCALER_CFG_BLEND_EN		(1 << 16)
@@ -212,6 +215,47 @@ static inline void sc_hwset_int_en(struct sc_dev *sc)
 	__raw_writel((sc->version < SCALER_VERSION(3, 0, 0)) ?
 				SCALER_INT_EN_ALL : SCALER_INT_EN_ALL_v3,
 			sc->regs + SCALER_INT_EN);
+}
+
+static inline void sc_clear_aux_power_cfg(struct sc_dev *sc)
+{
+	/* Clearing all power saving features */
+	__raw_writel(__raw_readl(sc->regs + SCALER_CFG) & ~SCALER_CFG_DRCG_EN,
+			sc->regs + SCALER_CFG);
+}
+
+static inline void sc_hwset_init(struct sc_dev *sc)
+{
+	unsigned long cfg;
+
+#ifdef SC_NO_SOFTRST
+	cfg = (SCALER_CFG_CSC_Y_OFFSET_SRC | SCALER_CFG_CSC_Y_OFFSET_DST);
+#else
+	cfg = SCALER_CFG_SOFT_RST;
+#endif
+	writel(cfg, sc->regs + SCALER_CFG);
+
+	if (sc->version >= SCALER_VERSION(3, 0, 1))
+		__raw_writel(
+			__raw_readl(sc->regs + SCALER_CFG) | SCALER_CFG_DRCG_EN,
+			sc->regs + SCALER_CFG);
+}
+
+static inline void sc_hwset_soft_reset(struct sc_dev *sc)
+{
+	writel(SCALER_CFG_SOFT_RST, sc->regs + SCALER_CFG);
+}
+
+static inline void sc_hwset_start(struct sc_dev *sc)
+{
+	unsigned long cfg = __raw_readl(sc->regs + SCALER_CFG);
+
+	cfg |= SCALER_CFG_START_CMD;
+	if (sc->version >= SCALER_VERSION(3, 0, 1)) {
+		cfg |= SCALER_CFG_CORE_BYP_EN;
+		cfg |= SCALER_CFG_SRAM_CG_EN;
+	}
+	writel(cfg, sc->regs + SCALER_CFG);
 }
 
 u32 sc_hwget_and_clear_irq_status(struct sc_dev *sc);
