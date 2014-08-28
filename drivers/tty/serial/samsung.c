@@ -701,11 +701,11 @@ static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
 		if (ourport->domain == DOMAIN_AUD)
 			aud_uart_gpio_cfg(&ourport->pdev->dev, level);
 
-		clk_disable_unprepare(ourport->clk);
+		uart_clock_disable(ourport);
 		break;
 
 	case S3C24XX_UART_PORT_RESUME:
-		clk_prepare_enable(ourport->clk);
+		uart_clock_enable(ourport);
 
 		if (ourport->domain == DOMAIN_AUD)
 			aud_uart_gpio_cfg(&ourport->pdev->dev, level);
