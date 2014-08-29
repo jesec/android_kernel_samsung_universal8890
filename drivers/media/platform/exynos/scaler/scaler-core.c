@@ -3036,7 +3036,8 @@ static int sc_probe(struct platform_device *pdev)
 	pm_runtime_put(&pdev->dev);
 
 	dev_info(&pdev->dev,
-		"Driver probed successfully(version: %08x)\n", hwver);
+		"Driver probed successfully(version: %08x(%x))\n",
+		hwver, sc->version);
 
 	return 0;
 err_ver_aclk_get:
