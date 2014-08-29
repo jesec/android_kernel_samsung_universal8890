@@ -1548,6 +1548,42 @@ static int sc_add_ctrls(struct sc_ctx *ctx)
 	return 0;
 }
 
+static int sc_clk_enable(struct sc_dev *sc)
+{
+	int ret;
+
+	if (!IS_ERR(sc->pclk)) {
+		ret = clk_enable(sc->pclk);
+		if (ret) {
+			dev_err(sc->dev, "%s: Failed to enable PCLK (err %d)\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+
+	if (!IS_ERR(sc->aclk)) {
+		ret = clk_enable(sc->aclk);
+		if (ret) {
+			dev_err(sc->dev, "%s: Failed to enable ACLK (err %d)\n",
+				__func__, ret);
+			if (!IS_ERR(sc->pclk))
+				clk_disable(sc->pclk);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void sc_clk_disable(struct sc_dev *sc)
+{
+	if (!IS_ERR(sc->aclk))
+		clk_disable(sc->aclk);
+
+	if (!IS_ERR(sc->pclk))
+		clk_disable(sc->pclk);
+}
+
 static int sc_open(struct file *file)
 {
 	struct sc_dev *sc = video_drvdata(file);
@@ -1579,11 +1615,22 @@ static int sc_open(struct file *file)
 	ctx->s_frame.sc_fmt = &sc_formats[0];
 	ctx->d_frame.sc_fmt = &sc_formats[0];
 
-	ret = clk_prepare(sc->aclk);
-	if (ret) {
-		dev_err(sc->dev, "%s: failed to prepare ACLK(err %d)\n",
-				__func__, ret);
-		goto err_clk_prepare;
+	if (!IS_ERR(sc->pclk)) {
+		ret = clk_prepare(sc->pclk);
+		if (ret) {
+			dev_err(sc->dev, "%s: failed to prepare PCLK(err %d)\n",
+					__func__, ret);
+			goto err_pclk_prepare;
+		}
+	}
+
+	if (!IS_ERR(sc->aclk)) {
+		ret = clk_prepare(sc->aclk);
+		if (ret) {
+			dev_err(sc->dev, "%s: failed to prepare ACLK(err %d)\n",
+					__func__, ret);
+			goto err_aclk_prepare;
+		}
 	}
 
 	/* Setup the device context for mem2mem mode. */
@@ -1596,8 +1643,12 @@ static int sc_open(struct file *file)
 	return 0;
 
 err_ctx:
-	clk_unprepare(sc->aclk);
-err_clk_prepare:
+	if (!IS_ERR(sc->aclk))
+		clk_unprepare(sc->aclk);
+err_aclk_prepare:
+	if (!IS_ERR(sc->pclk))
+		clk_unprepare(sc->pclk);
+err_pclk_prepare:
 	v4l2_fh_del(&ctx->fh);
 err_fh:
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
@@ -1617,7 +1668,10 @@ static int sc_release(struct file *file)
 
 	destroy_intermediate_frame(ctx);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
-	clk_unprepare(sc->aclk);
+	if (!IS_ERR(sc->aclk))
+		clk_unprepare(sc->aclk);
+	if (!IS_ERR(sc->pclk))
+		clk_unprepare(sc->pclk);
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
@@ -1661,7 +1715,9 @@ static void sc_watchdog(unsigned long arg)
 	sc_dbg("timeout watchdog\n");
 	if (atomic_read(&sc->wdt.cnt) >= SC_WDT_CNT) {
 		sc_hwset_soft_reset(sc);
-		clk_disable(sc->aclk);
+
+		sc_clk_disable(sc);
+
 		pm_runtime_put(sc->dev);
 
 		sc_dbg("wakeup blocked process\n");
@@ -1943,10 +1999,8 @@ static int sc_run_next_job(struct sc_dev *sc)
 		return ret;
 	}
 
-	ret = clk_enable(sc->aclk);
+	ret = sc_clk_enable(sc);
 	if (ret) {
-		dev_err(sc->dev, "%s: Failed to enable clock (err %d)\n",
-			__func__, ret);
 		pm_runtime_put(sc->dev);
 		return ret;
 	}
@@ -2097,7 +2151,7 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 	if (sc_process_2nd_stage(sc, ctx))
 		goto isr_unlock;
 
-	clk_disable(sc->aclk);
+	sc_clk_disable(sc);
 
 	pm_runtime_put(sc->dev);
 
@@ -2313,6 +2367,13 @@ static struct v4l2_m2m_ops sc_m2m_ops = {
 	.job_abort	= sc_m2m_job_abort,
 };
 
+static void sc_unregister_m2m_device(struct sc_dev *sc)
+{
+	v4l2_m2m_release(sc->m2m.m2m_dev);
+	video_device_release(sc->m2m.vfd);
+	v4l2_device_unregister(&sc->m2m.v4l2_dev);
+}
+
 static int sc_register_m2m_device(struct sc_dev *sc, int dev_id)
 {
 	struct v4l2_device *v4l2_dev;
@@ -2386,12 +2447,22 @@ static int sc_m2m1shot_init_context(struct m2m1shot_context *m21ctx)
 
 	atomic_inc(&sc->m2m.in_use);
 
-	ret = clk_prepare(sc->aclk);
-	if (ret) {
-		dev_err(sc->dev, "%s: failed to prepare ACLK(err %d)\n",
-				__func__, ret);
-		kfree(ctx);
-		return ret;
+	if (!IS_ERR(sc->pclk)) {
+		ret = clk_prepare(sc->pclk);
+		if (ret) {
+			dev_err(sc->dev, "%s: failed to prepare PCLK(err %d)\n",
+					__func__, ret);
+			goto err_pclk;
+		}
+	}
+
+	if (!IS_ERR(sc->aclk)) {
+		ret = clk_prepare(sc->aclk);
+		if (ret) {
+			dev_err(sc->dev, "%s: failed to prepare ACLK(err %d)\n",
+					__func__, ret);
+			goto err_aclk;
+		}
 	}
 
 	ctx->context_type = SC_CTX_M2M1SHOT_TYPE;
@@ -2405,6 +2476,12 @@ static int sc_m2m1shot_init_context(struct m2m1shot_context *m21ctx)
 	ctx->m21_ctx = m21ctx;
 
 	return 0;
+err_aclk:
+	if (!IS_ERR(sc->pclk))
+		clk_unprepare(sc->pclk);
+err_pclk:
+	kfree(ctx);
+	return ret;
 }
 
 static int sc_m2m1shot_free_context(struct m2m1shot_context *m21ctx)
@@ -2412,7 +2489,10 @@ static int sc_m2m1shot_free_context(struct m2m1shot_context *m21ctx)
 	struct sc_ctx *ctx = m21ctx->priv;
 
 	atomic_dec(&ctx->sc_dev->m2m.in_use);
-	clk_unprepare(ctx->sc_dev->aclk);
+	if (!IS_ERR(ctx->sc_dev->aclk))
+		clk_unprepare(ctx->sc_dev->aclk);
+	if (!IS_ERR(ctx->sc_dev->pclk))
+		clk_unprepare(ctx->sc_dev->pclk);
 	BUG_ON(!list_empty(&ctx->node));
 	destroy_intermediate_frame(ctx);
 	kfree(ctx);
@@ -2682,7 +2762,8 @@ static void sc_m2m1shot_timeout_task(struct m2m1shot_context *m21ctx,
 
 	sc_hwset_soft_reset(sc);
 
-	clk_disable(sc->aclk);
+	sc_clk_disable(sc);
+
 	pm_runtime_put(sc->dev);
 
 	spin_lock_irqsave(&sc->ctxlist_lock, flags);
@@ -2710,34 +2791,43 @@ static int sc_clk_get(struct sc_dev *sc)
 {
 	sc->aclk = devm_clk_get(sc->dev, "gate");
 	if (IS_ERR(sc->aclk)) {
-		if (PTR_ERR(sc->aclk) == -ENOENT)
-			/* clock is not present */
-			sc->aclk = NULL;
-		else
+		if (PTR_ERR(sc->aclk) != -ENOENT) {
+			dev_err(sc->dev, "Failed to get 'gate' clock: %ld",
+				PTR_ERR(sc->aclk));
 			return PTR_ERR(sc->aclk);
+		}
 		dev_info(sc->dev, "'gate' clock is not present\n");
+	}
+
+	sc->pclk = devm_clk_get(sc->dev, "gate2");
+	if (IS_ERR(sc->pclk)) {
+		if (PTR_ERR(sc->pclk) != -ENOENT) {
+			dev_err(sc->dev, "Failed to get 'gate2' clock: %ld",
+				PTR_ERR(sc->pclk));
+			return PTR_ERR(sc->pclk);
+		}
+		dev_info(sc->dev, "'gate2' clock is not present\n");
 	}
 
 	sc->clk_chld = devm_clk_get(sc->dev, "mux_user");
 	if (IS_ERR(sc->clk_chld)) {
-		if (PTR_ERR(sc->clk_chld) == -ENOENT)
-			/* clock is not present */
-			sc->clk_chld = NULL;
-		else
+		if (PTR_ERR(sc->clk_chld) != -ENOENT) {
+			dev_err(sc->dev, "Failed to get 'mux_user' clock: %ld",
+				PTR_ERR(sc->clk_chld));
 			return PTR_ERR(sc->clk_chld);
+		}
 		dev_info(sc->dev, "'mux_user' clock is not present\n");
 	}
 
-	if (sc->clk_chld) {
+	if (!IS_ERR(sc->clk_chld)) {
 		sc->clk_parn = devm_clk_get(sc->dev, "mux_src");
 		if (IS_ERR(sc->clk_parn)) {
-			if (PTR_ERR(sc->clk_parn) == -ENOENT)
-				/* clock is not present */
-				sc->clk_parn = NULL;
-			else
-				return PTR_ERR(sc->clk_parn);
-			dev_info(sc->dev, "'mux_src' clock is not present\n");
+			dev_err(sc->dev, "Failed to get 'mux_src' clock: %ld",
+				PTR_ERR(sc->clk_parn));
+			return PTR_ERR(sc->clk_parn);
 		}
+	} else {
+		sc->clk_parn = ERR_PTR(-ENOENT);
 	}
 
 	return 0;
@@ -2745,16 +2835,17 @@ static int sc_clk_get(struct sc_dev *sc)
 
 static void sc_clk_put(struct sc_dev *sc)
 {
-	if (sc->aclk) {
-		clk_unprepare(sc->aclk);
-		clk_put(sc->aclk);
-	}
+	if (!IS_ERR(sc->clk_parn))
+		clk_put(sc->clk_parn);
 
-	if (sc->clk_chld)
+	if (!IS_ERR(sc->clk_chld))
 		clk_put(sc->clk_chld);
 
-	if (sc->clk_parn)
-		clk_put(sc->clk_parn);
+	if (!IS_ERR(sc->pclk))
+		clk_put(sc->pclk);
+
+	if (!IS_ERR(sc->aclk))
+		clk_put(sc->aclk);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -2787,7 +2878,7 @@ static int sc_resume(struct device *dev)
 static int sc_runtime_resume(struct device *dev)
 {
 	struct sc_dev *sc = dev_get_drvdata(dev);
-	if (sc->clk_chld && sc->clk_parn) {
+	if (!IS_ERR(sc->clk_chld) && !IS_ERR(sc->clk_parn)) {
 		int ret = clk_set_parent(sc->clk_chld, sc->clk_parn);
 		if (ret) {
 			dev_err(sc->dev, "%s: Failed to setup MUX: %d\n",
@@ -2877,19 +2968,47 @@ static int sc_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	sc->fence_wq = create_singlethread_workqueue("scaler_fence_work");
+	if (!sc->fence_wq) {
+		dev_err(&pdev->dev, "Failed to create workqueue for fence\n");
+		ret = -ENOMEM;
+		goto err_wq;
+	}
+
+	ret = sc_register_m2m_device(sc, dev_id);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register m2m device\n");
+		goto err_m2m;
+	}
+
+	exynos_create_iovmm(&pdev->dev, 3, 3);
+	vb2_ion_attach_iommu(sc->alloc_ctx);
+
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "%s: failed to local power on (err %d)\n",
 			__func__, ret);
-		goto err_ver;
+		goto err_ver_rpm_get;
 	}
 
-	ret = clk_prepare_enable(sc->aclk);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: failed to enable clock (err %d)\n",
-			__func__, ret);
-		pm_runtime_put(&pdev->dev);
-		goto err_ver;
+	if (!IS_ERR(sc->pclk)) {
+		ret = clk_prepare_enable(sc->pclk);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"%s: failed to enable PCLK (err %d)\n",
+				__func__, ret);
+			goto err_ver_pclk_get;
+		}
+	}
+
+	if (!IS_ERR(sc->aclk)) {
+		ret = clk_prepare_enable(sc->aclk);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"%s: failed to enable ACLK (err %d)\n",
+				__func__, ret);
+			goto err_ver_aclk_get;
+		}
 	}
 
 	sc->version = SCALER_VERSION(2, 0, 0);
@@ -2910,33 +3029,26 @@ static int sc_probe(struct platform_device *pdev)
 		}
 	}
 
-	clk_disable_unprepare(sc->aclk);
+	if (!IS_ERR(sc->aclk))
+		clk_disable_unprepare(sc->aclk);
+	if (!IS_ERR(sc->pclk))
+		clk_disable_unprepare(sc->pclk);
 	pm_runtime_put(&pdev->dev);
-
-	exynos_create_iovmm(&pdev->dev, 3, 3);
-	vb2_ion_attach_iommu(sc->alloc_ctx);
-
-	sc->fence_wq = create_singlethread_workqueue("scaler_fence_work");
-	if (!sc->fence_wq) {
-		dev_err(&pdev->dev, "Failed to create workqueue for fence\n");
-		ret = -ENOMEM;
-		goto err_wq;
-	}
-
-	ret = sc_register_m2m_device(sc, dev_id);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to register m2m device\n");
-		goto err_m2m;
-	}
 
 	dev_info(&pdev->dev,
 		"Driver probed successfully(version: %08x)\n", hwver);
 
 	return 0;
+err_ver_aclk_get:
+	if (!IS_ERR(sc->pclk))
+		clk_disable_unprepare(sc->pclk);
+err_ver_pclk_get:
+	pm_runtime_put(&pdev->dev);
+err_ver_rpm_get:
+	sc_unregister_m2m_device(sc);
 err_m2m:
 	destroy_workqueue(sc->fence_wq);
 err_wq:
-err_ver:
 	vb2_ion_destroy_context(sc->alloc_ctx);
 err_ctx:
 	m2m1shot_destroy_device(sc->m21dev);
