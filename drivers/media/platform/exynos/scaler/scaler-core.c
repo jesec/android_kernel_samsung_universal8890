@@ -2208,7 +2208,12 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 				(unsigned long)ktime_us_delta(
 					ktime_get(), ctx->ktime_m2m1shot);
 
-		m2m1shot_task_finish(sc->m21dev, task, true);
+		if (val & SCALER_INT_STATUS_FRAME_END) {
+			m2m1shot_task_finish(sc->m21dev, task, true);
+		} else {
+			dev_err(sc->dev, "illegal setting 0x%x err!!!\n", val);
+			m2m1shot_task_finish(sc->m21dev, task, false);
+		}
 	}
 
 	spin_lock(&sc->ctxlist_lock);
