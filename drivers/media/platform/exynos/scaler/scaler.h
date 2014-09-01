@@ -70,6 +70,15 @@ extern int sc_log_level;
 #define SC_CSC_601	0
 #define SC_CSC_709	1
 
+/* Scaler Crop Fixed Point value */
+#define SC_CROP_FRACT_SHIFT	15
+#define SC_CROP_FRACT_MULTI	16
+#define SC_CROP_FRACT_MASK	((1 << SC_CROP_FRACT_MULTI) - 1)
+#define SC_CROP_INT_MASK	((1 << SC_CROP_FRACT_SHIFT) - 1)
+#define SC_CROP_GET_FR_VAL(x)	((x >> SC_CROP_FRACT_SHIFT) & SC_CROP_FRACT_MASK)
+#define SC_CROP_MAKE_FR_VAL(i, f)	((((f) & SC_CROP_FRACT_MASK) \
+			<< SC_CROP_FRACT_SHIFT) | ((i) & SC_CROP_INT_MASK))
+
 #define fh_to_sc_ctx(__fh)	container_of(__fh, struct sc_ctx, fh)
 #define sc_fmt_is_yuv422(x)	((x == V4L2_PIX_FMT_YUYV) || \
 		(x == V4L2_PIX_FMT_UYVY) || (x == V4L2_PIX_FMT_YVYU) || \
@@ -300,6 +309,13 @@ struct sc_csc {
 	bool			csc_range;
 };
 
+struct sc_init_phase {
+	u32			yh;
+	u32			yv;
+	u32			ch;
+	u32			cv;
+};
+
 struct sc_ctx;
 
 /*
@@ -399,6 +415,7 @@ struct sc_ctx {
 	unsigned long			flags;
 	bool				pre_multi;
 	struct sc_csc			csc;
+	struct sc_init_phase		init_phase;
 };
 
 static inline struct sc_frame *ctx_get_frame(struct sc_ctx *ctx,

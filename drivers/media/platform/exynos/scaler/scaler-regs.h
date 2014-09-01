@@ -160,6 +160,11 @@
 #define SCALER_TIMEOUT_CTRL		0x2c0
 #define SCALER_TIMEOUT_CNT		0x2c4
 
+#define SCALER_SRC_YH_INIT_PHASE	0x2d0
+#define SCALER_SRC_YV_INIT_PHASE	0x2d4
+#define SCALER_SRC_CH_INIT_PHASE	0x2d8
+#define SCALER_SRC_CV_INIT_PHASE	0x2dc
+
 /* macros to make words to SFR */
 #define SCALER_VAL_WH(w, h)	 (((w) & 0x3FFF) << 16) | ((h) & 0x3FFF)
 #define SCALER_VAL_SRC_POS(l, t) (((l) & 0x3FFF) << 18) | (((t) & 0x3FFF) << 2)
@@ -274,6 +279,31 @@ static inline void sc_hwset_start(struct sc_dev *sc)
 }
 
 u32 sc_hwget_and_clear_irq_status(struct sc_dev *sc);
+
+#define SCALER_FRACT_VAL(x)		(x << (20 - SC_CROP_FRACT_MULTI))
+#define SCALER_INIT_PHASE_VAL(i, f)	(((i) & 0xf << 20) | \
+					((SCALER_FRACT_VAL(f)) & 0xfffff))
+static inline void sc_hwset_src_init_phase(struct sc_dev *sc, struct sc_init_phase *ip)
+{
+	if (ip->yh) {
+		__raw_writel(SCALER_INIT_PHASE_VAL(0, ip->yh),
+			sc->regs + SCALER_SRC_YH_INIT_PHASE);
+		__raw_writel(SCALER_INIT_PHASE_VAL(0, ip->ch),
+			sc->regs + SCALER_SRC_CH_INIT_PHASE);
+		sc_dbg("initial phase value is yh 0x%x, ch 0x%x\n",
+			SCALER_FRACT_VAL(ip->yh), SCALER_FRACT_VAL(ip->ch));
+	}
+
+	if (ip->yv) {
+		__raw_writel(SCALER_INIT_PHASE_VAL(0, ip->yv),
+			sc->regs + SCALER_SRC_YV_INIT_PHASE);
+		__raw_writel(SCALER_INIT_PHASE_VAL(0, ip->cv),
+			sc->regs + SCALER_SRC_CV_INIT_PHASE);
+		sc_dbg("initial phase value is yv 0x%x, cv 0x%x\n",
+			SCALER_FRACT_VAL(ip->yv), SCALER_FRACT_VAL(ip->cv));
+	}
+}
+
 void sc_hwset_polyphase_hcoef(struct sc_dev *sc,
 				unsigned int yratio, unsigned int cratio);
 void sc_hwset_polyphase_vcoef(struct sc_dev *sc,

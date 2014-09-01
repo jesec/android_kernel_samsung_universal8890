@@ -652,6 +652,11 @@ static int sc_v4l2_g_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 
 	cr->c = frame->crop;
 
+	if (ctx->init_phase.yh)
+		cr->c.left = SC_CROP_MAKE_FR_VAL(cr->c.left, ctx->init_phase.yh);
+	if (ctx->init_phase.yv)
+		cr->c.top = SC_CROP_MAKE_FR_VAL(cr->c.top, ctx->init_phase.yv);
+
 	return 0;
 }
 
@@ -685,6 +690,18 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	if (V4L2_TYPE_IS_OUTPUT(cr->type)) {
 		limit = &sc->variant->limit_input;
 		set_bit(CTX_SRC_FMT, &ctx->flags);
+		ctx->init_phase.yh = ctx->init_phase.ch =
+			SC_CROP_GET_FR_VAL(cr->c.left);
+		ctx->init_phase.yv = ctx->init_phase.cv =
+			SC_CROP_GET_FR_VAL(cr->c.top);
+		if (ctx->init_phase.yh)
+			cr->c.left &= SC_CROP_INT_MASK;
+		if (ctx->init_phase.yv)
+			cr->c.top &= SC_CROP_INT_MASK;
+		v4l2_dbg(1, sc_log_level, &ctx->sc_dev->m2m.v4l2_dev,
+				"%s: s_crop position (%d.%d, %d.%d)\n",
+				__func__, cr->c.left, ctx->init_phase.yh,
+				cr->c.top, ctx->init_phase.yv);
 	} else {
 		limit = &sc->variant->limit_output;
 		set_bit(CTX_DST_FMT, &ctx->flags);
@@ -2031,6 +2048,14 @@ static void sc_set_prefetch_buffers(struct device *dev, struct sc_ctx *ctx)
 	sysmmu_set_prefetch_buffer_by_region(dev, pb_reg, i);
 }
 
+static void sc_set_initial_phase(struct sc_ctx *ctx)
+{
+	struct sc_dev *sc = ctx->sc_dev;
+
+	/* TODO: need to check scaling, csc, rot according to H/W Goude  */
+	sc_hwset_src_init_phase(sc, &ctx->init_phase);
+}
+
 static int sc_run_next_job(struct sc_dev *sc)
 {
 	unsigned long flags;
@@ -2143,6 +2168,9 @@ static int sc_run_next_job(struct sc_dev *sc)
 
 	sc_hwset_dst_pos(sc, d_frame->crop.left, d_frame->crop.top);
 	sc_hwset_dst_wh(sc, d_frame->crop.width, d_frame->crop.height);
+
+	if (sc->version >= SCALER_VERSION(3, 0, 0))
+		sc_set_initial_phase(ctx);
 
 	sc_hwset_src_addr(sc, &s_frame->addr);
 	sc_hwset_dst_addr(sc, &d_frame->addr);
