@@ -763,15 +763,16 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 						unsigned long timeout = jiffies + msecs_to_jiffies(100);
 
 						do {
-							if (!(readl(i2c->regs + HSI2C_TRANS_STATUS) &
-												HSI2C_MAST_ST_MASK)) {
+							trans_status = readl(i2c->regs + HSI2C_TRANS_STATUS);
+							if ((!(trans_status & HSI2C_MAST_ST_MASK)) ||
+							   ((stop == 0) && (trans_status & HSI2C_MASTER_BUSY))){
 								timeout = 0;
 								break;
 							}
 						} while(time_before(jiffies, timeout));
 
 						if (timeout)
-							dev_err(i2c->dev, "SDA check timeout!!!\n");
+							dev_err(i2c->dev, "SDA check timeout!!! = 0x%8lx\n",trans_status);
 					}
 
 					ret = 0;
