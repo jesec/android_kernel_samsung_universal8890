@@ -413,6 +413,7 @@ struct s5p_mfc_dev {
 	int fw_size;
 	int drm_fw_status;
 	int is_support_smc;
+	int sys_init_status;
 
 	atomic_t trace_ref;
 	struct _mfc_trace *mfc_trace;

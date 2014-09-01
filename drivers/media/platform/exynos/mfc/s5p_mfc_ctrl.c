@@ -342,7 +342,7 @@ int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 		return -EINVAL;
 	}
 	curr_ctx_backup = dev->curr_ctx_drm;
-
+	dev->sys_init_status = 0;
 	/* RMVME: */
 	if (!dev->fw_info.alloc)
 		return -EINVAL;
@@ -358,6 +358,7 @@ int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 
 	s5p_mfc_clock_on(dev);
 
+	dev->sys_init_status = 1;
 	ret = s5p_mfc_reset(dev);
 	if (ret) {
 		mfc_err_dev("Failed to reset MFC - timeout.\n");

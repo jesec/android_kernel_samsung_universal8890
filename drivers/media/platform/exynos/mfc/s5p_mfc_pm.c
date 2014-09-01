@@ -316,14 +316,17 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	}
 
 	if (IS_MFCV6(dev)) {
-		spin_lock_irqsave(&dev->pm.clklock, flags);
-		if ((atomic_inc_return(&dev->clk_ref) == 1) &&
-				FW_HAS_BUS_RESET(dev)) {
-			val = s5p_mfc_read_reg(dev, S5P_FIMV_MFC_BUS_RESET_CTRL);
-			val &= ~(0x1);
-			s5p_mfc_write_reg(dev, val, S5P_FIMV_MFC_BUS_RESET_CTRL);
+		if (dev->sys_init_status) {
+			spin_lock_irqsave(&dev->pm.clklock, flags);
+			if ((atomic_inc_return(&dev->clk_ref) == 1) &&
+					FW_HAS_BUS_RESET(dev)) {
+				val = s5p_mfc_read_reg(dev, S5P_FIMV_MFC_BUS_RESET_CTRL);
+				val &= ~(0x1);
+				s5p_mfc_write_reg(dev, val, S5P_FIMV_MFC_BUS_RESET_CTRL);
+			}
+			spin_unlock_irqrestore(&dev->pm.clklock, flags);
 		}
-		spin_unlock_irqrestore(&dev->pm.clklock, flags);
+		atomic_inc_return(&dev->clk_ref);
 	} else {
 		atomic_inc_return(&dev->clk_ref);
 	}
