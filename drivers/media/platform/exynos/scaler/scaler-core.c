@@ -286,7 +286,7 @@ static const struct sc_variant sc_variant[] = {
 		.version		= SCALER_VERSION(3, 0, 0),
 		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
 		.sc_down_min		= SCALE_RATIO_CONST(16, 1),
-		.sc_down_swmin		= SCALE_RATIO_CONST(256, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
 	}, {
 		.limit_input = {
 			.min_w		= 16,
@@ -1078,11 +1078,97 @@ static bool allocate_intermediate_frame(struct sc_ctx *ctx)
 	return true;
 }
 
+/* Zoom-out range: (x1/4, x1/16] */
+static int sc_prepare_2nd_scaling(struct sc_ctx *ctx,
+				  __s32 src_width, __s32 src_height,
+				  unsigned int *h_ratio, unsigned int *v_ratio)
+{
+	struct sc_dev *sc = ctx->sc_dev;
+	struct v4l2_rect crop = ctx->d_frame.crop;
+	const struct sc_size_limit *limit;
+	unsigned int halign = 0, walign = 0;
+	__u32 pixfmt;
+	const struct sc_fmt *target_fmt = ctx->d_frame.sc_fmt;
+
+	if (!allocate_intermediate_frame(ctx))
+		return -ENOMEM;
+
+	limit = &sc->variant->limit_input;
+	if (*v_ratio > SCALE_RATIO_CONST(4, 1)) {
+		crop.height = ((src_height + 7) / 8) * 2;
+		if (crop.height < limit->min_h) {
+			if (SCALE_RATIO(limit->min_h,
+						ctx->d_frame.crop.height) >
+					SCALE_RATIO_CONST(4, 1)) {
+				dev_err(sc->dev,
+						"Failed height scale down %d -> %d\n",
+						src_height,
+						ctx->d_frame.crop.height);
+
+				free_intermediate_frame(ctx);
+				return -EINVAL;
+			}
+
+			crop.height = limit->min_h;
+		}
+	}
+
+	if (*h_ratio > SCALE_RATIO_CONST(4, 1)) {
+		crop.width = ((src_width + 7) / 8) * 2;
+		if (crop.width < limit->min_w) {
+			if (SCALE_RATIO(limit->min_w,
+						ctx->d_frame.crop.width) >
+					SCALE_RATIO_CONST(4, 1)) {
+				dev_err(sc->dev,
+						"Failed width scale down %d -> %d\n",
+						src_width,
+						ctx->d_frame.crop.width);
+
+				free_intermediate_frame(ctx);
+				return -EINVAL;
+			}
+
+			crop.width = limit->min_w;
+		}
+	}
+
+	pixfmt = target_fmt->pixelformat;
+
+	if (sc_fmt_is_yuv422(pixfmt)) {
+		walign = 1;
+	} else if (sc_fmt_is_yuv420(pixfmt)) {
+		walign = 1;
+		halign = 1;
+	}
+
+	limit = &sc->variant->limit_output;
+	v4l_bound_align_image(&crop.width, limit->min_w, limit->max_w,
+			walign, &crop.height, limit->min_h,
+			limit->max_h, halign, 0);
+
+	*h_ratio = SCALE_RATIO(src_width, crop.width);
+	*v_ratio = SCALE_RATIO(src_height, crop.height);
+
+	if ((ctx->i_frame->frame.sc_fmt != ctx->d_frame.sc_fmt) ||
+			memcmp(&crop, &ctx->i_frame->frame.crop, sizeof(crop))) {
+		memcpy(&ctx->i_frame->frame, &ctx->d_frame,
+				sizeof(ctx->d_frame));
+		memcpy(&ctx->i_frame->frame.crop, &crop, sizeof(crop));
+		free_intermediate_frame(ctx);
+		if (!initialize_initermediate_frame(ctx)) {
+			free_intermediate_frame(ctx);
+			return -ENOMEM;
+		}
+	}
+	return 0;
+}
+
 static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 {
 	__s32 src_width, src_height;
 	unsigned int h_ratio, v_ratio;
 	struct sc_dev *sc = ctx->sc_dev;
+	unsigned int sc_down_min = sc->variant->sc_down_min;
 
 	if ((ctx->s_frame.crop.width == 0) ||
 			(ctx->d_frame.crop.width == 0))
@@ -1110,92 +1196,59 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 		return -EINVAL;
 	}
 
-	if ((h_ratio > sc->variant->sc_down_min) ||
-				(v_ratio > sc->variant->sc_down_min)) {
-		struct v4l2_rect crop = ctx->d_frame.crop;
-		const struct sc_size_limit *limit;
-		unsigned int halign = 0, walign = 0;
-		__u32 pixfmt;
-		const struct sc_fmt *target_fmt = ctx->d_frame.sc_fmt;
+	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
+		BUG_ON(sc_down_min != SCALE_RATIO_CONST(16, 1));
 
-		if (!allocate_intermediate_frame(ctx))
-			return -ENOMEM;
+		if (h_ratio > SCALE_RATIO_CONST(8, 1)) {
+			ctx->pre_h_ratio = 2;
+		} else if (h_ratio > SCALE_RATIO_CONST(4, 1)) {
+			ctx->pre_h_ratio = 1;
+		} else {
+			ctx->pre_h_ratio = 0;
+		}
 
-		limit = &sc->variant->limit_input;
-		if (v_ratio > sc->variant->sc_down_min) {
-			crop.height = ((src_height + 7) / 8) * 2;
-			if (crop.height < limit->min_h) {
-				if (SCALE_RATIO(limit->min_h,
-					ctx->d_frame.crop.height) >
-						sc->variant->sc_down_min) {
-					dev_err(sc->dev,
-					"Failed height scale down %d -> %d\n",
-					src_height,
-					ctx->d_frame.crop.height);
+		if (v_ratio > SCALE_RATIO_CONST(8, 1)) {
+			ctx->pre_v_ratio = 2;
+		} else if (v_ratio > SCALE_RATIO_CONST(4, 1)) {
+			ctx->pre_v_ratio = 1;
+		} else {
+			ctx->pre_v_ratio = 0;
+		}
 
-					free_intermediate_frame(ctx);
-					return -EINVAL;
-				}
-
-				crop.height = limit->min_h;
+		/*
+		 * If the source image resolution violates the constraints of
+		 * pre-scaler, then performs poly-phase scaling twice
+		 */
+		if (ctx->pre_h_ratio || ctx->pre_v_ratio) {
+			if (!IS_ALIGNED(src_width, 1 << (ctx->pre_h_ratio +
+					ctx->s_frame.sc_fmt->h_shift)) ||
+				!IS_ALIGNED(src_height, 1 << (ctx->pre_v_ratio +
+					ctx->s_frame.sc_fmt->v_shift))) {
+				sc_down_min = SCALE_RATIO_CONST(4, 1);
+				ctx->pre_h_ratio = 0;
+				ctx->pre_v_ratio = 0;
+			} else {
+				h_ratio >>= ctx->pre_h_ratio;
+				v_ratio >>= ctx->pre_v_ratio;
 			}
 		}
 
-		if (h_ratio > sc->variant->sc_down_min) {
-			crop.width = ((src_width + 7) / 8) * 2;
-			if (crop.width < limit->min_w) {
-				if (SCALE_RATIO(limit->min_w,
-					ctx->d_frame.crop.width) >
-						sc->variant->sc_down_min) {
-					dev_err(sc->dev,
-					"Failed width scale down %d -> %d\n",
-					src_width,
-					ctx->d_frame.crop.width);
-
-					free_intermediate_frame(ctx);
-					return -EINVAL;
-				}
-
-				crop.width = limit->min_w;
-			}
+		if (sc_down_min == SCALE_RATIO_CONST(4, 1)) {
+			dev_info(sc->dev,
+			"%s: Prepared 2nd polyphase scaler (%dx%d->%dx%d)\n",
+			__func__,
+			ctx->s_frame.crop.width, ctx->s_frame.crop.height,
+			ctx->d_frame.crop.width, ctx->d_frame.crop.height);
 		}
+	}
 
-		pixfmt = target_fmt->pixelformat;
+	if ((h_ratio > sc_down_min) || (v_ratio > sc_down_min)) {
+		int ret;
 
-		if (sc_fmt_is_yuv422(pixfmt)) {
-			walign = 1;
-		} else if (sc_fmt_is_yuv420(pixfmt)) {
-			walign = 1;
-			halign = 1;
-		}
-
-		limit = &sc->variant->limit_output;
-		v4l_bound_align_image(&crop.width, limit->min_w, limit->max_w,
-				walign, &crop.height, limit->min_h,
-				limit->max_h, halign, 0);
-
-		h_ratio = SCALE_RATIO(src_width, crop.width);
-		v_ratio = SCALE_RATIO(src_height, crop.height);
-
-		limit = &sc->variant->limit_output;
-		v4l_bound_align_image(&crop.width, limit->min_w, limit->max_w,
-				walign, &crop.height, limit->min_h,
-				limit->max_h, halign, 0);
-
-		h_ratio = SCALE_RATIO(src_width, crop.width);
-		v_ratio = SCALE_RATIO(src_height, crop.height);
-
-		if ((ctx->i_frame->frame.sc_fmt != ctx->d_frame.sc_fmt) ||
-		    memcmp(&crop, &ctx->i_frame->frame.crop, sizeof(crop))) {
-			memcpy(&ctx->i_frame->frame, &ctx->d_frame,
-					sizeof(ctx->d_frame));
-			memcpy(&ctx->i_frame->frame.crop, &crop, sizeof(crop));
-			free_intermediate_frame(ctx);
-			if (!initialize_initermediate_frame(ctx)) {
-				free_intermediate_frame(ctx);
-				return -ENOMEM;
-			}
-		}
+		ret = sc_prepare_2nd_scaling(ctx, src_width, src_height,
+						&h_ratio, &v_ratio);
+		if (ret)
+			return ret;
 	} else {
 		destroy_intermediate_frame(ctx);
 	}
@@ -1839,18 +1892,6 @@ static void sc_set_csc_coef(struct sc_ctx *ctx)
 	sc_hwset_csc_coef(sc, idx, &ctx->csc);
 }
 
-static unsigned int sc_find_prescaling_ratio(unsigned int ratio)
-{
-	BUG_ON(ratio > SCALE_RATIO(16, 1));
-
-	if (ratio > SCALE_RATIO(8, 1))
-		return 2; /* 1/4 prescaling */
-	else if (ratio > SCALE_RATIO(4, 1))
-		return 1; /* 1/2 prescaling */
-	else
-		return 0;
-}
-
 static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 {
 	struct sc_frame *s_frame, *d_frame;
@@ -1890,14 +1931,10 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 
 	h_ratio = SCALE_RATIO(s_frame->crop.width, d_frame->crop.width);
 	v_ratio = SCALE_RATIO(s_frame->crop.height, d_frame->crop.height);
+	pre_h_ratio = 0;
+	pre_v_ratio = 0;
 
-	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
-		pre_h_ratio = sc_find_prescaling_ratio(h_ratio);
-		pre_v_ratio = sc_find_prescaling_ratio(v_ratio);
-
-		h_ratio >>= pre_h_ratio;
-		v_ratio >>= pre_v_ratio;
-	} else {
+	if (sc->version < SCALER_VERSION(3, 0, 0)) {
 		/* No prescaler, 1/4 precision */
 		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
 		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
@@ -1917,7 +1954,8 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 	sc_hwset_src_pos(sc, s_frame->crop.left, s_frame->crop.top,
 			s_frame->sc_fmt->h_shift, s_frame->sc_fmt->v_shift);
 	sc_hwset_src_wh(sc, s_frame->crop.width, s_frame->crop.height,
-			pre_h_ratio, pre_v_ratio);
+			pre_h_ratio, pre_v_ratio,
+			s_frame->sc_fmt->h_shift, s_frame->sc_fmt->v_shift);
 
 	sc_hwset_dst_pos(sc, d_frame->crop.left, d_frame->crop.top);
 	sc_hwset_dst_wh(sc, d_frame->crop.width, d_frame->crop.height);
@@ -2057,14 +2095,10 @@ static int sc_run_next_job(struct sc_dev *sc)
 
 	h_ratio = ctx->h_ratio;
 	v_ratio = ctx->v_ratio;
+	pre_h_ratio = ctx->pre_h_ratio;
+	pre_v_ratio = ctx->pre_v_ratio;
 
-	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
-		pre_h_ratio = sc_find_prescaling_ratio(h_ratio);
-		pre_v_ratio = sc_find_prescaling_ratio(v_ratio);
-
-		h_ratio >>= pre_h_ratio;
-		v_ratio >>= pre_v_ratio;
-	} else {
+	if (sc->version < SCALER_VERSION(3, 0, 0)) {
 		/* No prescaler, 1/4 precision */
 		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
 		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
@@ -2104,7 +2138,8 @@ static int sc_run_next_job(struct sc_dev *sc)
 	sc_hwset_src_pos(sc, s_frame->crop.left, s_frame->crop.top,
 			s_frame->sc_fmt->h_shift, s_frame->sc_fmt->v_shift);
 	sc_hwset_src_wh(sc, s_frame->crop.width, s_frame->crop.height,
-			pre_h_ratio, pre_v_ratio);
+			pre_h_ratio, pre_v_ratio,
+			s_frame->sc_fmt->h_shift, s_frame->sc_fmt->v_shift);
 
 	sc_hwset_dst_pos(sc, d_frame->crop.left, d_frame->crop.top);
 	sc_hwset_dst_wh(sc, d_frame->crop.width, d_frame->crop.height);

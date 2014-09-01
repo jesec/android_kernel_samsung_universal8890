@@ -176,12 +176,27 @@ static inline void sc_hwset_src_pos(struct sc_dev *sc, __s32 left, __s32 top,
 }
 
 static inline void sc_hwset_src_wh(struct sc_dev *sc, __s32 width, __s32 height,
-		unsigned int pre_h_ratio, unsigned int pre_v_ratio)
+			unsigned int pre_h_ratio, unsigned int pre_v_ratio,
+			unsigned int chshift, unsigned int cvshift)
 {
-	if (sc->version >= SCALER_VERSION(3, 0, 0))
+	__s32 pre_width = round_down(width >> pre_h_ratio, 1 << chshift);
+	__s32 pre_height = round_down(height >> pre_v_ratio, 1 << cvshift);
+
+	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
+		/*
+		 * crops the width and height if the pre-scaling result violates
+		 * the width/height constraints:
+		 *  - result width or height is not a natural number
+		 *  - result width or height violates the constrains
+		 *    of YUV420/422
+		 */
+		width = pre_width << pre_h_ratio;
+		height = pre_height << pre_v_ratio;
 		__raw_writel(SCALER_VAL_WH(width, height),
 				sc->regs + SCALER_SRC_PRESC_WH);
-	__raw_writel(SCALER_VAL_WH(width >> pre_h_ratio, height >> pre_v_ratio),
+	}
+
+	__raw_writel(SCALER_VAL_WH(pre_width, pre_height),
 				sc->regs + SCALER_SRC_WH);
 }
 

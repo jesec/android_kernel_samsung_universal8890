@@ -394,6 +394,8 @@ struct sc_ctx {
 	bool				color_fill;
 	unsigned int			h_ratio;
 	unsigned int			v_ratio;
+	unsigned int			pre_h_ratio;
+	unsigned int			pre_v_ratio;
 	unsigned long			flags;
 	bool				pre_multi;
 	struct sc_csc			csc;
