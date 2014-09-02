@@ -81,6 +81,8 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 						S5P_FIMV_D_DISPLAY_FRAME_HEIGHT)
 #define s5p_mfc_get_dpb_count()		readl(dev->regs_base + \
 						S5P_FIMV_D_MIN_NUM_DPB)
+#define s5p_mfc_get_scratch_size()	readl(dev->regs_base + \
+						S5P_FIMV_D_MIN_SCRATCH_BUFFER_SIZE)
 #define s5p_mfc_get_dis_count()		0
 #define s5p_mfc_get_mv_count()		readl(dev->regs_base + \
 						S5P_FIMV_D_MIN_NUM_MV)

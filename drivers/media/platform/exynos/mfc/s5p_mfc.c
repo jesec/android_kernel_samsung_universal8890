@@ -1525,6 +1525,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 					ctx->dpb_count, dec->tiled_buf_cnt);
 			} else {
 				ctx->dpb_count = s5p_mfc_get_dpb_count();
+				ctx->scratch_buf_size = s5p_mfc_get_scratch_size();
 			}
 			dec->internal_dpb = 0;
 			s5p_mfc_dec_store_crop_info(ctx);

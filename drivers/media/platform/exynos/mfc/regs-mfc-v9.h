@@ -187,6 +187,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_MIN_THIRD_PLANE_DPB_SIZE                     0xF0FC
 #define S5P_FIMV_D_MIN_NUM_MV                                   0xF100
 #define S5P_FIMV_D_MVC_NUM_VIEWS                                0xF104
+#define S5P_FIMV_D_MIN_SCRATCH_BUFFER_SIZE			0xF108
 
 /* Buffers */
 #define S5P_FIMV_D_NUM_DPB                                      0xF130
