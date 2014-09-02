@@ -634,7 +634,6 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	struct sysmmu_drvdata *drvdata = dev_id;
 	unsigned int itype;
 	unsigned long addr = -1;
-	int ret = -ENOSYS;
 	int flags = 0;
 
 	WARN(!is_sysmmu_active(drvdata),
@@ -657,9 +656,7 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 	show_fault_information(drvdata, flags, addr);
 
-	if (drvdata->domain) /* master is set if drvdata->domain exists */
-		ret = report_iommu_fault(drvdata->domain,
-					drvdata->master, addr, flags);
+	atomic_notifier_call_chain(&drvdata->fault_notifiers, addr, &flags);
 
 #if 0 /* Recovering System MMU fault is available from System MMU v6 */
 	if ((ret == 0) &&
@@ -1631,6 +1628,7 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 			get_sysmmu_runtime_active(data);
 		data->sysmmu = dev;
 		INIT_LIST_HEAD(&data->entry);
+		ATOMIC_INIT_NOTIFIER_HEAD(&data->fault_notifiers);
 		spin_lock_init(&data->lock);
 
 		list_add_tail(&data->entry, &sysmmu_drvdata_list);
@@ -2777,6 +2775,64 @@ static int __init exynos_iommu_prepare(void)
 }
 subsys_initcall_sync(exynos_iommu_prepare);
 #endif /* CONFIG_PM_GENERIC_DOMAINS */
+
+static int sysmmu_fault_notifier(struct notifier_block *nb,
+				     unsigned long fault_addr, void *data)
+{
+	struct sysmmu_fault_data *fdata;
+	struct exynos_iovmm *vmm;
+
+	fdata = container_of(nb, struct sysmmu_fault_data, nb);
+
+	vmm = exynos_get_iovmm(fdata->master);
+
+	if (vmm && vmm->domain)
+		report_iommu_fault(vmm->domain,
+				fdata->master, fault_addr, *(int *)data);
+
+	return 0;
+}
+
+int exynos_sysmmu_add_fault_notifier(struct sysmmu_fault_data *fdata)
+{
+	struct device *dev = fdata->master;
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct sysmmu_list_data *list;
+	struct sysmmu_drvdata *drvdata;
+	unsigned long flags;
+	int ret;
+
+	if (!has_sysmmu(dev))
+		return 0;
+
+	fdata->nb.notifier_call = sysmmu_fault_notifier;
+
+	spin_lock_irqsave(&owner->lock, flags);
+
+	for_each_sysmmu_list(dev, list) {
+		drvdata = dev_get_drvdata(list->sysmmu);
+		ret = atomic_notifier_chain_register(
+				&drvdata->fault_notifiers, &fdata->nb);
+		if (ret) {
+			spin_unlock_irqrestore(&owner->lock, flags);
+			goto err;
+		}
+
+	}
+
+	spin_unlock_irqrestore(&owner->lock, flags);
+
+	return 0;
+
+err:
+	for_each_sysmmu_list(dev, list) {
+		drvdata = dev_get_drvdata(list->sysmmu);
+		atomic_notifier_chain_unregister(
+			&drvdata->fault_notifiers, &fdata->nb);
+	}
+
+	return ret;
+}
 
 static void sysmmu_dump_lv2_page_table(unsigned int lv1idx, sysmmu_pte_t *base)
 {
