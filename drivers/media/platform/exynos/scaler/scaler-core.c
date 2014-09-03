@@ -1090,7 +1090,7 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 
 	src_width = ctx->s_frame.crop.width;
 	src_height = ctx->s_frame.crop.height;
-	if ((ctx->rotation % 180) == 90)
+	if (!!(ctx->flip_rot_cfg & SCALER_ROT_90))
 		swap(src_width, src_height);
 
 	h_ratio = SCALE_RATIO(src_width, ctx->d_frame.crop.width);
@@ -1399,6 +1399,32 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	return vb2_queue_init(dst_vq);
 }
 
+static bool sc_configure_rotation_degree(struct sc_ctx *ctx, int degree)
+{
+	ctx->flip_rot_cfg &= ~SCALER_ROT_MASK;
+
+	/*
+	 * we expect that the direction of rotation is clockwise
+	 * but the Scaler does in counter clockwise.
+	 * Since the GScaler doest that in clockwise,
+	 * the following makes the direction of rotation by the Scaler
+	 * clockwise.
+	 */
+	if (degree == 270) {
+		ctx->flip_rot_cfg |= SCALER_ROT_90;
+	} else if (degree == 180) {
+		ctx->flip_rot_cfg |= SCALER_ROT_180;
+	} else if (degree == 90) {
+		ctx->flip_rot_cfg |= SCALER_ROT_270;
+	} else if (degree != 0) {
+		dev_err(ctx->sc_dev->dev,
+			"%s: Rotation of %d is not supported\n",
+			__func__, degree);
+		return false;
+	}
+
+	return true;
+}
 static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct sc_ctx *ctx;
@@ -1409,18 +1435,19 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_VFLIP:
 		if (ctrl->val)
-			ctx->flip |= SC_VFLIP;
+			ctx->flip_rot_cfg |= SCALER_FLIP_X_EN;
 		else
-			ctx->flip &= ~SC_VFLIP;
+			ctx->flip_rot_cfg &= ~SCALER_FLIP_X_EN;
 		break;
 	case V4L2_CID_HFLIP:
 		if (ctrl->val)
-			ctx->flip |= SC_HFLIP;
+			ctx->flip_rot_cfg |= SCALER_FLIP_Y_EN;
 		else
-			ctx->flip &= ~SC_HFLIP;
+			ctx->flip_rot_cfg &= ~SCALER_FLIP_Y_EN;
 		break;
 	case V4L2_CID_ROTATE:
-		ctx->rotation = ctrl->val;
+		if (!sc_configure_rotation_degree(ctx, ctrl->val))
+			return -EINVAL;
 		break;
 	case V4L2_CID_GLOBAL_ALPHA:
 		ctx->g_alpha = ctrl->val;
@@ -1882,7 +1909,7 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 	sc_hwset_src_addr(sc, &s_frame->addr);
 	sc_hwset_dst_addr(sc, &d_frame->addr);
 
-	sc_hwset_flip_rotation(sc, 0, 0);
+	sc_hwset_flip_rotation(sc, 0);
 
 	sc_hwset_start(sc);
 
@@ -2043,7 +2070,7 @@ static int sc_run_next_job(struct sc_dev *sc)
 	h_shift = s_frame->sc_fmt->h_shift;
 	v_shift = s_frame->sc_fmt->v_shift;
 
-	if ((ctx->rotation == 90) || (ctx->rotation == 270)) {
+	if (!!(ctx->flip_rot_cfg & SCALER_ROT_90)) {
 		swap(pre_h_ratio, pre_v_ratio);
 		swap(h_shift, v_shift);
 	}
@@ -2084,7 +2111,7 @@ static int sc_run_next_job(struct sc_dev *sc)
 	if (ctx->bl_op)
 		sc_hwset_blend(sc, ctx->bl_op, ctx->pre_multi, ctx->g_alpha);
 
-	sc_hwset_flip_rotation(sc, ctx->flip, ctx->rotation);
+	sc_hwset_flip_rotation(sc, ctx->flip_rot_cfg);
 	sc_hwset_int_en(sc, 1);
 
 	set_bit(DEV_RUN, &sc->state);
@@ -2594,23 +2621,16 @@ static int sc_m2m1shot_prepare_operation(struct m2m1shot_context *m21ctx,
 	struct sc_ctx *ctx = m21ctx->priv;
 	struct m2m1shot *shot = &task->task;
 
-	if ((shot->op.rotate != 0) && (shot->op.rotate != 90) &&
-			(shot->op.rotate != 180) && (shot->op.rotate != 270)) {
-		dev_err(ctx->sc_dev->dev,
-			"%s: rotation degree %d is not supported\n",
-			__func__, shot->op.rotate);
+	if (!sc_configure_rotation_degree(ctx, shot->op.rotate))
 		return -EINVAL;
-	}
 
-	ctx->rotation = shot->op.rotate;
-
-	ctx->flip &= ~(SC_VFLIP | SC_HFLIP);
+	ctx->flip_rot_cfg &= ~(SCALER_FLIP_X_EN | SCALER_FLIP_Y_EN);
 
 	if (shot->op.op & M2M1SHOT_OP_FLIP_VIRT)
-		ctx->flip |= SC_VFLIP;
+		ctx->flip_rot_cfg |= SCALER_FLIP_X_EN;
 
 	if (shot->op.op & M2M1SHOT_OP_FLIP_HORI)
-		ctx->flip |= SC_HFLIP;
+		ctx->flip_rot_cfg |= SCALER_FLIP_Y_EN;
 
 	ctx->csc.csc_eq = !(shot->op.op & M2M1SHOT_OP_CSC_709) ?
 						SC_CSC_601 : SC_CSC_709;

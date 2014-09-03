@@ -51,10 +51,6 @@ extern int sc_log_level;
 #define SC_ADDR_CBCR		1
 #define SC_ADDR_CR		2
 
-/* Scaler flip direction */
-#define SC_VFLIP	(1 << 1)
-#define SC_HFLIP	(1 << 2)
-
 /* Scaler hardware device state */
 #define DEV_RUN		1
 #define DEV_SUSPEND	2
@@ -366,8 +362,7 @@ enum SC_CONTEXT_TYPE {
  * @ctrl_handler:	v4l2 controls handler
  * @fh:			v4l2 file handle
  * @ktime:		start time of a task of m2m1shot
- * @rotation:		image clockwise scation in degrees
- * @flip:		image flip mode
+ * @flip_rot_cfg:	rotation and flip configuration
  * @bl_op:		image blend mode
  * @dith:		image dithering mode
  * @g_alpha:		global alpha value
@@ -394,8 +389,7 @@ struct sc_ctx {
 		struct v4l2_fh		fh;
 		ktime_t			ktime_m2m1shot;
 	};
-	int				rotation;
-	u32				flip;
+	u32				flip_rot_cfg; /* SCALER_ROT_CFG */
 	enum sc_blend_op		bl_op;
 	u32				dith;
 	u32				g_alpha;
@@ -437,7 +431,6 @@ void sc_hwset_color_fill(struct sc_dev *sc, unsigned int val);
 void sc_hwset_dith(struct sc_dev *sc, unsigned int val);
 void sc_hwset_csc_coef(struct sc_dev *sc, enum sc_csc_idx idx,
 		struct sc_csc *csc);
-void sc_hwset_flip_rotation(struct sc_dev *sc, u32 direction, int degree);
 void sc_hwset_src_imgsize(struct sc_dev *sc, struct sc_frame *frame);
 void sc_hwset_dst_imgsize(struct sc_dev *sc, struct sc_frame *frame);
 void sc_hwset_src_crop(struct sc_dev *sc, struct v4l2_rect *rect,

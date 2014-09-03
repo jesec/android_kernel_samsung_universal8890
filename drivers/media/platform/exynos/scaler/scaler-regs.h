@@ -200,6 +200,11 @@ static inline void sc_hwset_vratio(struct sc_dev *sc, u32 ratio, u32 pre_ratio)
 	__raw_writel((pre_ratio << 28) | ratio, sc->regs + SCALER_V_RATIO);
 }
 
+static inline void sc_hwset_flip_rotation(struct sc_dev *sc, u32 flip_rot_cfg)
+{
+	__raw_writel(flip_rot_cfg & 0xF, sc->regs + SCALER_ROT_CFG);
+}
+
 void sc_hwset_polyphase_hcoef(struct sc_dev *sc,
 				unsigned int yratio, unsigned int cratio);
 void sc_hwset_polyphase_vcoef(struct sc_dev *sc,

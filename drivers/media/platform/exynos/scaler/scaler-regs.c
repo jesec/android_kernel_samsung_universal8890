@@ -504,35 +504,6 @@ void sc_hwset_csc_coef(struct sc_dev *sc, enum sc_csc_idx idx,
 	writel(cfg, sc->regs + SCALER_CFG);
 }
 
-void sc_hwset_flip_rotation(struct sc_dev *sc, u32 direction, int degree)
-{
-	unsigned long cfg = readl(sc->regs + SCALER_ROT_CFG);
-
-	sc_dbg("flip %d rotation %d\n", direction, degree);
-	cfg &= ~SCALER_FLIP_MASK;
-	if (direction & SC_VFLIP)
-		cfg |= SCALER_FLIP_X_EN;
-	if (direction & SC_HFLIP)
-		cfg |= SCALER_FLIP_Y_EN;
-
-	/*
-	 * we expect that the direction of rotation is clockwise
-	 * but the Scaler does in counter clockwise.
-	 * Since the GScaler doest that in clockwise,
-	 * the following makes the direction of rotation by the Scaler
-	 * clockwise.
-	 */
-	cfg &= ~SCALER_ROT_MASK;
-	if (degree == 270)
-		cfg |= SCALER_ROT_90;
-	else if (degree == 180)
-		cfg |= SCALER_ROT_180;
-	else if (degree == 90)
-		cfg |= SCALER_ROT_270;
-
-	writel(cfg, sc->regs + SCALER_ROT_CFG);
-}
-
 static const __u32 sc_scaling_ratio[] = {
 	1048576,	/* 0: 8:8 scaing or zoom-in */
 	1198372,	/* 1: 8:7 zoom-out */
