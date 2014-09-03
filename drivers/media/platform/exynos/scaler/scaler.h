@@ -367,9 +367,7 @@ enum SC_CONTEXT_TYPE {
  * @dith:		image dithering mode
  * @g_alpha:		global alpha value
  * @color_fill:		enable color fill
- * @color:		color fill value
  * @flags:		context state flags
- * @cacheable:		cacheability of current frame
  * @pre_multi:		pre-multiplied format
  * @csc:		csc equation value
  */
@@ -394,11 +392,9 @@ struct sc_ctx {
 	u32				dith;
 	u32				g_alpha;
 	bool				color_fill;
-	unsigned int			color;
 	unsigned int			h_ratio;
 	unsigned int			v_ratio;
 	unsigned long			flags;
-	bool				cacheable;
 	bool				pre_multi;
 	struct sc_csc			csc;
 };
