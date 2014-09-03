@@ -19,6 +19,7 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/io.h>
@@ -81,8 +82,8 @@ static LIST_HEAD(drvdata_list);
 #define HSI2C_RXFIFO_EN				(1u << 0)
 #define HSI2C_TXFIFO_EN				(1u << 1)
 #define HSI2C_FIFO_MAX				(0x40)
-#define HSI2C_RXFIFO_TRIGGER_LEVEL		(0x20 << 4)
-#define HSI2C_TXFIFO_TRIGGER_LEVEL		(0x20 << 16)
+#define HSI2C_RXFIFO_TRIGGER_LEVEL		(0x8 << 4)
+#define HSI2C_TXFIFO_TRIGGER_LEVEL		(0x8 << 16)
 /* I2C_TRAILING_CTL Register bits */
 #define HSI2C_TRAILING_COUNT			(0xf)
 
@@ -166,6 +167,8 @@ static LIST_HEAD(drvdata_list);
 #define EXYNOS5_I2C_TIMEOUT (msecs_to_jiffies(1000))
 
 #define EXYNOS5_FIFO_SIZE		16
+
+#define EXYNOS5_HSI2C_RUNTIME_PM_DELAY	(100)
 
 struct exynos5_i2c {
 	struct list_head	node;
@@ -580,7 +583,6 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 	else
 		i2c_auto_conf &= ~HSI2C_STOP_AFTER_TRANS;
 
-
 	i2c_addr = readl(i2c->regs + HSI2C_ADDR);
 	i2c_addr &= ~(0x3ff << 10);
 	i2c_addr &= ~(0x3ff << 0);
@@ -759,7 +761,11 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 		return -EIO;
 	}
 
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_get_sync(i2c->dev);
+#else
 	clk_prepare_enable(i2c->clk);
+#endif
 	if (i2c->need_hw_init)
 		exynos5_i2c_reset(i2c);
 
@@ -803,7 +809,13 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	}
 
  out:
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_mark_last_busy(i2c->dev);
+	pm_runtime_put_autosuspend(i2c->dev);
+#else
 	clk_disable_unprepare(i2c->clk);
+#endif
+
 	return ret;
 }
 
@@ -912,7 +924,13 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "cannot get rate clock\n");
 		return -ENOENT;
 	}
-	clk_prepare_enable(i2c->clk);
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev,
+					EXYNOS5_HSI2C_RUNTIME_PM_DELAY);
+	pm_runtime_enable(&pdev->dev);
+#endif
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	i2c->regs = devm_request_and_ioremap(&pdev->dev, mem);
@@ -925,9 +943,6 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	i2c->adap.dev.of_node = np;
 	i2c->adap.algo_data = i2c;
 	i2c->adap.dev.parent = &pdev->dev;
-
-	/* Clear pending interrupts from u-boot or misc causes */
-	exynos5_i2c_clr_pend_irq(i2c);
 
 	init_completion(&i2c->msg_complete);
 
@@ -955,6 +970,16 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 			goto err_clk;
 		}
 	}
+	platform_set_drvdata(pdev, i2c);
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_get_sync(&pdev->dev);
+#else
+	clk_prepare_enable(i2c->clk);
+#endif
+
+	/* Clear pending interrupts from u-boot or misc causes */
+	exynos5_i2c_clr_pend_irq(i2c);
+
 	ret = exynos5_hsi2c_clock_setup(i2c);
 	if (ret)
 		goto err_clk;
@@ -971,9 +996,12 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	}
 
 	of_i2c_register_devices(&i2c->adap);
-	platform_set_drvdata(pdev, i2c);
-
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
+#else
 	clk_disable_unprepare(i2c->clk);
+#endif
 
 #ifdef CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP
 	list_add_tail(&i2c->node, &drvdata_list);
@@ -1023,15 +1051,46 @@ static int exynos5_i2c_resume_noirq(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops exynos5_i2c_dev_pm_ops = {
-	.suspend_noirq = exynos5_i2c_suspend_noirq,
-	.resume_noirq	= exynos5_i2c_resume_noirq,
-};
-
-#define EXYNOS5_DEV_PM_OPS (&exynos5_i2c_dev_pm_ops)
 #else
-#define EXYNOS5_DEV_PM_OPS NULL
+static int exynos5_i2c_suspend_noirq(struct device *dev)
+{
+	return 0;
+}
+
+static int exynos5_i2c_resume_noirq(struct device *dev)
+{
+	return 0;
+}
 #endif
+
+#ifdef CONFIG_PM_RUNTIME
+static int exynos5_i2c_runtime_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
+
+	clk_disable_unprepare(i2c->clk);
+
+	return 0;
+}
+
+static int exynos5_i2c_runtime_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
+
+	clk_prepare_enable(i2c->clk);
+
+	return 0;
+}
+#endif /* CONFIG_PM_RUNTIME */
+
+static const struct dev_pm_ops exynos5_i2c_pm = {
+	.suspend_noirq = exynos5_i2c_suspend_noirq,
+	.resume_noirq = exynos5_i2c_resume_noirq,
+	SET_RUNTIME_PM_OPS(exynos5_i2c_runtime_suspend,
+			   exynos5_i2c_runtime_resume, NULL)
+};
 
 static struct platform_driver exynos5_i2c_driver = {
 	.probe		= exynos5_i2c_probe,
@@ -1039,7 +1098,7 @@ static struct platform_driver exynos5_i2c_driver = {
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= "exynos5-hsi2c",
-		.pm	= EXYNOS5_DEV_PM_OPS,
+		.pm	= &exynos5_i2c_pm,
 		.of_match_table = exynos5_i2c_match,
 	},
 };
