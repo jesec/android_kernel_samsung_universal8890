@@ -152,6 +152,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define ENC_MPEG4_VOP_TIME_RES_MAX	((1 << 16) - 1)
 #define FRAME_DELTA_DEFAULT		1
 #define TIGHT_CBR_MAX			10
+#define I_LIMIT_CBR_MAX			5
 #define ENC_HEVC_RC_FRAME_RATE_MAX	((1 << 16) - 1)
 #define ENC_HEVC_QP_INDEX_MIN	-12
 #define ENC_HEVC_QP_INDEX_MAX	12
