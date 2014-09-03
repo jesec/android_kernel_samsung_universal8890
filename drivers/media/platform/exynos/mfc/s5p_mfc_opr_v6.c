@@ -1620,8 +1620,14 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 
 	/* UHD encoding case */
 	if(is_UHD(ctx)) {
-		p_264->level = 51;
-		p_264->profile = 0x2;
+		if (p_264->level < 51) {
+			mfc_info_ctx("Set Level 5.1 for UHD\n");
+			p_264->level = 51;
+		}
+		if (p_264->profile != 0x2) {
+			mfc_info_ctx("Set High profile for UHD\n");
+			p_264->profile = 0x2;
+		}
 #if defined(CONFIG_SOC_EXYNOS5422)
 		sysmmu_set_qos(dev->device, 0xF);
 #endif

@@ -382,7 +382,7 @@ static struct v4l2_queryctrl controls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "H264 level",
 		.minimum = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_4_2,
+		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_1,
 		.step = 1,
 		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
 	},
@@ -3348,7 +3348,7 @@ static int vidioc_g_ctrl(struct file *file, void *priv,
 
 static inline int h264_level(enum v4l2_mpeg_video_h264_level lvl)
 {
-	static unsigned int t[V4L2_MPEG_VIDEO_H264_LEVEL_4_2 + 1] = {
+	static unsigned int t[V4L2_MPEG_VIDEO_H264_LEVEL_5_1 + 1] = {
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1_0   */ 10,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1B    */ 9,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1_1   */ 11,
@@ -3363,6 +3363,8 @@ static inline int h264_level(enum v4l2_mpeg_video_h264_level lvl)
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_4_0   */ 40,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_4_1   */ 41,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_4_2   */ 42,
+		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_0   */ 50,
+		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_1   */ 51,
 	};
 	return t[lvl];
 }
