@@ -562,8 +562,8 @@ static int samsung_mux_set_parent(struct clk_hw *hw, u8 index)
 				return -ETIMEDOUT;
 			}
 			val = readl(mux->stat_reg);
-			val &= BIT(mux->stat_bit + mux->stat_width - 1);
-		} while (val);
+			val &= ((BIT(mux->stat_width) - 1) << mux->stat_bit);
+		} while (val != (index << mux->stat_bit));
 
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
