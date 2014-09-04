@@ -1796,8 +1796,7 @@ static void sc_watchdog(unsigned long arg)
 		exynos_sysmmu_show_status(sc->dev);
 		atomic_inc(&sc->wdt.cnt);
 		dev_err(sc->dev, "scaler is still running\n");
-		sc->wdt.timer.expires = jiffies + SC_TIMEOUT;
-		add_timer(&sc->wdt.timer);
+		mod_timer(&sc->wdt.timer, jiffies + SC_TIMEOUT);
 	} else {
 		sc_dbg("scaler finished job\n");
 	}
@@ -2112,15 +2111,14 @@ static int sc_run_next_job(struct sc_dev *sc)
 		sc_hwset_blend(sc, ctx->bl_op, ctx->pre_multi, ctx->g_alpha);
 
 	sc_hwset_flip_rotation(sc, ctx->flip_rot_cfg);
-	sc_hwset_int_en(sc, 1);
+	sc_hwset_int_en(sc);
 
 	set_bit(DEV_RUN, &sc->state);
 	set_bit(CTX_RUN, &ctx->flags);
 
 	sc_set_prefetch_buffers(sc->dev, ctx);
 
-	sc->wdt.timer.expires = jiffies + SC_TIMEOUT;
-	add_timer(&sc->wdt.timer);
+	mod_timer(&sc->wdt.timer, jiffies + SC_TIMEOUT);
 
 	if (__measure_hw_latency) {
 		if (ctx->context_type == SC_CTX_V4L2_TYPE) {
@@ -2158,14 +2156,11 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 	struct sc_dev *sc = priv;
 	struct sc_ctx *ctx;
 	struct vb2_buffer *src_vb, *dst_vb;
-	int val;
+	u32 irq_status;
 
 	spin_lock(&sc->slock);
 
 	clear_bit(DEV_RUN, &sc->state);
-
-	val = sc_hwget_int_status(sc);
-	sc_hwset_int_clear(sc);
 
 	/*
 	 * ok to access sc->current_ctx withot ctxlist_lock held
@@ -2175,17 +2170,18 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 
 	BUG_ON(!ctx);
 
-	if (sc_process_2nd_stage(sc, ctx))
+	irq_status = sc_hwget_and_clear_irq_status(sc);
+
+	if (SCALER_INT_OK(irq_status) && sc_process_2nd_stage(sc, ctx))
 		goto isr_unlock;
+
+	del_timer(&sc->wdt.timer);
 
 	sc_clk_disable(sc);
 
 	pm_runtime_put(sc->dev);
 
 	clear_bit(CTX_RUN, &ctx->flags);
-
-	if (timer_pending(&sc->wdt.timer))
-		del_timer(&sc->wdt.timer);
 
 	if (ctx->context_type == SC_CTX_V4L2_TYPE) {
 		BUG_ON(ctx != v4l2_m2m_get_curr_priv(sc->m2m.m2m_dev));
@@ -2205,14 +2201,12 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 				(__u32)ktime_us_delta(ktime_get(), svb->ktime);
 		}
 
-		if (val & SCALER_INT_STATUS_FRAME_END) {
-			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_DONE);
-			v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_DONE);
-		} else {
-			dev_err(sc->dev, "illegal setting 0x%x err!!!\n", val);
-			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
-			v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
-		}
+		v4l2_m2m_buf_done(src_vb,
+			SCALER_INT_OK(irq_status) ?
+				VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR);
+		v4l2_m2m_buf_done(dst_vb,
+			SCALER_INT_OK(irq_status) ?
+				VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR);
 
 		if (test_bit(DEV_SUSPEND, &sc->state)) {
 			sc_dbg("wake up blocked process by suspend\n");
@@ -2235,12 +2229,8 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 				(unsigned long)ktime_us_delta(
 					ktime_get(), ctx->ktime_m2m1shot);
 
-		if (val & SCALER_INT_STATUS_FRAME_END) {
-			m2m1shot_task_finish(sc->m21dev, task, true);
-		} else {
-			dev_err(sc->dev, "illegal setting 0x%x err!!!\n", val);
-			m2m1shot_task_finish(sc->m21dev, task, false);
-		}
+		m2m1shot_task_finish(sc->m21dev, task,
+					SCALER_INT_OK(irq_status));
 	}
 
 	spin_lock(&sc->ctxlist_lock);

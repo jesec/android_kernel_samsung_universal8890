@@ -685,42 +685,6 @@ void sc_hwset_dst_addr(struct sc_dev *sc, struct sc_addr *addr)
 	writel(addr->cr, sc->regs + SCALER_DST_CR_BASE);
 }
 
-void sc_hwset_int_en(struct sc_dev *sc, u32 enable)
-{
-	unsigned long cfg = readl(sc->regs + SCALER_INT_EN);
-	int val;
-
-	val = SCALER_INT_EN_ALL;
-
-	if (enable)
-		cfg |= val;
-	else
-		cfg &= ~val;
-
-	writel(cfg, sc->regs + SCALER_INT_EN);
-}
-
-int sc_hwget_int_status(struct sc_dev *sc)
-{
-	unsigned long cfg = readl(sc->regs + SCALER_INT_STATUS);
-	return cfg;
-}
-
-void sc_hwset_int_clear(struct sc_dev *sc)
-{
-	unsigned long cfg = readl(sc->regs + SCALER_INT_STATUS);
-
-	writel(cfg, sc->regs + SCALER_INT_STATUS);
-}
-
-int sc_hwget_version(struct sc_dev *sc)
-{
-	unsigned long cfg = readl(sc->regs + SCALER_VER);
-
-	sc_dbg("This scaler version is 0x%x\n", (unsigned int)cfg);
-	return cfg & 0xffff;
-}
-
 void sc_hwset_soft_reset(struct sc_dev *sc)
 {
 	unsigned long cfg;
@@ -811,4 +775,60 @@ void sc_hwregs_dump(struct sc_dev *sc)
 		print_hex_dump(KERN_NOTICE, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			sc->regs + 0x12D0, 0x12DC - 0x12D0 + 4, false);
 	pr_notice("------------------------------------------------\n");
+}
+
+/* starts from the second status which is the begining of err status */
+const static char *sc_irq_err_status[] = {
+	[ 0] = "illigal src color",
+	[ 1] = "illigal src Y base",
+	[ 2] = "illigal src Cb base",
+	[ 3] = "illigal src Cr base",
+	[ 4] = "illigal src Y span",
+	[ 5] = "illigal src C span",
+	[ 6] = "illigal src YH pos",
+	[ 7] = "illigal src YV pos",
+	[ 8] = "illigal src CH pos",
+	[ 9] = "illigal src CV pos",
+	[10] = "illigal src width",
+	[11] = "illigal src height",
+	[12] = "illigal dst color",
+	[13] = "illigal dst Y base",
+	[14] = "illigal dst Cb base",
+	[15] = "illigal dst Cr base",
+	[16] = "illigal dst Y span",
+	[17] = "illigal dst C span",
+	[18] = "illigal dst H pos",
+	[19] = "illigal dst V pos",
+	[20] = "illigal dst width",
+	[21] = "illigal dst height",
+	[23] = "illigal scaling ratio",
+	[25] = "illigal pre-scaler width/height",
+	[31] = "timeout",
+};
+
+static void sc_print_irq_err_status(struct sc_dev *sc, u32 status)
+{
+	unsigned int i = 0;
+
+	status >>= 1; /* ignore the INT_STATUS_FRAME_END */
+	if (status) {
+		sc_hwregs_dump(sc);
+
+		while (status) {
+			if (status & 1)
+				dev_err(sc->dev,
+					"Scaler reported error %u: %s\n",
+					i + 1, sc_irq_err_status[i]);
+			i++;
+			status >>= 1;
+		}
+	}
+}
+
+u32 sc_hwget_and_clear_irq_status(struct sc_dev *sc)
+{
+	u32 val = __raw_readl(sc->regs + SCALER_INT_STATUS);
+	sc_print_irq_err_status(sc, val);
+	__raw_writel(val, sc->regs + SCALER_INT_STATUS);
+	return val;
 }

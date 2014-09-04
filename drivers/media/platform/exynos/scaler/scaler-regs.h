@@ -31,6 +31,8 @@
 #define SCALER_INT_EN			0x08
 #define SCALER_INT_EN_FRAME_END		(1 << 0)
 #define SCALER_INT_EN_ALL		0x807fffff
+#define SCALER_INT_EN_ALL_v3		0x82ffffff
+#define SCALER_INT_OK(status)		((status) == SCALER_INT_EN_FRAME_END)
 
 #define SCALER_INT_STATUS		0x0c
 #define SCALER_INT_STATUS_FRAME_END	(1 << 0)
@@ -205,6 +207,14 @@ static inline void sc_hwset_flip_rotation(struct sc_dev *sc, u32 flip_rot_cfg)
 	__raw_writel(flip_rot_cfg & 0xF, sc->regs + SCALER_ROT_CFG);
 }
 
+static inline void sc_hwset_int_en(struct sc_dev *sc)
+{
+	__raw_writel((sc->version < SCALER_VERSION(3, 0, 0)) ?
+				SCALER_INT_EN_ALL : SCALER_INT_EN_ALL_v3,
+			sc->regs + SCALER_INT_EN);
+}
+
+u32 sc_hwget_and_clear_irq_status(struct sc_dev *sc);
 void sc_hwset_polyphase_hcoef(struct sc_dev *sc,
 				unsigned int yratio, unsigned int cratio);
 void sc_hwset_polyphase_vcoef(struct sc_dev *sc,

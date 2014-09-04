@@ -437,10 +437,6 @@ void sc_hwset_src_addr(struct sc_dev *sc, struct sc_addr *addr);
 void sc_hwset_dst_addr(struct sc_dev *sc, struct sc_addr *addr);
 void sc_hwset_hcoef(struct sc_dev *sc, unsigned int coef);
 void sc_hwset_vcoef(struct sc_dev *sc, unsigned int coef);
-void sc_hwset_int_en(struct sc_dev *sc, u32 enable);
-int sc_hwget_int_status(struct sc_dev *sc);
-void sc_hwset_int_clear(struct sc_dev *sc);
-int sc_hwget_version(struct sc_dev *sc);
 void sc_hwset_soft_reset(struct sc_dev *sc);
 void sc_hwset_start(struct sc_dev *sc);
 
