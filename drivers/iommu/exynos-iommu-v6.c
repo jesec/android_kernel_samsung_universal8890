@@ -2347,13 +2347,10 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 
 			pent_first = pent;
 			do {
-				if (!pte_present(*pte)) {
-					ret = -EPERM;
-					goto out_unmap;
-				}
+				WARN_ON(!lv2ent_fault(pent));
 
-				if (write && (!pte_write(*pte) ||
-						!pte_dirty(*pte))) {
+				if (write && (!pte_present(*pte) ||
+						!pte_write(*pte))) {
 					ret = handle_pte_fault(mm,
 							vma, start,
 							pte, pmd,
@@ -2364,7 +2361,10 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 					}
 				}
 
-				WARN_ON(!lv2ent_fault(pent));
+				if (!pte_present(*pte)) {
+					ret = -EPERM;
+					goto out_unmap;
+				}
 
 				if (!is_pfnmap)
 					get_page(pte_page(*pte));
