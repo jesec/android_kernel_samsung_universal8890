@@ -2182,7 +2182,6 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	struct exynos_iommu_domain *priv = domain->priv;
 	struct vm_area_struct *vma;
 	unsigned long start, end;
-	unsigned long flags;
 	bool is_pfnmap;
 	sysmmu_pte_t *sent, *pent;
 
@@ -2215,8 +2214,6 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	TRACE_LOG_DEV(dev, "%s: unmap starts @ %#zx@%#lx\n",
 			__func__, size, start);
 
-	spin_lock_irqsave(&priv->pgtablelock, flags);
-
 	do {
 		sysmmu_pte_t *pent_first;
 
@@ -2245,7 +2242,6 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 			pgtable_flush(pent_first, pent);
 	} while (start != end);
 
-	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 	up_read(&mm->mmap_sem);
 
 	TRACE_LOG_DEV(dev, "%s: unmap done @ %#lx\n", __func__, start);
@@ -2286,7 +2282,6 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 	struct iommu_domain *domain = vmm->domain;
 	struct exynos_iommu_domain *priv = domain->priv;
 	struct vm_area_struct *vma;
-	unsigned long flags;
 	unsigned long start, end;
 	unsigned long pgd_next;
 	int ret = -EINVAL;
@@ -2323,8 +2318,6 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 
 	TRACE_LOG_DEV(dev, "%s: map @ %#lx--%#lx, %zd bytes, vm_flags: %#lx\n",
 			__func__, start, end, size, vma->vm_flags);
-
-	spin_lock_irqsave(&priv->pgtablelock, flags);
 
 	pgd = pgd_offset(mm, start);
 	do {
@@ -2411,7 +2404,6 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 
 	ret = 0;
 out_unmap:
-	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 	up_read(&mm->mmap_sem);
 
 	if (ret) {
