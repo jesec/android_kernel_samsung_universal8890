@@ -584,11 +584,10 @@ static void show_fault_information(struct sysmmu_drvdata *drvdata,
 	pgtable <<= PAGE_SHIFT;
 
 	pr_crit("----------------------------------------------------------\n");
-	pr_crit("%s %s %s at %#010lx by %s (page table @ %pa)\n",
+	pr_crit("%s %s %s at %#010lx (page table @ %pa)\n",
 		dev_name(drvdata->sysmmu),
 		(flags & IOMMU_FAULT_WRITE) ? "WRITE" : "READ",
-		sysmmu_fault_name[fault_id], fault_addr,
-		dev_name(drvdata->master), &pgtable);
+		sysmmu_fault_name[fault_id], fault_addr, &pgtable);
 
 	if (fault_id == SYSMMU_FAULT_UNKNOWN) {
 		pr_crit("The fault is not caused by this System MMU.\n");
@@ -905,7 +904,6 @@ static int __exynos_sysmmu_enable(struct device *dev, phys_addr_t pgtable,
 
 	for_each_sysmmu_list(dev, list) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
-		drvdata->master = dev;
 		ret = __sysmmu_enable(drvdata, pgtable, domain);
 		if (ret < 0) {
 			struct sysmmu_list_data *iter;
@@ -913,7 +911,6 @@ static int __exynos_sysmmu_enable(struct device *dev, phys_addr_t pgtable,
 				if (iter == list)
 					break;
 				__sysmmu_disable(dev_get_drvdata(iter->sysmmu));
-				drvdata->master = NULL;
 			}
 			break;
 		}
@@ -950,8 +947,6 @@ bool exynos_sysmmu_disable(struct device *dev)
 	for_each_sysmmu_list(dev, list) {
 		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
 		disabled = __sysmmu_disable(drvdata);
-		if (disabled)
-			drvdata->master = NULL;
 	}
 
 	spin_unlock_irqrestore(&owner->lock, flags);
