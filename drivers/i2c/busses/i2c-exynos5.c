@@ -694,17 +694,25 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 		} else {
 			timeout = wait_for_completion_timeout
 				(&i2c->msg_complete, EXYNOS5_I2C_TIMEOUT);
-			if (i2c->check_transdone_int)
+
+			ret = 0;
+			if (i2c->check_transdone_int) {
 				disable_irq(i2c->irq);
+
+				if (i2c->trans_done < 0) {
+					dev_err(i2c->dev, "ack was not received at read\n");
+					ret = i2c->trans_done;
+					exynos5_i2c_reset(i2c);
+				}
+			}
 
 			if (timeout == 0) {
 				dump_i2c_register(i2c);
 				exynos5_i2c_reset(i2c);
 				dev_warn(i2c->dev, "rx timeout\n");
+				ret = -EAGAIN;
 				return ret;
 			}
-
-			ret = 0;
 		}
 	} else {
 		if (operation_mode == HSI2C_POLLING) {
@@ -755,7 +763,7 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 				}
 			} else {
 				if (i2c->trans_done < 0) {
-					dev_dbg(i2c->dev, "ack was not received\n");
+					dev_err(i2c->dev, "ack was not received at write\n");
 					ret = i2c->trans_done;
 					exynos5_i2c_reset(i2c);
 				} else {
