@@ -3142,6 +3142,10 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 		mfc_err_ctx("Failed to alloc frame mem.\n");
 		ctx->state = MFCINST_ERROR;
 	}
+
+	if (ctx->codec_mode == S5P_FIMV_CODEC_VP9_DEC)
+		dec->is_packedpb = 1;
+
 	return ret;
 }
 
