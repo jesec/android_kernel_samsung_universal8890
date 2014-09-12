@@ -1749,7 +1749,7 @@ err_prot_enable:
 static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
 {
 	int ret;
-	uint32_t base;
+	phys_addr_t base;
 	size_t size;
 
 	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &base, &size);
@@ -1895,12 +1895,6 @@ static int s5p_mfc_open(struct file *file)
 				} else {
 					prot_flag = 1;
 				}
-
-				ret = drm_gsc_enable_locked(1);
-				if (ret < 0) {
-					mfc_err("Fail to lock DRM enabled. ret = %d\n", ret);
-					goto err_drm_start;
-				}
 			}
 
 		} else {
@@ -1940,8 +1934,8 @@ static int s5p_mfc_open(struct file *file)
 				mfc_err_ctx("DRM F/W buffer is not allocated.\n");
 				dev->drm_fw_status = 0;
 			} else {
-				uint32_t nfw_base, fw_base, sectbl_base, offset;
-				uint32_t nfw_start, fw_start;
+				phys_addr_t nfw_base, fw_base, sectbl_base;
+				uint32_t nfw_start, fw_start, offset;
 				size_t fw_size, size;
 
 				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &nfw_base, &size);
@@ -2046,7 +2040,6 @@ err_fw_alloc:
 		dev->num_drm_inst--;
 		if (prot_flag) {
 			s5p_mfc_secmem_isolate_and_protect(0);
-			drm_gsc_enable_locked(0);
 		}
 	}
 
@@ -2218,10 +2211,6 @@ static int s5p_mfc_release(struct file *file)
 					ret = s5p_mfc_secmem_isolate_and_protect(0);
 					if (ret)
 						mfc_err("Failed to unprotect secure memory\n");
-
-					ret = drm_gsc_enable_locked(0);
-					if (ret < 0)
-						mfc_err("Fail to lock DRM enabled. ret = %d\n", ret);
 				}
 #endif
 				if (dev->num_inst == 0) {
@@ -2266,10 +2255,6 @@ static int s5p_mfc_release(struct file *file)
 		ret = s5p_mfc_secmem_isolate_and_protect(0);
 		if (ret)
 			mfc_err("Failed to unprotect secure memory\n");
-
-		ret = drm_gsc_enable_locked(0);
-		if (ret < 0)
-			mfc_err("Fail to lock DRM enabled. ret = %d\n", ret);
 	}
 #endif
 

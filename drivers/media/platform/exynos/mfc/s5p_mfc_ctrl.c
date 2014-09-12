@@ -16,10 +16,6 @@
 #include <linux/firmware.h>
 #include <linux/err.h>
 #include <linux/sched.h>
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-#include <config/exynos/iovmm.h>
-#endif
-
 #include "s5p_mfc_common.h"
 
 #include "s5p_mfc_mem.h"
