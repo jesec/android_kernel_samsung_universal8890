@@ -1575,16 +1575,27 @@ static int sc_add_ctrls(struct sc_ctx *ctx)
 	return 0;
 }
 
-static int sc_clk_enable(struct sc_dev *sc)
+static int sc_power_clk_enable(struct sc_dev *sc)
 {
 	int ret;
+
+	if (in_irq())
+		ret = pm_runtime_get(sc->dev);
+	else
+		ret = pm_runtime_get_sync(sc->dev);
+
+	if (ret < 0) {
+		dev_err(sc->dev,
+			"%s=%d: Failed to enable local power\n", __func__, ret);
+		return ret;
+	}
 
 	if (!IS_ERR(sc->pclk)) {
 		ret = clk_enable(sc->pclk);
 		if (ret) {
 			dev_err(sc->dev, "%s: Failed to enable PCLK (err %d)\n",
 				__func__, ret);
-			return ret;
+			goto err_pclk;
 		}
 	}
 
@@ -1593,22 +1604,28 @@ static int sc_clk_enable(struct sc_dev *sc)
 		if (ret) {
 			dev_err(sc->dev, "%s: Failed to enable ACLK (err %d)\n",
 				__func__, ret);
-			if (!IS_ERR(sc->pclk))
-				clk_disable(sc->pclk);
-			return ret;
+			goto err_aclk;
 		}
 	}
 
 	return 0;
+err_aclk:
+	if (!IS_ERR(sc->pclk))
+		clk_disable(sc->pclk);
+err_pclk:
+	pm_runtime_put(sc->dev);
+	return ret;
 }
 
-static void sc_clk_disable(struct sc_dev *sc)
+static void sc_clk_power_disable(struct sc_dev *sc)
 {
 	if (!IS_ERR(sc->aclk))
 		clk_disable(sc->aclk);
 
 	if (!IS_ERR(sc->pclk))
 		clk_disable(sc->pclk);
+
+	pm_runtime_put(sc->dev);
 }
 
 static int sc_open(struct file *file)
@@ -1743,9 +1760,7 @@ static void sc_watchdog(unsigned long arg)
 	if (atomic_read(&sc->wdt.cnt) >= SC_WDT_CNT) {
 		sc_hwset_soft_reset(sc);
 
-		sc_clk_disable(sc);
-
-		pm_runtime_put(sc->dev);
+		sc_clk_power_disable(sc);
 
 		sc_dbg("wakeup blocked process\n");
 		atomic_set(&sc->wdt.cnt, 0);
@@ -2015,17 +2030,7 @@ static int sc_run_next_job(struct sc_dev *sc)
 	s_frame = &ctx->s_frame;
 	d_frame = &ctx->d_frame;
 
-	if (in_irq())
-		ret = pm_runtime_get(sc->dev);
-	else
-		ret = pm_runtime_get_sync(sc->dev);
-	if (ret < 0) {
-		dev_err(sc->dev,
-			"%s=%d: Failed to enable local power\n", __func__, ret);
-		return ret;
-	}
-
-	ret = sc_clk_enable(sc);
+	ret = sc_power_clk_enable(sc);
 	if (ret) {
 		pm_runtime_put(sc->dev);
 		return ret;
@@ -2177,9 +2182,7 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 
 	del_timer(&sc->wdt.timer);
 
-	sc_clk_disable(sc);
-
-	pm_runtime_put(sc->dev);
+	sc_clk_power_disable(sc);
 
 	clear_bit(CTX_RUN, &ctx->flags);
 
@@ -2777,9 +2780,7 @@ static void sc_m2m1shot_timeout_task(struct m2m1shot_context *m21ctx,
 
 	sc_hwset_soft_reset(sc);
 
-	sc_clk_disable(sc);
-
-	pm_runtime_put(sc->dev);
+	sc_clk_power_disable(sc);
 
 	spin_lock_irqsave(&sc->ctxlist_lock, flags);
 	sc->current_ctx = NULL;
