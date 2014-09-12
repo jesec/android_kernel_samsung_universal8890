@@ -2803,6 +2803,19 @@ static const struct m2m1shot_devops sc_m2m1shot_ops = {
 	.timeout_task = sc_m2m1shot_timeout_task,
 };
 
+static int sc_sysmmu_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token)
+{
+	struct sc_dev *sc = dev_get_drvdata(dev);
+
+	if (test_bit(DEV_RUN, &sc->state)) {
+		dev_info(dev, "System MMU fault called for IOVA %#lx\n", iova);
+		sc_hwregs_dump(sc);
+	}
+
+	return 0;
+}
+
 static int sc_clk_get(struct sc_dev *sc)
 {
 	sc->aclk = devm_clk_get(sc->dev, "gate");
@@ -3050,6 +3063,8 @@ static int sc_probe(struct platform_device *pdev)
 	if (!IS_ERR(sc->pclk))
 		clk_disable_unprepare(sc->pclk);
 	pm_runtime_put(&pdev->dev);
+
+	iovmm_set_fault_handler(&pdev->dev, sc_sysmmu_fault_handler, sc);
 
 	dev_info(&pdev->dev,
 		"Driver probed successfully(version: %08x(%x))\n",
