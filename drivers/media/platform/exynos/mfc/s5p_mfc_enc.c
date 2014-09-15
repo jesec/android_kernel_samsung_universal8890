@@ -2510,6 +2510,7 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 
 	spin_lock_irqsave(&dev->irqlock, flags);
 
+	ctx->sequence++;
 	if (strm_size > 0 || ctx->state == MFCINST_FINISHING) {
 		/* at least one more dest. buffers exist always  */
 		mb_entry = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);

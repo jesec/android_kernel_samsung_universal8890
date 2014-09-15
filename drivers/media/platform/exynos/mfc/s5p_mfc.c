@@ -63,6 +63,7 @@ int debug;
 module_param(debug, int, S_IRUGO | S_IWUSR);
 
 struct _mfc_trace g_mfc_trace[MFC_DEV_NUM_MAX][MFC_TRACE_COUNT_MAX];
+struct s5p_mfc_dev *g_mfc_dev[MFC_DEV_NUM_MAX];
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 static struct proc_dir_entry *mfc_proc_entry;
@@ -993,6 +994,19 @@ static void s5p_mfc_handle_frame_error(struct s5p_mfc_ctx *ctx,
 	dev = ctx->dev;
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
+		return;
+	}
+
+	if (ctx->type == MFCINST_ENCODER) {
+		mfc_err_ctx("Encoder Interrupt Error: %d\n", err);
+
+		s5p_mfc_clear_int_flags();
+		if (clear_hw_bit(ctx) == 0)
+			BUG();
+		wake_up_ctx(ctx, reason, err);
+		s5p_mfc_clock_off(dev);
+
+		queue_work(dev->sched_wq, &dev->sched_work);
 		return;
 	}
 
@@ -2846,6 +2860,8 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 
 	iovmm_set_fault_handler(dev->device,
 		exynos_mfc_sysmmu_fault_handler, dev);
+
+	g_mfc_dev[dev->id] = dev;
 
 	pr_debug("%s--\n", __func__);
 	return 0;
