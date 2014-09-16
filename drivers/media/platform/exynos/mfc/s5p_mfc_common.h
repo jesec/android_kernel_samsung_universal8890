@@ -72,18 +72,6 @@
 
 #define FLAG_LAST_FRAME		0x80000000
 
-/* Command ID for smc */
-#define SMC_PROTECTION_SET	0x81000000
-#define SMC_DRM_FW_LOADING	0x81000001
-#define SMC_DCPP_SUPPORT	0x81000002
-#define SMC_DRM_MAKE_PGTABLE	0x81000003
-#define SMC_DRM_CLEAR_PGTABLE	0x81000004
-#define SMC_MEM_PROT_SET	0x81000005
-
-/* Parameter for smc */
-#define SMC_PROTECTION_ENABLE	1
-#define SMC_PROTECTION_DISABLE	0
-
 /* Maximum number of temporal layers */
 #define VIDEO_MAX_TEMPORAL_LAYERS 7
 

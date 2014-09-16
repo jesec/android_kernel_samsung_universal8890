@@ -1762,11 +1762,6 @@ static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
 	if (ret)
 		return -1;
 
-	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_SH, &base, &size);
-	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_SH(dev->id), base, size);
-	if (ret)
-		return -1;
-
 	return 0;
 }
 
