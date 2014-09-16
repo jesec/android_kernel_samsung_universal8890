@@ -302,10 +302,8 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	int idx;
 	struct scatterlist *tsg;
 
-	if ((id < 0) || (id >= MAX_NUM_PLANE)) {
-		dev_err(dev, "%s: Invalid plane ID %d\n", __func__, id);
-		return -EINVAL;
-	}
+	/* Dedicate IOVMM Region id = 0 */
+	id = 0;
 
 	for (; (sg != NULL) && (sg->length < offset); sg = sg_next(sg))
 		offset -= sg->length;
@@ -315,8 +313,6 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 		return -EINVAL;
 	}
 
-	/* Dedicate IOVMM Region number */
-	id = 0;
 	tsg = sg;
 
 	start_off = offset_in_page(sg_phys(sg) + offset);
