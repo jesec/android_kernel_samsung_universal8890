@@ -697,18 +697,9 @@ err_alloc_vmm:
 void iovmm_set_fault_handler(struct device *dev,
 			     iommu_fault_handler_t handler, void *token)
 {
-	struct sysmmu_fault_data *fdata;
 	int ret;
 
-	fdata = kzalloc(sizeof(*fdata), GFP_KERNEL);
-	if (!fdata)
-		return;
-
-	fdata->master = dev;
-	fdata->action = handler;
-	fdata->token = token;
-
-	ret = exynos_sysmmu_add_fault_notifier(fdata);
+	ret = exynos_sysmmu_add_fault_notifier(dev, handler, token);
 	if (ret)
-		dev_err(dev, "Failed to set %s's fault handler!\n", dev_name(dev));
+		dev_err(dev, "Failed to %s's fault notifier\n", dev_name(dev));
 }

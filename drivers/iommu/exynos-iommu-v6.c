@@ -2779,42 +2779,50 @@ subsys_initcall_sync(exynos_iommu_prepare);
 static int sysmmu_fault_notifier(struct notifier_block *nb,
 				     unsigned long fault_addr, void *data)
 {
-	struct sysmmu_fault_data *fdata;
+	struct exynos_iommu_owner *owner = NULL;
 	struct exynos_iovmm *vmm;
 
-	fdata = container_of(nb, struct sysmmu_fault_data, nb);
+	owner = container_of(nb, struct exynos_iommu_owner, nb);
 
-	vmm = exynos_get_iovmm(fdata->master);
-
-	if (vmm && vmm->domain)
-		report_iommu_fault(vmm->domain,
-				fdata->master, fault_addr, *(int *)data);
+	if (owner && owner->fault_handler) {
+		vmm = exynos_get_iovmm(owner->dev);
+		if (vmm && vmm->domain)
+			owner->fault_handler(vmm->domain, owner->dev,
+					fault_addr, (unsigned long)data,
+					owner->token);
+	}
 
 	return 0;
 }
 
-int exynos_sysmmu_add_fault_notifier(struct sysmmu_fault_data *fdata)
+int exynos_sysmmu_add_fault_notifier(struct device *dev,
+		iommu_fault_handler_t handler, void *token)
 {
-	struct device *dev = fdata->master;
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	struct sysmmu_list_data *list;
 	struct sysmmu_drvdata *drvdata;
 	unsigned long flags;
 	int ret;
 
-	if (!has_sysmmu(dev))
-		return 0;
-
-	fdata->nb.notifier_call = sysmmu_fault_notifier;
+	if (!has_sysmmu(dev)) {
+		dev_info(dev, "%s doesn't have sysmmu\n", dev_name(dev));
+		return -EINVAL;
+	}
 
 	spin_lock_irqsave(&owner->lock, flags);
+
+	owner->fault_handler = handler;
+	owner->token = token;
+	owner->nb.notifier_call = sysmmu_fault_notifier;
 
 	for_each_sysmmu_list(dev, list) {
 		drvdata = dev_get_drvdata(list->sysmmu);
 		ret = atomic_notifier_chain_register(
-				&drvdata->fault_notifiers, &fdata->nb);
+				&drvdata->fault_notifiers, &owner->nb);
 		if (ret) {
-			spin_unlock_irqrestore(&owner->lock, flags);
+			dev_err(dev,
+				"Failed to register %s's fault notifier\n",
+				dev_name(dev));
 			goto err;
 		}
 
@@ -2828,8 +2836,9 @@ err:
 	for_each_sysmmu_list(dev, list) {
 		drvdata = dev_get_drvdata(list->sysmmu);
 		atomic_notifier_chain_unregister(
-			&drvdata->fault_notifiers, &fdata->nb);
+			&drvdata->fault_notifiers, &owner->nb);
 	}
+	spin_unlock_irqrestore(&owner->lock, flags);
 
 	return ret;
 }

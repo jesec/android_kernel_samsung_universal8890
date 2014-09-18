@@ -123,6 +123,11 @@ struct exynos_iommu_owner {
 	void *vmm_data;         /* IO virtual memory manager's data */
 	spinlock_t lock;        /* Lock to preserve consistency of System MMU */
 	struct list_head mmu_list; /* head of sysmmu_list_data.node */
+#ifdef CONFIG_EXYNOS_IOMMU_V6
+	struct notifier_block nb;
+	iommu_fault_handler_t fault_handler;
+	void *token;
+#endif
 };
 
 struct exynos_vm_region {
@@ -227,15 +232,6 @@ struct pb_info {
 	struct device *master;
 	enum sysmmu_property prop;
 };
-
-#if defined(CONFIG_EXYNOS_IOMMU_V6)
-struct sysmmu_fault_data {
-	struct device *master;
-	void *token;
-	iommu_fault_handler_t action;
-	struct notifier_block nb;
-};
-#endif
 
 int sysmmu_set_ppc_event(struct sysmmu_drvdata *drvdata, int event);
 void dump_sysmmu_ppc_cnt(struct sysmmu_drvdata *drvdata);
@@ -522,7 +518,8 @@ static inline int find_iovmm_plane(struct exynos_iovmm *vmm, dma_addr_t iova)
 
 #if defined(CONFIG_EXYNOS_IOVMM_V6)
 struct exynos_iovmm *exynos_create_single_iovmm(const char *name);
-int exynos_sysmmu_add_fault_notifier(struct sysmmu_fault_data *fdata);
+int exynos_sysmmu_add_fault_notifier(struct device *dev,
+		iommu_fault_handler_t handler, void *token);
 #endif
 #else
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
