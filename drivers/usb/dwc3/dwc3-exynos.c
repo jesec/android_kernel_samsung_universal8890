@@ -71,21 +71,14 @@ static const struct of_device_id exynos_dwc3_match[] = {
 MODULE_DEVICE_TABLE(of, exynos_dwc3_match);
 #endif
 
-static int dwc3_exynos_get_id_state(struct dwc3_exynos_rsw *rsw)
+static inline int dwc3_exynos_get_id_state(struct dwc3_exynos_rsw *rsw)
 {
-	if (gpio_is_valid(rsw->id_gpio))
-		return gpio_get_value(rsw->id_gpio);
-	else
-		/* B-device by default */
-		return 1;
+	return gpio_get_value(rsw->id_gpio);
 }
 
-static int dwc3_exynos_get_b_sess_state(struct dwc3_exynos_rsw *rsw)
+static inline int dwc3_exynos_get_b_sess_state(struct dwc3_exynos_rsw *rsw)
 {
-	if (gpio_is_valid(rsw->b_sess_gpio))
-		return gpio_get_value(rsw->b_sess_gpio);
-	else
-		return 0;
+	return gpio_get_value(rsw->b_sess_gpio);
 }
 
 static irqreturn_t dwc3_exynos_rsw_thread_interrupt(int irq, void *_rsw)
@@ -222,10 +215,9 @@ int dwc3_exynos_rsw_start(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	rsw->fsm->id = dwc3_exynos_get_id_state(rsw);
-	rsw->fsm->b_sess_vld = dwc3_exynos_get_b_sess_state(rsw);
-
 	if (gpio_is_valid(rsw->id_gpio)) {
+		rsw->fsm->id = dwc3_exynos_get_id_state(rsw);
+
 		irq = gpio_to_irq(rsw->id_gpio);
 		ret = devm_request_threaded_irq(exynos->dev, irq,
 					dwc3_exynos_id_interrupt,
@@ -239,6 +231,8 @@ int dwc3_exynos_rsw_start(struct device *dev)
 	}
 
 	if (gpio_is_valid(rsw->b_sess_gpio)) {
+		rsw->fsm->b_sess_vld = dwc3_exynos_get_b_sess_state(rsw);
+
 		irq = gpio_to_irq(rsw->b_sess_gpio);
 		ret = devm_request_threaded_irq(exynos->dev, irq,
 					dwc3_exynos_b_sess_interrupt,
@@ -300,6 +294,11 @@ int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
 	}
 
 	INIT_WORK(&rsw->work, dwc3_exynos_rsw_work);
+
+	/* B-device by default */
+	fsm->id = 1;
+	/* Not connected by default */
+	fsm->b_sess_vld = 0;
 
 	rsw->fsm = fsm;
 
