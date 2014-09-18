@@ -1929,24 +1929,29 @@ static int s5p_mfc_open(struct file *file)
 				mfc_err_ctx("DRM F/W buffer is not allocated.\n");
 				dev->drm_fw_status = 0;
 			} else {
-				phys_addr_t nfw_base, fw_base, sectbl_base;
+				phys_addr_t nfw_base, fw_base;
+#if (!IS_ENABLED(CONFIG_EXYNOS_IOMMU_V6))
+				phys_addr_t sectbl_base;
+#endif
 				uint32_t nfw_start, fw_start, offset;
 				size_t fw_size, size;
 
 				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &nfw_base, &size);
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &fw_base, &size);
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &fw_base, &fw_size);
+#if (!IS_ENABLED(CONFIG_EXYNOS_IOMMU_V6))
 				ion_exynos_contig_heap_info(ION_EXYNOS_ID_SECTBL, &sectbl_base, &size);
 
-				offset = dev->drm_fw_info.ofs - fw_base;
-				nfw_start = nfw_base + offset;
-				fw_start = fw_base + offset;
-
 				ret = exynos_smc(SMC_DRM_SECMEM_INFO, sectbl_base, fw_base, fw_size);
+#else
+				ret = exynos_smc(SMC_DRM_SECMEM_INFO, 0, fw_base, fw_size);
 				if (ret < 0) {
 					mfc_err("Fail to pass secure page table base address. ret = %d\n", ret);
 					dev->drm_fw_status = 0;
 				}
-
+#endif
+				offset = dev->drm_fw_info.ofs - fw_base;
+				nfw_start = nfw_base + offset;
+				fw_start = fw_base + offset;
 				ret = exynos_smc(SMC_DRM_FW_LOADING, fw_start, nfw_start, dev->fw_size);
 				if (ret) {
 					mfc_err_ctx("MFC DRM F/W(%x) is skipped\n", ret);
