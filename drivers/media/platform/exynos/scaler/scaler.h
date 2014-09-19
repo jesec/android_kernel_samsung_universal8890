@@ -54,6 +54,7 @@ extern int sc_log_level;
 /* Scaler hardware device state */
 #define DEV_RUN		1
 #define DEV_SUSPEND	2
+#define DEV_CP		4 /* contents path protection */
 
 /* Scaler m2m context state */
 #define CTX_PARAMS	1
@@ -359,6 +360,7 @@ struct sc_dev {
 	spinlock_t			ctxlist_lock;
 	struct sc_ctx			*current_ctx;
 	struct list_head		context_list; /* for sc_ctx_abs.node */
+	int				dev_id;
 	u32				version;
 };
 
@@ -395,6 +397,7 @@ struct sc_ctx {
 		struct v4l2_m2m_ctx	*m2m_ctx;
 		struct m2m1shot_context	*m21_ctx;
 	};
+	unsigned long			*state_for_cp;
 	struct sc_frame			s_frame;
 	struct sc_int_frame		*i_frame;
 	struct sc_frame			d_frame;

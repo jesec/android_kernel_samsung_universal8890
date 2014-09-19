@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/exynos_iovmm.h>
+#include <linux/smc.h>
 
 #include <media/v4l2-ioctl.h>
 #include <media/m2m1shot.h>
@@ -30,6 +31,9 @@
 
 #include "scaler.h"
 #include "scaler-regs.h"
+
+/* Protection IDs of Scaler are 1 and 2. */
+#define SC_SMC_PROTECTION_ID(instance)	(1 + (instance))
 
 int sc_log_level;
 module_param_named(sc_log_level, sc_log_level, uint, 0644);
@@ -1495,9 +1499,60 @@ static bool sc_configure_rotation_degree(struct sc_ctx *ctx, int degree)
 
 	return true;
 }
+
+static int sc_set_contents_protection(struct sc_ctx *ctx, bool enable)
+{
+	/*
+	 * NOTE: racing during checking dev->m2m.in_use and updating
+	 * dev->state may occur logically. But it does not happen in reallity
+	 * because user-land takes care. Otherwise, the system gets failure.
+	 */
+
+	if (atomic_read(&ctx->sc_dev->m2m.in_use) > 1) {
+		dev_err(ctx->sc_dev->dev,
+			"%s: Protection NOT allowed when a context exists\n",
+			__func__);
+		return -EBUSY;
+	}
+
+	if (enable && test_bit(DEV_CP, &ctx->sc_dev->state)) {
+		dev_err(ctx->sc_dev->dev,
+			"%s: Protection already configured\n", __func__);
+		return -EBUSY;
+	}
+
+	if (enable) {
+		if (test_bit(DEV_CP, &ctx->sc_dev->state)) {
+			dev_err(ctx->sc_dev->dev,
+				"%s: Protection already configured\n",
+				__func__);
+			return -EBUSY;
+		}
+
+		set_bit(DEV_CP, &ctx->sc_dev->state);
+		ctx->state_for_cp = &ctx->sc_dev->state;
+	} else {
+		ctx->state_for_cp = NULL;
+		clear_bit(DEV_CP, &ctx->sc_dev->state);
+	}
+
+	vb2_ion_set_protected(ctx->sc_dev->alloc_ctx, enable);
+
+	return 0;
+}
+
+static void sc_clear_contents_protection(struct sc_ctx *ctx)
+{
+	if (ctx->state_for_cp) {
+		vb2_ion_set_protected(ctx->sc_dev->alloc_ctx, false);
+		clear_bit(DEV_CP, ctx->state_for_cp);
+	}
+}
+
 static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct sc_ctx *ctx;
+	int ret = 0;
 
 	sc_dbg("ctrl ID:%d, value:%d\n", ctrl->id, ctrl->val);
 	ctx = container_of(ctrl->handler, struct sc_ctx, ctrl_handler);
@@ -1544,9 +1599,12 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_CSC_RANGE:
 		ctx->csc.csc_range = ctrl->val;
 		break;
+	case V4L2_CID_CONTENT_PROTECTION:
+		ret = sc_set_contents_protection(ctx, !!ctrl->val);
+		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 static const struct v4l2_ctrl_ops sc_ctrl_ops = {
@@ -1614,6 +1672,16 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 		.min = SC_CSC_NARROW,
 		.max = SC_CSC_WIDE,
 		.def = SC_CSC_NARROW,
+	}, {
+		.ops = &sc_ctrl_ops,
+		.id = V4L2_CID_CONTENT_PROTECTION,
+		.name = "Enable contents protection",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.flags = V4L2_CTRL_FLAG_SLIDER,
+		.step = 1,
+		.min = 0,
+		.max = 1,
+		.def = 0,
 	}
 };
 
@@ -1706,6 +1774,13 @@ static int sc_open(struct file *file)
 	struct sc_ctx *ctx;
 	int ret;
 
+	if (test_bit(DEV_CP, &sc->state)) {
+		dev_err(sc->dev,
+			"%s: New context NOT allowed during protection\n",
+			__func__);
+		return -EBUSY;
+	}
+
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
 		dev_err(sc->dev, "no memory for open context\n");
@@ -1782,6 +1857,10 @@ static int sc_release(struct file *file)
 
 	sc_dbg("refcnt= %d", atomic_read(&sc->m2m.in_use));
 
+	sc_clear_contents_protection(ctx);
+
+	atomic_dec(&sc->m2m.in_use);
+
 	destroy_intermediate_frame(ctx);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 	if (!IS_ERR(sc->aclk))
@@ -1791,7 +1870,6 @@ static int sc_release(struct file *file)
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
-	atomic_dec(&sc->m2m.in_use);
 	kfree(ctx);
 
 	return 0;
@@ -2205,6 +2283,10 @@ static int sc_run_next_job(struct sc_dev *sc)
 		}
 	}
 
+	if (test_bit(DEV_CP, &sc->state))
+		exynos_smc(SMC_PROTECTION_SET, 0,
+			   SC_SMC_PROTECTION_ID(sc->dev_id),
+			   SMC_PROTECTION_ENABLE);
 	sc_hwset_start(sc);
 
 	return 0;
@@ -2246,6 +2328,11 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 		goto isr_unlock;
 
 	del_timer(&sc->wdt.timer);
+
+	if (test_bit(DEV_CP, &sc->state))
+		exynos_smc(SMC_PROTECTION_SET, 0,
+			   SC_SMC_PROTECTION_ID(sc->dev_id),
+			   SMC_PROTECTION_DISABLE);
 
 	sc_clk_power_disable(sc);
 
@@ -2530,6 +2617,13 @@ static int sc_m2m1shot_init_context(struct m2m1shot_context *m21ctx)
 	struct sc_dev *sc = dev_get_drvdata(m21ctx->m21dev->dev);
 	struct sc_ctx *ctx;
 	int ret;
+
+	if (test_bit(DEV_CP, &sc->state)) {
+		dev_err(sc->dev,
+			"%s: New context NOT allowed during protection\n",
+			__func__);
+		return -EBUSY;
+	}
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -2994,7 +3088,6 @@ static int sc_probe(struct platform_device *pdev)
 	struct sc_dev *sc;
 	struct resource *res;
 	int ret = 0;
-	int dev_id;
 	size_t ivar;
 	u32 hwver;
 
@@ -3038,12 +3131,12 @@ static int sc_probe(struct platform_device *pdev)
 		return ret;
 
 	if (pdev->dev.of_node)
-		dev_id = of_alias_get_id(pdev->dev.of_node, "scaler");
+		sc->dev_id = of_alias_get_id(pdev->dev.of_node, "scaler");
 	else
-		dev_id = pdev->id;
+		sc->dev_id = pdev->id;
 
 	sc->m21dev = m2m1shot_create_device(&pdev->dev, &sc_m2m1shot_ops,
-						"scaler", dev_id, -1);
+						"scaler", sc->dev_id, -1);
 	if (IS_ERR(sc->m21dev)) {
 		dev_err(&pdev->dev, "%s: Failed to create m2m1shot_device\n",
 			__func__);
@@ -3069,7 +3162,7 @@ static int sc_probe(struct platform_device *pdev)
 		goto err_wq;
 	}
 
-	ret = sc_register_m2m_device(sc, dev_id);
+	ret = sc_register_m2m_device(sc, sc->dev_id);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register m2m device\n");
 		goto err_m2m;
