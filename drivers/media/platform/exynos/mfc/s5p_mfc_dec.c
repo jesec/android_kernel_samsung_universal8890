@@ -1754,6 +1754,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 			ctx->framerate = ctx->last_framerate;
 			s5p_mfc_qos_on(ctx);
 		}
+		mfc_debug(2, "Src input size = %d\n", buf->m.planes[0].bytesused);
 		ret = vb2_qbuf(&ctx->vq_src, buf);
 	} else {
 		ret = vb2_qbuf(&ctx->vq_dst, buf);
@@ -2869,6 +2870,7 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		buf->used = 0;
+		buf->consumed = 0;
 		mfc_debug(2, "Src queue: %p\n", &ctx->src_queue);
 		mfc_debug(2, "Adding to src: %p (0x%08lx, 0x%08lx)\n", vb,
 			(unsigned long)s5p_mfc_mem_plane_addr(ctx, vb, 0),

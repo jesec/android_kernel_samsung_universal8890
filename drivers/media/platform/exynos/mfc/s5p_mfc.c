@@ -1572,8 +1572,10 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 						s5p_mfc_get_consumed_stream(),
 						src_buf->vb.v4l2_planes[0].bytesused);
 				if (s5p_mfc_get_consumed_stream() <
-						src_buf->vb.v4l2_planes[0].bytesused)
+						src_buf->vb.v4l2_planes[0].bytesused) {
 					dec->remained = 1;
+					src_buf->consumed += s5p_mfc_get_consumed_stream();
+				}
 			}
 		}
 

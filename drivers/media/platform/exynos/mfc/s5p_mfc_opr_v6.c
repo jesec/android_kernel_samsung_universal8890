@@ -966,8 +966,8 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 
 	mfc_debug(2, "inst_no: %d, buf_addr: 0x%08llx\n", ctx->inst_no,
 		(unsigned long long)buf_addr);
-	mfc_debug(2, "strm_size: 0x%08x cpb_buf_size 0x%zu\n",
-			strm_size, cpb_buf_size);
+	mfc_debug(2, "strm_size: 0x%08x cpb_buf_size 0x%zu offset: 0x%08x\n",
+			strm_size, cpb_buf_size, start_num_byte);
 
 	WRITEL(strm_size, S5P_FIMV_D_STREAM_DATA_SIZE);
 	WRITEL(buf_addr, S5P_FIMV_D_CPB_BUFFER_ADDR);
@@ -2861,7 +2861,13 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 				s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
 				dec->consumed, dec->remained_size);
 	} else {
-		s5p_mfc_set_dec_stream_buffer(ctx,
+		if (temp_vb->consumed)
+			s5p_mfc_set_dec_stream_buffer(ctx,
+				s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
+				temp_vb->consumed,
+				temp_vb->vb.v4l2_planes[0].bytesused - temp_vb->consumed);
+		else
+			s5p_mfc_set_dec_stream_buffer(ctx,
 				s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
 				0, temp_vb->vb.v4l2_planes[0].bytesused);
 	}
@@ -3047,10 +3053,19 @@ static inline void s5p_mfc_run_init_dec(struct s5p_mfc_ctx *ctx)
 	spin_lock_irqsave(&dev->irqlock, flags);
 	mfc_debug(2, "Preparing to init decoding.\n");
 	temp_vb = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
-	mfc_debug(2, "Header size: %d\n", temp_vb->vb.v4l2_planes[0].bytesused);
-	s5p_mfc_set_dec_stream_buffer(ctx,
+	mfc_debug(2, "Header size: %d, (offset: %d)\n",
+		temp_vb->vb.v4l2_planes[0].bytesused, temp_vb->consumed);
+
+	if (temp_vb->consumed)
+		s5p_mfc_set_dec_stream_buffer(ctx,
+			s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
+			temp_vb->consumed,
+			temp_vb->vb.v4l2_planes[0].bytesused - temp_vb->consumed);
+	else
+		s5p_mfc_set_dec_stream_buffer(ctx,
 			s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
 			0, temp_vb->vb.v4l2_planes[0].bytesused);
+
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 	dev->curr_ctx = ctx->num;
 	mfc_debug(2, "Header addr: 0x%08lx\n",
