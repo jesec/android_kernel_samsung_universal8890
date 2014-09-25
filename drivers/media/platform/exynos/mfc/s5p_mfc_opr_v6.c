@@ -154,7 +154,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		if (IS_MFCv9X(dev)) {
 			lcu_width = enc_lcu_width(ctx->img_width);
 			lcu_height = enc_lcu_height(ctx->img_height);
-			if (!ctx->codec_mode == S5P_FIMV_CODEC_HEVC_ENC) {
+			if (ctx->codec_mode != S5P_FIMV_CODEC_HEVC_ENC) {
 				enc->luma_dpb_size =
 					ALIGN((mb_width * mb_height) * 256, 256);
 				enc->chroma_dpb_size =
