@@ -230,7 +230,7 @@ MODULE_DEVICE_TABLE(of, exynos5_i2c_match);
 
 #ifdef CONFIG_EXYNOS_APM
 static struct pinctrl *apm_i2c_pinctrl;
-static struct pinctrl_state *default_i2c_gpio;
+static struct pinctrl_state *default_i2c_gpio, *apm_i2c_gpio;
 
 static int exynos_regulator_apm_notifier(struct notifier_block *notifier,
 						unsigned long pm_event, void *v)
@@ -239,14 +239,25 @@ static int exynos_regulator_apm_notifier(struct notifier_block *notifier,
 	struct exynos5_i2c *i2c;
 
 	list_for_each_entry(i2c, &drvdata_list, node)
-		if (i2c->use_apm_mode == 0)
-			return NOTIFY_OK;
+		if (i2c->use_apm_mode == 1)
+			break;
+	if (i2c->use_apm_mode == 0)
+		printk(KERN_ERR "[APM I2C] No APM device\n");
 
 	if (IS_ERR(default_i2c_gpio)) {
 		printk(KERN_ERR "[APM I2C] Err pinctrl_state!\n");
 		return NOTIFY_BAD;
 	}
+
 	switch (pm_event) {
+		case APM_READY:
+			status = pinctrl_select_state(apm_i2c_pinctrl, apm_i2c_gpio);
+			if (status) {
+				printk(KERN_ERR "[APM I2C] Can't set APM I2C gpio(output).\n");
+				return NOTIFY_BAD;
+			}
+			break;
+		case APM_SLEEP:
 		case APM_TIMEOUT:
 			status = pinctrl_select_state(apm_i2c_pinctrl, default_i2c_gpio);
 			if (status) {
@@ -254,11 +265,7 @@ static int exynos_regulator_apm_notifier(struct notifier_block *notifier,
 				return NOTIFY_BAD;
 			}
 
-			list_for_each_entry(i2c, &drvdata_list, node)
-				if (i2c->use_apm_mode) {
-					i2c->need_hw_init = 1;
-					break;
-				}
+			i2c->need_hw_init = 1;
 			break;
 	}
 
@@ -1061,10 +1068,12 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	if (of_get_property(np, "samsung,use-apm", NULL)) {
 		i2c->use_apm_mode = 1;
 		apm_i2c_pinctrl = devm_pinctrl_get(&pdev->dev);
-		if (IS_ERR(apm_i2c_pinctrl))
+		if (IS_ERR(apm_i2c_pinctrl)) {
 			dev_err(&pdev->dev, "Can't get apm i2c pinctrl.\n");
-		else
+		} else {
 			default_i2c_gpio = pinctrl_lookup_state(apm_i2c_pinctrl, "default");
+			apm_i2c_gpio = pinctrl_lookup_state(apm_i2c_pinctrl, "apm");
+		}
 	} else {
 		i2c->use_apm_mode = 0;
 	}
