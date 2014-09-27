@@ -28,6 +28,7 @@
 #define MDEV_MODULE_NAME "exynos-mdev"
 #define MAX_GSC_SUBDEV		3
 #define MAX_VPP_SUBDEV		4
+#define MAX_DSIM_SUBDEV		2
 #define MDEV_MAX_NUM		3
 
 #define VPP_PAD_SOURCE		0
@@ -130,6 +131,8 @@ struct exynos_md {
 	struct v4l2_subdev	*csis_sd[CSIS_MAX_ENTITIES];
 	struct v4l2_subdev	*flite_sd[FLITE_MAX_ENTITIES];
 	struct v4l2_subdev	*sensor_sd[SENSOR_MAX_ENTITIES];
+	struct v4l2_subdev	*dsim_sd[MAX_DSIM_SUBDEV];
+	struct v4l2_subdev	*hdmi_sd;
 	u16			id;
 	bool			is_flite_on;
 	spinlock_t slock;
