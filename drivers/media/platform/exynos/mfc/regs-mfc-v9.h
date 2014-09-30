@@ -627,7 +627,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_SI_CH0_INST_ID		0x2040 /* codec instance ID */
 #define S5P_FIMV_SI_CH1_INST_ID		0x2080 /* codec instance ID */
 
-#define S5P_FIMV_NV12M_HALIGN			16
+#define S5P_FIMV_NV12M_HALIGN			512
 #define S5P_FIMV_NV12MT_HALIGN			16
 #define S5P_FIMV_NV12MT_VALIGN			16
 

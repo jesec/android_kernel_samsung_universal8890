@@ -976,30 +976,6 @@ static int s5p_mfc_find_start_code(unsigned char *src_mem, unsigned int remainSi
 	return -1;
 }
 
-static int s5p_mfc_vp9_consumed_size(unsigned char *src_mem)
-{
-	unsigned int consumed_size = 0;
-	unsigned int marker = 0;
-	unsigned int frames = 0;
-	unsigned int mag = 0;
-	unsigned int index_sz = 0;
-
-	marker = src_mem[5];
-	if((marker & 0xe0) == 0xc0){
-		frames = (marker & 0x7) + 1;
-		mag = ((marker >> 3) & 0x3) + 1;
-		index_sz = 2 + mag * frames;
-	}
-
-	if((index_sz == 6) && (src_mem[0] == 0xc9)) {
-		consumed_size = (src_mem[2]<< 8) | src_mem[1];
-	} else if((index_sz == 4) && (src_mem[2] == 0xc1)) {
-		consumed_size = src_mem[3];
-	}
-
-	return consumed_size;
-}
-
 static void s5p_mfc_handle_frame_error(struct s5p_mfc_ctx *ctx,
 		unsigned int reason, unsigned int err)
 {
@@ -1137,7 +1113,6 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 	unsigned int res_change;
 	unsigned int index, remained;
 	unsigned int prev_offset;
-	unsigned int vp9_consumed;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -1287,13 +1262,6 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			if (ctx->codec_mode != S5P_FIMV_CODEC_VP9_DEC) {
 				offset = s5p_mfc_find_start_code(
 						stream_vir + dec->consumed, remained);
-			}
-
-			if (ctx->codec_mode == S5P_FIMV_CODEC_VP9_DEC) {
-				vp9_consumed = s5p_mfc_vp9_consumed_size(
-					stream_vir + (src_buf->vb.v4l2_planes[0].bytesused - 6));
-				if(vp9_consumed)
-					dec->consumed = vp9_consumed;
 			}
 
 			if (offset > STUFF_BYTE)

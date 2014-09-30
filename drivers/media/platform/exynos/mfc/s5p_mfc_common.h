@@ -1036,7 +1036,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define FW_HAS_I_LIMIT_RC_MODE(dev)	((IS_MFCv7X(dev) &&		\
 					(dev->fw.date >= 0x140801)) ||	\
 					(IS_MFCv8X(dev) &&		\
-					(dev->fw.date >= 0x140808)))
+					(dev->fw.date >= 0x140808)) ||	\
+					(IS_MFCv9X(dev) &&		\
+					(dev->fw.date >= 0x141008)))
 #define FW_HAS_POC_TYPE_CTRL(dev)	(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130405))
 #define FW_HAS_DYNAMIC_DPB(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
@@ -1044,7 +1046,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define FW_HAS_BASE_CHANGE(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
 					(dev->fw.date >= 0x131108))
 #define FW_HAS_TEMPORAL_SVC_CH(dev)	((IS_MFCv8X(dev) &&			\
-					 (dev->fw.date >= 0x140821)))
+					(dev->fw.date >= 0x140821)) ||		\
+					(IS_MFCv9X(dev) &&			\
+					(dev->fw.date >= 0x141008)))
 #define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCV8(dev) || IS_MFCv78(dev))
 
 #define FW_NEED_SHARED_MEMORY(dev)	(IS_MFCv5X(dev) || IS_MFCv6X(dev) ||	\
