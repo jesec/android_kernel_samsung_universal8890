@@ -1841,14 +1841,6 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 
 #ifdef CONFIG_VIDEO_EXYNOS_FIMC_IS
 	else if (sci->domain == DOMAIN_CAM1 || sci->domain == DOMAIN_ISP) {
-		struct platform_device *fimc_is_pdev;
-
-		if (fimc_is_dev == NULL)
-			return -EPERM;
-
-		fimc_is_pdev = to_platform_device(fimc_is_dev);
-		exynos_fimc_is_spi_on(fimc_is_pdev);
-
 		clk_prepare_enable(sdd->src_clk);
 		clk_prepare_enable(sdd->clk);
 
