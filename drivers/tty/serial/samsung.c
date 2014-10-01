@@ -1410,33 +1410,39 @@ static inline struct s3c24xx_serial_drv_data *s3c24xx_get_driver_data(
 			platform_get_device_id(pdev)->driver_data;
 }
 
-static int s3c24xx_serial_notifier(struct notifier_block *self,
-				unsigned long cmd, void *v)
+void s3c24xx_serial_fifo_wait(void)
 {
 	struct s3c24xx_uart_port *ourport;
 	struct uart_port *port;
 	unsigned int fifo_stat;
 	unsigned long wait_time;
 
+	list_for_each_entry(ourport, &drvdata_list, node) {
+		if (ourport->port.line != CONFIG_S3C_LOWLEVEL_UART_PORT)
+			continue;
+
+		uart_clock_enable(ourport);
+		wait_time = jiffies + HZ / 4;
+		do {
+			port = &ourport->port;
+			fifo_stat = rd_regl(port, S3C2410_UFSTAT);
+			cpu_relax();
+		} while (s3c24xx_serial_tx_fifocnt(ourport, fifo_stat)
+				&& time_before(jiffies, wait_time));
+	}
+}
+EXPORT_SYMBOL_GPL(s3c24xx_serial_fifo_wait);
+
+static int s3c24xx_serial_notifier(struct notifier_block *self,
+				unsigned long cmd, void *v)
+{
 	switch (cmd) {
 	case LPA_ENTER:
-		list_for_each_entry(ourport, &drvdata_list, node) {
-			if (ourport->port.line != CONFIG_S3C_LOWLEVEL_UART_PORT)
-				continue;
-
-			uart_clock_enable(ourport);
-			wait_time = jiffies + HZ / 4;
-			do {
-				port = &ourport->port;
-				fifo_stat = rd_regl(port, S3C2410_UFSTAT);
-				cpu_relax();
-			} while (s3c24xx_serial_tx_fifocnt(ourport, fifo_stat)
-					&& time_before(jiffies, wait_time));
-		}
+		s3c24xx_serial_fifo_wait();
 		break;
 	}
 
-	return NOTIFY_OK;
+	return NOTIFY_DONE;
 }
 
 static struct notifier_block s3c24xx_serial_notifier_block = {
