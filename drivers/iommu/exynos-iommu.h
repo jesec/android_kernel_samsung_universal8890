@@ -117,9 +117,9 @@ typedef u32 sysmmu_pte_t;
  * to the same owner device.
  */
 struct exynos_iommu_owner {
-	struct list_head entry; /* entry of exynos_iommu_owner list */
 	struct list_head client; /* entry of exynos_iommu_domain.clients */
 	struct device *dev;
+	struct exynos_iommu_owner *next; /* linked list of Owners */
 	void *vmm_data;         /* IO virtual memory manager's data */
 	spinlock_t lock;        /* Lock to preserve consistency of System MMU */
 	struct list_head mmu_list; /* head of sysmmu_list_data.node */
@@ -185,9 +185,9 @@ enum sysmmu_clock_ids {
  * Metadata attached to each System MMU devices.
  */
 struct sysmmu_drvdata {
-	struct list_head entry;	/* entry of sysmmu debug drvdata list */
 	struct list_head node;	/* entry of exynos_iommu_owner.mmu_list */
 	struct list_head pb_grp_list;	/* list of pb groups */
+	struct sysmmu_drvdata *next; /* linked list of System MMU */
 	struct device *sysmmu;	/* System MMU's device descriptor */
 	struct device *master;	/* Client device that needs System MMU */
 	void __iomem *sfrbase;
