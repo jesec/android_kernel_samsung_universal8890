@@ -1733,6 +1733,17 @@ static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
 	if (ret)
 		return -1;
 
+	base = 0;
+	ion_exynos_contig_heap_info(ION_EXYNOS_ID_VIDEO_EXT, &base, &size);
+	if (base) {
+		ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_VIDEO_EXT(dev->id), base, size);
+		if (ret)
+			return -1;
+	} else {
+		mfc_info_dev("VIDEO_EXT region is not used.\n");
+	}
+
+
 	return 0;
 }
 

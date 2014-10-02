@@ -85,6 +85,7 @@ enum {
 	FC_MFC_EXYNOS_ID_SECTBL        = 3,
 	FC_MFC_EXYNOS_ID_G2D_WFD       = 4,
 	FC_MFC_EXYNOS_ID_MFC_NFW       = 5,
+	FC_MFC_EXYNOS_ID_VIDEO_EXT     = 6,
 };
 
 #define SMC_FC_ID_MFC_SH(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_SH)
@@ -93,6 +94,7 @@ enum {
 #define SMC_FC_ID_SECTBL(id)		((id) * 10 + FC_MFC_EXYNOS_ID_SECTBL)
 #define SMC_FC_ID_G2D_WFD(id)		((id) * 10 + FC_MFC_EXYNOS_ID_G2D_WFD)
 #define SMC_FC_ID_MFC_NFW(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_NFW)
+#define SMC_FC_ID_VIDEO_EXT(id)		((id) * 10 + FC_MFC_EXYNOS_ID_VIDEO_EXT)
 
 /**
  * enum s5p_mfc_inst_type - The type of an MFC device node.
