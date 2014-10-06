@@ -38,7 +38,6 @@ void **hevc_mem_init_multi(struct device *dev, unsigned int ctx_num)
 		alloc_ctxes[i] = vb2_ion_create_context(dev, SZ_4K,
 				VB2ION_CTX_VMCONTIG |
 				VB2ION_CTX_IOMMU |
-				VB2ION_CTX_KVA_STATIC |
 				VB2ION_CTX_UNCACHED);
 		if (IS_ERR(alloc_ctxes[i]))
 			break;

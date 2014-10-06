@@ -3038,10 +3038,8 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	}
 	if (FW_NEED_SHARED_MEMORY(dev)) {
 		dev->alloc_ctx_sh = (struct vb2_alloc_ctx *)
-			vb2_ion_create_context(&pdev->dev,
-				SZ_4K,
-				VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCSH |
-				VB2ION_CTX_KVA_STATIC);
+			vb2_ion_create_context(&pdev->dev, SZ_4K,
+				VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCSH);
 		if (IS_ERR(dev->alloc_ctx_sh)) {
 			mfc_err_dev("failed to prepare shared allocation context\n");
 			ret = PTR_ERR(dev->alloc_ctx_sh);
