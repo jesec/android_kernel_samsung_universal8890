@@ -2274,6 +2274,7 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 	struct exynos_iovmm *vmm = owner->vmm_data;
 	struct iommu_domain *domain = vmm->domain;
 	struct exynos_iommu_domain *priv = domain->priv;
+	exynos_iova_t iova_start = iova;
 	struct vm_area_struct *vma;
 	unsigned long start, end;
 	unsigned long pgd_next;
@@ -2402,7 +2403,8 @@ out_unmap:
 	if (ret) {
 		pr_debug("%s: Ignoring mapping for %#lx ~ %#lx\n",
 					__func__, start, end);
-		__sysmmu_unmap_user_pages(dev, mm, vaddr, iova, start - vaddr);
+		__sysmmu_unmap_user_pages(dev, mm, vaddr, iova_start,
+							start - vaddr);
 	}
 
 	return ret;
