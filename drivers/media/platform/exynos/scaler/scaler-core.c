@@ -1500,55 +1500,6 @@ static bool sc_configure_rotation_degree(struct sc_ctx *ctx, int degree)
 	return true;
 }
 
-static int sc_set_contents_protection(struct sc_ctx *ctx, bool enable)
-{
-	/*
-	 * NOTE: racing during checking dev->m2m.in_use and updating
-	 * dev->state may occur logically. But it does not happen in reallity
-	 * because user-land takes care. Otherwise, the system gets failure.
-	 */
-
-	if (atomic_read(&ctx->sc_dev->m2m.in_use) > 1) {
-		dev_err(ctx->sc_dev->dev,
-			"%s: Protection NOT allowed when a context exists\n",
-			__func__);
-		return -EBUSY;
-	}
-
-	if (enable && test_bit(DEV_CP, &ctx->sc_dev->state)) {
-		dev_err(ctx->sc_dev->dev,
-			"%s: Protection already configured\n", __func__);
-		return -EBUSY;
-	}
-
-	if (enable) {
-		if (test_bit(DEV_CP, &ctx->sc_dev->state)) {
-			dev_err(ctx->sc_dev->dev,
-				"%s: Protection already configured\n",
-				__func__);
-			return -EBUSY;
-		}
-
-		set_bit(DEV_CP, &ctx->sc_dev->state);
-		ctx->state_for_cp = &ctx->sc_dev->state;
-	} else {
-		ctx->state_for_cp = NULL;
-		clear_bit(DEV_CP, &ctx->sc_dev->state);
-	}
-
-	vb2_ion_set_protected(ctx->sc_dev->alloc_ctx, enable);
-
-	return 0;
-}
-
-static void sc_clear_contents_protection(struct sc_ctx *ctx)
-{
-	if (ctx->state_for_cp) {
-		vb2_ion_set_protected(ctx->sc_dev->alloc_ctx, false);
-		clear_bit(DEV_CP, ctx->state_for_cp);
-	}
-}
-
 static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct sc_ctx *ctx;
@@ -1600,7 +1551,7 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->csc.csc_range = ctrl->val;
 		break;
 	case V4L2_CID_CONTENT_PROTECTION:
-		ret = sc_set_contents_protection(ctx, !!ctrl->val);
+		ctx->cp_enabled = !!ctrl->val;
 		break;
 	}
 
@@ -1857,8 +1808,6 @@ static int sc_release(struct file *file)
 
 	sc_dbg("refcnt= %d", atomic_read(&sc->m2m.in_use));
 
-	sc_clear_contents_protection(ctx);
-
 	atomic_dec(&sc->m2m.in_use);
 
 	destroy_intermediate_frame(ctx);
@@ -1933,6 +1882,16 @@ static void sc_watchdog(unsigned long arg)
 
 			}
 			clear_bit(CTX_RUN, &ctx->flags);
+
+			if (test_bit(DEV_CP, &sc->state)) {
+				/* m2m1shot never enables contents protection */
+				exynos_smc(SMC_PROTECTION_SET, 0,
+					   SC_SMC_PROTECTION_ID(sc->dev_id),
+					   SMC_PROTECTION_DISABLE);
+				__vb2_ion_set_protected_unlocked(
+						ctx->sc_dev->alloc_ctx, false);
+				clear_bit(DEV_CP, &sc->state);
+			}
 
 			src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 			dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
@@ -2283,10 +2242,14 @@ static int sc_run_next_job(struct sc_dev *sc)
 		}
 	}
 
-	if (test_bit(DEV_CP, &sc->state))
+	if (ctx->cp_enabled) {
+		set_bit(DEV_CP, &sc->state);
+		__vb2_ion_set_protected_unlocked(ctx->sc_dev->alloc_ctx, true);
 		exynos_smc(SMC_PROTECTION_SET, 0,
 			   SC_SMC_PROTECTION_ID(sc->dev_id),
 			   SMC_PROTECTION_ENABLE);
+	}
+
 	sc_hwset_start(sc);
 
 	return 0;
@@ -2329,10 +2292,13 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 
 	del_timer(&sc->wdt.timer);
 
-	if (test_bit(DEV_CP, &sc->state))
+	if (test_bit(DEV_CP, &sc->state)) {
 		exynos_smc(SMC_PROTECTION_SET, 0,
 			   SC_SMC_PROTECTION_ID(sc->dev_id),
 			   SMC_PROTECTION_DISABLE);
+		__vb2_ion_set_protected_unlocked(ctx->sc_dev->alloc_ctx, false);
+		clear_bit(DEV_CP, &sc->state);
+	}
 
 	sc_clk_power_disable(sc);
 

@@ -397,7 +397,6 @@ struct sc_ctx {
 		struct v4l2_m2m_ctx	*m2m_ctx;
 		struct m2m1shot_context	*m21_ctx;
 	};
-	unsigned long			*state_for_cp;
 	struct sc_frame			s_frame;
 	struct sc_int_frame		*i_frame;
 	struct sc_frame			d_frame;
@@ -417,6 +416,7 @@ struct sc_ctx {
 	unsigned int			pre_v_ratio;
 	unsigned long			flags;
 	bool				pre_multi;
+	bool				cp_enabled;
 	struct sc_csc			csc;
 	struct sc_init_phase		init_phase;
 };
