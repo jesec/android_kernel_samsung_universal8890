@@ -2331,7 +2331,25 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 			sysmmu_pte_t *pent, *pent_first;
 			sysmmu_pte_t *sent;
 
-			if (pmd_none_or_clear_bad(pmd)) {
+			if (pmd_none(*pmd)) {
+				pmd = pmd_alloc(mm, (pud_t *)pgd, start);
+				if (!pmd) {
+					pr_err("%s: failed to alloc pmd\n",
+								__func__);
+					ret = -ENOMEM;
+					goto out_unmap;
+				}
+
+				if (__pte_alloc(mm, vma, pmd, start)) {
+					pr_err("%s: failed to alloc pte\n",
+								__func__);
+					ret = -ENOMEM;
+					goto out_unmap;
+				}
+			} else if (pmd_bad(*pmd)) {
+				pr_err("%s: bad pmd value %#lx\n", __func__,
+						(unsigned long)pmd_val(*pmd));
+				pmd_clear_bad(pmd);
 				ret = -EBADR;
 				goto out_unmap;
 			}
