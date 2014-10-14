@@ -528,6 +528,19 @@ struct _xfer_spec {
 	struct dma_pl330_desc *desc;
 };
 
+static inline void put_unaligned_le32(u32 val, u8 *p)
+{
+	*p++ = val;
+	*p++ = val >> 8;
+	*p++ = val >> 16;
+	*p++ = val >> 24;
+}
+
+static inline u32 get_unaligned_le32(u8 *p)
+{
+	return p[0] | p[1] << 8 | p[2] << 16 | p[3] << 24;
+}
+
 static inline bool _queue_empty(struct pl330_thread *thrd)
 {
 	return thrd->req[0].desc == NULL && thrd->req[1].desc == NULL;
@@ -716,7 +729,8 @@ static inline u32 _emit_MOV(unsigned dry_run, u8 buf[],
 
 	buf[0] = CMD_DMAMOV;
 	buf[1] = dst;
-	*((u32 *)&buf[2]) = val;
+
+	put_unaligned_le32(val, &buf[2]);
 
 	PL330_DBGCMD_DUMP(SZ_DMAMOV, "\tDMAMOV %s 0x%x\n",
 		dst == SAR ? "SAR" : (dst == DAR ? "DAR" : "CCR"), val);
@@ -894,7 +908,7 @@ static inline u32 _emit_GO(unsigned dry_run, u8 buf[],
 
 	buf[1] = chan & 0x7;
 
-	*((u32 *)&buf[2]) = addr;
+	put_unaligned_le32(addr, &buf[2]);
 
 	return SZ_DMAGO;
 }
@@ -929,7 +943,7 @@ static inline void _execute_DBGINSN(struct pl330_thread *thrd,
 	}
 	writel(val, regs + DBGINST0);
 
-	val = *((u32 *)&insn[2]);
+	val = get_unaligned_le32(&insn[2]);
 	writel(val, regs + DBGINST1);
 
 	/* If timed out due to halted state-machine */
