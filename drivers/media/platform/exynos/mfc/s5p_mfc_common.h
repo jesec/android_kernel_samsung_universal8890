@@ -1030,7 +1030,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define IS_MFCv6X(dev)		((mfc_version(dev) == 0x61) || \
 				 (mfc_version(dev) == 0x65))
 #define IS_MFCv7X(dev)		((mfc_version(dev) == 0x72) || \
-				 (mfc_version(dev) == 0x723))
+				 (mfc_version(dev) == 0x723) || \
+				 (mfc_version(dev) == 0x78))
 #define IS_MFCv8X(dev)		(mfc_version(dev) == 0x80)
 #define IS_MFCv9X(dev)		(mfc_version(dev) == 0x90)
 #define IS_MFCv78(dev)		(mfc_version(dev) == 0x78)

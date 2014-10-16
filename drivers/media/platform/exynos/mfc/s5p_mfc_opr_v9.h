@@ -226,6 +226,8 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 /* MV range is [16,256] for v6.1, [16,128] for v6.5 */
 #define ENC_V61_MV_RANGE		256
 #define ENC_V65_MV_RANGE		128
+/* MV range is [16,32] for v7.8 */
+#define ENC_V78_MV_RANGE		32
 
 #define NUM_MPEG4_LF_BUF		2
 

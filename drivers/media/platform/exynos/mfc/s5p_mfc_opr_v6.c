@@ -149,8 +149,14 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 					 tiled_ref->plane_size[1]);
 		}
 	} else if (ctx->type == MFCINST_ENCODER) {
-		enc->tmv_buffer_size = ENC_TMV_SIZE(mb_width, mb_height);
-		enc->tmv_buffer_size = ALIGN(enc->tmv_buffer_size, 32) * 2;
+		if (!IS_MFCv78(dev)) {
+			enc->tmv_buffer_size =
+				ENC_TMV_SIZE(mb_width, mb_height);
+			enc->tmv_buffer_size =
+				ALIGN(enc->tmv_buffer_size, 32) * 2;
+		} else {
+			enc->tmv_buffer_size = 0;
+		}
 		if (IS_MFCv9X(dev)) {
 			lcu_width = enc_lcu_width(ctx->img_width);
 			lcu_height = enc_lcu_height(ctx->img_height);
@@ -1343,11 +1349,13 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	buf_addr1 += ctx->scratch_buf_size;
 	buf_size1 -= ctx->scratch_buf_size;
 
-	WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER0);
-	buf_addr1 += enc->tmv_buffer_size >> 1;
-	WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER1);
-	buf_addr1 += enc->tmv_buffer_size >> 1;
-	buf_size1 -= enc->tmv_buffer_size;
+	if (!IS_MFCv78(dev)) {
+		WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER0);
+		buf_addr1 += enc->tmv_buffer_size >> 1;
+		WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER1);
+		buf_addr1 += enc->tmv_buffer_size >> 1;
+		buf_size1 -= enc->tmv_buffer_size;
+	}
 
 	mfc_debug(2, "Buf1: %zu, buf_size1: %ld (ref frames %d)\n",
 			buf_addr1, buf_size1, ctx->dpb_count);
@@ -1575,6 +1583,8 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 	/* setting for MV range [16, 256] */
 	if (mfc_version(dev) == 0x61)
 		reg = ENC_V61_MV_RANGE;
+	else if (mfc_version(dev) == 0x78)
+		reg = ENC_V78_MV_RANGE;
 	else
 		reg = ENC_V65_MV_RANGE;
 	WRITEL(reg, S5P_FIMV_E_MV_HOR_RANGE);
@@ -1614,12 +1624,14 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 
 	s5p_mfc_set_enc_params(ctx);
 
-	/* pictype : number of B */
-	reg = READL(S5P_FIMV_E_GOP_CONFIG);
-	/** num_b_frame - 0 ~ 2 */
-	reg &= ~(0x3 << 16);
-	reg |= (p->num_b_frame << 16);
-	WRITEL(reg, S5P_FIMV_E_GOP_CONFIG);
+	if (!IS_MFCv78(dev)) {
+		/* pictype : number of B */
+		reg = READL(S5P_FIMV_E_GOP_CONFIG);
+		/** num_b_frame - 0 ~ 2 */
+		reg &= ~(0x3 << 16);
+		reg |= (p->num_b_frame << 16);
+		WRITEL(reg, S5P_FIMV_E_GOP_CONFIG);
+	}
 
 	/* UHD encoding case */
 	if(is_UHD(ctx)) {
@@ -1701,7 +1713,8 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	/* number of ref. picture */
 	reg = READL(S5P_FIMV_E_H264_OPTIONS);
 	reg &= ~(0x1 << 7);
-	reg |= ((p_264->num_ref_pic_4p-1) << 7);
+	if (!IS_MFCv78(dev))
+		reg |= ((p_264->num_ref_pic_4p-1) << 7);
 	WRITEL(reg, S5P_FIMV_E_H264_OPTIONS);
 
 	/* 8x8 transform enable */
@@ -1962,12 +1975,14 @@ static int s5p_mfc_set_enc_params_mpeg4(struct s5p_mfc_ctx *ctx)
 
 	s5p_mfc_set_enc_params(ctx);
 
-	/* pictype : number of B */
-	reg = READL(S5P_FIMV_E_GOP_CONFIG);
-	/** num_b_frame - 0 ~ 2 */
-	reg &= ~(0x3 << 16);
-	reg |= (p->num_b_frame << 16);
-	WRITEL(reg, S5P_FIMV_E_GOP_CONFIG);
+	if (!IS_MFCv78(dev)) {
+		/* pictype : number of B */
+		reg = READL(S5P_FIMV_E_GOP_CONFIG);
+		/** num_b_frame - 0 ~ 2 */
+		reg &= ~(0x3 << 16);
+		reg |= (p->num_b_frame << 16);
+		WRITEL(reg, S5P_FIMV_E_GOP_CONFIG);
+	}
 
 	/* profile & level */
 	reg = 0;

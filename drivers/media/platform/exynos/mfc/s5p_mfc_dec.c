@@ -1883,7 +1883,7 @@ static int dec_ext_info(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int val = 0;
 
-	if (IS_MFCv7X(dev))
+	if (IS_MFCv7X(dev) && !IS_MFCv78(dev))
 		val |= DEC_SET_DUAL_DPB;
 	if (FW_HAS_DYNAMIC_DPB(dev))
 		val |= DEC_SET_DYNAMIC_DPB;
