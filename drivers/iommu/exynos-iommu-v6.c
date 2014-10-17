@@ -2184,6 +2184,7 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	unsigned long start, end;
 	bool is_pfnmap;
 	sysmmu_pte_t *sent, *pent;
+	int ret = 0;
 
 	down_read(&mm->mmap_sem);
 
@@ -2195,15 +2196,15 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	vma = find_vma(mm, vaddr);
 	if (!vma) {
 		pr_err("%s: vma is null\n", __func__);
-		up_read(&mm->mmap_sem);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out_unmap;
 	}
 
 	if (vma->vm_end < (vaddr + size)) {
 		pr_err("%s: vma overflow: %#lx--%#lx, vaddr: %#lx, size: %zd\n",
 			__func__, vma->vm_start, vma->vm_end, vaddr, size);
-		up_read(&mm->mmap_sem);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out_unmap;
 	}
 
 	is_pfnmap = vma->vm_flags & VM_PFNMAP;
@@ -2218,7 +2219,17 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 		sysmmu_pte_t *pent_first;
 
 		sent = section_entry(priv->pgtable, iova);
+		if (lv1ent_fault(sent)) {
+			ret = -EFAULT;
+			goto out_unmap;
+		}
+
 		pent = page_entry(sent, iova);
+		if (lv2ent_fault(pent)) {
+			ret = -EFAULT;
+			goto out_unmap;
+		}
+
 		pent_first = pent;
 
 		do {
@@ -2230,7 +2241,17 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 				pgtable_flush(pent_first, pent);
 				iova += PAGE_SIZE;
 				sent = section_entry(priv->pgtable, iova);
+				if (lv1ent_fault(sent)) {
+					ret = -EFAULT;
+					goto out_unmap;
+				}
+
 				pent = page_entry(sent, iova);
+				if (lv2ent_fault(pent)) {
+					ret = -EFAULT;
+					goto out_unmap;
+				}
+
 				pent_first = pent;
 			} else {
 				iova += PAGE_SIZE;
@@ -2242,11 +2263,17 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 			pgtable_flush(pent_first, pent);
 	} while (start != end);
 
-	up_read(&mm->mmap_sem);
-
 	TRACE_LOG_DEV(dev, "%s: unmap done @ %#lx\n", __func__, start);
 
-	return 0;
+out_unmap:
+	up_read(&mm->mmap_sem);
+
+	if (ret) {
+		pr_debug("%s: Ignoring unmapping for %#lx ~ %#lx\n",
+					__func__, start, end);
+	}
+
+	return ret;
 }
 
 static sysmmu_pte_t *alloc_lv2entry_fast(struct exynos_iommu_domain *priv,
