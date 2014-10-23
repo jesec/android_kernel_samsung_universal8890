@@ -302,12 +302,13 @@ static void __sysmmu_set_pbuf(struct sysmmu_drvdata *drvdata, int target_grp,
 }
 
 static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
-				struct pb_info *pb, int ipoption,
-				int opoption)
+				struct pb_info *pb, unsigned int ipoption[],
+				unsigned int opoption[])
 {
 	int i, j, num_pb, lmm;
 	int ret_num_pb = 0;
 	int total_plane_num = pb->ar_id_num + pb->aw_id_num;
+	u32 opt;
 
 	if (total_plane_num <= 0)
 		return;
@@ -333,7 +334,8 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 		__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
 		__raw_writel((0xFFFF << 16) | pb->ar_axi_id[i],
 			     drvdata->sfrbase + REG_PB_AXI_ID);
-		__raw_writel(ipoption | 0x100001,
+		opt = ipoption ? ipoption[i] : SYSMMU_PBUFCFG_DEFAULT_INPUT;
+		__raw_writel(opt | 0x100001,
 				drvdata->sfrbase + REG_PB_CFG);
 	}
 
@@ -344,7 +346,49 @@ static void __sysmmu_set_pbuf_axi_id(struct sysmmu_drvdata *drvdata,
 			__raw_writel(0, drvdata->sfrbase + REG_PB_CFG);
 			__raw_writel((0xFFFF << 16) | pb->aw_axi_id[j],
 					drvdata->sfrbase + REG_PB_AXI_ID);
-			__raw_writel(opoption | 0x100001,
+			opt = opoption ? opoption[i] : SYSMMU_PBUFCFG_DEFAULT_OUTPUT;
+			__raw_writel(opt | 0x100001,
+					drvdata->sfrbase + REG_PB_CFG);
+		}
+	}
+}
+
+static void __sysmmu_set_pbuf_property(struct sysmmu_drvdata *drvdata,
+				struct pb_info *pb, unsigned int ipoption[],
+				unsigned int opoption[])
+{
+	int i, num_pb, lmm;
+	int ret_num_pb = 0;
+	int total_plane_num = pb->ar_id_num + pb->aw_id_num;
+	u32 opt;
+
+	if (total_plane_num <= 0)
+		return;
+
+	if (pb->grp_num < 0) {
+		pr_err("The group number(%d) is invalid\n", pb->grp_num);
+		return;
+	}
+
+	num_pb = PB_INFO_NUM(__raw_readl(drvdata->sfrbase + REG_PB_INFO));
+	lmm = find_lmm_preset(num_pb, total_plane_num);
+	num_pb = find_num_pb(num_pb, lmm);
+
+	ret_num_pb = min(pb->ar_id_num, num_pb);
+	for (i = 0; i < ret_num_pb; i++) {
+		__raw_writel((pb->grp_num << 8) | i,
+				drvdata->sfrbase + REG_PB_INDICATE);
+		opt = ipoption ? ipoption[i] : SYSMMU_PBUFCFG_DEFAULT_INPUT;
+		__raw_writel(opt | 0x100001,
+				drvdata->sfrbase + REG_PB_CFG);
+	}
+
+	if ((num_pb > ret_num_pb)) {
+		for (i = ret_num_pb; i < num_pb; i++) {
+			__raw_writel((pb->grp_num << 8) | i,
+					drvdata->sfrbase + REG_PB_INDICATE);
+			opt = opoption ? opoption[i] : SYSMMU_PBUFCFG_DEFAULT_OUTPUT;
+			__raw_writel(opt | 0x100001,
 					drvdata->sfrbase + REG_PB_CFG);
 		}
 	}
@@ -395,8 +439,8 @@ static void __exynos_sysmmu_set_prefbuf_by_region(
 
 static void __exynos_sysmmu_set_prefbuf_axi_id(struct sysmmu_drvdata *drvdata,
 			struct device *master, unsigned int inplanes,
-			unsigned int onplanes, unsigned int ipoption,
-			unsigned int opoption)
+			unsigned int onplanes, unsigned int ipoption[],
+			unsigned int opoption[])
 {
 	struct pb_info *pb;
 
@@ -417,6 +461,31 @@ static void __exynos_sysmmu_set_prefbuf_axi_id(struct sysmmu_drvdata *drvdata,
 		}
 		__sysmmu_set_pbuf_axi_id(drvdata, pb,
 				ipoption, opoption);
+	}
+}
+
+static void __exynos_sysmmu_set_prefbuf_property(struct sysmmu_drvdata *drvdata,
+			struct device *master, unsigned int inplanes,
+			unsigned int onplanes, unsigned int ipoption[],
+			unsigned int opoption[])
+{
+	struct pb_info *pb;
+
+	if (!has_sysmmu_capable_pbuf(drvdata->sfrbase))
+		return;
+
+	if (!master)
+		return;
+
+	list_for_each_entry(pb, &drvdata->pb_grp_list, node) {
+		if (pb->master == master) {
+			struct pb_info tpb;
+			memcpy(&tpb, pb, sizeof(tpb));
+			tpb.ar_id_num = inplanes;
+			tpb.aw_id_num = onplanes;
+			__sysmmu_set_pbuf_property(drvdata, &tpb,
+					ipoption, opoption);
+		}
 	}
 }
 
@@ -685,9 +754,8 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 		cfg |= CFG_QOS_OVRRIDE | CFG_QOS(drvdata->qos);
 
 	if (has_sysmmu_capable_pbuf(drvdata->sfrbase))
-			__exynos_sysmmu_set_prefbuf_axi_id(drvdata, NULL, 0, 0,
-						SYSMMU_PBUFCFG_DEFAULT_INPUT,
-						SYSMMU_PBUFCFG_DEFAULT_OUTPUT);
+		__exynos_sysmmu_set_prefbuf_axi_id(drvdata, NULL, 0, 0,
+				NULL, NULL);
 
 	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
@@ -1070,7 +1138,7 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 
 int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption, unsigned int opoption)
+			unsigned int ipoption[], unsigned int opoption[])
 {
 	struct exynos_iommu_owner *owner = dev->archdata.iommu;
 	struct sysmmu_list_data *list;
@@ -1112,6 +1180,44 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 	return 0;
 }
 
+int sysmmu_set_prefetch_buffer_property(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption[], unsigned int opoption[])
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct sysmmu_list_data *list;
+	unsigned long flags;
+
+	if (!dev->archdata.iommu) {
+		dev_err(dev, "%s: No System MMU is configured\n", __func__);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&owner->lock, flags);
+
+	for_each_sysmmu_list(dev, list) {
+		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+
+		spin_lock(&drvdata->lock);
+
+		if (!is_sysmmu_active(drvdata) ||
+			!is_sysmmu_runtime_active(drvdata)) {
+			spin_unlock(&drvdata->lock);
+			continue;
+		}
+
+		__master_clk_enable(drvdata);
+		__exynos_sysmmu_set_prefbuf_property(drvdata, dev,
+				inplanes, onplanes, ipoption, opoption);
+		__master_clk_disable(drvdata);
+
+		spin_unlock(&drvdata->lock);
+	}
+
+	spin_unlock_irqrestore(&owner->lock, flags);
+
+	return 0;
+}
 static void __sysmmu_set_ptwqos(struct sysmmu_drvdata *data)
 {
 	u32 cfg;

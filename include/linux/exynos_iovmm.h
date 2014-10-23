@@ -196,8 +196,8 @@ void exynos_sysmmu_show_ppc_event(struct device *dev);
  * @dev: device descriptor of master device
  * @inplanes: number of input planes that uses prefetch buffers.
  * @onplanes: number of output planes that uses prefetch buffers.
- * @option_iplanes: prefetch buffer configuration to input planes.
- * @option_oplanes: prefetch buffer configuration to output planes.
+ * @option_iplanes: prefetch buffer configurations to input planes.
+ * @option_oplanes: prefetch buffer configurations to output planes.
  *
  * Returns 0 if setting is successful. -EINVAL if the argument is invalid.
  *
@@ -209,7 +209,11 @@ void exynos_sysmmu_show_ppc_event(struct device *dev);
  */
 int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption, unsigned int opoption);
+			unsigned int ipoption[], unsigned int opoption[]);
+
+int sysmmu_set_prefetch_buffer_property(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption[], unsigned int opoption[]);
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
@@ -222,9 +226,16 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 
 int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption, unsigned int opoption)
+			unsigned int ipoption[], unsigned int opoption[])
 {
-	return -ENOSYS;
+	return 0;
+}
+
+int sysmmu_set_prefetch_buffer_property(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption[], unsigned int opoption[])
+{
+	return 0;
 }
 #endif /* CONFIG_EXYNOS_IOVMM */
 
