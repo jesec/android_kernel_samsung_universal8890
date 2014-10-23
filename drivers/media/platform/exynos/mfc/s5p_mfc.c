@@ -29,10 +29,10 @@
 #include <linux/exynos_iovmm.h>
 #include <linux/exynos_ion.h>
 #include <linux/delay.h>
-#include <mach/smc.h>
+#include <linux/smc.h>
 #include <mach/bts.h>
 #include <mach/devfreq.h>
-#include <mach/secmem.h>
+#include <asm/cacheflush.h>
 
 #if defined(CONFIG_SOC_EXYNOS5422)
 #include <mach/regs-clock-exynos5422.h>
@@ -1695,6 +1695,7 @@ static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
 	int ret;
 
 	if (protect) {
+		flush_all_cpu_caches();
 		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 1);
 		if (ret < 0) {
 			mfc_err("Protection failed.\n");
