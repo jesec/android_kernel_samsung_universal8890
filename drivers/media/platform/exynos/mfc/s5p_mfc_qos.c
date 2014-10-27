@@ -189,7 +189,7 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 	for (i = (pdata->num_qos_steps - 1); i >= 0; i--) {
 		mfc_debug(7, "QoS index: %d\n", i + 1);
 		if (total_mb > qos_table[i].thrd_mb) {
-#if defined(CONFIG_SOC_EXYNOS5430)
+#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS7420)
 			/* Table is different between MAX dec and enc */
 			if (i == (pdata->num_qos_steps - 1) &&
 				ctx->type == MFCINST_ENCODER) {
