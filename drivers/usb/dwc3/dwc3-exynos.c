@@ -38,7 +38,7 @@
 #include <linux/usb/otg-fsm.h>
 
 static const char *dwc3_exynos_clk_names[] = {"aclk", "aclk_axius", "sclk_ref",
-	"sclk", "oscclk_phy", "phyclock", "pipe_pclk", NULL};
+	"sclk", "oscclk_phy", "phyclock", "pipe_pclk", "aclk_ahb_usblinkh", NULL};
 
 struct dwc3_exynos_rsw {
 	struct otg_fsm		*fsm;
