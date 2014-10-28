@@ -325,8 +325,9 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 				s5p_mfc_write_reg(dev, val, S5P_FIMV_MFC_BUS_RESET_CTRL);
 			}
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
+		} else {
+			atomic_inc_return(&dev->clk_ref);
 		}
-		atomic_inc_return(&dev->clk_ref);
 	} else {
 		atomic_inc_return(&dev->clk_ref);
 	}
