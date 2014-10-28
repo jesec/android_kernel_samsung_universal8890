@@ -114,11 +114,44 @@ extern void __init samsung_register_fixed_factor(
 #define PLL1460X_KDIV_SHIFT		(0)
 #define PLL1460X_LOCKED_SHIFT		(29)
 
+/*
+ * PLL255xx Clock Type : PLL2551x, PLL2555x
+ * Maximum lock time can be 200 * Pdiv cycles
+ */
+#define PLL255XX_LOCK_FACTOR		(200)
+#define PLL255XX_MDIV_MASK		(0x3FF)
+#define PLL255XX_PDIV_MASK		(0x3F)
+#define PLL255XX_SDIV_MASK		(0x7)
+#define PLL255XX_LOCKED_MASK		(0x1)
+#define PLL255XX_MDIV_SHIFT		(12)
+#define PLL255XX_PDIV_SHIFT		(4)
+#define PLL255XX_SDIV_SHIFT		(0)
+#define PLL255XX_LOCKED_SHIFT		(29)
+
+/*
+ * PLL2650X Clock Type
+ * Maximum lock time can be 3000 * Pdiv cycles
+ */
+#define PLL2650X_LOCK_FACTOR		(3000)
+#define PLL2650X_MDIV_MASK		(0x01FF)
+#define PLL2650X_PDIV_MASK		(0x003F)
+#define PLL2650X_SDIV_MASK		(0x0007)
+#define PLL2650X_KDIV_MASK		(0xFFFF)
+#define PLL2650X_LOCKED_MASK		(0x1)
+#define PLL2650X_MDIV_SHIFT		(12)
+#define PLL2650X_PDIV_SHIFT		(4)
+#define PLL2650X_SDIV_SHIFT		(0)
+#define PLL2650X_KDIV_SHIFT		(0)
+#define PLL2650X_LOCKED_SHIFT		(29)
+
 enum pll_type {
 	pll_1450x = 0,
 	pll_1451x,
 	pll_1452x,
 	pll_1460x,
+	pll_2551x,
+	pll_2555x,
+	pll_2650x,
 };
 
 struct samsung_pll_rate_table {
@@ -130,7 +163,7 @@ struct samsung_pll_rate_table {
 };
 
 #define PLL_BYPASS		BIT(0)
-
+#define CHK_ON_CHANGING		BIT(7)
 /*
  * struct samsung_composite_pll: information about composite-pll clocks
  * @id: id of the clock for binding with device tree.

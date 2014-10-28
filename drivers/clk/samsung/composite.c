@@ -18,6 +18,7 @@
 
 #define PLL_STAT_OSC	(0x0)
 #define PLL_STAT_PLL	(0x1)
+#define PLL_STAT_CHANGE	(0x4)
 #define PLL_STAT_MASK	(0x7)
 
 #define to_comp_pll(_hw) container_of(_hw, struct samsung_composite_pll, hw)
@@ -461,6 +462,231 @@ static const struct clk_ops samsung_pll1460x_clk_ops = {
 	.is_enabled = samsung_composite_pll_is_enabled,
 };
 
+static int samsung_composite_pll_enable_onchange(struct clk_hw *hw)
+{
+	struct samsung_composite_pll *pll = to_comp_pll(hw);
+	int set = pll->pll_flag & PLL_BYPASS ? 0 : 1;
+	unsigned int reg;
+
+	/* Setting Enable register */
+	reg = readl(pll->enable_reg);
+	if (set)
+		reg |= (1 << pll->enable_bit);
+	else
+		reg &= ~(1 << pll->enable_bit);
+	writel(reg, pll->enable_reg);
+
+	/* setting CTRL mux register to 1 */
+	reg = readl(pll->sel_reg);
+	reg |= (1 << pll->sel_bit);
+	writel(reg, pll->sel_reg);
+
+	/* check status for mux setting */
+	do {
+		cpu_relax();
+		reg = readl(pll->stat_reg);
+	} while (((reg >> pll->stat_bit) & PLL_STAT_MASK) == PLL_STAT_CHANGE);
+
+	return 0;
+}
+
+static void samsung_composite_pll_disable_onchange(struct clk_hw *hw)
+{
+	struct samsung_composite_pll *pll = to_comp_pll(hw);
+	int set = pll->pll_flag & PLL_BYPASS ? 0 : 1;
+	unsigned int reg;
+
+	/* setting CTRL mux register to 0 */
+	reg = readl(pll->sel_reg);
+	reg &= ~(1 << pll->sel_bit);
+	writel(reg, pll->sel_reg);
+
+	/* check status for mux setting */
+	do {
+		cpu_relax();
+		reg = readl(pll->stat_reg);
+	} while (((reg >> pll->stat_bit) & PLL_STAT_MASK) == PLL_STAT_CHANGE);
+
+	/* Setting Register */
+	reg = readl(pll->enable_reg);
+	if (set)
+		reg &= ~(1 << pll->enable_bit);
+	else
+		reg |= (1 << pll->enable_bit);
+
+	writel(reg, pll->enable_reg);
+}
+
+static unsigned long samsung_pll255xx_recalc_rate(struct clk_hw *hw,
+				unsigned long parent_rate)
+{
+	struct samsung_composite_pll *pll = to_comp_pll(hw);
+	u32 mdiv, pdiv, sdiv, pll_con;
+	u64 fvco = parent_rate;
+
+	pll_con = readl(pll->con_reg);
+	mdiv = (pll_con >> PLL255XX_MDIV_SHIFT) & PLL255XX_MDIV_MASK;
+	pdiv = (pll_con >> PLL255XX_PDIV_SHIFT) & PLL255XX_PDIV_MASK;
+	sdiv = (pll_con >> PLL255XX_SDIV_SHIFT) & PLL255XX_SDIV_MASK;
+	/* Do calculation */
+	fvco *= mdiv;
+	do_div(fvco, (pdiv << sdiv));
+
+	return (unsigned long)fvco;
+}
+
+static inline bool samsung_pll255xx_mp_check(u32 mdiv, u32 pdiv, u32 pll_con)
+{
+	return ((mdiv != ((pll_con >> PLL255XX_MDIV_SHIFT) & PLL255XX_MDIV_MASK)) ||
+		(pdiv != ((pll_con >> PLL255XX_PDIV_SHIFT) & PLL255XX_PDIV_MASK)));
+}
+
+static int samsung_pll255xx_set_rate(struct clk_hw *hw, unsigned long drate,
+					unsigned long prate)
+{
+	struct samsung_composite_pll *pll = to_comp_pll(hw);
+	const struct samsung_pll_rate_table *rate;
+	u32 pll_con;
+
+	rate = samsung_get_pll_settings(pll, drate);
+	if (!rate) {
+		pr_err("%s: Invalid rate : %lu for pll clk %s\n", __func__,
+				drate, __clk_get_name(hw->clk));
+		return -EINVAL;
+	}
+
+	pll_con = readl(pll->con_reg);
+	if (!(samsung_pll255xx_mp_check(rate->mdiv, rate->pdiv, pll_con))) {
+		if ((rate->sdiv) == ((pll_con >> PLL255XX_SDIV_SHIFT) & PLL255XX_SDIV_MASK))
+			return 0;
+		/* In the case of changing S value only */
+		pll_con &= ~(PLL255XX_SDIV_MASK << PLL255XX_SDIV_SHIFT);
+		pll_con |= rate->sdiv << PLL255XX_SDIV_SHIFT;
+		writel(pll_con, pll->con_reg);
+
+		return 0;
+	}
+
+	/* Set PLL lock time */
+	writel(rate->pdiv * PLL255XX_LOCK_FACTOR, pll->lock_reg);
+	/* Change PLL PMS values */
+	pll_con &= ~((PLL255XX_MDIV_MASK << PLL255XX_MDIV_SHIFT) |
+			(PLL255XX_PDIV_MASK << PLL255XX_PDIV_SHIFT) |
+			(PLL255XX_SDIV_MASK << PLL255XX_SDIV_SHIFT));
+	pll_con |= (rate->mdiv << PLL255XX_MDIV_SHIFT) |
+			(rate->pdiv << PLL255XX_PDIV_SHIFT) |
+			(rate->sdiv << PLL255XX_SDIV_SHIFT);
+	writel(pll_con, pll->con_reg);
+
+	do {
+		cpu_relax();
+		pll_con = readl(pll->con_reg);
+	} while (!(pll_con & (PLL255XX_LOCKED_MASK << PLL255XX_LOCKED_SHIFT)));
+
+	return 0;
+}
+
+/* register function for pll clocks */
+static const struct clk_ops samsung_pll255xx_clk_ops = {
+	.recalc_rate = samsung_pll255xx_recalc_rate,
+	.set_rate = samsung_pll255xx_set_rate,
+	.round_rate = samsung_pll_round_rate,
+	.enable = samsung_composite_pll_enable_onchange,
+	.disable = samsung_composite_pll_disable_onchange,
+	.is_enabled = samsung_composite_pll_is_enabled,
+};
+
+static unsigned long samsung_pll2650x_recalc_rate(struct clk_hw *hw,
+				unsigned long parent_rate)
+{
+	struct samsung_composite_pll *pll = to_comp_pll(hw);
+	u32 mdiv, pdiv, sdiv, pll_con0, pll_con1;
+	s16 kdiv;
+	u64 fvco = parent_rate;
+
+	pll_con0 = readl(pll->con_reg);
+	pll_con1 = readl(pll->con_reg + 4);
+	mdiv = (pll_con0 >> PLL2650X_MDIV_SHIFT) & PLL2650X_MDIV_MASK;
+	pdiv = (pll_con0 >> PLL2650X_PDIV_SHIFT) & PLL2650X_PDIV_MASK;
+	sdiv = (pll_con0 >> PLL2650X_SDIV_SHIFT) & PLL2650X_SDIV_MASK;
+	kdiv = (s16)((pll_con1 >> PLL2650X_KDIV_SHIFT) & PLL2650X_KDIV_MASK);
+	/* Do calculation */
+	fvco *= (mdiv << 16) + kdiv;
+	do_div(fvco, (pdiv << sdiv));
+	fvco >>= 16;
+
+	return (unsigned long)fvco;
+}
+
+static inline bool samsung_pll2650x_mpk_check(u32 mdiv, u32 pdiv, u32 kdiv, u32 pll_con0, u32 pll_con1)
+{
+	return ((mdiv != ((pll_con0 >> PLL2650X_MDIV_SHIFT) & PLL2650X_MDIV_MASK)) ||
+		(pdiv != ((pll_con0 >> PLL2650X_PDIV_SHIFT) & PLL2650X_PDIV_MASK)) ||
+		(kdiv != ((pll_con1 >> PLL2650X_KDIV_SHIFT) & PLL2650X_KDIV_MASK)));
+}
+
+static int samsung_pll2650x_set_rate(struct clk_hw *hw, unsigned long drate,
+					unsigned long parent_rate)
+{
+	struct samsung_composite_pll *pll = to_comp_pll(hw);
+	u32 pll_con0, pll_con1;
+	const struct samsung_pll_rate_table *rate;
+
+	rate = samsung_get_pll_settings(pll, drate);
+	if (!rate) {
+		pr_err("%s: Invalid rate : %lu for pll clk %s\n", __func__,
+				drate, __clk_get_name(hw->clk));
+		return -EINVAL;
+	}
+
+	pll_con0 = readl(pll->con_reg);
+	pll_con1 = readl(pll->con_reg + 4);
+	if (!(samsung_pll2650x_mpk_check(rate->mdiv, rate->pdiv, rate->kdiv, pll_con0, pll_con1))) {
+		if ((rate->sdiv) == ((pll_con0 >> PLL2650X_SDIV_SHIFT) & PLL2650X_SDIV_MASK))
+			return 0;
+		/* In the case of changing S value only */
+		pll_con0 &= ~(PLL2650X_SDIV_MASK << PLL2650X_SDIV_SHIFT);
+		pll_con0 |= (rate->sdiv << PLL2650X_SDIV_SHIFT);
+		writel(pll_con0, pll->con_reg);
+
+		return 0;
+	}
+
+	/* Set PLL lock time */
+	if (rate->kdiv)
+		writel(rate->pdiv * PLL2650X_LOCK_FACTOR, pll->lock_reg);
+	else
+		writel(rate->pdiv * PLL145XX_LOCK_FACTOR, pll->lock_reg);
+	pll_con0 &= ~((PLL2650X_MDIV_MASK << PLL2650X_MDIV_SHIFT) |
+			(PLL2650X_PDIV_MASK << PLL2650X_PDIV_SHIFT) |
+			(PLL2650X_SDIV_MASK << PLL2650X_SDIV_SHIFT));
+	pll_con0 |= (rate->mdiv << PLL2650X_MDIV_SHIFT) |
+			(rate->pdiv << PLL2650X_PDIV_SHIFT) |
+			(rate->sdiv << PLL2650X_SDIV_SHIFT);
+	writel(pll_con0, pll->con_reg);
+
+	pll_con1 &= ~(PLL2650X_KDIV_MASK << PLL2650X_KDIV_SHIFT);
+	pll_con1 |= (rate->kdiv << PLL2650X_KDIV_SHIFT);
+	writel(pll_con1, pll->con_reg + 4);
+
+	/* Wait lock time */
+	do {
+		cpu_relax();
+		pll_con0 = readl(pll->con_reg);
+	} while (!(pll_con0 & (PLL2650X_LOCKED_MASK << PLL2650X_LOCKED_SHIFT)));
+
+	return 0;
+}
+
+static const struct clk_ops samsung_pll2650x_clk_ops = {
+	.recalc_rate = samsung_pll2650x_recalc_rate,
+	.set_rate = samsung_pll2650x_set_rate,
+	.round_rate = samsung_pll_round_rate,
+	.enable = samsung_composite_pll_enable_onchange,
+	.disable = samsung_composite_pll_disable_onchange,
+	.is_enabled = samsung_composite_pll_is_enabled,
+};
+
 /* register function for pll clocks */
 static void _samsung_register_comp_pll(struct samsung_composite_pll *list)
 {
@@ -492,6 +718,16 @@ static void _samsung_register_comp_pll(struct samsung_composite_pll *list)
 				NULL, NULL,
 				&list->hw, &samsung_pll1460x_clk_ops,
 				&list->hw, &samsung_pll1460x_clk_ops, list->flag);
+	else if (list->type == pll_2551x || list->type == pll_2555x)
+		clk = clk_register_composite(NULL, list->name, pname, 1,
+				NULL, NULL,
+				&list->hw, &samsung_pll255xx_clk_ops,
+				&list->hw, &samsung_pll255xx_clk_ops, list->flag);
+	else if (list->type == pll_2650x)
+		clk = clk_register_composite(NULL, list->name, pname, 1,
+				NULL, NULL,
+				&list->hw, &samsung_pll2650x_clk_ops,
+				&list->hw, &samsung_pll2650x_clk_ops, list->flag);
 	else {
 		pr_err("%s: invalid pll type %d\n", __func__, list->type);
 		return;
@@ -577,6 +813,49 @@ static const struct clk_ops samsung_composite_mux_ops = {
 	.set_parent = samsung_mux_set_parent,
 };
 
+/* operation functions for mux clocks checking status with "on changing" */
+
+static int samsung_mux_set_parent_onchange(struct clk_hw *hw, u8 index)
+{
+	struct samsung_composite_mux *mux = to_comp_mux(hw);
+	u32 val;
+	unsigned long flags = 0;
+	unsigned int timeout = 1000;
+
+	if (mux->lock)
+		spin_lock_irqsave(mux->lock, flags);
+
+	val = readl(mux->sel_reg);
+	val &= ~((BIT(mux->sel_width) - 1) << mux->sel_bit);
+	val |= index << mux->sel_bit;
+	writel(val, mux->sel_reg);
+
+	if (mux->stat_reg)
+		do {
+			--timeout;
+			if (!timeout) {
+				pr_err("%s: failed to set parent %s.\n",
+						__func__, hw->clk->name);
+				pr_err("MUX_REG: %08x, MUX_STAT_REG: %08x\n",
+						readl(mux->sel_reg), readl(mux->stat_reg));
+				if (mux->lock)
+					spin_unlock_irqrestore(mux->lock, flags);
+				return -ETIMEDOUT;
+			}
+			val = readl(mux->stat_reg);
+			val &= ((BIT(mux->stat_width) - 1) << mux->stat_bit);
+		} while (val == PLL_STAT_CHANGE);
+
+	if (mux->lock)
+		spin_unlock_irqrestore(mux->lock, flags);
+
+	return 0;
+}
+static const struct clk_ops samsung_composite_mux_ops_onchange = {
+	.get_parent = samsung_mux_get_parent,
+	.set_parent = samsung_mux_set_parent_onchange,
+};
+
 /* register function for mux clock */
 static void _samsung_register_comp_mux(struct samsung_composite_mux *list)
 {
@@ -588,6 +867,11 @@ static void _samsung_register_comp_mux(struct samsung_composite_mux *list)
 	if (!(list->flag & CLK_ON_CHANGING))
 		clk = clk_register_composite(NULL, list->name, list->parents, list->num_parents,
 				&list->hw, &samsung_composite_mux_ops,
+				NULL, NULL,
+				NULL, NULL, list->flag);
+	else
+		clk = clk_register_composite(NULL, list->name, list->parents, list->num_parents,
+				&list->hw, &samsung_composite_mux_ops_onchange,
 				NULL, NULL,
 				NULL, NULL, list->flag);
 
