@@ -291,7 +291,7 @@ extern void samsung_register_comp_divider(struct samsung_composite_divider *div_
 					unsigned int nr_div);
 
 #define CLK_GATE_ENABLE		BIT(20)
-
+#define CLK_ON_CHANGING		BIT(7)
 /*
  * struct samsung_gate: information about gate clocks
  * @id: id of the clock for binding with device tree.

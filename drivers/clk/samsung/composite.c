@@ -585,10 +585,11 @@ static void _samsung_register_comp_mux(struct samsung_composite_mux *list)
 
 	list->lock = &lock;
 
-	clk = clk_register_composite(NULL, list->name, list->parents, list->num_parents,
-			&list->hw, &samsung_composite_mux_ops,
-			NULL, NULL,
-			NULL, NULL, list->flag);
+	if (!(list->flag & CLK_ON_CHANGING))
+		clk = clk_register_composite(NULL, list->name, list->parents, list->num_parents,
+				&list->hw, &samsung_composite_mux_ops,
+				NULL, NULL,
+				NULL, NULL, list->flag);
 
 	if (IS_ERR(clk)) {
 		pr_err("%s: failed to register mux clock %s\n",
