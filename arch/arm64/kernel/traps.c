@@ -221,6 +221,7 @@ static DEFINE_RAW_SPINLOCK(die_lock);
  */
 void die(const char *str, struct pt_regs *regs, int err)
 {
+	enum bug_trap_type bug_type = BUG_TRAP_TYPE_NONE;
 	struct thread_info *thread = current_thread_info();
 	int ret;
 
@@ -229,6 +230,12 @@ void die(const char *str, struct pt_regs *regs, int err)
 	raw_spin_lock_irq(&die_lock);
 	console_verbose();
 	bust_spinlocks(1);
+
+	if (!user_mode(regs))
+		bug_type = report_bug(regs->pc, regs);
+	if (bug_type != BUG_TRAP_TYPE_NONE)
+		str = "Oops - BUG";
+
 	ret = __die(str, err, thread, regs);
 
 	if (regs && kexec_should_crash(thread->task))
