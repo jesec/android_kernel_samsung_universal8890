@@ -247,6 +247,7 @@ struct s5p_mfc_pm {
 	struct device	*device;
 	spinlock_t	clklock;
 
+	int clock_on_steps;
 	int clock_off_steps;
 };
 
