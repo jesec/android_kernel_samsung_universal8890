@@ -316,6 +316,8 @@ struct sc_init_phase {
 	u32			yv;
 	u32			ch;
 	u32			cv;
+	u32			w;
+	u32			h;
 };
 
 struct sc_ctx;

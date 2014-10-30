@@ -263,6 +263,8 @@ static const struct sc_fmt sc_formats[] = {
 		ratio;							\
 })
 
+#define SCALE_RATIO_FRACT(x, y, z) (u32)(((x << 20) + SCALER_FRACT_VAL(y)) / z)
+
 /* must specify in revers order of SCALER_VERSION(xyz) */
 static const u32 sc_version_table[][2] = {
 	{ 0x8000006D, SCALER_VERSION(3, 0, 1) },
@@ -672,14 +674,47 @@ static int sc_v4l2_g_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	if (IS_ERR(frame))
 		return PTR_ERR(frame);
 
-	cr->c = frame->crop;
-
-	if (ctx->init_phase.yh)
-		cr->c.left = SC_CROP_MAKE_FR_VAL(cr->c.left, ctx->init_phase.yh);
-	if (ctx->init_phase.yv)
-		cr->c.top = SC_CROP_MAKE_FR_VAL(cr->c.top, ctx->init_phase.yv);
+	cr->c.left = SC_CROP_MAKE_FR_VAL(frame->crop.left, ctx->init_phase.yh);
+	cr->c.top = SC_CROP_MAKE_FR_VAL(frame->crop.top, ctx->init_phase.yv);
+	cr->c.width = SC_CROP_MAKE_FR_VAL(frame->crop.width, ctx->init_phase.w);
+	cr->c.height = SC_CROP_MAKE_FR_VAL(frame->crop.height, ctx->init_phase.h);
 
 	return 0;
+}
+
+static void sc_get_fract_val(struct v4l2_crop *cr, struct sc_ctx *ctx)
+{
+	ctx->init_phase.yh = SC_CROP_GET_FR_VAL(cr->c.left);
+	if (ctx->init_phase.yh) {
+		cr->c.left &= SC_CROP_INT_MASK;
+		ctx->init_phase.ch = ctx->init_phase.yh / 2;
+	}
+
+	ctx->init_phase.yv = SC_CROP_GET_FR_VAL(cr->c.top);
+	if (ctx->init_phase.yv) {
+		cr->c.top &= SC_CROP_INT_MASK;
+		ctx->init_phase.cv = ctx->init_phase.yv / 2;
+	}
+
+	ctx->init_phase.w = SC_CROP_GET_FR_VAL(cr->c.width);
+	if (ctx->init_phase.w) {
+		cr->c.width &= SC_CROP_INT_MASK;
+		cr->c.width += 1;
+	}
+
+	ctx->init_phase.h = SC_CROP_GET_FR_VAL(cr->c.height);
+	if (ctx->init_phase.h) {
+		cr->c.height &= SC_CROP_INT_MASK;
+		cr->c.height += 1;
+	}
+
+	v4l2_dbg(1, sc_log_level, &ctx->sc_dev->m2m.v4l2_dev,
+				"src crop position (x,y,w,h) =	\
+				(%d.%d, %d.%d, %d.%d, %d.%d)\n",
+				cr->c.left, ctx->init_phase.yh,
+				cr->c.top, ctx->init_phase.yv,
+				cr->c.width, ctx->init_phase.w,
+				cr->c.height, ctx->init_phase.h);
 }
 
 static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
@@ -712,18 +747,7 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	if (V4L2_TYPE_IS_OUTPUT(cr->type)) {
 		limit = &sc->variant->limit_input;
 		set_bit(CTX_SRC_FMT, &ctx->flags);
-		ctx->init_phase.yh = ctx->init_phase.ch =
-			SC_CROP_GET_FR_VAL(cr->c.left);
-		ctx->init_phase.yv = ctx->init_phase.cv =
-			SC_CROP_GET_FR_VAL(cr->c.top);
-		if (ctx->init_phase.yh)
-			cr->c.left &= SC_CROP_INT_MASK;
-		if (ctx->init_phase.yv)
-			cr->c.top &= SC_CROP_INT_MASK;
-		v4l2_dbg(1, sc_log_level, &ctx->sc_dev->m2m.v4l2_dev,
-				"%s: s_crop position (%d.%d, %d.%d)\n",
-				__func__, cr->c.left, ctx->init_phase.yh,
-				cr->c.top, ctx->init_phase.yv);
+		sc_get_fract_val(cr, ctx);
 	} else {
 		limit = &sc->variant->limit_output;
 		set_bit(CTX_DST_FMT, &ctx->flags);
@@ -1220,6 +1244,19 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 
 	h_ratio = SCALE_RATIO(src_width, ctx->d_frame.crop.width);
 	v_ratio = SCALE_RATIO(src_height, ctx->d_frame.crop.height);
+
+	/*
+	 * If the source crop width or height is fractional value
+	 * calculate scaling ratio including it and calculate with original
+	 * crop.width and crop.height value because they were rounded up.
+	 */
+	if (ctx->init_phase.w)
+		h_ratio = SCALE_RATIO_FRACT((src_width - 1), ctx->init_phase.w,
+				ctx->d_frame.crop.width);
+	if (ctx->init_phase.h)
+		v_ratio = SCALE_RATIO_FRACT((src_height - 1), ctx->init_phase.h,
+				ctx->d_frame.crop.height);
+	sc_dbg("Scaling ratio h_ratio %d, v_ratio %d\n", h_ratio, v_ratio);
 
 	if ((h_ratio > sc->variant->sc_down_swmin) ||
 			(h_ratio < sc->variant->sc_up_max)) {

@@ -186,6 +186,7 @@ static inline void sc_hwset_src_wh(struct sc_dev *sc, __s32 width, __s32 height,
 {
 	__s32 pre_width = round_down(width >> pre_h_ratio, 1 << chshift);
 	__s32 pre_height = round_down(height >> pre_v_ratio, 1 << cvshift);
+	sc_dbg("width %d, height %d\n", pre_width, pre_height);
 
 	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
 		/*
