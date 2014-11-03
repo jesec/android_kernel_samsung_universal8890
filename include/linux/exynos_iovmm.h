@@ -179,6 +179,16 @@ void exynos_sysmmu_show_ppc_event(struct device *dev);
 					SYSMMU_PBUFCFG_PREFETCH |   \
 					SYSMMU_PBUFCFG_WRITE)
 
+#define SYSMMU_PBUFCFG_ASCENDING_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_ASCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_READ)
+
+#define SYSMMU_PBUFCFG_DESCENDING_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_DESCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_READ)
+
 /*
  * sysmmu_set_prefetch_buffer_by_plane() -
  *                               set prefetch buffer configuration by plane
