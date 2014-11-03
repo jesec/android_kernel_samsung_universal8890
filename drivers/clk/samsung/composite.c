@@ -833,7 +833,7 @@ static struct clk * __init _samsung_register_gate(struct samsung_gate *list)
 
 	clk = clk_register_gate(NULL, list->name, list->parent_name,
 			list->flag, list->reg, list->bit,
-			0, &lock);
+			list->flag, &lock);
 
 	if (IS_ERR(clk)) {
 		pr_err("%s: failed to register clock %s\n", __func__,
