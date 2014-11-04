@@ -1711,6 +1711,7 @@ static int vidioc_querybuf(struct file *file, void *priv,
 	return ret;
 }
 
+extern int no_order;
 /* Queue a buffer */
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
@@ -1735,7 +1736,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 			return -EIO;
 		}
 
-		if (dec->is_dts_mode) {
+		if (no_order && dec->is_dts_mode) {
 			mfc_debug(7, "timestamp: %ld %ld\n",
 					buf->timestamp.tv_sec,
 					buf->timestamp.tv_usec);
@@ -3021,6 +3022,7 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	INIT_LIST_HEAD(&ctx->qos_list);
 #endif
+	INIT_LIST_HEAD(&ctx->ts_list);
 
 	INIT_LIST_HEAD(&dec->dpb_queue);
 	dec->dpb_queue_cnt = 0;

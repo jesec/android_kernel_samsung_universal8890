@@ -71,6 +71,7 @@
 #define MFC_BASE_MASK		((1 << 17) - 1)
 
 #define FLAG_LAST_FRAME		0x80000000
+#define MFC_MAX_INTERVAL	(2 * USEC_PER_SEC)
 
 /* Maximum number of temporal layers */
 #define VIDEO_MAX_TEMPORAL_LAYERS 7
@@ -738,6 +739,14 @@ struct s5p_mfc_raw_info {
 	int plane_size[3];
 };
 
+#define MFC_TIME_INDEX		8
+struct mfc_timestamp {
+	struct list_head list;
+	struct timeval timestamp;
+	int index;
+	int interval;
+};
+
 struct s5p_mfc_dec {
 	int total_dpb_count;
 
@@ -926,6 +935,11 @@ struct s5p_mfc_ctx {
 
 	int is_max_fps;
 	int buf_process_type;
+
+	struct mfc_timestamp ts_array[MFC_TIME_INDEX];
+	struct list_head ts_list;
+	int ts_count;
+	int ts_is_full;
 };
 
 #define fh_to_mfc_ctx(x)	\
@@ -1086,6 +1100,7 @@ struct s5p_mfc_fmt {
 };
 
 int get_framerate(struct timeval *to, struct timeval *from);
+int get_framerate_by_interval(int interval);
 static inline int clear_hw_bit(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
