@@ -1065,6 +1065,7 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	struct s5p_mfc_buf *dec_buf;
 	dma_addr_t dec_addr, buf_addr;
+	int found = 0;
 
 	dec_buf = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 
@@ -1083,8 +1084,9 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 
 		list_add_tail(&dec_buf->list, &dec->ref_queue);
 		dec->ref_queue_cnt++;
+
+		found = 1;
 	} else if (is_h264(ctx)) {
-		int found = 0;
 
 		/* Try to search decoded address in whole dst queue */
 		list_for_each_entry(dec_buf, &ctx->dst_queue, list) {
@@ -1111,6 +1113,13 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 			(unsigned long long)dec_addr);
 			mfc_debug(2, "Expected addr = 0x%llx, used = %d\n",
 			(unsigned long long)buf_addr, dec_buf->used);
+		}
+	}
+
+	/* If decoded frame is not referenced, set it as referenced. */
+	if (found) {
+		if (!(dec->dynamic_set & mfc_get_dec_used_flag())) {
+			dec->dynamic_used |= dec->dynamic_set;
 		}
 	}
 }
