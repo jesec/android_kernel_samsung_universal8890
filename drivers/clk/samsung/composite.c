@@ -14,6 +14,7 @@
 #include <linux/log2.h>
 #include <linux/of.h>
 #include <linux/exynos-ss.h>
+#include <linux/delay.h>
 #include "composite.h"
 
 #define PLL_STAT_OSC	(0x0)
@@ -653,10 +654,7 @@ static int samsung_pll2650x_set_rate(struct clk_hw *hw, unsigned long drate,
 	}
 
 	/* Set PLL lock time */
-	if (rate->kdiv)
-		writel(rate->pdiv * PLL2650X_LOCK_FACTOR, pll->lock_reg);
-	else
-		writel(rate->pdiv * PLL145XX_LOCK_FACTOR, pll->lock_reg);
+	writel(rate->pdiv * PLL2650X_LOCK_FACTOR, pll->lock_reg);
 	pll_con0 &= ~((PLL2650X_MDIV_MASK << PLL2650X_MDIV_SHIFT) |
 			(PLL2650X_PDIV_MASK << PLL2650X_PDIV_SHIFT) |
 			(PLL2650X_SDIV_MASK << PLL2650X_SDIV_SHIFT));
@@ -669,11 +667,11 @@ static int samsung_pll2650x_set_rate(struct clk_hw *hw, unsigned long drate,
 	pll_con1 |= (rate->kdiv << PLL2650X_KDIV_SHIFT);
 	writel(pll_con1, pll->con_reg + 4);
 
-	/* Wait lock time */
-	do {
-		cpu_relax();
-		pll_con0 = readl(pll->con_reg);
-	} while (!(pll_con0 & (PLL2650X_LOCKED_MASK << PLL2650X_LOCKED_SHIFT)));
+	/*
+	 * Wait lock time
+	 * unit address translation : us to ms for mdelay
+	 */
+	mdelay(rate->pdiv * PLL2650X_LOCK_FACTOR / 1000);
 
 	return 0;
 }
