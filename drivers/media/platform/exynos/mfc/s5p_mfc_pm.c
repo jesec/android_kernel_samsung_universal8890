@@ -246,11 +246,16 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 		return PTR_ERR(clk_child);
 	}
 #elif defined(CONFIG_SOC_EXYNOS7420)
+	/* Do not set clock rate */
+	return 0;
+
+	/*
 	clk_child = clk_get(dev->device, "dout_aclk_mfc_532");
 	if (IS_ERR_OR_NULL(clk_child)) {
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 		return PTR_ERR(clk_child);
 	}
+	*/
 #endif
 
 #ifdef CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ
