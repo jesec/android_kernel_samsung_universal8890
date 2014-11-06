@@ -55,17 +55,20 @@ static int add_to_rbuf(struct mbox_chan *chan, void *mssg)
 	return idx;
 }
 
-static void msg_submit(struct mbox_chan *chan)
+static int msg_submit(struct mbox_chan *chan)
 {
 	unsigned count, idx;
 	unsigned long flags;
 	void *data;
 	int err = -EBUSY;
+	int ret = 0;
 
 	spin_lock_irqsave(&chan->lock, flags);
 
-	if (!chan->msg_count || chan->active_req)
+	if (!chan->msg_count || chan->active_req) {
+		ret = -ENOENT;
 		goto exit;
+	}
 
 	count = chan->msg_count;
 	idx = chan->msg_free;
@@ -83,12 +86,18 @@ static void msg_submit(struct mbox_chan *chan)
 	if (!err) {
 		chan->active_req = data;
 		chan->msg_count--;
+	} else {
+		pr_err("mailbox: cm3 send fail\n");
+		spin_unlock_irqrestore(&chan->lock, flags);
+		ret = -EIO;
 	}
 exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	if (!err && (chan->txdone_method & TXDONE_BY_POLL))
 		poll_txdone((unsigned long)chan->mbox);
+
+	return ret;
 }
 
 static void tx_tick(struct mbox_chan *chan, int r)
@@ -100,9 +109,6 @@ static void tx_tick(struct mbox_chan *chan, int r)
 	mssg = chan->active_req;
 	chan->active_req = NULL;
 	spin_unlock_irqrestore(&chan->lock, flags);
-
-	/* Submit next message */
-	msg_submit(chan);
 
 	/* Notify the client */
 	if (mssg && chan->cl->tx_done)
@@ -239,7 +245,7 @@ EXPORT_SYMBOL_GPL(mbox_client_peek_data);
  */
 int mbox_send_message(struct mbox_chan *chan, void *mssg)
 {
-	int t;
+	int t, ret;
 
 	if (!chan || !chan->cl)
 		return -EINVAL;
@@ -250,7 +256,10 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 		return t;
 	}
 
-	msg_submit(chan);
+	ret = msg_submit(chan);
+	if (ret) {
+		return -EIO;
+	}
 
 	if (chan->cl->tx_block && chan->active_req) {
 		unsigned long wait;
