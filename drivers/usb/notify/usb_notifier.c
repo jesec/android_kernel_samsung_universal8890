@@ -43,6 +43,7 @@ enum usb_notifier_gadget_cmd {
 
 extern int dwc3_exynos_id_event(struct device *dev, int state);
 extern int dwc3_exynos_vbus_event(struct device *dev, int state);
+extern int exynos_otg_vbus_event(struct platform_device *pdev, int state);
 
 #ifdef CONFIG_OF
 static void of_get_usb_redriver_dt(struct device_node *np,
@@ -105,17 +106,21 @@ static void check_usb_vbus_state(unsigned long state)
 	struct device_node *np = NULL;
 	struct platform_device *pdev = NULL;
 
+#ifdef CONFIG_USB_S3C_OTGD
+	np = of_find_compatible_node(NULL, NULL, "samsung,exynos_udc");
+#else
 	np = of_find_compatible_node(NULL, NULL, "samsung,exynos5-dwusb3");
+#endif
 	if (!np) {
-		pr_err("%s: failed to get the exynos5-dwusb3 device node\n",
-			__func__);
+		pr_err("%s: failed to get the %s device node\n",
+			__func__, np->name);
 		return;
 	}
 
 	pdev = of_find_device_by_node(np);
 	if (!pdev) {
-		pr_err("%s: failed to get the exynos5-dwusb3 platform_device\n",
-			__func__);
+		pr_err("%s: failed to get the %s platform_device\n",
+			__func__, np->name);
 		return;
 	}
 
@@ -126,12 +131,15 @@ static void check_usb_vbus_state(unsigned long state)
 					(int)pdata->g_ndev.gadget_state);
 
 	if (pdata->g_ndev.is_ready)
+#ifdef CONFIG_USB_S3C_OTGD
+		exynos_otg_vbus_event(pdev, pdata->g_ndev.gadget_state);
+#else
 		dwc3_exynos_vbus_event(&pdev->dev, pdata->g_ndev.gadget_state);
+#endif
 	else
 		pr_info("usb: %s usb_gadget_notifier is not ready.\n",
 								__func__);
 	return;
-
 }
 
 #ifdef CONFIG_USB_HOST_NOTIFY
