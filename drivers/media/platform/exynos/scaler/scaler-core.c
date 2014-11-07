@@ -267,6 +267,7 @@ static const struct sc_fmt sc_formats[] = {
 static const u32 sc_version_table[][2] = {
 	{ 0x8000006D, SCALER_VERSION(3, 0, 1) },
 	{ 0x80000068, SCALER_VERSION(3, 0, 0) },
+	{ 0x8004000C, SCALER_VERSION(2, 2, 0) },
 	{ 0x80000008, SCALER_VERSION(2, 1, 1) },
 	{ 0x80000048, SCALER_VERSION(2, 1, 0) },
 	{ 0x80010000, SCALER_VERSION(2, 0, 1) },
@@ -322,6 +323,23 @@ static const struct sc_variant sc_variant[] = {
 			.max_h		= 4096,
 		},
 		.version		= SCALER_VERSION(2, 0, 0),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
+		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+	}, {
+		.limit_input = {
+		.min_w			= 16,
+			.min_h		= 16,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.limit_output = {
+			.min_w		= 4,
+			.min_h		= 4,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.version		= SCALER_VERSION(2, 2, 0),
 		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
 		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
 		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
