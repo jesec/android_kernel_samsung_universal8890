@@ -189,11 +189,17 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 	for (i = (pdata->num_qos_steps - 1); i >= 0; i--) {
 		mfc_debug(7, "QoS index: %d\n", i + 1);
 		if (total_mb > qos_table[i].thrd_mb) {
-#if defined(CONFIG_SOC_EXYNOS5430) || defined(CONFIG_SOC_EXYNOS7420)
+#if defined(CONFIG_SOC_EXYNOS5430)
 			/* Table is different between MAX dec and enc */
 			if (i == (pdata->num_qos_steps - 1) &&
 				ctx->type == MFCINST_ENCODER) {
 				mfc_debug(2, "Change Table for encoder\n");
+				i = i - 1;
+			}
+#elif defined(CONFIG_SOC_EXYNOS7420)
+			/* Table is different between decoder and encoder */
+			if (dev->has_enc_ctx && qos_table[i].has_enc_table) {
+				mfc_debug(2, "Table changes %d -> %d\n", i, i - 1);
 				i = i - 1;
 			}
 #endif
@@ -225,8 +231,6 @@ void s5p_mfc_qos_on(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_ctx *qos_ctx;
 	int found = 0, total_mb = 0;
-	/* TODO: cpu lock is not separated yet */
-	int need_cpulock = 0;
 
 	list_for_each_entry(qos_ctx, &dev->qos_queue, qos_list) {
 		total_mb += get_ctx_mb(qos_ctx);
@@ -239,10 +243,10 @@ void s5p_mfc_qos_on(struct s5p_mfc_ctx *ctx)
 		total_mb += get_ctx_mb(ctx);
 	}
 
-	/* TODO: need_cpulock will be used for cpu lock */
+	dev->has_enc_ctx = 0;
 	list_for_each_entry(qos_ctx, &dev->qos_queue, qos_list) {
-		if (ctx->type == MFCINST_DECODER)
-			need_cpulock++;
+		if (qos_ctx->type == MFCINST_ENCODER)
+			dev->has_enc_ctx = 1;
 	}
 
 	mfc_qos_add_or_update(ctx, total_mb);
@@ -272,6 +276,12 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 	if (found) {
 		list_del(&ctx->qos_list);
 		total_mb -= get_ctx_mb(ctx);
+	}
+
+	dev->has_enc_ctx = 0;
+	list_for_each_entry(qos_ctx, &dev->qos_queue, qos_list) {
+		if (qos_ctx->type == MFCINST_ENCODER)
+			dev->has_enc_ctx = 1;
 	}
 
 	if (list_empty(&dev->qos_queue))

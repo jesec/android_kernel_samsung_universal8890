@@ -407,6 +407,7 @@ struct s5p_mfc_dev {
 	struct _mfc_trace *mfc_trace;
 
 	struct mutex curr_rate_lock;
+	int has_enc_ctx;
 };
 
 /**
