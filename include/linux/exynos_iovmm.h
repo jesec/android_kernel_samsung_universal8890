@@ -207,6 +207,7 @@ void exynos_sysmmu_show_ppc_event(struct device *dev);
  * - iovmm_deactivate()
  * - local power down due to suspend to ram, pm_rutime_put() or its equivalent.
  */
+#if defined(CONFIG_EXYNOS_IOVMM_V6)
 int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption[], unsigned int opoption[]);
@@ -214,6 +215,11 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 int sysmmu_set_prefetch_buffer_property(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption[], unsigned int opoption[]);
+#else
+int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption, unsigned int opoption);
+#endif
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
@@ -224,6 +230,7 @@ int sysmmu_set_prefetch_buffer_property(struct device *dev,
 #define exynos_create_iovmm(sysmmu, inplanes, onplanes) 0
 #define iovmm_set_fault_handler(dev, handler, token) do { } while (0)
 
+#if defined(CONFIG_EXYNOS_IOVMM_V6)
 int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption[], unsigned int opoption[])
@@ -237,6 +244,14 @@ int sysmmu_set_prefetch_buffer_property(struct device *dev,
 {
 	return 0;
 }
+#else
+int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption, unsigned int opoption)
+{
+	return 0;
+}
+#endif
 #endif /* CONFIG_EXYNOS_IOVMM */
 
 #if defined(CONFIG_EXYNOS_IOMMU) || defined(CONFIG_EXYNOS_IOMMU_V6)
