@@ -2287,7 +2287,8 @@ static int __sysmmu_unmap_user_pages(struct device *dev,
 	struct iommu_domain *domain = vmm->domain;
 	struct exynos_iommu_domain *priv = domain->priv;
 	struct vm_area_struct *vma;
-	unsigned long start, end;
+	unsigned long start = 0;
+	unsigned long end = 0;
 	bool is_pfnmap;
 	sysmmu_pte_t *sent, *pent;
 	int ret = 0;
