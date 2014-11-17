@@ -54,4 +54,11 @@ config EXYNOS_PM_DVS
 	bool "Enable Exynos dynamic voltage setting"
 	default n
 
+config EXYNOS_OTP
+	bool "Exynos OTP (one-time programmable) support"
+	default n
+	depends on ARCH_EXYNOS
+	help
+		This option enables OTP (one-time programmable) tune bits functions
+
 endif #SOC_SAMSUNG

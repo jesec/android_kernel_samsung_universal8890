@@ -15,6 +15,7 @@ obj-$(CONFIG_PM_RUNTIME)        += pm_domains/
 obj-$(CONFIG_EXYNOS_PM_DVS)        += exynos-pm-dvs.o
 
 obj-$(CONFIG_ECT)		+= ect_parser.o
+obj-$(CONFIG_EXYNOS_OTP)    += exynos_otp.o
 
 obj-$(CONFIG_EXYNOS_HOTPLUG_GOVERNOR)	+= exynos-hotplug_governor.o
 
