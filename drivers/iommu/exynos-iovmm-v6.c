@@ -263,12 +263,22 @@ int iovmm_activate(struct device *dev)
 {
 	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
 
+	if (!vmm) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return -EINVAL;
+	}
+
 	return iommu_attach_device(vmm->domain, dev);
 }
 
 void iovmm_deactivate(struct device *dev)
 {
 	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
+
+	if (!vmm) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return;
+	}
 
 	iommu_detach_device(vmm->domain, dev);
 }
@@ -301,6 +311,11 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	int ret = 0;
 	int idx;
 	struct scatterlist *tsg;
+
+	if (vmm == NULL) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return -EINVAL;
+	}
 
 	/* Dedicate IOVMM Region id = 0 */
 	id = 0;
@@ -457,6 +472,11 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 	/* This function must not be called in IRQ handlers */
 	BUG_ON(in_irq());
 
+	if (vmm == NULL) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return;
+	}
+
 	region = remove_iovm_region(vmm, iova);
 	if (region) {
 		if (WARN_ON(region->start != iova)) {
@@ -501,6 +521,11 @@ int iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size)
 	BUG_ON(!IS_ALIGNED(phys, PAGE_SIZE));
 	BUG_ON(!IS_ALIGNED(size, PAGE_SIZE));
 
+	if (vmm == NULL) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return -EINVAL;
+	}
+
 	if (WARN_ON((phys + size) >= IOVA_START)) {
 		dev_err(dev,
 			"Unable to create one to one mapping for %#zx @ %pa\n",
@@ -528,6 +553,11 @@ void iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
 	/* This function must not be called in IRQ handlers */
 	BUG_ON(in_irq());
 	BUG_ON(!IS_ALIGNED(phys, PAGE_SIZE));
+
+	if (vmm == NULL) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return;
+	}
 
 	region = remove_iovm_region(vmm, (dma_addr_t)phys);
 	if (region) {

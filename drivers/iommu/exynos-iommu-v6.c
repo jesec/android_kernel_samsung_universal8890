@@ -2618,6 +2618,15 @@ static int __init exynos_iommu_create_domain(void)
 				return -ENOENT;
 			}
 
+			owner = (struct exynos_iommu_owner *)
+					master->dev.archdata.iommu;
+			if (!owner) {
+				pr_err("%s: No System MMU attached for %s\n",
+						__func__, np->name);
+				of_node_put(np);
+				continue;
+			}
+
 			if (!vmm) {
 				vmm = exynos_create_single_iovmm(np->name);
 				if (IS_ERR(vmm)) {
@@ -2630,8 +2639,6 @@ static int __init exynos_iommu_create_domain(void)
 				}
 			}
 
-			owner = (struct exynos_iommu_owner *)
-					master->dev.archdata.iommu;
 			priv = (struct exynos_iommu_domain *)vmm->domain->priv;
 
 			owner->vmm_data = vmm;

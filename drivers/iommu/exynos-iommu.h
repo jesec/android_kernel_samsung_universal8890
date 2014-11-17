@@ -499,6 +499,11 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
 #if defined(CONFIG_EXYNOS_IOVMM) || defined(CONFIG_EXYNOS_IOVMM_V6)
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
 {
+	if (!dev->archdata.iommu) {
+		dev_err(dev, "%s: System MMU is not configured\n", __func__);
+		return NULL;
+	}
+
 	return ((struct exynos_iommu_owner *)dev->archdata.iommu)->vmm_data;
 }
 
