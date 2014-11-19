@@ -2509,13 +2509,16 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 
 	if (dev->id < 0 || dev->id >= dev->variant->num_entities) {
 		dev_err(&pdev->dev, "Invalid platform device id: %d\n", dev->id);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_pm;
+
 	}
 
 	dev->pdata = devm_kzalloc(&pdev->dev, sizeof(struct s5p_mfc_platdata), GFP_KERNEL);
 	if (!dev->pdata) {
 		dev_err(&pdev->dev, "no memory for state\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_pm;
 	}
 
 	mfc_parse_dt(dev->device->of_node, dev);
@@ -2877,6 +2880,7 @@ reg_vdev_dec:
 alloc_vdev_dec:
 	v4l2_device_unregister(&dev->v4l2_dev);
 err_v4l2_dev:
+	mutex_destroy(&dev->mfc_mutex);
 	free_irq(dev->irq, dev);
 err_req_irq:
 err_res_irq:
@@ -2887,6 +2891,7 @@ err_req_mem:
 err_res_mem:
 	s5p_mfc_final_pm(dev);
 err_pm:
+	mutex_destroy(&dev->curr_rate_lock);
 	return ret;
 }
 
