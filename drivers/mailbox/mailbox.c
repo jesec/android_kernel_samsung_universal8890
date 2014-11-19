@@ -26,7 +26,7 @@
 static LIST_HEAD(mbox_cons);
 static DEFINE_MUTEX(con_mutex);
 
-static void poll_txdone(unsigned long data);
+static int poll_txdone(unsigned long data);
 
 static int add_to_rbuf(struct mbox_chan *chan, void *mssg)
 {
@@ -94,8 +94,11 @@ static int msg_submit(struct mbox_chan *chan)
 exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
 
-	if (!err && (chan->txdone_method & TXDONE_BY_POLL))
-		poll_txdone((unsigned long)chan->mbox);
+	if (!err && (chan->txdone_method & TXDONE_BY_POLL)) {
+		ret = poll_txdone((unsigned long)chan->mbox);
+		if (ret < 0)
+			pr_err("%s Do not check polling data\n", __func__);
+	}
 
 	return ret;
 }
@@ -118,21 +121,29 @@ static void tx_tick(struct mbox_chan *chan, int r)
 		complete(&chan->tx_complete);
 }
 
-static void poll_txdone(unsigned long data)
+static int poll_txdone(unsigned long data)
 {
 	struct mbox_controller *mbox = (struct mbox_controller *)data;
-	bool txdone;
+	int txdone;
 	int i;
+	int ret = 0;
 
 	for (i = 0; i < mbox->num_chans; i++) {
 		struct mbox_chan *chan = &mbox->chans[i];
 
 		if (chan->active_req && chan->cl) {
 			txdone = chan->mbox->ops->last_tx_done(chan);
-			if (txdone)
-				tx_tick(chan, 0);
+			if (!txdone) {
+				tx_tick(chan, MBOX_OK);
+				ret = 0;
+			} else if (txdone == -EIO) {
+				tx_tick(chan, MBOX_ERR);
+				ret = -EIO;
+			}
 		}
 	}
+
+	return ret;
 }
 
 /**
@@ -425,9 +436,7 @@ int mbox_controller_register(struct mbox_controller *mbox)
 		txdone = TXDONE_BY_ACK;
 
 	if (txdone == TXDONE_BY_POLL) {
-		mbox->poll.function = &poll_txdone;
 		mbox->poll.data = (unsigned long)mbox;
-		init_timer(&mbox->poll);
 	}
 
 	for (i = 0; i < mbox->num_chans; i++) {
