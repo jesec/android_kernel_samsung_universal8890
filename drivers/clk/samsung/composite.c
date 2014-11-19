@@ -930,6 +930,7 @@ static int samsung_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 	struct samsung_composite_divider *divider = to_comp_divider(hw);
 	int i, bestdiv = 0;
 	unsigned long parent_rate, maxdiv, now, best = 0;
+	unsigned long parent_rate_saved = *best_parent_rate;
 
 	if (!rate)
 		rate = 1;
@@ -947,6 +948,15 @@ static int samsung_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 	maxdiv = min(ULONG_MAX / rate, maxdiv);
 
 	for (i = 1; i <= maxdiv; i++) {
+		if (rate * i == parent_rate_saved) {
+			/*
+			 * It's the most ideal case if the requested rate can be
+			 * divided from parent clock without needing to change
+			 * parent rate, so return the divider immediately.
+			 */
+			*best_parent_rate = parent_rate_saved;
+			return i;
+		}
 		parent_rate = __clk_round_rate(__clk_get_parent(hw->clk),
 				((rate * i) + i - 1));
 		now = parent_rate / i;
