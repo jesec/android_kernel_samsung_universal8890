@@ -3134,8 +3134,16 @@ static int sc_probe(struct platform_device *pdev)
 		goto err_m2m;
 	}
 
-	exynos_create_iovmm(&pdev->dev, 3, 3);
-	vb2_ion_attach_iommu(sc->alloc_ctx);
+	ret = exynos_create_iovmm(&pdev->dev, 3, 3);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to create iovmm\n");
+		goto err_iommu;
+	}
+	ret = vb2_ion_attach_iommu(sc->alloc_ctx);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to vb2 ion attach iommu\n");
+		goto err_iommu;
+	}
 
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (ret < 0) {
@@ -3201,6 +3209,8 @@ err_ver_aclk_get:
 err_ver_pclk_get:
 	pm_runtime_put(&pdev->dev);
 err_ver_rpm_get:
+	vb2_ion_detach_iommu(sc->alloc_ctx);
+err_iommu:
 	sc_unregister_m2m_device(sc);
 err_m2m:
 	destroy_workqueue(sc->fence_wq);
