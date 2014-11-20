@@ -348,7 +348,11 @@ static int samsung_pll145xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	pll_con |= (rate->mdiv << PLL145XX_MDIV_SHIFT) |
 			(rate->pdiv << PLL145XX_PDIV_SHIFT) |
 			(rate->sdiv << PLL145XX_SDIV_SHIFT);
-	/* Enable PLL */
+	/* To prevent instable PLL operation, preset ENABLE bit with 0 */
+	pll_con &= ~BIT(31);
+	writel(pll_con, pll->con_reg);
+
+	/* Set enable bit */
 	pll_con |= BIT(31);
 	writel(pll_con, pll->con_reg);
 
@@ -433,6 +437,11 @@ static int samsung_pll1460x_set_rate(struct clk_hw *hw, unsigned long drate,
 	pll_con0 |= (rate->mdiv << PLL1460X_MDIV_SHIFT) |
 			(rate->pdiv << PLL1460X_PDIV_SHIFT) |
 			(rate->sdiv << PLL1460X_SDIV_SHIFT);
+	/* To prevent instable PLL operation, preset ENABLE bit with 0 */
+	pll_con0 &= ~BIT(31);
+	writel(pll_con0, pll->con_reg);
+
+	/* Set enable bit */
 	pll_con0 |= BIT(31);
 	writel(pll_con0, pll->con_reg);
 
