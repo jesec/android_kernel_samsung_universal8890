@@ -577,6 +577,10 @@ static int samsung_pll255xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	pll_con |= (rate->mdiv << PLL255XX_MDIV_SHIFT) |
 			(rate->pdiv << PLL255XX_PDIV_SHIFT) |
 			(rate->sdiv << PLL255XX_SDIV_SHIFT);
+
+	/* Enable PLL */
+	pll_con |= BIT(31);
+
 	writel(pll_con, pll->con_reg);
 
 	do {
@@ -655,17 +659,22 @@ static int samsung_pll2650x_set_rate(struct clk_hw *hw, unsigned long drate,
 
 	/* Set PLL lock time */
 	writel(rate->pdiv * PLL2650X_LOCK_FACTOR, pll->lock_reg);
+
+	pll_con1 &= ~(PLL2650X_KDIV_MASK << PLL2650X_KDIV_SHIFT);
+	pll_con1 |= (rate->kdiv << PLL2650X_KDIV_SHIFT);
+	writel(pll_con1, pll->con_reg + 4);
+
 	pll_con0 &= ~((PLL2650X_MDIV_MASK << PLL2650X_MDIV_SHIFT) |
 			(PLL2650X_PDIV_MASK << PLL2650X_PDIV_SHIFT) |
 			(PLL2650X_SDIV_MASK << PLL2650X_SDIV_SHIFT));
 	pll_con0 |= (rate->mdiv << PLL2650X_MDIV_SHIFT) |
 			(rate->pdiv << PLL2650X_PDIV_SHIFT) |
 			(rate->sdiv << PLL2650X_SDIV_SHIFT);
-	writel(pll_con0, pll->con_reg);
 
-	pll_con1 &= ~(PLL2650X_KDIV_MASK << PLL2650X_KDIV_SHIFT);
-	pll_con1 |= (rate->kdiv << PLL2650X_KDIV_SHIFT);
-	writel(pll_con1, pll->con_reg + 4);
+	/* Enable PLL */
+	pll_con0 |= BIT(31);
+
+	writel(pll_con0, pll->con_reg);
 
 	/*
 	 * Wait lock time
