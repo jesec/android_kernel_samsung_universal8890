@@ -3003,7 +3003,15 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 		mfc_debug(2, "Setting ctx->state to FINISHING\n");
 		ctx->state = MFCINST_FINISHING;
 
-		mfc_debug(2, "Set address zero for all planes\n");
+		if (src_mb->vb.v4l2_buf.reserved2 == FLAG_LAST_FRAME) {
+			for (i = 0; i < raw->num_planes; i++) {
+				src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
+				mfc_debug(2, "enc src[%d] addr: 0x%08lx",
+						i, (unsigned long)src_addr[i]);
+			}
+		} else {
+			mfc_debug(2, "Set address zero for all planes\n");
+		}
 	} else {
 		for (i = 0; i < raw->num_planes; i++) {
 			src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
