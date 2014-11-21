@@ -1182,13 +1182,19 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	int ret = 0;
 	int stop = 0;
 
+#ifdef CONFIG_PM_RUNTIME
+	int clk_ret = 0;
+#endif
+
 	if (i2c->suspended) {
 		dev_err(i2c->dev, "HS-I2C is not initialzed.\n");
 		return -EIO;
 	}
 
 #ifdef CONFIG_PM_RUNTIME
-	pm_runtime_get_sync(i2c->dev);
+	clk_ret = pm_runtime_get_sync(i2c->dev);
+	if (clk_ret < 0)
+		clk_prepare_enable(i2c->clk);
 #else
 	clk_prepare_enable(i2c->clk);
 #endif
@@ -1240,8 +1246,12 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 
  out:
 #ifdef CONFIG_PM_RUNTIME
-	pm_runtime_mark_last_busy(i2c->dev);
-	pm_runtime_put_autosuspend(i2c->dev);
+	if (clk_ret < 0) {
+		clk_disable_unprepare(i2c->clk);
+	} else {
+		pm_runtime_mark_last_busy(i2c->dev);
+		pm_runtime_put_autosuspend(i2c->dev);
+	}
 #else
 	clk_disable_unprepare(i2c->clk);
 #endif
