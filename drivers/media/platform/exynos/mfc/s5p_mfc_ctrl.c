@@ -567,7 +567,7 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 		mfc_err("no mfc device to run\n");
 		return -EINVAL;
 	}
-
+	dev->wakeup_status = 1;
 	/* Set clock source again after wake up */
 	s5p_mfc_set_clock_parent(dev);
 
@@ -576,6 +576,7 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 
 	s5p_mfc_clock_on(dev);
 
+	dev->wakeup_status = 0;
 	ret = s5p_mfc_reset(dev);
 	if (ret) {
 		mfc_err_dev("Failed to reset MFC - timeout.\n");

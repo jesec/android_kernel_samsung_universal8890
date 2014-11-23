@@ -326,7 +326,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 
 	dev->pm.clock_on_steps = 5;
 	if (IS_MFCV6(dev)) {
-		if (dev->sys_init_status) {
+		if ((!dev->wakeup_status) && (dev->sys_init_status)) {
 			spin_lock_irqsave(&dev->pm.clklock, flags);
 			if ((atomic_inc_return(&dev->clk_ref) == 1) &&
 					FW_HAS_BUS_RESET(dev)) {

@@ -406,6 +406,7 @@ struct s5p_mfc_dev {
 	int drm_fw_status;
 	int is_support_smc;
 	int sys_init_status;
+	int wakeup_status;
 
 	atomic_t trace_ref;
 	struct _mfc_trace *mfc_trace;
