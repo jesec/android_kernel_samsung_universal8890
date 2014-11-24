@@ -1982,7 +1982,11 @@ static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		ctrl->value = ctx->framerate;
 		break;
 	case V4L2_CID_MPEG_MFC_GET_VERSION_INFO:
+#if defined(CONFIG_SOC_EXYNOS7580)
+		ctrl->value = 0x78D;
+#else
 		ctrl->value = mfc_version(dev);
+#endif
 		break;
 	case V4L2_CID_MPEG_VIDEO_QOS_RATIO:
 		ctrl->value = ctx->qos_ratio;
