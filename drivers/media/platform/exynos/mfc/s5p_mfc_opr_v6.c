@@ -1813,10 +1813,8 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	/** control */
 	reg = READL(S5P_FIMV_E_H264_OPTIONS);
 	/* from 9.0 Version changed register meaning*/
-	if (!IS_MFCv9X(dev))
-		reg &= ~(0x1 << 4);
-	else
-		reg &= (0x1 << 4);
+	reg &= ~(0x1 << 4);
+	p_264->open_gop ^= S5P_FIMV_E_IDR_H264_IDR;
 	reg |= (p_264->open_gop << 4);
 	WRITEL(reg, S5P_FIMV_E_H264_OPTIONS);
 	/** value */
