@@ -818,38 +818,44 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova,
 	}
 }
 
-void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
+void exynos_sysmmu_tlb_invalidate(struct iommu_domain *domain, dma_addr_t start,
 				  size_t size)
 {
+	struct exynos_iommu_domain *priv = domain->priv;
+	struct exynos_iommu_owner *owner;
 	struct sysmmu_list_data *list;
+	unsigned long flags;
 
-	for_each_sysmmu_list(dev, list) {
-		unsigned long flags;
-		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
+	spin_lock_irqsave(&priv->lock, flags);
+	list_for_each_entry(owner, &priv->clients, client) {
+		for_each_sysmmu_list(owner->dev, list) {
+			struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
 
-		if (!!(drvdata->prop & SYSMMU_PROP_NONBLOCK_TLBINV))
-			continue;
+			if (!!(drvdata->prop & SYSMMU_PROP_NONBLOCK_TLBINV))
+				continue;
 
-		spin_lock_irqsave(&drvdata->lock, flags);
-		if (!is_sysmmu_active(drvdata) ||
-				!is_sysmmu_runtime_active(drvdata)) {
-			spin_unlock_irqrestore(&drvdata->lock, flags);
+			spin_lock(&drvdata->lock);
+			if (!is_sysmmu_active(drvdata) ||
+					!is_sysmmu_runtime_active(drvdata)) {
+				spin_unlock(&drvdata->lock);
+				TRACE_LOG_DEV(drvdata->sysmmu,
+					"Skip TLB invalidation %#x@%#x\n", size, start);
+				continue;
+			}
+
 			TRACE_LOG_DEV(drvdata->sysmmu,
-				"Skip TLB invalidation %#x@%#x\n", size, start);
-			continue;
-		}
-
-		TRACE_LOG_DEV(drvdata->sysmmu,
 				"TLB invalidation %#x@%#x\n", size, start);
 
-		__master_clk_enable(drvdata);
+			__master_clk_enable(drvdata);
 
-		__sysmmu_tlb_invalidate(drvdata, start, size);
+			__sysmmu_tlb_invalidate(drvdata, start, size);
 
-		__master_clk_disable(drvdata);
+			__master_clk_disable(drvdata);
 
-		spin_unlock_irqrestore(&drvdata->lock, flags);
+			spin_unlock(&drvdata->lock);
+		}
 	}
+	spin_unlock_irqrestore(&priv->lock, flags);
 }
 
 static inline void __sysmmu_disable_nocount(struct sysmmu_drvdata *drvdata)

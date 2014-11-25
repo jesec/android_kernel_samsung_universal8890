@@ -482,7 +482,7 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 			return;
 		}
 
-		exynos_sysmmu_tlb_invalidate(dev, region->start, region->size);
+		exynos_sysmmu_tlb_invalidate(vmm->domain, region->start, region->size);
 
 		free_iovm_region(vmm, region);
 
@@ -535,7 +535,7 @@ void iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
 							region->size);
 		WARN_ON(unmap_size != region->size);
 
-		exynos_sysmmu_tlb_invalidate(dev, (dma_addr_t)phys,
+		exynos_sysmmu_tlb_invalidate(vmm->domain, (dma_addr_t)phys,
 					     region->size);
 
 		free_iovm_region(vmm, region);

@@ -157,7 +157,7 @@ struct exynos_iovmm {
 #endif
 };
 
-void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
+void exynos_sysmmu_tlb_invalidate(struct iommu_domain *domain, dma_addr_t start,
 				  size_t size);
 
 #define SYSMMU_FAULT_WRITE	(1 << SYSMMU_FAULTS_NUM)
