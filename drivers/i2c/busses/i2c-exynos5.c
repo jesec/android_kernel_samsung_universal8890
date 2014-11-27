@@ -577,6 +577,8 @@ static int exynos5_i2c_set_timing(struct exynos5_i2c *i2c, int mode)
 
 static int exynos5_hsi2c_clock_setup(struct exynos5_i2c *i2c)
 {
+	if (i2c->support_hsi2c_batcher)
+		return 0;
 	/*
 	 * Configure the Fast speed timing values
 	 * Even the High Speed mode initially starts with Fast mode
@@ -622,9 +624,6 @@ static void exynos5_i2c_init(struct exynos5_i2c *i2c)
 static void exynos5_i2c_reset(struct exynos5_i2c *i2c)
 {
 	u32 i2c_ctl;
-
-	if (i2c->support_hsi2c_batcher)
-		return;
 
 	/* Set and clear the bit for reset */
 	i2c_ctl = readl(i2c->regs + HSI2C_CTL);
@@ -1121,7 +1120,14 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 	/********************************************/
 	set_batcher_enable(i2c);
 
-	exynos5_i2c_set_timing(i2c, HSI2C_HIGH_SPD);
+	/* Set HSI2C Timing Parameters */
+	write_batcher(i2c, 0x0F0F0F00, HSI2C_TIMING_HS1);
+	write_batcher(i2c, 0x080F0F04, HSI2C_TIMING_HS2);
+	write_batcher(i2c, 0x00000013, HSI2C_TIMING_HS3);
+	write_batcher(i2c, 0x78787800, HSI2C_TIMING_FS1);
+	write_batcher(i2c, 0x3C0F7878, HSI2C_TIMING_FS2);
+	write_batcher(i2c, 0x000000F0, HSI2C_TIMING_FS3);
+	write_batcher(i2c, 0x00000007, HSI2C_TIMING_SLA);
 
 	/* Set HSI2C Trailing Register */
 	write_batcher(i2c, BATCHER_TRAILING_COUNT, HSI2C_TRAILIG_CTL);
@@ -1157,7 +1163,7 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 	write_batcher(i2c, i2c_fifo_ctl, HSI2C_FIFO_CTL);
 
 	/* Set HSI2C Control Register */
-	i2c_ctl |= HSI2C_FUNC_MODE_I2C | HSI2C_MASTER;
+	i2c_ctl |= HSI2C_MASTER;
 
 	if (msgs->flags & I2C_M_RD) {
 		i2c_ctl &= ~HSI2C_TXCHON;
@@ -1200,8 +1206,6 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 		i2c_auto_conf &= ~HSI2C_STOP_AFTER_TRANS;
 
 	i2c_auto_conf |= i2c->msg->len;
-	write_batcher(i2c, i2c_auto_conf, HSI2C_AUTO_CONF);
-
 	i2c_auto_conf |= HSI2C_MASTER_RUN;
 	write_batcher(i2c, i2c_auto_conf, HSI2C_AUTO_CONF);
 
@@ -1256,10 +1260,10 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 
 		if (timeout == 0) {
 			/* Read Error handlilng for HSI2C_Batcher */
-			dev_warn(i2c->dev, "rx timeout status= %x\n",
+			dev_warn(i2c->dev, "rx timeout Batcher status= %x\n",
 			readl(i2c->regs + HSI2C_BATCHER_STATE));
 			reset_batcher(i2c);
-			dev_warn(i2c->dev, "rx timeout\n");
+			exynos5_i2c_reset(i2c);
 			return 0;
 		}
 		ret = 0;
@@ -1275,6 +1279,7 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 			readl(i2c->regs + HSI2C_BATCHER_STATE));
 			ret = i2c->trans_done;
 			reset_batcher(i2c);
+			exynos5_i2c_reset(i2c);
 			return ret;
 		}
 		ret = 0;
