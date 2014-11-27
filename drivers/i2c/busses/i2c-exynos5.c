@@ -510,8 +510,7 @@ static void exynos5_i2c_init(struct exynos5_i2c *i2c)
 {
 	u32 i2c_conf = readl(i2c->regs + HSI2C_CONF);
 
-	writel((HSI2C_FUNC_MODE_I2C | HSI2C_MASTER),
-					i2c->regs + HSI2C_CTL);
+	writel(HSI2C_MASTER, i2c->regs + HSI2C_CTL);
 	writel(HSI2C_TRAILING_COUNT, i2c->regs + HSI2C_TRAILIG_CTL);
 
 	if (i2c->speed_mode == HSI2C_HIGH_SPD) {
