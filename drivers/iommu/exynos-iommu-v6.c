@@ -758,6 +758,7 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 				NULL, NULL);
 
 	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
+	cfg &= ~CFG_ACGEN;
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
 }
 
