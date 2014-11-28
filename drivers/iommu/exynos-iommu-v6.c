@@ -177,6 +177,11 @@ void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova)
 	__raw_writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
 }
 
+static void __sysmmu_tlb_invalidate_all(void __iomem *sfrbase)
+{
+	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+}
+
 void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size)
 {
@@ -190,7 +195,7 @@ void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 						iova, iova + size);
 	} else {
 		if (sysmmu_block(sfrbase)) {
-			__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+			__sysmmu_tlb_invalidate_all(sfrbase);
 			SYSMMU_EVENT_LOG_TLB_INV_ALL(
 					SYSMMU_DRVDATA_TO_LOG(drvdata));
 		}
@@ -202,7 +207,7 @@ void __sysmmu_set_ptbase(void __iomem *sfrbase, phys_addr_t pfn_pgtable)
 {
 	__raw_writel(pfn_pgtable, sfrbase + REG_PT_BASE_PPN);
 
-	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+	__sysmmu_tlb_invalidate_all(sfrbase);
 }
 
 static void __sysmmu_disable_pbuf(struct sysmmu_drvdata *drvdata,
@@ -747,7 +752,7 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 {
 	unsigned long cfg;
 
-	__raw_writel(0, drvdata->sfrbase + REG_MMU_CTRL);
+	__raw_writel(CTRL_BLOCK, drvdata->sfrbase + REG_MMU_CTRL);
 
 	cfg = CFG_FLPDCACHE | CFG_ACGEN;
 	if (!(drvdata->qos < 0))
