@@ -1646,17 +1646,39 @@ static int __init __sysmmu_init_prop(struct device *sysmmu,
 
 	drvdata->qos = (short)qos;
 
+	/**
+	 * Deprecate 'prop-map' child node of System MMU device nodes in FDT.
+	 * It is not required to introduce new child node for boolean
+	 * properties like 'block-stop' and 'tlbinv-nonblock'.
+	 * 'tlbinv-nonblock' is H/W W/A to accellerates master H/W performance
+	 * for 5.x and the earlier versions of System MMU.x.
+	 * 'sysmmu,tlbinv-nonblock' is introduced, instead for those earlier
+	 * versions.
+	 * Instead of 'block-stop' in 'prop-map' childe node,
+	 * 'sysmmu,block-when-stop' without a value is introduced to simplify
+	 * the FDT node definitions.
+	 * For the compatibility with the existing FDT files, the 'prop-map'
+	 * child node parsing is still kept.
+	 */
 	prop_node = of_get_child_by_name(sysmmu->of_node, "prop-map");
-	if (!prop_node)
-		return 0;
+	if (prop_node) {
+		if (!of_property_read_string(prop_node, "tlbinv-nonblock", &s))
+			if (strnicmp(s, "yes", 3) == 0)
+				drvdata->prop |= SYSMMU_PROP_NONBLOCK_TLBINV;
 
-	if (!of_property_read_string(prop_node, "tlbinv-nonblock", &s))
-		if (strnicmp(s, "yes", 3) == 0)
-			drvdata->prop |= SYSMMU_PROP_NONBLOCK_TLBINV;
+		if (!of_property_read_string(prop_node, "block-stop", &s))
+			if (strnicmp(s, "yes", 3) == 0)
+				drvdata->prop |= SYSMMU_PROP_STOP_BLOCK;
 
-	if (!of_property_read_string(prop_node, "block-stop", &s))
-		if (strnicmp(s, "yes", 3) == 0)
-			drvdata->prop |= SYSMMU_PROP_STOP_BLOCK;
+		of_node_put(prop_node);
+	}
+
+	if (of_find_property(sysmmu->of_node, "sysmmu,block-when-stop", NULL))
+		drvdata->prop |= SYSMMU_PROP_STOP_BLOCK;
+
+	if (of_find_property(sysmmu->of_node, "sysmmu,tlbinv-nonblock", NULL))
+		drvdata->prop |= SYSMMU_PROP_NONBLOCK_TLBINV;
+
 	return 0;
 }
 
