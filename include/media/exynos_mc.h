@@ -91,6 +91,7 @@ enum vpp_sd_ioctl {
 	VPP_GET_BTS_VAL,
 	VPP_SET_BW,
 	VPP_SET_MIN_INT,
+	VPP_DUMP,
 };
 
 enum mdev_node {
