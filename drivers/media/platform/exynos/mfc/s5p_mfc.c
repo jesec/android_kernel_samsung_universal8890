@@ -1183,7 +1183,11 @@ static void s5p_mfc_handle_frame_error(struct s5p_mfc_ctx *ctx,
 	s5p_mfc_clear_int_flags();
 	if (clear_hw_bit(ctx) == 0)
 		BUG();
-	wake_up_ctx(ctx, reason, err);
+	/* Sleeping thread is waiting for FRAME_DONE in stop_streaming  */
+	if (ctx->state == MFCINST_ABORT)
+		wake_up_ctx(ctx, S5P_FIMV_R2H_CMD_FRAME_DONE_RET, err);
+	else
+		wake_up_ctx(ctx, reason, err);
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
@@ -1633,7 +1637,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	switch (reason) {
 	case S5P_FIMV_R2H_CMD_ERR_RET:
 		/* An error has occured */
-		if (ctx->state == MFCINST_RUNNING) {
+		if (ctx->state == MFCINST_RUNNING || ctx->state == MFCINST_ABORT) {
 			if ((s5p_mfc_err_dec(err) >= S5P_FIMV_ERR_WARNINGS_START) &&
 				(s5p_mfc_err_dec(err) <= S5P_FIMV_ERR_WARNINGS_END))
 				s5p_mfc_handle_frame(ctx, reason, err);
