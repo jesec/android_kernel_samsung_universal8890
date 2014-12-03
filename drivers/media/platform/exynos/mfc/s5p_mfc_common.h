@@ -1063,6 +1063,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(dev->fw.date >= 0x130405))
 #define FW_HAS_DYNAMIC_DPB(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
 					(dev->fw.date >= 0x131108))
+#define FW_HAS_NOT_CODED(dev)		(IS_MFCV8(dev) &&		\
+					(dev->fw.date >= 0x140926))
 #define FW_HAS_BASE_CHANGE(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
 					(dev->fw.date >= 0x131108))
 #define FW_HAS_TEMPORAL_SVC_CH(dev)	((IS_MFCv8X(dev) &&			\
@@ -1078,8 +1080,13 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 
 #define is_h264(ctx)		((ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC) ||\
 				(ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC))
+#define is_mpeg4vc1(ctx)	((ctx->codec_mode == S5P_FIMV_CODEC_VC1RCV_DEC) ||\
+				(ctx->codec_mode == S5P_FIMV_CODEC_MPEG4_DEC))
 #define MFC_UHD_RES		(3840*2160)
+#define MFC_HD_RES		(1280*720)
 #define is_UHD(ctx)		(((ctx)->img_width * (ctx)->img_height) == MFC_UHD_RES)
+#define under_HD(ctx)		(((ctx)->img_width * (ctx)->img_height) <= MFC_HD_RES)
+#define not_coded_cond(ctx)	is_mpeg4vc1(ctx) && under_HD(ctx)
 
 /* Extra information for Decoder */
 #define	DEC_SET_DUAL_DPB		(1 << 0)

@@ -938,8 +938,10 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	}
 
 	/* If frame is same as previous then skip and do not dequeue */
-	if (frame_type == S5P_FIMV_DISPLAY_FRAME_NOT_CODED)
-		return;
+	if (frame_type == S5P_FIMV_DISPLAY_FRAME_NOT_CODED) {
+		if (!(not_coded_cond(ctx) && FW_HAS_NOT_CODED(dev)))
+			return;
+	}
 
 	if (dec->is_dynamic_dpb) {
 		prev_flag = dec->dynamic_used;

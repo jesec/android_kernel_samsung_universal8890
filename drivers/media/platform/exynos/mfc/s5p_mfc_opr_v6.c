@@ -1144,6 +1144,9 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		reg |= (0x1 << S5P_FIMV_D_OPT_TILE_MODE_SHIFT);
 	if (dec->is_dynamic_dpb)
 		reg |= (0x1 << S5P_FIMV_D_OPT_DYNAMIC_DPB_SET_SHIFT);
+
+	if (not_coded_cond(ctx) && FW_HAS_NOT_CODED(dev))
+		reg |= (0x1 << S5P_FIMV_D_OPT_NOT_CODED_SET_SHIFT);
 	WRITEL(reg, S5P_FIMV_D_INIT_BUFFER_OPTIONS);
 
 	frame_size_mv = ctx->mv_size;
