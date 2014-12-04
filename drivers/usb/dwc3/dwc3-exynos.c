@@ -527,8 +527,8 @@ static int dwc3_exynos_clk_get(struct dwc3_exynos *exynos)
 		exynos->clk = NULL;
 		/* fallback to separate clock control */
 		exynos->clocks = (struct clk **) devm_kmalloc(exynos->dev,
-				sizeof(ARRAY_SIZE(dwc3_exynos_clk_names) *
-					sizeof(struct clk *)),
+				ARRAY_SIZE(dwc3_exynos_clk_names) *
+					sizeof(struct clk *),
 				GFP_KERNEL);
 		if (!exynos->clocks)
 			return -ENOMEM;
