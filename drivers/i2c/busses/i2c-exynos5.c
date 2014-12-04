@@ -26,6 +26,8 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_i2c.h>
+#include <linux/of_gpio.h>
+#include "../../pinctrl/core.h"
 
 #include <mach/exynos-pm.h>
 #ifdef CONFIG_EXYNOS_APM
@@ -316,6 +318,97 @@ static struct notifier_block exynos_apm_notifier = {
 };
 #endif
 
+static void change_i2c_gpio(struct exynos5_i2c *i2c)
+{
+	struct pinctrl_state *default_i2c_pins;
+	struct pinctrl *default_i2c_pinctrl;
+	int status = 0;
+
+	default_i2c_pinctrl = devm_pinctrl_get(i2c->dev);
+	if (IS_ERR(default_i2c_pinctrl)) {
+		dev_err(i2c->dev, "Can't get i2c pinctrl!!!\n");
+		return ;
+	}
+
+	default_i2c_pins = pinctrl_lookup_state(default_i2c_pinctrl,
+				"default");
+	if (!IS_ERR(default_i2c_pins)) {
+		default_i2c_pinctrl->state = NULL;
+		status = pinctrl_select_state(default_i2c_pinctrl, default_i2c_pins);
+		if (status)
+			dev_err(i2c->dev, "Can't set default i2c pins!!!\n");
+	} else {
+		dev_err(i2c->dev, "Can't get default pinstate!!!\n");
+	}
+}
+
+static void recover_gpio_pins(struct exynos5_i2c *i2c)
+{
+	int gpio_sda, gpio_scl;
+	int sda_val, scl_val, clk_cnt;
+	unsigned long timeout;
+	struct device_node *np = i2c->adap.dev.of_node;
+
+	dev_err(i2c->dev, "Recover GPIO pins\n");
+
+	gpio_sda = of_get_named_gpio(np, "gpio_sda", 0);
+	if (!gpio_is_valid(gpio_sda)) {
+		dev_err(i2c->dev, "Can't get gpio_sda!!!\n");
+		return ;
+	}
+	gpio_scl = of_get_named_gpio(np, "gpio_scl", 0);
+	if (!gpio_is_valid(gpio_scl)) {
+		dev_err(i2c->dev, "Can't get gpio_scl!!!\n");
+		return ;
+	}
+
+	sda_val = gpio_get_value(gpio_sda);
+	scl_val = gpio_get_value(gpio_scl);
+
+	dev_err(i2c->dev, "SDA line : %s, SCL line : %s\n",
+			sda_val ? "HIGH" : "LOW", scl_val ? "HIGH" : "LOW");
+
+	if (sda_val == 1 && scl_val == 1)
+		return ;
+
+	/* Wait for SCL as high for 500msec */
+	if (scl_val == 0) {
+		timeout = jiffies + msecs_to_jiffies(500);
+		while (time_before(jiffies, timeout)) {
+			if (gpio_get_value(gpio_scl) != 0) {
+				timeout = 0;
+				break;
+			}
+			msleep(10);
+		}
+		if (timeout)
+			dev_err(i2c->dev, "SCL line is still LOW!!!\n");
+	}
+
+	sda_val = gpio_get_value(gpio_sda);
+
+	if (sda_val == 0) {
+		gpio_direction_output(gpio_scl, 1);
+
+		for (clk_cnt = 0; clk_cnt < 100; clk_cnt++) {
+			/* Make clock for slave */
+			gpio_set_value(gpio_scl, 0);
+			udelay(5);
+			gpio_set_value(gpio_scl, 1);
+			udelay(5);
+			if (gpio_get_value(gpio_sda) == 1) {
+				dev_err(i2c->dev, "SDA line is recovered.\n");
+				break;
+			}
+		}
+		if (clk_cnt == 100)
+			dev_err(i2c->dev, "SDA line is not recovered!!!\n");
+	}
+
+	/* Change I2C GPIO as default function */
+	change_i2c_gpio(i2c);
+}
+
 static inline void dump_i2c_register(struct exynos5_i2c *i2c)
 {
 	dev_err(i2c->dev, "Register dump(suspended : %d)\n", i2c->suspended);
@@ -351,6 +444,8 @@ static inline void dump_i2c_register(struct exynos5_i2c *i2c)
 			, readl(i2c->regs + HSI2C_TIMING_SLA));
 	dev_err(i2c->dev, ": ADDR	0x%08x\n"
 			, readl(i2c->regs + HSI2C_ADDR));
+
+	recover_gpio_pins(i2c);
 }
 
 static void write_batcher(struct exynos5_i2c *i2c, unsigned int description,
