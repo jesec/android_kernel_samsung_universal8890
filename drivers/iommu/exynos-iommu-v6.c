@@ -2540,19 +2540,19 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 			do {
 				WARN_ON(!lv2ent_fault(pent));
 
-				if (write && (!pte_present(*pte) ||
-						!pte_write(*pte))) {
+				if (!pte_present(*pte) ||
+					(write && !pte_write(*pte))) {
 					ret = handle_pte_fault(mm,
-							vma, start,
-							pte, pmd,
-							FAULT_FLAG_WRITE);
+						vma, start, pte, pmd,
+						write ? FAULT_FLAG_WRITE : 0);
 					if (IS_ERR_VALUE(ret)) {
 						ret = -EIO;
 						goto out_unmap;
 					}
 				}
 
-				if (!pte_present(*pte)) {
+				if (!pte_present(*pte) ||
+					(write && !pte_write(*pte))) {
 					ret = -EPERM;
 					goto out_unmap;
 				}
