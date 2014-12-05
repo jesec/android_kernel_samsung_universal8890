@@ -832,6 +832,13 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		tiled_ref->plane_size[2] = 0;
 	}
 
+	if (IS_MFCv78(dev)) {
+		raw->plane_size[0] = ((ctx->img_width + 15) / 16) *
+					((ctx->img_height + 15) / 16) * 256;
+		raw->plane_size[1] = ((ctx->img_width + 15) / 16) *
+					((ctx->img_height + 15) / 16) * 128;
+	}
+
 	if (IS_MFCV8(dev)) {
 		set_linear_stride_size(ctx, ctx->dst_fmt);
 
