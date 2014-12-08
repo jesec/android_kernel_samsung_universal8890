@@ -303,7 +303,7 @@ static struct v4l2_queryctrl controls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "Display status",
 		.minimum = 0,
-		.maximum = 3,
+		.maximum = 4,
 		.step = 1,
 		.default_value = 0,
 	},

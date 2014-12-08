@@ -889,7 +889,7 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	unsigned int index;
 	unsigned int frame_type;
 	int mvc_view_id;
-	unsigned int dst_frame_status;
+	unsigned int dst_frame_status, last_frame_status;
 	struct list_head *dst_queue_addr;
 	unsigned int prev_flag, released_flag = 0;
 	int i;
@@ -915,7 +915,13 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	frame_type = s5p_mfc_get_disp_frame_type();
 	mvc_view_id = s5p_mfc_get_mvc_disp_view_id();
 
+	if (FW_HAS_LAST_DISP_INFO(dev))
+		last_frame_status = mfc_get_last_disp_info();
+	else
+		last_frame_status = 0;
+
 	mfc_debug(2, "frame_type : %d\n", frame_type);
+	mfc_debug(2, "last_frame_status : %d\n", last_frame_status);
 
 	if (IS_MFCV6(dev) && ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC) {
 		if (mvc_view_id == 0)
@@ -1047,6 +1053,13 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 					V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG,
 					dec->stored_tag);
 				dec->y_addr_for_pb = 0;
+			}
+
+			if (last_frame_status) {
+				call_cop(ctx, get_buf_update_val, ctx,
+					&ctx->dst_ctrls[index],
+					V4L2_CID_MPEG_MFC51_VIDEO_DISPLAY_STATUS,
+					S5P_FIMV_DEC_STATUS_LAST_DISP);
 			}
 
 			if (no_order && !dec->is_dts_mode) {

@@ -1076,6 +1076,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 
 #define FW_NEED_SHARED_MEMORY(dev)	(IS_MFCv5X(dev) || IS_MFCv6X(dev) ||	\
 					IS_MFCv7X(dev) || IS_MFCv78(dev))
+#define FW_HAS_LAST_DISP_INFO(dev)	(IS_MFCv9X(dev) &&			\
+					(dev->fw.date >= 0x141205))
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
 
