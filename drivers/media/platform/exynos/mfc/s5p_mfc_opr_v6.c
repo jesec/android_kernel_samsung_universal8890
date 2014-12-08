@@ -833,10 +833,10 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 	}
 
 	if (IS_MFCv78(dev)) {
-		raw->plane_size[0] = ((ctx->img_width + 15) / 16) *
-					((ctx->img_height + 15) / 16) * 256;
-		raw->plane_size[1] = ((ctx->img_width + 15) / 16) *
-					((ctx->img_height + 15) / 16) * 128;
+		raw->plane_size[0] = ALIGN(((ctx->img_width + 15) / 16) *
+				((ctx->img_height + 15) / 16) * 256, 256);
+		raw->plane_size[1] = ALIGN(((ctx->img_width + 15) / 16) *
+				((ctx->img_height + 15) / 16) * 128, 256);
 	}
 
 	if (IS_MFCV8(dev)) {
