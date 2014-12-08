@@ -1934,8 +1934,6 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 {
 	if (lv1ent_fault(sent)) {
 		sysmmu_pte_t *pent;
-		struct exynos_iommu_owner *owner;
-		unsigned long flags;
 
 		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
 		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
@@ -1949,28 +1947,6 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 		pgtable_flush(sent, sent + 1);
 		SYSMMU_EVENT_LOG_IOMMU_ALLOCSLPD(IOMMU_PRIV_TO_LOG(priv),
 						iova & SECT_MASK);
-
-		/*
-		 * If pretched SLPD is a fault SLPD in zero_l2_table, FLPD cache
-		 * caches the address of zero_l2_table. This function replaces
-		 * the zero_l2_table with new L2 page table to write valid
-		 * mappings.
-		 * Accessing the valid area may cause page fault since FLPD
-		 * cache may still caches zero_l2_table for the valid area
-		 * instead of new L2 page table that have the mapping
-		 * information of the valid area
-		 * Thus any replacement of zero_l2_table with other valid L2
-		 * page table must involve FLPD cache invalidation if the System
-		 * MMU have prefetch feature and FLPD cache (version 3.3).
-		 * FLPD cache invalidation is performed with TLB invalidation
-		 * by VPN without blocking. It is safe to invalidate TLB without
-		 * blocking because the target address of TLB invalidation is
-		 * not currently mapped.
-		 */
-		spin_lock_irqsave(&priv->lock, flags);
-		list_for_each_entry(owner, &priv->clients, client)
-			sysmmu_tlb_invalidate_flpdcache(owner->dev, iova);
-		spin_unlock_irqrestore(&priv->lock, flags);
 	} else if (!lv1ent_page(sent)) {
 		BUG();
 		return ERR_PTR(-EADDRINUSE);
@@ -2086,20 +2062,8 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	entry = section_entry(priv->pgtable, iova);
 
 	if (size >= SECT_SIZE) {
-		int num_entry = size / SECT_SIZE;
-		struct exynos_iommu_owner *owner;
-
 		ret = lv1set_section(priv, entry, paddr, size,
 					&priv->lv2entcnt[lv1ent_offset(iova)]);
-
-		spin_lock(&priv->lock);
-		list_for_each_entry(owner, &priv->clients, client) {
-			int i;
-			for (i = 0; i < num_entry; i++)
-				sysmmu_tlb_invalidate_flpdcache(owner->dev,
-						iova + i * SECT_SIZE);
-		}
-		spin_unlock(&priv->lock);
 
 		SYSMMU_EVENT_LOG_IOMMU_MAP(IOMMU_PRIV_TO_LOG(priv),
 				iova, iova + size, paddr / SPAGE_SIZE);
@@ -2125,6 +2089,25 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 			__func__, ret, size, &iova);
 
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
+
+	/*
+	 * If pretched SLPD is a fault SLPD in zero_l2_table, FLPD cache
+	 * or prefetch buffer caches the address of zero_l2_table.
+	 * This function replaces the zero_l2_table with new L2 page
+	 * table to write valid mappings.
+	 * Accessing the valid area may cause page fault since FLPD
+	 * cache may still caches zero_l2_table for the valid area
+	 * instead of new L2 page table that have the mapping
+	 * information of the valid area
+	 * Thus any replacement of zero_l2_table with other valid L2
+	 * page table must involve FLPD cache invalidation if the System
+	 * MMU have prefetch feature and FLPD cache (version 3.3).
+	 * FLPD cache invalidation is performed with TLB invalidation
+	 * by VPN without blocking. It is safe to invalidate TLB without
+	 * blocking because the target address of TLB invalidation is
+	 * not currently mapped.
+	 */
+	exynos_sysmmu_tlb_invalidate(domain, iova, size);
 
 	return ret;
 }
