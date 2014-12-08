@@ -1421,7 +1421,6 @@ void s3c24xx_serial_fifo_wait(void)
 		if (ourport->port.line != CONFIG_S3C_LOWLEVEL_UART_PORT)
 			continue;
 
-		uart_clock_enable(ourport);
 		wait_time = jiffies + HZ / 4;
 		do {
 			port = &ourport->port;
