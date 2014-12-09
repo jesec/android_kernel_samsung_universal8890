@@ -2230,6 +2230,10 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	reg |= p_vp8->rc_min_qp;
 	WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
 
+	/* Disable all macroblock adaptive scaling features */
+	reg = 0xF;
+	WRITEL(reg, S5P_FIMV_E_MB_RC_CONFIG);
+
 	mfc_debug_leave();
 
 	return 0;
