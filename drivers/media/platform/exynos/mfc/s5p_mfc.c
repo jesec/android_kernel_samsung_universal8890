@@ -879,6 +879,8 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	}
 }
 
+#define on_res_change(ctx)	((ctx)->state >= MFCINST_RES_CHANGE_INIT &&	\
+				 (ctx)->state <= MFCINST_RES_CHANGE_END)
 static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 {
 	struct s5p_mfc_dec *dec;
@@ -1055,7 +1057,8 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 				dec->y_addr_for_pb = 0;
 			}
 
-			if (last_frame_status) {
+			if (last_frame_status &&
+					!on_res_change(ctx)) {
 				call_cop(ctx, get_buf_update_val, ctx,
 					&ctx->dst_ctrls[index],
 					V4L2_CID_MPEG_MFC51_VIDEO_DISPLAY_STATUS,
