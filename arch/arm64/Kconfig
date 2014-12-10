@@ -234,6 +234,24 @@ config PWRCAL
     bool "Exynos Power Chip Abstraction Layer"
     help
     Support Power CAL for Exynos SoC.
+
+config ZONE_DMA_ALLOW_CUSTOM_SIZE
+	bool "Enable Platform-settable Custom Size for ZONE_DMA"
+	default n
+	depends on ZONE_DMA
+	help
+	  Select Y if you need to allow setting ZONE_DMA size for platform.
+
+config ZONE_DMA_SIZE_MBYTES
+	int "ZONE_DMA Size in MBytes"
+	range 16 4096
+	default 4096
+	depends on ZONE_DMA && ZONE_DMA_ALLOW_CUSTOM_SIZE
+	help
+	  Set DMA-able size based on bits shift value. DMA-able size
+	  must be less than total DRAM size. This value may be used
+	  to limit DMA-able address space for ZONE_DMA.
+
 endmenu
 endmenu
 
