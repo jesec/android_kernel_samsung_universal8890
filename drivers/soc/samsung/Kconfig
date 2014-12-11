@@ -5,5 +5,9 @@ menuconfig SOC_EXYNOS
 	bool "SAMSUNG SOC drivers support"
 
 if SOC_EXYNOS
+config EXYNOS_CHIPID
+	bool "Exynos Chip ID Driver Support"
+	depends on ARCH_EXYNOS
+	select SOC_BUS
 
 endif #SOC_EXYNOS
