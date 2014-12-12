@@ -250,6 +250,7 @@ struct s5p_mfc_pm {
 
 	int clock_on_steps;
 	int clock_off_steps;
+	enum mfc_buf_usage_type base_type;
 };
 
 struct s5p_mfc_fw {

@@ -26,6 +26,7 @@
 #include "s5p_mfc_debug.h"
 #include "s5p_mfc_pm.h"
 #include "s5p_mfc_reg.h"
+#include "s5p_mfc_ctrl.h"
 
 #define CLK_DEBUG
 
@@ -302,6 +303,9 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 		return ret;
 
 	dev->pm.clock_on_steps = 3;
+	if (dev->pm.base_type != MFCBUF_INVALID)
+		s5p_mfc_init_memctrl(dev, dev->pm.base_type);
+
 	if (dev->curr_ctx_drm && dev->is_support_smc) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
 		mfc_debug(3, "Begin: enable protection\n");
@@ -348,6 +352,18 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	MFC_TRACE_DEV("-- clock_on : ref state(%d)\n", state);
 
 	return 0;
+}
+
+/* Use only in functions that first instance is guaranteed, like mfc_init_hw() */
+int s5p_mfc_clock_on_with_base(struct s5p_mfc_dev *dev,
+				enum mfc_buf_usage_type buf_type)
+{
+	int ret;
+	dev->pm.base_type = buf_type;
+	ret = s5p_mfc_clock_on(dev);
+	dev->pm.base_type = MFCBUF_INVALID;
+
+	return ret;
 }
 
 void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
