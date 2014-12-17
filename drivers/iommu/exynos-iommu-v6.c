@@ -169,17 +169,17 @@ static bool has_sysmmu_capable_pbuf(void __iomem *sfrbase)
 void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova)
 {
 	if (has_sysmmu_capable_pbuf(sfrbase))
-		__raw_writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
+		writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
 }
 
 void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova)
 {
-	__raw_writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
+	writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
 }
 
 static void __sysmmu_tlb_invalidate_all(void __iomem *sfrbase)
 {
-	__raw_writel(0x1, sfrbase + REG_MMU_FLUSH);
+	writel(0x1, sfrbase + REG_MMU_FLUSH);
 }
 
 void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
@@ -190,7 +190,7 @@ void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 	if (__raw_sysmmu_version(sfrbase) >= MAKE_MMU_VER(5, 1)) {
 		__raw_writel(iova, sfrbase + REG_FLUSH_RANGE_START);
 		__raw_writel(size - 1 + iova, sfrbase + REG_FLUSH_RANGE_END);
-		__raw_writel(0x1, sfrbase + REG_MMU_FLUSH_RANGE);
+		writel(0x1, sfrbase + REG_MMU_FLUSH_RANGE);
 		SYSMMU_EVENT_LOG_TLB_INV_RANGE(SYSMMU_DRVDATA_TO_LOG(drvdata),
 						iova, iova + size);
 	} else {
@@ -2090,25 +2090,6 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
-	/*
-	 * If pretched SLPD is a fault SLPD in zero_l2_table, FLPD cache
-	 * or prefetch buffer caches the address of zero_l2_table.
-	 * This function replaces the zero_l2_table with new L2 page
-	 * table to write valid mappings.
-	 * Accessing the valid area may cause page fault since FLPD
-	 * cache may still caches zero_l2_table for the valid area
-	 * instead of new L2 page table that have the mapping
-	 * information of the valid area
-	 * Thus any replacement of zero_l2_table with other valid L2
-	 * page table must involve FLPD cache invalidation if the System
-	 * MMU have prefetch feature and FLPD cache (version 3.3).
-	 * FLPD cache invalidation is performed with TLB invalidation
-	 * by VPN without blocking. It is safe to invalidate TLB without
-	 * blocking because the target address of TLB invalidation is
-	 * not currently mapped.
-	 */
-	exynos_sysmmu_tlb_invalidate(domain, iova, size);
-
 	return ret;
 }
 
@@ -2214,22 +2195,12 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 
 unmap_flpd:
 	if (priv->lv2entcnt[lv1ent_offset(iova)] == NUM_LV2ENTRIES) {
-		struct exynos_iommu_owner *owner;
-
 		kmem_cache_free(lv2table_kmem_cache, page_entry(sent, 0));
 		priv->lv2entcnt[lv1ent_offset(iova)] = 0;
 		*sent = 0;
 
 		SYSMMU_EVENT_LOG_IOMMU_FREESLPD(IOMMU_PRIV_TO_LOG(priv),
 				iova_from_sent(priv->pgtable, sent));
-
-		spin_lock(&priv->lock);
-		list_for_each_entry(owner, &priv->clients, client)
-			sysmmu_tlb_invalidate_flpdcache(owner->dev, iova);
-		spin_unlock(&priv->lock);
-
-		/* 60us is required to guarantee that PTW ends itself */
-		udelay(60);
 	}
 done:
 	spin_unlock_irqrestore(&priv->pgtablelock, flags);

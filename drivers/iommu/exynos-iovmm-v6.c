@@ -18,6 +18,7 @@
 #include <linux/scatterlist.h>
 #include <linux/err.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 
 #include <linux/exynos_iovmm.h>
 #include <plat/cpu.h>
@@ -70,7 +71,8 @@ static dma_addr_t alloc_iovm_region(struct exynos_iovmm *vmm, size_t size,
 	BUG_ON(align & (align - 1));
 	BUG_ON(offset >= PAGE_SIZE);
 
-	vsize = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	/* To avoid allocating prefetched iovm region */
+	vsize = ALIGN(size + SZ_256K, SZ_256K) >> PAGE_SHIFT;
 	align >>= PAGE_SHIFT;
 	exact_align_mask >>= PAGE_SHIFT;
 	max_align >>= PAGE_SHIFT;
@@ -311,6 +313,7 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	int ret = 0;
 	int idx;
 	struct scatterlist *tsg;
+	struct exynos_vm_region *region;
 
 	if (vmm == NULL) {
 		dev_err(dev, "%s: IOVMM not found\n", __func__);
@@ -430,16 +433,34 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 		goto err_map_map;
 	}
 
+	region = find_iovm_region(vmm, start);
+	BUG_ON(!region);
+
+	/*
+	 * If pretched SLPD is a fault SLPD in zero_l2_table, FLPD cache
+	 * or prefetch buffer caches the address of zero_l2_table.
+	 * This function replaces the zero_l2_table with new L2 page
+	 * table to write valid mappings.
+	 * Accessing the valid area may cause page fault since FLPD
+	 * cache may still caches zero_l2_table for the valid area
+	 * instead of new L2 page table that have the mapping
+	 * information of the valid area
+	 * Thus any replacement of zero_l2_table with other valid L2
+	 * page table must involve FLPD cache invalidation if the System
+	 * MMU have prefetch feature and FLPD cache (version 3.3).
+	 * FLPD cache invalidation is performed with TLB invalidation
+	 * by VPN without blocking. It is safe to invalidate TLB without
+	 * blocking because the target address of TLB invalidation is
+	 * not currently mapped.
+	 */
+
+	exynos_sysmmu_tlb_invalidate(vmm->domain, region->start, region->size);
+
 	TRACE_LOG_DEV(dev, "IOVMM: Allocated VM region @ %#x/%#x bytes.\n",
 								start, size);
 
-	{
-		struct exynos_vm_region *reg = find_iovm_region(vmm, start);
-		BUG_ON(!reg);
-
-		SYSMMU_EVENT_LOG_IOVMM_MAP(IOVMM_TO_LOG(vmm),
-					start, start + size, reg->size - size);
-	}
+	SYSMMU_EVENT_LOG_IOVMM_MAP(IOVMM_TO_LOG(vmm), start, start + size,
+					region->size - size);
 
 	return start;
 
@@ -503,6 +524,9 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 		}
 
 		exynos_sysmmu_tlb_invalidate(vmm->domain, region->start, region->size);
+
+		/* 60us is required to guarantee that PTW ends itself */
+		udelay(60);
 
 		free_iovm_region(vmm, region);
 
