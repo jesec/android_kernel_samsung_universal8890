@@ -28,6 +28,8 @@
 #include <linux/cpu.h>
 #include <linux/cpu_cooling.h>
 
+#include <soc/samsung/tmu.h>
+
 /**
  * struct cpufreq_cooling_device - data for cooling device with cpufreq
  * @id: unique integer value corresponding to each cpufreq_cooling_device
@@ -53,6 +55,7 @@ struct cpufreq_cooling_device {
 };
 static DEFINE_IDR(cpufreq_idr);
 static DEFINE_MUTEX(cooling_cpufreq_lock);
+static BLOCKING_NOTIFIER_HEAD(cpu_notifier);
 
 static unsigned int cpufreq_dev_count;
 
@@ -404,6 +407,31 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	return cpufreq_apply_cooling(cpufreq_device, state);
 }
 
+static enum tmu_noti_state_t cpu_tstate = TMU_NORMAL;
+
+int cpufreq_set_cur_temp(bool suspended, unsigned long temp)
+{
+	enum tmu_noti_state_t tstate;
+	unsigned int on;
+
+	if (suspended || temp < COLD_TEMP) {
+		tstate = TMU_COLD;
+		on = 1;
+	} else {
+		tstate = TMU_NORMAL;
+		on = 0;
+	}
+
+	if (cpu_tstate == tstate)
+		return 0;
+
+	cpu_tstate = tstate;
+
+	blocking_notifier_call_chain(&cpu_notifier, TMU_COLD, &on);
+
+	return 0;
+}
+
 /* Bind cpufreq callbacks to thermal cooling device ops */
 static struct thermal_cooling_device_ops const cpufreq_cooling_ops = {
 	.get_max_state = cpufreq_get_max_state,
@@ -415,6 +443,11 @@ static struct thermal_cooling_device_ops const cpufreq_cooling_ops = {
 static struct notifier_block thermal_cpufreq_notifier_block = {
 	.notifier_call = cpufreq_thermal_notifier,
 };
+
+int exynos_tmu_add_notifier(struct notifier_block *n)
+{
+	return blocking_notifier_chain_register(&cpu_notifier, n);
+}
 
 /**
  * __cpufreq_cooling_register - helper function to create cpufreq cooling device

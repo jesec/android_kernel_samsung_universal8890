@@ -24,6 +24,7 @@
 #include <linux/gpu_cooling.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/thermal.h>
 
 #include "exynos_thermal_common.h"
@@ -37,6 +38,8 @@ struct exynos_thermal_zone {
 	struct thermal_sensor_conf *sensor_conf;
 	bool bind;
 };
+
+static bool suspended;
 
 /* Get mode callback functions for thermal zone */
 static int exynos_get_mode(struct thermal_zone_device *thermal,
@@ -237,6 +240,20 @@ static int exynos_unbind(struct thermal_zone_device *thermal,
 	return ret;
 }
 
+#ifdef CONFIG_CPU_THERMAL
+extern int cpufreq_set_cur_temp(bool suspended, unsigned long temp);
+#else
+static inline int cpufreq_set_cur_temp(bool suspended, unsigned long temp) { return 0; }
+#endif
+#ifdef CONFIG_GPU_THERMAL
+extern int gpufreq_set_cur_temp(bool suspended, unsigned long temp);
+#else
+static inline int gpufreq_set_cur_temp(bool suspended, unsigned long temp) { return 0; }
+#endif
+
+const unsigned long valid_min_temp = 10;
+const unsigned long valid_max_temp = 125;
+
 /* Get temperature callback functions for thermal zone */
 static int exynos_get_temp(struct thermal_zone_device *thermal,
 			unsigned long *temp)
@@ -251,8 +268,21 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 	}
 	data = th_zone->sensor_conf->driver_data;
 	*temp = th_zone->sensor_conf->read_temperature(data);
+
+	/* now check if temp is valid */
+	if (*temp < valid_min_temp)
+		*temp = valid_min_temp;
+	if (*temp > valid_max_temp)
+		*temp = valid_max_temp;
+
 	/* convert the temperature into millicelsius */
 	*temp = *temp * MCELSIUS;
+
+	if (th_zone->sensor_conf->d_type == CPU)
+		cpufreq_set_cur_temp(suspended, *temp / 1000);
+	else  if (th_zone->sensor_conf->d_type == GPU)
+		gpufreq_set_cur_temp(suspended, *temp / 1000);
+
 	return 0;
 }
 
@@ -357,6 +387,25 @@ void exynos_report_trigger(struct thermal_sensor_conf *conf)
 	mutex_unlock(&th_zone->therm_dev->lock);
 }
 
+static int exynos_pm_notifier(struct notifier_block *notifier,
+			unsigned long event, void *v)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		suspended = true;
+		break;
+	case PM_POST_SUSPEND:
+		suspended = false;
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_tmu_pm_notifier = {
+	.notifier_call = exynos_pm_notifier,
+};
+
 /* Register with the in-kernel thermal management */
 int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 {
@@ -421,6 +470,9 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 	th_zone->mode = THERMAL_DEVICE_ENABLED;
 	sensor_conf->pzone_data = th_zone;
 
+	if (sensor_conf->id == 0)
+		register_pm_notifier(&exynos_tmu_pm_notifier);
+
 	dev_info(sensor_conf->dev,
 		"Exynos: Thermal zone(%s) registered\n", sensor_conf->name);
 
@@ -452,6 +504,9 @@ void exynos_unregister_thermal(struct thermal_sensor_conf *sensor_conf)
 		else if (sensor_conf->d_type == GPU)
 			gpufreq_cooling_unregister(th_zone->cool_dev[i]);
 	}
+
+	if (sensor_conf->id == 0)
+		unregister_pm_notifier(&exynos_tmu_pm_notifier);
 
 	dev_info(sensor_conf->dev,
 		"Exynos: Kernel Thermal management unregistered\n");

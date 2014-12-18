@@ -316,6 +316,27 @@ static int gpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	return gpufreq_apply_cooling(gpufreq_device, state);
 }
 
+static enum tmu_noti_state_t gpu_tstate = GPU_COLD;
+
+int gpufreq_set_cur_temp(bool suspended, unsigned long temp)
+{
+	enum tmu_noti_state_t tstate;
+
+	if (suspended || temp < COLD_TEMP)
+		tstate = GPU_COLD;
+	else
+		tstate = GPU_NORMAL;
+
+	if (gpu_tstate == tstate)
+		return 0;
+
+	gpu_tstate = tstate;
+
+	blocking_notifier_call_chain(&gpu_notifier, tstate, &tstate);
+
+	return 0;
+}
+
 /* Bind gpufreq callbacks to thermal cooling device ops */
 static struct thermal_cooling_device_ops const gpufreq_cooling_ops = {
 	.get_max_state = gpufreq_get_max_state,
