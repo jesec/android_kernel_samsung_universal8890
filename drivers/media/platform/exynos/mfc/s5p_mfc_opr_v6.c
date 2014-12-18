@@ -112,7 +112,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_enc *enc;
 	struct s5p_mfc_raw_info *tiled_ref;
 	unsigned int mb_width, mb_height;
-	unsigned int lcu_width, lcu_height;
+	unsigned int lcu_width = 0, lcu_height = 0;
 	void *alloc_ctx;
 	int i, add_size0 = 0, add_size1 = 0;
 
