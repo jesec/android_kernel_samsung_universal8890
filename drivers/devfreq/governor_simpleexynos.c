@@ -57,11 +57,13 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 	int err;
 
 	if (data) {
-		pm_qos_min = pm_qos_request(data->pm_qos_class);
-		if (data->pm_qos_class_max)
-			pm_qos_max = pm_qos_request(data->pm_qos_class_max);
-		if (unlikely(gov_simple_exynos))
-			printk("pm_qos: %lu\n", pm_qos_min);
+		if (!df->disabled_pm_qos) {
+			pm_qos_min = pm_qos_request(data->pm_qos_class);
+			if (data->pm_qos_class_max)
+				pm_qos_max = pm_qos_request(data->pm_qos_class_max);
+			if (unlikely(gov_simple_exynos))
+				printk("pm_qos: %lu\n", pm_qos_min);
+		}
 
 		if (data->urgentthreshold)
 			dfe_urgentthreshold = data->urgentthreshold;

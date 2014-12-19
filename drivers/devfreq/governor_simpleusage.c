@@ -54,7 +54,8 @@ static int devfreq_simple_usage_func(struct devfreq *df, unsigned long *freq)
 	if (!data)
 		return -EINVAL;
 
-	pm_qos_min = pm_qos_request(data->pm_qos_class);
+	if (!df->disabled_pm_qos)
+		pm_qos_min = pm_qos_request(data->pm_qos_class);
 
 	if (err)
 		return err;

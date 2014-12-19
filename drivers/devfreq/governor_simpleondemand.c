@@ -50,7 +50,7 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 	unsigned long max = (df->max_freq) ? df->max_freq : UINT_MAX;
 	unsigned long pm_qos_min = 0;
 
-	if (data) {
+	if (data && !df->disabled_pm_qos) {
 		pm_qos_min = pm_qos_request(data->pm_qos_class);
 		if (pm_qos_min >= data->cal_qos_max) {
 			*freq = pm_qos_min;
