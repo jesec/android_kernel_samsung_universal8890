@@ -214,7 +214,7 @@ struct sysmmu_drvdata {
 struct exynos_iommu_domain {
 	struct list_head clients; /* list of sysmmu_drvdata.node */
 	sysmmu_pte_t *pgtable; /* lv1 page table, 16KB */
-	short *lv2entcnt; /* free lv2 entry counter for each section */
+	atomic_t *lv2entcnt; /* free lv2 entry counter for each section */
 	spinlock_t lock; /* lock for this structure */
 	spinlock_t pgtablelock; /* lock for modifying page table @ pgtable */
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG

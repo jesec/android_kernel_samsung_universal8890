@@ -1048,8 +1048,6 @@ int recover_fault_handler (struct iommu_domain *domain,
 
 		BUG_ON(priv->pgtable == NULL);
 
-		spin_lock_irqsave(&priv->pgtablelock, flags);
-
 		sent = section_entry(priv->pgtable, fault_addr);
 		if (!lv1ent_page(sent)) {
 			pent = kmem_cache_zalloc(lv2table_kmem_cache,
@@ -1069,8 +1067,6 @@ int recover_fault_handler (struct iommu_domain *domain,
 				sysmmu_fault_name[itype], fault_addr,
 				dev_name(dev));
 		}
-
-		spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
 		owner = dev->archdata.iommu;
 		vmm_data = (struct exynos_iovmm *)owner->vmm_data;
@@ -1812,12 +1808,12 @@ static int exynos_iommu_domain_init(struct iommu_domain *domain)
 		return -ENOMEM;
 
 	priv->pgtable = (sysmmu_pte_t *)__get_free_pages(
-						GFP_KERNEL | __GFP_ZERO, 2);
+					GFP_KERNEL | __GFP_ZERO, 2);
 	if (!priv->pgtable)
 		goto err_pgtable;
 
-	priv->lv2entcnt = (short *)__get_free_pages(
-						GFP_KERNEL | __GFP_ZERO, 1);
+	priv->lv2entcnt = (atomic_t *)__get_free_pages(
+					GFP_KERNEL | __GFP_ZERO, 2);
 	if (!priv->lv2entcnt)
 		goto err_counter;
 
@@ -1835,7 +1831,7 @@ static int exynos_iommu_domain_init(struct iommu_domain *domain)
 	return 0;
 
 err_init_event_log:
-	free_pages((unsigned long)priv->lv2entcnt, 1);
+	free_pages((unsigned long)priv->lv2entcnt, 2);
 err_counter:
 	free_pages((unsigned long)priv->pgtable, 2);
 err_pgtable:
@@ -1869,7 +1865,7 @@ static void exynos_iommu_domain_destroy(struct iommu_domain *domain)
 					__va(lv2table_base(priv->pgtable + i)));
 
 	free_pages((unsigned long)priv->pgtable, 2);
-	free_pages((unsigned long)priv->lv2entcnt, 1);
+	free_pages((unsigned long)priv->lv2entcnt, 2);
 	kfree(domain->priv);
 	domain->priv = NULL;
 }
@@ -1930,23 +1926,30 @@ static void exynos_iommu_detach_device(struct iommu_domain *domain,
 }
 
 static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
-		sysmmu_pte_t *sent, unsigned long iova, short *pgcounter)
+	sysmmu_pte_t *sent, unsigned long iova, atomic_t *pgcounter)
 {
 	if (lv1ent_fault(sent)) {
-		sysmmu_pte_t *pent;
+		unsigned long flags;
+		spin_lock_irqsave(&priv->pgtablelock, flags);
+		if (lv1ent_fault(sent)) {
+			sysmmu_pte_t *pent;
 
-		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
-		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
-		if (!pent)
-			return ERR_PTR(-ENOMEM);
+			pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
+			BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
+			if (!pent) {
+				spin_unlock_irqrestore(&priv->pgtablelock, flags);
+				return ERR_PTR(-ENOMEM);
+			}
 
-		*sent = mk_lv1ent_page(__pa(pent));
-		kmemleak_ignore(pent);
-		*pgcounter = NUM_LV2ENTRIES;
-		pgtable_flush(pent, pent + NUM_LV2ENTRIES);
-		pgtable_flush(sent, sent + 1);
-		SYSMMU_EVENT_LOG_IOMMU_ALLOCSLPD(IOMMU_PRIV_TO_LOG(priv),
-						iova & SECT_MASK);
+			*sent = mk_lv1ent_page(__pa(pent));
+			kmemleak_ignore(pent);
+			atomic_set(pgcounter, NUM_LV2ENTRIES);
+			pgtable_flush(pent, pent + NUM_LV2ENTRIES);
+			pgtable_flush(sent, sent + 1);
+			SYSMMU_EVENT_LOG_IOMMU_ALLOCSLPD(IOMMU_PRIV_TO_LOG(priv),
+							iova & SECT_MASK);
+			spin_unlock_irqrestore(&priv->pgtablelock, flags);
+		}
 	} else if (!lv1ent_page(sent)) {
 		BUG();
 		return ERR_PTR(-EADDRINUSE);
@@ -1956,10 +1959,10 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 }
 
 static int lv1ent_check_page(struct exynos_iommu_domain *priv,
-				sysmmu_pte_t *sent, short *pgcnt)
+				sysmmu_pte_t *sent, atomic_t *pgcnt)
 {
 	if (lv1ent_page(sent)) {
-		if (WARN_ON(*pgcnt != NUM_LV2ENTRIES))
+		if (WARN_ON(atomic_read(pgcnt) != NUM_LV2ENTRIES))
 			return -EADDRINUSE;
 	}
 
@@ -1980,7 +1983,7 @@ static void clear_lv2_page_table(sysmmu_pte_t *ent, int n)
 
 static int lv1set_section(struct exynos_iommu_domain *priv,
 			sysmmu_pte_t *sent, phys_addr_t paddr,
-			  size_t size,  short *pgcnt)
+			  size_t size, atomic_t *pgcnt)
 {
 	int ret;
 
@@ -2021,7 +2024,7 @@ static int lv1set_section(struct exynos_iommu_domain *priv,
 }
 
 static int lv2set_page(sysmmu_pte_t *pent, phys_addr_t paddr,
-		       size_t size, short *pgcnt)
+		       size_t size, atomic_t *pgcnt)
 {
 	if (size == SPAGE_SIZE) {
 		if (WARN_ON(!lv2ent_fault(pent)))
@@ -2029,7 +2032,7 @@ static int lv2set_page(sysmmu_pte_t *pent, phys_addr_t paddr,
 
 		*pent = mk_lv2ent_spage(paddr);
 		pgtable_flush(pent, pent + 1);
-		*pgcnt -= 1;
+		atomic_dec(pgcnt);
 	} else { /* size == LPAGE_SIZE */
 		int i;
 		for (i = 0; i < SPAGES_PER_LPAGE; i++, pent++) {
@@ -2041,7 +2044,7 @@ static int lv2set_page(sysmmu_pte_t *pent, phys_addr_t paddr,
 			*pent = mk_lv2ent_lpage(paddr);
 		}
 		pgtable_flush(pent - SPAGES_PER_LPAGE, pent);
-		*pgcnt -= SPAGES_PER_LPAGE;
+		atomic_sub(SPAGES_PER_LPAGE, pgcnt);
 	}
 
 	return 0;
@@ -2052,27 +2055,22 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 {
 	struct exynos_iommu_domain *priv = domain->priv;
 	sysmmu_pte_t *entry;
-	unsigned long flags;
 	int ret = -ENOMEM;
 
 	BUG_ON(priv->pgtable == NULL);
-
-	spin_lock_irqsave(&priv->pgtablelock, flags);
 
 	entry = section_entry(priv->pgtable, iova);
 
 	if (size >= SECT_SIZE) {
 		ret = lv1set_section(priv, entry, paddr, size,
-					&priv->lv2entcnt[lv1ent_offset(iova)]);
+				&priv->lv2entcnt[lv1ent_offset(iova)]);
 
 		SYSMMU_EVENT_LOG_IOMMU_MAP(IOMMU_PRIV_TO_LOG(priv),
 				iova, iova + size, paddr / SPAGE_SIZE);
 	} else {
 		sysmmu_pte_t *pent;
-
 		pent = alloc_lv2entry(priv, entry, iova,
-					&priv->lv2entcnt[lv1ent_offset(iova)]);
-
+				&priv->lv2entcnt[lv1ent_offset(iova)]);
 		if (IS_ERR(pent)) {
 			ret = PTR_ERR(pent);
 		} else {
@@ -2088,7 +2086,6 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 		pr_err("%s: Failed(%d) to map %#zx bytes @ %pa\n",
 			__func__, ret, size, &iova);
 
-	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
 	return ret;
 }
@@ -2113,11 +2110,9 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 	struct exynos_iommu_domain *priv = domain->priv;
 	size_t err_pgsize;
 	sysmmu_pte_t *sent, *pent;
-	unsigned long flags;
+	atomic_t *lv2entcnt = &priv->lv2entcnt[lv1ent_offset(iova)];
 
 	BUG_ON(priv->pgtable == NULL);
-
-	spin_lock_irqsave(&priv->pgtablelock, flags);
 
 	sent = section_entry(priv->pgtable, iova);
 
@@ -2178,7 +2173,7 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 		*pent = 0;
 		size = SPAGE_SIZE;
 		pgtable_flush(pent, pent + 1);
-		priv->lv2entcnt[lv1ent_offset(iova)] += 1;
+		atomic_inc(lv2entcnt);
 		goto unmap_flpd;
 	}
 
@@ -2191,20 +2186,24 @@ static size_t exynos_iommu_unmap(struct iommu_domain *domain,
 	clear_lv2_page_table(pent, SPAGES_PER_LPAGE);
 	pgtable_flush(pent, pent + SPAGES_PER_LPAGE);
 	size = LPAGE_SIZE;
-	priv->lv2entcnt[lv1ent_offset(iova)] += SPAGES_PER_LPAGE;
+	atomic_add(SPAGES_PER_LPAGE, lv2entcnt);
 
 unmap_flpd:
-	if (priv->lv2entcnt[lv1ent_offset(iova)] == NUM_LV2ENTRIES) {
-		kmem_cache_free(lv2table_kmem_cache, page_entry(sent, 0));
-		priv->lv2entcnt[lv1ent_offset(iova)] = 0;
-		*sent = 0;
+	if (atomic_read(lv2entcnt) == NUM_LV2ENTRIES) {
+		unsigned long flags;
+		spin_lock_irqsave(&priv->pgtablelock, flags);
+		if (atomic_read(lv2entcnt) == NUM_LV2ENTRIES) {
+			kmem_cache_free(lv2table_kmem_cache,
+					page_entry(sent, 0));
+			atomic_set(lv2entcnt, 0);
+			*sent = 0;
 
-		SYSMMU_EVENT_LOG_IOMMU_FREESLPD(IOMMU_PRIV_TO_LOG(priv),
-				iova_from_sent(priv->pgtable, sent));
+			SYSMMU_EVENT_LOG_IOMMU_FREESLPD(IOMMU_PRIV_TO_LOG(priv), iova_from_sent(priv->pgtable, sent));
+		}
+		spin_unlock_irqrestore(&priv->pgtablelock, flags);
 	}
-done:
-	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
+done:
 	SYSMMU_EVENT_LOG_IOMMU_UNMAP(IOMMU_PRIV_TO_LOG(priv),
 						iova, iova + size);
 
@@ -2212,9 +2211,8 @@ done:
 
 	/* TLB invalidation is performed by IOVMM */
 	return size;
-err:
-	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
+err:
 	pr_err("%s: Failed: size(%#zx) @ %pa is smaller than page size %#zx\n",
 		__func__, size, &iova, err_pgsize);
 
@@ -2225,11 +2223,8 @@ static phys_addr_t exynos_iommu_iova_to_phys(struct iommu_domain *domain,
 					     dma_addr_t iova)
 {
 	struct exynos_iommu_domain *priv = domain->priv;
-	unsigned long flags;
 	sysmmu_pte_t *entry;
 	phys_addr_t phys = 0;
-
-	spin_lock_irqsave(&priv->pgtablelock, flags);
 
 	entry = section_entry(priv->pgtable, iova);
 
@@ -2247,8 +2242,6 @@ static phys_addr_t exynos_iommu_iova_to_phys(struct iommu_domain *domain,
 		else if (lv2ent_small(entry))
 			phys = spage_phys(entry) + spage_offs(iova);
 	}
-
-	spin_unlock_irqrestore(&priv->pgtablelock, flags);
 
 	return phys;
 }
