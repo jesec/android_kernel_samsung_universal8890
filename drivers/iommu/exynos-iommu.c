@@ -1860,10 +1860,15 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 
 				if (!pte_present(*pte) ||
 					(write && !pte_write(*pte))) {
-					ret = handle_pte_fault(mm,
-						vma, start, pte, pmd,
-						write ? FAULT_FLAG_WRITE : 0);
-					if (IS_ERR_VALUE(ret)) {
+					if (pte_present(*pte) || pte_none(*pte)) {
+						ret = handle_pte_fault(mm,
+							vma, start, pte, pmd,
+							write ? FAULT_FLAG_WRITE : 0);
+						if (IS_ERR_VALUE(ret)) {
+							ret = -EIO;
+							goto out_unmap;
+						}
+					} else {
 						ret = -EIO;
 						goto out_unmap;
 					}
