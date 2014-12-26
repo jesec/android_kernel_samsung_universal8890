@@ -1820,6 +1820,7 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 			pte_t *pte;
 			sysmmu_pte_t *pent, *pent_first;
 			sysmmu_pte_t *sent;
+			spinlock_t *ptl;
 
 			if (pmd_none(*pmd)) {
 				pmd = pmd_alloc(mm, (pud_t *)pgd, start);
@@ -1855,12 +1856,16 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 			}
 
 			pent_first = pent;
+			ptl = pte_lockptr(mm, pmd);
+
+			spin_lock(ptl);
 			do {
 				WARN_ON(!lv2ent_fault(pent));
 
 				if (!pte_present(*pte) ||
 					(write && !pte_write(*pte))) {
 					if (pte_present(*pte) || pte_none(*pte)) {
+						spin_unlock(ptl);
 						ret = handle_pte_fault(mm,
 							vma, start, pte, pmd,
 							write ? FAULT_FLAG_WRITE : 0);
@@ -1868,15 +1873,14 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 							ret = -EIO;
 							goto out_unmap;
 						}
-					} else {
-						ret = -EIO;
-						goto out_unmap;
+						spin_lock(ptl);
 					}
 				}
 
 				if (!pte_present(*pte) ||
 					(write && !pte_write(*pte))) {
 					ret = -EPERM;
+					spin_unlock(ptl);
 					goto out_unmap;
 				}
 
@@ -1894,6 +1898,7 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 					pent = alloc_lv2entry_fast(priv, sent, iova);
 					if (IS_ERR(pent)) {
 						ret = PTR_ERR(pent);
+						spin_unlock(ptl);
 						goto out_unmap;
 					}
 					pent_first = pent;
@@ -1905,6 +1910,7 @@ int exynos_sysmmu_map_user_pages(struct device *dev,
 
 			if (pent_first != pent)
 				pgtable_flush(pent_first, pent);
+			spin_unlock(ptl);
 		} while (pmd++, start = pmd_next, start != pgd_next);
 
 	} while (pgd++, start = pgd_next, start != end);
