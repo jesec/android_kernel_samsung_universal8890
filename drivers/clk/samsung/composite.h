@@ -15,6 +15,7 @@
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 #include <linux/io.h>
+#include "../../soc/samsung/pwrcal/pwrcal.h"
 
 /*
  * struct samsung_clk_reg_dump: register dump of clock controller registers.
@@ -428,17 +429,51 @@ struct samsung_usermux {
 		.alias		= a,					\
 	}
 
-extern void __init samsung_register_usermux(
-		struct samsung_clk_provider *ctx,
-		struct samsung_usermux *list,
-		unsigned int nr_usermux);
+extern void __init samsung_register_usermux(struct samsung_usermux *list,
+			unsigned int nr_usermux);
 
-extern struct samsung_clk_provider *__init samsung_clk_init(
-			struct device_node *np, void __iomem *base,
-			unsigned long nr_clks);
+/*
+ * struct init_vclk: initial information for virtual clocks
+ * @id: id of the clock for binding with device tree.
+ * @calid: id of the clock for calling cal.
+ * @name: name of this virtual clock.
+ * @flags: optional flag for clock.
+ * @vclk_flags: optional flag for only virtual clock.
+ * @alias: optional name. recommend no more than 15 characters.
+ */
+struct init_vclk{
+	unsigned int		id;
+	unsigned int		calid;
+	const char		*name;
+	u8			flags;
+	u8			vclk_flags;
+	const char		*alias;
+};
 
-extern void __init samsung_clk_of_add_provider(struct device_node *np,
-		struct samsung_clk_provider *ctx);
+struct samsung_vclk {
+	struct clk_hw		hw;
+	unsigned int		id;
+	u8			flags;
+	spinlock_t		*lock;
+};
+
+#define VCLK(_id, _calid, _name, f, vf, a)	\
+	{					\
+		.id		= _id,		\
+		.calid		= _calid,	\
+		.name		= _name,	\
+		.flags		= f,		\
+		.vclk_flags	= vf,		\
+		.alias		= a,		\
+	}
+
+extern void __init samsung_register_vclk(struct init_vclk *list,
+				unsigned int nr_vclk);
+
+extern void __init samsung_clk_init(struct device_node *np, void __iomem *base,
+		unsigned long nr_clks, unsigned long *rdump,
+		unsigned long nr_rdump, unsigned long *soc_rdump,
+		unsigned long nr_soc_rdump);
 
 extern void __init samsung_register_of_fixed_ext(
 			struct samsung_clk_provider *ctx,

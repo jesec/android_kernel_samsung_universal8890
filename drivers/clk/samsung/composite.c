@@ -26,6 +26,7 @@
 #define to_comp_mux(_hw) container_of(_hw, struct samsung_composite_mux, hw)
 #define to_comp_divider(_hw) container_of(_hw, struct samsung_composite_divider, hw)
 #define to_usermux(_hw) container_of(_hw, struct clk_samsung_usermux, hw)
+#define to_vclk(_hw) container_of(_hw, struct samsung_vclk, hw)
 
 static DEFINE_SPINLOCK(lock);
 
@@ -1350,6 +1351,181 @@ void __init samsung_register_usermux(struct samsung_clk_provider *ctx,
 
 		samsung_clk_add_lookup(ctx, clk, (&list[cnt])->id);
 
+		if ((&list[cnt])->alias) {
+			ret = clk_register_clkdev(clk, (&list[cnt])->alias, NULL);
+			if (ret)
+				pr_err("%s: failed to register lookup %s\n",
+						__func__, (&list[cnt])->alias);
+		}
+	}
+}
+
+/**
+ * Operations for virtual clock used in cal
+ * When cal is used to set clocks, following operations will be executed.
+ */
+int cal_vclk_enable(struct clk_hw *hw)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long flags = 0;
+	int ret = 0;
+
+	if (vclk->lock)
+		spin_lock_irqsave(vclk->lock, flags);
+
+	/* Call cal api to enable virtual clock */
+	ret = cal_clk_enable(vclk->id);
+	if (ret) {
+		pr_err("[CAL]%s failed.\n", __func__);
+		if (vclk->lock)
+			spin_unlock_irqrestore(vclk->lock, flags);
+		return -EAGAIN;
+	}
+
+	if (vclk->lock)
+		spin_unlock_irqrestore(vclk->lock, flags);
+
+	return 0;
+}
+
+void cal_vclk_disable(struct clk_hw *hw)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long flags = 0;
+	int ret = 0;
+
+	if (vclk->lock)
+		spin_lock_irqsave(vclk->lock, flags);
+
+	/* Call cal api to disable virtual clock */
+	ret = cal_clk_disable(vclk->id);
+	if (ret) {
+		pr_err("[CAL]%s failed.\n", __func__);
+		if (vclk->lock)
+			spin_unlock_irqrestore(vclk->lock, flags);
+		return;
+	}
+
+	if (vclk->lock)
+		spin_unlock_irqrestore(vclk->lock, flags);
+}
+
+int cal_vclk_is_enabled(struct clk_hw *hw)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	int ret = 0;
+
+	/*
+	 * Call cal api to check whether clock is enabled or not
+	 * Spinlock is not needed because only read operation will
+	 * be executed
+	 */
+	ret = cal_clk_is_enabled(vclk->id);
+
+	return ret;
+}
+
+unsigned long cal_vclk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long ret = 0;
+
+	/* Call cal api to recalculate rate */
+	ret = cal_clk_getrate(vclk->id);
+
+	return ret;
+}
+
+long cal_vclk_round_rate(struct clk_hw *hw, unsigned long rate,
+				unsigned long *prate)
+{
+	/* round_rate ops is not needed when using cal */
+	return (long)rate;
+}
+
+int cal_vclk_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long prate)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long flags = 0;
+	int ret = 0;
+
+	if (vclk->lock)
+		spin_lock_irqsave(vclk->lock, flags);
+
+	/* Call cal api to set rate of clock */
+	ret = cal_clk_setrate(vclk->id, rate);
+	if (ret) {
+		pr_err("[CAL]%s failed.\n", __func__);
+		if (vclk->lock)
+			spin_unlock_irqrestore(vclk->lock, flags);
+		return -EAGAIN;
+	}
+
+	if (vclk->lock)
+		spin_unlock_irqrestore(vclk->lock, flags);
+
+	return ret;
+}
+
+static const struct clk_ops samsung_vclk_ops = {
+	.enable = cal_vclk_enable,
+	.disable = cal_vclk_disable,
+	.is_enabled = cal_vclk_is_enabled,
+	.recalc_rate = cal_vclk_recalc_rate,
+	.round_rate = cal_vclk_round_rate,
+	.set_rate = cal_vclk_set_rate,
+};
+
+static struct clk * __init _samsung_register_vclk(struct init_vclk *list)
+{
+	struct samsung_vclk *vclk;
+	struct clk *clk;
+	struct clk_init_data init;
+
+	vclk = kzalloc(sizeof(struct samsung_vclk), GFP_KERNEL);
+	if (!vclk) {
+		pr_err("%s: could not allocate struct vclk\n", __func__);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	init.name = list->name;
+	init.ops = &samsung_vclk_ops;
+	init.flags = list->flags | (CLK_IS_BASIC | CLK_IS_ROOT | CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED);
+	init.parent_names = NULL;
+	init.num_parents = 0;
+
+	vclk->id = list->calid;
+	/* Flags for vclk are not defined yet */
+	vclk->flags = list->vclk_flags;
+	vclk->lock = &lock;
+	vclk->hw.init = &init;
+
+	clk = clk_register(NULL, &vclk->hw);
+
+	if (IS_ERR(clk))
+		kfree(vclk);
+
+	return clk;
+}
+
+void __init samsung_register_vclk(struct init_vclk *list,
+				unsigned int nr_vclk)
+{
+	struct clk *clk;
+	int cnt;
+	unsigned int ret = 0;
+
+	for (cnt = 0; cnt < nr_vclk; cnt++) {
+		clk = _samsung_register_vclk(&list[cnt]);
+		if (IS_ERR(clk)) {
+			pr_err("%s: failed to register virtual clock %s\n",
+				__func__, (&list[cnt])->name);
+			continue;
+		}
+
+		samsung_clk_add_lookup(clk, (&list[cnt])->id);
+
+		/* Additional array of clocks for finding struct clk */
 		if ((&list[cnt])->alias) {
 			ret = clk_register_clkdev(clk, (&list[cnt])->alias, NULL);
 			if (ret)
