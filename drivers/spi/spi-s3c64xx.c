@@ -50,6 +50,7 @@ static LIST_HEAD(drvdata_list);
 
 #define MAX_SPI_PORTS		8
 #define SPI_AUTOSUSPEND_TIMEOUT		(100)
+#define SPI_AUTOSP_TIMEOUT_TOP		(50)
 
 /* Registers and bit-fields */
 
@@ -1546,7 +1547,8 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 
 	if (sci->domain == DOMAIN_TOP)
-		pm_runtime_set_autosuspend_delay(&pdev->dev, 0);
+		pm_runtime_set_autosuspend_delay(&pdev->dev,
+					SPI_AUTOSP_TIMEOUT_TOP);
 	else
 		pm_runtime_set_autosuspend_delay(&pdev->dev,
 					SPI_AUTOSUSPEND_TIMEOUT);
