@@ -142,6 +142,9 @@ static LIST_HEAD(drvdata_list);
 
 #define S3C64XX_SPI_TRAILCNT		S3C64XX_SPI_MAX_TRAILCNT
 
+#define S3C64XX_SPI_DMA_4BURST_LEN	0x4
+#define S3C64XX_SPI_DMA_1BURST_LEN	0x1
+
 #define msecs_to_loops(t) (loops_per_jiffy / 1000 * HZ * t)
 
 #define RXBUSY    (1<<2)
@@ -258,6 +261,7 @@ static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
 	struct s3c64xx_spi_driver_data *sdd;
 	struct samsung_dma_prep info;
 	struct samsung_dma_config config;
+	u32 modecfg;
 
 	if (dma->direction == DMA_DEV_TO_MEM) {
 		sdd = container_of((void *)dma,
@@ -265,6 +269,11 @@ static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
 		config.direction = sdd->rx_dma.direction;
 		config.fifo = sdd->sfr_start + S3C64XX_SPI_RX_DATA;
 		config.width = sdd->cur_bpw / 8;
+		modecfg = readl(sdd->regs + S3C64XX_SPI_MODE_CFG);
+		config.maxburst = modecfg & S3C64XX_SPI_MODE_4BURST ?
+				S3C64XX_SPI_DMA_4BURST_LEN :
+				S3C64XX_SPI_DMA_1BURST_LEN;
+
 	#ifdef CONFIG_ARM64
 		sdd->ops->config((unsigned long)sdd->rx_dma.ch, &config);
 	#else
@@ -276,6 +285,11 @@ static void prepare_dma(struct s3c64xx_spi_dma_data *dma,
 		config.direction =  sdd->tx_dma.direction;
 		config.fifo = sdd->sfr_start + S3C64XX_SPI_TX_DATA;
 		config.width = sdd->cur_bpw / 8;
+		modecfg = readl(sdd->regs + S3C64XX_SPI_MODE_CFG);
+		config.maxburst = modecfg & S3C64XX_SPI_MODE_4BURST ?
+				S3C64XX_SPI_DMA_4BURST_LEN :
+				S3C64XX_SPI_DMA_1BURST_LEN;
+
 	#ifdef CONFIG_ARM64
 		sdd->ops->config((unsigned long)sdd->tx_dma.ch, &config);
 	#else
@@ -506,16 +520,20 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 				struct spi_transfer *xfer, int dma_mode)
 {
 	void __iomem *regs = sdd->regs;
-	u32 modecfg, chcfg;
-
-	modecfg = readl(regs + S3C64XX_SPI_MODE_CFG);
-	modecfg &= ~(S3C64XX_SPI_MODE_TXDMA_ON | S3C64XX_SPI_MODE_RXDMA_ON);
+	u32 modecfg, chcfg, dma_burst_len;
 
 	chcfg = readl(regs + S3C64XX_SPI_CH_CFG);
 	chcfg &= ~S3C64XX_SPI_CH_TXCH_ON;
 
+	modecfg = readl(regs + S3C64XX_SPI_MODE_CFG);
+	modecfg &= ~S3C64XX_SPI_MODE_4BURST;
+
 	if (dma_mode) {
 		chcfg &= ~S3C64XX_SPI_CH_RXCH_ON;
+
+		dma_burst_len = (sdd->cur_bpw / 8) * S3C64XX_SPI_DMA_4BURST_LEN;
+		if (!(xfer->len % dma_burst_len))
+			modecfg |= S3C64XX_SPI_MODE_4BURST;
 	} else {
 		/* Always shift in data in FIFO, even if xfer is Tx only,
 		 * this helps setting PCKT_CNT value for generating clocks
@@ -526,6 +544,10 @@ static void enable_datapath(struct s3c64xx_spi_driver_data *sdd,
 					| S3C64XX_SPI_PACKET_CNT_EN,
 					regs + S3C64XX_SPI_PACKET_CNT);
 	}
+
+	writel(modecfg, regs + S3C64XX_SPI_MODE_CFG);
+	modecfg = readl(regs + S3C64XX_SPI_MODE_CFG);
+	modecfg &= ~(S3C64XX_SPI_MODE_TXDMA_ON | S3C64XX_SPI_MODE_RXDMA_ON);
 
 	if (xfer->tx_buf != NULL) {
 		sdd->state |= TXBUSY;
