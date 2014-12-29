@@ -608,7 +608,13 @@ static int exynos_iovmm_create_debugfs(void)
 	if (!exynos_iovmm_debugfs_root)
 		pr_err("IOVMM: Failed to create debugfs entry\n");
 	else
-		pr_info("IOVMMU: Created debugfs entry at debugfs/iovmm\n");
+		pr_info("IOVMM: Created debugfs entry at debugfs/iovmm\n");
+
+	exynos_iommu_debugfs_root = debugfs_create_dir("iommu", NULL);
+	if (!exynos_iommu_debugfs_root)
+		pr_err("IOMMU: Failed to create debugfs entry\n");
+	else
+		pr_info("IOMMU: Created debugfs entry at debugfs/iommu\n");
 
 	return 0;
 }
