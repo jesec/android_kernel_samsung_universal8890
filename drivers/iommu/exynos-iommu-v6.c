@@ -1948,8 +1948,8 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 			pgtable_flush(sent, sent + 1);
 			SYSMMU_EVENT_LOG_IOMMU_ALLOCSLPD(IOMMU_PRIV_TO_LOG(priv),
 							iova & SECT_MASK);
-			spin_unlock_irqrestore(&priv->pgtablelock, flags);
 		}
+		spin_unlock_irqrestore(&priv->pgtablelock, flags);
 	} else if (!lv1ent_page(sent)) {
 		BUG();
 		return ERR_PTR(-EADDRINUSE);
