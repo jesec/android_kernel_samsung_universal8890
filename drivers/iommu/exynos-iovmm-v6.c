@@ -83,14 +83,10 @@ again:
 			IOVM_NUM_PAGES(vmm->iovm_size[id]), index);
 
 	if (align) {
-		if (exact_align_mask) {
-			if ((index & ~(align - 1) & (max_align - 1)) >
-							exact_align_mask)
-				index = ALIGN(index, max_align);
-			index |= exact_align_mask;
-		} else {
+		if (exact_align_mask)
+			index = ALIGN(index, max_align) | exact_align_mask;
+		else
 			index = ALIGN(index, align);
-		}
 
 		if (index >= IOVM_NUM_PAGES(vmm->iovm_size[id])) {
 			spin_unlock(&vmm->bitmap_lock);
@@ -336,34 +332,13 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	start_off = offset_in_page(sg_phys(sg) + offset);
 	size = PAGE_ALIGN(size + start_off);
 
-	if (size >= SECT_SIZE)
-		max_align = SECT_SIZE;
-	else if (size < LPAGE_SIZE)
-		max_align = SPAGE_SIZE;
-	else
-		max_align = LPAGE_SIZE;
+	align = max_align = SECT_SIZE;
 
 	if (sg_next(sg) == NULL) {/* physically contiguous chunk */
 		/* 'align' must be biggest 2^n that satisfies:
 		 * 'address of physical memory' % 'align' = 0
 		 */
-		align = 1 << __ffs(page_to_phys(sg_page(sg)));
-
 		exact_align_mask = page_to_phys(sg_page(sg)) & (max_align - 1);
-
-		if ((size - exact_align_mask) < max_align) {
-			max_align /= 16;
-			exact_align_mask = exact_align_mask & (max_align - 1);
-		}
-
-		if (align > max_align)
-			align = max_align;
-
-		exact_align_mask &= ~(align - 1);
-	} else {
-		align = 1 << __ffs(page_to_phys(sg_page(sg)));
-		align = min_t(size_t, align, max_align);
-		max_align = align;
 	}
 
 	start = alloc_iovm_region(vmm, size, align, max_align,
