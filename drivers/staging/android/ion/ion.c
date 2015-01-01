@@ -1845,6 +1845,12 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (data.preload.count == 0)
 			return 0;
 
+		if (data.preload.count > 8) {
+			pr_warn("%s: number of object types should be < 9\n",
+				__func__);
+			return -EPERM;
+		}
+
 		obj = kmalloc(sizeof(*obj) * data.preload.count, GFP_KERNEL);
 		if (!obj)
 			return -ENOMEM;

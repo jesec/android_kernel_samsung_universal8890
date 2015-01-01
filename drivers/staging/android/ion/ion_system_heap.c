@@ -379,7 +379,8 @@ static void ion_system_heap_preload_allocate(struct ion_heap *heap,
 	struct ion_system_heap_preload_data *data;
 	struct task_struct *ret;
 
-	data = kmalloc(sizeof(*data) + sizeof(data->objs) * count, GFP_KERNEL);
+	data = kmalloc(sizeof(*data) + sizeof(data->objs[0]) * count,
+			GFP_KERNEL);
 	if (!data) {
 		pr_info("%s: preload request failed due to nomem\n", __func__);
 		return;
