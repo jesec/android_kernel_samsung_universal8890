@@ -2252,9 +2252,7 @@ static int s5p_mfc_release(struct file *file)
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
 	struct s5p_mfc_dev *dev = NULL;
 	struct s5p_mfc_enc *enc = NULL;
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	int ret = 0;
-#endif
 
 	dev = ctx->dev;
 	if (!dev) {
@@ -2269,9 +2267,12 @@ static int s5p_mfc_release(struct file *file)
 
 	if (need_to_wait_frame_start(ctx)) {
 		ctx->state = MFCINST_ABORT;
-		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
+		ret = s5p_mfc_wait_for_done_ctx(ctx,
+				S5P_FIMV_R2H_CMD_FRAME_DONE_RET);
+		if (ret == 1)
 			s5p_mfc_cleanup_timeout(ctx);
+		else if (ret == -1)
+			mfc_err_ctx("continue progress\n");
 	}
 
 	if (ctx->type == MFCINST_ENCODER) {

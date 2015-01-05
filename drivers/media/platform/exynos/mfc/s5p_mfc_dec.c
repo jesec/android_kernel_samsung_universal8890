@@ -2730,7 +2730,8 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 	struct s5p_mfc_dev *dev;
 	int aborted = 0;
 	int index = 0;
-    int prev_state;
+	int prev_state;
+	int ret = 0;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -2749,9 +2750,12 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 
 	if (need_to_wait_frame_start(ctx)) {
 		ctx->state = MFCINST_ABORT;
-		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
+		ret = s5p_mfc_wait_for_done_ctx(ctx,
+				S5P_FIMV_R2H_CMD_FRAME_DONE_RET);
+		if (ret == 1)
 			s5p_mfc_cleanup_timeout(ctx);
+		else if (ret == -1)
+			mfc_err_ctx("continue progress\n");
 
 		aborted = 1;
 	}
