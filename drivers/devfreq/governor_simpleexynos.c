@@ -52,6 +52,7 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 	struct devfreq_simple_exynos_data *data = df->data;
 	unsigned long max = (df->max_freq) ? df->max_freq : UINT_MAX;
 	unsigned long pm_qos_min = 0, cal_qos_max = 0;
+	unsigned long pm_qos_max = 0;
 	unsigned long usage_rate;
 	int err;
 
@@ -61,6 +62,8 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 
 	if (data) {
 		pm_qos_min = pm_qos_request(data->pm_qos_class);
+		if (data->pm_qos_class_max)
+			pm_qos_max = pm_qos_request(data->pm_qos_class_max);
 		if (unlikely(gov_simple_exynos))
 			printk("pm_qos: %lu\n", pm_qos_min);
 
@@ -84,12 +87,16 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 	/* Assume MAX if it is going to be divided by zero */
 	if (stat.total_time == 0) {
 		*freq = max3(max, cal_qos_max, pm_qos_min);
+		if (pm_qos_max)
+			*freq = min(pm_qos_max, *freq);
 		return 0;
 	}
 
 	/* Set MAX if we do not know the initial frequency */
 	if (stat.current_frequency == 0) {
 		*freq = max3(max, cal_qos_max, pm_qos_min);
+		if (pm_qos_max)
+			*freq = min(pm_qos_max, *freq);
 		return 0;
 	}
 
@@ -114,6 +121,9 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 
 	if (pm_qos_min)
 		*freq = max(pm_qos_min, *freq);
+
+	if (pm_qos_max)
+		*freq = min(pm_qos_max, *freq);
 
 	if (unlikely(gov_simple_exynos))
 		printk("Usage: %lu, freq: %lu, old: %lu\n", usage_rate, *freq, stat.current_frequency);
