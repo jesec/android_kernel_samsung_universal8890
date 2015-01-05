@@ -446,7 +446,7 @@ static int usb_notifier_probe(struct platform_device *pdev)
 	*/
 	INIT_DELAYED_WORK(&pdata->g_ndev.notify_ready_work, usbgadget_ready);
 	schedule_delayed_work(&pdata->g_ndev.notify_ready_work,
-					msecs_to_jiffies(15000));
+					msecs_to_jiffies(10000));
 
 	dwc_lsi_notify.redriver_en_gpio = pdata->gpio_redriver_en;
 	set_otg_notify(&dwc_lsi_notify);
