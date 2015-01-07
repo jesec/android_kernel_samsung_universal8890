@@ -1723,7 +1723,7 @@ static int sc_power_clk_enable(struct sc_dev *sc)
 {
 	int ret;
 
-	if (in_irq())
+	if (in_interrupt())
 		ret = pm_runtime_get(sc->dev);
 	else
 		ret = pm_runtime_get_sync(sc->dev);
@@ -1914,8 +1914,6 @@ static void sc_watchdog(unsigned long arg)
 	if (atomic_read(&sc->wdt.cnt) >= SC_WDT_CNT) {
 		sc_hwset_soft_reset(sc);
 
-		sc_clk_power_disable(sc);
-
 		sc_dbg("wakeup blocked process\n");
 		atomic_set(&sc->wdt.cnt, 0);
 		clear_bit(DEV_RUN, &sc->state);
@@ -1933,6 +1931,8 @@ static void sc_watchdog(unsigned long arg)
 			ctx = v4l2_m2m_get_curr_priv(sc->m2m.m2m_dev);
 			if (!ctx || !ctx->m2m_ctx) {
 				dev_err(sc->dev, "current ctx is NULL\n");
+				spin_unlock_irqrestore(&sc->slock, flags);
+				sc_clk_power_disable(sc);
 				return;
 
 			}
@@ -1967,6 +1967,7 @@ static void sc_watchdog(unsigned long arg)
 		}
 
 		spin_unlock_irqrestore(&sc->slock, flags);
+		sc_clk_power_disable(sc);
 		return;
 	}
 
