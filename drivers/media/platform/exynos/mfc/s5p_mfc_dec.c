@@ -2780,6 +2780,7 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 		dec->dpb_queue_cnt = 0;
 		dec->consumed = 0;
 		dec->remained_size = 0;
+		dec->y_addr_for_pb = 0;
 
 		while (index < MFC_MAX_BUFFERS) {
 			index = find_next_bit(&ctx->dst_ctrls_avail,
