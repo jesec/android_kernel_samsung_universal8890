@@ -1080,10 +1080,13 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 					sizeof(struct timeval));
 			}
 
-			if (!no_order)
+			if (!no_order) {
 				ctx->last_framerate =
 					get_framerate_by_timestamp(
 						ctx, &dst_buf->vb.v4l2_buf);
+				ctx->last_framerate =
+					(ctx->qos_ratio * ctx->last_framerate) / 100;
+			}
 
 			vb2_buffer_done(&dst_buf->vb,
 				s5p_mfc_err_dspl(err) ?
