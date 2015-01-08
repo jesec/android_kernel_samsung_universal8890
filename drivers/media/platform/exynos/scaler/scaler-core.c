@@ -682,19 +682,15 @@ static int sc_v4l2_g_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	return 0;
 }
 
-static void sc_get_fract_val(struct v4l2_crop *cr, struct sc_ctx *ctx)
+static int sc_get_fract_val(struct v4l2_crop *cr, struct sc_ctx *ctx)
 {
 	ctx->init_phase.yh = SC_CROP_GET_FR_VAL(cr->c.left);
-	if (ctx->init_phase.yh) {
+	if (ctx->init_phase.yh)
 		cr->c.left &= SC_CROP_INT_MASK;
-		ctx->init_phase.ch = ctx->init_phase.yh / 2;
-	}
 
 	ctx->init_phase.yv = SC_CROP_GET_FR_VAL(cr->c.top);
-	if (ctx->init_phase.yv) {
+	if (ctx->init_phase.yv)
 		cr->c.top &= SC_CROP_INT_MASK;
-		ctx->init_phase.cv = ctx->init_phase.yv / 2;
-	}
 
 	ctx->init_phase.w = SC_CROP_GET_FR_VAL(cr->c.width);
 	if (ctx->init_phase.w) {
@@ -708,13 +704,33 @@ static void sc_get_fract_val(struct v4l2_crop *cr, struct sc_ctx *ctx)
 		cr->c.height += 1;
 	}
 
+	if (sc_fmt_is_yuv420(ctx->s_frame.sc_fmt->pixelformat)) {
+		ctx->init_phase.ch = ctx->init_phase.yh / 2;
+		ctx->init_phase.cv = ctx->init_phase.yv / 2;
+	} else {
+		ctx->init_phase.ch = ctx->init_phase.yh;
+		ctx->init_phase.cv = ctx->init_phase.yv;
+	}
+
+	if ((ctx->init_phase.yh || ctx->init_phase.yv || ctx->init_phase.w
+			|| ctx->init_phase.h) &&
+		(!(sc_fmt_is_yuv420(ctx->s_frame.sc_fmt->pixelformat) ||
+		sc_fmt_is_rgb888(ctx->s_frame.sc_fmt->pixelformat)))) {
+		v4l2_err(&ctx->sc_dev->m2m.v4l2_dev,
+			"%s format on real number is not supported",
+			ctx->s_frame.sc_fmt->name);
+		return -EINVAL;
+	}
+
 	v4l2_dbg(1, sc_log_level, &ctx->sc_dev->m2m.v4l2_dev,
 				"src crop position (x,y,w,h) =	\
-				(%d.%d, %d.%d, %d.%d, %d.%d)\n",
+				(%d.%d, %d.%d, %d.%d, %d.%d) %d, %d\n",
 				cr->c.left, ctx->init_phase.yh,
 				cr->c.top, ctx->init_phase.yv,
 				cr->c.width, ctx->init_phase.w,
-				cr->c.height, ctx->init_phase.h);
+				cr->c.height, ctx->init_phase.h,
+				ctx->init_phase.ch, ctx->init_phase.cv);
+	return 0;
 }
 
 static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
@@ -726,6 +742,7 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	int x_align = 0, y_align = 0;
 	int w_align = 0;
 	int h_align = 0;
+	int ret = 0;
 
 	frame = ctx_get_frame(ctx, cr->type);
 	if (IS_ERR(frame))
@@ -745,9 +762,11 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	}
 
 	if (V4L2_TYPE_IS_OUTPUT(cr->type)) {
+		ret = sc_get_fract_val(cr, ctx);
+		if (ret < 0)
+			return ret;
 		limit = &sc->variant->limit_input;
 		set_bit(CTX_SRC_FMT, &ctx->flags);
-		sc_get_fract_val(cr, ctx);
 	} else {
 		limit = &sc->variant->limit_output;
 		set_bit(CTX_DST_FMT, &ctx->flags);

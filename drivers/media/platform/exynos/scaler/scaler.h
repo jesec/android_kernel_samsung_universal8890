@@ -82,6 +82,8 @@ extern int sc_log_level;
 			<< SC_CROP_FRACT_SHIFT) | ((i) & SC_CROP_INT_MASK))
 
 #define fh_to_sc_ctx(__fh)	container_of(__fh, struct sc_ctx, fh)
+#define sc_fmt_is_rgb888(x)	((x == V4L2_PIX_FMT_RGB32) || \
+		(x == V4L2_PIX_FMT_BGR32))
 #define sc_fmt_is_yuv422(x)	((x == V4L2_PIX_FMT_YUYV) || \
 		(x == V4L2_PIX_FMT_UYVY) || (x == V4L2_PIX_FMT_YVYU) || \
 		(x == V4L2_PIX_FMT_YUV422P) || (x == V4L2_PIX_FMT_NV16) || \
