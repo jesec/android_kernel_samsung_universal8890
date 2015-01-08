@@ -132,14 +132,16 @@ struct exynos_iommu_owner {
 
 struct exynos_vm_region {
 	struct list_head node;
-	dma_addr_t start;
-	size_t size;
+	u32 start;
+	u32 size;
+	u32 section_off;
+	u32 dummy_size;
 };
 
 struct exynos_iovmm {
 	struct iommu_domain *domain; /* iommu domain for this iovmm */
 	size_t iovm_size[MAX_NUM_PLANE]; /* iovm bitmap size per plane */
-	dma_addr_t iova_start[MAX_NUM_PLANE]; /* iovm start address per plane */
+	u32 iova_start[MAX_NUM_PLANE]; /* iovm start address per plane */
 	unsigned long *vm_map[MAX_NUM_PLANE]; /* iovm biatmap per plane */
 	struct list_head regions_list;	/* list of exynos_vm_region */
 	spinlock_t vmlist_lock; /* lock for updating regions_list */

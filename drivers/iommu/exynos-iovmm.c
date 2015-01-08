@@ -259,7 +259,7 @@ static void show_iovm_regions(struct exynos_iovmm *vmm)
 	pr_err("LISTING IOVMM REGIONS...\n");
 	spin_lock(&vmm->vmlist_lock);
 	list_for_each_entry(pos, &vmm->regions_list, node) {
-		pr_err("REGION: %pa (SIZE: %#zx)\n", &pos->start, pos->size);
+		pr_err("REGION: %#x (SIZE: %#x)\n", pos->start, pos->size);
 	}
 	spin_unlock(&vmm->vmlist_lock);
 	pr_err("END OF LISTING IOVMM REGIONS...\n");
@@ -481,8 +481,8 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 	if (region) {
 		if (WARN_ON(region->start != iova)) {
 			dev_err(dev,
-			"IOVMM: iova %pa and region %#zx @ %pa mismatch\n",
-				&iova, region->size, &region->start);
+			"IOVMM: iova %pa and region %#x @ %#x mismatch\n",
+				&iova, region->size, region->start);
 			show_iovm_regions(vmm);
 			/* reinsert iovm region */
 			add_iovm_region(vmm, region->start, region->size);
@@ -492,9 +492,9 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 		unmap_size = iommu_unmap(vmm->domain, iova & PAGE_MASK,
 							region->size);
 		if (unlikely(unmap_size != region->size)) {
-			dev_err(dev, "Failed to unmap IOVMM REGION %pa "
-				"(SIZE: %#zx, iova: %pa, unmapped: %#zx)\n",
-				&region->start,
+			dev_err(dev, "Failed to unmap IOVMM REGION %#x "
+				"(SIZE: %#x, iova: %pa, unmapped: %#zx)\n",
+				region->start,
 				region->size, &iova, unmap_size);
 			show_iovm_regions(vmm);
 			kfree(region);

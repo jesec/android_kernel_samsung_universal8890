@@ -60,19 +60,19 @@ static int find_iovm_id(struct exynos_iovmm *vmm,
  */
 static dma_addr_t alloc_iovm_region(struct exynos_iovmm *vmm, size_t size,
 			size_t align, size_t max_align, size_t exact_align_mask,
-			off_t offset, int id)
+			off_t page_offset, int id)
 {
-	dma_addr_t index = 0;
-	dma_addr_t vstart;
-	size_t vsize;
+	u32 index = 0;
+	u32 vstart;
+	u32 vsize;
 	unsigned long end, i;
 	struct exynos_vm_region *region;
 
 	BUG_ON(align & (align - 1));
-	BUG_ON(offset >= PAGE_SIZE);
+	BUG_ON(page_offset >= PAGE_SIZE);
 
 	/* To avoid allocating prefetched iovm region */
-	vsize = ALIGN(size + SZ_256K, SZ_256K) >> PAGE_SHIFT;
+	vsize = (ALIGN(size + SZ_256K, SZ_256K) + exact_align_mask) >> PAGE_SHIFT;
 	align >>= PAGE_SHIFT;
 	exact_align_mask >>= PAGE_SHIFT;
 	max_align >>= PAGE_SHIFT;
@@ -83,11 +83,7 @@ again:
 			IOVM_NUM_PAGES(vmm->iovm_size[id]), index);
 
 	if (align) {
-		if (exact_align_mask)
-			index = ALIGN(index, max_align) | exact_align_mask;
-		else
-			index = ALIGN(index, align);
-
+		index = ALIGN(index, align);
 		if (index >= IOVM_NUM_PAGES(vmm->iovm_size[id])) {
 			spin_unlock(&vmm->bitmap_lock);
 			return 0;
@@ -114,7 +110,7 @@ again:
 
 	spin_unlock(&vmm->bitmap_lock);
 
-	vstart = (index << PAGE_SHIFT) + vmm->iova_start[id] + offset;
+	vstart = (index << PAGE_SHIFT) + vmm->iova_start[id] + page_offset;
 
 	region = kmalloc(sizeof(*region), GFP_KERNEL);
 	if (unlikely(!region)) {
@@ -127,6 +123,8 @@ again:
 	INIT_LIST_HEAD(&region->node);
 	region->start = vstart;
 	region->size = vsize << PAGE_SHIFT;
+	region->dummy_size = region->size - size;
+	region->section_off = exact_align_mask << PAGE_SHIFT;
 
 	spin_lock(&vmm->vmlist_lock);
 	list_add_tail(&region->node, &vmm->regions_list);
@@ -135,7 +133,7 @@ again:
 	vmm->num_map++;
 	spin_unlock(&vmm->vmlist_lock);
 
-	return region->start;
+	return region->start + region->section_off;
 }
 
 struct exynos_vm_region *find_iovm_region(struct exynos_iovmm *vmm,
@@ -166,7 +164,7 @@ static struct exynos_vm_region *remove_iovm_region(struct exynos_iovmm *vmm,
 	spin_lock(&vmm->vmlist_lock);
 
 	list_for_each_entry(region, &vmm->regions_list, node) {
-		if (region->start == iova) {
+		if (region->start + region->section_off == iova) {
 			int id;
 
 			id = find_iovm_id(vmm, region);
@@ -203,7 +201,7 @@ static void free_iovm_region(struct exynos_iovmm *vmm,
 
 	spin_lock(&vmm->bitmap_lock);
 	bitmap_clear(vmm->vm_map[id],
-			(region->start - vmm->iova_start[id]) >> PAGE_SHIFT,
+		(region->start - vmm->iova_start[id]) >> PAGE_SHIFT,
 			region->size >> PAGE_SHIFT);
 	spin_unlock(&vmm->bitmap_lock);
 
@@ -251,7 +249,7 @@ static void show_iovm_regions(struct exynos_iovmm *vmm)
 	pr_err("LISTING IOVMM REGIONS...\n");
 	spin_lock(&vmm->vmlist_lock);
 	list_for_each_entry(pos, &vmm->regions_list, node) {
-		pr_err("REGION: %pa (SIZE: %#zx)\n", &pos->start, pos->size);
+		pr_err("REGION: %#x (SIZE: %#x)\n", pos->start, pos->size);
 	}
 	spin_unlock(&vmm->vmlist_lock);
 	pr_err("END OF LISTING IOVMM REGIONS...\n");
@@ -334,13 +332,12 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 
 	align = max_align = SECT_SIZE;
 
-	if (sg_next(sg) == NULL) {/* physically contiguous chunk */
+	if (sg_next(sg) == NULL && sg->length > SZ_4K) { /* physically contiguous chunk */
 		/* 'align' must be biggest 2^n that satisfies:
 		 * 'address of physical memory' % 'align' = 0
 		 */
 		exact_align_mask = page_to_phys(sg_page(sg)) & (max_align - 1);
 	}
-
 	start = alloc_iovm_region(vmm, size, align, max_align,
 				exact_align_mask, start_off, id);
 	if (!start) {
@@ -356,6 +353,7 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 	}
 
 	addr = start - start_off;
+
 	do {
 		phys_addr_t phys;
 		size_t len;
@@ -475,22 +473,24 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 
 	region = remove_iovm_region(vmm, iova);
 	if (region) {
-		if (WARN_ON(region->start != iova)) {
+		/* clear page offset */
+		if (WARN_ON((region->start + region->section_off) != iova)) {
 			dev_err(dev,
-			"IOVMM: iova %pa and region %#zx @ %pa mismatch\n",
-				&iova, region->size, &region->start);
+			"IOVMM: iova %pa and region %#x @ %#x mismatch\n",
+				&iova, region->size, region->start);
 			show_iovm_regions(vmm);
 			/* reinsert iovm region */
 			add_iovm_region(vmm, region->start, region->size);
 			kfree(region);
 			return;
 		}
-		unmap_size = iommu_unmap(vmm->domain, iova & PAGE_MASK,
-							region->size);
+		region->start = region->start & SPAGE_MASK;
+		unmap_size = iommu_unmap(vmm->domain,
+					region->start, region->size);
 		if (unlikely(unmap_size != region->size)) {
-			dev_err(dev, "Failed to unmap IOVMM REGION %pa "
-				"(SIZE: %#zx, iova: %pa, unmapped: %#zx)\n",
-				&region->start,
+			dev_err(dev, "Failed to unmap IOVMM REGION %#x "
+				"(SIZE: %#x, iova: %pa, unmapped: %#zx)\n",
+				region->start,
 				region->size, &iova, unmap_size);
 			show_iovm_regions(vmm);
 			kfree(region);
@@ -606,15 +606,15 @@ static int iovmm_debug_show(struct seq_file *s, void *unused)
 
 	spin_lock(&vmm->vmlist_lock);
 	while (i < vmm->inplanes) {
-		seq_printf(s, "%3s[%d]  %pa  %#10zx  %#10zx  %d\n",
-				"in", i, &vmm->iova_start[i], vmm->iovm_size[i],
+		seq_printf(s, "%3s[%d]  %#x  %#10zx  %#10zx  %d\n",
+				"in", i, vmm->iova_start[i], vmm->iovm_size[i],
 				vmm->iovm_size[i] - vmm->allocated_size[i],
 				vmm->num_areas[i]);
 		i++;
 	}
 	while (i < (vmm->inplanes + vmm->onplanes)) {
-		seq_printf(s, "%3s[%d]  %pa  %#10zx  %#10zx  %d\n",
-				"out", i - vmm->inplanes, &vmm->iova_start[i],
+		seq_printf(s, "%3s[%d]  %#x  %#10zx  %#10zx  %d\n",
+				"out", i - vmm->inplanes, vmm->iova_start[i],
 				vmm->iovm_size[i],
 				vmm->iovm_size[i] - vmm->allocated_size[i],
 				vmm->num_areas[i]);
