@@ -568,6 +568,8 @@ int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 	struct s5p_mfc_buf_size_v6 *buf_size;
 	void *alloc_ctx;
 	struct s5p_mfc_extra_buf *ctx_buf;
+	int firmware_size;
+	unsigned long fw_ofs;
 
 	mfc_debug_enter();
 	if (!dev) {
@@ -577,30 +579,21 @@ int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 	buf_size = dev->variant->buf_size->buf;
 	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
 	ctx_buf = &dev->ctx_buf;
+	fw_ofs = dev->fw_info.ofs;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (buf_type == MFCBUF_DRM) {
 		alloc_ctx = dev->alloc_ctx_drm;
 		ctx_buf = &dev->ctx_buf_drm;
+		fw_ofs = dev->drm_fw_info.ofs;
 	}
 #endif
-	ctx_buf->alloc =
-			s5p_mfc_mem_alloc_priv(alloc_ctx, buf_size->dev_ctx);
-	if (IS_ERR(ctx_buf->alloc)) {
-		mfc_err_dev("Allocating DESC buffer failed.\n");
-		return PTR_ERR(ctx_buf->alloc);
-	}
 
-	ctx_buf->ofs = s5p_mfc_mem_daddr_priv(ctx_buf->alloc);
-	ctx_buf->virt = s5p_mfc_mem_vaddr_priv(ctx_buf->alloc);
-	if (!ctx_buf->virt) {
-		s5p_mfc_mem_free_priv(ctx_buf->alloc);
-		ctx_buf->alloc = NULL;
-		ctx_buf->ofs = 0;
+	firmware_size = dev->variant->buf_size->firmware_code;
 
-		mfc_err_dev("Remapping DESC buffer failed.\n");
-		return -ENOMEM;
-	}
+	ctx_buf->alloc = NULL;
+	ctx_buf->virt = 0;
+	ctx_buf->ofs = fw_ofs + firmware_size;
 
 	if (IS_MFCv7X(dev)) {
 		if (alloc_dev_dis_shared_buffer(dev, alloc_ctx, buf_type) < 0) {
@@ -627,9 +620,11 @@ int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
 	if (ret)
 		return ret;
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	ret = mfc_alloc_dev_context_buffer(dev, MFCBUF_DRM);
-	if (ret)
-		return ret;
+	if (dev->drm_fw_status) {
+		ret = mfc_alloc_dev_context_buffer(dev, MFCBUF_DRM);
+		if (ret)
+			return ret;
+	}
 #endif
 
 	return ret;
@@ -678,6 +673,10 @@ void mfc_release_dev_context_buffer(struct s5p_mfc_dev *dev,
 		ctx_buf->alloc = NULL;
 		ctx_buf->ofs = 0;
 		ctx_buf->virt = NULL;
+	} else {
+		/* In case of using FW region for common context buffer */
+		if (ctx_buf->ofs)
+			ctx_buf->ofs = 0;
 	}
 
 	if (IS_MFCv7X(dev))

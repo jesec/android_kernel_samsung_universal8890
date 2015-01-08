@@ -33,6 +33,8 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	unsigned int base_align;
 	size_t firmware_size;
 	void *alloc_ctx;
+	struct s5p_mfc_buf_size_v6 *buf_size;
+	buf_size = dev->variant->buf_size->buf;
 
 	mfc_debug_enter();
 
@@ -51,7 +53,8 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	mfc_debug(2, "Allocating memory for firmware.\n");
 
 	alloc_ctx = dev->alloc_ctx_fw;
-	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
+	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx,
+					firmware_size + buf_size->dev_ctx);
 	if (IS_ERR(dev->fw_info.alloc)) {
 		dev->fw_info.alloc = 0;
 		printk(KERN_ERR "Allocating bitprocessor buffer failed\n");
@@ -90,7 +93,8 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	alloc_ctx = dev->alloc_ctx_drm_fw;
 
-	dev->drm_fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, firmware_size);
+	dev->drm_fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx,
+					firmware_size + buf_size->dev_ctx);
 	if (IS_ERR(dev->drm_fw_info.alloc)) {
 		/* Release normal F/W buffer */
 		s5p_mfc_mem_free_priv(dev->fw_info.alloc);
