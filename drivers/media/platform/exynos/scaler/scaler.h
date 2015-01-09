@@ -20,6 +20,7 @@
 #include <linux/videodev2_exynos_media.h>
 #include <linux/io.h>
 #include <linux/pm_qos.h>
+#include <linux/exynos-busmon.h>
 #include <media/videobuf2-core.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mem2mem.h>
@@ -343,6 +344,8 @@ struct sc_ctx;
  * @lock:	the mutex pscecting this data structure
  * @wdt:	watchdog timer information
  * @version:	IP version number
+ * @busmon_nb:	busmon notifier block
+ * @busmon_m:	busmon master name
  */
 struct sc_dev {
 	struct device			*dev;
@@ -370,6 +373,8 @@ struct sc_dev {
 	s32				qosreq_int_level;
 	int				dev_id;
 	u32				version;
+	struct notifier_block		busmon_nb;
+	char				*busmon_m;
 };
 
 enum SC_CONTEXT_TYPE {

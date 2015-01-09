@@ -1915,18 +1915,64 @@ static const struct v4l2_file_operations sc_v4l2_fops = {
 	.mmap		= sc_mmap,
 };
 
+static void sc_job_finish(struct sc_dev *sc, struct sc_ctx *ctx)
+{
+	unsigned long flags;
+	struct vb2_buffer *src_vb, *dst_vb;
+
+	spin_lock_irqsave(&sc->slock, flags);
+
+	if (ctx->context_type == SC_CTX_V4L2_TYPE) {
+		ctx = v4l2_m2m_get_curr_priv(sc->m2m.m2m_dev);
+		if (!ctx || !ctx->m2m_ctx) {
+			dev_err(sc->dev, "current ctx is NULL\n");
+			spin_unlock_irqrestore(&sc->slock, flags);
+			return;
+
+		}
+		clear_bit(CTX_RUN, &ctx->flags);
+
+		if (test_bit(DEV_CP, &sc->state)) {
+			/* m2m1shot never enables contents protection */
+			exynos_smc(SMC_PROTECTION_SET, 0,
+					SC_SMC_PROTECTION_ID(sc->dev_id),
+					SMC_PROTECTION_DISABLE);
+			__vb2_ion_set_protected_unlocked(
+					ctx->sc_dev->alloc_ctx, false);
+			clear_bit(DEV_CP, &sc->state);
+		}
+
+		src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+
+		BUG_ON(!src_vb || !dst_vb);
+
+		v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
+		v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
+
+		v4l2_m2m_job_finish(sc->m2m.m2m_dev, ctx->m2m_ctx);
+	} else {
+		struct m2m1shot_task *task =
+			m2m1shot_get_current_task(sc->m21dev);
+
+		BUG_ON(ctx->context_type != SC_CTX_M2M1SHOT_TYPE);
+
+		m2m1shot_task_finish(sc->m21dev, task, true);
+	}
+
+	spin_unlock_irqrestore(&sc->slock, flags);
+}
+
 static void sc_watchdog(unsigned long arg)
 {
 	struct sc_dev *sc = (struct sc_dev *)arg;
 	struct sc_ctx *ctx;
 	unsigned long flags;
-	struct vb2_buffer *src_vb, *dst_vb;
 
 	sc_dbg("timeout watchdog\n");
 	if (atomic_read(&sc->wdt.cnt) >= SC_WDT_CNT) {
 		sc_hwset_soft_reset(sc);
 
-		sc_dbg("wakeup blocked process\n");
 		atomic_set(&sc->wdt.cnt, 0);
 		clear_bit(DEV_RUN, &sc->state);
 
@@ -1936,49 +1982,7 @@ static void sc_watchdog(unsigned long arg)
 		spin_unlock_irqrestore(&sc->ctxlist_lock, flags);
 
 		BUG_ON(!ctx);
-
-		spin_lock_irqsave(&sc->slock, flags);
-
-		if (ctx->context_type == SC_CTX_V4L2_TYPE) {
-			ctx = v4l2_m2m_get_curr_priv(sc->m2m.m2m_dev);
-			if (!ctx || !ctx->m2m_ctx) {
-				dev_err(sc->dev, "current ctx is NULL\n");
-				spin_unlock_irqrestore(&sc->slock, flags);
-				sc_clk_power_disable(sc);
-				return;
-
-			}
-			clear_bit(CTX_RUN, &ctx->flags);
-
-			if (test_bit(DEV_CP, &sc->state)) {
-				/* m2m1shot never enables contents protection */
-				exynos_smc(SMC_PROTECTION_SET, 0,
-					   SC_SMC_PROTECTION_ID(sc->dev_id),
-					   SMC_PROTECTION_DISABLE);
-				__vb2_ion_set_protected_unlocked(
-						ctx->sc_dev->alloc_ctx, false);
-				clear_bit(DEV_CP, &sc->state);
-			}
-
-			src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-			dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-
-			BUG_ON(!src_vb || !dst_vb);
-
-			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
-			v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
-
-			v4l2_m2m_job_finish(sc->m2m.m2m_dev, ctx->m2m_ctx);
-		} else {
-			struct m2m1shot_task *task =
-					m2m1shot_get_current_task(sc->m21dev);
-
-			BUG_ON(ctx->context_type != SC_CTX_M2M1SHOT_TYPE);
-
-			m2m1shot_task_finish(sc->m21dev, task, true);
-		}
-
-		spin_unlock_irqrestore(&sc->slock, flags);
+		sc_job_finish(sc, ctx);
 		sc_clk_power_disable(sc);
 		return;
 	}
@@ -1992,6 +1996,7 @@ static void sc_watchdog(unsigned long arg)
 	} else {
 		sc_dbg("scaler finished job\n");
 	}
+
 }
 
 static void sc_set_csc_coef(struct sc_ctx *ctx)
@@ -3002,6 +3007,57 @@ static int sc_sysmmu_fault_handler(struct iommu_domain *domain,
 	return 0;
 }
 
+static int sc_busmon_handler(struct notifier_block *nb,
+				unsigned long l, void *buf)
+{
+	struct sc_dev *sc = container_of(nb, struct sc_dev, busmon_nb);
+	const char *state, *prot;
+	unsigned long flags;
+	struct sc_ctx *ctx = NULL;
+
+	dev_info(sc->dev, "--- SCALER busmon handler---\n");
+	if (sc->busmon_m &&
+		(strncmp((char *)buf, sc->busmon_m, strlen(sc->busmon_m))))
+		return 0;
+
+	state = (test_bit(DEV_RUN, &sc->state) ? "still running" : "stopped");
+	prot = (test_bit(DEV_CP, &sc->state) ? "protected" : "not protected");
+	dev_info(sc->dev, "scaler H/W is %s and %s\n", state, prot);
+
+	/*
+	 * Actually calling clk_get_rate() makes WARNING because this handler
+	 * run in softirq and clk_get_rate() try to get mutex_lock.
+	 * But the check of scaler clock rate is more important than WARNING.
+	 */
+	dev_info(sc->dev, "scaler clk is %ld kHz\n",
+			clk_get_rate(sc->aclk) / 1000);
+
+	spin_lock_irqsave(&sc->ctxlist_lock, flags);
+	if (!sc->current_ctx) {
+		dev_info(sc->dev, "scaler driver has no job\n");
+	} else {
+		dev_info(sc->dev, "scaler driver run a job\n");
+		ctx = sc->current_ctx;
+		sc->current_ctx = NULL;
+	}
+	spin_unlock_irqrestore(&sc->ctxlist_lock, flags);
+
+	if (test_bit(DEV_RUN, &sc->state)) {
+		sc_hwregs_dump(sc);
+		exynos_sysmmu_show_status(sc->dev);
+		clear_bit(DEV_RUN, &sc->state);
+	}
+
+	if (ctx)
+		sc_job_finish(sc, ctx);
+
+	return 0;
+}
+
+static struct notifier_block sc_busmon_nb = {
+	.notifier_call = sc_busmon_handler,
+};
+
 static int sc_clk_get(struct sc_dev *sc)
 {
 	sc->aclk = devm_clk_get(sc->dev, "gate");
@@ -3218,6 +3274,10 @@ static int sc_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (of_property_read_string(pdev->dev.of_node, "busmon,master",
+					(const char **)&sc->busmon_m))
+		sc->busmon_m = NULL;
+
 	ret = exynos_create_iovmm(&pdev->dev, 3, 3);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to create iovmm\n");
@@ -3281,6 +3341,8 @@ static int sc_probe(struct platform_device *pdev)
 	pm_runtime_put(&pdev->dev);
 
 	iovmm_set_fault_handler(&pdev->dev, sc_sysmmu_fault_handler, sc);
+	sc->busmon_nb = sc_busmon_nb;
+	busmon_notifier_chain_register(&sc->busmon_nb);
 
 	dev_info(&pdev->dev,
 		"Driver probed successfully(version: %08x(%x))\n",
