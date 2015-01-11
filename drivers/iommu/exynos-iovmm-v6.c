@@ -72,7 +72,7 @@ static dma_addr_t alloc_iovm_region(struct exynos_iovmm *vmm, size_t size,
 	BUG_ON(page_offset >= PAGE_SIZE);
 
 	/* To avoid allocating prefetched iovm region */
-	vsize = (ALIGN(size + SZ_256K, SZ_256K) + exact_align_mask) >> PAGE_SHIFT;
+	vsize = (ALIGN(size + SZ_128K, SZ_128K) + exact_align_mask) >> PAGE_SHIFT;
 	align >>= PAGE_SHIFT;
 	exact_align_mask >>= PAGE_SHIFT;
 	max_align >>= PAGE_SHIFT;
