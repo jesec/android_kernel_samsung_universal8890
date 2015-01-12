@@ -422,10 +422,7 @@ static int samsung_pll1460x_set_rate(struct clk_hw *hw, unsigned long drate,
 	}
 
 	/* Set PLL lock time */
-	if (rate->kdiv)
-		writel(rate->pdiv * PLL1460X_LOCK_FACTOR, pll->lock_reg);
-	else
-		writel(rate->pdiv * PLL145XX_LOCK_FACTOR, pll->lock_reg);
+	writel(rate->pdiv * PLL1460X_LOCK_FACTOR, pll->lock_reg);
 
 	pll_con1 &= ~(PLL1460X_KDIV_MASK << PLL1460X_KDIV_SHIFT);
 	pll_con1 |= (rate->kdiv << PLL1460X_KDIV_SHIFT);
