@@ -173,6 +173,24 @@ struct s3c64xx_spi_port_config {
 	bool	clk_from_cmu;
 };
 
+static void s3c64xx_spi_dump_reg(struct s3c64xx_spi_driver_data *sdd)
+{
+	void __iomem *regs = sdd->regs;
+	struct device *dev = &sdd->pdev->dev;
+
+	dev_err(dev, "Register dump for SPI\n");
+	dev_err(dev, "- CH_CFG 0x%08x\n",
+				readl(regs + S3C64XX_SPI_CH_CFG));
+	dev_err(dev, "- MODE_CFG 0x%08x\n",
+				readl(regs + S3C64XX_SPI_MODE_CFG));
+	dev_err(dev, "- CS_REG 0x%08x\n",
+				readl(regs + S3C64XX_SPI_SLAVE_SEL));
+	dev_err(dev, "- STATUS 0x%08x\n",
+				readl(regs + S3C64XX_SPI_STATUS));
+	dev_err(dev, "- PACKET_CNT 0x%08x\n",
+				readl(regs + S3C64XX_SPI_PACKET_CNT));
+
+}
 static void flush_fifo(struct s3c64xx_spi_driver_data *sdd)
 {
 	void __iomem *regs = sdd->regs;
@@ -1009,7 +1027,6 @@ try_transfer:
 
 		status = wait_for_xfer(sdd, xfer, use_dma);
 
-
 		if (status) {
 			dev_err(&spi->dev, "I/O Error: rx-%d tx-%d res:rx-%c tx-%c len-%d\n",
 				xfer->rx_buf ? 1 : 0, xfer->tx_buf ? 1 : 0,
@@ -1025,6 +1042,9 @@ try_transfer:
 						&& (sdd->state & RXBUSY))
 					s3c64xx_spi_dma_stop(sdd, &sdd->rx_dma);
 			}
+
+			s3c64xx_spi_dump_reg(sdd);
+			flush_fifo(sdd);
 
 			goto out;
 		}
