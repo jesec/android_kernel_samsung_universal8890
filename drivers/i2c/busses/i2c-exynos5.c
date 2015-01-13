@@ -411,7 +411,9 @@ static void recover_gpio_pins(struct exynos5_i2c *i2c)
 
 static inline void dump_i2c_register(struct exynos5_i2c *i2c)
 {
+#ifdef CONFIG_EXYNOS_APM
 	int buf_index;
+#endif
 
 	dev_err(i2c->dev, "Register dump(suspended : %d)\n", i2c->suspended);
 	dev_err(i2c->dev, ": CTL	0x%08x\n"
@@ -447,12 +449,14 @@ static inline void dump_i2c_register(struct exynos5_i2c *i2c)
 	dev_err(i2c->dev, ": ADDR	0x%08x\n"
 			, readl(i2c->regs + HSI2C_ADDR));
 
+#ifdef CONFIG_EXYNOS_APM
 	if (i2c->use_apm_mode && i2c->msg != NULL) {
 		dev_err(i2c->dev, "Print PMIC CMD\n");
 		for (buf_index = 0; buf_index < i2c->msg->len; buf_index++) {
 			pr_err("[%d] 0x%x\n", buf_index, i2c->msg->buf[buf_index]);
 		}
 	}
+#endif
 
 	recover_gpio_pins(i2c);
 }
