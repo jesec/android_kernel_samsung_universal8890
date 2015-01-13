@@ -1229,7 +1229,7 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 		u32 psr, speed;
 
 		/* Max possible */
-		speed = clk_get_rate(sdd->src_clk) / 2 / (0 + 1);
+		speed = (unsigned int)clk_get_rate(sdd->src_clk) / 2 / (0 + 1);
 		if (!speed) {
 			dev_err(&spi->dev, "clock rate of speed is 0\n");
 			err = -EINVAL;
@@ -1239,12 +1239,12 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 		if (spi->max_speed_hz > speed)
 			spi->max_speed_hz = speed;
 
-		psr = clk_get_rate(sdd->src_clk) / 2 / spi->max_speed_hz - 1;
+		psr = (unsigned int)clk_get_rate(sdd->src_clk) / 2 / spi->max_speed_hz - 1;
 		psr &= S3C64XX_SPI_PSR_MASK;
 		if (psr == S3C64XX_SPI_PSR_MASK)
 			psr--;
 
-		speed = clk_get_rate(sdd->src_clk) / 2 / (psr + 1);
+		speed = (unsigned int)clk_get_rate(sdd->src_clk) / 2 / (psr + 1);
 		if (spi->max_speed_hz < speed) {
 			if (psr+1 < S3C64XX_SPI_PSR_MASK) {
 				psr++;
@@ -1254,7 +1254,7 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 			}
 		}
 
-		speed = clk_get_rate(sdd->src_clk) / 2 / (psr + 1);
+		speed = (unsigned int)clk_get_rate(sdd->src_clk) / 2 / (psr + 1);
 		if (spi->max_speed_hz >= speed) {
 			spi->max_speed_hz = speed;
 		} else {
