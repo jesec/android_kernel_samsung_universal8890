@@ -276,7 +276,7 @@ struct sc_frame {
 	struct v4l2_rect	crop;
 
 	struct sc_addr			addr;
-	unsigned long			bytesused[SC_MAX_PLANES];
+	__u32			bytesused[SC_MAX_PLANES];
 };
 
 struct sc_int_frame {

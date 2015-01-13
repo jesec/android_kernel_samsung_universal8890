@@ -353,7 +353,7 @@ static const struct sc_fmt *sc_find_format(struct sc_dev *sc,
 						u32 pixfmt, bool output_buf)
 {
 	const struct sc_fmt *sc_fmt;
-	unsigned int i;
+	unsigned long i;
 
 	for (i = 0; i < ARRAY_SIZE(sc_formats); ++i) {
 		sc_fmt = &sc_formats[i];
@@ -1693,7 +1693,7 @@ static const struct v4l2_ctrl_config sc_custom_ctrl[] = {
 
 static int sc_add_ctrls(struct sc_ctx *ctx)
 {
-	int i;
+	unsigned long i;
 
 	v4l2_ctrl_handler_init(&ctx->ctrl_handler, SC_MAX_CTRL_NUM);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &sc_ctrl_ops,
