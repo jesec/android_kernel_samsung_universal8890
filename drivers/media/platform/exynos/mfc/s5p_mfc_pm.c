@@ -189,7 +189,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	clk_put(clk_parent);
 
 #elif defined(CONFIG_SOC_EXYNOS7420)
-	int index;
+	unsigned long index;
 	char *str_child[] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
 			"pclk_mfc", "aclk_lh_mfc0", "aclk_lh_mfc1",
 			"aclk_noc_bus1_nrt", "pclk_gpio_bus1"};
@@ -493,7 +493,7 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 
 #if defined(CONFIG_SOC_EXYNOS7420)
 	struct clk *clk_child = NULL;
-	int index;
+	unsigned long index;
 	char *str_child[] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
 			"pclk_mfc", "aclk_lh_mfc0", "aclk_lh_mfc1",
 			"aclk_noc_bus1_nrt", "pclk_gpio_bus1"};

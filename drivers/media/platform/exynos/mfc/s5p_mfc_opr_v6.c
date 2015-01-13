@@ -2978,7 +2978,7 @@ static inline int s5p_mfc_run_enc_last_frames(struct s5p_mfc_ctx *ctx)
 	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 	dst_mb->used = 1;
 	dst_addr = s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0);
-	dst_size = vb2_plane_size(&dst_mb->vb, 0);
+	dst_size = (unsigned int)vb2_plane_size(&dst_mb->vb, 0);
 
 	s5p_mfc_set_enc_stream_buffer(ctx, dst_addr, dst_size);
 
@@ -3052,7 +3052,7 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 	dst_mb->used = 1;
 	dst_addr = s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0);
-	dst_size = vb2_plane_size(&dst_mb->vb, 0);
+	dst_size = (unsigned int)vb2_plane_size(&dst_mb->vb, 0);
 
 	s5p_mfc_set_enc_stream_buffer(ctx, dst_addr, dst_size);
 
@@ -3137,7 +3137,7 @@ static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
 
 	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 	dst_addr = s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0);
-	dst_size = vb2_plane_size(&dst_mb->vb, 0);
+	dst_size = (unsigned int)vb2_plane_size(&dst_mb->vb, 0);
 	s5p_mfc_set_enc_stream_buffer(ctx, dst_addr, dst_size);
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);

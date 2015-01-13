@@ -698,7 +698,7 @@ static int dec_cleanup_ctx_ctrls(struct s5p_mfc_ctx *ctx)
 }
 static int dec_init_ctx_ctrls(struct s5p_mfc_ctx *ctx)
 {
-	int i;
+	unsigned long i;
 	struct s5p_mfc_ctx_ctrl *ctx_ctrl;
 
 	INIT_LIST_HEAD(&ctx->ctrls);
@@ -769,7 +769,7 @@ static void __dec_cleanup_buf_ctrls(struct list_head *head)
 static int dec_init_buf_ctrls(struct s5p_mfc_ctx *ctx,
 	enum s5p_mfc_ctrl_type type, unsigned int index)
 {
-	int i;
+	unsigned long i;
 	struct s5p_mfc_ctx_ctrl *ctx_ctrl;
 	struct s5p_mfc_buf_ctrl *buf_ctrl;
 	struct list_head *head;
@@ -1299,7 +1299,7 @@ static int vidioc_g_fmt_vid_out_mplane(struct file *file, void *priv,
 	pix_mp->height = 0;
 	pix_mp->field = V4L2_FIELD_NONE;
 	pix_mp->plane_fmt[0].bytesperline = dec->src_buf_size;
-	pix_mp->plane_fmt[0].sizeimage = dec->src_buf_size;
+	pix_mp->plane_fmt[0].sizeimage = (unsigned int)(dec->src_buf_size);
 	pix_mp->pixelformat = ctx->src_fmt->fourcc;
 	pix_mp->num_planes = ctx->src_fmt->num_planes;
 

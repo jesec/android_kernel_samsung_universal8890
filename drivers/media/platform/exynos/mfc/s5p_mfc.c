@@ -185,7 +185,7 @@ static inline unsigned long timeval_diff(struct timeval *to,
 
 int get_framerate_by_interval(int interval)
 {
-	int i;
+	unsigned long i;
 
 	/* if the interval is too big (2sec), framerate set to 0 */
 	if (interval > MFC_MAX_INTERVAL)
@@ -859,7 +859,7 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 		dec_y_addr = mfc_get_dec_first_addr();
 	else
-		dec_y_addr = MFC_GET_ADR(DEC_DECODED_Y);
+		dec_y_addr = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
 
 	if (dec->is_dynamic_dpb)
 		dst_queue_addr = &dec->ref_queue;
@@ -941,7 +941,7 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 		if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 			dspl_y_addr = mfc_get_dec_first_addr();
 		else
-			dspl_y_addr = MFC_GET_ADR(DEC_DECODED_Y);
+			dspl_y_addr = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
 		frame_type = s5p_mfc_get_dec_frame_type();
 	}
 
@@ -1230,7 +1230,7 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 		dec_addr = mfc_get_dec_first_addr();
 	else
-		dec_addr = MFC_GET_ADR(DEC_DECODED_Y);
+		dec_addr = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
 	buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
 
 	if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
@@ -1418,7 +1418,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			dec->consumed, s5p_mfc_get_consumed_stream());
 		prev_offset = dec->consumed;
 		dec->consumed += s5p_mfc_get_consumed_stream();
-		remained = src_buf->vb.v4l2_planes[0].bytesused - dec->consumed;
+		remained = (unsigned int)(src_buf->vb.v4l2_planes[0].bytesused - dec->consumed);
 
 		if ((prev_offset == 0) && dec->is_packedpb && remained > STUFF_BYTE &&
 			dec->consumed < src_buf->vb.v4l2_planes[0].bytesused &&
@@ -1433,7 +1433,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 				dec->y_addr_for_pb = mfc_get_dec_first_addr();
 			else
-				dec->y_addr_for_pb = MFC_GET_ADR(DEC_DECODED_Y);
+				dec->y_addr_for_pb = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
 
 			spin_unlock_irqrestore(&dev->irqlock, flags);
 			stream_vir = vb2_plane_vaddr(&src_buf->vb, 0);

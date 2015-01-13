@@ -163,7 +163,7 @@ static struct s5p_mfc_fmt formats[] = {
 
 static struct s5p_mfc_fmt *find_format(struct v4l2_format *f, unsigned int t)
 {
-	unsigned int i;
+	unsigned long i;
 
 	for (i = 0; i < NUM_FORMATS; i++) {
 		if (formats[i].fourcc == f->fmt.pix_mp.pixelformat &&
@@ -1602,7 +1602,7 @@ static struct v4l2_queryctrl controls[] = {
 
 static struct v4l2_queryctrl *get_ctrl(int id)
 {
-	int i;
+	unsigned long i;
 
 	for (i = 0; i < NUM_CTRLS; ++i)
 		if (id == controls[i].id)
@@ -1989,7 +1989,7 @@ static int enc_get_buf_update_val(struct s5p_mfc_ctx *ctx,
 
 static int enc_init_ctx_ctrls(struct s5p_mfc_ctx *ctx)
 {
-	int i;
+	unsigned long i;
 	struct s5p_mfc_ctx_ctrl *ctx_ctrl;
 
 	INIT_LIST_HEAD(&ctx->ctrls);
@@ -2059,7 +2059,7 @@ static void __enc_cleanup_buf_ctrls(struct list_head *head)
 static int enc_init_buf_ctrls(struct s5p_mfc_ctx *ctx,
 	enum s5p_mfc_ctrl_type type, unsigned int index)
 {
-	int i;
+	unsigned long i;
 	struct s5p_mfc_buf_ctrl *buf_ctrl;
 	struct list_head *head;
 
@@ -2469,7 +2469,7 @@ static int enc_pre_seq_start(struct s5p_mfc_ctx *ctx)
 
 	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 	dst_addr = s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0);
-	dst_size = vb2_plane_size(&dst_mb->vb, 0);
+	dst_size = (unsigned int)vb2_plane_size(&dst_mb->vb, 0);
 	s5p_mfc_set_enc_stream_buffer(ctx, dst_addr, dst_size);
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
@@ -2544,7 +2544,7 @@ static int enc_pre_frame_start(struct s5p_mfc_ctx *ctx)
 
 	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 	dst_addr = s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0);
-	dst_size = vb2_plane_size(&dst_mb->vb, 0);
+	dst_size = (unsigned int)vb2_plane_size(&dst_mb->vb, 0);
 	s5p_mfc_set_enc_stream_buffer(ctx, dst_addr, dst_size);
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
@@ -2770,7 +2770,8 @@ static int vidioc_querycap(struct file *file, void *priv,
 static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool mplane, bool out)
 {
 	struct s5p_mfc_fmt *fmt;
-	int i, j = 0;
+	unsigned long i;
+	int j = 0;
 
 	for (i = 0; i < ARRAY_SIZE(formats); ++i) {
 		if (mplane && formats[i].num_planes == 1)
@@ -2842,7 +2843,7 @@ static int vidioc_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		pix_fmt_mp->num_planes = ctx->dst_fmt->num_planes;
 
 		pix_fmt_mp->plane_fmt[0].bytesperline = enc->dst_buf_size;
-		pix_fmt_mp->plane_fmt[0].sizeimage = enc->dst_buf_size;
+		pix_fmt_mp->plane_fmt[0].sizeimage = (unsigned int)(enc->dst_buf_size);
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		/* This is run on capture (encoder src) */
 		raw = &ctx->raw_buf;
@@ -4337,7 +4338,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		if (*buf_count > MFC_MAX_BUFFERS)
 			*buf_count = MFC_MAX_BUFFERS;
 
-		psize[0] = enc->dst_buf_size;
+		psize[0] = (unsigned int)(enc->dst_buf_size);
 		if (ctx->is_drm)
 			allocators[0] = ctx->dev->alloc_ctx_drm;
 		else
