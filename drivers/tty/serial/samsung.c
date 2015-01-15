@@ -620,8 +620,13 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 
 	wr_regl(port, S3C64XX_UINTM, 0xf);
 
-	ret = request_threaded_irq(port->irq, NULL, s3c64xx_serial_handle_irq,
-			IRQF_ONESHOT, s3c24xx_serial_portname(port), ourport);
+	if (ourport->use_default_irq == 1)
+		ret = devm_request_irq(port->dev, port->irq, s3c64xx_serial_handle_irq,
+				IRQF_SHARED, s3c24xx_serial_portname(port), ourport);
+	else
+		ret = request_threaded_irq(port->irq, NULL, s3c64xx_serial_handle_irq,
+				IRQF_ONESHOT, s3c24xx_serial_portname(port), ourport);
+
 	if (ret) {
 		dev_err(port->dev, "cannot get irq %d\n", port->irq);
 		return ret;
@@ -1530,6 +1535,11 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 		ourport->domain = DOMAIN_AUD;
 	else
 		ourport->domain = DOMAIN_TOP;
+
+	if (of_find_property(pdev->dev.of_node, "samsung,use-default-irq", NULL))
+		ourport->use_default_irq =1;
+	else
+		ourport->use_default_irq =0;
 
 	ret = s3c24xx_serial_init_port(ourport, pdev);
 	if (ret < 0)
