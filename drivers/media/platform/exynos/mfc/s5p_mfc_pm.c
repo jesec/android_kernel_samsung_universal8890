@@ -315,7 +315,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 			printk("Protection Enable failed! ret(%u)\n", ret);
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
 			clk_disable(dev->pm.clock);
-			return ret;
+			return -EACCES;
 		}
 		mfc_debug(3, "End: enable protection\n");
 		spin_unlock_irqrestore(&dev->pm.clklock, flags);

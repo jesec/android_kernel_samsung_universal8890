@@ -356,7 +356,12 @@ int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 	else if (buf_type == MFCBUF_DRM)
 		dev->curr_ctx_drm = 1;
 
-	s5p_mfc_clock_on(dev);
+	ret = s5p_mfc_clock_on(dev);
+	if (ret) {
+		mfc_err_dev("Failed to enable clock before reset(%d)\n", ret);
+		dev->curr_ctx_drm = curr_ctx_backup;
+		return ret;
+	}
 
 	dev->sys_init_status = 1;
 	ret = s5p_mfc_reset(dev);
