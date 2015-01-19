@@ -188,21 +188,33 @@ err_vm_map:
  */
 void ion_page_pool_preload_prepare(struct ion_page_pool *pool, long num_pages)
 {
-	long pages_in_pool = pool->high_count + pool->low_count;
+	long try = pool->high_count + pool->low_count - num_pages;
 	long freed = 0;
 
 	BUG_ON(pool->order != 0);
 
-	while (pages_in_pool-- > num_pages) {
+	mutex_lock(&pool->mutex);
+	while ((try-- > 0) &&
+			(num_pages < (pool->high_count + pool->low_count))) {
 		struct page *page;
-		mutex_lock(&pool->mutex);
-		page = ion_page_pool_remove(pool, !pool->low_count);
-		mutex_unlock(&pool->mutex);
+
+		if (pool->low_count)
+			page = ion_page_pool_remove(pool, false);
+		else if (pool->high_count)
+			page = ion_page_pool_remove(pool, true);
+		else
+			break;
+
 		if (!page)
 			break;
+		mutex_unlock(&pool->mutex);
+
 		ion_page_pool_free_pages(pool, page);
 		freed++;
+
+		mutex_lock(&pool->mutex);
 	}
+	mutex_unlock(&pool->mutex);
 
 	if (freed)
 		pr_info("%s: %ld order-0 pages are shrinked\n",
