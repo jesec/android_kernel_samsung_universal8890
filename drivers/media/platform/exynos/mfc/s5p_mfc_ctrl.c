@@ -34,7 +34,6 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	size_t firmware_size;
 	void *alloc_ctx;
 	struct s5p_mfc_buf_size_v6 *buf_size;
-	buf_size = dev->variant->buf_size->buf;
 
 	mfc_debug_enter();
 
@@ -43,6 +42,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 		return -EINVAL;
 	}
 
+	buf_size = dev->variant->buf_size->buf;
 	base_align = dev->variant->buf_align->mfc_base_align;
 	firmware_size = dev->variant->buf_size->firmware_code;
 	alloc_ctx = dev->alloc_ctx[MFC_FW_ALLOC_CTX];
