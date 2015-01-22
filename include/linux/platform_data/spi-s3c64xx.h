@@ -133,6 +133,7 @@ struct s3c64xx_spi_driver_data {
 	struct pinctrl_state		*pin_idle;
 
 	int is_probed;
+	int spi_clkoff_time;
 };
 
 /**
