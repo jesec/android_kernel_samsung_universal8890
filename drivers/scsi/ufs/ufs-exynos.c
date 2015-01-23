@@ -596,6 +596,20 @@ static int exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 	act_pmd->remote_l2_timer[1] = req_pmd->remote_l2_timer[1];
 	act_pmd->remote_l2_timer[2] = req_pmd->remote_l2_timer[2];
 
+	/* Set L2 timer */
+	ufshcd_dme_set(hba,
+		UIC_ARG_MIB(DL_FC0PROTTIMEOUTVAL), act_pmd->local_l2_timer[0]);
+	ufshcd_dme_set(hba,
+		UIC_ARG_MIB(DL_TC0REPLAYTIMEOUTVAL), act_pmd->local_l2_timer[1]);
+	ufshcd_dme_set(hba,
+		UIC_ARG_MIB(DL_AFC0REQTIMEOUTVAL), act_pmd->local_l2_timer[2]);
+	ufshcd_dme_set(hba,
+		UIC_ARG_MIB(PA_PWRMODEUSERDATA0), act_pmd->remote_l2_timer[0]);
+	ufshcd_dme_set(hba,
+		UIC_ARG_MIB(PA_PWRMODEUSERDATA1), act_pmd->remote_l2_timer[1]);
+	ufshcd_dme_set(hba,
+		UIC_ARG_MIB(PA_PWRMODEUSERDATA2), act_pmd->remote_l2_timer[2]);
+
 	if (!soc)
 		goto out;
 
