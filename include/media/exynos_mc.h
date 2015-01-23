@@ -93,6 +93,7 @@ enum vpp_sd_ioctl {
 	VPP_SET_MIN_INT,
 	VPP_WAIT_FOR_UPDATE,
 	VPP_DUMP,
+	VPP_WAIT_IDLE,
 };
 
 enum mdev_node {
