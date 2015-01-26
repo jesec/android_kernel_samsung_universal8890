@@ -50,7 +50,6 @@ static LIST_HEAD(drvdata_list);
 
 #define MAX_SPI_PORTS		8
 #define SPI_AUTOSUSPEND_TIMEOUT		(100)
-#define SPI_AUTOSP_TIMEOUT_TOP		(100)
 
 /* Registers and bit-fields */
 
@@ -1636,8 +1635,8 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 
 	if (of_property_read_u32(pdev->dev.of_node, "spi-clkoff-time",
 				(int *)&(sdd->spi_clkoff_time))) {
-		dev_err(&pdev->dev, "spi clkoff-time is empty(Default: 100ms)\n");
-		sdd->spi_clkoff_time = SPI_AUTOSP_TIMEOUT_TOP;
+		dev_err(&pdev->dev, "spi clkoff-time is empty(Default: 0ms)\n");
+		sdd->spi_clkoff_time = 0;
 	} else {
 		dev_err(&pdev->dev, "spi clkoff-time %d\n", sdd->spi_clkoff_time);
 	}
