@@ -28,6 +28,14 @@ enum {
 	SWAP_MODE = 1,
 };
 
+/*
+ * The configuration of spi secure mode
+ */
+enum {
+	NONSECURE_MODE = 0,
+	SECURE_MODE = 1,
+};
+
 enum {
 	MANUAL_CS_MODE = 0,
 	AUTO_CS_MODE = 1,
@@ -73,6 +81,7 @@ struct s3c64xx_spi_info {
 	int num_cs;
 	int dma_mode;
 	int swap_mode;
+	int secure_mode;
 	int (*cfg_gpio)(void);
 	dma_filter_fn filter;
 	enum spi_domain domain;

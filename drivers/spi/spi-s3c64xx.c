@@ -1393,6 +1393,11 @@ static struct s3c64xx_spi_info *s3c64xx_spi_parse_dt(struct device *dev)
 	else
 		sci->swap_mode = NO_SWAP_MODE;
 
+	if (of_get_property(dev->of_node, "secure-mode", NULL))
+		sci->secure_mode = SECURE_MODE;
+	else
+		sci->secure_mode = NONSECURE_MODE;
+
 	if (of_property_read_u32(dev->of_node, "samsung,spi-src-clk", &temp)) {
 		dev_warn(dev, "spi bus clock parent not specified, using clock at index 0 as parent\n");
 		sci->src_clk_nr = 0;
@@ -1765,7 +1770,10 @@ static int s3c64xx_spi_resume_operation(struct device *dev)
 		if (sci->cfg_gpio)
 			sci->cfg_gpio();
 
-		s3c64xx_spi_hwinit(sdd, sdd->port_id);
+		if (sci->secure_mode)
+			sci->need_hw_init = 1;
+		else
+			s3c64xx_spi_hwinit(sdd, sdd->port_id);
 
 #ifdef CONFIG_PM_RUNTIME
 		/* Disable the clock */
