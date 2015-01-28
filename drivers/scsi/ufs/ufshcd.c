@@ -4329,6 +4329,31 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 	return err;
 }
 
+static enum blk_eh_timer_return ufshcd_eh_timed_out(struct scsi_cmnd *cmd)
+{
+	struct Scsi_Host *host;
+	struct ufs_hba *hba;
+	struct ufshcd_lrb *lrbp;
+	int tag;
+	enum blk_eh_timer_return rtn = BLK_EH_NOT_HANDLED;
+
+	host = cmd->device->host;
+	hba = shost_priv(host);
+	tag = cmd->request->tag;
+
+	if (tag < 0) {
+		rtn = BLK_EH_RESET_TIMER;
+		goto out;
+	}
+
+	lrbp = &hba->lrb[tag];
+	if (!(test_bit(tag, &hba->outstanding_reqs)) || lrbp->cmd == NULL)
+		rtn = BLK_EH_RESET_TIMER;
+
+out:
+	return rtn;
+}
+
 /**
  * ufshcd_get_max_icc_level - calculate the ICC level
  * @sup_curr_uA: max. current supported by the regulator
@@ -4647,6 +4672,7 @@ static struct scsi_host_template ufshcd_driver_template = {
 	.eh_abort_handler	= ufshcd_abort,
 	.eh_device_reset_handler = ufshcd_eh_device_reset_handler,
 	.eh_host_reset_handler   = ufshcd_eh_host_reset_handler,
+	.eh_timed_out		= ufshcd_eh_timed_out,
 	.this_id		= -1,
 	.sg_tablesize		= SG_ALL,
 	.cmd_per_lun		= UFSHCD_CMD_PER_LUN,
