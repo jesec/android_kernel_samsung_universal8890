@@ -253,7 +253,9 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		} while(++i < req->request.num_mapped_sgs);
 		req->queued = false;
 	}
-	list_del(&req->list);
+	/* Only delete from the list if the item isn't poisoned. */
+	if (req->list.next != LIST_POISON1)
+		list_del(&req->list);
 	req->trb = NULL;
 
 	if (req->request.status == -EINPROGRESS)
