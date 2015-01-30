@@ -978,8 +978,14 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 
 	mfc_debug(2, "inst_no: %d, buf_addr: 0x%08llx\n", ctx->inst_no,
 		(unsigned long long)buf_addr);
-	mfc_debug(2, "strm_size: 0x%08x cpb_buf_size 0x%zu offset: 0x%08x\n",
+	mfc_debug(2, "strm_size: 0x%08x cpb_buf_size %zu offset: 0x%08x\n",
 			strm_size, cpb_buf_size, start_num_byte);
+
+	if (cpb_buf_size < strm_size + 4)
+		mfc_info_ctx("cpb_buf_size(%zu) < strm_size(0x%08x) + 4 bytes\n",
+				cpb_buf_size, strm_size);
+	if (ctx->state == MFCINST_GOT_INST && strm_size == 0)
+		mfc_info_ctx("stream size is 0\n");
 
 	WRITEL(strm_size, S5P_FIMV_D_STREAM_DATA_SIZE);
 	WRITEL(buf_addr, S5P_FIMV_D_CPB_BUFFER_ADDR);

@@ -2270,12 +2270,9 @@ static int s5p_mfc_release(struct file *file)
 
 	if (need_to_wait_frame_start(ctx)) {
 		ctx->state = MFCINST_ABORT;
-		ret = s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET);
-		if (ret == 1)
+		if (s5p_mfc_wait_for_done_ctx(ctx,
+				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
 			s5p_mfc_cleanup_timeout(ctx);
-		else if (ret == -1)
-			mfc_err_ctx("continue progress\n");
 	}
 
 	if (ctx->type == MFCINST_ENCODER) {
@@ -2349,6 +2346,7 @@ static int s5p_mfc_release(struct file *file)
 				msecs_to_jiffies(MFC_INT_SHORT_TIMEOUT));
 
 		/* To issue the command 'CLOSE_INSTANCE' */
+		s5p_mfc_clean_ctx_int_flags(ctx);
 		s5p_mfc_try_run(dev);
 
 		/* Wait until instance is returned or timeout occured */
