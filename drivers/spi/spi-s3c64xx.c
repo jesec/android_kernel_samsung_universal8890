@@ -1666,7 +1666,7 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	       sdd->regs + S3C64XX_SPI_INT_EN);
 
 	pm_runtime_mark_last_busy(&pdev->dev);
-	pm_runtime_put_autosuspend(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 
 	if (spi_register_master(master)) {
 		dev_err(&pdev->dev, "cannot register SPI master\n");
