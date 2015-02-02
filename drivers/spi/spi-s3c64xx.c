@@ -1520,6 +1520,7 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	sdd->pdev = pdev;
 	sdd->sfr_start = mem_res->start;
 	sdd->is_probed = 0;
+	sdd->ops = NULL;
 	if (pdev->dev.of_node) {
 		ret = of_alias_get_id(pdev->dev.of_node, "spi");
 		if (ret < 0) {
@@ -1891,7 +1892,7 @@ static int s3c64xx_spi_runtime_suspend(struct device *dev)
 		clk_disable_unprepare(sdd->src_clk);
 
 	/* Free DMA channels */
-	if (sci->dma_mode == DMA_MODE && sdd->is_probed) {
+	if (sci->dma_mode == DMA_MODE && sdd->is_probed && sdd->ops != NULL) {
 	#ifdef CONFIG_ARM64
 		sdd->ops->release((unsigned long)sdd->rx_dma.ch,
 					&s3c64xx_spi_dma_client);
