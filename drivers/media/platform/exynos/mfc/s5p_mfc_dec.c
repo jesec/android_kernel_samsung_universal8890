@@ -393,7 +393,7 @@ static struct v4l2_queryctrl controls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "QoS ratio value",
 		.minimum = 20,
-		.maximum = 200,
+		.maximum = 1000,
 		.step = 10,
 		.default_value = 100,
 	},
@@ -2173,6 +2173,9 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 		dec->is_dual_dpb = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_QOS_RATIO:
+		if (ctrl->value > 150)
+			ctrl->value = 1000;
+		mfc_info_ctx("set %d qos_ratio.\n", ctrl->value);
 		ctx->qos_ratio = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC_SET_DYNAMIC_DPB_MODE:
