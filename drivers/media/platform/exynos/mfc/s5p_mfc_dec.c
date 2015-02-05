@@ -2258,13 +2258,14 @@ static int vidioc_g_crop(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
-	if (ctx->src_fmt->fourcc == V4L2_PIX_FMT_H264) {
+	if (ctx->src_fmt->fourcc == V4L2_PIX_FMT_H264 ||
+			ctx->src_fmt->fourcc == V4L2_PIX_FMT_HEVC) {
 		cr->c.left = dec->cr_left;
 		cr->c.top = dec->cr_top;
 		cr->c.width = ctx->img_width - dec->cr_left - dec->cr_right;
 		cr->c.height = ctx->img_height - dec->cr_top - dec->cr_bot;
 		mfc_debug(2, "Cropping info [h264]: l=%d t=%d "	\
-			"w=%d h=%d (r=%d b=%d fw=%d fh=%d\n",
+			"w=%d h=%d (r=%d b=%d fw=%d fh=%d)\n",
 			dec->cr_left, dec->cr_top, cr->c.width, cr->c.height,
 			dec->cr_right, dec->cr_bot,
 			ctx->buf_width, ctx->buf_height);
