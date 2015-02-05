@@ -1479,6 +1479,9 @@ static const struct ufs_phy_cfg init_cfg[] = {
 	{0x04c, 0x5b, PMD_ALL, PHY_PMA_TRSV},
 	{0x04d, 0x83, PMD_ALL, PHY_PMA_TRSV},
 	{0x05c, 0x14, PMD_ALL, PHY_PMA_TRSV},
+	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
+	{0x297, 0x17, PMD_ALL, PHY_PCS_RXTX},
+	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
 	{},
 };
 
