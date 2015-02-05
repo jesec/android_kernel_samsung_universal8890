@@ -626,6 +626,10 @@ int ufshcd_hold(struct ufs_hba *hba, bool async)
 
 start:
 	switch (hba->clk_gating.state) {
+	case __CLKS_ON:
+		rc = -EAGAIN;
+		if (async)
+			hba->clk_gating.active_reqs--;
 	case CLKS_ON:
 		break;
 	case REQ_CLKS_OFF:
@@ -695,12 +699,16 @@ static void ufshcd_gate_work(struct work_struct *work)
 		ufshcd_set_link_trans_hibern8(hba);
 		if (ufshcd_link_hibern8_ctrl(hba, true)) {
 			spin_lock_irqsave(hba->host->host_lock, flags);
-			hba->clk_gating.state = CLKS_ON;
+			hba->clk_gating.state = __CLKS_ON;
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 			hba->clk_gating.is_suspended = true;
 			ufshcd_host_reset_and_restore(hba);
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			hba->clk_gating.state = CLKS_ON;
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
 			hba->clk_gating.is_suspended = false;
+
 			goto out;
 		}
 		ufshcd_set_link_hibern8(hba);
@@ -5206,7 +5214,20 @@ static int ufshcd_link_state_transition(struct ufs_hba *hba,
 		if (!ret)
 			ufshcd_set_link_hibern8(hba);
 		else {
+			unsigned long flags;
+			bool saved_is_suspended = hba->clk_gating.is_suspended;
+
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			hba->clk_gating.state = __CLKS_ON;
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+			hba->clk_gating.is_suspended = true;
 			ufshcd_host_reset_and_restore(hba);
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			hba->clk_gating.state = CLKS_ON;
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			hba->clk_gating.is_suspended = saved_is_suspended;
+
 			goto out;
 		}
 	}

@@ -306,6 +306,7 @@ enum clk_gating_state {
 	CLKS_ON,
 	REQ_CLKS_OFF,
 	REQ_CLKS_ON,
+	__CLKS_ON,
 };
 
 /**
