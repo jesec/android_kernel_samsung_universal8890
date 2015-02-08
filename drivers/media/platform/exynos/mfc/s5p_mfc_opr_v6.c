@@ -3093,6 +3093,13 @@ static inline void s5p_mfc_run_init_dec(struct s5p_mfc_ctx *ctx)
 	}
 	/* Initializing decoding - parsing header */
 	spin_lock_irqsave(&dev->irqlock, flags);
+
+	if (list_empty(&ctx->src_queue)) {
+		spin_unlock_irqrestore(&dev->irqlock, flags);
+		mfc_err("no ctx src_queue to run\n");
+		return;
+	}
+
 	mfc_debug(2, "Preparing to init decoding.\n");
 	temp_vb = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
 	mfc_debug(2, "Header size: %d, (offset: %d)\n",
