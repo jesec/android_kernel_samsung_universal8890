@@ -589,11 +589,11 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	reg &= ~DWC3_DALEPENA_EP(dep->number);
 	dwc3_writel(dwc->regs, DWC3_DALEPENA, reg);
 
+	dep->flags = 0;
 	dep->stream_capable = false;
 	dep->endpoint.desc = NULL;
 	dep->comp_desc = NULL;
 	dep->type = 0;
-	dep->flags = 0;
 
 	return 0;
 }
@@ -2008,6 +2008,8 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 	unsigned		status = 0;
 	int			clean_busy;
 
+	if (dep->endpoint.desc == NULL)
+		return;
 	if (event->status & DEPEVT_STATUS_BUSERR)
 		status = -ECONNRESET;
 
