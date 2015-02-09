@@ -944,11 +944,13 @@ static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
 
 	if (!enter) {
 		struct uic_pwr_mode *act_pmd = &ufs->act_pmd_parm;
-		u32 mode;
+		u32 mode = 0;
 
 		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_PWRMODE), &mode);
 		if (mode != (act_pmd->mode << 4 | act_pmd->mode)) {
 			dev_warn(hba->dev, "%s: power mode change\n", __func__);
+			hba->pwr_info.pwr_rx = (mode >> 4) & 0xf;
+			hba->pwr_info.pwr_tx = mode & 0xf;
 			ufshcd_config_pwr_mode(hba, &hba->max_pwr_info.info);
 		}
 
