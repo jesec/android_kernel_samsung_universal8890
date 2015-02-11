@@ -168,8 +168,8 @@
 #define mci_writel(dev, reg, value)			\
 	__raw_writel((value), (dev)->regs + SDMMC_##reg)
 
-/* timeout (maximum) */
-#define dw_mci_set_timeout(host)	mci_writel(host, TMOUT, 0xffffffff)
+/* timeout */
+#define dw_mci_set_timeout(host, value)	mci_writel(host, TMOUT, value)
 
 /* 16-bit FIFO access macros */
 #define mci_readw(dev, reg)			\
@@ -229,6 +229,14 @@ enum dw_mci_misc_control {
 	CTRL_REQUEST_EXT_IRQ,
 	CTRL_CHECK_CD,
 };
+
+#define SDMMC_DATA_TMOUT_SHIFT		11
+#define SDMMC_RESP_TMOUT		0xFF
+#define SDMMC_DATA_TMOUT_CRT		8
+#define SDMMC_DATA_TMOUT_EXT		0x7
+#define SDMMC_DATA_TMOUT_EXT_SHIFT	8
+
+extern u32 dw_mci_calc_timeout(struct dw_mci *host);
 
 extern int dw_mci_probe(struct dw_mci *host);
 extern void dw_mci_remove(struct dw_mci *host);

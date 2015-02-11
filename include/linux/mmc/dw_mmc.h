@@ -304,7 +304,9 @@ struct dw_mci_board {
 	struct dma_pdata *data;
 	struct block_settings *blk_settings;
 	unsigned int sw_timeout;
-	u32 data_timeout;	/* DATA_TIMEOUT[31:11] of TMOUT */
+
+	/* DATA_TIMEOUT[31:11] of TMOUT */
+	u32 data_timeout;
 	bool use_gate_clock;
 	bool use_biu_gate_clock;
 	bool enable_cclk_on_suspend;

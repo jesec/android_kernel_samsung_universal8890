@@ -1397,6 +1397,30 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 	mci_writel(host, CTYPE, (slot->ctype << slot->id));
 }
 
+inline u32 dw_mci_calc_timeout(struct dw_mci *host)
+{
+	u32 target_timeout;
+	u32 count;
+	u32 host_clock = host->cur_slot->clock;
+
+	if (!host->pdata->data_timeout)
+		return 0xFFFFFFFF; /* timeout maximum */
+
+	target_timeout = host->pdata->data_timeout;
+
+	/* Calculating Timeout value */
+	count = (target_timeout * (host_clock / 1000)) /
+		(SDMMC_DATA_TMOUT_CRT * SDMMC_DATA_TMOUT_EXT);
+
+	if (count > 0x1FFFFF)
+		count = 0x1FFFFF;
+
+	/* Set return value */
+	return ((count << SDMMC_DATA_TMOUT_SHIFT)
+		| (SDMMC_DATA_TMOUT_EXT << SDMMC_DATA_TMOUT_EXT_SHIFT)
+		| SDMMC_RESP_TMOUT);
+}
+
 static void __dw_mci_start_request(struct dw_mci *host,
 				   struct dw_mci_slot *slot,
 				   struct mmc_command *cmd)
@@ -1424,7 +1448,7 @@ static void __dw_mci_start_request(struct dw_mci *host,
 
 	data = cmd->data;
 	if (data) {
-		mci_writel(host, TMOUT, 0xFFFFFFFF);
+		dw_mci_set_timeout(host, dw_mci_calc_timeout(host));
 		mci_writel(host, BYTCNT, data->blksz*data->blocks);
 		mci_writel(host, BLKSIZ, data->blksz);
 	}
