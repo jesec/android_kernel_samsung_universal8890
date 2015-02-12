@@ -268,3 +268,8 @@ source "drivers/thermal/st/Kconfig"
 endmenu
 
 endif
+
+menu "Samsung thermal drivers"
+depends on ARCH_EXYNOS
+source "drivers/thermal/samsung/Kconfig"
+endmenu

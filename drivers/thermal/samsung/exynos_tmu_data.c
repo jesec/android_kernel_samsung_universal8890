@@ -27,6 +27,7 @@
 #if defined(CONFIG_CPU_EXYNOS4210)
 static const struct exynos_tmu_registers exynos4210_tmu_registers = {
 	.triminfo_data = EXYNOS_TMU_REG_TRIMINFO,
+	.triminfo_85_shift = EXYNOS_TRIMINFO_85_SHIFT,
 	.tmu_ctrl = EXYNOS_TMU_REG_CONTROL,
 	.tmu_status = EXYNOS_TMU_REG_STATUS,
 	.tmu_cur_temp = EXYNOS_TMU_REG_CURRENT_TEMP,
@@ -169,6 +170,7 @@ struct exynos_tmu_init_data const exynos3250_default_tmu_data = {
 #if defined(CONFIG_SOC_EXYNOS4412) || defined(CONFIG_SOC_EXYNOS5250)
 static const struct exynos_tmu_registers exynos4412_tmu_registers = {
 	.triminfo_data = EXYNOS_TMU_REG_TRIMINFO,
+	.triminfo_85_shift = EXYNOS_TRIMINFO_85_SHIFT,
 	.triminfo_ctrl[0] = EXYNOS_TMU_TRIMINFO_CON2,
 	.triminfo_ctrl_count = 1,
 	.tmu_ctrl = EXYNOS_TMU_REG_CONTROL,
@@ -263,6 +265,7 @@ struct exynos_tmu_init_data const exynos5250_default_tmu_data = {
 #if defined(CONFIG_SOC_EXYNOS5260)
 static const struct exynos_tmu_registers exynos5260_tmu_registers = {
 	.triminfo_data = EXYNOS_TMU_REG_TRIMINFO,
+	.triminfo_85_shift = EXYNOS_TRIMINFO_85_SHIFT,
 	.tmu_ctrl = EXYNOS_TMU_REG_CONTROL,
 	.therm_trip_mode_shift = EXYNOS_TMU_TRIP_MODE_SHIFT,
 	.therm_trip_mode_mask = EXYNOS_TMU_TRIP_MODE_MASK,
@@ -342,6 +345,7 @@ struct exynos_tmu_init_data const exynos5260_default_tmu_data = {
 #if defined(CONFIG_SOC_EXYNOS5420)
 static const struct exynos_tmu_registers exynos5420_tmu_registers = {
 	.triminfo_data = EXYNOS_TMU_REG_TRIMINFO,
+	.triminfo_85_shift = EXYNOS_TRIMINFO_85_SHIFT,
 	.tmu_ctrl = EXYNOS_TMU_REG_CONTROL,
 	.therm_trip_mode_shift = EXYNOS_TMU_TRIP_MODE_SHIFT,
 	.therm_trip_mode_mask = EXYNOS_TMU_TRIP_MODE_MASK,
@@ -429,6 +433,7 @@ struct exynos_tmu_init_data const exynos5420_default_tmu_data = {
 #if defined(CONFIG_SOC_EXYNOS5440)
 static const struct exynos_tmu_registers exynos5440_tmu_registers = {
 	.triminfo_data = EXYNOS5440_TMU_S0_7_TRIM,
+	.triminfo_85_shift = EXYNOS_TRIMINFO_85_SHIFT,
 	.tmu_ctrl = EXYNOS5440_TMU_S0_7_CTRL,
 	.therm_trip_mode_shift = EXYNOS_TMU_TRIP_MODE_SHIFT,
 	.therm_trip_mode_mask = EXYNOS_TMU_TRIP_MODE_MASK,
@@ -481,6 +486,183 @@ struct exynos_tmu_init_data const exynos5440_default_tmu_data = {
 		{ EXYNOS5440_TMU_DATA } ,
 		{ EXYNOS5440_TMU_DATA } ,
 		{ EXYNOS5440_TMU_DATA } ,
+	},
+	.tmu_count = 3,
+};
+#endif
+
+#if defined(CONFIG_SOC_EXYNOS7580)
+static const struct exynos_tmu_registers exynos7580_tmu_registers = {
+	.triminfo_data = EXYNOS_TMU_REG_TRIMINFO,
+	.triminfo_85_shift = EXYNOS_TRIMINFO_85_SHIFT,
+	.tmu_ctrl = EXYNOS_TMU_REG_CONTROL,
+	.tmu_ctrl1 = EXYNOS_TMU_REG_CONTROL1,
+	.therm_trip_mode_shift = EXYNOS_TMU_TRIP_MODE_SHIFT,
+	.therm_trip_mode_mask = EXYNOS_TMU_TRIP_MODE_MASK,
+	.therm_trip_en_shift = EXYNOS_TMU_THERM_TRIP_EN_SHIFT,
+	.lpi0_mode_en_shift = EXYNOS7580_TMU_LPI0_MODE_EN_SHIFT,
+	.tmu_status = EXYNOS_TMU_REG_STATUS,
+	.tmu_cur_temp = EXYNOS_TMU_REG_CURRENT_TEMP,
+	.threshold_th0 = EXYNOS7580_TMU_RISE3_0,
+	.threshold_th1 = EXYNOS7580_TMU_FALL3_0,
+	.threshold_th2 = EXYNOS7580_TMU_RISE7_4,
+	.threshold_th3 = EXYNOS7580_TMU_FALL7_4,
+	.threshold_th3_l0_shift = EXYNOS7580_TMU_TH_HW_TRIP_SHIFT,
+	.tmu_inten = EXYNOS7580_TMU_REG_INTEN,
+	.inten_rise0_shift = EXYNOS7580_TMU_INTEN_RISE0_SHIFT,
+	.inten_rise1_shift = EXYNOS7580_TMU_INTEN_RISE1_SHIFT,
+	.inten_rise2_shift = EXYNOS7580_TMU_INTEN_RISE2_SHIFT,
+	.inten_rise3_shift = EXYNOS7580_TMU_INTEN_RISE3_SHIFT,
+	.inten_rise4_shift = EXYNOS7580_TMU_INTEN_RISE4_SHIFT,
+	.inten_rise5_shift = EXYNOS7580_TMU_INTEN_RISE5_SHIFT,
+	.inten_rise6_shift = EXYNOS7580_TMU_INTEN_RISE6_SHIFT,
+	.inten_rise7_shift = EXYNOS7580_TMU_INTEN_RISE7_SHIFT,
+	.inten_fall0_shift = EXYNOS7580_TMU_INTEN_FALL0_SHIFT,
+	.inten_fall1_shift = EXYNOS7580_TMU_INTEN_FALL1_SHIFT,
+	.inten_fall2_shift = EXYNOS7580_TMU_INTEN_FALL2_SHIFT,
+	.inten_fall3_shift = EXYNOS7580_TMU_INTEN_FALL3_SHIFT,
+	.inten_fall4_shift = EXYNOS7580_TMU_INTEN_FALL4_SHIFT,
+	.inten_fall5_shift = EXYNOS7580_TMU_INTEN_FALL5_SHIFT,
+	.inten_fall6_shift = EXYNOS7580_TMU_INTEN_FALL6_SHIFT,
+	.inten_fall7_shift = EXYNOS7580_TMU_INTEN_FALL7_SHIFT,
+	.tmu_intstat = EXYNOS7580_TMU_REG_INTCLEAR,
+	.tmu_intclear = EXYNOS7580_TMU_REG_INTCLEAR,
+	.emul_con = EXYNOS7580_EMUL_CON,
+	.emul_temp_shift = EXYNOS_EMUL_DATA_SHIFT,
+	.emul_time_shift = EXYNOS_EMUL_TIME_SHIFT,
+};
+
+#define EXYNOS7580_TMU_DATA \
+	.trigger_levels[0] = 90, \
+	.trigger_levels[1] = 93, \
+	.trigger_levels[2] = 95, \
+	.trigger_levels[3] = 97, \
+	.trigger_levels[4] = 100, \
+	.trigger_levels[5] = 102, \
+	.trigger_levels[6] = 103, \
+	.trigger_levels[7] = 125, \
+	.trigger_enable[0] = 1, \
+	.trigger_enable[1] = 1, \
+	.trigger_enable[2] = 1, \
+	.trigger_enable[3] = 1, \
+	.trigger_enable[4] = 1, \
+	.trigger_enable[5] = 1, \
+	.trigger_enable[6] = 1, \
+	.trigger_enable[7] = 1, \
+	.trigger_type[0] = THROTTLE_ACTIVE, \
+	.trigger_type[1] = THROTTLE_ACTIVE, \
+	.trigger_type[2] = THROTTLE_ACTIVE, \
+	.trigger_type[3] = THROTTLE_ACTIVE, \
+	.trigger_type[4] = THROTTLE_ACTIVE, \
+	.trigger_type[5] = THROTTLE_ACTIVE, \
+	.trigger_type[6] = SW_TRIP, \
+	.trigger_type[7] = HW_TRIP, \
+	.max_trigger_level = 8, \
+	.non_hw_trigger_levels = 7, \
+	.gain = 5, \
+	.reference_voltage = 16, \
+	.noise_cancel_mode = 0, \
+	.cal_type = TYPE_ONE_POINT_TRIMMING, \
+	.efuse_value = 50, \
+	.min_efuse_value = 16, \
+	.max_efuse_value = 76, \
+	.first_point_trim = 25, \
+	.second_point_trim = 85, \
+	.default_temp_offset = 25, \
+	.freq_tab[0] = { \
+		.freq_clip_max = 500 * 1000, \
+		.temp_level = 85, \
+	}, \
+	.freq_tab[1] = { \
+		.freq_clip_max = 300 * 1000, \
+		.temp_level = 103, \
+	}, \
+	.freq_tab_count = 2, \
+	.type = SOC_ARCH_EXYNOS7580, \
+	.d_type = CPU, \
+	.registers = &exynos7580_tmu_registers, \
+	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
+			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
+			TMU_SUPPORT_EMUL_TIME),
+
+#define EXYNOS7580_TMU_DATA_GPU \
+	.trigger_levels[0] = 76, \
+	.trigger_levels[1] = 81, \
+	.trigger_levels[2] = 86, \
+	.trigger_levels[3] = 91, \
+	.trigger_levels[4] = 96, \
+	.trigger_levels[5] = 101, \
+	.trigger_levels[6] = 106, \
+	.trigger_levels[7] = 115, \
+	.trigger_enable[0] = 1, \
+	.trigger_enable[1] = 1, \
+	.trigger_enable[2] = 1, \
+	.trigger_enable[3] = 1, \
+	.trigger_enable[4] = 1, \
+	.trigger_enable[5] = 1, \
+	.trigger_enable[6] = 1, \
+	.trigger_enable[7] = 1, \
+	.trigger_type[0] = THROTTLE_ACTIVE, \
+	.trigger_type[1] = THROTTLE_ACTIVE, \
+	.trigger_type[2] = THROTTLE_ACTIVE, \
+	.trigger_type[3] = THROTTLE_ACTIVE, \
+	.trigger_type[4] = THROTTLE_ACTIVE, \
+	.trigger_type[5] = THROTTLE_ACTIVE, \
+	.trigger_type[6] = SW_TRIP, \
+	.trigger_type[7] = HW_TRIP, \
+	.max_trigger_level = 8, \
+	.non_hw_trigger_levels = 7, \
+	.gain = 5, \
+	.reference_voltage = 16, \
+	.noise_cancel_mode = 2, \
+	.cal_type = TYPE_ONE_POINT_TRIMMING, \
+	.efuse_value = 50, \
+	.min_efuse_value = 16, \
+	.max_efuse_value = 76, \
+	.first_point_trim = 25, \
+	.second_point_trim = 85, \
+	.default_temp_offset = 25, \
+	.freq_tab[0] = { \
+		.freq_clip_max = 800 * 1000, \
+		.temp_level = 76, \
+	}, \
+	.freq_tab[1] = { \
+		.freq_clip_max = 800 * 1000, \
+		.temp_level = 81, \
+	}, \
+	.freq_tab[2] = { \
+		.freq_clip_max = 734 * 1000, \
+		.temp_level = 86, \
+	}, \
+	.freq_tab[3] = { \
+		.freq_clip_max = 668 * 1000, \
+		.temp_level = 91, \
+	}, \
+	.freq_tab[4] = { \
+		.freq_clip_max = 534 * 1000, \
+		.temp_level = 96, \
+	}, \
+	.freq_tab[5] = { \
+		.freq_clip_max = 350 * 1000, \
+		.temp_level = 101, \
+	}, \
+	.freq_tab[6] = { \
+		.freq_clip_max = 160 * 1000, \
+		.temp_level = 106, \
+	}, \
+	.freq_tab_count = 7, \
+	.type = SOC_ARCH_EXYNOS7580, \
+	.d_type = GPU, \
+	.registers = &exynos7580_tmu_registers, \
+	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
+			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
+			TMU_SUPPORT_EMUL_TIME),
+
+struct exynos_tmu_init_data const exynos7580_default_tmu_data = {
+	.tmu_data = {
+		{ EXYNOS7580_TMU_DATA } ,
+		{ EXYNOS7580_TMU_DATA } ,
+		{ EXYNOS7580_TMU_DATA_GPU } ,
 	},
 	.tmu_count = 3,
 };

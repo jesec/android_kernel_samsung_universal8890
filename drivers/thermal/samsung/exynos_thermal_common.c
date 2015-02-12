@@ -21,6 +21,7 @@
  */
 
 #include <linux/cpu_cooling.h>
+#include <linux/gpu_cooling.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
@@ -137,6 +138,7 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 	struct freq_clip_table *tab_ptr, *clip_data;
 	struct exynos_thermal_zone *th_zone = thermal->devdata;
 	struct thermal_sensor_conf *data = th_zone->sensor_conf;
+	enum thermal_trip_type type;
 
 	tab_ptr = (struct freq_clip_table *)data->cooling_data.freq_data;
 	tab_size = data->cooling_data.freq_clip_count;
@@ -156,10 +158,19 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 	/* Bind the thermal zone to the cpufreq cooling device */
 	for (i = 0; i < tab_size; i++) {
 		clip_data = (struct freq_clip_table *)&(tab_ptr[i]);
-		level = cpufreq_cooling_get_level(0, clip_data->freq_clip_max);
+		if (data->d_type == CPU)
+			level = cpufreq_cooling_get_level(0, clip_data->freq_clip_max);
+		else if (data->d_type == GPU)
+			level = gpufreq_cooling_get_level(0, clip_data->freq_clip_max);
+		else
+			level = (int)THERMAL_CSTATE_INVALID;
+
 		if (level == THERMAL_CSTATE_INVALID)
 			return 0;
-		switch (GET_ZONE(i)) {
+
+		exynos_get_trip_type(thermal, i, &type);
+
+		switch (GET_ZONE(type)) {
 		case MONITOR_ZONE:
 		case WARN_ZONE:
 			if (thermal_zone_bind_cooling_device(thermal, i, cdev,
@@ -185,6 +196,7 @@ static int exynos_unbind(struct thermal_zone_device *thermal,
 	int ret = 0, i, tab_size;
 	struct exynos_thermal_zone *th_zone = thermal->devdata;
 	struct thermal_sensor_conf *data = th_zone->sensor_conf;
+	enum thermal_trip_type type;
 
 	if (th_zone->bind == false)
 		return 0;
@@ -205,7 +217,9 @@ static int exynos_unbind(struct thermal_zone_device *thermal,
 
 	/* Bind the thermal zone to the cpufreq cooling device */
 	for (i = 0; i < tab_size; i++) {
-		switch (GET_ZONE(i)) {
+		exynos_get_trip_type(thermal, i, &type);
+
+		switch (GET_ZONE(type)) {
 		case MONITOR_ZONE:
 		case WARN_ZONE:
 			if (thermal_zone_unbind_cooling_device(thermal, i,
@@ -346,7 +360,7 @@ void exynos_report_trigger(struct thermal_sensor_conf *conf)
 /* Register with the in-kernel thermal management */
 int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 {
-	int ret;
+	int ret, cpu;
 	struct cpumask mask_val;
 	struct exynos_thermal_zone *th_zone;
 
@@ -361,15 +375,28 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 		return -ENOMEM;
 
 	th_zone->sensor_conf = sensor_conf;
+	cpumask_clear(&mask_val);
+
+	for_each_possible_cpu(cpu) {
+		if (cpu_topology[cpu].cluster_id == sensor_conf->id) {
+			cpumask_copy(&mask_val, topology_core_cpumask(cpu));
+			break;
+		}
+	}
+
 	/*
 	 * TODO: 1) Handle multiple cooling devices in a thermal zone
 	 *	 2) Add a flag/name in cooling info to map to specific
 	 *	 sensor
 	 */
 	if (sensor_conf->cooling_data.freq_clip_count > 0) {
-		cpumask_set_cpu(0, &mask_val);
-		th_zone->cool_dev[th_zone->cool_dev_size] =
+		if (sensor_conf->d_type == CPU) {
+			th_zone->cool_dev[th_zone->cool_dev_size] =
 					cpufreq_cooling_register(&mask_val);
+		} else if (sensor_conf->d_type ==  GPU) {
+			th_zone->cool_dev[th_zone->cool_dev_size] =
+					gpufreq_cooling_register(&mask_val);
+		}
 		if (IS_ERR(th_zone->cool_dev[th_zone->cool_dev_size])) {
 			dev_err(sensor_conf->dev,
 				"Failed to register cpufreq cooling device\n");
@@ -419,8 +446,12 @@ void exynos_unregister_thermal(struct thermal_sensor_conf *sensor_conf)
 
 	thermal_zone_device_unregister(th_zone->therm_dev);
 
-	for (i = 0; i < th_zone->cool_dev_size; ++i)
-		cpufreq_cooling_unregister(th_zone->cool_dev[i]);
+	for (i = 0; i < th_zone->cool_dev_size; i++) {
+		if (sensor_conf->d_type == CPU)
+			cpufreq_cooling_unregister(th_zone->cool_dev[i]);
+		else if (sensor_conf->d_type == GPU)
+			gpufreq_cooling_unregister(th_zone->cool_dev[i]);
+	}
 
 	dev_info(sensor_conf->dev,
 		"Exynos: Kernel Thermal management unregistered\n");

@@ -52,7 +52,6 @@
 #define EXYNOS_THD_TEMP_FALL		0x54
 #define EXYNOS_EMUL_CON		0x80
 
-#define EXYNOS_TRIMINFO_RELOAD_ENABLE	1
 #define EXYNOS_TRIMINFO_25_SHIFT	0
 #define EXYNOS_TRIMINFO_85_SHIFT	8
 #define EXYNOS_TMU_TRIP_MODE_SHIFT	13
@@ -65,16 +64,17 @@
 #define EXYNOS_TMU_INTEN_RISE3_SHIFT	12
 #define EXYNOS_TMU_INTEN_FALL0_SHIFT	16
 
-#define EXYNOS_EMUL_TIME	0x57F0
+#define EXYNOS_EMUL_TIME	0x1
 #define EXYNOS_EMUL_TIME_MASK	0xffff
 #define EXYNOS_EMUL_TIME_SHIFT	16
 #define EXYNOS_EMUL_DATA_SHIFT	8
 #define EXYNOS_EMUL_DATA_MASK	0xFF
 #define EXYNOS_EMUL_ENABLE	0x1
 
-#define EXYNOS_MAX_TRIGGER_PER_REG	4
+#define EXYNOS_MAX_TRIGGER_PER_REG	8
 
 /* Exynos5260 specific */
+#define EXYNOS_TMU_REG_CONTROL1			0x24
 #define EXYNOS5260_TMU_REG_INTEN		0xC0
 #define EXYNOS5260_TMU_REG_INTSTAT		0xC4
 #define EXYNOS5260_TMU_REG_INTCLEAR		0xC8
@@ -113,6 +113,44 @@ extern struct exynos_tmu_init_data const exynos3250_default_tmu_data;
 #else
 #define EXYNOS3250_TMU_DRV_DATA (NULL)
 #endif
+
+/*exynos7580 specific registers*/
+#define EXYNOS7580_TMU_RISE3_0                 0x50
+#define EXYNOS7580_TMU_RISE7_4                 0x54
+#define EXYNOS7580_TMU_TH_HW_TRIP_SHIFT		24
+
+#define EXYNOS7580_TMU_FALL3_0                 0x60
+#define EXYNOS7580_TMU_FALL7_4                 0x64
+
+#define EXYNOS7580_TMU_REG_INTEN               0xC0
+#define EXYNOS7580_TMU_REG_INTCLEAR            0xC8
+#define EXYNOS7580_EMUL_CON                    0x110
+
+#define EXYNOS7580_TMU_LPI0_MODE_EN_SHIFT	10
+
+#define EXYNOS7580_TMU_VALID_P0			15
+
+#define EXYNOS7580_TMU_INTEN_RISE0_SHIFT       0
+#define EXYNOS7580_TMU_INTEN_RISE1_SHIFT       1
+#define EXYNOS7580_TMU_INTEN_RISE2_SHIFT       2
+#define EXYNOS7580_TMU_INTEN_RISE3_SHIFT       3
+#define EXYNOS7580_TMU_INTEN_RISE4_SHIFT       4
+#define EXYNOS7580_TMU_INTEN_RISE5_SHIFT       5
+#define EXYNOS7580_TMU_INTEN_RISE6_SHIFT       6
+#define EXYNOS7580_TMU_INTEN_RISE7_SHIFT       7
+#define EXYNOS7580_TMU_INTEN_FALL0_SHIFT       16
+#define EXYNOS7580_TMU_INTEN_FALL1_SHIFT       17
+#define EXYNOS7580_TMU_INTEN_FALL2_SHIFT       18
+#define EXYNOS7580_TMU_INTEN_FALL3_SHIFT       19
+#define EXYNOS7580_TMU_INTEN_FALL4_SHIFT       20
+#define EXYNOS7580_TMU_INTEN_FALL5_SHIFT       21
+#define EXYNOS7580_TMU_INTEN_FALL6_SHIFT       22
+#define EXYNOS7580_TMU_INTEN_FALL7_SHIFT       23
+
+#define EXYNOS7580_TMU_RISE_INT_MASK   0xff
+#define EXYNOS7580_TMU_RISE_INT_SHIFT  0
+#define EXYNOS7580_TMU_FALL_INT_MASK   0xff
+#define EXYNOS7580_TMU_FALL_INT_SHIFT  16
 
 #if defined(CONFIG_CPU_EXYNOS4210)
 extern struct exynos_tmu_init_data const exynos4210_default_tmu_data;
@@ -156,4 +194,10 @@ extern struct exynos_tmu_init_data const exynos5440_default_tmu_data;
 #define EXYNOS5440_TMU_DRV_DATA (NULL)
 #endif
 
+#if defined(CONFIG_SOC_EXYNOS7580)
+extern struct exynos_tmu_init_data const exynos7580_default_tmu_data;
+#define EXYNOS7580_TMU_DRV_DATA (&exynos7580_default_tmu_data)
+#else
+#define EXYNOS7580_TMU_DRV_DATA (NULL)
+#endif
 #endif /*_EXYNOS_TMU_DATA_H*/

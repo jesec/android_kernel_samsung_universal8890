@@ -49,6 +49,11 @@ enum trigger_type {
 	HW_TRIP,
 };
 
+enum dev_type {
+	CPU,
+	GPU,
+};
+
 /**
  * struct freq_clip_table
  * @freq_clip_max: maximum frequency allowed for this cooling state.
@@ -86,6 +91,8 @@ struct thermal_sensor_conf {
 	void *driver_data;
 	void *pzone_data;
 	struct device *dev;
+	enum dev_type d_type;
+	int id;
 };
 
 /*Functions used exynos based thermal sensor driver*/
