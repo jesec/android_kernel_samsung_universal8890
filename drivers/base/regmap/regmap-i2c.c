@@ -145,7 +145,7 @@ static int regmap_i2c_read(void *context,
 	struct i2c_msg xfer[2];
 	int ret;
 
-	if (i2c->flags && I2C_CLIENT_TEN) {
+	if (i2c->flags & I2C_CLIENT_TEN) {
 		xfer[0].flags = I2C_M_RD|I2C_CLIENT_TEN;
 		xfer[0].len = val_size;
 		xfer[0].buf = (void *)reg;
