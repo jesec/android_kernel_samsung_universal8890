@@ -1780,13 +1780,6 @@ static int sc_open(struct file *file)
 	struct sc_ctx *ctx;
 	int ret;
 
-	if (test_bit(DEV_CP, &sc->state)) {
-		dev_err(sc->dev,
-			"%s: New context NOT allowed during protection\n",
-			__func__);
-		return -EBUSY;
-	}
-
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
 		dev_err(sc->dev, "no memory for open context\n");
@@ -2639,13 +2632,6 @@ static int sc_m2m1shot_init_context(struct m2m1shot_context *m21ctx)
 	struct sc_dev *sc = dev_get_drvdata(m21ctx->m21dev->dev);
 	struct sc_ctx *ctx;
 	int ret;
-
-	if (test_bit(DEV_CP, &sc->state)) {
-		dev_err(sc->dev,
-			"%s: New context NOT allowed during protection\n",
-			__func__);
-		return -EBUSY;
-	}
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
