@@ -610,6 +610,13 @@ static int exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 	ufshcd_dme_set(hba,
 		UIC_ARG_MIB(PA_PWRMODEUSERDATA2), act_pmd->remote_l2_timer[2]);
 
+	unipro_writel(ufs, act_pmd->local_l2_timer[0], UNIP_DME_PWR_REQ_LOCALL2TIMER0);
+	unipro_writel(ufs, act_pmd->local_l2_timer[1], UNIP_DME_PWR_REQ_LOCALL2TIMER1);
+	unipro_writel(ufs, act_pmd->local_l2_timer[2], UNIP_DME_PWR_REQ_LOCALL2TIMER2);
+	unipro_writel(ufs, act_pmd->remote_l2_timer[0], UNIP_DME_PWR_REQ_REMOTEL2TIMER0);
+	unipro_writel(ufs, act_pmd->remote_l2_timer[1], UNIP_DME_PWR_REQ_REMOTEL2TIMER1);
+	unipro_writel(ufs, act_pmd->remote_l2_timer[2], UNIP_DME_PWR_REQ_REMOTEL2TIMER2);
+
 	if (!soc)
 		goto out;
 
@@ -745,7 +752,7 @@ static void exynos_ufs_config_unipro(struct exynos_ufs *ufs)
 	unipro_writel(ufs, 0x1, UNIP_DME_PACP_CNFBIT);
 
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_CLK_PERIOD),
-		UNIPRO_MCLK_PERIOD(ufs));
+		DIV_ROUND_UP(NSEC_PER_SEC, ufs->mclk_rate));
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTRAILINGCLOCKS), TXTRAILINGCLOCKS);
 }
 
