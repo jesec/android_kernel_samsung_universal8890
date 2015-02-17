@@ -597,7 +597,7 @@ int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 	ctx_buf->virt = 0;
 	ctx_buf->ofs = fw_ofs + firmware_size;
 
-	if (IS_MFCv7X(dev)) {
+	if (IS_MFCv7X(dev) && !IS_MFCv78(dev)) {
 		if (alloc_dev_dis_shared_buffer(dev, alloc_ctx, buf_type) < 0) {
 			s5p_mfc_mem_free_priv(ctx_buf->alloc);
 			ctx_buf->alloc = NULL;
