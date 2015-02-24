@@ -69,6 +69,15 @@ struct exynos_tmu_data {
 	struct thermal_sensor_conf *reg_conf;
 };
 
+struct tmu_core {
+	void __iomem *base;
+	enum dev_type type;
+};
+
+#define MAX_TMU_COUNT	3
+static struct tmu_core tcore[MAX_TMU_COUNT];
+static unsigned int tmu_dev_count;
+
 /*
  * TMU treats temperature as a mapped temperature code.
  * The temperature is converted differently depending on the calibration type.
@@ -422,6 +431,64 @@ static int exynos_tmu_set_emulation(void *drv_data,	unsigned long temp)
 	{ return -EINVAL; }
 #endif/*CONFIG_THERMAL_EMULATION*/
 
+void exynos_tmu_core_control(bool on, int id)
+{
+	int i, count;
+	unsigned int con, status;
+
+	for (i = 0; i < MAX_TMU_COUNT; i++) {
+		if (tcore[i].base && tcore[i].type == id) {
+			con = readl(tcore[i].base + EXYNOS_TMU_REG_CONTROL);
+			con &= ~(1 << EXYNOS_TMU_CORE_EN_SHIFT);
+			if (on)
+				con |= (1 << EXYNOS_TMU_CORE_EN_SHIFT);
+			writel(con, tcore[i].base + EXYNOS_TMU_REG_CONTROL);
+
+			if (on)
+				continue;
+
+			for (count = 0; count < 10; count++) {
+				status = readb(tcore[i].base + EXYNOS_TMU_REG_STATUS);
+				if (status & 0x1)
+					break;
+
+				udelay(5);
+			}
+
+			if (count == 10)
+				pr_err("TMU is busy.\n");
+		}
+	}
+}
+
+#ifdef CONFIG_CPU_IDLE
+static int exynos_low_pwr_notifier(struct notifier_block *notifier,
+		unsigned long pm_event, void *v)
+{
+	switch (pm_event) {
+	case LPA_ENTER:
+		exynos_tmu_core_control(false, CPU);
+		break;
+	case LPA_ENTER_FAIL:
+	case LPA_EXIT:
+		exynos_tmu_core_control(true, CPU);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+#else
+static int exynos_low_pwr_notifier(struct notifier_block *notifier,
+		unsigned long pm_event, void *v)
+{
+	return NOTIFY_OK;
+}
+#endif
+
+static struct notifier_block exynos_low_pwr_nb = {
+	.notifier_call = exynos_low_pwr_notifier,
+};
+
 static void exynos_tmu_work(struct work_struct *work)
 {
 	struct exynos_tmu_data *data = container_of(work,
@@ -660,6 +727,9 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 			pdata->trigger_enable[3] + pdata->trigger_enable[4]+
 			pdata->trigger_enable[5] + pdata->trigger_enable[6]+
 			pdata->trigger_enable[7];
+
+	tcore[data->id].base = data->base;
+	tcore[data->id].type = pdata->d_type;
 
 	for (i = 0; i < sensor_conf->trip_data.trip_count; i++) {
 		sensor_conf->trip_data.trip_val[i] =
