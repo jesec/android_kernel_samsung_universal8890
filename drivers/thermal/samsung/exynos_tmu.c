@@ -464,6 +464,7 @@ void exynos_tmu_core_control(bool on, int id)
 	}
 }
 
+#ifdef CONFIG_CPU_PM
 #ifdef CONFIG_CPU_IDLE
 static int exynos_low_pwr_notifier(struct notifier_block *notifier,
 		unsigned long pm_event, void *v)
@@ -486,11 +487,12 @@ static int exynos_low_pwr_notifier(struct notifier_block *notifier,
 {
 	return NOTIFY_OK;
 }
-#endif
+#endif /* end of CONFIG_CPU_IDLE */
 
 static struct notifier_block exynos_low_pwr_nb = {
 	.notifier_call = exynos_low_pwr_notifier,
 };
+#endif /* end of CONFIG_CPU_PM */
 
 static void exynos_tmu_work(struct work_struct *work)
 {
@@ -763,8 +765,10 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+#ifdef CONFIG_CPU_PM
 	if (list_is_singular(&dtm_dev_list))
 		exynos_pm_register_notifier(&exynos_low_pwr_nb);
+#endif
 
 	return 0;
 err:
@@ -783,8 +787,10 @@ static int exynos_tmu_remove(struct platform_device *pdev)
 	if (!IS_ERR(data->regulator))
 		regulator_disable(data->regulator);
 
+#ifdef CONFIG_CPU_PM
 	if (list_is_singular(&dtm_dev_list))
 		exynos_pm_unregister_notifier(&exynos_low_pwr_nb);
+#endif
 
 	mutex_lock(&data->lock);
 	list_for_each_entry(devnode, &dtm_dev_list, node) {
