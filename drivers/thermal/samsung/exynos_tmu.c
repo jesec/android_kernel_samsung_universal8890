@@ -67,16 +67,11 @@ struct exynos_tmu_data {
 	u8 temp_error1, temp_error2;
 	struct regulator *regulator;
 	struct thermal_sensor_conf *reg_conf;
+	struct list_head node;
 };
 
-struct tmu_core {
-	void __iomem *base;
-	enum dev_type type;
-};
-
-#define MAX_TMU_COUNT	3
-static struct tmu_core tcore[MAX_TMU_COUNT];
-static unsigned int tmu_dev_count;
+/* list of multiple instance for each thermal sensor */
+static LIST_HEAD(dtm_dev_list);
 
 /*
  * TMU treats temperature as a mapped temperature code.
@@ -179,6 +174,8 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 			}
 		}
 	}
+
+	list_add_tail(&data->node, &dtm_dev_list);
 
 	/* Save trimming info in order to perform calibration */
 	if (data->soc == SOC_ARCH_EXYNOS5440) {
@@ -433,22 +430,24 @@ static int exynos_tmu_set_emulation(void *drv_data,	unsigned long temp)
 
 void exynos_tmu_core_control(bool on, int id)
 {
-	int i, count;
+	int count;
 	unsigned int con, status;
 
-	for (i = 0; i < MAX_TMU_COUNT; i++) {
-		if (tcore[i].base && tcore[i].type == id) {
-			con = readl(tcore[i].base + EXYNOS_TMU_REG_CONTROL);
+	struct exynos_tmu_data *devnode;
+
+	list_for_each_entry(devnode, &dtm_dev_list, node) {
+		if (devnode->base && devnode->pdata->d_type == id) {
+			con = readl(devnode->base + devnode->pdata->registers->tmu_ctrl);
 			con &= ~(1 << EXYNOS_TMU_CORE_EN_SHIFT);
 			if (on)
 				con |= (1 << EXYNOS_TMU_CORE_EN_SHIFT);
-			writel(con, tcore[i].base + EXYNOS_TMU_REG_CONTROL);
+			writel(con, devnode->base + devnode->pdata->registers->tmu_ctrl);
 
 			if (on)
 				continue;
 
 			for (count = 0; count < 10; count++) {
-				status = readb(tcore[i].base + EXYNOS_TMU_REG_STATUS);
+				status = readb(devnode->base + devnode->pdata->registers->tmu_status);
 				if (status & 0x1)
 					break;
 
@@ -458,6 +457,7 @@ void exynos_tmu_core_control(bool on, int id)
 			if (count == 10)
 				pr_err("TMU is busy.\n");
 		}
+
 	}
 }
 
@@ -728,9 +728,6 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 			pdata->trigger_enable[5] + pdata->trigger_enable[6]+
 			pdata->trigger_enable[7];
 
-	tcore[data->id].base = data->base;
-	tcore[data->id].type = pdata->d_type;
-
 	for (i = 0; i < sensor_conf->trip_data.trip_count; i++) {
 		sensor_conf->trip_data.trip_val[i] =
 			pdata->threshold + pdata->trigger_levels[i];
@@ -763,7 +760,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (tmu_dev_count++ == 0)
+	if (list_is_singular(&dtm_dev_list))
 		exynos_pm_register_notifier(&exynos_low_pwr_nb);
 
 	return 0;
@@ -774,6 +771,7 @@ err:
 static int exynos_tmu_remove(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
+	struct exynos_tmu_data *devnode;
 
 	exynos_unregister_thermal(data->reg_conf);
 
@@ -782,8 +780,16 @@ static int exynos_tmu_remove(struct platform_device *pdev)
 	if (!IS_ERR(data->regulator))
 		regulator_disable(data->regulator);
 
-	if (--tmu_dev_count == 0)
+	if (list_is_singular(&dtm_dev_list))
 		exynos_pm_unregister_notifier(&exynos_low_pwr_nb);
+
+	mutex_lock(&data->lock);
+	list_for_each_entry(devnode, &dtm_dev_list, node) {
+		if (devnode->id == data->id) {
+			list_del(&devnode->node);
+		}
+	}
+	mutex_unlock(&data->lock);
 
 	return 0;
 }
