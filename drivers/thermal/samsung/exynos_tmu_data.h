@@ -201,7 +201,9 @@ extern struct exynos_tmu_init_data const exynos3250_default_tmu_data;
 
 /* Define Exynos Global constant value */
 #define		EXYNOS_MAX_TEMP		125
-#define		EXYNOS_MIN_TEMP		15
+#define		EXYNOS_MIN_TEMP		10
+#define		EXYNOS_COLD_TEMP	15
+
 
 #if defined(CONFIG_CPU_EXYNOS4210)
 extern struct exynos_tmu_init_data const exynos4210_default_tmu_data;

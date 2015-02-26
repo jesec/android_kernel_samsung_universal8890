@@ -30,6 +30,8 @@
 
 #include <soc/samsung/tmu.h>
 
+#include "exynos_tmu_data.h"
+
 /**
  * struct gpufreq_cooling_device - data for cooling device with gpufreq
  * @id: unique integer value corresponding to each gpufreq_cooling_device
@@ -322,7 +324,7 @@ int gpufreq_set_cur_temp(bool suspended, unsigned long temp)
 {
 	enum tmu_noti_state_t tstate;
 
-	if (suspended || temp < COLD_TEMP)
+	if (suspended || temp < EXYNOS_COLD_TEMP)
 		tstate = GPU_COLD;
 	else
 		tstate = GPU_NORMAL;

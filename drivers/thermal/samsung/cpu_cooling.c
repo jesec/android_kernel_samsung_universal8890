@@ -30,6 +30,7 @@
 
 #include <soc/samsung/tmu.h>
 
+#include "exynos_tmu_data.h"
 /**
  * struct cpufreq_cooling_device - data for cooling device with cpufreq
  * @id: unique integer value corresponding to each cpufreq_cooling_device
@@ -414,7 +415,7 @@ int cpufreq_set_cur_temp(bool suspended, unsigned long temp)
 	enum tmu_noti_state_t tstate;
 	unsigned int on;
 
-	if (suspended || temp < COLD_TEMP) {
+	if (suspended || temp < EXYNOS_COLD_TEMP) {
 		tstate = TMU_COLD;
 		on = 1;
 	} else {
