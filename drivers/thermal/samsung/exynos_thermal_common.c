@@ -251,9 +251,6 @@ extern int gpufreq_set_cur_temp(bool suspended, unsigned long temp);
 static inline int gpufreq_set_cur_temp(bool suspended, unsigned long temp) { return 0; }
 #endif
 
-const unsigned long valid_min_temp = 10;
-const unsigned long valid_max_temp = 125;
-
 /* Get temperature callback functions for thermal zone */
 static int exynos_get_temp(struct thermal_zone_device *thermal,
 			unsigned long *temp)
@@ -268,12 +265,6 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 	}
 	data = th_zone->sensor_conf->driver_data;
 	*temp = th_zone->sensor_conf->read_temperature(data);
-
-	/* now check if temp is valid */
-	if (*temp < valid_min_temp)
-		*temp = valid_min_temp;
-	if (*temp > valid_max_temp)
-		*temp = valid_max_temp;
 
 	/* convert the temperature into millicelsius */
 	*temp = *temp * MCELSIUS;
