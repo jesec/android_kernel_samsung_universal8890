@@ -81,20 +81,28 @@ static LIST_HEAD(dtm_dev_list);
 static int temp_to_code(struct exynos_tmu_data *data, u8 temp)
 {
 	struct exynos_tmu_platform_data *pdata = data->pdata;
-	int temp_code;
+	int temp_code = -EINVAL;
+	u8 rtemp;
+
+	if (temp > EXYNOS_MAX_TEMP)
+		rtemp = EXYNOS_MAX_TEMP;
+	else if (temp < EXYNOS_MIN_TEMP)
+		rtemp = EXYNOS_MIN_TEMP;
+	else
+		rtemp = temp;
 
 	switch (pdata->cal_type) {
 	case TYPE_TWO_POINT_TRIMMING:
-		temp_code = (temp - pdata->first_point_trim) *
+		temp_code = (rtemp - pdata->first_point_trim) *
 			(data->temp_error2 - data->temp_error1) /
 			(pdata->second_point_trim - pdata->first_point_trim) +
 			data->temp_error1;
 		break;
 	case TYPE_ONE_POINT_TRIMMING:
-		temp_code = temp + data->temp_error1 - pdata->first_point_trim;
+		temp_code = rtemp + data->temp_error1 - pdata->first_point_trim;
 		break;
 	default:
-		temp_code = temp + pdata->default_temp_offset;
+		temp_code = rtemp + pdata->default_temp_offset;
 		break;
 	}
 	return temp_code;
@@ -123,6 +131,12 @@ static int code_to_temp(struct exynos_tmu_data *data, u8 temp_code)
 		temp = temp_code - pdata->default_temp_offset;
 		break;
 	}
+
+	/* temperature should range between minimum and maximum */
+	if (temp > EXYNOS_MAX_TEMP)
+		temp = EXYNOS_MAX_TEMP;
+	else if (temp < EXYNOS_MIN_TEMP)
+		temp = EXYNOS_MIN_TEMP;
 
 	return temp;
 }
@@ -153,14 +167,23 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	unsigned int rising_threshold = 0, falling_threshold = 0;
 	unsigned int rising7_4_threshold = 0, falling7_4_threshold = 0;
 	int ret = 0, threshold_code, i;
+	int timeout;
 
 	mutex_lock(&data->lock);
 
 	if (TMU_SUPPORTS(pdata, READY_STATUS)) {
-		status = readb(data->base + reg->tmu_status);
-		if (!status) {
-			ret = -EBUSY;
-			goto out;
+		timeout = 10;
+		while (1) {
+			status = readb(data->base + reg->tmu_status);
+			if (status & 0x1)
+				break;
+
+			timeout--;
+			if (!timeout) {
+				pr_err("TMU is busy.\n");
+				break;
+			}
+			udelay(5);
 		}
 	}
 
@@ -290,6 +313,21 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 			con = readl(data->base + reg->tmu_ctrl);
 			con |= (1 << reg->therm_trip_en_shift);
 			writel(con, data->base + reg->tmu_ctrl);
+
+			timeout = 10;
+			while (1) {
+				status = readb(data->base + reg->tmu_status);
+				if (status & 0x1)
+					break;
+
+				timeout--;
+				if (!timeout) {
+					pr_err("TMU is busy.\n");
+					break;
+				}
+				udelay(5);
+			}
+
 		}
 	}
 	/*Clear the PMIN in the common TMU register*/
@@ -308,6 +346,7 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	const struct exynos_tmu_registers *reg = pdata->registers;
 	unsigned int con, interrupt_en;
+	int timeout, status;
 
 	mutex_lock(&data->lock);
 
@@ -357,6 +396,20 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 	}
 	writel(interrupt_en, data->base + reg->tmu_inten);
 	writel(con, data->base + reg->tmu_ctrl);
+
+	timeout = 10;
+	while (1) {
+		status = readb(data->base + reg->tmu_status);
+		if (status & 0x1)
+			break;
+
+		timeout--;
+		if (!timeout) {
+			pr_err("TMU is busy.\n");
+			break;
+		}
+		udelay(5);
+	}
 
 	if (reg->tmu_ctrl1) {
 		con = readl(data->base + reg->tmu_ctrl1);

@@ -199,6 +199,10 @@ extern struct exynos_tmu_init_data const exynos3250_default_tmu_data;
 #define EXYNOS8890_TMU_FALL_INT_MASK		0xff
 #define EXYNOS8890_TMU_FALL_INT_SHIFT		16
 
+/* Define Exynos Global constant value */
+#define		EXYNOS_MAX_TEMP		125
+#define		EXYNOS_MIN_TEMP		15
+
 #if defined(CONFIG_CPU_EXYNOS4210)
 extern struct exynos_tmu_init_data const exynos4210_default_tmu_data;
 #define EXYNOS4210_TMU_DRV_DATA (&exynos4210_default_tmu_data)
