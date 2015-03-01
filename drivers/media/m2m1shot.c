@@ -393,7 +393,16 @@ static int m2m1shot_prepare_get_buffer(struct m2m1shot_context *ctx,
 
 		plane = &dma_buffer->plane[i];
 
-		if (buffer->plane[i].len < plane->bytes_used) {
+		if (plane->bytes_used == 0) {
+			/*
+			 * bytes_used = 0 means that the size of the plane is
+			 * not able to be decided by the driver because it is
+			 * dependent upon the content in the buffer.
+			 * The best example of the buffer is the buffer of JPEG
+			 * encoded stream for decompression.
+			 */
+			plane->bytes_used = buffer->plane[i].len;
+		} else if (buffer->plane[i].len < plane->bytes_used) {
 			dev_err(m21dev->dev,
 				"%s: needs %zx bytes but %zx is given\n",
 				__func__, plane->bytes_used,
