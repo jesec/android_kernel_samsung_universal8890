@@ -44,7 +44,7 @@
 #define MFC_MAX_DPBS		32
 #define MFC_INFO_INIT_FD	-1
 
-#define MFC_NUM_CONTEXTS	16
+#define MFC_NUM_CONTEXTS	32
 #define MFC_MAX_DRM_CTX		2
 /* Interrupt timeout */
 #define MFC_INT_TIMEOUT		2000
