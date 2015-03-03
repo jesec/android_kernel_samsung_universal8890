@@ -720,15 +720,27 @@ static inline enum s5p_mfc_node_type s5p_mfc_get_node_type(struct file *file)
 static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dec *dec;
+	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_buf *dst_buf;
 	int index, is_first = 1;
+	unsigned int interlace_type, is_interlace = 0;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
 		return;
 	}
 
+	dev = ctx->dev;
+	if (!dev) {
+		mfc_err("no mfc device to run\n");
+		return;
+	}
+
 	dec = ctx->dec_priv;
+	if (!dec) {
+		mfc_err("no mfc decoder to run\n");
+		return;
+	}
 
 	mfc_debug(2, "Decided to finish\n");
 	ctx->sequence++;
@@ -737,18 +749,22 @@ static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
 				     struct s5p_mfc_buf, list);
 		mfc_debug(2, "Cleaning up buffer: %d\n",
 					  dst_buf->vb.v4l2_buf.index);
+		if (interlaced_cond(ctx))
+			is_interlace = s5p_mfc_is_interlace_picture();
 		vb2_set_plane_payload(&dst_buf->vb, 0, 0);
 		vb2_set_plane_payload(&dst_buf->vb, 1, 0);
 		list_del(&dst_buf->list);
 		ctx->dst_queue_cnt--;
 		dst_buf->vb.v4l2_buf.sequence = (ctx->sequence++);
-
-		if (s5p_mfc_read_info(ctx, PIC_TIME_TOP) ==
-			s5p_mfc_read_info(ctx, PIC_TIME_BOT))
-			dst_buf->vb.v4l2_buf.field = V4L2_FIELD_NONE;
+		if (is_interlace) {
+			interlace_type = s5p_mfc_get_interlace_type();
+			if (interlace_type)
+				dst_buf->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED_TB;
+			else
+				dst_buf->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED_BT;
+		}
 		else
-			dst_buf->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED;
-
+			dst_buf->vb.v4l2_buf.field = V4L2_FIELD_NONE;
 		clear_bit(dst_buf->vb.v4l2_buf.index, &dec->dpb_status);
 
 		index = dst_buf->vb.v4l2_buf.index;
@@ -890,6 +906,7 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	dma_addr_t dspl_y_addr;
 	unsigned int index;
 	unsigned int frame_type;
+	unsigned int interlace_type, is_interlace = 0;
 	int mvc_view_id;
 	unsigned int dst_frame_status, last_frame_status;
 	struct list_head *dst_queue_addr;
@@ -950,7 +967,8 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 		if (!(not_coded_cond(ctx) && FW_HAS_NOT_CODED(dev)))
 			return;
 	}
-
+	if (interlaced_cond(ctx))
+		is_interlace = s5p_mfc_is_interlace_picture();
 	if (dec->is_dynamic_dpb) {
 		prev_flag = dec->dynamic_used;
 		dec->dynamic_used = mfc_get_dec_used_flag();
@@ -985,11 +1003,17 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 
 			dst_buf->vb.v4l2_buf.sequence = ctx->sequence;
 
-			if (s5p_mfc_read_info(ctx, PIC_TIME_TOP) ==
-				s5p_mfc_read_info(ctx, PIC_TIME_BOT))
-				dst_buf->vb.v4l2_buf.field = V4L2_FIELD_NONE;
+			if (is_interlace) {
+				interlace_type = s5p_mfc_get_interlace_type();
+				if (interlace_type)
+					dst_buf->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED_TB;
+				else
+					dst_buf->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED_BT;
+			}
 			else
-				dst_buf->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED;
+				dst_buf->vb.v4l2_buf.field = V4L2_FIELD_NONE;
+			mfc_debug(2, "is_interlace : %d interlace_type : %d\n",
+				is_interlace, interlace_type);
 
 			for (i = 0; i < raw->num_planes; i++)
 				vb2_set_plane_payload(&dst_buf->vb, i,
