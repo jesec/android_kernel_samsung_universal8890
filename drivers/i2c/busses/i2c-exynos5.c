@@ -1528,6 +1528,14 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		goto err_clk;
 	}
 
+	if (!i2c->support_hsi2c_batcher && i2c->regs_mailbox){
+		printk("BEFORE : %8.x \n", readl(i2c->regs_mailbox + 0x40));
+		tmp = readl(i2c->regs_mailbox + 0x40);
+		tmp |= 0x1 << 3;
+		writel(tmp, i2c->regs_mailbox + 0x40);
+		printk("AFTER : %8.x \n", readl(i2c->regs_mailbox + 0x40));
+	}
+
 	i2c->adap.dev.of_node = np;
 	i2c->adap.algo_data = i2c;
 	i2c->adap.dev.parent = &pdev->dev;
