@@ -56,10 +56,6 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 	unsigned long usage_rate;
 	int err;
 
-	err = df->profile->get_dev_status(df->dev.parent, &stat);
-	if (err)
-		return err;
-
 	if (data) {
 		pm_qos_min = pm_qos_request(data->pm_qos_class);
 		if (data->pm_qos_class_max)
@@ -82,6 +78,17 @@ static int devfreq_simple_exynos_func(struct devfreq *df,
 		} else {
 			cal_qos_max = df->max_freq;
 		}
+	}
+
+	if (df->profile->get_dev_status) {
+		err = df->profile->get_dev_status(df->dev.parent, &stat);
+		if (err)
+			return err;
+	} else {
+		*freq = pm_qos_min;
+		if (pm_qos_max)
+			*freq = min(pm_qos_max, *freq);
+		return 0;
 	}
 
 	/* Assume MAX if it is going to be divided by zero */
