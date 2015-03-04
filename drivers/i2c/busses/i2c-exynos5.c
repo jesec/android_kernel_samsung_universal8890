@@ -1423,6 +1423,8 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	struct exynos5_i2c *i2c;
 	struct resource *mem;
 	int ret;
+	unsigned int tmp;
+	struct clk *aclk_100;
 
 	if (!np) {
 		dev_err(&pdev->dev, "no device node\n");
@@ -1497,6 +1499,10 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "cannot get rate clock\n");
 		return -ENOENT;
 	}
+
+	aclk_100 = clk_get_sys(NULL, "dout_aclk_ccore_100");
+	clk_set_rate(aclk_100, 100000000);
+	clk_set_rate(i2c->rate_clk, 100000000);
 
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_use_autosuspend(&pdev->dev);
