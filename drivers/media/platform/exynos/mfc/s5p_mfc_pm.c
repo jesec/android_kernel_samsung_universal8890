@@ -71,7 +71,7 @@ err_p_clk:
 	return ret;
 }
 
-#elif defined(CONFIG_ARCH_EXYNOS5) || defined(CONFIG_ARCH_EXYNOS7)
+#elif defined(CONFIG_ARCH_EXYNOS5) || defined(CONFIG_ARCH_EXYNOS7) || defined(CONFIG_ARCH_EXYNOS8)
 
 #define MFC_PARENT_CLK_NAME	"aclk_333"
 #define MFC_CLKNAME		"sclk_mfc"
@@ -124,10 +124,12 @@ err_p_clk:
 
 int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 {
+#if !defined(CONFIG_SOC_EXYNOS8890)
 	struct clk *clk_child = NULL;
 #if !defined(CONFIG_SOC_EXYNOS7420) && !defined(CONFIG_SOC_EXYNOS7890)
 	struct clk *clk_parent = NULL;
 #endif
+
 #if defined(CONFIG_SOC_EXYNOS5430)
 	if (dev->id == 0) {
 		clk_child = clk_get(dev->device, "mout_aclk_mfc0_333_user");
@@ -203,7 +205,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 		clk_put(clk_child);
 	}
 #endif
-
+#endif
 
 	return 0;
 }

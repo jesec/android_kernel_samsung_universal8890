@@ -3265,7 +3265,7 @@ struct s5p_mfc_buf_size_v6 mfc_buf_size_v6 = {
 	.other_dec_ctx	= PAGE_ALIGN(0x5000),	/*  20KB */
 	.h264_enc_ctx	= PAGE_ALIGN(0x19000),	/* 100KB */
 	.hevc_enc_ctx	= PAGE_ALIGN(0x7800),	/*  30KB */
-	.other_enc_ctx	= PAGE_ALIGN(0x2800),	/*  10KB */
+	.other_enc_ctx	= PAGE_ALIGN(0x3C00),	/*  15KB */
 };
 
 struct s5p_mfc_buf_size buf_size_v5 = {

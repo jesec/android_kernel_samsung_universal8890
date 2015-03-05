@@ -384,6 +384,9 @@ int mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf_type)
 	else
 		s5p_mfc_write_reg(dev, 0x3ff, S5P_FIMV_SW_RESET);
 
+	if (IS_MFCv10X(dev))
+		s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_MFC_CLOCK_OFF);
+
 	mfc_debug(2, "Will now wait for completion of firmware transfer.\n");
 	if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_FW_STATUS_RET)) {
 		mfc_err_dev("Failed to load firmware.\n");
@@ -503,6 +506,10 @@ void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev)
 		s5p_mfc_clock_on(dev);
 		s5p_mfc_reset(dev);
 		s5p_mfc_clock_off(dev);
+	} else if (IS_MFCv10X(dev)) {
+		mfc_info_dev("MFC h/w state: %d\n",
+				s5p_mfc_read_reg(dev, S5P_FIMV_MFC_STATE));
+		s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_MFC_CLOCK_OFF);
 	}
 
 	mfc_debug(2, "mfc deinit completed\n");

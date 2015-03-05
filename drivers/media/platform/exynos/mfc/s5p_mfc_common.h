@@ -964,6 +964,7 @@ static inline unsigned int mfc_linear_buf_size(unsigned int version)
 	case 0x723:
 	case 0x80:
 	case 0x90:
+	case 0xA0:
 		size = 256;
 		break;
 	default:
@@ -1005,6 +1006,12 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 	case IP_VER_MFC_8I_0:
 		version = 0x90;
 		break;
+	case IP_VER_MFC_6I_0:
+		version = 0x78;
+		break;
+	case IP_VER_MFC_8J_0:
+		version = 0xA0;
+		break;
 	}
 
 	return version;
@@ -1023,9 +1030,10 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
  * IS_MFCv7X : For MFC v7.X only
  * IS_MFCv8X : For MFC v8.X only
  * IS_MFCv9X : For MFC v9.X only
+ * IS_MFCv10X : For MFC v10.X only
  * IS_MFCv78 : For MFC v7.8 only
  * IS_MFCV6 : For MFC v6 architecure
- * IS_MFCV8 : For MFC v8 architecure
+ * IS_MFCV8 : For after MFC v8 architecure
  */
 #define IS_MFCv5X(dev)		(mfc_version(dev) == 0x51)
 #define IS_MFCv6X(dev)		((mfc_version(dev) == 0x61) || \
@@ -1035,10 +1043,13 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 				 (mfc_version(dev) == 0x78))
 #define IS_MFCv8X(dev)		(mfc_version(dev) == 0x80)
 #define IS_MFCv9X(dev)		(mfc_version(dev) == 0x90)
+#define IS_MFCv10X(dev)		(mfc_version(dev) == 0xA0)
 #define IS_MFCv78(dev)		(mfc_version(dev) == 0x78)
 #define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) ||	\
-				IS_MFCv8X(dev) || IS_MFCv9X(dev))
-#define IS_MFCV8(dev)		(IS_MFCv8X(dev) || IS_MFCv9X(dev))
+				IS_MFCv8X(dev) || IS_MFCv9X(dev) ||	\
+				IS_MFCv10X(dev))
+#define IS_MFCV8(dev)		(IS_MFCv8X(dev) || IS_MFCv9X(dev) ||	\
+				(IS_MFCv10X(dev)))
 
 /* supported feature macros by F/W version */
 #define FW_HAS_BUS_RESET(dev)		(dev->fw.date >= 0x120206)
@@ -1060,7 +1071,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					(IS_MFCv8X(dev) &&		\
 					(dev->fw.date >= 0x140808)) ||	\
 					(IS_MFCv9X(dev) &&		\
-					(dev->fw.date >= 0x141008)))
+					(dev->fw.date >= 0x141008)) ||	\
+					IS_MFCv10X(dev))
 #define FW_HAS_POC_TYPE_CTRL(dev)	(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130405))
 #define FW_HAS_DYNAMIC_DPB(dev)		((IS_MFCv7X(dev) || IS_MFCV8(dev))&&	\
@@ -1072,7 +1084,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define FW_HAS_TEMPORAL_SVC_CH(dev)	((IS_MFCv8X(dev) &&			\
 					(dev->fw.date >= 0x140821)) ||		\
 					(IS_MFCv9X(dev) &&			\
-					(dev->fw.date >= 0x141008)))
+					(dev->fw.date >= 0x141008)) ||		\
+					IS_MFCv10X(dev))
 #define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCV8(dev) || IS_MFCv78(dev))
 
 #define FW_NEED_SHARED_MEMORY(dev)	(IS_MFCv5X(dev) || IS_MFCv6X(dev) ||	\
@@ -1175,6 +1188,9 @@ static inline int s5p_mfc_ctx_ready(struct s5p_mfc_ctx *ctx)
 #elif defined(CONFIG_EXYNOS_MFC_V9)
 #include "regs-mfc-v9.h"
 #include "s5p_mfc_opr_v9.h"
+#elif defined(CONFIG_EXYNOS_MFC_V10)
+#include "regs-mfc-v10.h"
+#include "s5p_mfc_opr_v10.h"
 #endif
 
 #endif /* S5P_MFC_COMMON_H_ */

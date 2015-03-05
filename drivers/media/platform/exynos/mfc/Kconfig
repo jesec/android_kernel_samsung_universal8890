@@ -28,4 +28,8 @@ config EXYNOS_MFC_V9
 prompt "MFC version 9"
 	bool
 	depends on ARCH_EXYNOS7
+config EXYNOS_MFC_V10
+prompt "MFC version 10"
+	bool
+	depends on ARCH_EXYNOS8
 endchoice
