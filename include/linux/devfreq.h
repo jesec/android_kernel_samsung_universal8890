@@ -261,6 +261,7 @@ struct devfreq_simple_exynos_data {
 	unsigned long cal_qos_max;
 	bool en_monitoring;
 	struct devfreq_notifier_block nb;
+	struct devfreq_notifier_block nb_max;
 };
 #endif
 
