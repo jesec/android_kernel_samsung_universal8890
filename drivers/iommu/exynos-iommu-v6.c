@@ -817,7 +817,11 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 
 	__raw_writel(CTRL_BLOCK, drvdata->sfrbase + REG_MMU_CTRL);
 
-	cfg = CFG_FLPDCACHE | CFG_ACGEN;
+	cfg = CFG_FLPDCACHE;
+
+	if (!(drvdata->prop & SYSMMU_PROP_DISABLE_ACG))
+		cfg |= CFG_ACGEN;
+
 	if (!(drvdata->qos < 0))
 		cfg |= CFG_QOS_OVRRIDE | CFG_QOS(drvdata->qos);
 
@@ -828,7 +832,6 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 		__sysmmu_set_tlb_line_size(drvdata->sfrbase);
 
 	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
-	cfg &= ~CFG_ACGEN;
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
 }
 
@@ -1744,6 +1747,9 @@ static int __init __sysmmu_init_prop(struct device *sysmmu,
 
 	if (of_find_property(sysmmu->of_node, "sysmmu,tlbinv-nonblock", NULL))
 		drvdata->prop |= SYSMMU_PROP_NONBLOCK_TLBINV;
+
+	if (of_find_property(sysmmu->of_node, "sysmmu,acg_disable", NULL))
+		drvdata->prop |= SYSMMU_PROP_DISABLE_ACG;
 
 	return 0;
 }
