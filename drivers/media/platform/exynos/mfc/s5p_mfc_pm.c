@@ -88,7 +88,7 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 		dev->pm.clock = clk_get(dev->device, "gate_mfc1");
 #elif defined(CONFIG_SOC_EXYNOS5422)
 	dev->pm.clock = clk_get(dev->device, "mfc");
-#elif defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS7420)
+#elif defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
 	dev->pm.clock = clk_get(dev->device, "aclk_mfc");
 #endif
 
@@ -125,7 +125,7 @@ err_p_clk:
 int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 {
 	struct clk *clk_child = NULL;
-#ifndef CONFIG_SOC_EXYNOS7420
+#if !defined(CONFIG_SOC_EXYNOS7420) && !defined(CONFIG_SOC_EXYNOS7890)
 	struct clk *clk_parent = NULL;
 #endif
 #if defined(CONFIG_SOC_EXYNOS5430)
@@ -188,7 +188,7 @@ int s5p_mfc_set_clock_parent(struct s5p_mfc_dev *dev)
 	clk_put(clk_child);
 	clk_put(clk_parent);
 
-#elif defined(CONFIG_SOC_EXYNOS7420)
+#elif defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
 	unsigned long index;
 	char *str_child[] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
 			"pclk_mfc", "aclk_lh_mfc0", "aclk_lh_mfc1",
@@ -246,7 +246,7 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 		pr_err("failed to get %s clock\n", __clk_get_name(clk_child));
 		return PTR_ERR(clk_child);
 	}
-#elif defined(CONFIG_SOC_EXYNOS7420)
+#elif defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
 	/* Do not set clock rate */
 	return 0;
 
@@ -491,7 +491,7 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 	struct clk *clk_old_parent = NULL;
 #endif
 
-#if defined(CONFIG_SOC_EXYNOS7420)
+#if defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
 	struct clk *clk_child = NULL;
 	unsigned long index;
 	char *str_child[] = {"aclk_lh_s_mfc_0", "aclk_lh_s_mfc_1",
@@ -564,7 +564,7 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev)
 	clk_put(clk_parent);
 	clk_put(clk_old_parent);
 	/* expected mfc related ref clock value be set 0 */
-#elif defined(CONFIG_SOC_EXYNOS7420)
+#elif defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
 	for (index = 0; index < (sizeof(str_child)/sizeof(char *)); index++) {
 		clk_child = clk_get(dev->device, str_child[index]);
 	if (IS_ERR_OR_NULL(clk_child)) {

@@ -196,7 +196,7 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 				mfc_debug(2, "Change Table for encoder\n");
 				i = i - 1;
 			}
-#elif defined(CONFIG_SOC_EXYNOS7420)
+#elif defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
 			/* Table is different between decoder and encoder */
 			if (dev->has_enc_ctx && qos_table[i].has_enc_table) {
 				mfc_debug(2, "Table changes %d -> %d\n", i, i - 1);
