@@ -1425,6 +1425,10 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	int ret;
 	unsigned int tmp;
 	struct clk *aclk_100;
+	void __iomem *pmu_batcher;
+
+	pmu_batcher = ioremap(0x105c0074, SZ_8);
+	writel(0x3,pmu_batcher);
 
 	if (!np) {
 		dev_err(&pdev->dev, "no device node\n");
