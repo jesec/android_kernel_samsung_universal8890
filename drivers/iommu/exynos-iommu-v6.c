@@ -80,11 +80,16 @@
 #define MMU_HAVE_PB(reg)	(!!((reg >> 20) & 0xF))
 #define MMU_PB_GRP_NUM(reg)	(((reg >> 20) & 0xF))
 #define MMU_HAVE_L2TLB(reg)	(!!((reg >> 8) & 0xF))
+#define MMU_IS_TLB_CONFIGURABLE(reg)	(!!((reg >> 16) & 0xFF))
 
 #define MMU_MAX_DF_CMD		8
 #define MAX_NUM_PPC	4
 
 #define SYSMMU_FAULTS_NUM         (SYSMMU_FAULT_UNKNOWN + 1)
+
+/* default burst length is BL4(16 page descriptor, 4set) */
+#define MMU_MASK_LINE_SIZE	(0x7 << 4)
+#define MMU_DEFAULT_LINE_SIZE	(0x2 << 4)
 
 const char *ppc_event_name[] = {
 	"TOTAL",
@@ -165,6 +170,12 @@ static bool has_sysmmu_capable_pbuf(void __iomem *sfrbase)
 	return MMU_HAVE_PB(cfg) ? true : false;
 }
 
+static bool has_sysmmu_set_associative_tlb(void __iomem *sfrbase)
+{
+	u32 cfg = __raw_readl(sfrbase + REG_MMU_CAPA_1);
+
+	return MMU_IS_TLB_CONFIGURABLE(cfg);
+}
 
 void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova)
 {
@@ -748,6 +759,14 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+void __sysmmu_set_tlb_line_size(void __iomem *sfrbase)
+{
+	u32 cfg =  __raw_readl(sfrbase + REG_L2TLB_CFG);
+	cfg &= ~MMU_MASK_LINE_SIZE;
+	cfg |= MMU_DEFAULT_LINE_SIZE;
+	__raw_writel(cfg, sfrbase + REG_L2TLB_CFG);
+}
+
 void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 {
 	unsigned long cfg;
@@ -761,6 +780,8 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 	if (has_sysmmu_capable_pbuf(drvdata->sfrbase))
 		__exynos_sysmmu_set_prefbuf_axi_id(drvdata, NULL, 0, 0,
 				NULL, NULL);
+	if (has_sysmmu_set_associative_tlb(drvdata->sfrbase))
+		__sysmmu_set_tlb_line_size(drvdata->sfrbase);
 
 	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
 	cfg &= ~CFG_ACGEN;
