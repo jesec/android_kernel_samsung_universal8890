@@ -79,8 +79,14 @@
 #define MMU_NUM_L1TLB_ENTRIES(reg) (reg & 0xFF)
 #define MMU_HAVE_PB(reg)	(!!((reg >> 20) & 0xF))
 #define MMU_PB_GRP_NUM(reg)	(((reg >> 20) & 0xF))
-#define MMU_HAVE_L2TLB(reg)	(!!((reg >> 8) & 0xF))
+#define MMU_IS_TLB_FULL_ASSOCIATIVE(reg)	(!!(reg & 0xFF))
 #define MMU_IS_TLB_CONFIGURABLE(reg)	(!!((reg >> 16) & 0xFF))
+
+#define MMU_TLB_WAY(reg)	((reg >> 8) & 0xFF)
+#define MMU_MIN_TLB_LINE(reg)	((reg >> 16) & 0xFF)
+#define MMU_MAX_TLB_SET(reg)	(reg & 0xFF)
+#define MMU_SET_TLB_READ_ENTRY(set, way, line) ((set) | (way << 8) | (line << 16))
+#define MMU_TLB_ENTRY_VALID(reg) (reg >> 28)
 
 #define MMU_MAX_DF_CMD		8
 #define MAX_NUM_PPC	4
@@ -88,7 +94,7 @@
 #define SYSMMU_FAULTS_NUM         (SYSMMU_FAULT_UNKNOWN + 1)
 
 /* default burst length is BL4(16 page descriptor, 4set) */
-#define MMU_MASK_LINE_SIZE	(0x7 << 4)
+#define MMU_MASK_LINE_SIZE	0x7
 #define MMU_DEFAULT_LINE_SIZE	(0x2 << 4)
 
 const char *ppc_event_name[] = {
@@ -175,6 +181,13 @@ static bool has_sysmmu_set_associative_tlb(void __iomem *sfrbase)
 	u32 cfg = __raw_readl(sfrbase + REG_MMU_CAPA_1);
 
 	return MMU_IS_TLB_CONFIGURABLE(cfg);
+}
+
+static bool has_sysmmu_l1_tlb(void __iomem *sfrbase)
+{
+	u32 cfg = __raw_readl(sfrbase + REG_MMU_CAPA);
+
+	return MMU_IS_TLB_FULL_ASSOCIATIVE(cfg);
 }
 
 void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova)
@@ -562,9 +575,20 @@ void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata)
 	}
 }
 
+void dump_l2_tlb(void __iomem *sfrbase, u32 tlb_entry_count)
+{
+	if (MMU_TLB_ENTRY_VALID(__raw_readl(sfrbase + REG_L2TLB_ENTRY_ATTR))) {
+		pr_crit("[%03d] VPN: %#010x, PPN: %#010x, ATTR: %#010x\n",
+			tlb_entry_count,
+			__raw_readl(sfrbase + REG_L2TLB_ENTRY_VPN),
+			__raw_readl(sfrbase + REG_L2TLB_ENTRY_PPN),
+			__raw_readl(sfrbase + REG_L2TLB_ENTRY_ATTR));
+	}
+}
+
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 {
-	int i, j, capa, num_pb, lmm;
+	int i, j, k, capa, num_pb, lmm;
 	pgd_t *pgd;
 	pud_t *pud;
 	pmd_t *pmd;
@@ -603,17 +627,12 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 		&phys, sfrbase,
 		__raw_readl(sfrbase + REG_MMU_CTRL),
 		__raw_readl(sfrbase + REG_PT_BASE_PPN));
-	pr_crit("VERSION %d.%d, MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
-		MMU_MAJ_VER(lmm), MMU_MIN_VER(lmm),
+	pr_crit("VERSION %d.%d.%d, MMU_CFG: %#010x, MMU_STATUS: %#010x\n",
+		MMU_MAJ_VER(lmm), MMU_MIN_VER(lmm), MMU_REV_VER(lmm),
 		__raw_readl(sfrbase + REG_MMU_CFG),
 		__raw_readl(sfrbase + REG_MMU_STATUS));
 
-	if (MMU_HAVE_L2TLB(__raw_readl(sfrbase + REG_MMU_CAPA_1)))
-		pr_crit("Level 2 TLB: %s\n",
-			(__raw_readl(sfrbase + REG_L2TLB_CFG) == 1) ?
-				"on" : "off");
-
-	pr_crit("---------- Level 1 TLB -----------------------------------\n");
+	pr_crit("---------- TLB -----------------------------------\n");
 
 	for (i = 0; i < MMU_NUM_L1TLB_ENTRIES(capa); i++) {
 		__raw_writel(i, sfrbase + REG_L1TLB_READ_ENTRY);
@@ -621,6 +640,31 @@ void dump_sysmmu_tlb_pb(void __iomem *sfrbase)
 			i, __raw_readl(sfrbase + REG_L1TLB_ENTRY_VPN),
 			__raw_readl(sfrbase + REG_L1TLB_ENTRY_PPN),
 			__raw_readl(sfrbase + REG_L1TLB_ENTRY_ATTR));
+	}
+
+	/*
+	 * 6.0.2 sysmmu has only 1 TLB, the number of entry is 512
+	 */
+	if (!has_sysmmu_l1_tlb(sfrbase)) {
+		u32 capa_1 = __raw_readl(sfrbase + REG_MMU_CAPA_1);
+		u32 line_size =
+			(__raw_readl(sfrbase + REG_L2TLB_CFG) >> 4) &
+				MMU_MASK_LINE_SIZE;
+		u32 tlb_set_num = MMU_MAX_TLB_SET(capa_1) >> line_size;
+		u32 tlb_line_num = MMU_MIN_TLB_LINE(capa_1) * tlb_set_num;
+		u32 tlb_read_entry = 0;
+		u32 count = 0;
+		for (i = 0; i < tlb_set_num; i++) {
+			for (j = 0; j < MMU_TLB_WAY(capa_1); j++) {
+				for (k = 0; k < tlb_line_num; k++) {
+					tlb_read_entry =
+					MMU_SET_TLB_READ_ENTRY(i, j, k);
+					__raw_writel(tlb_read_entry,
+					sfrbase + REG_L2TLB_READ_ENTRY);
+					dump_l2_tlb(sfrbase, count++);
+				}
+			}
+		}
 	}
 
 	if (!has_sysmmu_capable_pbuf(sfrbase))

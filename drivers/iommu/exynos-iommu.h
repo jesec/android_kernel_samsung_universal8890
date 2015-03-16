@@ -414,9 +414,10 @@ static inline bool is_sysmmu_really_enabled(struct sysmmu_drvdata *data)
 	return is_sysmmu_active(data) && data->runtime_active;
 }
 
-#define MMU_MAJ_VER(val)	((val) >> 7)
-#define MMU_MIN_VER(val)	((val) & 0x7F)
-#define MMU_RAW_VER(reg)	(((reg) >> 21) & ((1 << 11) - 1)) /* 11 bits */
+#define MMU_MAJ_VER(val)	((val) >> 11)
+#define MMU_MIN_VER(val)	((val >> 4) & 0x7F)
+#define MMU_REV_VER(val)	((val) & 0xF)
+#define MMU_RAW_VER(reg)	(((reg) >> 17) & ((1 << 15) - 1)) /* 11 bits */
 
 #define MAKE_MMU_VER(maj, min)	((((maj) & 0xF) << 7) | ((min) & 0x7F))
 
