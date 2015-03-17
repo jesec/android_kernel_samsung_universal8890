@@ -173,7 +173,7 @@ static bool has_sysmmu_capable_pbuf(void __iomem *sfrbase)
 {
 	unsigned long cfg = __raw_readl(sfrbase + REG_MMU_CAPA);
 
-	return MMU_HAVE_PB(cfg) ? true : false;
+	return MMU_HAVE_PB(cfg);
 }
 
 static bool has_sysmmu_set_associative_tlb(void __iomem *sfrbase)
