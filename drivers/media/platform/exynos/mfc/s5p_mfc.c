@@ -1729,7 +1729,8 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 					s5p_mfc_is_interlace_picture();
 
 			if ((ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC ||
-				ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC) &&
+				ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC ||
+				ctx->codec_mode == S5P_FIMV_CODEC_HEVC_DEC) &&
 					!list_empty(&ctx->src_queue)) {
 				struct s5p_mfc_buf *src_buf;
 				src_buf = list_entry(ctx->src_queue.next,
