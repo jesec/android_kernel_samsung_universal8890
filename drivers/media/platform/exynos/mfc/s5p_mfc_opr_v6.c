@@ -182,7 +182,8 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		} else if (IS_MFCv10X(dev)) {
 			lcu_width = enc_lcu_width(ctx->img_width);
 			lcu_height = enc_lcu_height(ctx->img_height);
-			if (ctx->codec_mode != S5P_FIMV_CODEC_HEVC_ENC) {
+			if (ctx->codec_mode != S5P_FIMV_CODEC_HEVC_ENC &&
+				ctx->codec_mode != S5P_FIMV_CODEC_VP9_ENC) {
 				enc->luma_dpb_size =
 					ALIGN((((mb_width * 16) + 63) / 64)
 						* 64 * (mb_height * 16) + 64, 64);
@@ -407,6 +408,25 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			enc->chroma_dpb_size + enc->me_buffer_size));
 		ctx->port_b_size = 0;
 		break;
+	case S5P_FIMV_CODEC_VP9_ENC:
+		if (IS_MFCv10X(dev)) {
+			enc->me_buffer_size =
+				ALIGN(ENC_V100_VP9_ME_SIZE(lcu_width, lcu_height), 16);
+			ctx->scratch_buf_size =
+				ENC_V100_VP9_SCRATCH_SIZE(lcu_width);
+		} else {
+			mfc_err_ctx("MFC 0x%x is not supported codec type(%d)\n",
+						mfc_version(dev), ctx->codec_mode);
+			break;
+		}
+
+		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
+		ctx->port_a_size =
+			ctx->scratch_buf_size + enc->tmv_buffer_size +
+			(ctx->dpb_count * (enc->luma_dpb_size +
+			enc->chroma_dpb_size + enc->me_buffer_size));
+		ctx->port_b_size = 0;
+		break;
 	case S5P_FIMV_CODEC_HEVC_ENC:
 		if (IS_MFCv10X(dev)) {
 			enc->me_buffer_size =
@@ -512,6 +532,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 	case S5P_FIMV_CODEC_MPEG4_ENC:
 	case S5P_FIMV_CODEC_H263_ENC:
 	case S5P_FIMV_CODEC_VP8_ENC:
+	case S5P_FIMV_CODEC_VP9_ENC:
 		ctx->ctx_buf_size = buf_size->other_enc_ctx;
 		break;
 	default:
@@ -2301,6 +2322,105 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
+static int s5p_mfc_set_enc_params_vp9(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	struct s5p_mfc_enc_params *p = &enc->params;
+	struct s5p_mfc_vp9_enc_params *p_vp9 = &p->codec.vp9;
+	unsigned int reg = 0;
+	int i;
+
+	mfc_debug_enter();
+
+	s5p_mfc_set_enc_params(ctx);
+
+	/* profile*/
+	reg = 0;
+	reg |= (p_vp9->vp9_version) ;
+	WRITEL(reg, S5P_FIMV_E_PICTURE_PROFILE);
+
+	reg = 0;
+	reg |= ((p_vp9->ivf_header & 0x1) << 12);
+	reg |= ((p_vp9->hier_qp_enable & 0x1) << 11);
+	reg |= (p_vp9->max_partition_depth & 0x1) << 3;
+	reg |= (p_vp9->intra_pu_split_disable & 0x1) << 1;
+	reg |= (p_vp9->num_refs_for_p - 1) & 0x1;
+	WRITEL(reg, S5P_FIMV_E_VP9_OPTION);
+
+	reg = 0;
+	reg |= (p_vp9->vp9_goldenframesel & 0x1);
+	reg |= (p_vp9->vp9_gfrefreshperiod & 0xffff) << 1;
+	WRITEL(reg, S5P_FIMV_E_VP9_GOLDEN_FRAME_OPTION);
+
+	reg = 0;
+	if (p_vp9->num_hier_layer) {
+		reg |= p_vp9->num_hier_layer & 0x3;
+		WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
+		/* QP value for each layer */
+		if (p_vp9->hier_qp_enable) {
+			for (i = 0; i < (p_vp9->num_hier_layer & 0x3); i++)
+			WRITEL(p_vp9->hier_qp_layer[i],
+					S5P_FIMV_E_HIERARCHICAL_QP_LAYER0 + i * 4);
+		}
+		if (p->rc_frame) {
+			for (i = 0; i < (p_vp9->num_hier_layer & 0x3); i++)
+			WRITEL(p_vp9->hier_bit_layer[i],
+					S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
+		}
+	}
+	/* number of coding layer should be zero when hierarchical is disable */
+	reg |= p_vp9->num_hier_layer;
+	WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
+
+	/* qp */
+	WRITEL(0x0, S5P_FIMV_E_FIXED_PICTURE_QP);
+	if (!p->rc_frame && !p->rc_mb) {
+		reg = 0;
+		reg &= ~(0xff << 8);
+		reg |= (p_vp9->rc_p_frame_qp << 8);
+		reg &= ~(0xff);
+		reg |= p_vp9->rc_frame_qp;
+		WRITEL(reg, S5P_FIMV_E_FIXED_PICTURE_QP);
+	}
+
+	/* frame rate */
+	p->rc_frame_delta = FRAME_DELTA_DEFAULT;
+	if (p->rc_frame) {
+		reg = 0;
+		reg &= ~(0xffff << 16);
+		reg |= ((p_vp9->rc_framerate * p->rc_frame_delta) << 16);
+		reg &= ~(0xffff);
+		reg |= p->rc_frame_delta;
+		WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);
+	}
+
+	/* rate control config. */
+	reg = READL(S5P_FIMV_E_RC_CONFIG);
+	/** macroblock level rate control */
+	reg &= ~(0x1 << 8);
+	reg |= (p->rc_mb << 8);
+	/** frame QP */
+	reg &= ~(0xFF);
+	reg |= p_vp9->rc_frame_qp;
+	WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
+
+	/* max & min value of QP */
+	reg = 0;
+	/** max QP */
+	reg &= ~(0xFF << 8);
+	reg |= (p_vp9->rc_max_qp << 8);
+	/** min QP */
+	reg &= ~(0xFF);
+	reg |= p_vp9->rc_min_qp;
+	WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
+
+	mfc_debug_leave();
+
+	return 0;
+}
+
+
 static int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -2655,6 +2775,8 @@ static int s5p_mfc_init_encode(struct s5p_mfc_ctx *ctx)
 		s5p_mfc_set_enc_params_h263(ctx);
 	else if (ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)
 		s5p_mfc_set_enc_params_vp8(ctx);
+	else if (ctx->codec_mode == S5P_FIMV_CODEC_VP9_ENC)
+		s5p_mfc_set_enc_params_vp9(ctx);
 	else if (ctx->codec_mode == S5P_FIMV_CODEC_HEVC_ENC)
 		s5p_mfc_set_enc_params_hevc(ctx);
 	else {

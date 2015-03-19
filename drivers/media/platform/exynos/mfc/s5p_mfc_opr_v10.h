@@ -244,6 +244,8 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 	(((x + 3) * (y + 3) * 8) + ((((x * y) + 127) / 128) * 16) + (((y * 64) + 1280) * (x + 7) / 8))
 #define ENC_V100_VP8_ME_SIZE(x, y)				\
 	(((x + 3) * (y + 3) * 8) + (((y * 64) + 1280) * (x + 7) / 8))
+#define ENC_V100_VP9_ME_SIZE(x, y)				\
+	((((x * 2) + 3) * ((y * 2) + 3) * 128) + (((y * 256) + 1280) * (x+1) / 2))
 #define ENC_V100_HEVC_ME_SIZE(x, y)				\
 	(((x + 3) * (y + 3) * 32) + (((y * 128) + 1280) * (x + 3) / 4))
 
@@ -290,6 +292,8 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define ENC_V100_VP8_SCRATCH_SIZE(x, y)				\
 		(((x) * 592) + 10896 +	\
 		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
+#define ENC_V100_VP9_SCRATCH_SIZE(x)				\
+		((x * 2176) + 6144)
 #define ENC_V100_HEVC_SCRATCH_SIZE(x, y)			\
 		(x * 64) + 2720 + (y * 1056)
 

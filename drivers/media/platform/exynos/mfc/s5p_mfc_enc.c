@@ -151,6 +151,13 @@ static struct s5p_mfc_fmt formats[] = {
 		.num_planes = 1,
 	},
 	{
+		.name = "VP9 Encoded Stream",
+		.fourcc = V4L2_PIX_FMT_VP9,
+		.codec_mode = S5P_FIMV_CODEC_VP9_ENC,
+		.type = MFC_FMT_ENC,
+		.num_planes = 1,
+	},
+	{
 		.name = "HEVC Encoded Stream",
 		.fourcc = V4L2_PIX_FMT_HEVC,
 		.codec_mode = S5P_FIMV_CODEC_HEVC_ENC,
@@ -1073,6 +1080,177 @@ static struct v4l2_queryctrl controls[] = {
 		.default_value = 0,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_VERSION,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 version",
+		.minimum = 0,
+		.maximum = 0,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_I_FRAME_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 Frame QP value",
+		.minimum = 1,
+		.maximum = 255,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_P_FRAME_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 Frame QP value",
+		.minimum = 1,
+		.maximum = 255,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_MAX_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 Frame QP MAX value",
+		.minimum = 1,
+		.maximum = 255,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_MIN_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 Frame QP MIN value",
+		.minimum = 1,
+		.maximum = 255,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_RC_FRAME_RATE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 Frame rate",
+		.minimum = 1,
+		.maximum = ENC_H264_RC_FRAME_RATE_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_GOLDEN_FRAMESEL,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 indication of golden frame",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_GF_REFRESH_PERIOD,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 indication of golden frame",
+		.minimum = 0,
+		.maximum = ((1 << 16) - 1),
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHY_QP_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "VP9 hierarchy QP enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 layer0 QP value",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_REF_NUMBER_FOR_PFRAMES,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "VP9 Number of reference picture",
+		.minimum = 1,
+		.maximum = 2,
+		.step = 1,
+		.default_value = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "VP9 number of hierarchical layer",
+		.minimum = 0,
+		.maximum = 3,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_MAX_PARTITION_DEPTH,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "VP9 Maximum coding unit depth",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_DISABLE_INTRA_PU_SPLIT,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "VP9 disable intra pu split",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_BIT0,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer Bit0",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_BIT1,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer Bit1",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_BIT2,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer Bit2",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Coding Layer Change",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_DISABLE_IVF_HEADER,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "IVF header generation",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP,
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "HEVC Frame QP value",
@@ -1865,6 +2043,30 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
+	{	/* VP9 QP Max change */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_VP9_MAX_QP,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
+		.mask = 0xFFFFFFFF,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 4,
+	},
+	{	/* VP9 QP Min change */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_VP9_MIN_QP,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
+		.mask = 0xFFFFFFFF,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 4,
+	},
 	{	/* H.264 Dynamic Temporal Layer change */
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH,
@@ -1913,6 +2115,19 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 10,
 	},
+	{	/* VP9 Dynamic Temporal Layer change */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0,
+		.mask = 0xFFFFFFFF,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 10,
+	},
+
 };
 
 #define NUM_CTRL_CFGS ARRAY_SIZE(mfc_ctrl_list)
@@ -2312,7 +2527,9 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		if (buf_ctrl->id
 			== V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH ||
 			buf_ctrl->id
-			== V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH) {
+			== V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH ||
+			buf_ctrl->id
+			== V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH) {
 			memcpy(&temporal_LC,
 				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
 
@@ -2320,7 +2537,9 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				((temporal_LC.temporal_layer_count > 7) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
-				(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC))) {
+				(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)) ||
+				((temporal_LC.temporal_layer_count > 3) &&
+				(ctx->codec_mode == S5P_FIMV_CODEC_VP9_ENC))) {
 				value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
 				value &= ~(1 << 10);
 				s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
@@ -2335,10 +2554,9 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
 
 			mfc_debug(2, "temporal layer count : %d\n", temporal_LC.temporal_layer_count);
-			if(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)
-				s5p_mfc_write_reg(dev,
-					temporal_LC.temporal_layer_count, S5P_FIMV_E_NUM_T_LAYER);
-			else if(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)
+			if(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC ||
+				ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC ||
+				ctx->codec_mode == S5P_FIMV_CODEC_VP9_ENC)
 				s5p_mfc_write_reg(dev,
 					temporal_LC.temporal_layer_count, S5P_FIMV_E_NUM_T_LAYER);
 			for(i = 0; i < temporal_LC.temporal_layer_count; i++) {
@@ -3878,6 +4096,61 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_NUM_TEMPORAL_LAYER:
 		p->codec.vp8.num_hier_layer = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_VERSION:
+		p->codec.vp9.vp9_version = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_RC_FRAME_RATE:
+		p->codec.vp9.rc_framerate = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_MIN_QP:
+		p->codec.vp9.rc_min_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_MAX_QP:
+		p->codec.vp9.rc_max_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_I_FRAME_QP:
+		p->codec.vp9.rc_frame_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_P_FRAME_QP:
+		p->codec.vp9.rc_p_frame_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_GOLDEN_FRAMESEL:
+		p->codec.vp9.vp9_goldenframesel = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_GF_REFRESH_PERIOD:
+		p->codec.vp9.vp9_gfrefreshperiod = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHY_QP_ENABLE:
+		p->codec.vp9.hier_qp_enable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_QP:
+		p->codec.vp9.hier_qp_layer[(ctrl->value >> 16) & 0x3]
+			= ctrl->value & 0xFF;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_BIT0:
+		p->codec.vp9.hier_bit_layer[0] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_BIT1:
+		p->codec.vp9.hier_bit_layer[1] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_BIT2:
+		p->codec.vp9.hier_bit_layer[2] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_REF_NUMBER_FOR_PFRAMES:
+		p->codec.vp9.num_refs_for_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER:
+		p->codec.vp9.num_hier_layer = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_MAX_PARTITION_DEPTH:
+		p->codec.vp9.max_partition_depth = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_DISABLE_INTRA_PU_SPLIT:
+		p->codec.vp9.intra_pu_split_disable = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_DISABLE_IVF_HEADER:
+		p->codec.vp9.ivf_header = ctrl->value;
+		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP:
 		p->codec.hevc.rc_frame_qp = ctrl->value;
 		break;
@@ -4092,6 +4365,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H263_MAX_QP:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP:
 	case V4L2_CID_MPEG_VIDEO_VP8_MAX_QP:
+	case V4L2_CID_MPEG_VIDEO_VP9_MAX_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP:
 		ctx->qp_max_change = ctrl->value;
 		break;
@@ -4099,6 +4373,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H263_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_VP8_MIN_QP:
+	case V4L2_CID_MPEG_VIDEO_VP9_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP:
 		ctx->qp_min_change = ctrl->value;
 		ctrl->value = ((ctx->qp_max_change << 8)
@@ -4110,6 +4385,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC51_VIDEO_BIT_RATE_CH:
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH:
 	case V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH:
+	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))
 				continue;
@@ -4124,7 +4400,9 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 				if (((ctx_ctrl->id == \
 					V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH) ||
 					(ctx_ctrl->id == \
-					V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH)) &&
+					V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH) ||
+					(ctx_ctrl->id == \
+					V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH)) &&
 					(enc->sh_handle.fd == -1)) {
 						enc->sh_handle.fd = ctrl->value;
 						if (process_user_shared_handle_enc(ctx)) {

@@ -488,6 +488,29 @@ struct s5p_mfc_mpeg4_enc_params {
 /**
  *
  */
+struct s5p_mfc_vp9_enc_params {
+	/* VP9 Only */
+	u32 rc_framerate;
+	u8 vp9_version;
+	u8 rc_min_qp;
+	u8 rc_max_qp;
+	u8 rc_frame_qp;
+	u8 rc_p_frame_qp;
+	u8 vp9_goldenframesel;
+	u8 vp9_gfrefreshperiod;
+	u8 hier_qp_enable;
+	u8 hier_qp_layer[3];
+	u32 hier_bit_layer[3];
+	u8 num_refs_for_p;
+	u8 num_hier_layer;
+	u8 max_partition_depth;
+	u8 intra_pu_split_disable;
+	u8 ivf_header;
+};
+
+/**
+ *
+ */
 struct s5p_mfc_vp8_enc_params {
 	/* VP8 Only */
 	u32 rc_framerate;
@@ -596,6 +619,7 @@ struct s5p_mfc_enc_params {
 		struct s5p_mfc_h264_enc_params h264;
 		struct s5p_mfc_mpeg4_enc_params mpeg4;
 		struct s5p_mfc_vp8_enc_params vp8;
+		struct s5p_mfc_vp9_enc_params vp9;
 		struct s5p_mfc_hevc_enc_params hevc;
 	} codec;
 };
