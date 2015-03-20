@@ -1921,7 +1921,8 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 			for (i = 0; i < (p_264->hier_qp_layer & 0x7); i++)
 			WRITEL(p_264->hier_qp_layer_qp[i],
 					S5P_FIMV_E_H264_HIERARCHICAL_QP_LAYER0 + i * 4);
-		} else {
+		}
+		if (p->rc_frame) {
 			for (i = 0; i < (p_264->hier_qp_layer & 0x7); i++)
 			WRITEL(p_264->hier_qp_layer_bit[i],
 					S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
@@ -2189,7 +2190,8 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 			for (i = 0; i < (p_vp8->num_temporal_layer & 0x3); i++)
 			WRITEL(p_vp8->hier_qp_layer_qp[i],
 					S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER0 + i * 4);
-		} else {
+		}
+		if (p->rc_frame) {
 			for (i = 0; i < (p_vp8->num_temporal_layer & 0x3); i++)
 			WRITEL(p_vp8->hier_qp_layer_bit[i],
 					S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
@@ -2341,17 +2343,21 @@ static int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 		WRITEL(reg, S5P_FIMV_E_HEVC_NAL_CONTROL);
 	}
 	/* hier qp enable */
-	if (p_hevc->hier_qp && p_hevc->hier_qp_layer) {
+	if (p_hevc->hier_qp_layer) {
 		reg |= (p_hevc->hier_qp_type & 0x1) << 0x3;
 		reg |= p_hevc->hier_qp_layer & 0x7;
-	/* number of coding layer should be zero when hierarchical is disable */
 		WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 		/* QP value for each layer */
-		for (i = 0; i < (p_hevc->hier_qp_layer & 0x7); i++)
-			WRITEL(p_hevc->hier_qp_layer_qp,
-				S5P_FIMV_E_HIERARCHICAL_QP_LAYER0 + i * 4);
-			WRITEL(p_hevc->hier_qp_layer_bit,
-				S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
+		if (p_hevc->hier_qp) {
+			for (i = 0; i < (p_hevc->hier_qp_layer & 0x7); i++)
+				WRITEL(p_hevc->hier_qp_layer_qp,
+					S5P_FIMV_E_HIERARCHICAL_QP_LAYER0 + i * 4);
+		}
+		if (p->rc_frame) {
+			for (i = 0; i < (p_hevc->hier_qp_layer & 0x7); i++)
+				WRITEL(p_hevc->hier_qp_layer_bit,
+					S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
+		}
 	}
 	/* rate control config. */
 	reg = READL(S5P_FIMV_E_RC_CONFIG);
