@@ -401,11 +401,12 @@ static int s3c64xx_spi_unprepare_transfer(struct spi_master *spi)
 	#endif
 	}
 #endif
-
+#ifdef CONFIG_PM_RUNTIME
 	pm_runtime_mark_last_busy(&sdd->pdev->dev);
 	ret = pm_runtime_put_autosuspend(&sdd->pdev->dev);
 	if(ret < 0)
 		return ret;
+#endif
 
 	return 0;
 }
