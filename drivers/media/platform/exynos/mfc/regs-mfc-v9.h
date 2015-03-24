@@ -15,6 +15,10 @@
 #define S5P_FIMV_REG_SIZE	(S5P_FIMV_END_ADDR - S5P_FIMV_START_ADDR)
 #define S5P_FIMV_REG_COUNT	((S5P_FIMV_END_ADDR - S5p_FIMV_START_ADDR) / 4)
 
+/* This value guarantees 375msec ~ 2sec according to MFC clock (533MHz ~ 100MHz)
+ * releated with S5P_FIMV_DEC_TIMEOUT_VALUE */
+#define MFC_TIMEOUT_VALUE	200000000
+
 /* Number of bits that the buffer address should be shifted for particular
  * MFC  buffers.  */
 #define S5P_FIMV_MEM_OFFSET		0

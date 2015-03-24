@@ -2580,6 +2580,8 @@ int s5p_mfc_decode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 	WRITEL(dec->dpb_status, S5P_FIMV_D_AVAILABLE_DPB_FLAG_LOWER);
 	WRITEL(0x0, S5P_FIMV_D_AVAILABLE_DPB_FLAG_UPPER);
 	WRITEL(dec->slice_enable, S5P_FIMV_D_SLICE_IF_ENABLE);
+	if (IS_MFCv9X(dev))
+		WRITEL(MFC_TIMEOUT_VALUE, S5P_FIMV_DEC_TIMEOUT_VALUE);
 
 	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	/* Issue different commands to instance basing on whether it
