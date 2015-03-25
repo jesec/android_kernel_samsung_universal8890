@@ -1501,7 +1501,7 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-#ifndef CONFIG_VIDEO_EXYNOS_FIMC_IS
+#if !defined(CONFIG_VIDEO_EXYNOS_FIMC_IS) && !defined(CONFIG_VIDEO_EXYNOS_FIMC_IS2)
 	if (sci->domain != DOMAIN_TOP)
 		return -ENODEV;
 #endif
@@ -1952,7 +1952,7 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 		clk_prepare_enable(sdd->clk);
 	}
 
-#ifdef CONFIG_VIDEO_EXYNOS_FIMC_IS
+#if defined(CONFIG_VIDEO_EXYNOS_FIMC_IS) || defined(CONFIG_VIDEO_EXYNOS_FIMC_IS2)
 	else if (sci->domain == DOMAIN_CAM1 || sci->domain == DOMAIN_ISP) {
 		clk_prepare_enable(sdd->src_clk);
 		clk_prepare_enable(sdd->clk);
