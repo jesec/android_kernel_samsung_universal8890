@@ -472,7 +472,7 @@ static void write_batcher(struct exynos5_i2c *i2c, unsigned int description,
 			unsigned int opcode)
 {
 
-	if ((HSI2C_START_PAYLOAD + (i2c->desc_pointer * 4)) <
+	if ((HSI2C_START_PAYLOAD + (i2c->desc_pointer * 4)) <=
 		HSI2C_END_PAYLOAD) {
 
 		/* clear cmd_buffer */
