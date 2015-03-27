@@ -2034,6 +2034,13 @@ static struct s3c64xx_spi_port_config exynos758x_spi_port_config = {
 	.clk_from_cmu	= true,
 };
 
+static struct s3c64xx_spi_port_config exynos889x_spi_port_config = {
+	.fifo_lvl_mask	= { 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x1ff, 0x1ff },
+	.rx_lvl_offset	= 15,
+	.tx_st_done	= 25,
+	.high_speed	= true,
+	.clk_from_cmu	= true,
+};
 
 static struct platform_device_id s3c64xx_spi_driver_ids[] = {
 	{
@@ -2066,6 +2073,9 @@ static struct platform_device_id s3c64xx_spi_driver_ids[] = {
 	}, {
 		.name		= "exynos758x-spi",
 		.driver_data	= (kernel_ulong_t)&exynos758x_spi_port_config,
+	}, {
+		.name		= "exynos889x-spi",
+		.driver_data	= (kernel_ulong_t)&exynos889x_spi_port_config,
 	},
 	{ },
 };
@@ -2086,6 +2096,9 @@ static const struct of_device_id s3c64xx_spi_dt_match[] = {
 	},
 	{ .compatible = "samsung,exynos758x-spi",
 			.data = (void *)&exynos758x_spi_port_config,
+	},
+	{ .compatible = "samsung,exynos889x-spi",
+			.data = (void *)&exynos889x_spi_port_config,
 	},
 	{ },
 };
