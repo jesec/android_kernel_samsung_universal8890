@@ -257,6 +257,7 @@ config SERIAL_SAMSUNG_UARTS_4
 config SERIAL_SAMSUNG_UARTS
 	int
 	depends on PLAT_SAMSUNG || ARCH_EXYNOS
+	default 6 if SOC_EXYNOS8890
 	default 4 if SERIAL_SAMSUNG_UARTS_4 || CPU_S3C2416
 	default 10
 	help

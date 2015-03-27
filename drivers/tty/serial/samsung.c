@@ -2271,14 +2271,14 @@ static struct s3c24xx_serial_drv_data exynos_serial_drv_data = {
 		.ufcon		= S5PV210_UFCON_DEFAULT,
 		.has_fracval	= 1,
 	},
-	.fifosize = { 0, },
+	.fifosize = { 256, 256, 16, 64, 256, 64 },
 };
 
 #define EXYNOS4210_SERIAL_DRV_DATA ((kernel_ulong_t)&exynos4210_serial_drv_data)
-#define EXYNOS_SERIAL_DRV_DATA ((kernel_ulong_t)&exynos_serial_drv_data)
+#define EXYNOS8890_SERIAL_DRV_DATA ((kernel_ulong_t)&exynos8890_serial_drv_data)
 #else
 #define EXYNOS4210_SERIAL_DRV_DATA (kernel_ulong_t)NULL
-#define EXYNOS_SERIAL_DRV_DATA (kernel_ulong_t)NULL
+#define EXYNOS8890_SERIAL_DRV_DATA (kernel_ulong_t)NULL
 #endif
 
 static struct platform_device_id s3c24xx_serial_driver_ids[] = {
