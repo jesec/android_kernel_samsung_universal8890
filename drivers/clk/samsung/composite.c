@@ -1523,6 +1523,9 @@ void __init samsung_register_vclk(struct init_vclk *list,
 			continue;
 		}
 
+		/* Print clock rate information */
+		pr_info("%s : %ld Hz \n", clk->name, clk->rate);
+
 		samsung_clk_add_lookup(clk, (&list[cnt])->id);
 
 		/* Additional array of clocks for finding struct clk */
