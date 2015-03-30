@@ -1095,6 +1095,50 @@ void vb2_ion_buf_finish(struct vb2_buffer *vb)
 }
 EXPORT_SYMBOL_GPL(vb2_ion_buf_finish);
 
+int vb2_ion_buf_prepare_exact(struct vb2_buffer *vb)
+{
+	int i;
+	enum dma_data_direction dir;
+
+	dir = V4L2_TYPE_IS_OUTPUT(vb->v4l2_buf.type) ?
+					DMA_TO_DEVICE : DMA_FROM_DEVICE;
+
+	for (i = 0; i < vb->num_planes; i++) {
+		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
+
+		if (!buf->vma)
+			return 0;
+
+		vb2_ion_sync_for_device((void *) &buf->cookie, 0,
+					vb2_get_plane_payload(vb, i), dir);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(vb2_ion_buf_prepare_exact);
+
+int vb2_ion_buf_finish_exact(struct vb2_buffer *vb)
+{
+	int i;
+	enum dma_data_direction dir;
+
+	dir = V4L2_TYPE_IS_OUTPUT(vb->v4l2_buf.type) ?
+					DMA_TO_DEVICE : DMA_FROM_DEVICE;
+
+	for (i = 0; i < vb->num_planes; i++) {
+		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
+
+		if (!buf->vma)
+			return 0;
+
+		vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
+					vb2_get_plane_payload(vb, i), dir);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(vb2_ion_buf_finish_exact);
+
 void vb2_ion_detach_iommu(void *alloc_ctx)
 {
 	struct vb2_ion_context *ctx = alloc_ctx;
