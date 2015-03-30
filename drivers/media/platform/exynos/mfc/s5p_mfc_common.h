@@ -906,6 +906,15 @@ struct s5p_mfc_ctx {
 	int dpb_count;
 	int buf_stride;
 
+	int old_img_width;
+	int old_img_height;
+
+	unsigned int enc_drc_flag;
+	int enc_res_change;
+	int enc_res_change_state;
+	int enc_res_change_re_input;
+	size_t min_scratch_buf_size;
+
 	struct s5p_mfc_raw_info raw_buf;
 	int mv_size;
 

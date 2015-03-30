@@ -2895,7 +2895,7 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 		return 0;
 	}
 
-	if (slice_type >= 0 &&
+	if (!ctx->enc_res_change_re_input && slice_type >= 0 &&
 			ctx->state != MFCINST_FINISHING) {
 		if (ctx->state == MFCINST_RUNNING_NO_OUTPUT ||
 			ctx->state == MFCINST_RUNNING_BUF_FULL)
@@ -2954,6 +2954,9 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 
 		vb2_buffer_done(&mb_entry->vb, VB2_BUF_STATE_DONE);
 	}
+
+	if (ctx->enc_res_change_re_input)
+		ctx->enc_res_change_re_input = 0;
 
 	if ((ctx->src_queue_cnt > 0) &&
 		((ctx->state == MFCINST_RUNNING) ||
@@ -3177,10 +3180,18 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	if (ret)
 		return ret;
 
-	if (ctx->vq_src.streaming || ctx->vq_dst.streaming) {
-		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
-		ret = -EBUSY;
-		goto out;
+	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (ctx->vq_dst.streaming) {
+			v4l2_err(&dev->v4l2_dev, "%s dst queue busy\n", __func__);
+			ret = -EBUSY;
+			goto out;
+		}
+	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (ctx->vq_src.streaming) {
+			v4l2_err(&dev->v4l2_dev, "%s src queue busy\n", __func__);
+			ret = -EBUSY;
+			goto out;
+		}
 	}
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -3244,6 +3255,12 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		ctx->img_width = pix_fmt_mp->width;
 		ctx->img_height = pix_fmt_mp->height;
 		ctx->buf_stride = pix_fmt_mp->plane_fmt[0].bytesperline;
+
+		if ((ctx->state == MFCINST_RUNNING)
+			&& (((ctx->old_img_width != 0) && (ctx->old_img_width != ctx->img_width))
+				|| ((ctx->old_img_height != 0) && (ctx->old_img_height != ctx->img_height)))) {
+			ctx->enc_drc_flag = 1;
+		}
 
 		mfc_info_ctx("Enc input pixelformat : %s\n", ctx->src_fmt->name);
 		mfc_info_ctx("fmt - w: %d, h: %d, stride: %d\n",
@@ -3544,6 +3561,13 @@ static int vidioc_streamoff(struct file *file, void *priv,
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		ctx->last_framerate = 0;
 		memset(&ctx->last_timestamp, 0, sizeof(struct timeval));
+
+		ctx->old_img_width = ctx->img_width;
+		ctx->old_img_height = ctx->img_height;
+
+		mfc_debug(2, "vidioc_streamoff ctx->old_img_width = %d\n", ctx->old_img_width);
+		mfc_debug(2, "vidioc_streamoff ctx->old_img_height = %d\n", ctx->old_img_height);
+
 		ret = vb2_streamoff(&ctx->vq_src, type);
 		if (!ret)
 			s5p_mfc_qos_off(ctx);

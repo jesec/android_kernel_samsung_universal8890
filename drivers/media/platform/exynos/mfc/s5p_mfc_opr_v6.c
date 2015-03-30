@@ -360,6 +360,9 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			(ctx->dpb_count * (enc->luma_dpb_size +
 			enc->chroma_dpb_size + enc->me_buffer_size));
 		ctx->port_b_size = 0;
+
+		ctx->scratch_buf_size = max(ctx->scratch_buf_size, ctx->min_scratch_buf_size);
+		ctx->min_scratch_buf_size = 0;
 		break;
 	case S5P_FIMV_CODEC_MPEG4_ENC:
 	case S5P_FIMV_CODEC_H263_ENC:
@@ -2851,6 +2854,109 @@ static int s5p_mfc_h264_set_aso_slice_order(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
+static inline void s5p_mfc_set_stride_enc(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	int i;
+
+	if (IS_MFCv7X(dev) || IS_MFCV8(dev)) {
+		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
+			WRITEL(ctx->raw_buf.stride[i],
+				S5P_FIMV_E_SOURCE_FIRST_STRIDE + (i * 4));
+			mfc_debug(2, "enc src[%d] stride: 0x%08lx",
+				i, (unsigned long)ctx->raw_buf.stride[i]);
+		}
+	}
+}
+
+/*
+	When the resolution is changed,
+	s5p_mfc_start_change_resol_enc() should be called right before NAL_START.
+	return value
+	0: no resolution change
+	1: resolution swap
+	2: resolution change
+*/
+int s5p_mfc_start_change_resol_enc(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	struct s5p_mfc_enc_params *p = &enc->params;
+	unsigned int reg = 0;
+	int old_img_width;
+	int old_img_height;
+	int new_img_width;
+	int new_img_height;
+	int ret = 0;
+
+	if ((ctx->img_width == 0) || (ctx->img_height == 0)) {
+		mfc_err("new_img_width = %d, new_img_height = %d\n",
+			ctx->img_width, ctx->img_height);
+		return 0;
+	}
+
+	old_img_width = ctx->old_img_width;
+	old_img_height = ctx->old_img_height;
+
+	new_img_width = ctx->img_width;
+	new_img_height = ctx->img_height;
+
+	if ((old_img_width == new_img_width) && (old_img_height == new_img_height)) {
+		mfc_err("Resolution is not changed. new_img_width = %d, new_img_height = %d\n",
+			new_img_width, new_img_height);
+		return 0;
+	}
+
+	mfc_info_ctx("Resolution Change : (%d x %d) -> (%d x %d)\n",
+		old_img_width, old_img_height, new_img_width, new_img_height);
+
+	if (ctx->img_width) {
+		ctx->buf_width = ALIGN(ctx->img_width, S5P_FIMV_NV12M_HALIGN);
+	}
+
+	if ((old_img_width == new_img_height) && (old_img_height == new_img_width)) {
+		reg = READL(S5P_FIMV_E_PARAM_CHANGE);
+		reg &= ~(0x1 << 6);
+		reg |= (0x1 << 6); /* resolution swap */
+		WRITEL(reg, S5P_FIMV_E_PARAM_CHANGE);
+		ret = 1;
+	} else {
+		reg = READL(S5P_FIMV_E_PARAM_CHANGE);
+		reg &= ~(0x3 << 7);
+		/* For now, FW does not care S5P_FIMV_E_PARAM_CHANGE is 1 or 2.
+		 * It cares S5P_FIMV_E_PARAM_CHANGE is NOT zero.
+		 */
+		if ((old_img_width*old_img_height) < (new_img_width*new_img_height)) {
+			reg |= (0x1 << 7); /* resolution increased */
+			mfc_info_ctx("Resolution Increased\n");
+		} else {
+			reg |= (0x2 << 7); /* resolution decreased */
+			mfc_info_ctx("Resolution Decreased\n");
+		}
+		WRITEL(reg, S5P_FIMV_E_PARAM_CHANGE);
+
+		/** set cropped width */
+		WRITEL(ctx->img_width, S5P_FIMV_E_CROPPED_FRAME_WIDTH);
+		/** set cropped height */
+		WRITEL(ctx->img_height, S5P_FIMV_E_CROPPED_FRAME_HEIGHT);
+
+		/* bit rate */
+		if (p->rc_frame)
+			WRITEL(p->rc_bitrate, S5P_FIMV_E_RC_BIT_RATE);
+		else
+			WRITEL(1, S5P_FIMV_E_RC_BIT_RATE);
+		ret = 2;
+	}
+
+	/** set new stride */
+	s5p_mfc_set_stride_enc(ctx);
+
+	/** set cropped offset */
+	WRITEL(0x0, S5P_FIMV_E_FRAME_CROP_OFFSET);
+
+	return ret;
+}
+
 /* Encode a single frame */
 int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 {
@@ -2862,6 +2968,11 @@ int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 		s5p_mfc_h264_set_aso_slice_order(ctx);
 
 	s5p_mfc_set_slice_mode(ctx);
+
+	if (ctx->enc_drc_flag) {
+		ctx->enc_res_change = s5p_mfc_start_change_resol_enc(ctx);
+		ctx->enc_drc_flag = 0;
+	}
 
 	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	/* Issue different commands to instance basing on whether it
@@ -3347,21 +3458,6 @@ static inline int s5p_mfc_run_init_dec(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_init_decode(ctx);
 
 	return 0;
-}
-
-static inline void s5p_mfc_set_stride_enc(struct s5p_mfc_ctx *ctx)
-{
-	struct s5p_mfc_dev *dev = ctx->dev;
-	int i;
-
-	if (IS_MFCv7X(dev) || IS_MFCV8(dev)) {
-		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
-			WRITEL(ctx->raw_buf.stride[i],
-				S5P_FIMV_E_SOURCE_FIRST_STRIDE + (i * 4));
-			mfc_debug(2, "enc src[%d] stride: 0x%08lx",
-				i, (unsigned long)ctx->raw_buf.stride[i]);
-		}
-	}
 }
 
 static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
