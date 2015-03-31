@@ -267,6 +267,8 @@ static const struct sc_fmt sc_formats[] = {
 
 /* must specify in revers order of SCALER_VERSION(xyz) */
 static const u32 sc_version_table[][2] = {
+	{ 0x80060007, SCALER_VERSION(4, 2, 0) }, /* SC_BI */
+	{ 0x80050007, SCALER_VERSION(4, 0, 0) }, /* SC_POLY */
 	{ 0x8000006D, SCALER_VERSION(3, 0, 1) },
 	{ 0x80000068, SCALER_VERSION(3, 0, 0) },
 	{ 0x8004000C, SCALER_VERSION(2, 2, 0) },
@@ -290,10 +292,77 @@ static const struct sc_variant sc_variant[] = {
 			.max_w		= 8192,
 			.max_h		= 8192,
 		},
+		.version		= SCALER_VERSION(4, 2, 0),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
+		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+		.blending		= 1,
+		.prescale		= 0,
+		.ratio_20bit		= 1,
+		.initphase		= 1,
+	}, {
+		.limit_input = {
+			.min_w		= 16,
+			.min_h		= 16,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.limit_output = {
+			.min_w		= 4,
+			.min_h		= 4,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.version		= SCALER_VERSION(4, 0, 0),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
+		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+		.blending		= 0,
+		.prescale		= 0,
+		.ratio_20bit		= 0,
+		.initphase		= 0,
+	}, {
+		.limit_input = {
+			.min_w		= 16,
+			.min_h		= 16,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.limit_output = {
+			.min_w		= 4,
+			.min_h		= 4,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
 		.version		= SCALER_VERSION(3, 0, 0),
 		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
 		.sc_down_min		= SCALE_RATIO_CONST(16, 1),
 		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+		.blending		= 0,
+		.prescale		= 1,
+		.ratio_20bit		= 1,
+		.initphase		= 1,
+	}, {
+		.limit_input = {
+			.min_w		= 16,
+			.min_h		= 16,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.limit_output = {
+			.min_w		= 4,
+			.min_h		= 4,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.version		= SCALER_VERSION(2, 2, 0),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
+		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+		.blending		= 1,
+		.prescale		= 0,
+		.ratio_20bit		= 0,
+		.initphase		= 0,
 	}, {
 		.limit_input = {
 			.min_w		= 16,
@@ -311,6 +380,10 @@ static const struct sc_variant sc_variant[] = {
 		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
 		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
 		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+		.blending		= 0,
+		.prescale		= 0,
+		.ratio_20bit		= 0,
+		.initphase		= 0,
 	}, {
 		.limit_input = {
 			.min_w		= 16,
@@ -328,23 +401,10 @@ static const struct sc_variant sc_variant[] = {
 		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
 		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
 		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
-	}, {
-		.limit_input = {
-		.min_w			= 16,
-			.min_h		= 16,
-			.max_w		= 8192,
-			.max_h		= 8192,
-		},
-		.limit_output = {
-			.min_w		= 4,
-			.min_h		= 4,
-			.max_w		= 8192,
-			.max_h		= 8192,
-		},
-		.version		= SCALER_VERSION(2, 2, 0),
-		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
-		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
-		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+		.blending		= 0,
+		.prescale		= 0,
+		.ratio_20bit		= 0,
+		.initphase		= 0,
 	},
 };
 
@@ -592,7 +652,8 @@ static int sc_v4l2_s_fmt_mplane(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
-	if (pixm->reserved[SC_FMT_PREMULTI_FLAG] != 0)
+	if (pixm->reserved[SC_FMT_PREMULTI_FLAG] != 0 &&
+			ctx->sc_dev->version != SCALER_VERSION(4, 0, 0))
 		frame->pre_multi = true;
 	else
 		frame->pre_multi = false;
@@ -1296,7 +1357,7 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 		return -EINVAL;
 	}
 
-	if (sc->version >= SCALER_VERSION(3, 0, 0)) {
+	if (sc->variant->prescale) {
 		BUG_ON(sc_down_min != SCALE_RATIO_CONST(16, 1));
 
 		if (h_ratio > SCALE_RATIO_CONST(8, 1)) {
@@ -1608,8 +1669,7 @@ static int sc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->g_alpha = ctrl->val;
 		break;
 	case V4L2_CID_2D_BLEND_OP:
-		if ((ctx->sc_dev->version >= SCALER_VERSION(2, 2, 0)) &&
-				(ctrl->val > 0)) {
+		if (!ctx->sc_dev->variant->blending && (ctrl->val > 0)) {
 			dev_err(ctx->sc_dev->dev,
 				"%s: blending is not supported from v2.2.0\n",
 				__func__);
@@ -2066,7 +2126,7 @@ static bool sc_process_2nd_stage(struct sc_dev *sc, struct sc_ctx *ctx)
 	pre_h_ratio = 0;
 	pre_v_ratio = 0;
 
-	if (sc->version < SCALER_VERSION(3, 0, 0)) {
+	if (!sc->variant->ratio_20bit) {
 		/* No prescaler, 1/4 precision */
 		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
 		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
@@ -2238,7 +2298,8 @@ static int sc_run_next_job(struct sc_dev *sc)
 	pre_h_ratio = ctx->pre_h_ratio;
 	pre_v_ratio = ctx->pre_v_ratio;
 
-	if (sc->version < SCALER_VERSION(3, 0, 0)) {
+	if (!sc->variant->ratio_20bit) {
+
 		/* No prescaler, 1/4 precision */
 		BUG_ON(h_ratio > SCALE_RATIO(4, 1));
 		BUG_ON(v_ratio > SCALE_RATIO(4, 1));
@@ -2284,7 +2345,7 @@ static int sc_run_next_job(struct sc_dev *sc)
 	sc_hwset_dst_pos(sc, d_frame->crop.left, d_frame->crop.top);
 	sc_hwset_dst_wh(sc, d_frame->crop.width, d_frame->crop.height);
 
-	if (sc->version >= SCALER_VERSION(3, 0, 0))
+	if (sc->variant->initphase)
 		sc_set_initial_phase(ctx);
 
 	sc_hwset_src_addr(sc, &s_frame->addr);

@@ -231,6 +231,10 @@ struct sc_variant {
 	u32 sc_up_max;
 	u32 sc_down_min;
 	u32 sc_down_swmin;
+	u8 blending:1;
+	u8 prescale:1;
+	u8 ratio_20bit:1;
+	u8 initphase:1;
 };
 
 /*
