@@ -42,7 +42,7 @@
 #include "decon_helper.h"
 #include "./panels/lcd_ctrl.h"
 #include "../../../staging/android/sw_sync.h"
-#include "vpp/vpp_core.h"
+#include "vpp/vpp.h"
 
 #ifdef CONFIG_MACH_VELOCE8890
 #define DISP_SYSMMU_DIS

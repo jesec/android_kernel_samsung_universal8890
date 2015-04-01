@@ -17,7 +17,7 @@
 
 #include "decon.h"
 #include "dsim.h"
-#include "./vpp/vpp_core.h"
+#include "./vpp/vpp.h"
 #include "decon_helper.h"
 #include "./panels/lcd_ctrl.h"
 #include <video/mipi_display.h>
