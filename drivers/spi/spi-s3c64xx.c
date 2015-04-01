@@ -48,7 +48,7 @@
 static LIST_HEAD(drvdata_list);
 #endif
 
-#define MAX_SPI_PORTS		8
+#define MAX_SPI_PORTS		10
 #define SPI_AUTOSUSPEND_TIMEOUT		(100)
 
 /* Registers and bit-fields */
