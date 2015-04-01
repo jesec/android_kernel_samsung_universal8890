@@ -1482,10 +1482,10 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	struct resource *mem;
 	int ret;
 	unsigned int tmp;
-	struct clk *aclk_100;
+	//struct clk *aclk_100;
 	void __iomem *pmu_batcher;
 
-	pmu_batcher = ioremap(0x105c0074, SZ_8);
+	pmu_batcher = ioremap(0x105c0070, SZ_4);
 	writel(0x3,pmu_batcher);
 
 	if (!np) {
@@ -1562,9 +1562,11 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+	/*
 	aclk_100 = clk_get_sys(NULL, "dout_aclk_ccore_100");
 	clk_set_rate(aclk_100, 100000000);
 	clk_set_rate(i2c->rate_clk, 100000000);
+	*/
 
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_use_autosuspend(&pdev->dev);
