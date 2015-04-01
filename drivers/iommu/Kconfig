@@ -175,7 +175,7 @@ config TEGRA_IOMMU_SMMU
 # EXYNOS IOMMU support
 config EXYNOS_IOMMU
 	bool "Exynos IOMMU Support"
-	depends on ARCH_EXYNOS && !SOC_EXYNOS7420 && !SOC_EXYNOS7580 && !SOC_EXYNOS7890
+	depends on ARCH_EXYNOS && !SOC_EXYNOS7420 && !SOC_EXYNOS7580 && !SOC_EXYNOS7890 && !SOC_EXYNOS8890
 	select IOMMU_API
 	help
 	  Support for the IOMMU(System MMU) of Samsung Exynos application
@@ -187,7 +187,7 @@ config EXYNOS_IOMMU
 
 config EXYNOS_IOMMU_V6
 	bool "Exynos IOMMU Support"
-	depends on ARCH_EXYNOS && (SOC_EXYNOS7420 || SOC_EXYNOS7580 || SOC_EXYNOS7890)
+	depends on ARCH_EXYNOS && (SOC_EXYNOS7420 || SOC_EXYNOS7580 || SOC_EXYNOS7890 || SOC_EXYNOS8890)
 	select IOMMU_API
 	select ARM_DMA_USE_IOMMU
 	help
