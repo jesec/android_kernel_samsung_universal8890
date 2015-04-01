@@ -12,7 +12,7 @@
  */
 
 #include <linux/types.h>
-#include "vpp_core.h"
+#include "vpp.h"
 
 /* 8-tap Filter Coefficient */
 const s16 h_coef_8t[7][16][8] = {

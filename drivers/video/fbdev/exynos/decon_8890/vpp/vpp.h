@@ -1,6 +1,6 @@
 /* linux/drivers/video/exynos/decon/vpp_core.h
  *
- * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (c) 2015 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com
  *
  * header file for Samsung EXYNOS5 SoC series VPP driver
@@ -10,8 +10,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef VPP_CORE_H_
-#define VPP_CORE_H_
+#ifndef VPP_H_
+#define VPP_H_
 
 #include <linux/delay.h>
 #include <linux/sched.h>
@@ -27,9 +27,9 @@
 #include <video/videonode.h>
 #include <mach/bts.h>
 #include <media/exynos_mc.h>
-/*#include <mach/regs-clock-exynos8890.h>*/
 
 #include "regs-vpp.h"
+#include "vpp_common.h"
 #include "../decon.h"
 
 #define VPP_PADS_NUM	1
@@ -48,8 +48,23 @@
 #define is_scaling(vpp) ((vpp->h_ratio != (1 << 20)) || (vpp->v_ratio != (1 << 20)))
 #define is_scale_down(vpp) ((vpp->h_ratio > (1 << 20)) || (vpp->v_ratio > (1 << 20)))
 
+#define vpp_err(fmt, ...)					\
+	do {							\
+		pr_err(pr_fmt(fmt), ##__VA_ARGS__);		\
+		exynos_ss_printk(fmt, ##__VA_ARGS__);		\
+	} while (0)
+
+#define vpp_info(fmt, ...)					\
+	do {							\
+		pr_info(pr_fmt(fmt), ##__VA_ARGS__);		\
+	} while (0)
+
+#define vpp_dbg(fmt, ...)					\
+	do {							\
+		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);		\
+	} while (0)
+
 enum vpp_dev_state {
-	VPP_OPENED,
 	VPP_RUNNING,
 	VPP_POWER_ON,
 	VPP_STOPPING,
@@ -125,45 +140,100 @@ struct vpp_dev {
 	u32				sc_h;
 };
 
-static inline int vpp_hw_get_irq_status(struct vpp_dev *vpp)
-{
-	u32 cfg = readl(vpp->regs + VG_IRQ);
-	cfg &= (VG_IRQ_SFR_UPDATE_DONE | VG_IRQ_HW_RESET_DONE |
-		VG_IRQ_READ_SLAVE_ERROR | VG_IRQ_DEADLOCK_STATUS |
-		VG_IRQ_FRAMEDONE);
+extern struct vpp_dev *vpp0_for_decon;
+extern struct vpp_dev *vpp1_for_decon;
+extern struct vpp_dev *vpp2_for_decon;
+extern struct vpp_dev *vpp3_for_decon;
+extern struct vpp_dev *vpp4_for_decon;
+extern struct vpp_dev *vpp5_for_decon;
+extern struct vpp_dev *vpp6_for_decon;
+extern struct vpp_dev *vpp7_for_decon;
+extern struct vpp_dev *vpp8_for_decon;
 
-	return cfg;
+static inline struct vpp_dev *get_vpp_drvdata(u32 id)
+{
+	switch (id) {
+	case 0:
+		return vpp0_for_decon;
+	case 1:
+		return vpp1_for_decon;
+	case 2:
+		return vpp2_for_decon;
+	case 3:
+		return vpp3_for_decon;
+	case 4:
+		return vpp4_for_decon;
+	case 5:
+		return vpp5_for_decon;
+	case 6:
+		return vpp6_for_decon;
+	case 7:
+		return vpp7_for_decon;
+	case 8:
+		return vpp8_for_decon;
+	default:
+		return NULL;
+	}
 }
 
-static inline void vpp_hw_clear_irq(struct vpp_dev *vpp, int irq)
+static inline u32 vpp_read(u32 id, u32 reg_id)
 {
-	u32 cfg = readl(vpp->regs + VG_IRQ);
-	cfg |= irq;
-	writel(cfg, vpp->regs + VG_IRQ);
+	struct vpp_dev *vpp = get_vpp_drvdata(id);
+	return readl(vpp->regs + reg_id);
 }
 
-int vpp_hw_set_sw_reset(struct vpp_dev *vpp);
-void vpp_hw_set_realtime_path(struct vpp_dev *vpp);
-void vpp_hw_set_framedone_irq(struct vpp_dev *vpp, bool enable);
-void vpp_hw_set_deadlock_irq(struct vpp_dev *vpp, bool enable);
-void vpp_hw_set_read_slave_err_irq(struct vpp_dev *vpp, bool enable);
-void vpp_hw_set_sfr_update_done_irq(struct vpp_dev *vpp, bool enable);
-void vpp_hw_set_hw_reset_done_mask(struct vpp_dev *vpp, bool enable);
-void vpp_hw_set_in_size(struct vpp_dev *vpp);
-void vpp_hw_set_out_size(struct vpp_dev *vpp);
-void vpp_hw_set_scale_ratio(struct vpp_dev *vpp);
-int vpp_hw_set_in_format(struct vpp_dev *vpp);
-void vpp_hw_set_in_block_size(struct vpp_dev *vpp, bool enable);
-void vpp_hw_set_in_buf_addr(struct vpp_dev *vpp);
-void vpp_hw_set_smart_if_pix_num(struct vpp_dev *vpp);
-void vpp_hw_set_lookup_table(struct vpp_dev *vpp);
-void vpp_hw_set_enable_interrupt(struct vpp_dev *vpp);
-void vpp_hw_set_sfr_update_force(struct vpp_dev *vpp);
-int vpp_hw_wait_op_status(struct vpp_dev *vpp);
-int vpp_hw_set_rotation(struct vpp_dev *vpp);
-void vpp_hw_set_rgb_type(struct vpp_dev *vpp);
-void vpp_hw_set_plane_alpha(struct vpp_dev *vpp);
-void vpp_hw_set_dynamic_clock_gating(struct vpp_dev *vpp);
-void vpp_hw_set_plane_alpha_fixed(struct vpp_dev *vpp);
-void vpp_hw_wait_idle(struct vpp_dev *vpp);
+static inline u32 vpp_read_mask(u32 id, u32 reg_id, u32 mask)
+{
+	u32 val = vpp_read(id, reg_id);
+	val &= (~mask);
+	return val;
+}
+
+static inline void vpp_write(u32 id, u32 reg_id, u32 val)
+{
+	struct vpp_dev *vpp = get_vpp_drvdata(id);
+	writel(val, vpp->regs + reg_id);
+}
+
+static inline void vpp_write_mask(u32 id, u32 reg_id, u32 val, u32 mask)
+{
+	struct vpp_dev *vpp = get_vpp_drvdata(id);
+	u32 old = vpp_read(id, reg_id);
+
+	val = (val & mask) | (old & ~mask);
+	writel(val, vpp->regs + reg_id);
+}
+
+static inline void vpp_to_scale_params(struct vpp_dev *vpp, struct vpp_size_param *p)
+{
+	struct decon_win_config *config = vpp->config;
+	struct vpp_params *vpp_parm = &vpp->config->vpp_parm;
+	struct vpp_fraction *fr = &vpp->fract_val;
+
+	p->src_x = config->src.x;
+	p->src_y = config->src.y;
+	p->src_w = config->src.w;
+	p->src_h = config->src.h;
+	p->fr_w = fr->w;
+	p->fr_h = fr->h;
+	p->dst_w = config->dst.w;
+	p->dst_h = config->dst.h;
+	p->vpp_h_ratio = vpp->h_ratio;
+	p->vpp_v_ratio = vpp->v_ratio;
+	p->src_fw = config->src.f_w;
+	p->src_fh = config->src.f_h;
+	p->fr_yx = vpp->fract_val.y_x;
+	p->fr_yy = vpp->fract_val.y_y;
+	p->fr_cx = vpp->fract_val.c_x;
+	p->fr_cy = vpp->fract_val.c_y;
+	p->rot = config->vpp_parm.rot;
+	p->block_x = config->block_area.x;
+	p->block_y = config->block_area.y;
+	p->block_w = config->block_area.w;
+	p->block_h = config->block_area.h;
+	p->addr0 = vpp_parm->addr[0];
+	p->addr1 = vpp_parm->addr[1];
+	p->addr2 = vpp_parm->addr[2];
+
+}
 #endif

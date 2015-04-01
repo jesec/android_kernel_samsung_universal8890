@@ -17,11 +17,13 @@
 #include <linux/of.h>
 #include <linux/exynos_iovmm.h>
 #include <linux/smc.h>
+#include <linux/export.h>
 
 #include <plat/cpu.h>
 #include <mach/devfreq.h>
 
-#include "vpp_core.h"
+#include "vpp.h"
+#include "vpp_common.h"
 #include "../decon_helper.h"
 /*
  * Gscaler constraints
@@ -70,7 +72,24 @@
 #define MEM_FAULT_PROT_EXCEPT_2         4
 #define MEM_FAULT_PROT_EXCEPT_3         5
 
-static struct vpp_dev *vpp_for_decon;
+struct vpp_dev *vpp0_for_decon;
+EXPORT_SYMBOL(vpp0_for_decon);
+struct vpp_dev *vpp1_for_decon;
+EXPORT_SYMBOL(vpp1_for_decon);
+struct vpp_dev *vpp2_for_decon;
+EXPORT_SYMBOL(vpp2_for_decon);
+struct vpp_dev *vpp3_for_decon;
+EXPORT_SYMBOL(vpp3_for_decon);
+struct vpp_dev *vpp4_for_decon;
+EXPORT_SYMBOL(vpp4_for_decon);
+struct vpp_dev *vpp5_for_decon;
+EXPORT_SYMBOL(vpp5_for_decon);
+struct vpp_dev *vpp6_for_decon;
+EXPORT_SYMBOL(vpp6_for_decon);
+struct vpp_dev *vpp7_for_decon;
+EXPORT_SYMBOL(vpp7_for_decon);
+struct vpp_dev *vpp8_for_decon;
+EXPORT_SYMBOL(vpp8_for_decon);
 
 static void vpp_dump_cfw_register(void)
 {
@@ -327,11 +346,13 @@ err:
 	return -EINVAL;
 }
 
-static int vpp_set_scale_info(struct vpp_dev *vpp)
+static int vpp_set_scale_info(struct vpp_dev *vpp, struct vpp_size_param *p)
 {
+	struct decon_win_config *config = vpp->config;
+
 	if (vpp_check_scale_ratio(vpp))
 		return -EINVAL;
-	vpp_hw_set_scale_ratio(vpp);
+	vpp_reg_set_scale_ratio(vpp->id, p, is_rotation(config));
 
 	return 0;
 }
@@ -397,18 +418,7 @@ static int vpp_init(struct vpp_dev *vpp)
 	if (ret)
 		return ret;
 
-	vpp_hw_set_realtime_path(vpp);
-
-	vpp_hw_set_framedone_irq(vpp, false);
-	vpp_hw_set_deadlock_irq(vpp, false);
-	vpp_hw_set_read_slave_err_irq(vpp, false);
-	vpp_hw_set_hw_reset_done_mask(vpp, false);
-	vpp_hw_set_sfr_update_done_irq(vpp, false);
-	vpp_hw_set_enable_interrupt(vpp);
-	vpp_hw_set_lookup_table(vpp);
-	vpp_hw_set_rgb_type(vpp);
-	vpp_hw_set_dynamic_clock_gating(vpp);
-	vpp_hw_set_plane_alpha_fixed(vpp);
+	vpp_reg_init(vpp->id);
 
 	vpp->h_ratio = vpp->v_ratio = 0;
 	vpp->fract_val.y_x = vpp->fract_val.y_y = 0;
@@ -552,21 +562,9 @@ static void vpp_set_min_mif_lock(struct vpp_dev *vpp, bool enable)
 
 static int vpp_deinit(struct vpp_dev *vpp, bool do_sw_reset)
 {
-	unsigned int vpp_irq = 0;
-
 	clear_bit(VPP_POWER_ON, &vpp->state);
 
-	vpp_irq = vpp_hw_get_irq_status(vpp);
-	vpp_hw_clear_irq(vpp, vpp_irq);
-
-	vpp_hw_set_framedone_irq(vpp, true);
-	vpp_hw_set_deadlock_irq(vpp, true);
-	vpp_hw_set_read_slave_err_irq(vpp, true);
-	vpp_hw_set_hw_reset_done_mask(vpp, true);
-	vpp_hw_set_sfr_update_done_irq(vpp, true);
-	if (do_sw_reset)
-		vpp_hw_set_sw_reset(vpp);
-
+	vpp_reg_deinit(vpp->id, do_sw_reset);
 	vpp_clk_disable(vpp);
 
 	return 0;
@@ -643,6 +641,8 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 
 static int vpp_set_config(struct vpp_dev *vpp)
 {
+	struct decon_win_config *config = vpp->config;
+	struct vpp_size_param p;
 	int ret = -EINVAL;
 	unsigned long flags;
 
@@ -672,7 +672,7 @@ static int vpp_set_config(struct vpp_dev *vpp)
 		enable_irq(vpp->irq);
 	}
 
-	ret = vpp_hw_set_in_format(vpp);
+	ret = vpp_reg_set_in_format(vpp->id, config->format);
 	if (ret)
 		goto err;
 
@@ -687,26 +687,30 @@ static int vpp_set_config(struct vpp_dev *vpp)
 		goto err;
 
 	DISP_SS_EVENT_LOG(DISP_EVT_VPP_WINCON, vpp->sd, ktime_set(0, 0));
-	vpp_hw_set_in_size(vpp);
-	vpp_hw_set_out_size(vpp);
+	vpp_to_scale_params(vpp, &p);
+	vpp_reg_set_in_size(vpp->id, &p);
 
-	vpp_hw_set_rotation(vpp);
+	config->src.w = p.src_w;
+	config->src.h = p.src_h;
+	vpp_reg_set_out_size(vpp->id, config->dst.w, config->dst.h);
+
+	vpp_reg_set_rotation(vpp->id, &p);
 	if (is_vgr(vpp)) {
 		ret = vpp_set_read_order(vpp);
 		if (ret)
 			goto err;
 	}
-	vpp_hw_set_in_buf_addr(vpp);
-	vpp_hw_set_smart_if_pix_num(vpp);
 
-	ret = vpp_set_scale_info(vpp);
+	vpp_reg_set_in_buf_addr(vpp->id, &p);
+	vpp_reg_set_smart_if_pix_num(vpp->id, config->dst.w, config->dst.h);
+	ret = vpp_set_scale_info(vpp, &p);
 	if (ret)
 		goto err;
 
 	if (vpp_check_block_mode(vpp))
-		vpp_hw_set_in_block_size(vpp, true);
+		vpp_reg_set_in_block_size(vpp->id, true, &p);
 	else
-		vpp_hw_set_in_block_size(vpp, false);
+		vpp_reg_set_in_block_size(vpp->id, false, &p);
 
 	vpp->op_timer.expires = (jiffies + 1 * HZ);
 	mod_timer(&vpp->op_timer, vpp->op_timer.expires);
@@ -747,7 +751,7 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 		}
 		set_bit(VPP_STOPPING, &vpp->state);
 		if (state != VPP_STOP_ERR) {
-			ret = vpp_hw_wait_op_status(vpp);
+			ret = vpp_reg_wait_op_status(vpp->id);
 			if (ret < 0) {
 				dev_err(DEV, "%s : vpp-%d is working\n",
 						__func__, vpp->id);
@@ -799,7 +803,7 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 		break;
 
 	case VPP_WAIT_IDLE:
-		vpp_hw_wait_idle(vpp);
+		vpp_reg_wait_idle(vpp->id);
 		break;
 
 	default:
@@ -943,8 +947,8 @@ static irqreturn_t vpp_irq_handler(int irq, void *priv)
 		if (vpp->clk_cnt == 10)
 			vpp->clk_cnt = 0;
 
-		vpp_irq = vpp_hw_get_irq_status(vpp);
-		vpp_hw_clear_irq(vpp, vpp_irq);
+		vpp_irq = vpp_reg_get_irq_status(vpp->id);
+		vpp_reg_set_clear_irq(vpp->id, vpp_irq);
 
 		if (is_err_irq(vpp_irq)) {
 			dev_err(DEV, "Error interrupt (0x%x)\n", vpp_irq);
@@ -1075,6 +1079,41 @@ int vpp_sysmmu_fault_handler(struct iommu_domain *domain,
 	return 0;
 }
 
+static void vpp_config_id(struct vpp_dev *vpp)
+{
+	switch (vpp->id) {
+	case 0:
+		vpp0_for_decon = vpp;
+		break;
+	case 1:
+		vpp1_for_decon = vpp;
+		break;
+	case 2:
+		vpp2_for_decon = vpp;
+		break;
+	case 3:
+		vpp3_for_decon = vpp;
+		break;
+	case 4:
+		vpp4_for_decon = vpp;
+		break;
+	case 5:
+		vpp5_for_decon = vpp;
+		break;
+	case 6:
+		vpp6_for_decon = vpp;
+		break;
+	case 7:
+		vpp7_for_decon = vpp;
+		break;
+	case 8:
+		vpp8_for_decon = vpp;
+		break;
+	default:
+		dev_err(DEV, "Failed to find vpp id(%d)\n", vpp->id);
+	}
+}
+
 static int vpp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1088,7 +1127,6 @@ static int vpp_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to allocate local vpp mem\n");
 		return -ENOMEM;
 	}
-	vpp_for_decon = vpp;
 	vpp->id = of_alias_get_id(dev->of_node, "vpp");
 
 	pr_info("###%s:VPP%d probe : start\n", __func__, vpp->id);
@@ -1099,6 +1137,8 @@ static int vpp_probe(struct platform_device *pdev)
 		return ret;
 	}
 	vpp->pdev = pdev;
+
+	vpp_config_id(vpp);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	vpp->regs = devm_request_and_ioremap(dev, res);
