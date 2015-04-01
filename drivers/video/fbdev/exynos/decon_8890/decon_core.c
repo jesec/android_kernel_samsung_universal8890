@@ -2797,112 +2797,44 @@ void decon_clocks_info(struct decon_device *decon)
 {
 	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.pclk),
 				clk_get_rate(decon->res.pclk) / MHZ);
-	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.aclk),
-				clk_get_rate(decon->res.aclk) / MHZ);
-	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.eclk),
-				clk_get_rate(decon->res.eclk) / MHZ);
-	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.vclk),
-				clk_get_rate(decon->res.vclk) / MHZ);
+	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.eclk_leaf),
+				clk_get_rate(decon->res.eclk_leaf) / MHZ);
+	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.vclk_leaf),
+				clk_get_rate(decon->res.vclk_leaf) / MHZ);
 }
 
 void decon_put_clocks(struct decon_device *decon)
 {
+	if (decon->id == 0)
+		clk_put(decon->res.dpll);
 	clk_put(decon->res.pclk);
-	clk_put(decon->res.aclk);
 	clk_put(decon->res.eclk);
+	clk_put(decon->res.eclk_leaf);
 	clk_put(decon->res.vclk);
+	clk_put(decon->res.vclk_leaf);
 }
 
 static int decon_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct decon_device *decon = platform_get_drvdata(pdev);
-#ifdef DISP_PWR_CLK_CTRL_DIS
-	void __iomem *regs;
-	u32 reg;
 
-	u32 CMU_TOP   = 0x10570000;
-	u32 CMU_BUS0  = 0x13400000;
-	u32 CMU_DISP0 = 0x13AD0000;
-
-	/* MUX_BUS0_PLL */
-	regs = ioremap(CMU_TOP + 0x200, 0x4);
-	reg = readl(regs);
-	writel(reg | 0x201000, regs);
-	iounmap(regs);
-
-	/* MUX_BUS1_PLL */
-	regs = ioremap(CMU_TOP + 0x204, 0x4);
-	reg = readl(regs);
-	writel(reg | 0x201000, regs);
-	iounmap(regs);
-
-	/* !!! ACLK_LH_DISP !!! */
-	/* BUS0_PLL -> MUX_ACLK_DISP0_0_400_USER */
-	/* MUX_ACLK_BUS0_528_USER */
-	regs = ioremap(CMU_BUS0 + 0x200, 0x4);
-	writel(0x201000, regs);
-	iounmap(regs);
-
-	/* DIV_ACLK_BUS0_528 : 1000 -> 250 */
-	regs = ioremap(CMU_TOP + 0x3B8, 0x4);
-	writel(0x3, regs);
-	iounmap(regs);
-
-	/* !!! ACLK_DISP0 !!! */
-	/* DIV_ACLK_DISP0_0_400 : 1000 -> 250 */
-	regs = ioremap(CMU_TOP + 0x3CC, 0x4);
-	writel(0x3, regs);
-	iounmap(regs);
-	/* BUS0_PLL -> MUX_ACLK_DISP0_0_USER */
-	regs = ioremap(CMU_DISP0 + 0x204, 0x4);
-	writel(0x201000, regs);
-	iounmap(regs);
-
-	/* !!! ECLK !!! */
-	/* BUS0_PLL -> MUX_SCLK_DISP0_DECON0_ECLK0_USER */
-	regs = ioremap(CMU_DISP0 + 0x20C, 0x4);
-	writel(0x201000, regs);
-	iounmap(regs);
-	/* DIV_SCLK_DECON0_ECLK0 : 1000 -> 1000 -> 250 */
-	regs = ioremap(CMU_DISP0 + 0x404, 0x4);
-	writel(0x3, regs);
-	iounmap(regs);
-
-
-	/* !!! VCLK !!! */
-	/* MUX_SCLK_DISP0_DECON0_VCLK0: MOUT_SCLK_BUS1_PLL */
-	regs = ioremap(CMU_TOP + 0x2F8, 0x4);
-	writel(0x201000, regs);
-	iounmap(regs);
-	/* DIV_SCLK_DISP0_DECON0_VCLK0 : 1000 -> 200 */
-	regs = ioremap(CMU_TOP + 0x458, 0x4);
-	writel(0x4, regs);
-	iounmap(regs);
-	/* BUS1_PLL -> MUX_SCLK_DISP0_DECON0_VCLK0_USER */
-	regs = ioremap(CMU_DISP0 + 0x210, 0x4);
-	writel(0x201000, regs);
-	iounmap(regs);
-	/* DIV_SCLK_DISP0_DECON0_VCLK0 : 1000 -> 200 -> 33 */
-	regs = ioremap(CMU_DISP0 + 0x408, 0x4);
-	writel(0x5, regs);
-	iounmap(regs);
-
-	return 0;
-#endif
 	DISP_SS_EVENT_LOG(DISP_EVT_DECON_RESUME, &decon->sd, ktime_set(0, 0));
 	decon_dbg("decon%d %s +\n", decon->id, __func__);
 	mutex_lock(&decon->mutex);
+
+	if (decon->id == 0)
+		clk_prepare_enable(decon->res.dpll);
+	clk_prepare_enable(decon->res.pclk);
+	clk_prepare_enable(decon->res.eclk);
+	clk_prepare_enable(decon->res.eclk_leaf);
+	clk_prepare_enable(decon->res.vclk);
+	clk_prepare_enable(decon->res.vclk_leaf);
 
 	if (!decon->id)
 		decon_f_set_clocks(decon);
 	else
 		decon_s_set_clocks(decon);
-
-	clk_prepare_enable(decon->res.pclk);
-	clk_prepare_enable(decon->res.aclk);
-	clk_prepare_enable(decon->res.eclk);
-	clk_prepare_enable(decon->res.vclk);
 
 	if (decon->state == DECON_STATE_INIT)
 		decon_clocks_info(decon);
@@ -2923,9 +2855,12 @@ static int decon_runtime_suspend(struct device *dev)
 	mutex_lock(&decon->mutex);
 
 	clk_disable_unprepare(decon->res.pclk);
-	clk_disable_unprepare(decon->res.aclk);
 	clk_disable_unprepare(decon->res.eclk);
+	clk_disable_unprepare(decon->res.eclk_leaf);
 	clk_disable_unprepare(decon->res.vclk);
+	clk_disable_unprepare(decon->res.vclk_leaf);
+	if (decon->id == 0)
+		clk_disable_unprepare(decon->res.dpll);
 
 	mutex_unlock(&decon->mutex);
 	decon_dbg("decon%d %s -\n", decon->id, __func__);

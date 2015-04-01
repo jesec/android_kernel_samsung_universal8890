@@ -662,43 +662,21 @@ static int dsim_get_clocks(struct dsim_device *dsim)
 {
 	struct device *dev = dsim->dev;
 
-#if 0
-	void __iomem *regs;
-	regs = ioremap(0x13AD0224, 0x4);
-	writel(0x00201000, regs);
-	dsim_info("%s: Set RXCLKESC0 MUX: 0x%x\n",
-			__func__, readl(regs));
-	iounmap(regs);
-
-	regs = ioremap(0x13AD0228, 0x4);
-	writel(0x00201000, regs);
-	dsim_info("%s: Set BITCLKDIV2 MUX: 0x%x\n",
-			__func__, readl(regs));
-	iounmap(regs);
-
-	regs = ioremap(0x13AD022C, 0x4);
-	writel(0x00201000, regs);
-	dsim_info("%s: Set BITCLKDIV2 MUX: 0x%x\n",
-			__func__, readl(regs));
-	iounmap(regs);
-	return 0;
-#endif
-
-	dsim->res.pclk = clk_get(dev, "pclk_dsim");
+	dsim->res.pclk = clk_get(dev, "dsim_pclk");
 	if (IS_ERR_OR_NULL(dsim->res.pclk)) {
-		dsim_err("failed to get pclk_dsim0\n");
+		dsim_err("failed to get dsim_pclk\n");
 		return -ENODEV;
 	}
 
-	dsim->res.dphy_esc = clk_get(dev, "dphy_esc");
+	dsim->res.dphy_esc = clk_get(dev, "dphy_escclk");
 	if (IS_ERR_OR_NULL(dsim->res.dphy_esc)) {
-		dsim_err("failed to get mipi0_rx\n");
+		dsim_err("failed to get dphy_escclk\n");
 		return -ENODEV;
 	}
 
-	dsim->res.dphy_byte = clk_get(dev, "dphy_byte");
+	dsim->res.dphy_byte = clk_get(dev, "dphy_byteclk");
 	if (IS_ERR_OR_NULL(dsim->res.dphy_byte)) {
-		dsim_err("failed to get mipi0_bit\n");
+		dsim_err("failed to get dphy_byteclk\n");
 		return -ENODEV;
 	}
 

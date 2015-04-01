@@ -22,11 +22,11 @@
 #include <mach/regs-clock.h>
 #include <plat/cpu.h>
 
-//#include <../pwrcal/pwrcal.h>
+#include <../pwrcal/pwrcal.h>
+#include <../pwrcal/S5E8890/S5E8890-vclk.h>
 #include "decon.h"
 #include "dsim.h"
 #include "decon_helper.h"
-int my_cnt;
 
 static void decon_oneshot_underrun_log(struct decon_device *decon)
 {
@@ -80,13 +80,12 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 	}
 
 	irq_sts_reg = decon_reg_get_interrupt_and_clear(decon->id);
+
 	if (irq_sts_reg & INT_DISPIF_VSTATUS_INT_PEND) {
 		/* VSYNC interrupt, accept it */
 		if (decon->pdata->psr_mode == DECON_VIDEO_MODE) {
 			decon->vsync_info.timestamp = timestamp;
 			wake_up_interruptible_all(&decon->vsync_info.wait);
-			if(my_cnt++ % 10 == 0)
-				pr_err("[> VSYNC <] %s:%d\n", __func__, __LINE__);
 		}
 	}
 
@@ -114,27 +113,39 @@ irq_end:
 
 int decon_f_get_clocks(struct decon_device *decon)
 {
-	decon->res.pclk = clk_get(decon->dev, "pclk_decon0");
+	decon->res.dpll = clk_get(decon->dev, "disp_pll");
+	if (IS_ERR_OR_NULL(decon->res.dpll)) {
+		decon_err("failed to get disp_pll\n");
+		return -ENODEV;
+	}
+
+	decon->res.pclk = clk_get(decon->dev, "decon_pclk");
 	if (IS_ERR_OR_NULL(decon->res.pclk)) {
-		decon_err("failed to get pclk_decon0\n");
+		decon_err("failed to get decon_pclk\n");
 		return -ENODEV;
 	}
 
-	decon->res.aclk = clk_get(decon->dev, "aclk_decon0");
-	if (IS_ERR_OR_NULL(decon->res.aclk)) {
-		decon_err("failed to get aclk_decon0\n");
-		return -ENODEV;
-	}
-
-	decon->res.eclk = clk_get(decon->dev, "decon0_eclk");
+	decon->res.eclk = clk_get(decon->dev, "eclk_user");
 	if (IS_ERR_OR_NULL(decon->res.eclk)) {
-		decon_err("failed to get decon0_eclk\n");
+		decon_err("failed to get eclk_user\n");
 		return -ENODEV;
 	}
 
-	decon->res.vclk = clk_get(decon->dev, "decon0_vclk");
+	decon->res.eclk_leaf = clk_get(decon->dev, "eclk_leaf");
+	if (IS_ERR_OR_NULL(decon->res.eclk_leaf)) {
+		decon_err("failed to get eclk_leaf\n");
+		return -ENODEV;
+	}
+
+	decon->res.vclk = clk_get(decon->dev, "vclk_user");
 	if (IS_ERR_OR_NULL(decon->res.vclk)) {
-		decon_err("failed to get decon0_vclk\n");
+		decon_err("failed to get vclk_user\n");
+		return -ENODEV;
+	}
+
+	decon->res.vclk_leaf = clk_get(decon->dev, "vclk_leaf");
+	if (IS_ERR_OR_NULL(decon->res.vclk_leaf)) {
+		decon_err("failed to get vclk_leaf\n");
 		return -ENODEV;
 	}
 
@@ -151,22 +162,25 @@ void decon_f_set_clocks(struct decon_device *decon)
 	decon_reg_get_clock_ratio(&clks, &p);
 
 	/* VCLK */
-	decon_clk_set_rate(dev, NULL, "disp_pll", clks.decon[CLK_ID_DPLL] * MHZ);
-	decon_clk_set_rate(dev, decon->res.vclk, NULL, clks.decon[CLK_ID_VCLK] * MHZ);
+	decon_clk_set_rate(dev, decon->res.dpll,
+			NULL, clks.decon[CLK_ID_DPLL] * MHZ);
+	decon_clk_set_rate(dev, decon->res.vclk_leaf,
+			NULL, clks.decon[CLK_ID_VCLK] * MHZ);
 
 	/* ECLK */
-	decon_clk_set_rate(dev, decon->res.eclk, NULL, clks.decon[CLK_ID_ECLK] * MHZ);
+	decon_clk_set_rate(dev, decon->res.eclk_leaf,
+			NULL, clks.decon[CLK_ID_ECLK] * MHZ);
 
-	/* TODO: ACLK */
-	//cal_dfs_set_rate(cal_dvfs_disp, clks.decon[CLK_ID_ACLK] * 100);
 	/* TODO: PCLK */
+	/* TODO: ACLK */
+	cal_dfs_set_rate(dvfs_disp, clks.decon[CLK_ID_ACLK] * 1000);
 
-	decon_dbg("%s:pclk %ld aclk %ld vclk %ld eclk %ld\n",
+	decon_dbg("%s:dpll %ld pclk %ld vclk %ld eclk %ld\n",
 		__func__,
+		clk_get_rate(decon->res.dpll),
 		clk_get_rate(decon->res.pclk),
-		clk_get_rate(decon->res.aclk),
-		clk_get_rate(decon->res.vclk),
-		clk_get_rate(decon->res.eclk));
+		clk_get_rate(decon->res.vclk_leaf),
+		clk_get_rate(decon->res.eclk_leaf));
 
 	return;
 }
@@ -184,7 +198,6 @@ int decon_f_register_irq(struct platform_device *pdev, struct decon_device *deco
 	struct device *dev = decon->dev;
 	struct resource *res;
 	int ret = 0;
-	my_cnt = 0;
 
 	/* Get IRQ resource and register IRQ handler. */
 	/* 0: FIFO irq */

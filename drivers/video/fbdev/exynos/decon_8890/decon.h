@@ -198,10 +198,12 @@ struct decon_win_rect {
 };
 
 struct decon_resources {
+	struct clk *dpll;
 	struct clk *pclk;
-	struct clk *aclk;
 	struct clk *eclk;
+	struct clk *eclk_leaf;
 	struct clk *vclk;
+	struct clk *vclk_leaf;
 };
 
 struct decon_rect {

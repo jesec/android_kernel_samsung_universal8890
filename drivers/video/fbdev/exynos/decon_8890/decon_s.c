@@ -65,30 +65,6 @@ irq_end:
 
 int decon_s_get_clocks(struct decon_device *decon)
 {
-	decon->res.pclk = clk_get(decon->dev, "pclk_decon1");
-	if (IS_ERR_OR_NULL(decon->res.pclk)) {
-		decon_err("failed to get pclk_decon1\n");
-		return -ENODEV;
-	}
-
-	decon->res.aclk = clk_get(decon->dev, "aclk_decon1");
-	if (IS_ERR_OR_NULL(decon->res.aclk)) {
-		decon_err("failed to get aclk_decon1\n");
-		return -ENODEV;
-	}
-
-	decon->res.eclk = clk_get(decon->dev, "decon1_eclk");
-	if (IS_ERR_OR_NULL(decon->res.eclk)) {
-		decon_err("failed to get decon1_eclk\n");
-		return -ENODEV;
-	}
-
-	decon->res.vclk = clk_get(decon->dev, "decon1_vclk");
-	if (IS_ERR_OR_NULL(decon->res.vclk)) {
-		decon_err("failed to get decon1_vclk\n");
-		return -ENODEV;
-	}
-
 	return 0;
 }
 
