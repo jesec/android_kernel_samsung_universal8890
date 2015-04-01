@@ -81,6 +81,9 @@ enum exynos8890_clks {
 	disp1_phyclk_mipidphy0_bitclkdiv2_user, disp1_phyclk_mipidphy1_bitclkdiv2_user,
 	disp1_phyclk_mipidphy2_bitclkdiv2_user, disp1_phyclk_disp1_hdmiphy_pixel_clko_user,
 
+	/* number for ccore driver starts from 950 */
+	ccore_i2c = 950,
+
 	nr_clks,
 };
 
@@ -90,6 +93,10 @@ static struct samsung_fixed_rate exynos8890_fixed_rate_ext_clks[] __initdata = {
 
 static struct of_device_id ext_clk_match[] __initdata = {
 	{ .compatible = "samsung,exynos8890-oscclk", .data = (void *)0, },
+};
+
+static struct init_vclk exynos8890_ccore_vclks[] __initdata = {
+	VCLK(ccore_i2c, gate_ccore_i2c, "gate_ccore_i2c", 0, 0, NULL),
 };
 
 static struct init_vclk exynos8890_mfc_vclks[] __initdata = {
@@ -418,6 +425,7 @@ void __init exynos8890_clk_init(struct device_node *np)
 	samsung_register_vclk(exynos8890_peric0_vclks, ARRAY_SIZE(exynos8890_peric0_vclks));
 	samsung_register_vclk(exynos8890_peric1_vclks, ARRAY_SIZE(exynos8890_peric1_vclks));
 	samsung_register_vclk(exynos8890_peris_vclks, ARRAY_SIZE(exynos8890_peris_vclks));
+	samsung_register_vclk(exynos8890_ccore_vclks, ARRAY_SIZE(exynos8890_ccore_vclks));
 
 	pr_info("EXYNOS8890: Clock setup completed\n");
 }
