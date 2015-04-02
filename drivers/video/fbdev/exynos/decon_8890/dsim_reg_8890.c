@@ -492,6 +492,8 @@ void dsim_reg_set_pllctrl_value(u32 id, u32 en)
 		DSIM_PLLCTRL1_CHARGE_PUMP_CURRENT_MASK |
 		DSIM_PLLCTRL1_AFC_OPERATION_MODE_SELECT;
 
+	/* TODO: HACK */
+	val = 0x40000000;
 	dsim_write_mask(id, DSIM_PLLCTRL1, val, mask);
 }
 
