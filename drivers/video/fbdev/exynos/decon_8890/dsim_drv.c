@@ -605,9 +605,6 @@ static void dsim_d_phy_onoff(struct dsim_device *dsim,
 	unsigned int enable)
 {
 	exynos5_dism_phy_enable(0, enable);
-#if !defined(CONFIG_SOC_EXYNOS7580)
-	/*exynos5_dism_phy_enable(1, enable);*/
-#endif
 }
 
 static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
@@ -1274,6 +1271,13 @@ static int dsim_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 	struct dsim_device *dsim = NULL;
+	void __iomem *regs;
+	u32 reg;
+
+	u32 CMU_DISP0 = 0x13AD0000;
+
+	/* TODO:QSTATE_CTRL_MIPI_DPHY_M4S4 */
+	regs = ioremap(CMU_DISP0 + 0x2490, 0x4);
 
 	dsim = devm_kzalloc(dev, sizeof(struct dsim_device), GFP_KERNEL);
 	if (!dsim) {
@@ -1382,6 +1386,12 @@ static int dsim_probe(struct platform_device *pdev)
 #else
 	dsim_runtime_resume(dsim->dev);
 #endif
+
+	/* TODO: HACK */
+	reg = readl(regs);
+	writel(reg | 0x3, regs);
+	iounmap(regs);
+	/**************/
 
 	dsim_reg_prepare_clocks(&dsim->clks_param);
 
