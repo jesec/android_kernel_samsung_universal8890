@@ -38,8 +38,14 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/usb/otg-fsm.h>
 
+/**
+ * Clocks to use DWC3 DRD in Exynos SoC
+ */
 static const char *dwc3_exynos5_clk_names[] = {"aclk", "aclk_axius", "sclk_ref",
 	"sclk", "oscclk_phy", "phyclock", "pipe_pclk", "aclk_ahb_usblinkh", NULL};
+
+static const char *dwc3_exynos8_clk_names[] = {"aclk", "sclk",
+				"phyclock", "pipe_pclk", NULL};
 
 /**
  * Structures for Samsung Exynos DWC3 glue layer
@@ -550,44 +556,54 @@ static void dwc3_exynos_clk_disable(struct dwc3_exynos *exynos)
 
 static int dwc3_exynos_clk_get(struct dwc3_exynos *exynos)
 {
+	const char	**clk_ids;
 	const char	*clk_id;
 	struct clk	*clk;
+	int		clk_count;
 	int		i;
 
 	clk_id = "usbdrd30";
 	clk = devm_clk_get(exynos->dev, clk_id);
-	if (IS_ERR_OR_NULL(clk)) {
-		dev_info(exynos->dev, "IP clock gating is N/A\n");
-		exynos->clk = NULL;
-		/* fallback to separate clock control */
-		exynos->clocks = (struct clk **) devm_kmalloc(exynos->dev,
-				ARRAY_SIZE(dwc3_exynos5_clk_names) *
-					sizeof(struct clk *),
-				GFP_KERNEL);
-		if (!exynos->clocks)
-			return -ENOMEM;
-
-		for (i = 0; dwc3_exynos5_clk_names[i] != NULL; i++) {
-			clk_id = dwc3_exynos5_clk_names[i];
-
-			clk = devm_clk_get(exynos->dev, clk_id);
-			if (IS_ERR_OR_NULL(clk))
-				goto err;
-
-			exynos->clocks[i] = clk;
-		}
-
-		exynos->clocks[i] = NULL;
-
-	} else {
+	if (!IS_ERR_OR_NULL(clk)) {
 		exynos->clk = clk;
+		return 0;
 	}
 
+	dev_info(exynos->dev, "IP clock gating is N/A\n");
+	exynos->clk = NULL;
+
+	/* fallback to separate clock control */
+	switch (exynos->drv_data->cpu_type) {
+	case TYPE_EXYNOS8:
+		clk_ids = dwc3_exynos8_clk_names;
+		clk_count = ARRAY_SIZE(dwc3_exynos8_clk_names);
+		break;
+	case TYPE_EXYNOS5:
+		clk_ids = dwc3_exynos5_clk_names;
+		clk_count = ARRAY_SIZE(dwc3_exynos5_clk_names);
+		break;
+	default:
+		dev_err(exynos->dev, "couldn't get clock : unknown cpu type\n");
+		return -EINVAL;
+	}
+
+	exynos->clocks = (struct clk **) devm_kmalloc(exynos->dev,
+			clk_count * sizeof(struct clk *), GFP_KERNEL);
+	if (!exynos->clocks)
+		return -ENOMEM;
+
+	for (i = 0; clk_ids[i] != NULL; i++) {
+		clk = devm_clk_get(exynos->dev, clk_ids[i]);
+		if (IS_ERR_OR_NULL(clk))
+			goto err;
+
+		exynos->clocks[i] = clk;
+	}
+	exynos->clocks[i] = NULL;
+
 	return 0;
-
 err:
-	dev_err(exynos->dev, "couldn't get %s clock\n", clk_id);
-
+	dev_err(exynos->dev, "couldn't get %s clock\n", clk_ids[i]);
 	return -EINVAL;
 }
 
