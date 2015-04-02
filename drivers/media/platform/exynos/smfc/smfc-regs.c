@@ -23,9 +23,10 @@
 
 void smfc_hwconfigure_reset(struct smfc_dev *smfc)
 {
-	u32 cfg = __raw_readl(smfc->reg + REG_JPEG_CNTL) & ~((1 << 29) | 3);
-	__raw_writel(cfg, smfc->reg + REG_JPEG_CNTL);
-	__raw_writel(cfg | (1 << 29), smfc->reg + REG_JPEG_CNTL);
+	u32 cfg = __raw_readl(smfc->reg + REG_MAIN_JPEG_CNTL);
+	cfg &= ~((1 << 29) | 3);
+	__raw_writel(cfg, smfc->reg + REG_MAIN_JPEG_CNTL);
+	__raw_writel(cfg | (1 << 29), smfc->reg + REG_MAIN_JPEG_CNTL);
 }
 
 /*
@@ -122,6 +123,15 @@ static inline u32 smfc_calc_quantizers(unsigned int idx, unsigned int factor,
 }
 #pragma GCC diagnostic pop
 
+static void smfc_hwconfigure_qtable(void __iomem *reg, unsigned int factor,
+				    const unsigned char table[])
+{
+	size_t i;
+
+	for (i = 0; i < SMFC_MCU_SIZE; i += 4)
+		__raw_writel(smfc_calc_quantizers(i, factor, table), reg + i);
+}
+
 void smfc_hwconfigure_tables(struct smfc_ctx *ctx)
 {
 	size_t i;
@@ -129,14 +139,10 @@ void smfc_hwconfigure_tables(struct smfc_ctx *ctx)
 	unsigned int factor = ctx->quality_factor;
 	factor = (factor < 50) ? 5000 / factor : 200 - factor * 2;
 
-	/* Quantizer table 0 */
-	for (i = 0; i < SMFC_MCU_SIZE; i += 4) {
-		__raw_writel(smfc_calc_quantizers(i, factor, default_luma_qtbl),
-			base + REG_QTBL_BASE + i);
-		__raw_writel(
-			smfc_calc_quantizers(i, factor, default_chroma_qtbl),
-			base + REG_QTBL_BASE + SMFC_MCU_SIZE + i);
-	}
+	smfc_hwconfigure_qtable(base + REG_QTBL_BASE,
+				factor, default_luma_qtbl);
+	smfc_hwconfigure_qtable(base + REG_QTBL_BASE + SMFC_MCU_SIZE,
+				factor, default_chroma_qtbl);
 
 	/* Huffman tables */
 	for (i = 0; i < 4; i++) {
@@ -162,57 +168,77 @@ void smfc_hwconfigure_tables(struct smfc_ctx *ctx)
 		__raw_writel(ITU_H_TBL_VAL_AC_CHROMINANCE[i],
 				base + REG_HTBL_CHROMA_ACVAL + i * sizeof(u32));
 
-	__raw_writel(VAL_TABLE_SELECT, base + REG_TABLE_SELECT);
-	__raw_writel(SMFC_DHT_LEN, base + REG_DHT_LEN);
+	__raw_writel(VAL_MAIN_TABLE_SELECT, base + REG_MAIN_TABLE_SELECT);
+	__raw_writel(SMFC_DHT_LEN, base + REG_MAIN_DHT_LEN);
 }
 
+void smfc_hwconfigure_2nd_tables(struct smfc_ctx *ctx)
+{
+	/* Qunatiazation table 2 and 3 will be used by the secondary image */
+	void __iomem *base = ctx->smfc->reg;
+	void __iomem *qtblbase = base + REG_QTBL_BASE + SMFC_MCU_SIZE * 2;
+	unsigned int factor = ctx->thumb_quality_factor;
+	factor = (factor < 50) ? 5000 / factor : 200 - factor * 2;
+
+	smfc_hwconfigure_qtable(qtblbase, factor, default_luma_qtbl);
+	smfc_hwconfigure_qtable(qtblbase + SMFC_MCU_SIZE,
+				factor, default_chroma_qtbl);
+	/* Huffman table for the secondary image is the same as the main image */
+	__raw_writel(VAL_SEC_TABLE_SELECT, base + REG_SEC_TABLE_SELECT);
+	__raw_writel(SMFC_DHT_LEN, base + REG_SEC_DHT_LEN);
+}
 
 #ifdef CONFIG_VIDEOBUF2_ION
 static void smfc_hwconfigure_image_base(struct smfc_ctx *ctx,
-					struct vb2_buffer *vb2buf)
+					struct vb2_buffer *vb2buf,
+					bool thumbnail)
 {
 	void *cookie;
 	dma_addr_t addr;
 	int ret;
 	unsigned int i;
-	bool multiplane =
-		(ctx->img_fmt->num_buffers == ctx->img_fmt->num_planes);
+	unsigned int num_buffers = ctx->img_fmt->num_buffers;
+	bool multiplane = (num_buffers == ctx->img_fmt->num_planes);
+	u32 off = thumbnail ? REG_SEC_IMAGE_BASE : REG_MAIN_IMAGE_BASE;
 
 	if (multiplane) {
 		/* Note that this includes a single-plane format such as YUYV */
-		for (i = 0; i < ctx->img_fmt->num_buffers; i++) {
-			cookie = vb2_plane_cookie(vb2buf, i);
+		for (i = 0; i < num_buffers; i++) {
+			cookie = vb2_plane_cookie(vb2buf,
+					thumbnail ? i + num_buffers : i);
 			ret = vb2_ion_dma_address(cookie, &addr);
 			BUG_ON(ret != 0);
 			__raw_writel((u32)addr,
-				ctx->smfc->reg + REG_MAIN_IMAGE_BASE(i));
+				ctx->smfc->reg + REG_IMAGE_BASE(off, i));
 		}
 	} else {
-		cookie = vb2_plane_cookie(vb2buf, 0);
+		u32 width = thumbnail ? ctx->thumb_width : ctx->width;
+		u32 height = thumbnail ? ctx->thumb_height : ctx->height;
+		cookie = vb2_plane_cookie(vb2buf, thumbnail ? 1 : 0);
 		ret = vb2_ion_dma_address(cookie, &addr);
 		BUG_ON(ret != 0);
 
 		for (i = 0; i < ctx->img_fmt->num_planes; i++) {
 			__raw_writel((u32)addr,
-				ctx->smfc->reg + REG_MAIN_IMAGE_BASE(i));
-			addr += (ctx->width * ctx->height *
-						ctx->img_fmt->bpp_pix[i]) / 8;
+				ctx->smfc->reg + REG_IMAGE_BASE(off, i));
+			addr += (width * height * ctx->img_fmt->bpp_pix[i]) / 8;
 		}
 	}
 }
 
 static u32 smfc_hwconfigure_jpeg_base(struct smfc_ctx *ctx,
-					struct vb2_buffer *vb2buf)
+					struct vb2_buffer *vb2buf,
+					bool thumbnail)
 {
 	void *cookie;
 	dma_addr_t addr;
 	int ret;
+	u32 off = thumbnail ? REG_SEC_JPEG_BASE : REG_MAIN_JPEG_BASE;
 
-	BUG_ON(vb2buf->num_planes != 1);
-	cookie = vb2_plane_cookie(vb2buf, 0);
+	cookie = vb2_plane_cookie(vb2buf, thumbnail ? 1 : 0);
 	ret = vb2_ion_dma_address(cookie, &addr);
 	BUG_ON(ret != 0);
-	__raw_writel((u32)addr, ctx->smfc->reg + REG_MAIN_JPEG_BASE);
+	__raw_writel((u32)addr, ctx->smfc->reg + off);
 	return (u32)addr;
 }
 #else /* !CONFIG_VIDEOBUF2_ION */
@@ -232,6 +258,35 @@ static u32 smfc_get_jpeg_format(unsigned int hfactor, unsigned int vfactor)
 	}
 
 	return 2 << 24; /* default: YUV422 */
+}
+
+void smfc_hwconfigure_2nd_image(struct smfc_ctx *ctx)
+{
+	struct vb2_buffer *vb2buf_img, *vb2buf_jpg;
+	u32 format;
+
+	if (!(ctx->flags & SMFC_CTX_COMPRESS))
+		return;
+
+	__raw_writel(ctx->thumb_width | (ctx->thumb_height << 16),
+			ctx->smfc->reg + REG_SEC_IMAGE_SIZE);
+
+	vb2buf_img = v4l2_m2m_next_src_buf(ctx->m2mctx);
+	vb2buf_jpg = v4l2_m2m_next_dst_buf(ctx->m2mctx);
+
+	smfc_hwconfigure_image_base(ctx, vb2buf_img, true);
+	/*
+	 * secondary image stream base is not required because there is no
+	 * MAX_COMPRESSED_SIZE register for the secondary image
+	 */
+	smfc_hwconfigure_jpeg_base(ctx, vb2buf_jpg, true);
+
+	/*
+	 * Chroma subsampling is always 1/2 for both of horizontal and vertical
+	 * directions to reduce the compressed size of the secondary image
+	 */
+	format = ctx->img_fmt->regcfg | smfc_get_jpeg_format(2, 2);
+	__raw_writel(format, ctx->smfc->reg + REG_SEC_IMAGE_FORMAT);
 }
 
 void smfc_hwconfigure_image(struct smfc_ctx *ctx)
@@ -258,8 +313,8 @@ void smfc_hwconfigure_image(struct smfc_ctx *ctx)
 			max(ctx->chroma_vfactor, ctx->img_fmt->chroma_vfactor));
 	}
 
-	smfc_hwconfigure_image_base(ctx, vb2buf_img);
-	stream_address = smfc_hwconfigure_jpeg_base(ctx, vb2buf_jpg);
+	smfc_hwconfigure_image_base(ctx, vb2buf_img, false);
+	stream_address = smfc_hwconfigure_jpeg_base(ctx, vb2buf_jpg, false);
 
 	__raw_writel(format, ctx->smfc->reg + REG_MAIN_IMAGE_FORMAT);
 	__raw_writel(vb2_plane_size(vb2buf_jpg, 0) -
@@ -272,24 +327,29 @@ void smfc_hwconfigure_start(struct smfc_ctx *ctx)
 	u32 cfg;
 	void __iomem *base = ctx->smfc->reg;
 
+	__raw_writel(!(ctx->flags & SMFC_CTX_B2B_COMPRESS) ? 0 : 1,
+			base + REG_SEC_JPEG_CNTL);
+
 	/* configure "Error max compressed size" interrupt */
 	cfg = __raw_readl(base + REG_INT_EN);
 	__raw_writel(cfg | (1 << 11), base + REG_INT_EN);
 
-	cfg = __raw_readl(base + REG_JPEG_CNTL) & ~3;
+	cfg = __raw_readl(base + REG_MAIN_JPEG_CNTL) & ~3;
 	cfg |= !(ctx->flags & SMFC_CTX_COMPRESS) ? 1 : 2;
 	cfg |= 1 << 19; /* update huffman table from SFR */
 	cfg |= 1 << 28; /* enables interrupt */
 	cfg |= 1 << 29; /* Release reset */
 	if (ctx->restart_interval != 0)
 		cfg |= (ctx->restart_interval << 3) | (1 << 2);
+	if (!!(ctx->flags & SMFC_CTX_B2B_COMPRESS))
+		cfg |= 1 << 31; /* back-to-back enable */
 
-	writel(cfg, base + REG_JPEG_CNTL);
+	writel(cfg, base + REG_MAIN_JPEG_CNTL);
 }
 
-bool smfc_hwstatus_okay(struct smfc_dev *smfc)
+bool smfc_hwstatus_okay(struct smfc_dev *smfc, struct smfc_ctx *ctx)
 {
-	u32 val = __raw_readl(smfc->reg + REG_INT_STATUS);
+	u32 val = __raw_readl(smfc->reg + REG_MAIN_INT_STATUS);
 	if (!val) {
 		dev_err(smfc->dev, "Interrupt with no status change\n");
 		return false;
@@ -297,6 +357,20 @@ bool smfc_hwstatus_okay(struct smfc_dev *smfc)
 
 	if ((val & ~2)) {
 		dev_err(smfc->dev, "Error interrupt %#010x\n", val);
+		return false;
+	}
+
+	if (!(ctx->flags & SMFC_CTX_B2B_COMPRESS))
+		return  true;
+	val = __raw_readl(smfc->reg + REG_SEC_INT_STATUS);
+	if (!val) {
+		dev_err(smfc->dev, "Secondary image is not completed\n");
+		return false;
+	}
+
+	if ((val & ~2)) {
+		dev_err(smfc->dev, "Error interrupt %#010x for the secondary\n",
+			val);
 		return false;
 	}
 
@@ -314,18 +388,18 @@ void smfc_dump_registers(struct smfc_dev *smfc)
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 16, 4,
 			smfc->reg + 0x000, 0xD4, false);
 	/* Reading quantization tables */
-	val = __raw_readl(smfc->reg + REG_TABLE_SELECT);
+	val = __raw_readl(smfc->reg + REG_MAIN_TABLE_SELECT);
 	__raw_writel(val | SMFC_TABLE_READ_REQ_MASK,
-			smfc->reg + REG_TABLE_SELECT);
+			smfc->reg + REG_MAIN_TABLE_SELECT);
 	for (val = 0; val < 512; val++) {
-		if (!!(__raw_readl(smfc->reg + REG_TABLE_SELECT)
+		if (!!(__raw_readl(smfc->reg + REG_MAIN_TABLE_SELECT)
 						& SMFC_TABLE_READ_OK_MASK))
 			break;
 		cpu_relax();
 	}
 
 	if ((val == 512) &&
-		!(__raw_readl(smfc->reg + REG_TABLE_SELECT)
+		!(__raw_readl(smfc->reg + REG_MAIN_TABLE_SELECT)
 						& SMFC_TABLE_READ_OK_MASK)) {
 		pr_info("** FAILED TO READ HUFFMAN and QUANTIZER TABLES **\n");
 		return;
