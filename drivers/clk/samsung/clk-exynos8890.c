@@ -375,7 +375,7 @@ static struct init_vclk exynos8890_disp0_vclks[] __initdata = {
 	VCLK(decon0_vclk1_local, sclk_decon0_vclk1_local, "sclk_decon0_vclk1_local", 0, 0, NULL),
 	VCLK(hdmi_audio, sclk_hdmi_audio, "sclk_hdmi_audio", 0, 0, NULL),
 	/* PLL clock source */
-	VCLK(disp_pll, p1_disp_pll, "p1_disp_pll", 0, 0, NULL),
+	VCLK(disp_pll, p1_disp_pll, "p1_disp_pll", 0, 0, "disp_pll"),
 	/* USERMUX related clock source */
 	VCLK(mipidphy0_rxclkesc0, umux_disp0_phyclk_mipidphy0_rxclkesc0_user, "umux_disp0_phyclk_mipidphy0_rxclkesc0_user", 0, 0, NULL),
 	VCLK(mipidphy0_bitclkdiv8, umux_disp0_phyclk_mipidphy0_bitclkdiv8_user, "umux_disp0_phyclk_mipidphy0_bitclkdiv8_user", 0, 0, NULL),
