@@ -27,6 +27,7 @@
 #include <linux/clk.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/usb_phy_generic.h>
+#include <linux/usb/samsung_usb.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
@@ -40,11 +41,18 @@
 static const char *dwc3_exynos_clk_names[] = {"aclk", "aclk_axius", "sclk_ref",
 	"sclk", "oscclk_phy", "phyclock", "pipe_pclk", "aclk_ahb_usblinkh", NULL};
 
+/**
+ * Structures for Samsung Exynos DWC3 glue layer
+ */
 struct dwc3_exynos_rsw {
 	struct otg_fsm		*fsm;
 	struct work_struct	work;
 	int			id_gpio;
 	int			b_sess_gpio;
+};
+
+struct dwc3_exynos_drvdata {
+	int cpu_type;
 };
 
 struct dwc3_exynos {
@@ -59,16 +67,42 @@ struct dwc3_exynos {
 	struct clk		**clocks;
 
 	struct dwc3_exynos_rsw	rsw;
+	const struct dwc3_exynos_drvdata *drv_data;
 };
 void dwc3_otg_run_sm(struct otg_fsm *fsm);
 
 #ifdef CONFIG_OF
+static struct dwc3_exynos_drvdata dwc3_exynos5250 = {
+	.cpu_type	= TYPE_EXYNOS5250,
+};
+
+static struct dwc3_exynos_drvdata dwc3_exynos5 = {
+	.cpu_type	= TYPE_EXYNOS5,
+};
+
 static const struct of_device_id exynos_dwc3_match[] = {
-	{ .compatible = "samsung,exynos5250-dwusb3" },
-	{ .compatible = "samsung,exynos5-dwusb3" },
+	{
+		.compatible = "samsung,exynos5250-dwusb3",
+		.data = &dwc3_exynos5250,
+	}, {
+		.compatible = "samsung,exynos5-dwusb3",
+		.data = &dwc3_exynos5,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, exynos_dwc3_match);
+
+static inline const struct dwc3_exynos_drvdata
+*dwc3_exynos_get_driver_data(struct platform_device *pdev)
+{
+	if (pdev->dev.of_node) {
+		const struct of_device_id *match;
+		match = of_match_node(exynos_dwc3_match, pdev->dev.of_node);
+		return match->data;
+	}
+
+	return NULL;
+}
 #endif
 
 static inline int dwc3_exynos_get_id_state(struct dwc3_exynos_rsw *rsw)
@@ -608,6 +642,11 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 	}
 
 	exynos->dev	= dev;
+#if IS_ENABLED(CONFIG_OF)
+	exynos->drv_data = dwc3_exynos_get_driver_data(pdev);
+#endif
+	if (!exynos->drv_data)
+		dev_info(exynos->dev, "driver data is not available\n");
 
 	ret = dwc3_exynos_clk_get(exynos);
 	if (ret)
