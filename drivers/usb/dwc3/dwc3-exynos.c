@@ -38,7 +38,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/usb/otg-fsm.h>
 
-static const char *dwc3_exynos_clk_names[] = {"aclk", "aclk_axius", "sclk_ref",
+static const char *dwc3_exynos5_clk_names[] = {"aclk", "aclk_axius", "sclk_ref",
 	"sclk", "oscclk_phy", "phyclock", "pipe_pclk", "aclk_ahb_usblinkh", NULL};
 
 /**
@@ -561,14 +561,14 @@ static int dwc3_exynos_clk_get(struct dwc3_exynos *exynos)
 		exynos->clk = NULL;
 		/* fallback to separate clock control */
 		exynos->clocks = (struct clk **) devm_kmalloc(exynos->dev,
-				ARRAY_SIZE(dwc3_exynos_clk_names) *
+				ARRAY_SIZE(dwc3_exynos5_clk_names) *
 					sizeof(struct clk *),
 				GFP_KERNEL);
 		if (!exynos->clocks)
 			return -ENOMEM;
 
-		for (i = 0; dwc3_exynos_clk_names[i] != NULL; i++) {
-			clk_id = dwc3_exynos_clk_names[i];
+		for (i = 0; dwc3_exynos5_clk_names[i] != NULL; i++) {
+			clk_id = dwc3_exynos5_clk_names[i];
 
 			clk = devm_clk_get(exynos->dev, clk_id);
 			if (IS_ERR_OR_NULL(clk))
