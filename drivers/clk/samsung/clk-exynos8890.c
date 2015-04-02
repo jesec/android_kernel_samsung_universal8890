@@ -57,7 +57,8 @@ enum exynos8890_clks {
 	/* number for cam1 driver starts from 600 */
 	gate_isp_cpu = 600, gate_csis2, gate_csis3, gate_fimc_vra, gate_mc_scaler, gate_i2c0_isp, gate_i2c1_isp, gate_i2c2_isp, gate_i2c3_isp, gate_wdt_isp,
 	gate_mcuctl_isp, gate_uart_isp, gate_pdma_isp, gate_pwm_isp, gate_spi0_isp, gate_spi1_isp, isp_spi0, isp_spi1, isp_uart, gate_sclk_pwm_isp,
-	gate_sclk_uart_isp,
+	gate_sclk_uart_isp, cam1_arm, cam1_vra, cam1_trex, cam1_bus, cam1_peri, cam1_csis2, cam1_csis3, cam1_scl, cam1_phy0_csis2, cam1_phy1_csis2,
+	cam1_phy2_csis2, cam1_phy3_csis2, cam1_phy0_csis3,
 
 	/* number for audio driver starts from 650 */
 	gate_mi2s = 650, gate_pcm, gate_slimbus, gate_sclk_mi2s, d1_sclk_i2s, gate_sclk_pcm, d1_sclk_pcm, gate_sclk_slimbus, sclk_slimbus, sclk_cp_i2s,
@@ -265,11 +266,27 @@ static struct init_vclk exynos8890_cam1_vclks[] __initdata = {
 	VCLK(gate_pwm_isp, gate_cam1_pwm_isp, "gate_cam1_pwm_isp", 0, 0, NULL),
 	VCLK(gate_spi0_isp, gate_cam1_spi0_isp, "gate_cam1_spi0_isp", 0, 0, NULL),
 	VCLK(gate_spi1_isp, gate_cam1_spi1_isp, "gate_cam1_spi1_isp", 0, 0, NULL),
+	/* rate clock source */
 	VCLK(isp_spi0, sclk_isp_spi0, "sclk_isp_spi0", 0, 0, NULL),
 	VCLK(isp_spi1, sclk_isp_spi1, "sclk_isp_spi1", 0, 0, NULL),
 	VCLK(isp_uart, sclk_isp_uart, "sclk_isp_uart", 0, 0, NULL),
 	VCLK(gate_sclk_pwm_isp, gate_cam1_sclk_pwm_isp, "gate_cam1_sclk_pwm_isp", 0, 0, NULL),
 	VCLK(gate_sclk_uart_isp, gate_cam1_sclk_uart_isp, "gate_cam1_sclk_uart_isp", 0, 0, NULL),
+	/* rate clock source */
+	VCLK(cam1_arm, pxmxdx_cam1_arm, "pxmxdx_cam1_arm", 0, 0, NULL),
+	VCLK(cam1_vra, pxmxdx_cam1_vra, "pxmxdx_cam1_vra", 0, 0, NULL),
+	VCLK(cam1_trex, pxmxdx_cam1_trex, "pxmxdx_cam1_trex", 0, 0, NULL),
+	VCLK(cam1_bus, pxmxdx_cam1_bus, "pxmxdx_cam1_bus", 0, 0, NULL),
+	VCLK(cam1_peri, pxmxdx_cam1_peri, "pxmxdx_cam1_peri", 0, 0, NULL),
+	VCLK(cam1_csis2, pxmxdx_cam1_csis2, "pxmxdx_cam1_csis2", 0, 0, NULL),
+	VCLK(cam1_csis3, pxmxdx_cam1_csis3, "pxmxdx_cam1_csis3", 0, 0, NULL),
+	VCLK(cam1_scl, pxmxdx_cam1_scl, "pxmxdx_cam1_scl", 0, 0, NULL),
+	/* usermux */
+	VCLK(cam1_phy0_csis2, umux_cam1_phyclk_rxbyteclkhs0_csis2_user, "phyclk_rxbyteclkhs0_csis2_user", 0, 0, NULL),
+	VCLK(cam1_phy1_csis2, umux_cam1_phyclk_rxbyteclkhs1_csis2_user, "phyclk_rxbyteclkhs1_csis2_user", 0, 0, NULL),
+	VCLK(cam1_phy2_csis2, umux_cam1_phyclk_rxbyteclkhs2_csis2_user, "phyclk_rxbyteclkhs2_csis2_user", 0, 0, NULL),
+	VCLK(cam1_phy3_csis2, umux_cam1_phyclk_rxbyteclkhs3_csis2_user, "phyclk_rxbyteclkhs3_csis2_user", 0, 0, NULL),
+	VCLK(cam1_phy0_csis3, umux_cam1_phyclk_rxbyteclkhs0_csis3_user, "phyclk_rxbyteclkhs0_csis3_user", 0, 0, NULL),
 };
 
 static struct init_vclk exynos8890_audio_vclks[] __initdata = {
