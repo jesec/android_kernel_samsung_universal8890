@@ -199,9 +199,28 @@ void decon_reg_set_rgb_order(u32 id, int disp_idx, enum decon_rgb_order order)
 	decon_write_mask(id, DISPIF_CONTROL(disp_idx), val, DISPIF_OUT_RGB_ORDER_F_MASK);
 }
 
+void __get_mic_compressed_size(struct decon_lcd *info, u32 *width, u32 *height)
+{
+	switch (info->mic_ratio)
+	{
+	case 2:
+		*height = info->yres;
+		*width = (info->xres / info->mic_ratio);
+		break;
+	case 3:
+		/* TODO */
+		break;
+	default:
+		*height = info->yres;
+		*width = info->xres;
+		break;
+	}
+}
+
 void decon_reg_set_porch(u32 id, int disp_idx, struct decon_lcd *info)
 {
 	u32 val = 0;
+	u32 xres, yres;
 
 	/* CAUTION : Zero is not allowed*/
 	val = DISPIF_VBPD0_F(info->vbp) | DISPIF_VFPD0_F(info->vfp);
@@ -216,10 +235,11 @@ void decon_reg_set_porch(u32 id, int disp_idx, struct decon_lcd *info)
 	val = DISPIF_HSPD0_F(info->hsa);
 	decon_write(id, DISPIF_TIMING_CONTROL_3(disp_idx), val);
 
-	val = DISPIF_HEIGHT_F(info->yres) | DISPIF_WIDTH_F(info->xres);
+	__get_mic_compressed_size(info, &xres, &yres);
+	val = DISPIF_HEIGHT_F(yres) | DISPIF_WIDTH_F(xres);
 	decon_write(id, DISPIF_SIZE_CONTROL_0(disp_idx), val);
 
-	val = DISPIF_PIXEL_COUNT_F((info->yres) * (info->xres));
+	val = DISPIF_PIXEL_COUNT_F(xres * yres);
 	decon_write(id, DISPIF_SIZE_CONTROL_1(disp_idx), val);
 }
 
@@ -535,12 +555,14 @@ static void decon_reg_set_data_path(u32 id, int dsi_mode, u32 mic_ratio)
 
 }
 
-static void decon_reg_set_framefifo_size(u32 id, int dsi_mode, u32 xres, u32 yres)
+static void decon_reg_set_framefifo_size(u32 id, int dsi_mode, struct decon_lcd *info)
 {
 	u32 val;
+	u32 xres, yres;
 
 	/* TODO : Any change in case of MIC ???*/
 
+	__get_mic_compressed_size(info, &xres, &yres);
 	val = FRAME_FIFO_WIDTH_F(xres) | FRAME_FIFO_HEIGHT_F(yres);
 	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_0, val);
 
@@ -556,12 +578,15 @@ static void decon_reg_set_framefifo_size(u32 id, int dsi_mode, u32 xres, u32 yre
 	}
 }
 
-static void decon_reg_set_splitter_size(u32 id, int x_pos, u32 xres, u32 yres)
+static void decon_reg_set_splitter_size(u32 id, int x_pos, struct decon_lcd *info)
 {
 	u32 val;
+	u32 xres, yres;
 
+	__get_mic_compressed_size(info, &xres, &yres);
 	val = SPLITTER_WIDTH_F(xres) | SPLITTER_HEIGHT_F(yres);
 	decon_write(id, SPLITTER_SIZE_CONTROL_0, val);
+
 	val = xres * yres;
 	decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
 	decon_write_mask(id, SPLITTER_CONTROL_0, x_pos, SPLIT_CON_STARTPTR_MASK);
@@ -591,9 +616,9 @@ u32 decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 	decon_reg_set_crc(id, 0);
 
 	decon_reg_set_data_path(id, psr->dsi_mode, lcd_info->mic_ratio);
-	decon_reg_set_framefifo_size(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
+	decon_reg_set_framefifo_size(id, psr->dsi_mode, lcd_info);
 	/* TODO: Config the splitter with x_start_pos of right side image */
-	decon_reg_set_splitter_size(id, 0, lcd_info->xres, lcd_info->yres);
+	decon_reg_set_splitter_size(id, 0, lcd_info);
 
 #if 0 /* TODO Need it? */
 	if (id) {
@@ -650,7 +675,7 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 	decon_reg_set_crc(id, 0);
 
 	decon_reg_set_data_path(id, psr->dsi_mode, lcd_info->mic_ratio);
-	decon_reg_set_framefifo_size(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
+	decon_reg_set_framefifo_size(id, psr->dsi_mode, lcd_info);
 	/* Does exynos7420 decon always use DECON_VCLK_HOLD ? */
 	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
 		decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_RUN_VDEN_DISABLE);
@@ -695,6 +720,8 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 void decon_reg_start(u32 id, struct decon_mode_info *psr)
 {
 	decon_reg_direct_on_off(id, 1);
+	decon_reg_shadow_update_req(id);
+	decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
 }
 
 int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
