@@ -349,14 +349,21 @@ static int smfc_vb2_buf_prepare(struct vb2_buffer *vb)
 				return -EINVAL;
 			}
 		}
+
+		if (!(vb->v4l2_buf.flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN))
+			return vb2_ion_buf_prepare_exact(vb);
+	} else {
+		if (!(vb->v4l2_buf.flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN))
+			return vb2_ion_buf_prepare(vb);
 	}
 
-	return vb2_ion_buf_prepare(vb);
+	return 0;
 }
 
 static void smfc_vb2_buf_finish(struct vb2_buffer *vb)
 {
-	vb2_ion_buf_finish(vb);
+	if (!(vb->v4l2_buf.flags & V4L2_BUF_FLAG_NO_CACHE_INVALIDATE))
+		vb2_ion_buf_finish(vb);
 }
 
 static void smfc_vb2_buf_queue(struct vb2_buffer *vb)
