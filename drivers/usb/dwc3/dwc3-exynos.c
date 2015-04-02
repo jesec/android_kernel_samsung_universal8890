@@ -86,6 +86,10 @@ static struct dwc3_exynos_drvdata dwc3_exynos5 = {
 	.cpu_type	= TYPE_EXYNOS5,
 };
 
+static struct dwc3_exynos_drvdata dwc3_exynos8 = {
+	.cpu_type	= TYPE_EXYNOS8,
+};
+
 static const struct of_device_id exynos_dwc3_match[] = {
 	{
 		.compatible = "samsung,exynos5250-dwusb3",
@@ -93,6 +97,9 @@ static const struct of_device_id exynos_dwc3_match[] = {
 	}, {
 		.compatible = "samsung,exynos5-dwusb3",
 		.data = &dwc3_exynos5,
+	}, {
+		.compatible = "samsung,exynos8-dwusb3",
+		.data = &dwc3_exynos8,
 	},
 	{},
 };
