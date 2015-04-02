@@ -121,6 +121,16 @@ void dwc3_core_config(struct dwc3 *dwc)
 	/* AHB bus configuration */
 	reg = dwc3_readl(dwc->regs, DWC3_GSBUSCFG0);
 	reg |= (DWC3_GSBUSCFG0_INCRBRSTEN | DWC3_GSBUSCFG0_INCR16BRSTEN);
+	/**
+	 * AXI Bus' cache type configuration for DMA transfer.
+	 * By below setting, cache type was set to Cacheable/Modifiable.
+	 * From DWC USB3.0 Link version 2.20A, this cache type could be set.
+	 */
+	if (dwc->revision >= DWC3_REVISION_220A)
+		reg |= (DWC3_GSBUSCFG0_DESWRREQINFO |
+			DWC3_GSBUSCFG0_DATWRREQINFO |
+			DWC3_GSBUSCFG0_DESRDREQINFO |
+			DWC3_GSBUSCFG0_DATRDREQINFO);
 	dwc3_writel(dwc->regs, DWC3_GSBUSCFG0, reg);
 
 	reg = dwc3_readl(dwc->regs, DWC3_GSBUSCFG1);
