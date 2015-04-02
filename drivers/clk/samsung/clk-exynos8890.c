@@ -35,7 +35,11 @@ enum exynos8890_clks {
 	gate_hsi2c0 = 200, gate_hsi2c1, gate_hsi2c4, gate_hsi2c5, gate_hsi2c9, gate_hsi2c10, gate_hsi2c11, puart0, suart0, gate_adcif, gate_pwm, gate_sclk_pwm,
 
 	/* number for peric1 driver starts from 250 */
-	gate_hsi2c2 = 250, gate_hsi2c3, gate_hsi2c6, gate_hsi2c7, gate_hsi2c8, gate_hsi2c12, gate_hsi2c13, gate_hsi2c14, gate_uart1, gate_uart2, gate_uart3, gate_uart4, gate_uart5, suart1, suart2, suart3, suart4, suart5, gate_spi0, gate_spi1, gate_spi2, gate_spi3, gate_spi4, gate_spi5, gate_spi6, gate_spi7, sclk_peric1_spi0, sclk_peric1_spi1, sclk_peric1_spi2, sclk_peric1_spi3, sclk_peric1_spi4, sclk_peric1_spi5, sclk_peric1_spi6, sclk_peric1_spi7, gate_gpio_nfc, gate_gpio_touch, gate_gpio_fp, gate_gpio_ese, promise_int, promise_disp, ap2cp_mif_pll_out,
+	gate_hsi2c2 = 250, gate_hsi2c3, gate_hsi2c6, gate_hsi2c7, gate_hsi2c8, gate_hsi2c12, gate_hsi2c13, gate_hsi2c14,
+	gate_uart1, gate_uart2, gate_uart3, gate_uart4, gate_uart5, suart1, suart2, suart3, suart4, suart5,
+	gate_spi0, gate_spi1, gate_spi2, gate_spi3, gate_spi4, gate_spi5, gate_spi6, gate_spi7,
+	sclk_peric1_spi0, sclk_peric1_spi1, sclk_peric1_spi2, sclk_peric1_spi3, sclk_peric1_spi4, sclk_peric1_spi5, sclk_peric1_spi6, sclk_peric1_spi7,
+	gate_gpio_nfc, gate_gpio_touch, gate_gpio_fp, gate_gpio_ese, promise_int, promise_disp, ap2cp_mif_pll_out,
 
 	/* number for isp0 driver starts from 400 */
 	gate_fimc_isp0 = 400, gate_fimc_tpu, isp0, isp0_tpu, isp0_trex,
@@ -60,10 +64,12 @@ enum exynos8890_clks {
 	sclk_asrc, aud_pll, aud_cp,
 
 	/* number for fsys0 driver starts from 700 */
-	gate_usbdrd30 = 700, gate_usbhost20, gate_ufs_link, usbdrd30, sclk_fsys0_mmc0, ufsunipro20, phy24m, ufsunipro_cfg, gate_udrd30_phyclock, gate_udrd30_pipe, gate_ufs_tx0, gate_ufs_rx0, usbhost20_phyclock, usbhost20_freeclk, usbhost20_clk48, usbhost20phy_ref, ufs_rx_pwm, ufs_tx_pwm, ufs_refclk_out,
+	gate_usbdrd30 = 700, gate_usbhost20, usbdrd30 = 703, sclk_fsys0_mmc0, ufsunipro20, phy24m, ufsunipro_cfg, gate_udrd30_phyclock, gate_udrd30_pipe, gate_ufs_tx0,
+	gate_ufs_rx0, usbhost20_phyclock, usbhost20_freeclk, usbhost20_clk48, usbhost20phy_ref, ufs_rx_pwm, ufs_tx_pwm, ufs_refclk_out, fsys_200,
 
 	/* number for fsys1 driver starts from 750 */
-	gate_ufs20_sdcard = 750, fsys1_hpm, fsys1_sclk_mmc2, ufsunipro20_sdcard, pcie_phy, sclk_ufsunipro_sdcard, ufs_link_sdcard_tx0, ufs_link_sdcard_rx0, pcie_wifi0_tx0, pcie_wifi0_rx0, pcie_wifi1_tx0, pcie_wifi1_rx0, wifi0_dig_refclk, wifi1_dig_refclk, sdcard_rx_pwm, sdcard_tx_pwm, sdcard_refclk,
+	gate_ufs20_sdcard = 750, fsys1_hpm, fsys1_sclk_mmc2, ufsunipro20_sdcard, pcie_phy, sclk_ufsunipro_sdcard, ufs_link_sdcard_tx0, ufs_link_sdcard_rx0,
+	pcie_wifi0_tx0, pcie_wifi0_rx0, pcie_wifi1_tx0, pcie_wifi1_rx0, wifi0_dig_refclk, wifi1_dig_refclk, sdcard_rx_pwm, sdcard_tx_pwm, sdcard_refclk,
 
 	/* number for g3d driver starts from 800 */
 	gate_g3d = 800, gate_g3d_iram,
@@ -287,7 +293,6 @@ static struct init_vclk exynos8890_fsys0_vclks[] __initdata = {
 	/* FSYS0 */
 	VCLK(gate_usbdrd30, gate_fsys0_usbdrd30, "gate_fsys0_usbdrd30", 0, 0, NULL),
 	VCLK(gate_usbhost20, gate_fsys0_usbhost20, "gate_fsys0_usbhost20", 0, 0, NULL),
-	VCLK(gate_ufs_link, gate_fsys0_ufs_linkemedded, "gate_fsys0_ufs_link", 0, 0, NULL),
 	VCLK(usbdrd30, sclk_usbdrd30, "sclk_usbdrd30", 0, 0, NULL),
 	VCLK(sclk_fsys0_mmc0, sclk_mmc0, "sclk_mmc0", 0, 0, NULL),
 	VCLK(ufsunipro20, sclk_ufsunipro20, "sclk_ufsunipro20", 0, 0, NULL),
@@ -305,6 +310,7 @@ static struct init_vclk exynos8890_fsys0_vclks[] __initdata = {
 	VCLK(ufs_rx_pwm, umux_fsys0_phyclk_ufs_rx_pwm_clk_user, "umux_fsys0_phyclk_ufs_rx_pwm_clk_user", 0, 0, NULL),
 	VCLK(ufs_tx_pwm, umux_fsys0_phyclk_ufs_tx_pwm_clk_user, "umux_fsys0_phyclk_ufs_tx_pwm_clk_user", 0, 0, NULL),
 	VCLK(ufs_refclk_out, umux_fsys0_phyclk_ufs_refclk_out_soc_user, "umux_fsys0_phyclk_ufs_refclk_out_soc_user", 0, 0, NULL),
+	VCLK(fsys_200, pxmxdx_fsys0, "aclk_ufs", 0, 0, NULL),
 };
 
 static struct init_vclk exynos8890_fsys1_vclks[] __initdata = {
