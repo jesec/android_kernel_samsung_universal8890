@@ -353,7 +353,7 @@ static struct init_vclk exynos8890_fsys1_vclks[] __initdata = {
 
 static struct init_vclk exynos8890_g3d_vclks[] __initdata = {
 	/* G3D */
-	VCLK(gate_g3d, gate_g3d_g3d, "gate_g3d_g3d", 0, 0, NULL),
+	VCLK(gate_g3d, gate_g3d_g3d, "gate_g3d_g3d", 0, 0, "vclk_g3d"),
 	VCLK(gate_g3d_iram, gate_g3d_iram_path_test, "g3d_iram_path", 0, 0, NULL),
 };
 
