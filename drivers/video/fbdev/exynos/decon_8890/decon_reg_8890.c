@@ -201,8 +201,7 @@ void decon_reg_set_rgb_order(u32 id, int disp_idx, enum decon_rgb_order order)
 
 void __get_mic_compressed_size(struct decon_lcd *info, u32 *width, u32 *height)
 {
-	switch (info->mic_ratio)
-	{
+	switch (info->mic_ratio) {
 	case 2:
 		*height = info->yres;
 		*width = (info->xres / info->mic_ratio);
@@ -800,7 +799,7 @@ void decon_reg_set_trigger(u32 id, struct decon_mode_info *psr,
 	u32 val = (en == DECON_TRIG_ENABLE) ? 0 : ~0;
 	u32 mask;
 
-	if(psr->psr_mode == DECON_VIDEO_MODE)
+	if (psr->psr_mode == DECON_VIDEO_MODE)
 		return;
 
 	if (psr->trig_mode == DECON_SW_TRIG) {
@@ -918,7 +917,7 @@ void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_param *p)
 	clks->decon[CLK_ID_PCLK] = decon_clocks_table[i][CLK_ID_PCLK];
 	clks->decon[CLK_ID_DPLL] = decon_clocks_table[i][CLK_ID_DPLL];
 
-	while(i--) {
+	while (i--) {
 		if (decon_clocks_table[i][CLK_ID_RESOLUTION]
 				!= p->lcd_info->xres * p->lcd_info->yres) {
 			i--;

@@ -775,8 +775,12 @@ void decon_f_destroy_vsync_thread(struct decon_device *decon);
 void decon_f_destroy_psr_thread(struct decon_device *decon);
 int decon_set_lcd_config(struct decon_device *decon);
 int decon_check_var(struct fb_var_screeninfo *var, struct fb_info *info);
-int decon_pan_display(struct fb_var_screeninfo *var,
-			      struct fb_info *info);
+int decon_set_par(struct fb_info *info);
+int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
+int decon_setcolreg(unsigned regno,
+			    unsigned red, unsigned green, unsigned blue,
+			    unsigned transp, struct fb_info *info);
+int decon_mmap(struct fb_info *info, struct vm_area_struct *vma);
 
 /* POWER and ClOCK API */
 int init_display_decon_clocks(struct device *dev);

@@ -60,8 +60,8 @@
 
 #ifdef CONFIG_OF
 static const struct of_device_id decon_device_table[] = {
-	        { .compatible = "samsung,exynos8-decon_driver" },
-		{},
+	{ .compatible = "samsung,exynos8-decon_driver" },
+	{},
 };
 MODULE_DEVICE_TABLE(of, decon_device_table);
 #endif
@@ -75,17 +75,17 @@ static struct pm_qos_request exynos7_tv_disp_qos;
 int decon_log_level = 6;
 module_param(decon_log_level, int, 0644);
 
-struct decon_device *decon_f_drvdata = NULL;
+struct decon_device *decon_f_drvdata;
 EXPORT_SYMBOL(decon_f_drvdata);
-struct decon_device *decon_s_drvdata = NULL;
+struct decon_device *decon_s_drvdata;
 EXPORT_SYMBOL(decon_s_drvdata);
-struct decon_device *decon_t_drvdata = NULL;
+struct decon_device *decon_t_drvdata;
 EXPORT_SYMBOL(decon_t_drvdata);
 
 static int decon_runtime_resume(struct device *dev);
 static int decon_runtime_suspend(struct device *dev);
 static void decon_set_protected_content(struct decon_device *decon,
-                struct decon_reg_data *reg);
+		struct decon_reg_data *reg);
 
 #ifdef CONFIG_USE_VSYNC_SKIP
 static atomic_t extra_vsync_wait;
@@ -549,7 +549,7 @@ static int decon_union(struct decon_rect *r1,
 
 #ifdef CONFIG_FB_WINDOW_UPDATE
 static bool is_decon_rect_differ(struct decon_rect *r1,
-                struct decon_rect *r2)
+		struct decon_rect *r2)
 {
 	return ((r1->left != r2->left) || (r1->top != r2->top) ||
 		(r1->right != r2->right) || (r1->bottom != r2->bottom));
@@ -691,7 +691,7 @@ static void decon_vpp_stop(struct decon_device *decon, bool do_reset)
 }
 
 #ifdef CONFIG_FB_WINDOW_UPDATE
-inline static void decon_win_update_rect_reset(struct decon_device *decon)
+static inline void decon_win_update_rect_reset(struct decon_device *decon)
 {
 	decon->update_win.x = 0;
 	decon->update_win.y = 0;
@@ -827,8 +827,7 @@ int decon_tui_protection(struct decon_device *decon, bool tui_en)
 		pm_qos_update_request(&decon->disp_qos, 167000);
 		pm_qos_update_request(&decon->int_qos, 167000);
 #endif
-	}
-	else {
+	} else {
 		mutex_lock(&decon->output_lock);
 		decon->out_type = DECON_OUT_DSI;
 		mutex_unlock(&decon->output_lock);
@@ -960,7 +959,7 @@ int decon_enable(struct decon_device *decon)
 
 	decon_to_psr_info(decon, &psr);
 	if (decon->state != DECON_STATE_LPD_EXIT_REQ) {
-	/* In case of resume*/
+		/* In case of resume*/
 		if (decon->out_type != DECON_OUT_WB) {
 			decon_reg_start(decon->id, &psr);
 			decon_reg_update_req_and_unmask(decon->id, &psr);
@@ -1401,7 +1400,6 @@ static int decon_get_plane_cnt(enum decon_pixel_format format)
 	default:
 		decon_err("invalid format(%d)\n", format);
 		return 1;
-		//return -EINVAL;
 	}
 
 }
@@ -1821,7 +1819,7 @@ static void decon_modulate_overlap_cnt(struct decon_device *decon,
 			}
 		}
 
-		switch(regs->win_overlap_cnt) {
+		switch (regs->win_overlap_cnt) {
 		case 1:
 			if ((regs->update_win.w * 10 < lcd_info->xres * 8) ||
 				(regs->update_win.h <= 60)) {
@@ -1849,8 +1847,8 @@ static void decon_modulate_overlap_cnt(struct decon_device *decon,
 		default:
 			break;
 		}
-		decon_dbg("WIN_UPDATE[%d %d] overlap_cnt[%d -> %d] \n", regs->update_win.w,
-					 regs->update_win.h, overlap_cnt, regs->win_overlap_cnt);
+		decon_dbg("WIN_UPDATE[%d %d] overlap_cnt[%d -> %d]\n", regs->update_win.w,
+				regs->update_win.h, overlap_cnt, regs->win_overlap_cnt);
 	}
 	return;
 }
@@ -1899,7 +1897,7 @@ static void decon_calibrate_win_update_size(struct decon_device *decon,
 				return;
 			}
 			if ((config->src.w != config->dst.w) ||
-					(config->src.h != config->dst.h)){
+					(config->src.h != config->dst.h)) {
 				r2.left = config->dst.x;
 				r2.top = config->dst.y;
 				r2.right = r2.left + config->dst.w - 1;
@@ -2006,10 +2004,10 @@ static void decon_set_win_update_config(struct decon_device *decon,
 		if (((r2.right - r2.left) != 0) ||
 			((r2.bottom - r2.top) != 0)) {
 			if (decon_get_plane_cnt(config->format) == 1) {
-			/*
-			 * Platform requested for win_update mode. But, the win_update is
-			 * smaller than the VPP min size. So, change the mode to normal mode
-			 */
+				/*
+				 * Platform requested for win_update mode. But, the win_update is
+				 * smaller than the VPP min size. So, change the mode to normal mode
+				 */
 				if (((r2.right - r2.left) < 32) ||
 					((r2.bottom - r2.top) < 16)) {
 					decon_update_2_full(decon, regs, lcd_info, need_update);
@@ -2042,14 +2040,14 @@ static void decon_set_win_update_config(struct decon_device *decon,
 		if (update_config->dst.x > config->dst.x)
 			config->dst.w = min(update_config->dst.w,
 					config->dst.x + config->dst.w - update_config->dst.x);
-		else if(update_config->dst.x + update_config->dst.w < config->dst.x + config->dst.w)
+		else if (update_config->dst.x + update_config->dst.w < config->dst.x + config->dst.w)
 			config->dst.w = min(config->dst.w,
 					update_config->dst.w + update_config->dst.x - config->dst.x);
 
 		if (update_config->dst.y > config->dst.y)
 			config->dst.h = min(update_config->dst.h,
 					config->dst.y + config->dst.h - update_config->dst.y);
-		else if(update_config->dst.y + update_config->dst.h < config->dst.y + config->dst.h)
+		else if (update_config->dst.y + update_config->dst.h < config->dst.y + config->dst.h)
 			config->dst.h = min(config->dst.h,
 					update_config->dst.h + update_config->dst.y - config->dst.y);
 
@@ -2057,20 +2055,18 @@ static void decon_set_win_update_config(struct decon_device *decon,
 		config->dst.y = max(config->dst.y - update_config->dst.y, 0);
 
 		if (!is_scale_layer) {
-			if (update_config->dst.y > temp_config.dst.y) {
+			if (update_config->dst.y > temp_config.dst.y)
 				config->src.y += (update_config->dst.y - temp_config.dst.y);
-			}
 
-			if (update_config->dst.x > temp_config.dst.x) {
+			if (update_config->dst.x > temp_config.dst.x)
 				config->src.x += (update_config->dst.x - temp_config.dst.x);
-			}
 			config->src.w = config->dst.w;
 			config->src.h = config->dst.h;
 		}
 
 		if (regs->need_update == true)
-			decon_win_update_dbg("[WIN_UPDATE]win_idx %d: idma_type %d:,"
-				"dst[%d %d %d %d] -> [%d %d %d %d], src[%d %d %d %d] -> [%d %d %d %d]\n",
+			decon_win_update_dbg("[WIN_UPDATE]win_idx %d: idma_type%d:,	\
+				dst[%d %d %d %d] -> [%d %d %d %d], src[%d %d %d %d] -> [%d %d %d %d]\n",
 				i, temp_config.idma_type,
 				temp_config.dst.x, temp_config.dst.y, temp_config.dst.w, temp_config.dst.h,
 				config->dst.x, config->dst.y, config->dst.w, config->dst.h,
@@ -2300,8 +2296,8 @@ static void decon_fence_wait(struct sync_fence *fence)
 		decon_warn("error waiting on acquire fence: %d\n", err);
 }
 
-int decon_wait_until_size_match
-	(struct decon_device *decon, int dsi_idx, unsigned long timeout)
+int decon_wait_until_size_match(struct decon_device *decon,
+		int dsi_idx, unsigned long timeout)
 {
 	unsigned long delay_time = 100;
 	unsigned long cnt = timeout / delay_time;
@@ -2314,8 +2310,7 @@ int decon_wait_until_size_match
 		(decon->pdata->out_type != DECON_OUT_DSI))
 		return 0;
 
-	while (--cnt)
-	{
+	while (--cnt) {
 		/* Check a DECON and DSIM size mismatch */
 		decon_yres = decon_reg_get_height(decon->id, decon->pdata->dsi_mode);
 		dsim_yres = dsim_reg_get_yres(dsi_idx);
@@ -2372,12 +2367,10 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		old_plane_cnt[i] = decon->windows[i]->plane_cnt;
-		for (j = 0; j < old_plane_cnt[i]; ++j) {
+		for (j = 0; j < old_plane_cnt[i]; ++j)
 			old_dma_bufs[i][j] = decon->windows[i]->dma_buf_data[j];
-		}
-		if (regs->dma_buf_data[i][0].fence) {
+		if (regs->dma_buf_data[i][0].fence)
 			decon_fence_wait(regs->dma_buf_data[i][0].fence);
-		}
 	}
 
 	decon_set_qos(decon, regs, 0);
@@ -2394,7 +2387,7 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 
 		if (vsync_wait_cnt < ERANGE && regs->num_of_window <= 2) {
 			while ((vsync_wait_cnt--) > 0) {
-				if((decon_extra_vsync_wait_get() >= ERANGE)) {
+				if ((decon_extra_vsync_wait_get() >= ERANGE)) {
 					decon_extra_vsync_wait_set(0);
 					break;
 				}
@@ -2579,9 +2572,8 @@ static int decon_set_win_config(struct decon_device *decon,
 		else
 			win_regs->wincon &= ~WIN_EN_F;
 
-		if (color_map) {
+		if (color_map)
 			win_regs->winmap_color = color;
-		}
 
 		if (enabled && config->state == DECON_WIN_STATE_BUFFER) {
 			bw += decon_calc_bandwidth(config->dst.w, config->dst.h,
@@ -2766,13 +2758,6 @@ static int decon_compat_ioctl(struct fb_info *info, unsigned int cmd,
 }
 #endif
 
-extern int decon_set_par(struct fb_info *info);
-extern int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
-extern int decon_setcolreg(unsigned regno,
-			    unsigned red, unsigned green, unsigned blue,
-			    unsigned transp, struct fb_info *info);
-extern int decon_mmap(struct fb_info *info, struct vm_area_struct *vma);
-
 /* ---------- FREAMBUFFER INTERFACE ----------- */
 static struct fb_ops decon_fb_ops = {
 	.owner		= THIS_MODULE,
@@ -2784,7 +2769,7 @@ static struct fb_ops decon_fb_ops = {
 	.fb_copyarea    = cfb_copyarea,
 	.fb_imageblit   = cfb_imageblit,
 #ifdef CONFIG_COMPAT
-	.fb_compat_ioctl= decon_compat_ioctl,
+	.fb_compat_ioctl = decon_compat_ioctl,
 #endif
 	.fb_ioctl	= decon_ioctl,
 	.fb_pan_display	= decon_pan_display,
@@ -2992,7 +2977,7 @@ static int decon_create_links(struct decon_device *decon,
 	int ret = 0;
 	char err[80];
 #ifdef CONFIG_EXYNOS_VPP
-	int i,j;
+	int i, j;
 	u32 flags = MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED;
 #endif
 
@@ -3263,8 +3248,8 @@ static int decon_acquire_windows(struct decon_device *decon, int idx)
 	decon->windows[idx] = win;
 	var = &fbinfo->var;
 	win->fbinfo = fbinfo;
-	//fbinfo->fbops = &decon_fb_ops;
-	//fbinfo->flags = FBINFO_FLAG_DEFAULT;
+	/*fbinfo->fbops = &decon_fb_ops;*/
+	/*fbinfo->flags = FBINFO_FLAG_DEFAULT;*/
 	win->decon = decon;
 	win->index = idx;
 
@@ -3392,7 +3377,7 @@ static void decon_parse_pdata(struct decon_device *decon, struct device *dev)
 		of_property_read_u32(dev->of_node, "trig_mode",
 					&decon->pdata->trig_mode);
 		decon_info("decon-%s: max win%d, %s mode, %s trigger\n",
-			(decon->id == 0) ? "f" : ((decon->id == 1) ? "s": "t"),
+			(decon->id == 0) ? "f" : ((decon->id == 1) ? "s" : "t"),
 			decon->pdata->max_win,
 			decon->pdata->psr_mode ? "command" : "video",
 			decon->pdata->trig_mode ? "sw" : "hw");
@@ -3443,7 +3428,7 @@ static int decon_debug_event_open(struct inode *inode, struct file *file)
 	return single_open(file, decon_debug_event_show, inode->i_private);
 }
 
-static struct file_operations decon_event_fops = {
+static const struct file_operations decon_event_fops = {
 	.open = decon_debug_event_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -3743,7 +3728,7 @@ static int decon_probe(struct platform_device *pdev)
 
 		decon->vpp_usage_bitmask |= (1 << decon->default_idma);
 		decon->vpp_used[decon->default_idma] = true;
-		memset(&config, 0, sizeof (struct decon_win_config));
+		memset(&config, 0, sizeof(struct decon_win_config));
 		config.vpp_parm.addr[0] = fbinfo->fix.smem_start;
 		config.format = DECON_PIXEL_FORMAT_BGRA_8888;
 		config.src.w = fbinfo->var.xres;
@@ -3885,7 +3870,7 @@ static void decon_shutdown(struct platform_device *pdev)
 static struct platform_driver decon_driver __refdata = {
 	.probe		= decon_probe,
 	.remove		= decon_remove,
-	.shutdown 	= decon_shutdown,
+	.shutdown	= decon_shutdown,
 	.driver = {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,

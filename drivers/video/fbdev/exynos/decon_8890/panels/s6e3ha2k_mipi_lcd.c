@@ -152,7 +152,7 @@ static int s6e3ha2k_set_brightness(struct backlight_device *bd)
 	int brightness = bd->props.brightness;
 
 	if (brightness < MIN_BRIGHTNESS || brightness > MAX_BRIGHTNESS) {
-		printk(KERN_ALERT "Brightness should be in the range of 0 ~ 255\n");
+		pr_err("Brightness should be in the range of 0 ~ 255\n");
 		return -EINVAL;
 	}
 
@@ -173,7 +173,7 @@ static int s6e3ha2k_probe(struct dsim_device *dsim)
 	bd = backlight_device_register("pwm-backlight.0", NULL,
 		NULL, &s6e3ha2k_backlight_ops, NULL);
 	if (IS_ERR(bd))
-		printk(KERN_ALERT "failed to register backlight device!\n");
+		pr_err("failed to register backlight device!\n");
 
 	bd->props.max_brightness = MAX_BRIGHTNESS;
 	bd->props.brightness = DEFAULT_BRIGHTNESS;
