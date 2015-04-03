@@ -123,6 +123,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define s5p_mfc_get_dec_frame()		(readl(dev->regs_base + \
 						S5P_FIMV_D_DECODED_FRAME_TYPE) \
 						& S5P_FIMV_DECODED_FRAME_MASK)
+#define s5p_mfc_get_profile()		-1
 #define mfc_get_disp_first_addr()	readl(dev->regs_base + \
 						S5P_FIMV_D_DISPLAY_FIRST_ADDR)
 #define mfc_get_dec_first_addr()	readl(dev->regs_base + \

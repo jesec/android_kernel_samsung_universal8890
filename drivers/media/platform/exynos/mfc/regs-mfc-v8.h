@@ -173,6 +173,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_OPT_TILE_MODE_SHIFT		0
 #define S5P_FIMV_D_OPT_DYNAMIC_DPB_SET_SHIFT	3
 #define S5P_FIMV_D_OPT_NOT_CODED_SET_SHIFT	4
+#define S5P_FIMV_D_PROFILE_HEVC_MAIN		1
+#define S5P_FIMV_D_PROFILE_HEVC_MAIN_10	2
 
 #define S5P_FIMV_D_DISPLAY_DELAY		0xF0B8
 
@@ -527,6 +529,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_E_HEVC_LF_BETA_OFFSET_DIV2	-1
 #define S5P_FIMV_E_HEVC_LF_TC_OFFSET_DIV2	-1
 #define S5P_FIMV_E_HEVC_NAL_CONTROL		-1
+#define S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_SIZE		-1
+#define S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_STRIDE_SIZE	-1
 
 /* for compatibility */
 #define S5P_FIMV_E_GOP_CONFIG2		-1

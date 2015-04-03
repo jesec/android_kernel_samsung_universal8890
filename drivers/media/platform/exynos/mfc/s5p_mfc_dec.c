@@ -433,6 +433,15 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_GET_10BIT_INFO,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "10 bit contents information",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -1999,6 +2008,9 @@ static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_GET_EXT_INFO:
 		ctrl->value = dec_ext_info(ctx);
 		break;
+	case V4L2_CID_MPEG_MFC_GET_10BIT_INFO:
+		ctrl->value = dec->is_10bit;
+		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_GET))
@@ -3061,6 +3073,7 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	}
 	for (i = 0; i < MFC_MAX_BUFFERS; i++)
 		dec->ref_info[i].dpb[0].fd[0] = MFC_INFO_INIT_FD;
+	dec->profile = -1;
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;

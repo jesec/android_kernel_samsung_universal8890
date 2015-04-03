@@ -762,6 +762,8 @@ struct s5p_mfc_raw_info {
 	int num_planes;
 	int stride[3];
 	int plane_size[3];
+	int stride_2bits[3];
+	int plane_size_2bits[3];
 };
 
 #define MFC_TIME_INDEX		8
@@ -829,6 +831,9 @@ struct s5p_mfc_dec {
 	struct mfc_user_shared_handle sh_handle;
 
 	int dynamic_ref_filled;
+
+	int profile;
+	int is_10bit;
 };
 
 struct s5p_mfc_enc {

@@ -178,6 +178,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_OPT_TILE_MODE_SHIFT		0
 #define S5P_FIMV_D_OPT_DYNAMIC_DPB_SET_SHIFT	3
 #define S5P_FIMV_D_OPT_NOT_CODED_SET_SHIFT	4
+#define S5P_FIMV_D_PROFILE_HEVC_MAIN		1
+#define S5P_FIMV_D_PROFILE_HEVC_MAIN_10	2
 
 #define S5P_FIMV_D_DISPLAY_DELAY		0xF0B8
 
@@ -198,8 +200,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_MIN_NUM_MV                                   0xF100
 #define S5P_FIMV_D_MVC_NUM_VIEWS                                0xF104
 #define S5P_FIMV_D_MIN_SCRATCH_BUFFER_SIZE			0xF108
-#define S5P_FIMV_D_MUN_FIRST_PLANE_2BIT_DPB_SIZE		0xF10C
-#define S5P_FIMV_D_MUN_SECOND_PLANE_2BIT_DPB_SIZE		0xF110
+#define S5P_FIMV_D_MIN_FIRST_PLANE_2BIT_DPB_SIZE		0xF10C
+#define S5P_FIMV_D_MIN_SECOND_PLANE_2BIT_DPB_SIZE		0xF110
 
 /* Buffers */
 #define S5P_FIMV_D_NUM_DPB                                      0xF130
@@ -364,6 +366,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_DECODED_FRAME_I		1
 #define S5P_FIMV_DECODED_FRAME_P		2
 #define S5P_FIMV_DECODED_FRAME_B		3
+
+#define S5P_FIMV_DECODED_PIC_PROFILE_MASK	0x001F
 
 #define S5P_FIMV_D_DECODED_LUMA_ADDR		0xF648
 #define S5P_FIMV_D_DECODED_CHROMA_ADDR		0xF64C

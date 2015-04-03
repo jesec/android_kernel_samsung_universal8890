@@ -1743,6 +1743,14 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			dec->internal_dpb = 0;
 			s5p_mfc_dec_store_crop_info(ctx);
 			dec->mv_count = s5p_mfc_get_mv_count();
+			if (ctx->codec_mode == S5P_FIMV_CODEC_HEVC_DEC) {
+				dec->profile = s5p_mfc_get_profile();
+				if (dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
+					dec->is_10bit = 1;
+					mfc_info_ctx("HEVC 10bit contents.\n");
+				}
+			}
+
 			if (ctx->img_width == 0 || ctx->img_height == 0)
 				ctx->state = MFCINST_ERROR;
 			else

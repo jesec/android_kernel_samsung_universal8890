@@ -926,6 +926,26 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		}
 	}
 
+	if (IS_MFCv10X(dev) && dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
+		switch (ctx->dst_fmt->fourcc) {
+			case V4L2_PIX_FMT_NV12M:
+			case V4L2_PIX_FMT_NV21M:
+				raw->stride_2bits[0] = ALIGN(ctx->img_width / 4, 16);
+				raw->stride_2bits[1] = ALIGN(ctx->img_width / 4, 16);
+				raw->stride_2bits[2] = 0;
+				raw->plane_size_2bits[0] =
+					ALIGN(ctx->img_width / 4, 16) * ctx->img_height + 64;
+				raw->plane_size_2bits[1] =
+					ALIGN(ctx->img_width / 4, 16) * (ctx->img_height / 2) + 64;
+				raw->plane_size_2bits[2] = 0;
+				break;
+			default:
+				mfc_info_ctx("HEVC 10bit support only 2 plane YUV. format : %d\n",
+						ctx->dst_fmt->fourcc);
+				break;
+		}
+	}
+
 	for (i = 0; i < raw->num_planes; i++)
 		mfc_debug(2, "Plane[%d] size = %d, stride = %d\n",
 			i, raw->plane_size[i], raw->stride[i]);
@@ -1311,6 +1331,15 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		mfc_set_dec_dis_buffer(ctx, buf_queue);
 	else if (IS_MFCV8(dev))
 		mfc_set_dec_stride_buffer(ctx, buf_queue);
+
+	if (IS_MFCv10X(dev) && dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
+		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
+			WRITEL(raw->stride_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_STRIDE_SIZE + (i * 4));
+			WRITEL(raw->plane_size_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_SIZE + (i * 4));
+			mfc_debug(2, "# HEVC 10bit : 2bits plane%d.size = %d, stride = %d\n", i,
+				ctx->raw_buf.plane_size_2bits[i], ctx->raw_buf.stride_2bits[i]);
+		}
+	}
 
 	WRITEL(dec->mv_count, S5P_FIMV_D_NUM_MV);
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC ||
