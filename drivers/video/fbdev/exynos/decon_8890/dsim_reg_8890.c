@@ -403,6 +403,15 @@ void dsim_reg_set_porch(u32 id, struct decon_lcd *lcd)
 		val = DSIM_MSYNC_VSA(lcd->vsa) | DSIM_MSYNC_HSA(lcd->hsa);
 		mask = DSIM_MSYNC_VSA_MASK | DSIM_MSYNC_HSA_MASK;
 		dsim_write_mask(id, DSIM_MSYNC, val, mask);
+	} else if (lcd->mode == DECON_MIPI_COMMAND_MODE) {
+		val = DSIM_MVPORCH_VBP(lcd->vbp);
+		mask = DSIM_MVPORCH_CMD_ALLOW_MASK | DSIM_MVPORCH_VBP_MASK |
+			DSIM_MVPORCH_STABLE_VFP_MASK;
+		dsim_write_mask(id, DSIM_MVPORCH, val, mask);
+
+		val = DSIM_MSYNC_VSA(lcd->vsa);
+		mask = DSIM_MSYNC_VSA_MASK;
+		dsim_write_mask(id, DSIM_MSYNC, val, mask);
 	}
 
 	/* FIXME: considered 1/2, 1/3 MIC */
