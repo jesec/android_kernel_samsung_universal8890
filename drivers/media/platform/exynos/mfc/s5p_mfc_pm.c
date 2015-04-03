@@ -88,7 +88,7 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 		dev->pm.clock = clk_get(dev->device, "gate_mfc1");
 #elif defined(CONFIG_SOC_EXYNOS5422)
 	dev->pm.clock = clk_get(dev->device, "mfc");
-#elif defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
+#elif defined(CONFIG_SOC_EXYNOS5433) || defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890) || defined(CONFIG_SOC_EXYNOS8890)
 	dev->pm.clock = clk_get(dev->device, "aclk_mfc");
 #endif
 
