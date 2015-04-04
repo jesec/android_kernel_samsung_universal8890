@@ -59,7 +59,7 @@ extern int decon_log_level;
 #define STATE_IDLE		0
 #define STATE_DONE		1
 #define DECON_BACKGROUND	0
-#define VSYNC_TIMEOUT_MSEC	5000
+#define VSYNC_TIMEOUT_MSEC	200
 #define MAX_BW_PER_WINDOW	(2560 * 1600 * 4 * 60)
 #define LCD_DEFAULT_BPP		24
 #define WB_DEFAULT_BPP         32
