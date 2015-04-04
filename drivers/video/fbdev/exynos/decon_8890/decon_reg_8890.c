@@ -638,7 +638,7 @@ static void decon_reg_set_data_path(u32 id, int dsi_mode, u32 mic_ratio)
 }
 
 /***************** CAL APIs implementation *******************/
-u32 decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
+int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 {
 	int win_idx;
 	struct decon_lcd *lcd_info = p->lcd_info;
