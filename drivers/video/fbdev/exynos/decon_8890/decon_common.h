@@ -18,7 +18,7 @@
 #define MAX_DECON_S_WIN		(4)
 #define MAX_DECON_T_WIN		(4)
 #define MAX_VPP_SUBDEV		9
-#define SHADOW_UPDATE_TIMEOUT	300 * 1000 /* 300ms */
+#define SHADOW_UPDATE_TIMEOUT	(300 * 1000) /* 300ms */
 
 enum decon_dsi_mode {
 	DSI_MODE_SINGLE = 0,
@@ -162,7 +162,7 @@ u32 decon_reg_get_idle_status(u32 id);
 int decon_reg_wait_stop_status_timeout(u32 id, unsigned long timeout);
 int decon_reg_is_win_enabled(u32 id, int win_idx);
 int decon_reg_is_shadow_updated(u32 id);
-void decon_reg_config_mic(u32 id, int dsi_idx, struct decon_lcd *lcd_info);
+void decon_reg_config_mic(u32 id, struct decon_lcd *lcd_info);
 void decon_reg_clear_int(u32 id);
 void decon_reg_config_win_channel(u32 id, u32 win_idx, enum decon_idma_type type);
 void decon_reg_set_mdnie_pclk(u32 id, u32 en);

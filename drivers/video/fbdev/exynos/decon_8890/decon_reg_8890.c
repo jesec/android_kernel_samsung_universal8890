@@ -219,7 +219,6 @@ void __get_mic_compressed_size(struct decon_lcd *info, u32 *width, u32 *height)
 void decon_reg_set_porch(u32 id, int disp_idx, struct decon_lcd *info)
 {
 	u32 val = 0;
-	u32 xres, yres;
 
 	/* CAUTION : Zero is not allowed*/
 	val = DISPIF_VBPD0_F(info->vbp) | DISPIF_VFPD0_F(info->vfp);
@@ -233,13 +232,6 @@ void decon_reg_set_porch(u32 id, int disp_idx, struct decon_lcd *info)
 
 	val = DISPIF_HSPD0_F(info->hsa);
 	decon_write(id, DISPIF_TIMING_CONTROL_3(disp_idx), val);
-
-	__get_mic_compressed_size(info, &xres, &yres);
-	val = DISPIF_HEIGHT_F(yres) | DISPIF_WIDTH_F(xres);
-	decon_write(id, DISPIF_SIZE_CONTROL_0(disp_idx), val);
-
-	val = DISPIF_PIXEL_COUNT_F(xres * yres);
-	decon_write(id, DISPIF_SIZE_CONTROL_1(disp_idx), val);
 }
 
 /* TODO : Check It needed to JF */
@@ -307,7 +299,7 @@ void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode,
 
 	decon_reg_set_rgb_order(id, disp_idx, DECON_RGB);
 	decon_reg_set_porch(id, disp_idx, lcd_info);
-	decon_reg_config_mic(id, dsi_idx, lcd_info);
+	decon_reg_config_mic(id, lcd_info);
 
 	if (lcd_info->mode == DECON_VIDEO_MODE)
 		decon_reg_set_linecnt_op_threshold(id, dsi_idx, lcd_info->yres - 1);
@@ -315,7 +307,6 @@ void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode,
 	if (!id && (dsi_mode == DSI_MODE_DUAL_DSI)) {
 		decon_reg_set_rgb_order(id, 1, DECON_RGB);
 		decon_reg_set_porch(id, 1, lcd_info);
-		decon_reg_config_mic(id, 1, lcd_info);
 
 		if (lcd_info->mode == DECON_VIDEO_MODE)
 			decon_reg_set_linecnt_op_threshold(id, 1, lcd_info->yres - 1);
@@ -453,25 +444,127 @@ int decon_reg_is_shadow_updated(u32 id)
 }
 
 /* TODO Check the maching for JF */
-void decon_reg_config_mic(u32 id, int dsi_idx, struct decon_lcd *lcd_info)
+void decon_reg_config_size(u32 id, int dsi_idx, int dsi_mode, struct decon_lcd *lcd_info)
 {
-/*
+	u32 mic_w;
+	u32 split_w, frame_fifo_w, dispif_w, dispif_h;
+	u32 xfact, yfact;
+	u32 slice = 1;
 	u32 val;
+	int disp_idx = (!id) ? id : (id + 1);
 
-	val = VIDTCON5_LINEVAL(lcd_info->yres - 1) |
-		VIDTCON5_HOZVAL((lcd_info->xres >> 1) - 1);
-	decon_write(id, VIDTCON5(dsi_idx), val);
+	/* BG_IMG Size */
+	val = BLND_BG_WIDTH_F(lcd_info->xres) | BLND_BG_HEIGHT_F(lcd_info->yres);
+	decon_write(id, BLENDER_BG_IMAGE_SIZE_0, val);
+	decon_write(id, BLENDER_BG_IMAGE_SIZE_1, lcd_info->xres * lcd_info->yres);
 
-	val = VIDTCON6_LINEVAL(lcd_info->yres - 1) |
-		VIDTCON6_HOZVAL((lcd_info->xres >> 1) - 1);
-	decon_write(id, VIDTCON6(dsi_idx), val);
+	/* MIC SIZE */
+	if (lcd_info->mic_ratio == 2) {
+		mic_w = (lcd_info->xres >> 1) * MIC_PIX_IN_BYTES;
+		decon_write(id, MIC_SIZE_CONTROL, mic_w);
+		yfact = lcd_info->yres;
+	} else if (lcd_info->mic_ratio == 3) {
+		/* TODO : Slice Mode */
+		if ((lcd_info->xres % 12) == 0) {
+			xfact = lcd_info->xres / 12;
+			yfact = lcd_info->yres >> 1;
+			mic_w = 24 * xfact * MIC_PIX_IN_BYTES;
+		} else if (((lcd_info->xres - 4) % 12) == 0) {
+			xfact = (lcd_info->xres - 4) / 12;
+			yfact = lcd_info->yres >> 1;
+			mic_w = 24 * xfact * MIC_PIX_IN_BYTES + 24;
+		} else if (((lcd_info->xres - 8) % 12) == 0) {
+			xfact = (lcd_info->xres - 8) / 12;
+			yfact = lcd_info->yres >> 1;
+			mic_w = 24 * xfact * MIC_PIX_IN_BYTES + 24;
+		}
+		decon_write(id, MIC_SIZE_CONTROL, mic_w);
+	} else {
+		mic_w = lcd_info->xres * MIC_PIX_IN_BYTES;
+		yfact = lcd_info->yres;
+	}
 
-	val = DECON_MIC_CON0_WIDTH_C((lcd_info->xres >> 1) * 3);
-	decon_write(id, DECON_MIC_CON0, val);
+	/* TODO : Dual Slice Mode */
+	if (slice == 1)
+		split_w = (mic_w / 3);
+	else
+		split_w = (mic_w / 3) << 1;
 
- */
-	decon_write(id, MIC_CONTROL, 0x10000);
-	decon_write(id, MIC_SIZE_CONTROL, 0x870);
+	/* SPLITTER_SIZE */
+	if (!id) {
+		val = SPLITTER_WIDTH_F(split_w) | SPLITTER_HEIGHT_F(yfact);
+		decon_write(id, SPLITTER_SIZE_CONTROL_0, val);
+		val = split_w * yfact;
+		decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
+		if (slice == 1)
+			decon_write_mask(id, SPLITTER_CONTROL_0, 0, SPLIT_CON_STARTPTR_MASK);
+		else
+			decon_write_mask(id, SPLITTER_CONTROL_0, (split_w >> 1), SPLIT_CON_STARTPTR_MASK);
+	}
+
+	/* FRAME_FIFO_SIZE */
+	if (dsi_mode == DSI_MODE_DUAL_DSI)
+		frame_fifo_w = split_w >> 1;
+	else
+		frame_fifo_w = split_w;
+
+	val = FRAME_FIFO_WIDTH_F(frame_fifo_w) | FRAME_FIFO_HEIGHT_F(yfact);
+	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_0, val);
+	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_1, frame_fifo_w * yfact);
+	if (!id) {
+		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_0, val);
+		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_1, frame_fifo_w * yfact);
+	}
+
+	/* DISP_IF SIZE */
+	if (lcd_info->mic_ratio == 3) {
+		dispif_w = frame_fifo_w >> 1;
+		dispif_h = yfact << 1;
+	} else {
+		dispif_w = frame_fifo_w;
+		dispif_h = yfact;
+	}
+	val = DISPIF_HEIGHT_F(dispif_h) | DISPIF_WIDTH_F(dispif_w);
+	decon_write(id, DISPIF_SIZE_CONTROL_0(disp_idx), val);
+
+	val = DISPIF_PIXEL_COUNT_F(dispif_w * dispif_h);
+	decon_write(id, DISPIF_SIZE_CONTROL_1(disp_idx), val);
+	if (!id && (dsi_mode == DSI_MODE_DUAL_DSI)) {
+		val = DISPIF_HEIGHT_F(dispif_h) | DISPIF_WIDTH_F(dispif_w);
+		decon_write(id, DISPIF_SIZE_CONTROL_0(1), val);
+
+		val = DISPIF_PIXEL_COUNT_F(dispif_w * dispif_h);
+		decon_write(id, DISPIF_SIZE_CONTROL_1(1), val);
+	}
+
+	return;
+}
+
+void decon_reg_config_mic(u32 id, struct decon_lcd *lcd_info)
+{
+	u32 dummy;
+	u32 val, mask;
+
+	if (id)
+		return;
+
+	if (lcd_info->mic_ratio == 2) {
+		val = MIC_PARA_CR_CTRL_1_BY_2 | MIC_PIXEL_0_1_ORDER;
+		mask = MIC_PARA_CR_CTRL_F | MIC_PIXEL_ORDER_F;
+		decon_write_mask(id, MIC_CONTROL, val, mask);
+	} else if (lcd_info->mic_ratio == 3) {
+		val = MIC_PARA_CR_CTRL_1_BY_3 | MIC_PIXEL_0_1_ORDER;
+		mask = MIC_PARA_CR_CTRL_F | MIC_PIXEL_ORDER_F;
+		decon_write_mask(id, MIC_CONTROL, val, mask);
+		/* TODO : Slice Mode */
+		if ((lcd_info->xres % 12) == 0)
+			dummy = 0;
+		else if (((lcd_info->xres - 4) % 12) == 0)
+			dummy = 16;
+		else if (((lcd_info->xres - 8) % 12) == 0)
+			dummy = 8;
+		decon_write_mask(id, MIC_CONTROL, MIC_DUMMY_F(dummy), MIC_DUMMY_MASK);
+	}
 }
 
 /* TODO Select Interrupts! */
@@ -520,16 +613,6 @@ void decon_reg_set_mdnie_blank(u32 id, u32 front, u32 sync, u32 back, u32 line)
 	return;
 }
 
-static void decon_reg_blending_bg_img_config(u32 id, u32 xres, u32 yres)
-{
-	u32 val;
-
-	val = BLND_BG_WIDTH_F(xres) | BLND_BG_HEIGHT_F(yres);
-	decon_write(id, BLENDER_BG_IMAGE_SIZE_0, val);
-	decon_write(id, BLENDER_BG_IMAGE_SIZE_1, xres * yres);
-
-}
-
 static void decon_reg_set_data_path(u32 id, int dsi_mode, u32 mic_ratio)
 {
 	u32 mask, val = 0;
@@ -554,42 +637,6 @@ static void decon_reg_set_data_path(u32 id, int dsi_mode, u32 mic_ratio)
 
 }
 
-static void decon_reg_set_framefifo_size(u32 id, int dsi_mode, struct decon_lcd *info)
-{
-	u32 val;
-	u32 xres, yres;
-
-	/* TODO : Any change in case of MIC ???*/
-
-	__get_mic_compressed_size(info, &xres, &yres);
-	val = FRAME_FIFO_WIDTH_F(xres) | FRAME_FIFO_HEIGHT_F(yres);
-	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_0, val);
-
-	val = xres * yres;
-	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_1, val);
-
-	if (dsi_mode == DSI_MODE_DUAL_DSI) {
-		val = FRAME_FIFO_WIDTH_F(xres) | FRAME_FIFO_HEIGHT_F(yres);
-		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_0, val);
-
-		val = xres * yres;
-		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_1, val);
-	}
-}
-
-static void decon_reg_set_splitter_size(u32 id, int x_pos, struct decon_lcd *info)
-{
-	u32 val;
-	u32 xres, yres;
-
-	__get_mic_compressed_size(info, &xres, &yres);
-	val = SPLITTER_WIDTH_F(xres) | SPLITTER_HEIGHT_F(yres);
-	decon_write(id, SPLITTER_SIZE_CONTROL_0, val);
-
-	val = xres * yres;
-	decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
-	decon_write_mask(id, SPLITTER_CONTROL_0, x_pos, SPLIT_CON_STARTPTR_MASK);
-}
 /***************** CAL APIs implementation *******************/
 u32 decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 {
@@ -615,9 +662,9 @@ u32 decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 	decon_reg_set_crc(id, 0);
 
 	decon_reg_set_data_path(id, psr->dsi_mode, lcd_info->mic_ratio);
-	decon_reg_set_framefifo_size(id, psr->dsi_mode, lcd_info);
+	decon_reg_config_mic(id, lcd_info);
+	decon_reg_config_size(id, dsi_idx, psr->dsi_mode, lcd_info);
 	/* TODO: Config the splitter with x_start_pos of right side image */
-	decon_reg_set_splitter_size(id, 0, lcd_info);
 
 #if 0 /* TODO Need it? */
 	if (id) {
@@ -651,8 +698,6 @@ u32 decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 	 * -> freerun mode --> stop DECON */
 	decon_reg_configure_lcd(id, psr->dsi_mode, lcd_info, dsi_idx);
 
-	/* BG_Image Config */
-	decon_reg_blending_bg_img_config(id, lcd_info->xres, lcd_info->yres);
 	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
 		decon_reg_configure_trigger(id, psr->trig_mode);
 
@@ -674,7 +719,8 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 	decon_reg_set_crc(id, 0);
 
 	decon_reg_set_data_path(id, psr->dsi_mode, lcd_info->mic_ratio);
-	decon_reg_set_framefifo_size(id, psr->dsi_mode, lcd_info);
+	decon_reg_config_mic(id, lcd_info);
+	decon_reg_config_size(id, dsi_idx, psr->dsi_mode, lcd_info);
 	/* Does exynos7420 decon always use DECON_VCLK_HOLD ? */
 	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
 		decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_RUN_VDEN_DISABLE);
@@ -690,26 +736,18 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 
 	decon_reg_set_rgb_order(id, dsi_idx, DECON_RGB);
 	decon_reg_set_porch(id, dsi_idx, lcd_info);
-	decon_reg_config_mic(id, dsi_idx, lcd_info);
-
 	if (lcd_info->mode == DECON_VIDEO_MODE)
 		decon_reg_set_linecnt_op_threshold(id, dsi_idx, lcd_info->yres - 1);
 
 	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI)) {
 		decon_reg_set_rgb_order(id, 1, DECON_RGB);
 		decon_reg_set_porch(id, 1, lcd_info);
-		decon_reg_config_mic(id, 1, lcd_info);
-
 		if (lcd_info->mode == DECON_VIDEO_MODE)
 			decon_reg_set_linecnt_op_threshold(id, 1, lcd_info->yres - 1);
 	}
 
 	decon_reg_set_clkval(id, 0);
-
 	decon_reg_set_freerun_mode(id, 0);
-
-	/* BG_Image Config */
-	decon_reg_blending_bg_img_config(id, lcd_info->xres, lcd_info->yres);
 	decon_reg_shadow_update_req(id);
 
 	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)

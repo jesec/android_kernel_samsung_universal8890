@@ -265,7 +265,7 @@ WIN0_SHADOW_REG_UPDATE_REQ	[0]
 #define COMP_DISPIF_MIC_SPLITBYP_U0U1FF_U0U1DISP (0xB << 0)
 #define COMP_MIC_DECON0_SHIFT			(0x1 << 3)
 #define COMP_MIC_DECON1_SHIFT			(0x1 << 5)
-#define COMP_DISPIF_NOCOMP_U2FF_U2DISP 		(0x1 << 0)
+#define COMP_DISPIF_NOCOMP_U2FF_U2DISP		(0x1 << 0)
 
 #define SPLITTER_CONTROL_0		0x0240
 #define SPLIT_CON_STARTPTR_MASK		0x3fff
@@ -296,14 +296,24 @@ WIN0_SHADOW_REG_UPDATE_REQ	[0]
 #define DEBUG_CLOCK_OUT_SEL		0x02AC
 #define DITHER_CONTROL			0x0300
 #define	MIC_CONTROL			0x1004
-#define MIC_DUMMY_F(_v)			((v_) << 20) /*[28:20]*/
+#define MIC_DUMMY_F(_v)			((_v) << 20) /*[28:20]*/
+#define MIC_DUMMY_MASK			(0x1FF << 20)
 #define MIC_AUTO_CLOCK_GATE_EN_F	(16)
 #define MIC_MODULE_BYPASS_F	(12)
 #define MIC_SLICE_NUM_F		(8)
-#define MIC_PIXEL_ORDER_F	(4)
-#define MIC_4x1_VC_F		(2)
-#define MIC_PARA_CR_CTRL_F	(1)
-#define MIC_PARA_P_UPD_EN_F	(0)
+#define MIC_PIXEL_0_1_ORDER	(0 << 4)
+#define MIC_PIXEL_1_0_ORDER	(1 << 4)
+#define MIC_PIXEL_ORDER_F	(1 << 4)
+#define MIC_4x1_VC_OLD		(1 << 2)
+#define MIC_4x1_VC_NEW		(0 << 2)
+#define MIC_4x1_VC_F		(1 << 2)
+#define MIC_PARA_CR_CTRL_1_BY_3	(1 << 1)
+#define MIC_PARA_CR_CTRL_1_BY_2	(0 << 1)
+#define MIC_PARA_CR_CTRL_F	(1 << 1)
+#define MIC_PARA_P_UPD_DIS	(0 << 0)
+#define MIC_PARA_P_UPD_EN	(1 << 0)
+#define MIC_PARA_P_UPD_EN_F	(1 << 0)
+#define MIC_PIX_IN_BYTES	(3)
 
 #define	MIC_ENC_PARAM0			0x1008
 #define	MIC_ENC_PARAM1			0x100C
