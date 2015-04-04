@@ -2215,6 +2215,20 @@ static void decon_set_qos(struct decon_device *decon,
 }
 #endif
 
+static void decon_win_shadow_update_req(struct decon_device *decon, int win_bitmap)
+{
+	int i;
+	u32 mask;
+
+	for (i = 0; i < decon->pdata->max_win; i++) {
+		mask = (1 << i);
+		if ((win_bitmap & mask) || (decon->prev_win_bitmap & mask))
+			decon_reg_win_shadow_update_req(decon->id, i);
+	}
+	decon->prev_win_bitmap = win_bitmap;
+	return;
+}
+
 static void __decon_update_regs(struct decon_device *decon, struct decon_reg_data *regs)
 {
 	unsigned short i, j;
@@ -2222,8 +2236,10 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	struct v4l2_subdev *sd = NULL;
 	int plane_cnt;
 	int vpp_ret = 0;
+	int win_bitmap = 0;
 
 	decon_to_psr_info(decon, &psr);
+	decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
 
 	/* TODO: check and wait until the required IDMA is free */
 	decon_reg_chmap_validate(decon, regs);
@@ -2236,6 +2252,9 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		struct decon_win *win = decon->windows[i];
+
+		if (regs->win_regs[i].wincon & WIN_EN_F)
+			win_bitmap |= 1 << i;
 
 		/* set decon registers for each window */
 		decon_reg_set_window_control(decon->id, i, &regs->win_regs[i],
@@ -2258,7 +2277,6 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 				decon->vpp_usage_bitmask &= ~(1 << win->vpp_id);
 				decon->vpp_err_stat[win->vpp_id] = true;
 			}
-			decon_reg_win_shadow_update_req(decon->id, i);
 		}
 	}
 
@@ -2272,9 +2290,9 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 		decon_reg_set_wb_frame(decon->id, regs->wb_whole_w, regs->wb_whole_h,
 				regs->wb_dma_buf_data.dma_addr);
 
+	decon_win_shadow_update_req(decon, win_bitmap);
 	decon_to_psr_info(decon, &psr);
 	decon_reg_start(decon->id, &psr);
-	decon_reg_update_req_and_unmask(decon->id, &psr);
 #ifdef CONFIG_DECON_MIPI_DSI_PKTGO
 	if (!decon->id) {
 		ret = v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_PKT_GO_ENABLE, NULL);
