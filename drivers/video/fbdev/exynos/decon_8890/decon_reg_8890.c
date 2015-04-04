@@ -804,8 +804,6 @@ void decon_reg_set_window_control(u32 id, int win_idx,
 	decon_write(id, WIN_PIXEL_COUNT(win_idx), regs->win_pixel_cnt);
 
 	decon_reg_set_winmap(id, win_idx, regs->winmap_color, winmap_en);
-	/* WindowN Enabled */
-	decon_write_mask(id, WIN_CONTROL(win_idx), ~0, WIN_EN_F);
 
 	decon_reg_config_win_channel(id, win_idx, regs->type);
 }
