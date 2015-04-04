@@ -371,6 +371,8 @@ struct decon_win_config {
 			struct vpp_params		vpp_parm;
 			/* no read area of IDMA */
 			struct decon_win_rect		block_area;
+			struct decon_win_rect		transparent_area;
+			struct decon_win_rect		opaque_area;
 			/* source framebuffer coordinates */
 			struct decon_frame		src;
 		};
