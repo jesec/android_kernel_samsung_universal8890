@@ -3730,6 +3730,7 @@ static int decon_probe(struct platform_device *pdev)
 			goto decon_init_done;
 
 		win_regs.wincon = wincon(0x8, 0xFF, 0xFF, 0xFF, DECON_BLENDING_NONE);
+		win_regs.wincon |= WIN_EN_F;
 		win_regs.win_start_pos = win_start_pos(0, 0);
 		win_regs.win_end_pos = win_end_pos(0, 0, fbinfo->var.xres, fbinfo->var.yres);
 		pr_info("xres %d yres %d win_start_pos %x win_end_pos %x\n",
