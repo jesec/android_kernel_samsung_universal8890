@@ -93,9 +93,6 @@ static atomic_t extra_vsync_wait;
 
 void decon_dump(struct decon_device *decon)
 {
-	/* FIXME */
-	return;
-
 	decon_info("\n=== DECON%d SFR DUMP ===\n", decon->id);
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
 			decon->regs, 0x300, false);
@@ -3717,7 +3714,7 @@ static int decon_probe(struct platform_device *pdev)
 		pr_info("xres %d yres %d win_start_pos %x win_end_pos %x\n",
 			fbinfo->var.xres, fbinfo->var.yres, win_regs.win_start_pos,
 			win_regs.win_end_pos);
-		win_regs.winmap_color = 0x000033;
+		win_regs.winmap_color = 0x00FF00;
 		win_regs.win_pixel_cnt = fbinfo->var.xres * fbinfo->var.yres;
 		win_regs.whole_w = fbinfo->var.xres_virtual;
 		win_regs.whole_h = fbinfo->var.yres_virtual;
