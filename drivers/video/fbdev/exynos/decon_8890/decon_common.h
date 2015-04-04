@@ -95,7 +95,7 @@ struct decon_window_regs {
 	u32 whole_h;
 	u32 offset_x;
 	u32 offset_y;
-
+	bool winmap_state;
 	enum decon_idma_type type;
 };
 

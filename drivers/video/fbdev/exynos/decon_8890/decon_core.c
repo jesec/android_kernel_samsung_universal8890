@@ -2238,7 +2238,8 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 		struct decon_win *win = decon->windows[i];
 
 		/* set decon registers for each window */
-		decon_reg_set_window_control(decon->id, i, &regs->win_regs[i], false);
+		decon_reg_set_window_control(decon->id, i, &regs->win_regs[i],
+							regs->win_regs[i].winmap_state);
 
 		/* set plane data */
 		plane_cnt = decon_get_plane_cnt(regs->vpp_config[i].format);
@@ -2529,7 +2530,7 @@ static int decon_set_win_config(struct decon_device *decon,
 		struct decon_window_regs *win_regs = &regs->win_regs[i];
 
 		bool enabled = 0;
-		u32 color_map = WIN_MAPCOLOR_EN_F;
+		bool color_map = true;
 		u32 color = 0;
 
 		switch (config->state) {
@@ -2555,7 +2556,7 @@ static int decon_set_win_config(struct decon_device *decon,
 			ret = decon_set_win_buffer(decon, win, config, regs);
 			if (!ret) {
 				enabled = 1;
-				color_map = 0;
+				color_map = false;
 			}
 			break;
 		default:
@@ -2569,8 +2570,10 @@ static int decon_set_win_config(struct decon_device *decon,
 		else
 			win_regs->wincon &= ~WIN_EN_F;
 
-		if (color_map)
+		if (color_map) {
 			win_regs->winmap_color = color;
+			win_regs->winmap_state = color_map;
+		}
 
 		if (enabled && config->state == DECON_WIN_STATE_BUFFER) {
 			bw += decon_calc_bandwidth(config->dst.w, config->dst.h,
