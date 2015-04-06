@@ -289,28 +289,34 @@ static int exynos_regulator_apm_notifier(struct notifier_block *notifier,
 	list_for_each_entry(i2c, &drvdata_list, node)
 		if (i2c->use_apm_mode == 1)
 			break;
-	if (i2c->use_apm_mode == 0)
-		printk(KERN_ERR "[APM I2C] No APM device\n");
-
-	if (IS_ERR(default_i2c_gpio)) {
-		printk(KERN_ERR "[APM I2C] Err pinctrl_state!\n");
-		return NOTIFY_BAD;
-	}
 
 	switch (pm_event) {
 		case APM_READY:
-			status = pinctrl_select_state(apm_i2c_pinctrl, apm_i2c_gpio);
-			if (status) {
-				printk(KERN_ERR "[APM I2C] Can't set APM I2C gpio(output).\n");
-				return NOTIFY_BAD;
+			if (!IS_ERR_OR_NULL(apm_i2c_gpio)) {
+				status = pinctrl_select_state(apm_i2c_pinctrl, apm_i2c_gpio);
+				if (status) {
+					printk(KERN_ERR "[APM I2C] Can't set APM GPIO\n");
+					return NOTIFY_BAD;
+				}
 			}
 			break;
 		case APM_SLEEP:
 		case APM_TIMEOUT:
-			status = pinctrl_select_state(apm_i2c_pinctrl, default_i2c_gpio);
-			if (status) {
-				printk(KERN_ERR "[APM I2C] Can't set default I2C gpio.\n");
-				return NOTIFY_BAD;
+			if (!IS_ERR_OR_NULL(default_i2c_gpio)) {
+				status = pinctrl_select_state(apm_i2c_pinctrl,
+							default_i2c_gpio);
+				if (status) {
+					printk(KERN_ERR "[APM I2C] Can't set default I2C gpio.\n");
+					return NOTIFY_BAD;
+				}
+			}
+
+			if (i2c->support_hsi2c_batcher) {
+				if (readl(i2c->regs + HSI2C_BATCHER_STATE) &
+						BATCHER_OPERATION_COMPLETE) {
+					writel(BATCHER_OPERATION_COMPLETE,
+							i2c->regs + HSI2C_BATCHER_STATE);
+				}
 			}
 
 			i2c->need_hw_init = 1;
