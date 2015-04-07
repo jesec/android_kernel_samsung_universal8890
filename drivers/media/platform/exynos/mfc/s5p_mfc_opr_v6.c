@@ -1658,6 +1658,10 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 	WRITEL(reg, S5P_FIMV_E_MV_HOR_RANGE);
 	WRITEL(reg, S5P_FIMV_E_MV_VER_RANGE);
 
+	/* Disable all macroblock adaptive scaling features */
+	reg = 0xF;
+	WRITEL(reg, S5P_FIMV_E_MB_RC_CONFIG);
+
 	WRITEL(0x0, S5P_FIMV_E_VBV_INIT_DELAY); /* SEQ_start Only */
 
 	/* initialize for '0' only setting */
@@ -1825,7 +1829,6 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
 
 	/* macroblock adaptive scaling features */
-	WRITEL(0x0, S5P_FIMV_E_MB_RC_CONFIG);
 	if (p->rc_mb) {
 		reg = 0;
 		/** dark region */
@@ -2293,10 +2296,6 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	reg |= p_vp8->rc_min_qp;
 	WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
 
-	/* Disable all macroblock adaptive scaling features */
-	reg = 0xF;
-	WRITEL(reg, S5P_FIMV_E_MB_RC_CONFIG);
-
 	mfc_debug_leave();
 
 	return 0;
@@ -2437,7 +2436,6 @@ static int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 	WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
 
 	/* macroblock adaptive scaling features */
-	WRITEL(0x0, S5P_FIMV_E_MB_RC_CONFIG);
 	if (p->rc_mb) {
 		reg = 0;
 		/** dark region */
