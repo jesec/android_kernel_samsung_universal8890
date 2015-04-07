@@ -625,14 +625,15 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 			ipoption[1] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
 			ipoption[3] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
 		}
-
-		pm_qos_update_request(&vpp->vpp_mif_qos, MIF_LV1);
+		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
+			pm_qos_update_request(&vpp->vpp_mif_qos, MIF_LV1);
 		ret = sysmmu_set_prefetch_buffer_property(dev,
-			vpp->pbuf_num, 0, ipoption, NULL);
+				vpp->pbuf_num, 0, ipoption, NULL);
 		if (ret)
 			dev_err(DEV, "failed set pbuf\n");
 	} else {
-		pm_qos_update_request(&vpp->vpp_mif_qos, 0);
+		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
+			pm_qos_update_request(&vpp->vpp_mif_qos, 0);
 	}
 
 	vpp->prev_read_order = cur_read_order;
@@ -763,7 +764,8 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 		spin_unlock_irqrestore(&vpp->slock, flags);
 		vpp_set_min_mif_lock(vpp, 0);
 		vpp_set_min_int_lock(vpp, 0);
-		pm_qos_update_request(&vpp->vpp_mif_qos, 0);
+		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
+			pm_qos_update_request(&vpp->vpp_mif_qos, 0);
 
 		pm_runtime_put_sync(DEV);
 		dev_dbg(DEV, "vpp stop(%d)\n", vpp->id);
