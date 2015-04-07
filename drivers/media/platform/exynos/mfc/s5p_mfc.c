@@ -723,7 +723,7 @@ static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_buf *dst_buf;
 	int index, is_first = 1;
-	unsigned int interlace_type, is_interlace = 0;
+	unsigned int interlace_type = 0, is_interlace = 0;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -906,7 +906,7 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	dma_addr_t dspl_y_addr;
 	unsigned int index;
 	unsigned int frame_type;
-	unsigned int interlace_type, is_interlace = 0;
+	unsigned int interlace_type = 0, is_interlace = 0;
 	int mvc_view_id;
 	unsigned int dst_frame_status, last_frame_status;
 	struct list_head *dst_queue_addr;
