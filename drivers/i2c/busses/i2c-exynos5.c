@@ -1488,11 +1488,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	struct resource *mem;
 	int ret;
 	unsigned int tmp;
-	//struct clk *aclk_100;
 	void __iomem *pmu_batcher;
-
-	pmu_batcher = ioremap(0x105c0070, SZ_4);
-	writel(0x3,pmu_batcher);
 
 	if (!np) {
 		dev_err(&pdev->dev, "no device node\n");
@@ -1568,12 +1564,6 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	/*
-	aclk_100 = clk_get_sys(NULL, "dout_aclk_ccore_100");
-	clk_set_rate(aclk_100, 100000000);
-	clk_set_rate(i2c->rate_clk, 100000000);
-	*/
-
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev,
@@ -1583,27 +1573,40 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	i2c->regs = devm_request_and_ioremap(&pdev->dev, mem);
-	if (IS_ERR(i2c->regs)) {
+	if (i2c->regs == NULL) {
 		dev_err(&pdev->dev, "cannot map HS-I2C IO\n");
 		ret = PTR_ERR(i2c->regs);
 		goto err_clk;
 	}
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	i2c->regs_mailbox = devm_request_and_ioremap(&pdev->dev, mem);
+	if (mem != NULL) {
+		i2c->regs_mailbox = devm_request_and_ioremap(&pdev->dev, mem);
 
-	if (IS_ERR(i2c->regs_mailbox)) {
-		dev_err(&pdev->dev, "cannot map MAILBOX IO\n");
-		ret = PTR_ERR(i2c->regs_mailbox);
-		goto err_clk;
+		if (i2c->regs_mailbox == NULL) {
+			dev_err(&pdev->dev, "cannot map MAILBOX IO\n");
+			ret = PTR_ERR(i2c->regs_mailbox);
+		}
+
+		if (!i2c->support_hsi2c_batcher && i2c->regs_mailbox){
+			tmp = readl(i2c->regs_mailbox + 0x40);
+			tmp |= 0x1 << 3;
+			writel(tmp, i2c->regs_mailbox + 0x40);
+		}
 	}
 
-	if (!i2c->support_hsi2c_batcher && i2c->regs_mailbox){
-		printk("BEFORE : %8.x \n", readl(i2c->regs_mailbox + 0x40));
-		tmp = readl(i2c->regs_mailbox + 0x40);
-		tmp |= 0x1 << 3;
-		writel(tmp, i2c->regs_mailbox + 0x40);
-		printk("AFTER : %8.x \n", readl(i2c->regs_mailbox + 0x40));
+	if (i2c->support_hsi2c_batcher) {
+		/* for enable Batcher in PMU */
+		mem = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		if (mem != NULL) {
+			pmu_batcher = devm_request_and_ioremap(&pdev->dev, mem);
+
+			if (pmu_batcher == NULL) {
+				dev_err(&pdev->dev, "cannot map PMIC for batcher enable\n");
+				ret = PTR_ERR(pmu_batcher);
+			}
+			writel(0x3,pmu_batcher);
+		}
 	}
 
 	i2c->adap.dev.of_node = np;
