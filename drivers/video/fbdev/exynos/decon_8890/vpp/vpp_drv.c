@@ -75,6 +75,8 @@ static struct vpp_dev *vpp_for_decon;
 static void vpp_dump_cfw_register(void)
 {
 	u32 smc_val;
+	/* FIXME */
+	return;
 	smc_val = exynos_smc(0x810000DE, MEM_FAULT_VPP_MASTER, 0, 0);
 	pr_err("=== vpp_master:0x%x\n", smc_val);
 	smc_val = exynos_smc(0x810000DE, MEM_FAULT_VPP_CFW, 0, 0);
@@ -91,22 +93,19 @@ static void vpp_dump_cfw_register(void)
 
 static void vpp_dump_registers(struct vpp_dev *vpp)
 {
-	/* FIXME */
-	return;
-
 	vpp_dump_cfw_register();
 	dev_info(DEV, "=== VPP%d SFR DUMP ===\n", vpp->id);
 	dev_info(DEV, "start count : %d, done count : %d\n",
 			vpp->start_count, vpp->done_count);
 
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			vpp->regs, 0xB0, false);
+			vpp->regs, 0x90, false);
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			vpp->regs + 0x5B0, 0x20, false);
+			vpp->regs + 0xA00, 0x8, false);
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 32, 4,
 			vpp->regs + 0xA48, 0x10, false);
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			vpp->regs + 0xB00, 0xB0, false);
+			vpp->regs + 0xB00, 0x100, false);
 }
 
 void vpp_op_timer_handler(unsigned long arg)

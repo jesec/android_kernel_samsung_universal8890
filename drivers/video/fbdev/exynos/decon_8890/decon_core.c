@@ -116,12 +116,12 @@ void decon_dump(struct decon_device *decon)
 	decon_info("\n=== DECON%d DISPIF3 SFR DUMP ===\n", decon->id);
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
 			decon->regs + 0x6080, 0x80, false);
-	/* TODO: Enable SHADOW SFR dump */
-/*	decon_info("\n=== DECON%d SHADOW SFR DUMP ===\n", decon->id);
+
+	decon_info("\n=== DECON%d SHADOW SFR DUMP ===\n", decon->id);
 
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs + SHADOW_OFFSET, 0x718, false);
-*/
+			decon->regs + SHADOW_OFFSET, 0x300, false);
+
 	v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_DUMP, NULL);
 }
 
@@ -2432,6 +2432,7 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 		if (decon_reg_wait_for_update_timeout(decon->id, SHADOW_UPDATE_TIMEOUT) < 0) {
 			decon_dump(decon);
 			vpp_dump(decon);
+			BUG();
 		}
 
 		/* wait until decon & dsim size matches */
@@ -3743,7 +3744,7 @@ static int decon_probe(struct platform_device *pdev)
 		win_regs.offset_x = fbinfo->var.xoffset;
 		win_regs.offset_y = fbinfo->var.yoffset;
 		win_regs.type = decon->default_idma;
-		decon_reg_set_window_control(decon->id, win_idx, &win_regs, true);
+		decon_reg_set_window_control(decon->id, win_idx, &win_regs, false);
 
 		decon->vpp_usage_bitmask |= (1 << decon->default_idma);
 		decon->vpp_used[decon->default_idma] = true;

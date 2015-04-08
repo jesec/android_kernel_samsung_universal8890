@@ -331,5 +331,5 @@ WIN0_SHADOW_REG_UPDATE_REQ	[0]
 #define DSC_COMP_PIXEL_CNT(_id)	(0x2010 + 0x1000 * (_id))
 
 /*TODO: set proper shadow offset */
-#define SHADOW_OFFSET	0x0
+#define SHADOW_OFFSET	0x7000
 #endif /* _REGS_DECON_H */
