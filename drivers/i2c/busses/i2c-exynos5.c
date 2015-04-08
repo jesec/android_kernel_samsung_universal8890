@@ -710,6 +710,8 @@ static void reset_batcher(struct exynos5_i2c *i2c)
 	u32 i2c_batcher_con = 0x00;
 	i2c_batcher_con |= HSI2C_BATCHER_RESET;
 	writel(i2c_batcher_con, i2c->regs + HSI2C_BATCHER_CON);
+	if (readl(i2c->regs + HSI2C_BATCHER_STATE) & BATCHER_OPERATION_COMPLETE)
+		writel(BATCHER_OPERATION_COMPLETE, i2c->regs + HSI2C_BATCHER_STATE);
 
 	exynos5_i2c_reset(i2c);
 	set_batcher_idle(i2c);
