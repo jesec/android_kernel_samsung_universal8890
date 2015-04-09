@@ -98,6 +98,105 @@ static LIST_HEAD(drvdata_list);
 s3c_wake_peer_t s3c2410_serial_wake_peer[CONFIG_SERIAL_SAMSUNG_UARTS];
 EXPORT_SYMBOL_GPL(s3c2410_serial_wake_peer);
 
+#define UART_LOOPBACK_MODE	(0x1 << 0)
+#define UART_DBG_MODE		(0x1 << 1)
+
+static void print_uart_mode(struct uart_port *port,
+		struct ktermios *termios, unsigned int baud)
+{
+	printk(KERN_ERR "UART port%d configurations\n", port->line);
+
+	switch (termios->c_cflag & CSIZE) {
+	case CS5:
+		printk(KERN_ERR " - 5bits word length\n");
+		break;
+	case CS6:
+		printk(KERN_ERR " - 6bits word length\n");
+		break;
+	case CS7:
+		printk(KERN_ERR " - 7bits word length\n");
+		break;
+	case CS8:
+	default:
+		printk(KERN_ERR " - 8bits word length\n");
+		break;
+	}
+
+	if (termios->c_cflag & CSTOPB)
+		printk(KERN_ERR " - Use TWO stop bit\n");
+	else
+		printk(KERN_ERR " - Use one stop bit\n");
+
+	if (termios->c_cflag & CRTSCTS)
+		printk(KERN_ERR " - Use Autoflow control\n");
+
+	printk(KERN_ERR " - Baudrate : %u\n", baud);
+}
+
+static ssize_t
+uart_dbg_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
+			"UART Debug Mode Configuration.\n");
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
+			"0 : Change loopback & DBG mode.\n");
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
+			"1 : Change DBG mode.\n");
+	ret += snprintf(buf + ret, PAGE_SIZE - ret,
+			"2 : Change Normal mode.\n");
+
+	if (ret < PAGE_SIZE - 1) {
+		ret += snprintf(buf+ret, PAGE_SIZE-ret, "\n");
+	} else {
+		buf[PAGE_SIZE-2] = '\n';
+		buf[PAGE_SIZE-1] = '\0';
+		ret = PAGE_SIZE-1;
+	}
+
+	return ret;
+}
+
+static ssize_t
+uart_dbg_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int input_cmd = 0, ret;
+	struct s3c24xx_uart_port *ourport;
+
+	ret = sscanf(buf, "%d", &input_cmd);
+
+	list_for_each_entry(ourport, &drvdata_list, node) {
+		if (&ourport->pdev->dev != dev)
+			continue;
+
+		switch(input_cmd) {
+		case 0:
+			printk(KERN_ERR "Change UART%d to Loopback(DBG) mode\n",
+						ourport->port.line);
+			ourport->dbg_mode = UART_DBG_MODE | UART_LOOPBACK_MODE;
+			break;
+		case 1:
+			printk(KERN_ERR "Change UART%d to DBG mode\n",
+						ourport->port.line);
+			ourport->dbg_mode = UART_DBG_MODE;
+			break;
+		case 2:
+			printk(KERN_ERR "Change UART%d to normal mode\n",
+						ourport->port.line);
+			ourport->dbg_mode = 0;
+			break;
+		default:
+			printk(KERN_ERR "Wrong Command!(0/1/2)\n");
+		}
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(uart_dbg, 0640, uart_dbg_show, uart_dbg_store);
+
 static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg);
 static void s3c24xx_serial_pm(struct uart_port *port, unsigned int level,
@@ -794,6 +893,10 @@ static unsigned int s3c24xx_serial_getclk(struct s3c24xx_uart_port *ourport,
 			continue;
 
 		rate = clk_get_rate(clk);
+
+		if (ourport->dbg_mode & UART_DBG_MODE)
+			printk(" - Clock rate : %ld\n", rate);
+
 		if (!rate)
 			continue;
 
@@ -975,6 +1078,9 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 	    rd_regl(port, S3C2410_ULCON),
 	    rd_regl(port, S3C2410_UCON),
 	    rd_regl(port, S3C2410_UFCON));
+
+	if (ourport->dbg_mode & UART_DBG_MODE)
+		print_uart_mode(port, termios, baud);
 
 	/*
 	 * Update the per-port timeout.
@@ -1233,6 +1339,7 @@ static void s3c24xx_serial_resetport(struct uart_port *port,
 				   struct s3c2410_uartcfg *cfg)
 {
 	struct s3c24xx_uart_info *info = s3c24xx_port_to_info(port);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 	unsigned long ucon = rd_regl(port, S3C2410_UCON);
 	unsigned int ucon_mask;
 
@@ -1241,6 +1348,11 @@ static void s3c24xx_serial_resetport(struct uart_port *port,
 		ucon_mask |= S3C2440_UCON0_DIVMASK;
 
 	ucon &= ucon_mask;
+	if (ourport->dbg_mode & UART_LOOPBACK_MODE) {
+		dev_err(port->dev, "Change Loopback mode!\n");
+		ucon |= S3C2443_UCON_LOOPBACK;
+	}
+
 	wr_regl(port, S3C2410_UCON,  ucon | cfg->ucon);
 
 	/* reset both fifos */
@@ -1573,6 +1685,7 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 #ifdef CONFIG_SND_SOC_SAMSUNG
 		/* Audio uart always on */
 		lpass_get_sync(&pdev->dev);
+		dev_err(&pdev->dev, "AUD-UART : Audio block power enable.\n");
 #endif
 	}
 
@@ -1594,6 +1707,12 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 #endif
 
 	list_add_tail(&ourport->node, &drvdata_list);
+
+	ret = device_create_file(&pdev->dev, &dev_attr_uart_dbg);
+	if (ret < 0)
+		dev_err(&pdev->dev, "failed to create sysfs file.\n");
+
+	ourport->dbg_mode = 0;
 
 	return 0;
 }
@@ -1629,9 +1748,13 @@ static int s3c24xx_serial_remove(struct platform_device *dev)
 static int s3c24xx_serial_suspend(struct device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(dev);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
-	if (port)
+	if (port) {
 		uart_suspend_port(&s3c24xx_uart_drv, port);
+		if (ourport->dbg_mode & UART_DBG_MODE)
+			dev_err(dev, "UART suspend notification for tty framework.\n");
+	}
 
 	return 0;
 }
@@ -1647,6 +1770,8 @@ static int s3c24xx_serial_resume(struct device *dev)
 		uart_clock_disable(ourport);
 
 		uart_resume_port(&s3c24xx_uart_drv, port);
+		if (ourport->dbg_mode & UART_DBG_MODE)
+			dev_err(dev, "UART resume notification for tty framework.\n");
 	}
 
 	return 0;
