@@ -34,7 +34,7 @@
 #include <mach/apm-exynos.h>
 #endif
 
-#if defined(CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP) || \
+#if defined(CONFIG_CPU_IDLE) || \
 	defined(CONFIG_EXYNOS_APM)
 static LIST_HEAD(drvdata_list);
 #endif
@@ -1462,7 +1462,7 @@ static const struct i2c_algorithm exynos5_i2c_algorithm = {
 	.functionality		= exynos5_i2c_func,
 };
 
-#ifdef CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP
+#ifdef CONFIG_CPU_IDLE
 static int exynos5_i2c_notifier(struct notifier_block *self,
 				unsigned long cmd, void *v)
 {
@@ -1481,7 +1481,7 @@ static int exynos5_i2c_notifier(struct notifier_block *self,
 static struct notifier_block exynos5_i2c_notifier_block = {
 	.notifier_call = exynos5_i2c_notifier,
 };
-#endif /* CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP */
+#endif /* CONFIG_CPU_IDLE */
 
 static int exynos5_i2c_probe(struct platform_device *pdev)
 {
@@ -1690,7 +1690,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	clk_disable_unprepare(i2c->clk);
 #endif
 
-#if defined(CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP) || \
+#if defined(CONFIG_CPU_IDLE) || \
 	defined(CONFIG_EXYNOS_APM)
 	list_add_tail(&i2c->node, &drvdata_list);
 #endif
@@ -1808,7 +1808,7 @@ static struct platform_driver exynos5_i2c_driver = {
 
 static int __init i2c_adap_exynos5_init(void)
 {
-#ifdef CONFIG_EXYNOS_HSI2C_RESET_DURING_DSTOP
+#ifdef CONFIG_CPU_IDLE
 	exynos_pm_register_notifier(&exynos5_i2c_notifier_block);
 #endif
 #ifdef CONFIG_EXYNOS_APM
