@@ -191,7 +191,11 @@ WIN0_SHADOW_REG_UPDATE_REQ	[0]
 #define WIN_CHMAP_F_MASK	(0x7 << 12)  /*[14:12]*/
 #define WIN_BLEND_FUNC_F(_x)	(((_x) & 0xF) << 8)   /*[11:8]*/
 #define WIN_ALPHA_MUL_F			(0x1 << 6)   /*[6]*/
-#define WIN_ALPHA_SEL_F			(0x3 << 4)   /*[5:4]*/
+#define WIN_ALPHA_SEL_F_MASK		(0x3 << 4)   /*[5:4]*/
+#define WIN_ALPHA_SEL_ALPHA0		(0x0 << 4)
+#define WIN_ALPHA_SEL_ALPHA1		(0x1 << 4)
+#define WIN_ALPHA_SEL_PIXEL		(0x2 << 4)
+
 #define WIN_MAPCOLOR_EN_F		(0x1 << 1)   /*[1]*/
 #define WIN_MAPCOLOR_EN_MASK		(0x1 << 1)   /*[1]*/
 #define WIN_EN_F			(0x1 << 0)   /*[0]*/

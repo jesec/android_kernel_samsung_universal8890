@@ -189,7 +189,7 @@ u32 wincon(u32 transp_len, u32 a0, u32 a1,
 	}
 
 	if (transp_len > 1)
-		data |= WIN_ALPHA_SEL_F;
+		data |= WIN_ALPHA_SEL_PIXEL;
 
 	switch (blending) {
 	case DECON_BLENDING_NONE:
