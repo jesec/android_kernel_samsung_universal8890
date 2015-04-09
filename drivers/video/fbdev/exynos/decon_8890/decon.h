@@ -706,6 +706,7 @@ struct decon_device {
 	int				fifo_irq_status;
 	struct vpp_drm_log vpp_log[MAX_VPP_LOG];
 	int log_cnt;
+	int sw_te_wa;
 };
 
 static inline struct decon_device *get_decon_drvdata(u32 id)

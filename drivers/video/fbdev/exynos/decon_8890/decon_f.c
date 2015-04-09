@@ -103,6 +103,10 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
 		decon->frame_done_cnt_cur++;
 		wake_up_interruptible_all(&decon->wait_frmdone);
+		if (decon->sw_te_wa) {
+			decon->vsync_info.timestamp = timestamp;
+			wake_up_interruptible_all(&decon->vsync_info.wait);
+		}
 	}
 
 irq_end:

@@ -2448,7 +2448,8 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	}
 
 	decon_to_psr_info(decon, &psr);
-	decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
+	if (!decon->sw_te_wa)
+		decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
 
 	DISP_SS_EVENT_LOG(DISP_EVT_TRIG_MASK, &decon->sd, ktime_set(0, 0));
 	decon->trig_mask_timestamp =  ktime_get();
@@ -3790,6 +3791,10 @@ decon_init_done:
 		decon->state = DECON_STATE_INIT;
 
 		pm_stay_awake(decon->dev);
+		if (dev->of_node) {
+			of_property_read_u32(dev->of_node, "sw_te_wa",
+					&decon->sw_te_wa);
+		}
 		dev_warn(decon->dev, "pm_stay_awake");
 		cam_stat = of_get_child_by_name(decon->dev->of_node, "cam-stat");
 		if (!cam_stat) {
@@ -3836,6 +3841,7 @@ decon_init_done:
 	exynos_pm_register_notifier(&decon->lpc_nb);
 #endif
 	decon->log_cnt = 0;
+
 	decon_info("decon%d registered successfully", decon->id);
 
 	return 0;
