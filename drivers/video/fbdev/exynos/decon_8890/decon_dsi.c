@@ -482,7 +482,10 @@ irqreturn_t decon_fb_isr_for_eint(int irq, void *dev_id)
 
 	spin_lock(&decon->slock);
 
-	decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_ENABLE);
+	if (decon->pdata->trig_mode == DECON_SW_TRIG) {
+		decon_to_psr_info(decon, &psr);
+		decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_ENABLE);
+	}
 
 #ifdef CONFIG_DECON_LPD_DISPLAY
 	if ((decon->state == DECON_STATE_ON) && (decon->out_type == DECON_OUT_DSI)) {
