@@ -1962,21 +1962,21 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		reg |= 0x7 << 0x4;
 		reg |= (p_264->hier_qp_type & 0x1) << 0x3;
 		reg |= p_264->hier_qp_layer & 0x7;
-		WRITEL(reg, S5P_FIMV_E_H264_NUM_T_LAYER);
+		WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 		/* QP value for each layer */
 		if (p_264->hier_qp) {
 			for (i = 0; i < (p_264->hier_qp_layer & 0x7); i++)
 			WRITEL(p_264->hier_qp_layer_qp[i],
-					S5P_FIMV_E_H264_HIERARCHICAL_QP_LAYER0 + i * 4);
+					S5P_FIMV_E_HIERARCHICAL_QP_LAYER0 + i * 4);
 		}
 		if (p->rc_frame) {
 			for (i = 0; i < (p_264->hier_qp_layer & 0x7); i++)
 			WRITEL(p_264->hier_qp_layer_bit[i],
-					S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
+					S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
 		}
 	}
 	/* number of coding layer should be zero when hierarchical is disable */
-	WRITEL(reg, S5P_FIMV_E_H264_NUM_T_LAYER);
+	WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 
 	/* set frame pack sei generation */
 	if (p_264->sei_gen_enable) {
@@ -2231,22 +2231,22 @@ static int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	reg = 0;
 	if (p_vp8->num_temporal_layer) {
 		reg |= p_vp8->num_temporal_layer & 0x3;
-		WRITEL(reg, S5P_FIMV_E_VP8_NUM_T_LAYER);
+		WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 		/* QP value for each layer */
 		if (p_vp8->hierarchy_qp_enable) {
 			for (i = 0; i < (p_vp8->num_temporal_layer & 0x3); i++)
 			WRITEL(p_vp8->hier_qp_layer_qp[i],
-					S5P_FIMV_E_VP8_HIERARCHICAL_QP_LAYER0 + i * 4);
+					S5P_FIMV_E_HIERARCHICAL_QP_LAYER0 + i * 4);
 		}
 		if (p->rc_frame) {
 			for (i = 0; i < (p_vp8->num_temporal_layer & 0x3); i++)
 			WRITEL(p_vp8->hier_qp_layer_bit[i],
-					S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
+					S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
 		}
 	}
 	/* number of coding layer should be zero when hierarchical is disable */
 	reg |= p_vp8->num_temporal_layer;
-	WRITEL(reg, S5P_FIMV_E_VP8_NUM_T_LAYER);
+	WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 
 	reg = 0;
 	reg |= (p_vp8->vp8_filtersharpness & 0x7);

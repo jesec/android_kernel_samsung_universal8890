@@ -229,6 +229,13 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 		((((f_y) + 63) / 64) * 16)) +			\
 		((((mb_x) * (mb_y) + 31) / 32) * 16))
 
+/* Encoder buffer size for MFC v10.0 */
+#define ENC_V100_H264_ME_SIZE(x, y)		-1
+#define ENC_V100_MPEG4_ME_SIZE(x, y)		-1
+#define ENC_V100_VP8_ME_SIZE(x, y)		-1
+#define ENC_V100_VP9_ME_SIZE(x, y)		-1
+#define ENC_V100_HEVC_ME_SIZE(x, y)		-1
+
 /* Encoder buffer size for hevc */
 #define ENC_HEVC_ME_SIZE(x, y)			-1
 #define ENC_V90_VP8_SCRATCH_SIZE(x, y)		-1
@@ -258,6 +265,13 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define ENC_V80_VP8_SCRATCH_SIZE(x, y)				\
 		(((x) * 576) + 10512 +	\
 		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
+
+/* Scratch buffer size for MFC v10.0 */
+#define ENC_V100_H264_SCRATCH_SIZE(x)		-1
+#define ENC_V100_MPEG4_SCRATCH_SIZE(x)		-1
+#define ENC_V100_VP8_SCRATCH_SIZE(x, y)		-1
+#define ENC_V100_VP9_SCRATCH_SIZE(x)		-1
+#define ENC_V100_HEVC_SCRATCH_SIZE(x, y)	-1
 
 void s5p_mfc_try_run(struct s5p_mfc_dev *dev);
 

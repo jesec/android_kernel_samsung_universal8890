@@ -1870,7 +1870,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH,
 		.is_volatile = 1,
 		.mode = MFC_CTRL_MODE_CUSTOM,
-		.addr = S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0,
+		.addr = S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_CUSTOM,
@@ -1906,7 +1906,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH,
 		.is_volatile = 1,
 		.mode = MFC_CTRL_MODE_CUSTOM,
-		.addr = S5P_FIMV_E_H264_HIERARCHICAL_BIT_RATE_LAYER0,
+		.addr = S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_CUSTOM,
@@ -2337,10 +2337,10 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			mfc_debug(2, "temporal layer count : %d\n", temporal_LC.temporal_layer_count);
 			if(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)
 				s5p_mfc_write_reg(dev,
-					temporal_LC.temporal_layer_count, S5P_FIMV_E_H264_NUM_T_LAYER);
+					temporal_LC.temporal_layer_count, S5P_FIMV_E_NUM_T_LAYER);
 			else if(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)
 				s5p_mfc_write_reg(dev,
-					temporal_LC.temporal_layer_count, S5P_FIMV_E_VP8_NUM_T_LAYER);
+					temporal_LC.temporal_layer_count, S5P_FIMV_E_NUM_T_LAYER);
 			for(i = 0; i < temporal_LC.temporal_layer_count; i++) {
 				mfc_debug(2, "temporal layer bitrate[%d] : %d\n",
 					i, temporal_LC.temporal_layer_bitrate[i]);

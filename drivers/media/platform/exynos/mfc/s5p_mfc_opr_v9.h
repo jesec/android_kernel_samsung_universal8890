@@ -231,6 +231,13 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define ENC_HEVC_ME_SIZE(x, y)				\
 			((((x * 32 / 8 + 63) / 64 * 64) * ((y * 8) + 64)) + (x * y * 32))
 
+/* Encoder buffer size for MFC v10.0 */
+#define ENC_V100_H264_ME_SIZE(x, y)		-1
+#define ENC_V100_MPEG4_ME_SIZE(x, y)		-1
+#define ENC_V100_VP8_ME_SIZE(x, y)		-1
+#define ENC_V100_VP9_ME_SIZE(x, y)		-1
+#define ENC_V100_HEVC_ME_SIZE(x, y)		-1
+
 /* MV range is [16,256] for v6.1, [16,128] for v6.5 */
 #define ENC_V61_MV_RANGE		256
 #define ENC_V65_MV_RANGE		128
@@ -265,6 +272,13 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 		(((x) * 64) + ((y) * 2560) + ((z) * 8192) + 2048)
 #define ENC_V90_HEVC_SCRATCH_SIZE(x, y)			\
 		(((x) * 64) + ((y) * 1056) + 2720)
+
+/* Scratch buffer size for MFC v10.0 */
+#define ENC_V100_H264_SCRATCH_SIZE(x)		-1
+#define ENC_V100_MPEG4_SCRATCH_SIZE(x)		-1
+#define ENC_V100_VP8_SCRATCH_SIZE(x, y)		-1
+#define ENC_V100_VP9_SCRATCH_SIZE(x)		-1
+#define ENC_V100_HEVC_SCRATCH_SIZE(x, y)	-1
 
 #define mfc_get_dec_used_flag()		readl(dev->regs_base + \
 						S5P_FIMV_D_USED_DPB_FLAG_LOWER)
