@@ -35,7 +35,7 @@
 #define VPP_PADS_NUM	1
 #define DEV		(&vpp->pdev->dev)
 
-#define is_vgr(vpp) ((vpp->id == 2) || (vpp->id == 3))
+#define is_vgr(vpp) ((vpp->id == 6) || (vpp->id == 7))
 #define is_rotation(config) (config->vpp_parm.rot >= VPP_ROT_90)
 #define is_yuv(config) ((config->format >= DECON_PIXEL_FORMAT_NV16) && (config->format < DECON_PIXEL_FORMAT_MAX))
 #define is_yuv422(config) ((config->format >= DECON_PIXEL_FORMAT_NV16) && (config->format <= DECON_PIXEL_FORMAT_YVU422_3P))
