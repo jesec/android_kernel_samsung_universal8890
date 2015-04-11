@@ -679,17 +679,10 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 	}
 #endif
 
-	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
-		decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_RUN_VDEN_DISABLE);
-	else
-		decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_HOLD);
+	decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_HOLD);
 
-	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI)) {
-		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
-			decon_reg_set_fixvclk(id, 1, DECON_VCLK_RUN_VDEN_DISABLE);
-		else
-			decon_reg_set_fixvclk(id, 1, DECON_VCLK_HOLD);
-	}
+	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI))
+		decon_reg_set_fixvclk(id, 1, DECON_VCLK_HOLD);
 
 	for (win_idx = 0; win_idx < p->nr_windows; win_idx++)
 		decon_reg_clear_win(id, win_idx);
@@ -722,17 +715,10 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 	decon_reg_config_mic(id, lcd_info);
 	decon_reg_config_size(id, dsi_idx, psr->dsi_mode, lcd_info);
 	/* Does exynos7420 decon always use DECON_VCLK_HOLD ? */
-	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
-		decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_RUN_VDEN_DISABLE);
-	else
-		decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_HOLD);
+	decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_HOLD);
 
-	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI)) {
-		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
-			decon_reg_set_fixvclk(id, 1, DECON_VCLK_RUN_VDEN_DISABLE);
-		else
-			decon_reg_set_fixvclk(id, 1, DECON_VCLK_HOLD);
-	}
+	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI))
+		decon_reg_set_fixvclk(id, 1, DECON_VCLK_HOLD);
 
 	decon_reg_set_rgb_order(id, dsi_idx, DECON_RGB);
 	decon_reg_set_porch(id, dsi_idx, lcd_info);
