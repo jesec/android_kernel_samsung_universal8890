@@ -1705,6 +1705,13 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 			default_i2c_gpio = pinctrl_lookup_state(apm_i2c_pinctrl, "default");
 			apm_i2c_gpio = pinctrl_lookup_state(apm_i2c_pinctrl, "apm");
 		}
+
+		/* When APM uses HSI2C device, APM can't control HSI2C clock
+		 * because of clock synchronization. Therefore we don't disable the clock
+		 * by calling clock enable function one more.
+		 */
+		if (of_get_property(np, "samsung,apm-always-clkon", NULL))
+			clk_prepare_enable(i2c->clk);
 	} else {
 		i2c->use_apm_mode = 0;
 	}
