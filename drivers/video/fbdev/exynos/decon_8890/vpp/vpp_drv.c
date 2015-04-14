@@ -498,7 +498,7 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	vpp->v_ratio = p.vpp_v_ratio;
 
 	vpp_select_format(vpp, &vi);
-	ret = vpp_reg_set_in_format(vpp->id, config->format, &vi);
+	ret = vpp_reg_set_in_format(vpp->id, &vi);
 	if (ret)
 		goto err;
 
@@ -525,7 +525,7 @@ static int vpp_set_config(struct vpp_dev *vpp)
 			goto err;
 	}
 
-	vpp_reg_set_in_buf_addr(vpp->id, &p);
+	vpp_reg_set_in_buf_addr(vpp->id, &p, &vi);
 	vpp_reg_set_smart_if_pix_num(vpp->id, config->dst.w, config->dst.h);
 
 	if (vpp_check_block_mode(vpp))

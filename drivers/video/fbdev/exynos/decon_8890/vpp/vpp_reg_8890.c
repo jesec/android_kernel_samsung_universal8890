@@ -138,15 +138,20 @@ void vpp_reg_set_hw_reset_done_mask(u32 id, u32 enable)
 	vpp_write_mask(id, VG_IRQ, val, VG_IRQ_HW_RESET_DONE_MASK);
 }
 
-int vpp_reg_set_in_format(u32 id, u32 format, struct vpp_img_format *vi)
+int vpp_reg_set_in_format(u32 id, struct vpp_img_format *vi)
 {
 	u32 cfg = vpp_read(id, VG_IN_CON);
 
 	cfg &= ~(VG_IN_CON_IMG_FORMAT_MASK | VG_IN_CON_CHROMINANCE_STRIDE_EN);
 
 	if ((id == 0 || id == 1 || id == 4 || id == 5) &&
-			(format >= DECON_PIXEL_FORMAT_NV16)) {
-		vpp_err("Unsupported YUV format in G%d\n", id);
+			(vi->format >= DECON_PIXEL_FORMAT_NV16)) {
+		vpp_err("Unsupported YUV format%d in G%d \n", vi->format, id);
+		return -EINVAL;
+	}
+
+	if (!vi->vgr && vi->afbc_en) {
+		vpp_err("Unsupported AFBC format decoding in VPP%d\n", id);
 		return -EINVAL;
 	}
 
@@ -155,7 +160,7 @@ int vpp_reg_set_in_format(u32 id, u32 format, struct vpp_img_format *vi)
 		return -EINVAL;
 	}
 
-	switch (format) {
+	switch (vi->format) {
 	case DECON_PIXEL_FORMAT_ARGB_8888:
 		cfg |= VG_IN_CON_IMG_FORMAT_ARGB8888;
 		break;
@@ -203,6 +208,8 @@ int vpp_reg_set_in_format(u32 id, u32 format, struct vpp_img_format *vi)
 	}
 
 	vpp_write(id, VG_IN_CON, cfg);
+
+	vpp_reg_set_in_afbc_en(id, vi->afbc_en);
 
 	return 0;
 }
@@ -309,12 +316,25 @@ void vpp_reg_set_scale_ratio(u32 id, struct vpp_size_param *p, u32 rot_en)
 			p->vpp_h_ratio, p->vpp_v_ratio);
 }
 
-void vpp_reg_set_in_buf_addr(u32 id, struct vpp_size_param *p)
+void vpp_reg_set_in_afbc_en(u32 id, u32 enable)
+{
+	u32 val = enable ? ~0 : 0;
+	vpp_write_mask(id, VG_IN_CON, val, VG_IN_CON_IN_AFBC_EN);
+}
+
+void vpp_reg_set_in_buf_addr(u32 id, struct vpp_size_param *p, struct vpp_img_format *vi)
 {
 	vpp_dbg("y : %llu, cb : %llu, cr : %llu\n",
 			p->addr0, p->addr1, p->addr2);
 	vpp_write(id, VG_BASE_ADDR_Y(0), p->addr0);
-	vpp_write(id, VG_BASE_ADDR_CB(0), p->addr1);
+	/* When processing the AFBC data, BASE_ADDR_Y and
+	 * BASE_ADDR_CB should be set to the same address.
+	 */
+	if (vi->afbc_en == 0)
+		vpp_write(id, VG_BASE_ADDR_CB(0), p->addr1);
+	else
+		vpp_write(id, VG_BASE_ADDR_CB(0), p->addr0);
+
 	vpp_write(id, VG_PINGPONG_UPDATE, VG_ADDR_PINGPONG_UPDATE);
 }
 
