@@ -44,7 +44,7 @@
 #define is_rgb16(config) ((config->format == DECON_PIXEL_FORMAT_RGB_565))
 #define is_ayv12(config) (config->format == DECON_PIXEL_FORMAT_YVU420)
 #define is_fraction(x) ((x) >> 15)
-#define is_vpp0_series(vpp) ((vpp->id == 0 || vpp->id == 2))
+#define is_vpp0_series(vpp) ((vpp->id == 0 || vpp->id == 1 || vpp->id == 2 || vpp->id == 3))
 #define is_scaling(vpp) ((vpp->h_ratio != (1 << 20)) || (vpp->v_ratio != (1 << 20)))
 #define is_scale_down(vpp) ((vpp->h_ratio > (1 << 20)) || (vpp->v_ratio > (1 << 20)))
 
@@ -72,9 +72,6 @@ enum vpp_dev_state {
 
 struct vpp_resources {
 	struct clk *gate;
-	struct clk *lh_vpp;
-	struct clk *d_pclk_vpp;
-	struct clk *pclk_vpp;
 };
 
 struct vpp_fraction {
@@ -125,10 +122,6 @@ struct vpp_dev {
 	u32				v_ratio;
 	struct vpp_fraction		fract_val;
 	struct mutex			mlock;
-	u32				clk_cnt;
-	u32				aclk_vpp[10];
-	u32				pclk_vpp[10];
-	u32				bus_vpp[10];
 	unsigned int			irq;
 	u32				prev_read_order;
 	u32				pbuf_num;

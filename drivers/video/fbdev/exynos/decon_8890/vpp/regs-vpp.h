@@ -80,6 +80,7 @@
 #define VG_IN_CON_BURST_LENGTH_1		(1 << 24)
 #define VG_IN_CON_BURST_LENGTH_2		(2 << 24)
 #define VG_IN_CON_BURST_LENGTH_3		(3 << 24)
+#define VG_IN_CON_IN_AFBC_EN			(1 << 7)
 
 /* IDMA_VG(R)x_OUT_CON */
 #define VG_OUT_CON				(0x0C)

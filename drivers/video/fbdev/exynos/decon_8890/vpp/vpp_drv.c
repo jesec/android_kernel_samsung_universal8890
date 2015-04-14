@@ -371,43 +371,20 @@ static int vpp_check_rotation(struct vpp_dev *vpp)
 
 static int vpp_clk_enable(struct vpp_dev *vpp)
 {
-	int ret = 0;
+	int ret;
 
-#ifndef CONFIG_MACH_VELOCE8890
 	ret = clk_enable(vpp->res.gate);
 	if (ret) {
 		dev_err(DEV, "Failed res.gate clk enable\n");
 		return ret;
 	}
 
-	ret = clk_enable(vpp->res.pclk_vpp);
-	if (ret) {
-		dev_err(DEV, "Failed res.pclk clk enable\n");
-		goto err_0;
-	}
-
-	ret = clk_enable(vpp->res.lh_vpp);
-	if (ret) {
-		dev_err(DEV, "Failed res.pclk clk enable\n");
-		goto err_1;
-	}
-	return 0;
-
-err_1:
-	clk_disable(vpp->res.pclk_vpp);
-err_0:
-	clk_disable(vpp->res.gate);
-#endif
 	return ret;
 }
 
 static void vpp_clk_disable(struct vpp_dev *vpp)
 {
-#ifndef CONFIG_MACH_VELOCE8890
 	clk_disable(vpp->res.gate);
-	clk_disable(vpp->res.pclk_vpp);
-	clk_disable(vpp->res.lh_vpp);
-#endif
 }
 
 static int vpp_init(struct vpp_dev *vpp)
@@ -935,18 +912,6 @@ static irqreturn_t vpp_irq_handler(int irq, void *priv)
 	DISP_SS_EVENT_START();
 	spin_lock(&vpp->slock);
 	if (test_bit(VPP_POWER_ON, &vpp->state)) {
-#ifndef CONFIG_MACH_VELOCE8890
-		vpp->aclk_vpp[vpp->clk_cnt] =
-			readl(EXYNOS7420_ENABLE_ACLK_VPP);
-		vpp->pclk_vpp[vpp->clk_cnt] =
-			readl(EXYNOS7420_ENABLE_PCLK_VPP);
-		vpp->bus_vpp[vpp->clk_cnt] =
-			readl(EXYNOS7420_ENABLE_ACLK_BUS0);
-#endif
-		vpp->clk_cnt++;
-		if (vpp->clk_cnt == 10)
-			vpp->clk_cnt = 0;
-
 		vpp_irq = vpp_reg_get_irq_status(vpp->id);
 		vpp_reg_set_clear_irq(vpp->id, vpp_irq);
 
@@ -990,80 +955,27 @@ static void vpp_clk_info(struct vpp_dev *vpp)
 
 static int vpp_clk_get(struct vpp_dev *vpp)
 {
-	int ret = 0;
-#ifndef CONFIG_MACH_VELOCE8890
 	struct device *dev = &vpp->pdev->dev;
+	int ret;
 
-	vpp->res.gate = devm_clk_get(dev, "gate");
+	vpp->res.gate = devm_clk_get(dev, "vpp_clk");
 	if (IS_ERR(vpp->res.gate)) {
 		dev_err(dev, "vpp-%d clock get failed\n", vpp->id);
 		return PTR_ERR(vpp->res.gate);
 	}
-
-	vpp->res.pclk_vpp = devm_clk_get(dev, "pclk_vpp");
-	if (IS_ERR(vpp->res.pclk_vpp)) {
-		dev_err(dev, "vpp-%d clock pclk_vpp get failed\n", vpp->id);
-		return PTR_ERR(vpp->res.pclk_vpp);
-	}
-
-	if (is_vpp0_series(vpp)) {
-		vpp->res.lh_vpp = devm_clk_get(dev, "aclk_lh_vpp0");
-		if (IS_ERR(vpp->res.lh_vpp)) {
-			dev_err(dev, "vpp-%d clock lh_vpp get failed\n", vpp->id);
-			return PTR_ERR(vpp->res.lh_vpp);
-		}
-	} else {
-		vpp->res.lh_vpp = devm_clk_get(dev, "aclk_lh_vpp1");
-		if (IS_ERR(vpp->res.lh_vpp)) {
-			dev_err(dev, "vpp-%d clock lh_vpp get failed\n", vpp->id);
-			return PTR_ERR(vpp->res.lh_vpp);
-		}
-	}
-
-	decon_clk_set_rate(dev, "d_pclk_vpp", 134 * MHZ);
 
 	ret = clk_prepare(vpp->res.gate);
 	if (ret < 0) {
 		dev_err(dev, "vpp-%d clock prepare failed\n", vpp->id);
 		return ret;
 	}
-
-	ret = clk_prepare(vpp->res.pclk_vpp);
-	if (ret < 0) {
-		dev_err(dev, "vpp-%d pclk_vpp clock prepare failed\n", vpp->id);
-		goto err_0;
-	}
-
-	ret = clk_prepare(vpp->res.lh_vpp);
-	if (ret < 0) {
-		dev_err(dev, "vpp-%d lh_vpp clock prepare failed\n", vpp->id);
-		goto err_1;
-	}
-
-	return 0;
-
-err_1:
-	clk_unprepare(vpp->res.pclk_vpp);
-err_0:
-	clk_unprepare(vpp->res.gate);
-#endif
 	return ret;
 }
 
 static void vpp_clk_put(struct vpp_dev *vpp)
 {
-#ifndef CONFIG_MACH_VELOCE8890
 	clk_unprepare(vpp->res.gate);
 	clk_put(vpp->res.gate);
-
-	clk_put(vpp->res.d_pclk_vpp);
-
-	clk_unprepare(vpp->res.pclk_vpp);
-	clk_put(vpp->res.pclk_vpp);
-
-	clk_unprepare(vpp->res.lh_vpp);
-	clk_put(vpp->res.lh_vpp);
-#endif
 }
 
 int vpp_sysmmu_fault_handler(struct iommu_domain *domain,
@@ -1208,7 +1120,6 @@ static int vpp_probe(struct platform_device *pdev)
 
 	mutex_init(&vpp->mlock);
 	spin_lock_init(&vpp->slock);
-	vpp->clk_cnt = 0;
 
 	iovmm_set_fault_handler(dev, vpp_sysmmu_fault_handler, NULL);
 
