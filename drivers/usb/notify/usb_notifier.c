@@ -99,6 +99,42 @@ static struct usb_notifier_platform_data *of_get_usb_notifier_pdata(void)
 }
 #endif
 
+static struct device_node *exynos_udc_parse_dt(void)
+{
+	struct platform_device *pdev = NULL;
+	struct device *dev = NULL;
+	struct device_node *np = NULL;
+
+	/**
+	 * For previous chips such as Exynos7420 and Exynos7890
+	 */
+	np = of_find_compatible_node(NULL, NULL, "samsung,exynos5-dwusb3");
+	if (np)
+		return np;
+
+	np = of_find_compatible_node(NULL, NULL, "samsung,usb-notifier");
+	if (!np) {
+		pr_err("%s: failed to get the usb-notifier device node\n",
+			__func__);
+		return NULL;
+	}
+
+	pdev = of_find_device_by_node(np);
+	if (!pdev) {
+		pr_err("%s: failed to get platform_device\n", __func__);
+		return NULL;
+	}
+
+	dev = &pdev->dev;
+	np = of_parse_phandle(dev->of_node, "udc", 0);
+	if (!np) {
+		dev_info(dev, "udc device is not available\n");
+		return NULL;
+	}
+
+	return np;
+}
+
 #if defined(CONFIG_MUIC_NOTIFIER)
 static void check_usb_vbus_state(unsigned long state)
 {
@@ -109,7 +145,7 @@ static void check_usb_vbus_state(unsigned long state)
 #ifdef CONFIG_USB_S3C_OTGD
 	np = of_find_compatible_node(NULL, NULL, "samsung,exynos_udc");
 #else
-	np = of_find_compatible_node(NULL, NULL, "samsung,exynos5-dwusb3");
+	np = exynos_udc_parse_dt();
 #endif
 	if (!np) {
 		pr_err("%s: failed to get the %s device node\n",
@@ -150,7 +186,7 @@ static void check_usb_id_state(int state)
 
 	pr_info("%s id state = %d\n", __func__, state);
 
-	np = of_find_compatible_node(NULL, NULL, "samsung,exynos5-dwusb3");
+	np = exynos_udc_parse_dt();
 	if (!np) {
 		pr_err("%s: failed to get the exynos5-dwusb3 device node\n",
 			__func__);
