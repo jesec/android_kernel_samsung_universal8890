@@ -153,10 +153,10 @@ int dsim_reg_sw_reset(u32 id)
 	dsim_write_mask(id, DSIM_SWRST, ~0, DSIM_SWRST_RESET);
 
 	do {
-		state = dsim_read(id, DSIM_SWRST) & DSIM_SWRST_DPHYRST;
+		state = dsim_read(id, DSIM_SWRST) & DSIM_SWRST_RESET;
 		cnt--;
 		udelay(10);
-	} while (!state && cnt);
+	} while (state && cnt);
 
 	if (!cnt) {
 		dsim_err("%s is timeout.\n", __func__);
