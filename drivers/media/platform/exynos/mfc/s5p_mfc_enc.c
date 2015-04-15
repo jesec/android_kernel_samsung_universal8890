@@ -1775,6 +1775,33 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_H264_ENABLE_LTR,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Enable LTR",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC_H264_MARK_LTR,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Set the frame as a LTRP",
+		.minimum = 0,
+		.maximum = 2,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_MFC_H264_USE_LTR,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Specify a LTRP for encoding",
+		.minimum = 0,
+		.maximum = 3,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -2151,6 +2178,30 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 5,
+	},
+	{	/* set store LTR */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_MFC_H264_MARK_LTR,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_SFR,
+		.addr = S5P_FIMV_E_H264_NAL_CONTROL,
+		.mask = 0x00000003,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_NONE,
+		.flag_addr = 0,
+		.flag_shft = 0,
+	},
+	{	/* set use LTR */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_MFC_H264_USE_LTR,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_SFR,
+		.addr = S5P_FIMV_E_H264_NAL_CONTROL,
+		.mask = 0x00000003,
+		.shft = 2,
+		.flag_mode = MFC_CTRL_MODE_NONE,
+		.flag_addr = 0,
+		.flag_shft = 0,
 	},
 };
 
@@ -4075,6 +4126,9 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_PREPEND_SPSPPS_TO_IDR:
 		p->codec.h264.prepend_sps_pps_to_idr = ctrl->value ? 1 : 0;
 		break;
+	case V4L2_CID_MPEG_MFC_H264_ENABLE_LTR:
+		p->codec.h264.enable_ltr = ctrl->value;
+		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
 		switch ((enum v4l2_mpeg_video_mpeg4_profile)(ctrl->value)) {
 		case V4L2_MPEG_VIDEO_MPEG4_PROFILE_SIMPLE:
@@ -4316,7 +4370,7 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.hevc.loopfilter_disable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LTR_ENABLE:
-		p->codec.hevc.longterm_ref_enable = ctrl->value;
+		p->codec.hevc.enable_ltr = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_QP_ENABLE:
 		p->codec.hevc.hier_qp_enable = ctrl->value;
@@ -4490,6 +4544,8 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH:
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_MFC_H264_MARK_LTR:
+	case V4L2_CID_MPEG_MFC_H264_USE_LTR:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))
 				continue;

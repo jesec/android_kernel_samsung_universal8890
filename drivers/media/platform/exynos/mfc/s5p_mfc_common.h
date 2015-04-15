@@ -468,6 +468,7 @@ struct s5p_mfc_h264_enc_params {
 	u32 aso_slice_order[8];
 
 	u32 prepend_sps_pps_to_idr;
+	u32 enable_ltr;
 };
 
 /**
@@ -569,7 +570,7 @@ struct s5p_mfc_hevc_enc_params {
 	u8 const_intra_period_enable;
 	u8 lossless_cu_enable;
 	u8 wavefront_enable;
-	u8 longterm_ref_enable;
+	u8 enable_ltr;
 	u8 hier_qp_enable;
 	u8 hier_qp_type;
 	u8 num_hier_layer;

@@ -2000,6 +2000,8 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	/* pic_order_cnt_type = 0 for backward compatibilities */
 	if (FW_HAS_POC_TYPE_CTRL(dev)) {
 		reg = READL(S5P_FIMV_E_H264_OPTIONS_2);
+		reg &= ~(0x1 << 2);
+		reg |= (p_264->enable_ltr << 2); /* Enable LTR */
 		reg &= ~(0x3 << 0);
 		reg |= (0x0 << 0); /* TODO: add new CID for this */
 		WRITEL(reg, S5P_FIMV_E_H264_OPTIONS_2);
@@ -2504,7 +2506,7 @@ static int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 	reg |= (p_hevc->lossless_cu_enable & 0x1) << 6;
 	reg |= (p_hevc->wavefront_enable & 0x1) << 7;
 	reg |= (p_hevc->loopfilter_disable & 0x1) << 8;
-	reg |= (p_hevc->longterm_ref_enable & 0x1) << 10;
+	reg |= (p_hevc->enable_ltr & 0x1) << 10;
 	reg |= (p_hevc->hier_qp_enable & 0x1) << 11;
 	reg |= (p_hevc->sign_data_hiding & 0x1) << 12;
 	reg |= (p_hevc->general_pb_enable & 0x1) << 13;
@@ -2536,7 +2538,7 @@ static int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 		reg |= (p_hevc->loopfilter_across & 0x1) << 9;
 	}
 	/* long term reference */
-	if (p_hevc->longterm_ref_enable) {
+	if (p_hevc->enable_ltr) {
 		reg = 0;
 		reg |= (p_hevc->store_ref & 0x3);
 		reg &= ~(0x3 << 2);
