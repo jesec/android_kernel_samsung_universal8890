@@ -2128,7 +2128,30 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 10,
 	},
-
+	{	/* set level */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_E_PICTURE_PROFILE,
+		.mask = 0x000000FF,
+		.shft = 8,
+		.flag_mode = MFC_CTRL_MODE_SFR,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 5,
+	},
+	{	/* set profile */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_CUSTOM,
+		.addr = S5P_FIMV_E_PICTURE_PROFILE,
+		.mask = 0x0000000F,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_SFR,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 5,
+	},
 };
 
 #define NUM_CTRL_CFGS ARRAY_SIZE(mfc_ctrl_list)
@@ -2174,6 +2197,34 @@ int s5p_mfc_enc_ctx_ready(struct s5p_mfc_ctx *ctx)
 	mfc_debug(2, "ctx is not ready.\n");
 
 	return 0;
+}
+
+static inline int h264_profile(struct s5p_mfc_ctx *ctx, enum v4l2_mpeg_video_h264_profile profile)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	int ret = 0;
+
+	switch (profile) {
+	case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
+		ret = S5P_FIMV_ENC_PROFILE_H264_MAIN;
+		break;
+	case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
+		ret = S5P_FIMV_ENC_PROFILE_H264_HIGH;
+		break;
+	case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
+		ret =S5P_FIMV_ENC_PROFILE_H264_BASELINE;
+		break;
+	case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
+		if (IS_MFCV6(dev))
+			ret = S5P_FIMV_ENC_PROFILE_H264_CONSTRAINED_BASELINE;
+		else
+			ret = -EINVAL;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
 
 static int enc_cleanup_ctx_ctrls(struct s5p_mfc_ctx *ctx)
@@ -2488,6 +2539,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 	unsigned int value = 0;
 	struct temporal_layer_info temporal_LC;
 	unsigned int i;
+	struct s5p_mfc_enc_params *p = &enc->params;
 
 	list_for_each_entry(buf_ctrl, head, list) {
 		if (!(buf_ctrl->type & MFC_CTRL_TYPE_SET) || !buf_ctrl->has_new)
@@ -2572,12 +2624,29 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			}
 		}
 		if ((buf_ctrl->id == V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH) && FW_HAS_GOP2(dev)) {
-			value = 0;
 			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_GOP_CONFIG2);
 			buf_ctrl->old_val |= (value << 16) & 0x3FFF0000;
 			value &= ~(0x3FFF);
 			value |= (buf_ctrl->val >> 16) & 0x3FFF;
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_GOP_CONFIG2);
+		}
+
+		/* PROFILE & LEVEL have to be set up together */
+		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_LEVEL) {
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			buf_ctrl->old_val |= (value & 0x000F) << 8;
+			value &= ~(0x000F);
+			value |= p->codec.h264.profile & 0x000F;
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+			p->codec.h264.level = buf_ctrl->val;
+		}
+		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_PROFILE) {
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			buf_ctrl->old_val |= value & 0xFF00;
+			value &= ~(0x00FF << 8);
+			value |= (p->codec.h264.level << 8) & 0xFF00;
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+			p->codec.h264.profile = buf_ctrl->val;
 		}
 
 invalid_layer_count:
@@ -2661,11 +2730,22 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 				"id: 0x%08x old val: %d\n",
 				buf_ctrl->id, buf_ctrl->old_val);
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH && FW_HAS_GOP2(dev)) {
-			value = 0;
 			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_GOP_CONFIG2);
 			value &= ~(0x3FFF);
 			value |= (buf_ctrl->old_val >> 16) & 0x3FFF;
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_GOP_CONFIG2);
+		}
+		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_LEVEL) {
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			value &= ~(0x000F);
+			value |= (buf_ctrl->old_val >> 8) & 0x000F;
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+		}
+		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_PROFILE) {
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			value &= ~(0xFF00);
+			value |= buf_ctrl->old_val & 0xFF00;
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
 		}
 	}
 
@@ -3828,26 +3908,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->num_b_frame = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		switch ((enum v4l2_mpeg_video_h264_profile)(ctrl->value)) {
-		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
-			p->codec.h264.profile =
-				S5P_FIMV_ENC_PROFILE_H264_MAIN;
-			break;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
-			p->codec.h264.profile =
-				S5P_FIMV_ENC_PROFILE_H264_HIGH;
-			break;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
-			p->codec.h264.profile =
-				S5P_FIMV_ENC_PROFILE_H264_BASELINE;
-			break;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
-			p->codec.h264.profile =
-				S5P_FIMV_ENC_PROFILE_H264_CONSTRAINED_BASELINE;
-			break;
-		default:
-			ret = -EINVAL;
-		}
+		p->codec.h264.profile =
+		h264_profile(ctx, (enum v4l2_mpeg_video_h264_profile)(ctrl->value));
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		p->codec.h264.level =
@@ -4426,6 +4488,8 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH:
 	case V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH:
 	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH:
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))
 				continue;
@@ -4450,6 +4514,10 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 							return -EINVAL;
 						}
 				}
+				if (ctx_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_LEVEL)
+					ctx_ctrl->val = h264_level((enum v4l2_mpeg_video_h264_level)(ctrl->value));
+				if (ctx_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_PROFILE)
+					ctx_ctrl->val = h264_profile(ctx, (enum v4l2_mpeg_video_h264_profile)(ctrl->value));
 				found = 1;
 				break;
 			}
