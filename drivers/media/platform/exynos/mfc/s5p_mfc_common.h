@@ -446,11 +446,11 @@ struct s5p_mfc_h264_enc_params {
 	u16 ext_sar_height;
 	u8 open_gop;
 	u16 open_gop_size;
-	u8 hier_qp;
+	u8 hier_qp_enable;
 	enum v4l2_mpeg_video_h264_hierarchical_coding_type hier_qp_type;
-	u8 hier_qp_layer;
-	u8 hier_qp_layer_qp[7];
-	u32 hier_qp_layer_bit[7];
+	u8 num_hier_layer;
+	u8 hier_qp_layer[7];
+	u32 hier_bit_layer[7];
 	u8 sei_gen_enable;
 	u8 sei_fp_curr_frame_0;
 	enum v4l2_mpeg_video_h264_sei_fp_arrangement_type sei_fp_arrangement_type;
@@ -501,12 +501,12 @@ struct s5p_mfc_vp8_enc_params {
 	u8 vp8_filtersharpness;
 	u8 vp8_goldenframesel;
 	u8 vp8_gfrefreshperiod;
-	u8 hierarchy_qp_enable;
-	u8 hier_qp_layer_qp[3];
-	u32 hier_qp_layer_bit[3];
+	u8 hier_qp_enable;
+	u8 hier_qp_layer[3];
+	u32 hier_bit_layer[3];
 	u8 num_refs_for_p;
 	u8 intra_4x4mode_disable;
-	u8 num_temporal_layer;
+	u8 num_hier_layer;
 };
 
 /**
@@ -543,11 +543,11 @@ struct s5p_mfc_hevc_enc_params {
 	u8 lossless_cu_enable;
 	u8 wavefront_enable;
 	u8 longterm_ref_enable;
-	u8 hier_qp;
+	u8 hier_qp_enable;
 	u8 hier_qp_type;
-	u8 hier_qp_layer;
-	u8 hier_qp_layer_qp;
-	u8 hier_qp_layer_bit;
+	u8 num_hier_layer;
+	u8 hier_qp_layer[5];
+	u8 hier_bit_layer[5];
 	u8 sign_data_hiding;
 	u8 general_pb_enable;
 	u8 temporal_id_enable;

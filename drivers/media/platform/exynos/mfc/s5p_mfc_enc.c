@@ -3671,39 +3671,39 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.h264.open_gop_size = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING:
-		p->codec.h264.hier_qp = ctrl->value;
+		p->codec.h264.hier_qp_enable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_TYPE:
 		p->codec.h264.hier_qp_type =
 		(enum v4l2_mpeg_video_h264_hierarchical_coding_type)(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER:
-		p->codec.h264.hier_qp_layer = ctrl->value;
+		p->codec.h264.num_hier_layer = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP:
-		p->codec.h264.hier_qp_layer_qp[(ctrl->value >> 16) & 0x7]
+		p->codec.h264.hier_qp_layer[(ctrl->value >> 16) & 0x7]
 			= ctrl->value & 0xFF;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT0:
-		p->codec.h264.hier_qp_layer_bit[0] = ctrl->value;
+		p->codec.h264.hier_bit_layer[0] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT1:
-		p->codec.h264.hier_qp_layer_bit[1] = ctrl->value;
+		p->codec.h264.hier_bit_layer[1] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT2:
-		p->codec.h264.hier_qp_layer_bit[2] = ctrl->value;
+		p->codec.h264.hier_bit_layer[2] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT3:
-		p->codec.h264.hier_qp_layer_bit[3] = ctrl->value;
+		p->codec.h264.hier_bit_layer[3] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT4:
-		p->codec.h264.hier_qp_layer_bit[4] = ctrl->value;
+		p->codec.h264.hier_bit_layer[4] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT5:
-		p->codec.h264.hier_qp_layer_bit[5] = ctrl->value;
+		p->codec.h264.hier_bit_layer[5] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT6:
-		p->codec.h264.hier_qp_layer_bit[6] = ctrl->value;
+		p->codec.h264.hier_bit_layer[6] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_SEI_FRAME_PACKING:
 		p->codec.h264.sei_gen_enable = ctrl->value;
@@ -3846,28 +3846,28 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.vp8.vp8_gfrefreshperiod = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_HIERARCHY_QP_ENABLE:
-		p->codec.vp8.hierarchy_qp_enable = ctrl->value;
+		p->codec.vp8.hier_qp_enable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_HIERARCHY_QP_LAYER0:
-		p->codec.vp8.hier_qp_layer_qp[(ctrl->value >> 16) & 0x3]
+		p->codec.vp8.hier_qp_layer[(ctrl->value >> 16) & 0x3]
 			= ctrl->value & 0xFF;
 		break;
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_HIERARCHY_QP_LAYER1:
-		p->codec.vp8.hier_qp_layer_qp[(ctrl->value >> 16) & 0x3]
+		p->codec.vp8.hier_qp_layer[(ctrl->value >> 16) & 0x3]
 			= ctrl->value & 0xFF;
 		break;
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_HIERARCHY_QP_LAYER2:
-		p->codec.vp8.hier_qp_layer_qp[(ctrl->value >> 16) & 0x3]
+		p->codec.vp8.hier_qp_layer[(ctrl->value >> 16) & 0x3]
 			= ctrl->value & 0xFF;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_BIT0:
-		p->codec.vp8.hier_qp_layer_bit[0] = ctrl->value;
+		p->codec.vp8.hier_bit_layer[0] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_BIT1:
-		p->codec.vp8.hier_qp_layer_bit[1] = ctrl->value;
+		p->codec.vp8.hier_bit_layer[1] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_BIT2:
-		p->codec.vp8.hier_qp_layer_bit[2] = ctrl->value;
+		p->codec.vp8.hier_bit_layer[2] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_REF_NUMBER_FOR_PFRAMES:
 		p->codec.vp8.num_refs_for_p = ctrl->value;
@@ -3876,7 +3876,7 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.vp8.intra_4x4mode_disable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC70_VIDEO_VP8_NUM_TEMPORAL_LAYER:
-		p->codec.vp8.num_temporal_layer = ctrl->value;
+		p->codec.vp8.num_hier_layer = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP:
 		p->codec.hevc.rc_frame_qp = ctrl->value;
@@ -3944,19 +3944,20 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.hevc.longterm_ref_enable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_QP_ENABLE:
-		p->codec.hevc.hier_qp = ctrl->value;
+		p->codec.hevc.hier_qp_enable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_TYPE:
 		p->codec.hevc.hier_qp_type = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER:
-		p->codec.hevc.hier_qp_layer = ctrl->value;
+		p->codec.hevc.num_hier_layer = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_QP:
-		p->codec.hevc.hier_qp_layer_qp = ctrl->value & 0xFF;
+		p->codec.hevc.hier_qp_layer[(ctrl->value >> 16) & 0x7]
+			= ctrl->value & 0xFF;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT:
-		p->codec.hevc.hier_qp_layer_bit = ctrl->value & 0xFF;
+		p->codec.hevc.hier_bit_layer[0] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_SIGN_DATA_HIDING:
 		p->codec.hevc.sign_data_hiding = ctrl->value;
