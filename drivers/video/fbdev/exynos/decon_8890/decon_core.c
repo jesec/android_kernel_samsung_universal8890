@@ -127,7 +127,7 @@ void decon_dump(struct decon_device *decon)
 
 /* ---------- CHECK FUNCTIONS ----------- */
 static void decon_win_conig_to_regs_param
-	(struct fb_info *fbinfo, struct decon_win_config *win_config,
+	(int transp_length, struct decon_win_config *win_config,
 	 struct decon_window_regs *win_regs, enum decon_idma_type idma_type)
 {
 	u8 alpha0, alpha1;
@@ -135,16 +135,17 @@ static void decon_win_conig_to_regs_param
 	if ((win_config->plane_alpha > 0) && (win_config->plane_alpha < 0xFF)) {
 		alpha0 = win_config->plane_alpha;
 		alpha1 = 0;
-	} else if (fbinfo->var.transp.length == 1 &&
-			win_config->blending == DECON_BLENDING_NONE) {
-		alpha0 = 0xff;
-		alpha1 = 0xff;
+		if (!transp_length && (win_config->blending == DECON_BLENDING_PREMULT))
+			win_config->blending = DECON_BLENDING_COVERAGE;
+
+		if (transp_length && (win_config->blending == DECON_BLENDING_PREMULT))
+			decon_err("%s: (DECON_BLENDING_PREMULT + Plane Alpha) not supported", __func__);
 	} else {
-		alpha0 = 0;
+		alpha0 = 0xFF;
 		alpha1 = 0xff;
 	}
 
-	win_regs->wincon = wincon(fbinfo->var.transp.length, alpha0, alpha1,
+	win_regs->wincon = wincon(transp_length, alpha0, alpha1,
 			win_config->plane_alpha, win_config->blending);
 	win_regs->win_start_pos = win_start_pos(win_config->dst.x, win_config->dst.y);
 	win_regs->win_end_pos = win_end_pos(win_config->dst.x, win_config->dst.y,
@@ -200,7 +201,7 @@ u32 wincon(u32 transp_len, u32 a0, u32 a1,
 		if (!is_plane_alpha) {
 			data |= WIN_BLEND_FUNC_SRC_OVER;
 		} else {
-			/* need to check the eq */
+			/* need to check the eq: it is SPEC-OUT */
 			data |= WIN_BLEND_FUNC_SRC_TOP;
 		}
 		break;
@@ -1674,7 +1675,7 @@ static int decon_set_win_buffer(struct decon_device *decon, struct decon_win *wi
 		regs->dma_buf_data[win_no][i] = dma_buf_data[i];
 	regs->protection[win_no] = win_config->protection;
 
-	decon_win_conig_to_regs_param(win->fbinfo, win_config,
+	decon_win_conig_to_regs_param(win->fbinfo->var.transp.length, win_config,
 				&regs->win_regs[win_no], win_config->idma_type);
 
 	return 0;
@@ -2548,7 +2549,7 @@ static int decon_set_win_config(struct decon_device *decon,
 	for (i = 0; i < decon->pdata->max_win && !ret; i++) {
 		struct decon_win_config *config = &win_config[i];
 		struct decon_win *win = decon->windows[i];
-		struct decon_window_regs *win_regs = &regs->win_regs[i];
+		struct decon_window_regs *win_regs = &regs->win_regs[win->index];
 
 		bool enabled = 0;
 		bool color_map = true;
@@ -2560,9 +2561,7 @@ static int decon_set_win_config(struct decon_device *decon,
 		case DECON_WIN_STATE_COLOR:
 			enabled = 1;
 			color |= WIN_MAPCOLOR_F(config->color);
-			win_regs->win_start_pos = win_start_pos(config->dst.x, config->dst.y);
-			win_regs->win_end_pos = win_end_pos(config->dst.x, config->dst.y,
-					config->dst.w, config->dst.h);
+			decon_win_conig_to_regs_param(0, config, win_regs, IDMA_G0);
 			break;
 		case DECON_WIN_STATE_BUFFER:
 			if (decon->id && i == DECON_BACKGROUND) {
