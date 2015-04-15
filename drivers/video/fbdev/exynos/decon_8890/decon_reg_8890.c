@@ -936,13 +936,11 @@ void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_param *p)
 	while (i--) {
 		if (decon_clocks_table[i][CLK_ID_RESOLUTION]
 				!= p->lcd_info->xres * p->lcd_info->yres) {
-			i--;
 			continue;
 		}
 
 		if (decon_clocks_table[i][CLK_ID_MIC_RATIO]
 				!= p->lcd_info->mic_ratio) {
-			i--;
 			continue;
 		}
 
