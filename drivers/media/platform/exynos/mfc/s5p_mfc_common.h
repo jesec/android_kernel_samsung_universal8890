@@ -599,8 +599,9 @@ struct s5p_mfc_enc_params {
 
 	u32 gop_size;
 	enum v4l2_mpeg_video_multi_slice_mode slice_mode;
-	u16 slice_mb;
+	u32 slice_mb;
 	u32 slice_bit;
+	u16 slice_mb_row;
 	u16 intra_refresh_mb;
 	u8 pad;
 	u8 pad_luma;

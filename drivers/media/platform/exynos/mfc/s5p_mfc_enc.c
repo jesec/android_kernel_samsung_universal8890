@@ -206,7 +206,7 @@ static struct v4l2_queryctrl controls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "The slice partitioning method",
 		.minimum = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE,
-		.maximum = V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES,
+		.maximum = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB_ROW,
 		.step = 1,
 		.default_value = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE,
 	},
@@ -227,6 +227,15 @@ static struct v4l2_queryctrl controls[] = {
 		.maximum = (1 << 30) - 1,
 		.step = 1,
 		.default_value = ENC_MULTI_SLICE_BYTE_MIN,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB_ROW,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "The number of MB row in a slice",
+		.minimum = 1,
+		.maximum = ENC_MULTI_SLICE_MB_ROW_MAX,
+		.step = 1,
+		.default_value = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB,
@@ -3916,6 +3925,9 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 		p->slice_bit = ctrl->value * 8;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB_ROW:
+		p->slice_mb_row = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
 		p->intra_refresh_mb = ctrl->value;

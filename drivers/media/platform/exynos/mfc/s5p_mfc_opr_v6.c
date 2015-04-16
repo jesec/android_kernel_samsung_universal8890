@@ -1502,14 +1502,16 @@ static int s5p_mfc_set_slice_mode(struct s5p_mfc_ctx *ctx)
 	/* multi-slice control */
 	if (enc->slice_mode == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES)
 		WRITEL((enc->slice_mode + 0x4), S5P_FIMV_E_MSLICE_MODE);
+	else if (enc->slice_mode == V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB_ROW)
+		WRITEL((enc->slice_mode - 0x2), S5P_FIMV_E_MSLICE_MODE);
 	else
 		WRITEL(enc->slice_mode, S5P_FIMV_E_MSLICE_MODE);
 
 	/* multi-slice MB number or bit size */
-	if (enc->slice_mode == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
+	if (enc->slice_mode == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB || \
+			enc->slice_mode == V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB_ROW) {
 		WRITEL(enc->slice_size.mb, S5P_FIMV_E_MSLICE_SIZE_MB);
-	} else if (enc->slice_mode == \
-			V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) {
+	} else if (enc->slice_mode == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) {
 		WRITEL(enc->slice_size.bits, S5P_FIMV_E_MSLICE_SIZE_BITS);
 	} else {
 		WRITEL(0x0, S5P_FIMV_E_MSLICE_SIZE_MB);
@@ -1562,6 +1564,8 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 		enc->slice_size.mb = p->slice_mb;
 	} else if (p->slice_mode == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) {
 		enc->slice_size.bits = p->slice_bit;
+	} else if (p->slice_mode == V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB_ROW) {
+		enc->slice_size.mb = p->slice_mb_row * ((ctx->img_width + 15) / 16);
 	} else {
 		enc->slice_size.mb = 0;
 		enc->slice_size.bits = 0;
