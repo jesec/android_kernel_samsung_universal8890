@@ -564,6 +564,10 @@ int dwc3_core_init(struct dwc3 *dwc)
 
 	dwc3_core_num_eps(dwc);
 
+	if (dwc->suspend_clk_freq) {
+		reg &= ~DWC3_GCTL_PWRDNSCALE_MASK;
+		reg |= DWC3_GCTL_PWRDNSCALE(dwc->suspend_clk_freq/(16*1000));
+	}
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	ret = dwc3_alloc_scratch_buffers(dwc);
@@ -835,6 +839,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 		dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
 		dwc->dr_mode = of_usb_get_dr_mode(node);
+		dwc->suspend_clk_freq = of_usb_get_suspend_clk_freq(node);
 	} else if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
 

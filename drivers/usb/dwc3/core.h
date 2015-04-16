@@ -174,7 +174,8 @@
 #define DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE_SHIFT	19
 #define DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE(n)	((n) << 19)
 
-#define DWC3_GCTL_PWRDNSCALE(n)	((n) << 19)
+#define DWC3_GCTL_PWRDNSCALE(n)	(((n) & 0x1fff) << 19)
+#define DWC3_GCTL_PWRDNSCALE_MASK	(0x1fff << 19)
 #define DWC3_GCTL_U2RSTECN	(1 << 16)
 #define DWC3_GCTL_RAMCLKSEL(x)	(((x) & DWC3_GCTL_CLK_MASK) << 6)
 #define DWC3_GCTL_CLK_BUS	(0)
@@ -777,6 +778,14 @@ struct dwc3 {
 	u32			u1u2;
 	u32			maximum_speed;
 	u32			revision;
+
+	/**
+	 * Frequency of suspend clock.
+	 * Suspend clock is a clock source of 16KHz clock for a small part
+	 * of the USB3 core that operates when the SS PHY is in its lowest
+	 * power (P3) state.
+	 */
+	u32			suspend_clk_freq;
 
 #define DWC3_REVISION_173A	0x5533173a
 #define DWC3_REVISION_175A	0x5533175a
