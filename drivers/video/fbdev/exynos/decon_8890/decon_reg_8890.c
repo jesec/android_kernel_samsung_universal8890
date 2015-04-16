@@ -966,17 +966,10 @@ u32 decon_reg_get_interrupt_and_clear(u32 id)
 	u32 irq_status;
 	irq_status = decon_read(id, INTERRUPT_PENDING);
 
-	if (irq_status & INT_DISPIF_VSTATUS_INT_PEND)
-		decon_write_mask(id, INTERRUPT_PENDING, ~0, INT_DISPIF_VSTATUS_INT_PEND);
-
-	if (irq_status & INT_FIFO_LEVEL_INT_PEND)
-		decon_write_mask(id, INTERRUPT_PENDING, ~0, INT_FIFO_LEVEL_INT_PEND);
-
-	if (irq_status & INT_FRAME_DONE_INT_PEND)
-		decon_write_mask(id, INTERRUPT_PENDING, ~0, INT_FRAME_DONE_INT_PEND);
+	/* All pending interrupts are cleared */
+	decon_write(id, INTERRUPT_PENDING, irq_status);
 
 	if (irq_status & INT_RESOURCE_CONFLICT_INT_PEND) {
-		decon_write_mask(id, INTERRUPT_PENDING, ~0, INT_RESOURCE_CONFLICT_INT_PEND);
 		decon_warn("RESOURCE_OCCUPANCY_INFO_0: 0x%x, RESOURCE_OCCUPANCY_INFO_1: 0x%x\n",
 			decon_read(id, RESOURCE_OCCUPANCY_INFO_0),
 			decon_read(id, RESOURCE_OCCUPANCY_INFO_1));
