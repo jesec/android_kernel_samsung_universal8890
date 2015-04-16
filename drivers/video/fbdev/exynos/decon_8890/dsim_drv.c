@@ -864,18 +864,7 @@ static int dsim_disable(struct dsim_device *dsim)
 	dsim->state = DSIM_STATE_SUSPEND;
 	mutex_unlock(&dsim_rd_wr_mutex);
 
-	/* disable interrupts */
-	dsim_reg_set_int(dsim->id, 0);
-
-	/* disable HS clock */
-	dsim_reg_set_hs_clock(dsim->id, &dsim->lcd_info, 0);
-
-	/* make CLK/DATA Lane as LP00 */
-	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 0);
-
-	dsim_reg_set_clocks(dsim->id, NULL, DSIM_LANE_CLOCK | dsim->data_lane, 0);
-
-	dsim_reg_sw_reset(dsim->id);
+	dsim_reg_stop(dsim->id, &dsim->lcd_info, DSIM_LANE_CLOCK | dsim->data_lane);
 
 	dsim_d_phy_onoff(dsim, 0);
 

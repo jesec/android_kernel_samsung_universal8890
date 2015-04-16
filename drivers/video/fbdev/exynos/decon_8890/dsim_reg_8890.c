@@ -1133,3 +1133,18 @@ u32 dsim_reg_get_xres(u32 id)
 	u32 val = dsim_read(id, DSIM_MDRESOL);
 	return DSIM_MDRESOL_HOZVAL_GET(val);
 }
+
+void dsim_reg_stop(u32 id, struct decon_lcd *lcd, u32 lanes)
+{
+	/* disable interrupts */
+	dsim_reg_set_int(id, 0);
+
+	/* unset standby and disable HS clock */
+	dsim_reg_set_hs_clock(id, lcd, 0);
+
+	dsim_reg_set_lanes(id, lanes, 0);
+
+	dsim_reg_set_clocks(id, NULL, lanes, 0);
+
+	dsim_reg_sw_reset(id);
+}
