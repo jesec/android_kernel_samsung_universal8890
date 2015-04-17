@@ -542,6 +542,7 @@ int s5p_mfc_sleep(struct s5p_mfc_dev *dev)
 		return ret;
 	}
 
+	mfc_info_dev("curr_ctx_drm:%d\n", dev->curr_ctx_drm);
 	spin_lock_irq(&dev->condlock);
 	set_bit(ctx->num, &dev->hw_lock);
 	spin_unlock_irq(&dev->condlock);
@@ -578,6 +579,7 @@ err_mfc_sleep:
 
 int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 {
+	enum mfc_buf_usage_type buf_type;
 	int ret;
 
 	mfc_debug_enter();
@@ -586,6 +588,7 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 		mfc_err("no mfc device to run\n");
 		return -EINVAL;
 	}
+	mfc_info_dev("curr_ctx_drm:%d\n", dev->curr_ctx_drm);
 	dev->wakeup_status = 1;
 	/* Set clock source again after wake up */
 	s5p_mfc_set_clock_parent(dev);
@@ -602,9 +605,13 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 		goto err_mfc_wakeup;
 	}
 	mfc_debug(2, "Done MFC reset...\n");
+	if (dev->curr_ctx_drm)
+		buf_type = MFCBUF_DRM;
+	else
+		buf_type = MFCBUF_NORMAL;
 
 	/* 1. Set DRAM base Addr */
-	s5p_mfc_init_memctrl(dev, MFCBUF_NORMAL);
+	s5p_mfc_init_memctrl(dev, buf_type);
 
 	/* 2. Initialize registers of channel I/F */
 	s5p_mfc_clear_cmds(dev);
