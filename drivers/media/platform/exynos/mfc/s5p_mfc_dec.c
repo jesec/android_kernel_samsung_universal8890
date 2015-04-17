@@ -2770,8 +2770,10 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
 			s5p_mfc_cleanup_timeout(ctx);
-
-		aborted = 1;
+		if (on_res_change(ctx))
+			mfc_debug(2, "stop on res change(state:%d)\n", ctx->state);
+		else
+			aborted = 1;
 	}
 
 	spin_lock_irqsave(&dev->irqlock, flags);

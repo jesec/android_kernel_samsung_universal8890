@@ -3485,6 +3485,9 @@ static inline int s5p_mfc_dec_dpb_flush(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 
+	if (on_res_change(ctx))
+		mfc_err("dpb flush on res change(state:%d)\n", ctx->state);
+
 	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 

@@ -895,8 +895,6 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	}
 }
 
-#define on_res_change(ctx)	((ctx)->state >= MFCINST_RES_CHANGE_INIT &&	\
-				 (ctx)->state <= MFCINST_RES_CHANGE_END)
 static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 {
 	struct s5p_mfc_dec *dec;
