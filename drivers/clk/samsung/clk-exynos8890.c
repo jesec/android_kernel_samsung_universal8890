@@ -20,10 +20,10 @@ enum exynos8890_clks {
 	oscclk = 1,
 
 	/* number for mfc driver starts from 10 */
-	mfc_hpm = 10, mfc_mfc, mfc_sysmmu, mfc_ppmu,
+	mfc_hpm = 10, mfc_mfc, mfc_ppmu,
 
 	/* number for mscl driver starts from 50 */
-	mscl_mscl0 = 50, mscl_jpeg, mscl_mscl1, mscl_g2d, mscl_sysmmu, mscl_ppmu, mscl_bts,
+	mscl_mscl0 = 50, mscl_jpeg, mscl_mscl1, mscl_g2d, mscl_ppmu, mscl_bts,
 
 	/* number for imem driver starts from 100 */
 	gate_apm = 100, gate_sss, gate_gic400, gate_rtic, gate_mc, gate_intmem, gate_alv, gate_ppmu,
@@ -42,7 +42,7 @@ enum exynos8890_clks {
 	gate_gpio_nfc, gate_gpio_touch, gate_gpio_fp, gate_gpio_ese, promise_int, promise_disp, ap2cp_mif_pll_out, gate_i2s1, gate_pcm1, gate_spdif,
 
 	/* number for isp0 driver starts from 400 */
-	gate_fimc_isp0 = 400, gate_fimc_tpu, isp0, isp0_tpu, isp0_trex, isp0_sysmmu, isp0_ppmu, isp0_bts,
+	gate_fimc_isp0 = 400, gate_fimc_tpu, isp0, isp0_tpu, isp0_trex, isp0_ppmu, isp0_bts,
 
 	/* number for isp1 driver starts from 450 */
 	gate_fimc_isp1 = 450, isp1, isp1_ppmu, isp1_bts,
@@ -52,17 +52,17 @@ enum exynos8890_clks {
 
 	/* number for cam0 driver starts from 550 */
 	gate_csis0 = 550, gate_csis1, gate_fimc_bns, fimc_3aa0, fimc_3aa1, cam0_hpm, pxmxdx_csis0, pxmxdx_csis1, pxmxdx_csis2, pxmxdx_csis3,
-	pxmxdx_3aa0, pxmxdx_3aa1, pxmxdx_trex, hs0_csis0_rx_byte, hs1_csis0_rx_byte, hs2_csis0_rx_byte, hs3_csis0_rx_byte, hs0_csis1_rx_byte, hs1_csis1_rx_byte, cam0_sysmmu, cam0_ppmu, cam0_bts,
+	pxmxdx_3aa0, pxmxdx_3aa1, pxmxdx_trex, hs0_csis0_rx_byte, hs1_csis0_rx_byte, hs2_csis0_rx_byte, hs3_csis0_rx_byte, hs0_csis1_rx_byte, hs1_csis1_rx_byte, cam0_ppmu, cam0_bts,
 
 	/* number for cam1 driver starts from 600 */
 	gate_isp_cpu = 600, gate_csis2, gate_csis3, gate_fimc_vra, gate_mc_scaler, gate_i2c0_isp, gate_i2c1_isp, gate_i2c2_isp, gate_i2c3_isp, gate_wdt_isp,
 	gate_mcuctl_isp, gate_uart_isp, gate_pdma_isp, gate_pwm_isp, gate_spi0_isp, gate_spi1_isp, isp_spi0, isp_spi1, isp_uart, gate_sclk_pwm_isp,
 	gate_sclk_uart_isp, cam1_arm, cam1_vra, cam1_trex, cam1_bus, cam1_peri, cam1_csis2, cam1_csis3, cam1_scl, cam1_phy0_csis2, cam1_phy1_csis2,
-	cam1_phy2_csis2, cam1_phy3_csis2, cam1_phy0_csis3, cam1_sysmmu, cam1_ppmu, cam1_bts,
+	cam1_phy2_csis2, cam1_phy3_csis2, cam1_phy0_csis3, cam1_ppmu, cam1_bts,
 
 	/* number for audio driver starts from 650 */
 	gate_mi2s = 650, gate_pcm, gate_slimbus, gate_sclk_mi2s, d1_sclk_i2s, gate_sclk_pcm, d1_sclk_pcm, gate_sclk_slimbus, sclk_slimbus, sclk_cp_i2s,
-	sclk_asrc, aud_pll, aud_cp, aud_lpass, aud_dma, aud_sysmmu, aud_ppmu, aud_bts,
+	sclk_asrc, aud_pll, aud_cp, aud_lpass, aud_dma, aud_ppmu, aud_bts,
 
 	/* number for fsys0 driver starts from 700 */
 	gate_usbdrd30 = 700, gate_usbhost20, usbdrd30 = 703, sclk_fsys0_mmc0, ufsunipro20, phy24m, ufsunipro_cfg, gate_udrd30_phyclock, gate_udrd30_pipe, gate_ufs_tx0,
@@ -87,10 +87,16 @@ enum exynos8890_clks {
 	/* number for disp1 driver starts from 900 */
 	gate_decon1 = 900, gate_hpmdisp1, decon1_eclk0, decon1_eclk1, decon1_eclk0_local, decon1_eclk1_local,
 	disp1_phyclk_mipidphy0_bitclkdiv2_user, disp1_phyclk_mipidphy1_bitclkdiv2_user,
-	disp1_phyclk_mipidphy2_bitclkdiv2_user, disp1_phyclk_disp1_hdmiphy_pixel_clko_user, disp1_sysmmu, disp1_ppmu, disp1_bts,
+	disp1_phyclk_mipidphy2_bitclkdiv2_user, disp1_phyclk_disp1_hdmiphy_pixel_clko_user, disp1_ppmu, disp1_bts,
 
 	/* number for ccore driver starts from 950 */
 	ccore_i2c = 950,
+
+	/* clk id for sysmmu: 1100 ~ 1149
+	 * NOTE: clock IDs of sysmmus are defined in
+	 * include/dt-bindings/clock/exynos8890.h
+	 */
+	sysmmu_last = 1149,
 
 	nr_clks,
 };
@@ -111,7 +117,7 @@ static struct init_vclk exynos8890_mfc_vclks[] __initdata = {
 	/* MFC */
 	VCLK(mfc_hpm, gate_mfc_hpm, "mfc_hpm", 0, 0, NULL),
 	VCLK(mfc_mfc, gate_mfc_mfc, "mfc_mfc", 0, 0, NULL),
-	VCLK(mfc_sysmmu, gate_mfc_sysmmu, "mfc_sysmmu", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_MFC, gate_mfc_sysmmu, "mfc_sysmmu", 0, 0, NULL),
 	VCLK(mfc_ppmu, gate_mfc_ppmu, "mfc_ppmu", 0, 0, NULL),
 };
 
@@ -121,7 +127,7 @@ static struct init_vclk exynos8890_mscl_vclks[] __initdata = {
 	VCLK(mscl_jpeg, gate_mscl_jpeg, "gate_mscl_jpeg", 0, 0, NULL),
 	VCLK(mscl_mscl1, gate_mscl_mscl1, "gate_mscl_mscl1", 0, 0, NULL),
 	VCLK(mscl_g2d, gate_mscl_g2d, "gate_mscl_g2d", 0, 0, NULL),
-	VCLK(mscl_sysmmu, gate_mscl_sysmmu, "gate_mscl_sysmmu", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_MSCL, gate_mscl_sysmmu, "gate_mscl_sysmmu", 0, 0, NULL),
 	VCLK(mscl_ppmu, gate_mscl_ppmu, "gate_mscl_ppmu", 0, 0, NULL),
 	VCLK(mscl_bts, gate_mscl_bts, "gate_mscl_bts", 0, 0, NULL),
 };
@@ -229,7 +235,7 @@ static struct init_vclk exynos8890_isp0_vclks[] __initdata = {
 	VCLK(isp0, pxmxdx_isp0_isp0, "clk_isp0", 0, 0, NULL),
 	VCLK(isp0_tpu, pxmxdx_isp0_tpu, "clk_isp0_tpu", 0, 0, NULL),
 	VCLK(isp0_trex, pxmxdx_isp0_trex, "clk_isp0_trex", 0, 0, NULL),
-	VCLK(isp0_sysmmu, gate_isp0_sysmmu, "gate_isp0_sysmmu", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_ISP0, gate_isp0_sysmmu, "gate_isp0_sysmmu", 0, 0, NULL),
 	VCLK(isp0_ppmu, gate_isp0_ppmu, "gate_isp0_ppmu", 0, 0, NULL),
 	VCLK(isp0_bts, gate_isp0_bts, "gate_isp0_bts", 0, 0, NULL),
 };
@@ -271,7 +277,7 @@ static struct init_vclk exynos8890_cam0_vclks[] __initdata = {
 	VCLK(hs3_csis0_rx_byte, umux_cam0_phyclk_rxbyteclkhs3_csis0_user, "umux_cam0_phyclk_rxbyteclkhs3_csis0_user", 0, 0, NULL),
 	VCLK(hs0_csis1_rx_byte, umux_cam0_phyclk_rxbyteclkhs0_csis1_user, "umux_cam0_phyclk_rxbyteclkhs0_csis1_user", 0, 0, NULL),
 	VCLK(hs1_csis1_rx_byte, umux_cam0_phyclk_rxbyteclkhs1_csis1_user, "umux_cam0_phyclk_rxbyteclkhs1_csis1_user", 0, 0, NULL),
-	VCLK(cam0_sysmmu, gate_cam0_sysmmu, "gate_cam0_sysmmu", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_CAM0, gate_cam0_sysmmu, "gate_cam0_sysmmu", 0, 0, NULL),
 	VCLK(cam0_ppmu, gate_cam0_ppmu, "gate_cam0_ppmu", 0, 0, NULL),
 	VCLK(cam0_bts, gate_cam0_bts, "gate_cam0_bts", 0, 0, NULL),
 };
@@ -315,7 +321,7 @@ static struct init_vclk exynos8890_cam1_vclks[] __initdata = {
 	VCLK(cam1_phy2_csis2, umux_cam1_phyclk_rxbyteclkhs2_csis2_user, "phyclk_rxbyteclkhs2_csis2_user", 0, 0, NULL),
 	VCLK(cam1_phy3_csis2, umux_cam1_phyclk_rxbyteclkhs3_csis2_user, "phyclk_rxbyteclkhs3_csis2_user", 0, 0, NULL),
 	VCLK(cam1_phy0_csis3, umux_cam1_phyclk_rxbyteclkhs0_csis3_user, "phyclk_rxbyteclkhs0_csis3_user", 0, 0, NULL),
-	VCLK(cam1_sysmmu, gate_cam1_sysmmu, "gate_cam1_sysmmu", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_CAM1, gate_cam1_sysmmu, "gate_cam1_sysmmu", 0, 0, NULL),
 	VCLK(cam1_ppmu, gate_cam1_ppmu, "gate_cam1_ppmu", 0, 0, NULL),
 	VCLK(cam1_bts, gate_cam1_bts, "gate_cam1_bts", 0, 0, NULL),
 };
@@ -337,7 +343,7 @@ static struct init_vclk exynos8890_audio_vclks[] __initdata = {
 	VCLK(aud_cp, pxmxdx_aud_cp, "gate_aud_cp", 0, 0, NULL),
 	VCLK(aud_lpass, gate_aud_lpass, "gate_aud_lpass", 0, 0, NULL),
 	VCLK(aud_dma, gate_aud_dma, "gate_aud_dma", 0, 0, NULL),
-	VCLK(aud_sysmmu, gate_aud_sysmmu, "gate_aud_sysmmu", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_AUD, gate_aud_sysmmu, "gate_aud_sysmmu", 0, 0, NULL),
 	VCLK(aud_ppmu, gate_aud_ppmu, "gate_aud_ppmu", 0, 0, NULL),
 	VCLK(aud_bts, gate_aud_bts, "gate_aud_bts", 0, 0, NULL),
 };
@@ -446,6 +452,7 @@ static struct init_vclk exynos8890_disp0_vclks[] __initdata = {
 	VCLK(mipidphy0_bitclkdiv2_user, umux_disp0_phyclk_mipidphy0_bitclkdiv2_user, "umux_disp0_phyclk_mipidphy0_bitclkdiv2_user", 0, 0, NULL),
 	VCLK(mipidphy1_bitclkdiv2_user, umux_disp0_phyclk_mipidphy1_bitclkdiv2_user, "umux_disp0_phyclk_mipidphy1_bitclkdiv2_user", 0, 0, NULL),
 	VCLK(mipidphy2_bitclkdiv2_user, umux_disp0_phyclk_mipidphy2_bitclkdiv2_user, "umux_disp0_phyclk_mipidphy2_bitclkdiv2_user", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_DISP0, gate_disp0_sysmmu, "gate_disp0_sysmmu", 0, 0, NULL),
 };
 
 static struct init_vclk exynos8890_disp1_vclks[] __initdata = {
@@ -462,7 +469,7 @@ static struct init_vclk exynos8890_disp1_vclks[] __initdata = {
 	VCLK(disp1_phyclk_mipidphy1_bitclkdiv2_user, umux_disp1_phyclk_mipidphy1_bitclkdiv2_user, "umux_disp1_phyclk_mipidphy1_bitclkdiv2_user", 0, 0, NULL),
 	VCLK(disp1_phyclk_mipidphy2_bitclkdiv2_user, umux_disp1_phyclk_mipidphy2_bitclkdiv2_user, "umux_disp1_phyclk_mipidphy2_bitclkdiv2_user", 0, 0, NULL),
 	VCLK(disp1_phyclk_disp1_hdmiphy_pixel_clko_user, umux_disp1_phyclk_disp1_hdmiphy_pixel_clko_user, "umux_disp1_phyclk_disp1_hdmiphy_pixel_clko_user", 0, 0, NULL),
-	VCLK(disp1_sysmmu, gate_disp1_sysmmu, "gate_disp1_sysmmu", 0, 0, NULL),
+	VCLK(CLK_VCLK_SYSMMU_DISP1, gate_disp1_sysmmu, "gate_disp1_sysmmu", 0, 0, NULL),
 	VCLK(disp1_ppmu, gate_disp1_ppmu, "gate_disp1_ppmu", 0, 0, NULL),
 	VCLK(disp1_bts, gate_disp1_bts, "gate_disp1_bts", 0, 0, NULL),
 };
