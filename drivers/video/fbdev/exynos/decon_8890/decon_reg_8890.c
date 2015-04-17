@@ -104,10 +104,12 @@ int decon_reg_reset(u32 id)
 /* TODO Auto clock gating is enable as default : CLOCK_CONTROL_0 */
 void decon_reg_set_clkgate_mode(u32 id, u32 en)
 {
+
+	u32 val = en ? ~0 : 0;
+	decon_write_mask(id, CLOCK_CONTROL_0, val, QACTIVE_VALUE);
 	return;
 /*
 	u32 val = en ? ~0 : 0;
-
 	decon_write_mask(id, DECON_CMU, val, DECON_CMU_ALL_CLKGATE_ENABLE);
 */
 }
@@ -657,7 +659,7 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 	decon_reg_set_disp_ss_cfg(id, p->disp_ss_regs, dsi_idx, psr);
 
 	decon_reg_reset(id);
-	decon_reg_set_clkgate_mode(id, 0);
+	decon_reg_set_clkgate_mode(id, 1);
 	decon_reg_set_vidout(id, psr, dsi_idx, 1);
 	decon_reg_set_crc(id, 0);
 
@@ -812,6 +814,9 @@ void decon_reg_set_int(u32 id, struct decon_mode_info *psr, u32 en)
 	} else {
 		decon_write_mask(id, INTERRUPT_ENABLE, 0, INTR_INT_EN);
 	}
+
+	val = decon_read(id, CLOCK_CONTROL_0);
+	decon_err("CLOCK_CONTROL_0 : 0x%x\n", val);
 }
 
 /* Is it need to do hw trigger unmask and mask asynchronously in case of dual DSI */
