@@ -44,6 +44,11 @@ extern struct dma_chan *of_dma_simple_xlate(struct of_phandle_args *dma_spec,
 extern struct dma_chan *of_dma_xlate_by_chan_id(struct of_phandle_args *dma_spec,
 		struct of_dma *ofdma);
 extern unsigned int of_dma_get_mcode_addr(struct device_node *np);
+extern bool of_dma_secure_mode(struct device_node *np);
+extern void __iomem *of_dma_get_arwrapper_address(struct device_node *np, unsigned int num);
+extern void __iomem *of_dma_get_awwrapper_address(struct device_node *np, unsigned int num);
+extern void __iomem *of_dma_get_instwrapper_address(struct device_node *np);
+extern bool of_dma_get_wrapper_available(struct device_node *np);
 #else
 static inline unsigned int of_dma_get_mcode_addr(struct device_node *np)
 {
@@ -69,6 +74,31 @@ static inline struct dma_chan *of_dma_request_slave_channel(struct device_node *
 
 static inline struct dma_chan *of_dma_simple_xlate(struct of_phandle_args *dma_spec,
 		struct of_dma *ofdma)
+{
+	return NULL;
+}
+
+static inline void __iomem *of_dma_get_wrapper_address(struct device_node *np, unsigned int num)
+{
+	return NULL;
+}
+
+static inline void __iomem *of_dma_get_arwrapper_address(struct device_node *np, unsigned int num)
+{
+	return NULL;
+}
+
+static inline void __iomem *of_dma_get_awwrapper_address(struct device_node *np, unsigned int num)
+{
+	return NULL;
+}
+
+static inline void __iomem *of_dma_get_instwrapper_address(struct device_node *np)
+{
+	return NULL;
+}
+
+static inline bool of_dma_get_wrapper_available(struct device_node *np)
 {
 	return NULL;
 }
