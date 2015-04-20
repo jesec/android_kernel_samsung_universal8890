@@ -325,8 +325,8 @@ struct pl330_reqcfg {
  * There may be more than one xfer in a request.
  */
 struct pl330_xfer {
-	u32 src_addr;
-	u32 dst_addr;
+	dma_addr_t src_addr;
+	dma_addr_t dst_addr;
 	/* Size to xfer */
 	u32 bytes;
 };
@@ -387,6 +387,8 @@ struct pl330_thread {
 	unsigned lstenq;
 	/* Index of the last submitted request or -1 if the DMA is stopped */
 	int req_running;
+	void __iomem *ar_wrapper;
+	void __iomem *aw_wrapper;
 };
 
 enum pl330_dmac_state {
@@ -471,6 +473,9 @@ struct pl330_dmac {
 	unsigned mcbufsz;
 	/* ioremap'ed address of PL330 registers. */
 	void __iomem	*base;
+	/* Used the DMA wrapper */
+	bool wrapper;
+	void __iomem *inst_wrapper;
 	/* Populated by the PL330 core driver during pl330_add */
 	struct pl330_config	pcfg;
 
@@ -1485,6 +1490,7 @@ static int pl330_submit_req(struct pl330_thread *thrd,
 	unsigned idx;
 	u32 ccr;
 	int ret = 0;
+	struct device_node *np = thrd->dmac->ddma.dev->of_node;
 
 	if (pl330->state == DYING
 		|| pl330->dmac_tbd.reset_chan & (1 << thrd->id)) {
@@ -1538,6 +1544,11 @@ static int pl330_submit_req(struct pl330_thread *thrd,
 	thrd->lstenq = idx;
 	thrd->req[idx].desc = desc;
 	_setup_req(0, thrd, idx, &xs);
+
+	if (np && pl330->wrapper) {
+		__raw_writel((xs.desc->px.src_addr >> 32) & 0xf, thrd->ar_wrapper);
+		__raw_writel((xs.desc->px.dst_addr >> 32) & 0xf, thrd->aw_wrapper);
+	}
 
 	ret = 0;
 
@@ -1911,6 +1922,13 @@ static int dmac_alloc_threads(struct pl330_dmac *pl330)
 		thrd->dmac = pl330;
 		_reset_thread(thrd);
 		thrd->free = true;
+
+		if (pl330->ddma.dev->of_node && pl330->wrapper) {
+			thrd->ar_wrapper = of_dma_get_arwrapper_address(
+					pl330->ddma.dev->of_node, i);
+			thrd->aw_wrapper = of_dma_get_awwrapper_address(
+					pl330->ddma.dev->of_node, i);
+		}
 	}
 
 	/* MANAGER is indexed at the end */
@@ -1935,6 +1953,9 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 			set_dma_ops(pl330->ddma.dev, &arm_exynos_dma_mcode_ops);
 			pl330->mcode_bus = addr;
 		}
+
+		if (pl330->wrapper)
+			pl330->inst_wrapper = of_dma_get_instwrapper_address(pl330->ddma.dev->of_node);
 	}
 
 	/*
@@ -1944,6 +1965,10 @@ static int dmac_alloc_resources(struct pl330_dmac *pl330)
 	pl330->mcode_cpu = dma_alloc_coherent(pl330->ddma.dev,
 				chans * pl330->mcbufsz,
 				&pl330->mcode_bus, GFP_KERNEL);
+
+	if (pl330->inst_wrapper)
+		__raw_writel((pl330->mcode_bus >> 32) & 0xf, pl330->inst_wrapper);
+
 	if (!pl330->mcode_cpu) {
 		dev_err(pl330->ddma.dev, "%s:%d Can't allocate memory!\n",
 			__func__, __LINE__);
@@ -2809,6 +2834,9 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 			break;
 		}
 	}
+
+	if (adev->dev.of_node)
+		pl330->wrapper = of_dma_get_wrapper_available(adev->dev.of_node);
 
 	pcfg = &pl330->pcfg;
 
