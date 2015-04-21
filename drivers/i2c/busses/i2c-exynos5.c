@@ -28,6 +28,7 @@
 #include <linux/of_i2c.h>
 #include <linux/of_gpio.h>
 #include "../../pinctrl/core.h"
+#include <mach/exynos-powermode.h>
 
 #include <mach/exynos-pm.h>
 #ifdef CONFIG_EXYNOS_APM
@@ -267,6 +268,7 @@ struct exynos5_i2c {
 	unsigned int		cmd_pointer;
 	unsigned int		desc_pointer;
 	unsigned int		batcher_read_addr;
+	int			idle_ip_index;
 };
 
 static const struct of_device_id exynos5_i2c_match[] = {
@@ -1386,9 +1388,12 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 
 #ifdef CONFIG_PM_RUNTIME
 	clk_ret = pm_runtime_get_sync(i2c->dev);
-	if (clk_ret < 0)
+	if (clk_ret < 0) {
+		exynos_update_ip_idle_status(i2c->idle_ip_index, 0);
 		clk_prepare_enable(i2c->clk);
+	}
 #else
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 0);
 	clk_prepare_enable(i2c->clk);
 #endif
 	if (i2c->need_hw_init)
@@ -1441,12 +1446,14 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 #ifdef CONFIG_PM_RUNTIME
 	if (clk_ret < 0) {
 		clk_disable_unprepare(i2c->clk);
+		exynos_update_ip_idle_status(i2c->idle_ip_index, 1);
 	} else {
 		pm_runtime_mark_last_busy(i2c->dev);
 		pm_runtime_put_autosuspend(i2c->dev);
 	}
 #else
 	clk_disable_unprepare(i2c->clk);
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 1);
 #endif
 
 	return ret;
@@ -1546,6 +1553,8 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		i2c->cmd_buffer = HSI2C_BATCHER_INIT_CMD;
 	} else
 		i2c->support_hsi2c_batcher = 0;
+
+	i2c->idle_ip_index = exynos_get_idle_ip_index(dev_name(&pdev->dev));
 
 	strlcpy(i2c->adap.name, "exynos5-i2c", sizeof(i2c->adap.name));
 	i2c->adap.owner   = THIS_MODULE;
@@ -1659,6 +1668,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_get_sync(&pdev->dev);
 #else
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 0);
 	clk_prepare_enable(i2c->clk);
 #endif
 
@@ -1690,6 +1700,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 	pm_runtime_put_autosuspend(&pdev->dev);
 #else
 	clk_disable_unprepare(i2c->clk);
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 1);
 #endif
 
 #if defined(CONFIG_CPU_IDLE) || \
@@ -1723,6 +1734,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 
  err_clk:
 	clk_disable_unprepare(i2c->clk);
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 1);
 	return ret;
 }
 
@@ -1754,9 +1766,11 @@ static int exynos5_i2c_resume_noirq(struct device *dev)
 	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
 
 	i2c_lock_adapter(&i2c->adap);
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 0);
 	clk_prepare_enable(i2c->clk);
 	exynos5_i2c_reset(i2c);
 	clk_disable_unprepare(i2c->clk);
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 1);
 	i2c->suspended = 0;
 	i2c_unlock_adapter(&i2c->adap);
 
@@ -1782,6 +1796,7 @@ static int exynos5_i2c_runtime_suspend(struct device *dev)
 	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(i2c->clk);
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 1);
 
 	return 0;
 }
@@ -1791,6 +1806,7 @@ static int exynos5_i2c_runtime_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct exynos5_i2c *i2c = platform_get_drvdata(pdev);
 
+	exynos_update_ip_idle_status(i2c->idle_ip_index, 0);
 	clk_prepare_enable(i2c->clk);
 
 	return 0;
