@@ -1590,9 +1590,9 @@ static int decon_set_win_buffer(struct decon_device *decon, struct decon_win *wi
 	win->fbinfo->var.blue.length = decon_blue_length(format);
 	win->fbinfo->var.blue.offset = decon_blue_offset(format);
 	win->fbinfo->var.transp.length =
-			decon_transp_length(format);
+			decon_transp_length(win_config->format);
 	win->fbinfo->var.transp.offset =
-			decon_transp_offset(format);
+			decon_transp_offset(win_config->format);
 	win->fbinfo->var.bits_per_pixel = win->fbinfo->var.red.length +
 			win->fbinfo->var.green.length +
 			win->fbinfo->var.blue.length +
