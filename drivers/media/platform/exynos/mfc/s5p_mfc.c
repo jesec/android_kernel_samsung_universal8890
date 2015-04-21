@@ -1022,7 +1022,8 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 			dst_buf->vb.v4l2_buf.flags &=
 					~(V4L2_BUF_FLAG_KEYFRAME |
 					V4L2_BUF_FLAG_PFRAME |
-					V4L2_BUF_FLAG_BFRAME);
+					V4L2_BUF_FLAG_BFRAME |
+					V4L2_BUF_FLAG_ERROR);
 
 			switch (frame_type) {
 			case S5P_FIMV_DISPLAY_FRAME_I:
@@ -1041,9 +1042,12 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 				break;
 			}
 
-			if (s5p_mfc_err_dspl(err))
+			if (s5p_mfc_err_dspl(err)) {
 				mfc_err_ctx("Warning for displayed frame: %d\n",
 							s5p_mfc_err_dspl(err));
+				dst_buf->vb.v4l2_buf.flags |=
+					V4L2_BUF_FLAG_ERROR;
+			}
 
 			if (call_cop(ctx, get_buf_ctrls_val, ctx, &ctx->dst_ctrls[index]) < 0)
 				mfc_err_ctx("failed in get_buf_ctrls_val\n");
