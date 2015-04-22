@@ -1752,7 +1752,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	struct s5p_mfc_enc_params *p = &enc->params;
 	struct s5p_mfc_h264_enc_params *p_264 = &p->codec.h264;
-	unsigned int reg = 0;
+	unsigned int reg = 0, reg2 = 0;
 	int i;
 
 	mfc_debug_enter();
@@ -2023,6 +2023,9 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	reg |= ((p_264->hier_qp_enable & 0x1) << 8);
 	WRITEL(reg, S5P_FIMV_E_H264_OPTIONS);
 	reg = 0;
+	/* number of coding layer should be zero when hierarchical is disable */
+	WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
+
 	if (p_264->num_hier_layer) {
 		reg |= 0x7 << 0x4;
 		reg |= (p_264->hier_qp_type & 0x1) << 0x3;
@@ -2039,9 +2042,20 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 			WRITEL(p_264->hier_bit_layer[i],
 					S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
 		}
+		if (p_264->set_priority)
+		{
+			reg = 0;
+			reg2 = 0;
+			for (i = 0; i < (p_264->num_hier_layer & 0x7); i++) {
+				if (i <= 4)
+					reg |= ((p_264->base_priority & 0x3F) + i) << (6 * i);
+				else
+					reg2 |= ((p_264->base_priority & 0x3F) + i) << (6 * (i - 5));
+			}
+			WRITEL(reg, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
+			WRITEL(reg2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
+		}
 	}
-	/* number of coding layer should be zero when hierarchical is disable */
-	WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 
 	/* set frame pack sei generation */
 	if (p_264->sei_gen_enable) {

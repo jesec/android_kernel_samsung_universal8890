@@ -1811,6 +1811,15 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Hierarchical Base Layer Priority",
+		.minimum = 0,
+		.maximum = (1 << 6) - 1 - 7,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -2212,6 +2221,19 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = 0,
 		.flag_shft = 0,
 	},
+	{	/* set base layer priority */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_SFR,
+		.addr = S5P_FIMV_E_H264_HD_SVC_EXTENSION_0,
+		.mask = 0x0000003F,
+		.shft = 0,
+		.flag_mode = MFC_CTRL_MODE_SFR,
+		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
+		.flag_shft = 12,
+	},
+
 };
 
 #define NUM_CTRL_CFGS ARRAY_SIZE(mfc_ctrl_list)
@@ -2596,7 +2618,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 	struct s5p_mfc_buf_ctrl *buf_ctrl;
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
-	unsigned int value = 0;
+	unsigned int value = 0, value2 = 0;
 	struct temporal_layer_info temporal_LC;
 	unsigned int i;
 	struct s5p_mfc_enc_params *p = &enc->params;
@@ -2665,6 +2687,8 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				goto invalid_layer_count;
 			}
 
+			if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH)
+				p->codec.h264.num_hier_layer = temporal_LC.temporal_layer_count;
 			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
 			/* enable RC_BIT_RATE_CHANGE */
 			value |= (1 << 2);
@@ -2707,6 +2731,24 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			value |= (p->codec.h264.level << 8) & 0xFF00;
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
 			p->codec.h264.profile = buf_ctrl->val;
+		}
+
+		/* temproral layer priority */
+		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY) {
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
+			buf_ctrl->old_val |= value & 0x3FFFFFC0;
+			value &= ~(0x3FFFFFC0);
+			value2 = s5p_mfc_read_reg(dev, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
+			buf_ctrl->old_val2 = value2 & 0x0FFF;
+			value2 &= ~(0x0FFF);
+			for (i = 0; i < (p->codec.h264.num_hier_layer & 0x07); i++) {
+				if (i <= 4)
+					value |= ((buf_ctrl->val & 0x3F) + i) << (6 * i);
+				else
+					value2 |= ((buf_ctrl->val & 0x3F) + i) << (6 * (i - 5));
+			}
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
+			s5p_mfc_write_reg(dev, value2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
 		}
 
 invalid_layer_count:
@@ -2806,6 +2848,10 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 			value &= ~(0xFF00);
 			value |= buf_ctrl->old_val & 0xFF00;
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+		}
+		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY) {
+			s5p_mfc_write_reg(dev, buf_ctrl->old_val, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
+			s5p_mfc_write_reg(dev, buf_ctrl->old_val2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
 		}
 	}
 
@@ -4141,6 +4187,10 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_H264_ENABLE_LTR:
 		p->codec.h264.enable_ltr = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY:
+		p->codec.h264.base_priority = ctrl->value;
+		p->codec.h264.set_priority = 1;
+		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
 		switch ((enum v4l2_mpeg_video_mpeg4_profile)(ctrl->value)) {
 		case V4L2_MPEG_VIDEO_MPEG4_PROFILE_SIMPLE:
@@ -4558,6 +4608,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 	case V4L2_CID_MPEG_MFC_H264_MARK_LTR:
 	case V4L2_CID_MPEG_MFC_H264_USE_LTR:
+	case V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))
 				continue;

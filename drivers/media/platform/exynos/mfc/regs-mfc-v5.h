@@ -398,6 +398,8 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_MFC_VERSION			0
 #define S5P_FIMV_ERR_FRAME_CONCEAL		-1
 #define S5P_FIMV_R2H_CMD_DPB_FLUSH_RET		-2
+#define S5P_FIMV_E_H264_HD_SVC_EXTENSION_0	-1
+#define S5P_FIMV_E_H264_HD_SVC_EXTENSION_1	-1
 
 /* for compatibility */
 #define S5P_FIMV_E_GOP_CONFIG2		-1
