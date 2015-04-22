@@ -364,7 +364,7 @@ static struct init_vclk exynos8890_fsys0_vclks[] __initdata = {
 	VCLK(ufs_tx_pwm, umux_fsys0_phyclk_ufs_tx_pwm_clk_user, "umux_fsys0_phyclk_ufs_tx_pwm_clk_user", 0, 0, NULL),
 	VCLK(ufs_refclk_out, umux_fsys0_phyclk_ufs_refclk_out_soc_user, "umux_fsys0_phyclk_ufs_refclk_out_soc_user", 0, 0, NULL),
 	VCLK(fsys_200, pxmxdx_fsys0, "aclk_ufs", 0, 0, NULL),
-	VCLK(fsys0_etr_usb, gate_fsys0_etr_usb, "gate_fsys0_etr_usb", 0, 0, NULL),
+	VCLK(fsys0_etr_usb, gate_fsys0_etr_usb, "gate_fsys0_etr_usb", 0, 0, "etr_clk"),
 	VCLK(gate_mmc, gate_fsys0_mmc0, "gate_fsys0_mmc0", 0, 0, NULL),
 	VCLK(gate_pdma0, gate_fsys0_pdma0, "gate_fsys0_pdma0", 0, 0, NULL),
 	VCLK(gate_pdmas, gate_fsys0_pdmas, "gate_fsys0_pdmas", 0, 0, NULL),
