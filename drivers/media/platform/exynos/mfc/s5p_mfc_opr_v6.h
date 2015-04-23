@@ -94,6 +94,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 						S5P_FIMV_RET_INSTANCE_ID)
 #define s5p_mfc_get_enc_dpb_count()	readl(dev->regs_base + \
 						S5P_FIMV_E_NUM_DPB)
+#define s5p_mfc_get_enc_scratch_size()	0
 #define s5p_mfc_get_enc_strm_size()	readl(dev->regs_base + \
 						S5P_FIMV_E_STREAM_SIZE)
 #define s5p_mfc_get_enc_slice_type()	readl(dev->regs_base + \
@@ -238,11 +239,6 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 
 /* Encoder buffer size for hevc */
 #define ENC_HEVC_ME_SIZE(x, y)			-1
-#define ENC_V90_VP8_SCRATCH_SIZE(x, y)		-1
-#define ENC_V90_H264_SCRATCH_SIZE(x, y)		-1
-#define DEC_V90_VP9_SCRATCH_SIZE(x, y)		-1
-#define DEC_V90_HEVC_SCRATCH_SIZE(x, y, z)	-1
-#define ENC_V90_HEVC_SCRATCH_SIZE(x, y)		-1
 #define DEC_V90_STATIC_BUFFER_SIZE		-1
 
 /* MV range is [16,256] for v6.1, [16,128] for v6.5 */
@@ -265,13 +261,6 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define ENC_V80_VP8_SCRATCH_SIZE(x, y)				\
 		(((x) * 576) + 10512 +	\
 		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
-
-/* Scratch buffer size for MFC v10.0 */
-#define ENC_V100_H264_SCRATCH_SIZE(x)		-1
-#define ENC_V100_MPEG4_SCRATCH_SIZE(x)		-1
-#define ENC_V100_VP8_SCRATCH_SIZE(x, y)		-1
-#define ENC_V100_VP9_SCRATCH_SIZE(x)		-1
-#define ENC_V100_HEVC_SCRATCH_SIZE(x, y)	-1
 
 void s5p_mfc_try_run(struct s5p_mfc_dev *dev);
 

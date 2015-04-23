@@ -94,6 +94,8 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 						S5P_FIMV_RET_INSTANCE_ID)
 #define s5p_mfc_get_enc_dpb_count()	readl(dev->regs_base + \
 						S5P_FIMV_E_NUM_DPB)
+#define s5p_mfc_get_enc_scratch_size()	readl(dev->regs_base + \
+						S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE)
 #define s5p_mfc_get_enc_strm_size()	readl(dev->regs_base + \
 						S5P_FIMV_E_STREAM_SIZE)
 #define s5p_mfc_get_enc_slice_type()	readl(dev->regs_base + \
@@ -261,24 +263,6 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 
 /* Scratch buffer size for MFC v9.0 */
 #define DEC_V90_STATIC_BUFFER_SIZE	16384
-#define ENC_V90_VP8_SCRATCH_SIZE(x, y)				\
-		(((x) * 608) + 10896 +	\
-		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
-#define ENC_V90_H264_SCRATCH_SIZE(x, y)				\
-		((x * 624) + 2720)
-#define DEC_V90_VP9_SCRATCH_SIZE(x, y)				\
-		(((x) * 2464) + ((y) * 8192) + (((x) * (y)) * 2112) + 2048)
-#define DEC_V90_HEVC_SCRATCH_SIZE(x, y, z)			\
-		(((x) * 64) + ((y) * 2560) + ((z) * 8192) + 2048)
-#define ENC_V90_HEVC_SCRATCH_SIZE(x, y)			\
-		(((x) * 64) + ((y) * 1056) + 2720)
-
-/* Scratch buffer size for MFC v10.0 */
-#define ENC_V100_H264_SCRATCH_SIZE(x)		-1
-#define ENC_V100_MPEG4_SCRATCH_SIZE(x)		-1
-#define ENC_V100_VP8_SCRATCH_SIZE(x, y)		-1
-#define ENC_V100_VP9_SCRATCH_SIZE(x)		-1
-#define ENC_V100_HEVC_SCRATCH_SIZE(x, y)	-1
 
 #define mfc_get_dec_used_flag()		readl(dev->regs_base + \
 						S5P_FIMV_D_USED_DPB_FLAG_LOWER)

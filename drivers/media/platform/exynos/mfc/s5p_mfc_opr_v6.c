@@ -345,13 +345,11 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->scratch_buf_size =
 				ENC_V80_H264_SCRATCH_SIZE(mb_width, mb_height);
 		} else if (IS_MFCv9X(dev)) {
-			ctx->scratch_buf_size =
-				ENC_V90_H264_SCRATCH_SIZE(mb_width, mb_height);
+			mfc_debug(2, "Use min scratch buffer size \n");
 		} else if (IS_MFCv10X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
 			enc->me_buffer_size =
 				ALIGN(ENC_V100_H264_ME_SIZE(mb_width, mb_height), 16);
-			ctx->scratch_buf_size =
-				ENC_V100_H264_SCRATCH_SIZE(mb_width);
 		} else {
 			ctx->scratch_buf_size =
 				ENC_V65_H264_SCRATCH_SIZE(mb_width, mb_height);
@@ -368,11 +366,12 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		if (mfc_version(dev) == 0x61) {
 			ctx->scratch_buf_size =
 				ENC_V61_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
+		} else if (IS_MFCv9X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
 		} else if (IS_MFCv10X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
 			enc->me_buffer_size =
 				ALIGN(ENC_V100_MPEG4_ME_SIZE(mb_width, mb_height), 16);
-			ctx->scratch_buf_size =
-				ENC_V100_MPEG4_SCRATCH_SIZE(mb_width);
 		} else {
 			ctx->scratch_buf_size =
 				ENC_V65_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
@@ -389,13 +388,11 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->scratch_buf_size =
 				ENC_V80_VP8_SCRATCH_SIZE(mb_width, mb_height);
 		} else if (IS_MFCv9X(dev)) {
-			ctx->scratch_buf_size =
-				ENC_V90_VP8_SCRATCH_SIZE(mb_width, mb_height);
+			mfc_debug(2, "Use min scratch buffer size \n");
 		} else if (IS_MFCv10X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
 			enc->me_buffer_size =
 				ALIGN(ENC_V100_VP8_ME_SIZE(mb_width, mb_height), 16);
-			ctx->scratch_buf_size =
-				ENC_V100_VP8_SCRATCH_SIZE(mb_width, mb_height);
 		} else {
 			ctx->scratch_buf_size =
 				ENC_V70_VP8_SCRATCH_SIZE(mb_width, mb_height);
@@ -409,11 +406,12 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		ctx->port_b_size = 0;
 		break;
 	case S5P_FIMV_CODEC_VP9_ENC:
-		if (IS_MFCv10X(dev)) {
+		if (IS_MFCv9X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
+		} else if (IS_MFCv10X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
 			enc->me_buffer_size =
 				ALIGN(ENC_V100_VP9_ME_SIZE(lcu_width, lcu_height), 16);
-			ctx->scratch_buf_size =
-				ENC_V100_VP9_SCRATCH_SIZE(lcu_width);
 		} else {
 			mfc_err_ctx("MFC 0x%x is not supported codec type(%d)\n",
 						mfc_version(dev), ctx->codec_mode);
@@ -428,14 +426,16 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		ctx->port_b_size = 0;
 		break;
 	case S5P_FIMV_CODEC_HEVC_ENC:
-		if (IS_MFCv10X(dev)) {
+		if (IS_MFCv9X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
+		} else if (IS_MFCv10X(dev)) {
+			mfc_debug(2, "Use min scratch buffer size \n");
 			enc->me_buffer_size =
 				ALIGN(ENC_V100_HEVC_ME_SIZE(lcu_width, lcu_height), 16);
-			ctx->scratch_buf_size =
-				ENC_V100_HEVC_SCRATCH_SIZE(mb_width, lcu_width);
 		} else {
-			ctx->scratch_buf_size =
-				ENC_V90_HEVC_SCRATCH_SIZE(mb_width, lcu_width);
+			mfc_err_ctx("MFC 0x%x is not supported codec type(%d)\n",
+						mfc_version(dev), ctx->codec_mode);
+			break;
 		}
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
 		ctx->port_a_size =
