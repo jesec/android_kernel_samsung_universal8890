@@ -269,6 +269,8 @@ static const struct sc_fmt sc_formats[] = {
 static const u32 sc_version_table[][2] = {
 	{ 0x80060007, SCALER_VERSION(4, 2, 0) }, /* SC_BI */
 	{ 0x80050007, SCALER_VERSION(4, 0, 0) }, /* SC_POLY */
+	{ 0xA000000B, SCALER_VERSION(3, 0, 2) },
+	{ 0xA000000A, SCALER_VERSION(3, 0, 2) },
 	{ 0x8000006D, SCALER_VERSION(3, 0, 1) },
 	{ 0x80000068, SCALER_VERSION(3, 0, 0) },
 	{ 0x8004000C, SCALER_VERSION(2, 2, 0) },
