@@ -25,7 +25,7 @@
 
 /* Add OPS */
 struct cl_ops *cl_ops;
-static int apm_wfi_prepare = 1;
+int apm_wfi_prepare = 1;
 static int cm3_status;
 static unsigned int cl_mode_status = CL_ON;
 extern struct cl_ops exynos_cl_function_ops;

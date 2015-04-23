@@ -28,7 +28,7 @@
 #define PMIC_APO_OUT			(0x1F)
 #define PMIC_G3D_OUT			(0x26)
 
-static int apm_wfi_prepare = 1;
+extern int apm_wfi_prepare;
 static DEFINE_MUTEX(cl_mutex);
 char* protocol_name;
 
