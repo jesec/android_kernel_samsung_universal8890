@@ -32,33 +32,8 @@
 
 #define CONFIG_MACH_VELOCE8890
 
-#define SRC_OFFSET_MULTIPLE	2
-#define SRC_SIZE_MULTIPLE	2
-#define SRC_WIDTH_MAX		8190
-#define SRC_HEIGHT_MAX		4096
-#define SRC_WIDTH_MIN		64
-#define SRC_HEIGHT_MIN		32
-
-
-#define IMG_SIZE_MULTIPLE	2
-#define IMG_WIDTH_MAX		4096
-#define IMG_HEIGHT_MAX		4096
-#define IMG_WIDTH_MIN		64
-#define IMG_HEIGHT_MIN		32
-
-#define BLK_WIDTH_MAX		4096
-#define BLK_HEIGHT_MAX		4096
-#define BLK_WIDTH_MIN		144
-#define BLK_HEIGHT_MIN		10
-
-#define SCALED_SIZE_MULTIPLE	2
-#define SCALED_WIDTH_MAX	4096
-#define SCALED_HEIGHT_MAX	4096
-#define SCALED_WIDTH_MIN	32
-#define SCALED_HEIGHT_MIN	16
-
-#define check_align(width, height, align)\
-	(IS_ALIGNED(width, align) && IS_ALIGNED(height, align))
+#define check_align(width, height, align_w, align_h)\
+	(IS_ALIGNED(width, align_w) && IS_ALIGNED(height, align_h))
 #define is_err_irq(irq) ((irq == VG_IRQ_DEADLOCK_STATUS) ||\
 			(irq == VG_IRQ_READ_SLAVE_ERROR))
 
@@ -156,69 +131,6 @@ static int vpp_wait_for_update(struct vpp_dev *vpp)
 	return 0;
 }
 
-static void vpp_get_align_variant(struct decon_win_config *config,
-	u32 *offs, u32 *src_f, u32 *src_cr, u32 *dst_cr)
-{
-	if (is_rotation(config)) {
-		if (is_yuv(config)) {
-			*offs = *src_f = 4;
-			*src_cr = 2;
-			*dst_cr = 1;
-		} else {
-			*offs = *src_f = 2;
-			*src_cr = *dst_cr = 1;
-		}
-	} else {
-		if (is_yuv(config)) {
-			*offs = *src_f = 2;
-			*src_cr = 2;
-			*dst_cr = 1;
-		} else {
-			*offs = *src_f = 1;
-			*src_cr = *dst_cr = 1;
-		}
-	}
-}
-
-static void vpp_get_min_max_variant(struct decon_win_config *config,
-		u32 *max_src, u32 *min_src_w, u32 *min_src_h,
-		u32 *max_dst, u32 *min_dst_w, u32 *min_dst_h)
-{
-	if (is_rotation(config)) {
-		if (is_yuv(config)) {
-			*max_src = 2560;
-			*max_dst = 4096;
-			*min_src_w = 32;
-			*min_src_h = 64;
-			*min_dst_w = 16;
-			*min_dst_h = 8;
-		} else {
-			*max_src = 2560;
-			*max_dst = 4096;
-			*min_src_w = 16;
-			*min_src_h = 32;
-			*min_dst_w = 16;
-			*min_dst_h = 8;
-		}
-	} else {
-		if (is_yuv(config)) {
-			*max_src = 4096;
-			*max_dst = 4096;
-			*min_src_w = 64;
-			*min_src_h = 32;
-			*min_dst_w = 16;
-			*min_dst_h = 8;
-		} else {
-			*max_src = 4096;
-			*max_dst = 4096;
-			*min_src_w = 32;
-			*min_src_h = 16;
-			*min_dst_w = 16;
-			*min_dst_h = 8;
-		}
-	}
-}
-
 static void vpp_separate_fraction_value(struct vpp_dev *vpp,
 			int *integer, u32 *fract_val)
 {
@@ -267,32 +179,28 @@ static int vpp_check_size(struct vpp_dev *vpp)
 	struct decon_win_config *config = vpp->config;
 	struct decon_frame *src = &config->src;
 	struct decon_frame *dst = &config->dst;
+	struct vpp_size_constraints vc;
+	struct vpp_img_format vi;
 
-	u32 offs, src_f, src_cr, dst_cr;
-	u32 max_src, min_src_w, min_src_h;
-	u32 max_dst, min_dst_w, min_dst_h;
+	vpp_select_format(vpp, &vi);
+	vpp_constraints_params(&vc, &vi);
 
-	vpp_get_align_variant(config, &offs, &src_f,
-					&src_cr, &dst_cr);
-	vpp_get_min_max_variant(config, &max_src, &min_src_w,
-		&min_src_h, &max_dst, &min_dst_w, &min_dst_h);
-
-	if ((!check_align(src->x, src->y, offs)) ||
-	   (!check_align(src->f_w, src->f_h, src_f)) ||
-	   (!check_align(src->w, src->h, src_cr)) ||
-	   (!check_align(dst->w, dst->h, dst_cr))) {
+	if ((!check_align(src->x, src->y, vc.src_mul_x, vc.src_mul_y)) ||
+	   (!check_align(src->f_w, src->f_h, vc.src_mul_w, vc.src_mul_h)) ||
+	   (!check_align(src->w, src->h, vc.img_mul_w, vc.img_mul_h)) ||
+	   (!check_align(dst->w, dst->h, vc.sca_mul_w, vc.sca_mul_h))) {
 		dev_err(DEV, "Alignment error\n");
 		goto err;
 	}
 
-	if (src->w > max_src || src->w < min_src_w ||
-		src->h > max_src || src->h < min_src_h) {
+	if (src->w > vc.src_w_max || src->w < vc.src_w_min ||
+		src->h > vc.src_h_max || src->h < vc.src_h_min) {
 		dev_err(DEV, "Unsupported source size\n");
 		goto err;
 	}
 
-	if (dst->w > max_dst || dst->w < min_dst_w ||
-		dst->h > max_dst || dst->h < min_dst_h) {
+	if (dst->w > vc.sca_w_max || dst->w < vc.sca_w_min ||
+		dst->h > vc.sca_h_max || dst->h < vc.sca_h_min) {
 		dev_err(DEV, "Unsupported dest size\n");
 		goto err;
 	}

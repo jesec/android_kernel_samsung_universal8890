@@ -35,8 +35,8 @@
 #define VPP_PADS_NUM	1
 #define DEV		(&vpp->pdev->dev)
 
-#define is_vgr(vpp) ((vpp->id == 6) || (vpp->id == 7))
 #define is_rotation(config) (config->vpp_parm.rot >= VPP_ROT_90)
+#define is_normal(config) (VPP_ROT_NORMAL)
 #define is_yuv(config) ((config->format >= DECON_PIXEL_FORMAT_NV16) && (config->format < DECON_PIXEL_FORMAT_MAX))
 #define is_yuv422(config) ((config->format >= DECON_PIXEL_FORMAT_NV16) && (config->format <= DECON_PIXEL_FORMAT_YVU422_3P))
 #define is_yuv420(config) ((config->format >= DECON_PIXEL_FORMAT_NV12) && (config->format <= DECON_PIXEL_FORMAT_YVU420M))
@@ -45,6 +45,9 @@
 #define is_ayv12(config) (config->format == DECON_PIXEL_FORMAT_YVU420)
 #define is_fraction(x) ((x) >> 15)
 #define is_vpp0_series(vpp) ((vpp->id == 0 || vpp->id == 1 || vpp->id == 2 || vpp->id == 3))
+#define is_vgr(vpp) ((vpp->id == 6) || (vpp->id == 7))
+#define is_g(vpp) ((vpp->id == 0) || (vpp->id == 1) || (vpp->id == 4) || (vpp->id == 5))
+#define is_wb(vpp) (vpp->id == 8)
 #define is_scaling(vpp) ((vpp->h_ratio != (1 << 20)) || (vpp->v_ratio != (1 << 20)))
 #define is_scale_down(vpp) ((vpp->h_ratio > (1 << 20)) || (vpp->v_ratio > (1 << 20)))
 
@@ -195,6 +198,22 @@ static inline void vpp_write_mask(u32 id, u32 reg_id, u32 val, u32 mask)
 
 	val = (val & mask) | (old & ~mask);
 	writel(val, vpp->regs + reg_id);
+}
+
+static inline void vpp_select_format(struct vpp_dev *vpp, struct vpp_img_format *vi)
+{
+	struct decon_win_config *config = vpp->config;
+
+	vi->vgr = is_vgr(vpp);
+	vi->normal = is_normal(vpp);
+	vi->rot = is_rotation(config);
+	vi->yuv = is_yuv(config);
+	vi->yuv422 = is_yuv422(config);
+	vi->yuv420 = is_yuv420(config);
+	vi->pre_none = 1;
+	vi->pre_12 = 0;
+	vi->pre_14 = 0;
+	vi->wb = is_wb(vpp);
 }
 
 static inline void vpp_to_scale_params(struct vpp_dev *vpp, struct vpp_size_param *p)
