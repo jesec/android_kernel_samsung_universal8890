@@ -872,6 +872,7 @@ struct s5p_mfc_enc {
 	unsigned int buf_full;
 
 	int stored_tag;
+	int config_qp;
 	struct mfc_user_shared_handle sh_handle;
 };
 

@@ -1869,6 +1869,11 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	reg |= p_264->rc_frame_qp;
 	WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
 
+	if (p->rc_frame == 0 && p->rc_mb == 0) {
+		reg |= (0x1 << 11);
+		WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
+	}
+
 	/* frame rate */
 	/* Fix value for H.264, H.263 in the driver */
 	p->rc_frame_delta = FRAME_DELTA_DEFAULT;

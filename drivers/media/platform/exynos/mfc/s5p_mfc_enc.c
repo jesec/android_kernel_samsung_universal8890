@@ -1820,6 +1820,15 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_CONFIG_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "QP control per each frame",
+		.minimum = 0,
+		.maximum = (1 << 8) - 1,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -2245,7 +2254,18 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 12,
 	},
-
+	{	/* set QP per each frame */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_MFC_CONFIG_QP,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_SFR,
+		.addr = S5P_FIMV_E_FIXED_PICTURE_QP,
+		.mask = 0x0000007F,
+		.shft = 24,
+		.flag_mode = MFC_CTRL_MODE_NONE,
+		.flag_addr = 0,
+		.flag_shft = 0,
+	},
 };
 
 #define NUM_CTRL_CFGS ARRAY_SIZE(mfc_ctrl_list)
@@ -2765,11 +2785,21 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
 			s5p_mfc_write_reg(dev, value2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
 		}
+		/* per buffer QP setting change */
+		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_CONFIG_QP)
+			enc->config_qp = buf_ctrl->val;
 
 invalid_layer_count:
 		mfc_debug(8, "Set buffer control "\
 				"id: 0x%08x val: %d\n",
 				buf_ctrl->id, buf_ctrl->val);
+	}
+
+	if (!p->rc_frame && !p->rc_mb) {
+		value = s5p_mfc_read_reg(dev, S5P_FIMV_E_FIXED_PICTURE_QP);
+		value &= ~(0xFF000000);
+		value |= (enc->config_qp & 0xFF) << 24;
+		s5p_mfc_write_reg(dev, value, S5P_FIMV_E_FIXED_PICTURE_QP);
 	}
 
 	return 0;
@@ -4625,6 +4655,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_H264_USE_LTR:
 	case V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY:
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER:
+	case V4L2_CID_MPEG_MFC_CONFIG_QP:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))
 				continue;
@@ -5284,6 +5315,7 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	INIT_LIST_HEAD(&enc->ref_queue);
 	enc->ref_queue_cnt = 0;
 	enc->sh_handle.fd = -1;
+	enc->config_qp = 34;
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
