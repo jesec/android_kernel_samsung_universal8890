@@ -471,6 +471,7 @@ struct s5p_mfc_h264_enc_params {
 	u32 enable_ltr;
 	u32 set_priority;
 	u32 base_priority;
+	u32 vui_enable;
 };
 
 /**

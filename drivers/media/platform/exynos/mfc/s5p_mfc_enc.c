@@ -1829,6 +1829,15 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_MFC_H264_VUI_RESTRICTION_ENABLE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "H264 vui generation enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -4548,6 +4557,9 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_STORE_REF:
 		p->codec.hevc.store_ref = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC_H264_VUI_RESTRICTION_ENABLE:
+		p->codec.h264.vui_enable = ctrl->value;
 		break;
 	default:
 		v4l2_err(&dev->v4l2_dev, "Invalid control\n");

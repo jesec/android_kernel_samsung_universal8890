@@ -2002,7 +2002,10 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	/* VUI parameter disable */
 	if (FW_HAS_VUI_PARAMS(dev)) {
 		reg = READL(S5P_FIMV_E_H264_OPTIONS);
-		reg &= ~(0x1 << 30);
+		if (p_264->vui_enable)
+			reg |= (0x1 << 30);
+		else
+			reg &= ~(0x1 << 30);
 		WRITEL(reg, S5P_FIMV_E_H264_OPTIONS);
 	}
 
