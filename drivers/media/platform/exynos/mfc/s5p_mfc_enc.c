@@ -390,7 +390,7 @@ static struct v4l2_queryctrl controls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "H264 profile",
 		.minimum = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
-		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH,
+		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
 		.step = 1,
 		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
 	},
@@ -2313,7 +2313,7 @@ int s5p_mfc_enc_ctx_ready(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
-static inline int h264_profile(struct s5p_mfc_ctx *ctx, enum v4l2_mpeg_video_h264_profile profile)
+static inline int h264_profile(struct s5p_mfc_ctx *ctx, int profile)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret = 0;
@@ -2331,6 +2331,12 @@ static inline int h264_profile(struct s5p_mfc_ctx *ctx, enum v4l2_mpeg_video_h26
 	case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE:
 		if (IS_MFCV6(dev))
 			ret = S5P_FIMV_ENC_PROFILE_H264_CONSTRAINED_BASELINE;
+		else
+			ret = -EINVAL;
+		break;
+	case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH:
+		if (IS_MFCV6(dev))
+			ret = S5P_FIMV_ENC_PROFILE_H264_CONSTRAINED_HIGH;
 		else
 			ret = -EINVAL;
 		break;
