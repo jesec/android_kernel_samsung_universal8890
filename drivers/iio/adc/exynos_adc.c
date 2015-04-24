@@ -40,6 +40,8 @@
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
 
+#include <soc/samsung/exynos-powermode.h>
+
 /* S3C/EXYNOS4412/5250 ADC_V1 registers definitions */
 #define ADC_V1_CON(x)		((x) + 0x00)
 #define ADC_V1_DLY(x)		((x) + 0x08)
@@ -104,6 +106,7 @@ struct exynos_adc {
 
 	u32			value;
 	unsigned int            version;
+	int			idle_ip_index;
 };
 
 struct exynos_adc_data {
@@ -182,23 +185,27 @@ static int exynos_adc_enable_access(struct exynos_adc *info)
 {
 	int ret;
 
+	exynos_update_ip_idle_status(info->idle_ip_index, 0);
 	if (info->data->needs_adc_phy)
 		writel(1, info->enable_reg);
 
 	if (info->vdd) {
 		ret = regulator_enable(info->vdd);
 		if (ret)
-			return ret;
+			goto err;
 	}
 	ret = exynos_adc_prepare_clk(info);
 	if (ret)
-		return ret;
+		goto err;
 
 	ret = exynos_adc_enable_clk(info);
 	if (ret)
-		return ret;
+		goto err;
 
 	return 0;
+err:
+	exynos_update_ip_idle_status(info->idle_ip_index, 1);
+	return ret;
 }
 
 static void exynos_adc_disable_access(struct exynos_adc *info)
@@ -210,6 +217,7 @@ static void exynos_adc_disable_access(struct exynos_adc *info)
 
 	if (info->data->needs_adc_phy)
 		writel(0, info->enable_reg);
+	exynos_update_ip_idle_status(info->idle_ip_index, 1);
 }
 
 static void exynos_adc_v1_init_hw(struct exynos_adc *info)
@@ -483,6 +491,9 @@ static int exynos_read_raw(struct iio_dev *indio_dev,
 		ret = IIO_VAL_INT;
 	}
 
+	if (info->data->exit_hw)
+		info->data->exit_hw(info);
+
 	disable_irq(info->irq);
 	exynos_adc_disable_access(info);
 
@@ -620,6 +631,7 @@ static int exynos_adc_probe(struct platform_device *pdev)
 
 	info->irq = irq;
 	info->dev = &pdev->dev;
+	info->idle_ip_index = exynos_get_idle_ip_index(dev_name(&pdev->dev));
 
 	init_completion(&info->completion);
 
@@ -647,6 +659,7 @@ static int exynos_adc_probe(struct platform_device *pdev)
 		info->vdd = NULL;
 	}
 
+	exynos_update_ip_idle_status(info->idle_ip_index, 0);
 	if (info->vdd) {
 		ret = regulator_enable(info->vdd);
 		if (ret)
@@ -683,6 +696,7 @@ static int exynos_adc_probe(struct platform_device *pdev)
 	exynos_adc_unprepare_clk(info);
 	if (info->vdd)
 		regulator_disable(info->vdd);
+	exynos_update_ip_idle_status(info->idle_ip_index, 1);
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
