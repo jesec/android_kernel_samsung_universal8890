@@ -57,6 +57,7 @@
  */
 struct exynos_tmu_data {
 	int id;
+	bool initialized;
 	struct exynos_tmu_platform_data *pdata;
 	void __iomem *base;
 	void __iomem *base_second;
@@ -175,7 +176,8 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 		}
 	}
 
-	list_add_tail(&data->node, &dtm_dev_list);
+	if (!data->initialized)
+		list_add_tail(&data->node, &dtm_dev_list);
 
 	/* Save trimming info in order to perform calibration */
 	if (data->soc == SOC_ARCH_EXYNOS5440) {
@@ -294,6 +296,7 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	if (reg->tmu_pmin && !data->id)
 		writel(0, data->base_second + reg->tmu_pmin);
 out:
+	data->initialized = true;
 	mutex_unlock(&data->lock);
 
 	return ret;
