@@ -20,7 +20,7 @@
 /* Configuration */
 #define SCALER_CFG			0x04
 #define SCALER_CFG_DRCG_EN		(1 << 31)
-#define SCALER_CFG_CORE_BYP_EN		(1 << 30)
+#define SCALER_CFG_CORE_BYP_EN		(1 << 29)
 #define SCALER_CFG_SRAM_CG_EN		(1 << 28)
 #define SCALER_CFG_FILL_EN		(1 << 24)
 #define SCALER_CFG_BL_DIV_ALPHA_EN	(1 << 17)
