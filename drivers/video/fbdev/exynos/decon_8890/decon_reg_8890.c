@@ -108,10 +108,6 @@ void decon_reg_set_clkgate_mode(u32 id, u32 en)
 	u32 val = en ? ~0 : 0;
 	decon_write_mask(id, CLOCK_CONTROL_0, val, QACTIVE_VALUE);
 	return;
-/*
-	u32 val = en ? ~0 : 0;
-	decon_write_mask(id, DECON_CMU, val, DECON_CMU_ALL_CLKGATE_ENABLE);
-*/
 }
 
 void decon_reg_set_vidout(u32 id, struct decon_mode_info *psr,
@@ -240,16 +236,12 @@ void decon_reg_set_porch(u32 id, int disp_idx, struct decon_lcd *info)
 void decon_reg_set_linecnt_op_threshold(u32 id, int dsi_idx, u32 th)
 {
 	return;
-#if 0
-	decon_write(id, LINECNT_OP_THRESHOLD(dsi_idx), th);
-#endif
 }
 
 /* TODO : Do JF need this? */
 void decon_reg_set_clkval(u32 id, u32 clkdiv)
 {
 	return;
-	/* decon_write_mask(id, VCLKCON0, ~0, VCLKCON0_CLKVALUP); */
 }
 
 void decon_reg_direct_on_off(u32 id, u32 en)
@@ -814,9 +806,6 @@ void decon_reg_set_int(u32 id, struct decon_mode_info *psr, u32 en)
 	} else {
 		decon_write_mask(id, INTERRUPT_ENABLE, 0, INTR_INT_EN);
 	}
-
-	val = decon_read(id, CLOCK_CONTROL_0);
-	decon_err("CLOCK_CONTROL_0 : 0x%x\n", val);
 }
 
 /* Is it need to do hw trigger unmask and mask asynchronously in case of dual DSI */

@@ -2220,6 +2220,7 @@ static void decon_win_shadow_update_req(struct decon_device *decon, int win_bitm
 	int i;
 	u32 mask;
 
+	/* Should be updated when window is changed */
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		mask = (1 << i);
 		if ((win_bitmap & mask) || (decon->prev_win_bitmap & mask))
@@ -3727,6 +3728,7 @@ static int decon_probe(struct platform_device *pdev)
 			}
 		}
 
+		decon->prev_win_bitmap = (1 << decon->pdata->default_win);
 		decon_to_init_param(decon, &p);
 		if (decon_reg_init(decon->id, decon->out_idx, &p) < 0)
 			goto decon_init_done;

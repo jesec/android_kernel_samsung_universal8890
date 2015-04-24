@@ -365,6 +365,7 @@ int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	decon_reg_win_shadow_update_req(decon->id, win->index);
 
+	decon_to_psr_info(decon, &psr);
 	decon_reg_update_req_and_unmask(decon->id, &psr);
 	decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
 

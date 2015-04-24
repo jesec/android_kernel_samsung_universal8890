@@ -78,7 +78,7 @@ extern int decon_log_level;
 #define UNDERRUN_FILTER_INTERVAL_MS    100
 #define UNDERRUN_FILTER_INIT           0
 #define UNDERRUN_FILTER_IDLE           1
-#define DECON_UNDERRUN_THRESHOLD	300
+#define DECON_UNDERRUN_THRESHOLD	0
 #ifdef CONFIG_FB_WINDOW_UPDATE
 #define DECON_WIN_UPDATE_IDX	(8)
 #define decon_win_update_dbg(fmt, ...)					\
