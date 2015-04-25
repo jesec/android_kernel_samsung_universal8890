@@ -87,6 +87,7 @@ struct exynos_tmu_init_data const exynos4210_default_tmu_data = {
 #if defined(CONFIG_SOC_EXYNOS3250)
 static const struct exynos_tmu_registers exynos3250_tmu_registers = {
 	.triminfo_data = EXYNOS_TMU_REG_TRIMINFO,
+	.triminfo_85_shift = EXYNOS_TRIMINFO_85_SHIFT,
 	.triminfo_ctrl[0] = EXYNOS_TMU_TRIMINFO_CON1,
 	.triminfo_ctrl[1] = EXYNOS_TMU_TRIMINFO_CON2,
 	.triminfo_ctrl_count = 2,
@@ -663,6 +664,233 @@ struct exynos_tmu_init_data const exynos7580_default_tmu_data = {
 		{ EXYNOS7580_TMU_DATA } ,
 		{ EXYNOS7580_TMU_DATA } ,
 		{ EXYNOS7580_TMU_DATA_GPU } ,
+	},
+	.tmu_count = 3,
+};
+#endif
+
+#if defined(CONFIG_SOC_EXYNOS8890)
+static const struct exynos_tmu_registers exynos8890_tmu_registers = {
+	.triminfo_data = EXYNOS_TMU_REG_TRIMINFO,
+	.triminfo_85_shift = EXYNOS8890_TRIMINFO_85_SHIFT,
+	.tmu_ctrl = EXYNOS_TMU_REG_CONTROL,
+	.tmu_ctrl1 = EXYNOS_TMU_REG_CONTROL1,
+	.therm_trip_mode_shift = EXYNOS_TMU_TRIP_MODE_SHIFT,
+	.therm_trip_mode_mask = EXYNOS_TMU_TRIP_MODE_MASK,
+	.therm_trip_en_shift = EXYNOS_TMU_THERM_TRIP_EN_SHIFT,
+	.lpi0_mode_en_shift = EXYNOS7580_TMU_LPI0_MODE_EN_SHIFT,
+	.tmu_status = EXYNOS_TMU_REG_STATUS,
+	.tmu_cur_temp = EXYNOS_TMU_REG_CURRENT_TEMP,
+	.threshold_th0 = EXYNOS8890_TMU_RISE0_1,
+	.threshold_th1 = EXYNOS8890_TMU_FALL0_1,
+	.threshold_th2 = EXYNOS8890_TMU_RISE2_3,
+	.threshold_th3 = EXYNOS8890_TMU_FALL2_3,
+	.threshold_th4 = EXYNOS8890_TMU_RISE4_5,
+	.threshold_th5 = EXYNOS8890_TMU_FALL4_5,
+	.threshold_th6 = EXYNOS8890_TMU_RISE6_7,
+	.threshold_th7 = EXYNOS8890_TMU_FALL6_7,
+	.threshold_th3_l0_shift = EXYNOS8890_TMU_TH_HW_TRIP_SHIFT,
+	.tmu_inten = EXYNOS8890_TMU_REG_INTEN,
+	.inten_rise0_shift = EXYNOS8890_TMU_INTEN_RISE0_SHIFT,
+	.inten_rise1_shift = EXYNOS8890_TMU_INTEN_RISE1_SHIFT,
+	.inten_rise2_shift = EXYNOS8890_TMU_INTEN_RISE2_SHIFT,
+	.inten_rise3_shift = EXYNOS8890_TMU_INTEN_RISE3_SHIFT,
+	.inten_rise4_shift = EXYNOS8890_TMU_INTEN_RISE4_SHIFT,
+	.inten_rise5_shift = EXYNOS8890_TMU_INTEN_RISE5_SHIFT,
+	.inten_rise6_shift = EXYNOS8890_TMU_INTEN_RISE6_SHIFT,
+	.inten_rise7_shift = EXYNOS8890_TMU_INTEN_RISE7_SHIFT,
+	.inten_fall0_shift = EXYNOS8890_TMU_INTEN_FALL0_SHIFT,
+	.inten_fall1_shift = EXYNOS8890_TMU_INTEN_FALL1_SHIFT,
+	.inten_fall2_shift = EXYNOS8890_TMU_INTEN_FALL2_SHIFT,
+	.inten_fall3_shift = EXYNOS8890_TMU_INTEN_FALL3_SHIFT,
+	.inten_fall4_shift = EXYNOS8890_TMU_INTEN_FALL4_SHIFT,
+	.inten_fall5_shift = EXYNOS8890_TMU_INTEN_FALL5_SHIFT,
+	.inten_fall6_shift = EXYNOS8890_TMU_INTEN_FALL6_SHIFT,
+	.inten_fall7_shift = EXYNOS8890_TMU_INTEN_FALL7_SHIFT,
+	.tmu_intstat = EXYNOS8890_TMU_REG_INTCLEAR,
+	.tmu_intclear = EXYNOS8890_TMU_REG_INTCLEAR,
+	.emul_con = EXYNOS8890_EMUL_CON,
+	.emul_temp_shift = EXYNOS8890_EMUL_DATA_SHIFT,
+	.emul_time_shift = EXYNOS_EMUL_TIME_SHIFT,
+};
+
+#define EXYNOS8890_TMU_DATA_MNGS \
+	.trigger_levels[0] = 76, \
+	.trigger_levels[1] = 81, \
+	.trigger_levels[2] = 86, \
+	.trigger_levels[3] = 91, \
+	.trigger_levels[4] = 96, \
+	.trigger_levels[5] = 115, \
+	.trigger_enable[0] = 1, \
+	.trigger_enable[1] = 1, \
+	.trigger_enable[2] = 1, \
+	.trigger_enable[3] = 1, \
+	.trigger_enable[4] = 1, \
+	.trigger_enable[5] = 1, \
+	.trigger_type[0] = THROTTLE_ACTIVE, \
+	.trigger_type[1] = THROTTLE_ACTIVE, \
+	.trigger_type[2] = THROTTLE_ACTIVE, \
+	.trigger_type[3] = THROTTLE_ACTIVE, \
+	.trigger_type[4] = THROTTLE_ACTIVE, \
+	.trigger_type[5] = HW_TRIP, \
+	.max_trigger_level = 6, \
+	.non_hw_trigger_levels = 5, \
+	.gain = 5, \
+	.reference_voltage = 16, \
+	.noise_cancel_mode = 0, \
+	.cal_type = TYPE_TWO_POINT_TRIMMING, \
+	.efuse_value = 50, \
+	.min_efuse_value = 16, \
+	.max_efuse_value = 76, \
+	.first_point_trim = 25, \
+	.second_point_trim = 85, \
+	.default_temp_offset = 25, \
+	.freq_tab[0] = { \
+		.freq_clip_max = 1560 * 1000, \
+		.temp_level = 76, \
+	}, \
+	.freq_tab[1] = { \
+		.freq_clip_max = 1040 * 1000, \
+		.temp_level = 81, \
+	}, \
+	.freq_tab[2] = { \
+		.freq_clip_max = 416 * 1000, \
+		.temp_level = 86, \
+	}, \
+	.freq_tab_count = 3, \
+	.type = SOC_ARCH_EXYNOS8890, \
+	.d_type = CPU, \
+	.registers = &exynos8890_tmu_registers, \
+	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
+			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
+			TMU_SUPPORT_EMUL_TIME),
+
+#define EXYNOS8890_TMU_DATA_APOLLO \
+	.trigger_levels[0] = 76, \
+	.trigger_levels[1] = 81, \
+	.trigger_levels[2] = 86, \
+	.trigger_levels[3] = 91, \
+	.trigger_levels[4] = 96, \
+	.trigger_levels[5] = 115, \
+	.trigger_enable[0] = 1, \
+	.trigger_enable[1] = 1, \
+	.trigger_enable[2] = 1, \
+	.trigger_enable[3] = 1, \
+	.trigger_enable[4] = 1, \
+	.trigger_enable[5] = 1, \
+	.trigger_type[0] = THROTTLE_ACTIVE, \
+	.trigger_type[1] = THROTTLE_ACTIVE, \
+	.trigger_type[2] = THROTTLE_ACTIVE, \
+	.trigger_type[3] = THROTTLE_ACTIVE, \
+	.trigger_type[4] = THROTTLE_ACTIVE, \
+	.trigger_type[5] = HW_TRIP, \
+	.max_trigger_level = 6, \
+	.non_hw_trigger_levels = 5, \
+	.gain = 5, \
+	.reference_voltage = 16, \
+	.noise_cancel_mode = 0, \
+	.cal_type = TYPE_TWO_POINT_TRIMMING, \
+	.efuse_value = 50, \
+	.min_efuse_value = 16, \
+	.max_efuse_value = 76, \
+	.first_point_trim = 25, \
+	.second_point_trim = 85, \
+	.default_temp_offset = 25, \
+	.freq_tab[0] = { \
+		.freq_clip_max = 1274 * 1000, \
+		.temp_level = 76, \
+	}, \
+	.freq_tab[1] = { \
+		.freq_clip_max = 1170 * 1000, \
+		.temp_level = 86, \
+	}, \
+	.freq_tab[2] = { \
+		.freq_clip_max = 962 * 1000, \
+		.temp_level = 91, \
+	}, \
+	.freq_tab[3] = { \
+		.freq_clip_max = 338 * 1000, \
+		.temp_level = 96, \
+	}, \
+	.freq_tab_count = 4, \
+	.type = SOC_ARCH_EXYNOS8890, \
+	.d_type = CPU, \
+	.registers = &exynos8890_tmu_registers, \
+	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
+			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
+			TMU_SUPPORT_EMUL_TIME),
+
+#define EXYNOS8890_TMU_DATA_GPU \
+	.trigger_levels[0] = 76, \
+	.trigger_levels[1] = 81, \
+	.trigger_levels[2] = 86, \
+	.trigger_levels[3] = 91, \
+	.trigger_levels[4] = 96, \
+	.trigger_levels[5] = 101, \
+	.trigger_levels[6] = 115, \
+	.trigger_enable[0] = 1, \
+	.trigger_enable[1] = 1, \
+	.trigger_enable[2] = 1, \
+	.trigger_enable[3] = 1, \
+	.trigger_enable[4] = 1, \
+	.trigger_enable[5] = 1, \
+	.trigger_enable[6] = 1, \
+	.trigger_type[0] = THROTTLE_ACTIVE, \
+	.trigger_type[1] = THROTTLE_ACTIVE, \
+	.trigger_type[2] = THROTTLE_ACTIVE, \
+	.trigger_type[3] = THROTTLE_ACTIVE, \
+	.trigger_type[4] = THROTTLE_ACTIVE, \
+	.trigger_type[5] = THROTTLE_ACTIVE, \
+	.trigger_type[6] = HW_TRIP, \
+	.max_trigger_level = 7, \
+	.non_hw_trigger_levels = 6, \
+	.gain = 5, \
+	.reference_voltage = 16, \
+	.noise_cancel_mode = 2, \
+	.cal_type = TYPE_TWO_POINT_TRIMMING, \
+	.efuse_value = 50, \
+	.min_efuse_value = 16, \
+	.max_efuse_value = 76, \
+	.first_point_trim = 25, \
+	.second_point_trim = 85, \
+	.default_temp_offset = 25, \
+	.freq_tab[0] = { \
+		.freq_clip_max = 598 * 1000, \
+		.temp_level = 76, \
+	}, \
+	.freq_tab[1] = { \
+		.freq_clip_max = 598 * 1000, \
+		.temp_level = 81, \
+	}, \
+	.freq_tab[2] = { \
+		.freq_clip_max = 546 * 1000, \
+		.temp_level = 86, \
+	}, \
+	.freq_tab[3] = { \
+		.freq_clip_max = 416 * 1000, \
+		.temp_level = 91, \
+	}, \
+	.freq_tab[4] = { \
+		.freq_clip_max = 273 * 1000, \
+		.temp_level = 96, \
+	}, \
+	.freq_tab[5] = { \
+		.freq_clip_max = 169 * 1000, \
+		.temp_level = 101, \
+	}, \
+	.freq_tab_count = 6, \
+	.type = SOC_ARCH_EXYNOS8890, \
+	.d_type = GPU, \
+	.registers = &exynos8890_tmu_registers, \
+	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
+			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
+			TMU_SUPPORT_EMUL_TIME),
+
+struct exynos_tmu_init_data const exynos8890_default_tmu_data = {
+	.tmu_data = {
+		{ EXYNOS8890_TMU_DATA_MNGS } ,
+		{ EXYNOS8890_TMU_DATA_APOLLO } ,
+		{ EXYNOS8890_TMU_DATA_GPU } ,
 	},
 	.tmu_count = 3,
 };
