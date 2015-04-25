@@ -618,6 +618,10 @@ static const struct of_device_id exynos_tmu_match[] = {
 		.compatible = "samsung,exynos7580-tmu",
 		.data = (void *)EXYNOS7580_TMU_DRV_DATA,
 	},
+	{
+		.compatible = "samsung,exynos8890-tmu",
+		.data = (void *)EXYNOS8890_TMU_DRV_DATA,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, exynos_tmu_match);
@@ -748,7 +752,8 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	    pdata->type == SOC_ARCH_EXYNOS5260 ||
 	    pdata->type == SOC_ARCH_EXYNOS5420_TRIMINFO ||
 	    pdata->type == SOC_ARCH_EXYNOS5440 ||
-	    pdata->type == SOC_ARCH_EXYNOS7580)
+	    pdata->type == SOC_ARCH_EXYNOS7580 ||
+	    pdata->type == SOC_ARCH_EXYNOS8890)
 		data->soc = pdata->type;
 	else {
 		ret = -EINVAL;
