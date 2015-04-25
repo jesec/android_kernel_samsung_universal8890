@@ -156,6 +156,11 @@ struct exynos_tmu_registers {
 	u32	threshold_th3;
 	u32	threshold_th3_l0_shift;
 
+	u32	threshold_th4;
+	u32	threshold_th5;
+	u32	threshold_th6;
+	u32	threshold_th7;
+
 	u32	tmu_inten;
 
 	u32	tmu_intstat;
