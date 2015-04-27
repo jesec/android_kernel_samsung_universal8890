@@ -272,7 +272,6 @@ static u32 decon_red_length(int format)
 		return 5;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
 		return 0;
 	}
 }
@@ -301,7 +300,6 @@ static u32 decon_red_offset(int format)
 		return 24;
 
 	default:
-		decon_warn("unrecognized pixel format %u\n", format);
 		return 0;
 	}
 }
