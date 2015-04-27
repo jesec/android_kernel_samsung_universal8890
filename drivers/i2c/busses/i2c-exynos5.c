@@ -1664,6 +1664,8 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 
 	/* Clear pending interrupts from u-boot or misc causes */
 	exynos5_i2c_clr_pend_irq(i2c);
+	/* Reset i2c SFR from u-boot or misc causes */
+	exynos5_i2c_reset(i2c);
 
 	if (!(i2c->support_hsi2c_batcher)) {
 		ret = exynos5_hsi2c_clock_setup(i2c);
