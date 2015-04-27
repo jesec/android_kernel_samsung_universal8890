@@ -345,7 +345,7 @@ static int vpp_get_min_int_lock(struct vpp_dev *vpp)
 	struct decon_win_config *config = vpp->config;
 	struct decon_frame *dst = &config->dst;
 	struct decon_device *decon = get_decon_drvdata(0);
-	u32 vclk_mic = (clk_get_rate(decon->res.vclk) / MHZ) * 2;
+	u32 vclk_mic = (clk_get_rate(decon->res.vclk_leaf) / MHZ) * 2;
 	u32 lcd_width = decon->lcd_info->xres;
 	int ret = 0;
 
@@ -361,8 +361,8 @@ static int vpp_get_min_int_lock(struct vpp_dev *vpp)
 				(MULTI_FACTOR * MULTI_FACTOR * MULTI_FACTOR);
 		if (vpp->cur_int > INT_LV7) {
 			dev_err(DEV, "Bandwidth has exceeded 400MHz %s\n", __func__);
-			dev_err(DEV, "scale_factor %lld, dst_factor %lld, cur_int %d\n",
-					scale_factor, dst_factor, vpp->cur_int);
+			dev_err(DEV, "scale_factor %lld, dst_factor %lld, cur_int %d vclk_mic %d\n",
+					scale_factor, dst_factor, vpp->cur_int, vclk_mic);
 			ret = -ERANGE;
 		}
 	}
@@ -389,7 +389,7 @@ static void vpp_get_min_mif_lock(struct vpp_dev *vpp)
 {
 	struct decon_win_config *config = vpp->config;
 	struct decon_device *decon = get_decon_drvdata(0);
-	u32 vclk_mic = (clk_get_rate(decon->res.vclk) / MHZ) * 2;
+	u32 vclk_mic = (clk_get_rate(decon->res.vclk_leaf) / MHZ) * 2;
 	u8 bpl, rot_factor = 0;
 	u32 scale_factor = 0;
 
