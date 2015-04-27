@@ -237,6 +237,7 @@ struct s5p_mfc_buf {
 	int used;
 	int already;
 	int consumed;
+	unsigned char *vir_addr;
 };
 
 #define vb_to_mfc_buf(x)	\

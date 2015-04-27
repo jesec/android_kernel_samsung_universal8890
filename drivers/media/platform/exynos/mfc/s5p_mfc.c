@@ -1561,12 +1561,29 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		if (err == S5P_FIMV_VPS_ONLY_ERROR) {
 			ctx->state = MFCINST_VPS_PARSED_ONLY;
 			if (!list_empty(&ctx->src_queue)) {
-				src_buf = list_entry(ctx->src_queue.next, struct s5p_mfc_buf,
-						list);
+				src_buf = list_entry(ctx->src_queue.next,
+						struct s5p_mfc_buf, list);
 				list_del(&src_buf->list);
 				ctx->src_queue_cnt--;
 				vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_DONE);
 			}
+		} else if (err == S5P_FIMV_ERR_HEADER_NOT_FOUND && !ctx->is_drm) {
+			unsigned char *stream_vir = NULL;
+			unsigned int strm_size = 0;
+			spin_lock_irqsave(&dev->irqlock, flags);
+			if (!list_empty(&ctx->src_queue)) {
+				src_buf = list_entry(ctx->src_queue.next,
+						struct s5p_mfc_buf, list);
+				stream_vir = src_buf->vir_addr;
+				strm_size = src_buf->vb.v4l2_planes[0].bytesused;
+				if (strm_size > 32)
+					strm_size = 32;
+			}
+			spin_unlock_irqrestore(&dev->irqlock, flags);
+			if (stream_vir && strm_size)
+				print_hex_dump(KERN_ERR, "No header: ",
+						DUMP_PREFIX_ADDRESS, strm_size, 4,
+						stream_vir, strm_size, false);
 		}
 	case MFCINST_RES_CHANGE_END:
 		/* This error had to happen while parsing the header */

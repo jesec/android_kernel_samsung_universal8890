@@ -152,6 +152,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_RET_INSTANCE_ID		0xF070
 #define S5P_FIMV_ERROR_CODE			0xF074
 
+#define S5P_FIMV_ERR_HEADER_NOT_FOUND		102
 #define S5P_FIMV_ERR_WARNINGS_START		160
 #define S5P_FIMV_ERR_WARNINGS_END		222
 #define S5P_FIMV_ERR_DEC_MASK			0xFFFF
