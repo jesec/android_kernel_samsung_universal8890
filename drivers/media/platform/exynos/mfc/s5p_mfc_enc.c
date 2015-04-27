@@ -3563,7 +3563,8 @@ static int enc_ext_info(struct s5p_mfc_ctx *ctx)
 	int val = 0;
 
 	if (IS_MFCv7X(dev) || IS_MFCV8(dev)) {
-		val |= ENC_SET_RGB_INPUT;
+		if (!IS_MFCv10X(dev))
+			val |= ENC_SET_RGB_INPUT;
 		val |= ENC_SET_SPARE_SIZE;
 	}
 	if (FW_HAS_TEMPORAL_SVC_CH(dev))
