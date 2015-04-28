@@ -228,19 +228,26 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 		else
 			trim_info = readl(data->base + reg->triminfo_data);
 	}
-	data->temp_error1 = trim_info & EXYNOS_TMU_TEMP_MASK;
+	/* 7420, 8890 temp bit is 9bits, But other chip is 8 bits */
+	if (!pdata->temp_bit)
+		pdata->temp_bit = 8;
+
+	if (!pdata->temp_mask)
+		pdata->temp_mask = 0xFF;
+
+	data->temp_error1 = trim_info & pdata->temp_mask;
 	data->temp_error2 = ((trim_info >> reg->triminfo_85_shift) &
-				EXYNOS_TMU_TEMP_MASK);
+				pdata->temp_mask);
 
 	if (!data->temp_error1 ||
 		(pdata->min_efuse_value > data->temp_error1) ||
 		(data->temp_error1 > pdata->max_efuse_value))
-		data->temp_error1 = pdata->efuse_value & EXYNOS_TMU_TEMP_MASK;
+		data->temp_error1 = pdata->efuse_value & pdata->temp_mask;
 
 	if (!data->temp_error2)
 		data->temp_error2 =
 			(pdata->efuse_value >> reg->triminfo_85_shift) &
-			EXYNOS_TMU_TEMP_MASK;
+			pdata->temp_mask;
 
 	rising_threshold = readl(data->base + reg->threshold_th0);
 
