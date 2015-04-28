@@ -60,6 +60,20 @@ static BLOCKING_NOTIFIER_HEAD(gpu_notifier);
 
 static unsigned int gpufreq_dev_count;
 
+#if defined(CONFIG_SOC_EXYNOS8890)
+static struct cpufreq_frequency_table gpu_freq_table[] = {
+	{0, 780 * 1000},
+	{1, 702 * 1000},
+	{2, 598 * 1000},
+	{3, 546 * 1000},
+	{4, 416 * 1000},
+	{5, 351 * 1000},
+	{6, 273 * 1000},
+	{7, CPUFREQ_TABLE_END},
+};
+#endif
+
+#if defined(CONFIG_SOC_EXYNOS7580)
 static struct cpufreq_frequency_table gpu_freq_table[] = {
 	{0, 800 * 1000},
 	{1, 734 * 1000},
@@ -71,6 +85,7 @@ static struct cpufreq_frequency_table gpu_freq_table[] = {
 	{7, 160 * 1000},
 	{8, CPUFREQ_TABLE_END},
 };
+#endif
 
 /**
  * get_idr - function to get a unique id.
