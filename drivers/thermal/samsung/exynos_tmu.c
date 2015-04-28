@@ -166,8 +166,12 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	unsigned int status, trim_info = 0, con, ctrl;
 	unsigned int rising_threshold = 0, falling_threshold = 0;
 	unsigned int rising7_4_threshold = 0, falling7_4_threshold = 0;
+	unsigned int rising_threshold0 = 0, rising_threshold1 = 0;
+	unsigned int rising_threshold2 = 0, rising_threshold3 = 0;
+	unsigned int falling_threshold0 = 0, falling_threshold1 = 0;
+	unsigned int falling_threshold2 = 0, falling_threshold3 = 0;
 	int ret = 0, threshold_code, i;
-	int timeout;
+	int timeout, shift;
 
 	mutex_lock(&data->lock);
 
@@ -262,39 +266,89 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 
 		exynos_tmu_clear_irqs(data);
 	} else {
-		/* Write temperature code for rising and falling threshold */
-		for (i = 0; i < pdata->non_hw_trigger_levels; i++) {
-			threshold_code = temp_to_code(data,
-						pdata->trigger_levels[i]);
+		/* EXYNOS8890 add threshold_th4~7 register, so if threshold_th4~7 register existed call this code */
+		if (reg->threshold_th4 && reg->threshold_th5 && reg->threshold_th6 && reg->threshold_th7) {
+			for (i = 0; i < pdata->non_hw_trigger_levels; i++) {
+				threshold_code = temp_to_code(data, pdata->trigger_levels[i]);
 
-			if (i < 4) {
-				rising_threshold &= ~(0xff << 8 * i);
-				rising_threshold |= threshold_code << 8 * i;
-			} else {
-				rising7_4_threshold &= ~(0xff << 8 * (i - 4));
-				rising7_4_threshold |= threshold_code << 8 * (i - 4);
+				if (i < 2) {
+					shift = 16 * i;
+					rising_threshold0 &= ~(0x1ff << shift);
+					rising_threshold0 |= (threshold_code << shift);
+				} else if (i >= 2 && i < 4) {
+					shift = 16 * (i - 2);
+					rising_threshold1 &= ~(0x1ff << shift);
+					rising_threshold1 |= (threshold_code << shift);
+				} else if (i >= 4 && i < 6) {
+					shift = 16 * (i - 4);
+					rising_threshold2 &= ~(0x1ff << shift);
+					rising_threshold2 |= (threshold_code << shift);
+				} else if (i >= 6 && i < 8) {
+					shift = 16 * (i - 6);
+					rising_threshold3 &= ~(0x1ff << shift);
+					rising_threshold3 |= (threshold_code << shift);
+				}
+
+				if (pdata->threshold_falling) {
+					threshold_code = temp_to_code(data,
+							pdata->trigger_levels[i] -
+							pdata->threshold_falling);
+					if (threshold_code > 0) {
+						if (i < 2) {
+							shift = (16 * i);
+							falling_threshold0 |= (threshold_code << shift);
+						} else if (i >= 2 && i < 4) {
+							shift = (16 * (i - 2));
+							falling_threshold1 |= (threshold_code << shift);
+						} else if (i >= 4 && i < 6) {
+							shift = (16 * (i - 4));
+							falling_threshold2 |= (threshold_code << shift);
+						} else if (i >= 6 && i < 8) {
+							shift = (16 * (i - 6));
+							falling_threshold3 |= (threshold_code << shift);
+						}
+					}
+				}
 			}
-			if (pdata->threshold_falling) {
-				threshold_code = temp_to_code(data,
-						pdata->trigger_levels[i] -
-						pdata->threshold_falling);
-				if (i < 4)
-					falling_threshold |=
-						threshold_code << 8 * i;
-				else
-					falling7_4_threshold |=
-						threshold_code << 8 * (i - 4);
+
+			writel(rising_threshold0, data->base + reg->threshold_th0);
+			writel(falling_threshold0, data->base + reg->threshold_th1);
+			writel(rising_threshold1, data->base + reg->threshold_th2);
+			writel(falling_threshold1, data->base + reg->threshold_th3);
+			writel(rising_threshold2, data->base + reg->threshold_th4);
+			writel(falling_threshold2, data->base + reg->threshold_th5);
+			writel(rising_threshold3, data->base + reg->threshold_th6);
+			writel(falling_threshold3, data->base + reg->threshold_th7);
+		} else {
+			/* Write temperature code for rising and falling threshold */
+			for (i = 0; i < pdata->non_hw_trigger_levels; i++) {
+				threshold_code = temp_to_code(data, pdata->trigger_levels[i]);
+				if (i < 4) {
+					rising_threshold &= ~(0xff << 8 * i);
+					rising_threshold |= threshold_code << 8 * i;
+				} else {
+					rising7_4_threshold &= ~(0xff << 8 * (i - 4));
+					rising7_4_threshold |= threshold_code << 8 * (i - 4);
+				}
+				if (pdata->threshold_falling) {
+					threshold_code = temp_to_code(data,
+							pdata->trigger_levels[i] -
+							pdata->threshold_falling);
+					if (i < 4)
+						falling_threshold |= threshold_code << 8 * i;
+					else
+						falling7_4_threshold |= threshold_code << 8 * (i - 4);
+				}
 			}
+			writel(rising_threshold,
+					data->base + reg->threshold_th0);
+			writel(falling_threshold,
+					data->base + reg->threshold_th1);
+			writel(rising7_4_threshold,
+					data->base + reg->threshold_th2);
+			writel(falling7_4_threshold,
+					data->base + reg->threshold_th3);
 		}
-
-		writel(rising_threshold,
-				data->base + reg->threshold_th0);
-		writel(falling_threshold,
-				data->base + reg->threshold_th1);
-		writel(rising7_4_threshold,
-				data->base + reg->threshold_th2);
-		writel(falling7_4_threshold,
-				data->base + reg->threshold_th3);
 
 		exynos_tmu_clear_irqs(data);
 
@@ -304,18 +358,37 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 				(pdata->trigger_type[i] == HW_TRIP)) {
 			threshold_code = temp_to_code(data,
 						pdata->trigger_levels[i]);
-			if (i == EXYNOS_MAX_TRIGGER_PER_REG - 1) {
-				/* 1-4 level to be assigned in th0 reg */
-				rising_threshold &= ~(0xff << 8 * i);
-				rising_threshold |= threshold_code << 8 * i;
-				writel(rising_threshold,
-					data->base + reg->threshold_th0);
-			} else if (i == EXYNOS_MAX_TRIGGER_PER_REG) {
-				/* 5th level to be assigned in th2 reg */
-				rising_threshold =
-				threshold_code << reg->threshold_th3_l0_shift;
-				writel(rising_threshold,
-					data->base + reg->threshold_th2);
+			/* EXYNOS8890 add threshold_th4~7 register, so if threshold_th4~7 register existed call this code */
+			if (reg->threshold_th4 && reg->threshold_th5 && reg->threshold_th6 && reg->threshold_th7) {
+				if (i == EXYNOS_MAX_TRIGGER_PER_REG - 1) {
+					/* 1-4 level to be assigned in th0 reg */
+					shift = 16 * (i - 6);
+					rising_threshold3 &= ~(0x1ff << shift);
+					rising_threshold3 |= (threshold_code << shift);
+					writel(rising_threshold3,
+							data->base + reg->threshold_th6);
+				} else if (i == EXYNOS_MAX_TRIGGER_PER_REG) {
+					/* 5th level to be assigned in th2 reg */
+					shift = 16 * (i - 6);
+					rising_threshold3 &= ~(0x1ff << shift);
+					rising_threshold3 |= (threshold_code << shift);
+					writel(rising_threshold3,
+							data->base + reg->threshold_th6);
+				}
+			} else {
+				if (i == EXYNOS_MAX_TRIGGER_PER_REG - 1) {
+					/* 1-4 level to be assigned in th0 reg */
+					rising_threshold &= ~(0xff << 8 * i);
+					rising_threshold |= threshold_code << 8 * i;
+					writel(rising_threshold,
+							data->base + reg->threshold_th0);
+				} else if (i == EXYNOS_MAX_TRIGGER_PER_REG) {
+					/* 5th level to be assigned in th2 reg */
+					rising_threshold =
+					threshold_code << reg->threshold_th3_l0_shift;
+					writel(rising_threshold,
+						data->base + reg->threshold_th2);
+				}
 			}
 			con = readl(data->base + reg->tmu_ctrl);
 			con |= (1 << reg->therm_trip_en_shift);
@@ -340,7 +413,7 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	/*Clear the PMIN in the common TMU register*/
 	if (reg->tmu_pmin && !data->id)
 		writel(0, data->base_second + reg->tmu_pmin);
-out:
+
 	data->initialized = true;
 	mutex_unlock(&data->lock);
 
