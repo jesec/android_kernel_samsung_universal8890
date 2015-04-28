@@ -721,6 +721,13 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.triminfo_85_shift = EXYNOS8890_TRIMINFO_85_SHIFT,
 	.tmu_ctrl = EXYNOS_TMU_REG_CONTROL,
 	.tmu_ctrl1 = EXYNOS_TMU_REG_CONTROL1,
+	/* This buf_vref_sel_reg, buf_slope_sel_reg member update EXYNOS8890 */
+	.buf_vref_otp_reg = EXYNOS_TMU_REG_TRIMINFO,
+	.buf_vref_otp_shift = EXYNOS_TMU_REF_VOLTAGE_OTP_SHIFT,
+	.buf_vref_otp_mask = EXYNOS_TMU_REF_VOLTAGE_OTP_MASK,
+	.buf_slope_otp_reg = EXYNOS_TMU_REG_TRIMINFO1,
+	.buf_slope_otp_shitf = EXYNOS_TMU_BUF_SLOPE_SEL_OTP_SHIFT,
+	.buf_slope_otp_mask = EXYNOS_TMU_BUF_SLOPE_SEL_OTP_MASK,
 	.therm_trip_mode_shift = EXYNOS_TMU_TRIP_MODE_SHIFT,
 	.therm_trip_mode_mask = EXYNOS_TMU_TRIP_MODE_MASK,
 	.therm_trip_en_shift = EXYNOS_TMU_THERM_TRIP_EN_SHIFT,
