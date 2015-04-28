@@ -2498,6 +2498,22 @@ static void decon_update_regs_handler(struct kthread_work *work)
 	}
 }
 
+static void decon_win_config_dump(struct decon_device *decon,
+	struct decon_win_config *win_config)
+{
+	int i;
+
+	for (i = 0; i < decon->pdata->max_win; i++) {
+		struct decon_win_config *config = &win_config[i];
+		if (config->state != DECON_WIN_STATE_DISABLED)
+		decon_dbg("win-%d, state:%d, format:%d, idma_type:%d, src[%d %d %d %d %d %d],"
+			"dst[%d %d %d %d %d %d]", i, config->state, config->format, config->idma_type,
+			config->src.x, config->src.y, config->src.w, config->src.h, config->src.f_w,
+			config->src.f_h, config->dst.x, config->dst.y, config->dst.w, config->dst.h,
+			config->dst.f_w, config->dst.f_h);
+	}
+}
+
 static int decon_set_win_config(struct decon_device *decon,
 		struct decon_win_config_data *win_data)
 {
@@ -2548,7 +2564,7 @@ static int decon_set_win_config(struct decon_device *decon,
 	if (decon->out_type == DECON_OUT_DSI)
 		decon_set_win_update_config(decon, win_config, regs);
 #endif
-
+	decon_win_config_dump(decon, win_config);
 	for (i = 0; i < decon->pdata->max_win && !ret; i++) {
 		struct decon_win_config *config = &win_config[i];
 		struct decon_win *win = decon->windows[i];
@@ -2572,6 +2588,12 @@ static int decon_set_win_config(struct decon_device *decon,
 				break;
 			}
 
+			if (!decon->id && ((config->idma_type == IDMA_G0) &&
+					(i != MAX_DECON_WIN - 1))) {
+				decon_info("%s: idma_type %d win-id %d\n",
+						__func__, config->idma_type, i);
+				break;
+			}
 			if (IS_ENABLED(CONFIG_DECON_BLOCKING_MODE))
 				if (decon_set_win_blocking_mode(decon, win, win_config, regs))
 					break;
