@@ -163,6 +163,8 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 		clip_data = (struct freq_clip_table *)&(tab_ptr[i]);
 		if (data->d_type == CPU)
 			level = cpufreq_cooling_get_level(0, clip_data->freq_clip_max);
+		else if (data->d_type == BIG_CPU)
+			level = cpufreq_cooling_get_level(4, clip_data->freq_clip_max);
 		else if (data->d_type == GPU)
 			level = gpufreq_cooling_get_level(0, clip_data->freq_clip_max);
 		else
@@ -269,8 +271,10 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 	/* convert the temperature into millicelsius */
 	*temp = *temp * MCELSIUS;
 
-	if (th_zone->sensor_conf->d_type == CPU)
+	if (th_zone->sensor_conf->d_type == BIG_CPU)
 		cpufreq_set_cur_temp(suspended, *temp / 1000);
+	else  if (th_zone->sensor_conf->d_type == CPU)
+		gpufreq_set_cur_temp(suspended, *temp / 1000);
 	else  if (th_zone->sensor_conf->d_type == GPU)
 		gpufreq_set_cur_temp(suspended, *temp / 1000);
 
@@ -430,7 +434,10 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 	 *	 sensor
 	 */
 	if (sensor_conf->cooling_data.freq_clip_count > 0) {
-		if (sensor_conf->d_type == CPU) {
+		if (sensor_conf->d_type == BIG_CPU) {
+			th_zone->cool_dev[th_zone->cool_dev_size] =
+					cpufreq_cooling_register(&mask_val);
+		} else if (sensor_conf->d_type == CPU) {
 			th_zone->cool_dev[th_zone->cool_dev_size] =
 					cpufreq_cooling_register(&mask_val);
 		} else if (sensor_conf->d_type ==  GPU) {
@@ -490,7 +497,9 @@ void exynos_unregister_thermal(struct thermal_sensor_conf *sensor_conf)
 	thermal_zone_device_unregister(th_zone->therm_dev);
 
 	for (i = 0; i < th_zone->cool_dev_size; i++) {
-		if (sensor_conf->d_type == CPU)
+		if (sensor_conf->d_type == BIG_CPU)
+			cpufreq_cooling_unregister(th_zone->cool_dev[i]);
+		else if (sensor_conf->d_type == CPU)
 			cpufreq_cooling_unregister(th_zone->cool_dev[i]);
 		else if (sensor_conf->d_type == GPU)
 			gpufreq_cooling_unregister(th_zone->cool_dev[i]);

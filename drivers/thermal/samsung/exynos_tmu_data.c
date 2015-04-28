@@ -805,7 +805,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	}, \
 	.freq_tab_count = 3, \
 	.type = SOC_ARCH_EXYNOS8890, \
-	.d_type = CPU, \
+	.d_type = BIG_CPU, \
 	.registers = &exynos8890_tmu_registers, \
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
 			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \

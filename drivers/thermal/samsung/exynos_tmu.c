@@ -369,7 +369,7 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 
 	if (on) {
 		con |= (1 << EXYNOS_TMU_CORE_EN_SHIFT);
-		con |= (1 << reg->reg->therm_trip_en_shift);
+		con |= (1 << reg->therm_trip_en_shift);
 		interrupt_en =
 			pdata->trigger_enable[7] << reg->inten_rise7_shift |
 			pdata->trigger_enable[6] << reg->inten_rise6_shift |
@@ -524,10 +524,12 @@ static int exynos_low_pwr_notifier(struct notifier_block *notifier,
 {
 	switch (pm_event) {
 	case LPA_ENTER:
+		exynos_tmu_core_control(false, BIG_CPU);
 		exynos_tmu_core_control(false, CPU);
 		break;
 	case LPA_ENTER_FAIL:
 	case LPA_EXIT:
+		exynos_tmu_core_control(true, BIG_CPU);
 		exynos_tmu_core_control(true, CPU);
 		break;
 	}
