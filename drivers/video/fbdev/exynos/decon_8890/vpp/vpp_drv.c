@@ -555,6 +555,7 @@ static int vpp_set_config(struct vpp_dev *vpp)
 {
 	struct decon_win_config *config = vpp->config;
 	struct vpp_size_param p;
+	struct vpp_img_format vi;
 	int ret = -EINVAL;
 	unsigned long flags;
 
@@ -584,7 +585,14 @@ static int vpp_set_config(struct vpp_dev *vpp)
 		enable_irq(vpp->irq);
 	}
 
-	ret = vpp_reg_set_in_format(vpp->id, config->format);
+	vpp_to_scale_params(vpp, &p);
+	ret = vpp_set_scale_info(vpp, &p);
+	if (ret)
+		goto err;
+	vpp->h_ratio = p.vpp_h_ratio;
+	vpp->v_ratio = p.vpp_v_ratio;
+
+	ret = vpp_reg_set_in_format(vpp->id, config->format, &vi);
 	if (ret)
 		goto err;
 
@@ -599,7 +607,6 @@ static int vpp_set_config(struct vpp_dev *vpp)
 		goto err;
 
 	DISP_SS_EVENT_LOG(DISP_EVT_VPP_WINCON, vpp->sd, ktime_set(0, 0));
-	vpp_to_scale_params(vpp, &p);
 	vpp_reg_set_in_size(vpp->id, &p);
 
 	config->src.w = p.src_w;
@@ -615,12 +622,6 @@ static int vpp_set_config(struct vpp_dev *vpp)
 
 	vpp_reg_set_in_buf_addr(vpp->id, &p);
 	vpp_reg_set_smart_if_pix_num(vpp->id, config->dst.w, config->dst.h);
-	ret = vpp_set_scale_info(vpp, &p);
-	if (ret)
-		goto err;
-
-	vpp->h_ratio = p.vpp_h_ratio;
-	vpp->v_ratio = p.vpp_v_ratio;
 
 	if (vpp_check_block_mode(vpp))
 		vpp_reg_set_in_block_size(vpp->id, true, &p);

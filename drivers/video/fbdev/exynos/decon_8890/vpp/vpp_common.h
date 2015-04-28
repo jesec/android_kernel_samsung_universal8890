@@ -156,6 +156,7 @@ struct vpp_img_format {
 	u32		pre_12;
 	u32		pre_14;
 	u32		rot;
+	u32		scale;
 	u32		yuv;
 	u32		yuv422;
 	u32		yuv420;
@@ -207,7 +208,7 @@ int vpp_reg_set_sw_reset(u32 id);
 void vpp_reg_set_in_size(u32 id, struct vpp_size_param *p);
 void vpp_reg_set_out_size(u32 id, u32 dst_w, u32 dst_h);
 void vpp_reg_set_scale_ratio(u32 id, struct vpp_size_param *p, u32 rot_en);
-int vpp_reg_set_in_format(u32 id, u32 format);
+int vpp_reg_set_in_format(u32 id, u32 format, struct vpp_img_format *vi);
 void vpp_reg_set_in_block_size(u32 id, u32 enable, struct vpp_size_param *p);
 void vpp_reg_set_in_buf_addr(u32 id, struct vpp_size_param *p);
 void vpp_reg_set_smart_if_pix_num(u32 id, u32 dst_w, u32 dst_h);

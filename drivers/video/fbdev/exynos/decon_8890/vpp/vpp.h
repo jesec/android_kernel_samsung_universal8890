@@ -208,6 +208,7 @@ static inline void vpp_select_format(struct vpp_dev *vpp, struct vpp_img_format 
 	vi->vgr = is_vgr(vpp);
 	vi->normal = is_normal(vpp);
 	vi->rot = is_rotation(config);
+	vi->scale = is_scaling(vpp);
 	vi->yuv = is_yuv(config);
 	vi->yuv422 = is_yuv422(config);
 	vi->yuv420 = is_yuv420(config);

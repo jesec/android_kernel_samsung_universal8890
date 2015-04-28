@@ -125,7 +125,7 @@ void vpp_reg_set_hw_reset_done_mask(u32 id, u32 enable)
 	vpp_write_mask(id, VG_IRQ, val, VG_IRQ_HW_RESET_DONE_MASK);
 }
 
-int vpp_reg_set_in_format(u32 id, u32 format)
+int vpp_reg_set_in_format(u32 id, u32 format, struct vpp_img_format *vi)
 {
 	u32 cfg = vpp_read(id, VG_IN_CON);
 
@@ -135,6 +135,11 @@ int vpp_reg_set_in_format(u32 id, u32 format)
 	if ((id == 0 || id == 1 || id == 4 || id == 5) &&
 			(format >= DECON_PIXEL_FORMAT_NV16)) {
 		vpp_err("Unsupported YUV format in G%d \n", id);
+		return -EINVAL;
+	}
+
+	if (!vi->vgr && (vi->scale || vi->rot)) {
+		vpp_err("Unsupported Scailing in (V)G%d \n", id);
 		return -EINVAL;
 	}
 
