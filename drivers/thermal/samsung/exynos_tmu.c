@@ -65,7 +65,7 @@ struct exynos_tmu_data {
 	enum soc_type soc;
 	struct work_struct irq_work;
 	struct mutex lock;
-	u8 temp_error1, temp_error2;
+	u16 temp_error1, temp_error2;
 	struct regulator *regulator;
 	struct thermal_sensor_conf *reg_conf;
 	struct list_head node;
@@ -78,11 +78,11 @@ static LIST_HEAD(dtm_dev_list);
  * TMU treats temperature as a mapped temperature code.
  * The temperature is converted differently depending on the calibration type.
  */
-static int temp_to_code(struct exynos_tmu_data *data, u8 temp)
+static int temp_to_code(struct exynos_tmu_data *data, u16 temp)
 {
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	int temp_code = -EINVAL;
-	u8 rtemp;
+	u16 rtemp;
 
 	if (temp > EXYNOS_MAX_TEMP)
 		rtemp = EXYNOS_MAX_TEMP;
@@ -112,7 +112,7 @@ static int temp_to_code(struct exynos_tmu_data *data, u8 temp)
  * Calculate a temperature value from a temperature code.
  * The unit of the temperature is degree Celsius.
  */
-static int code_to_temp(struct exynos_tmu_data *data, u8 temp_code)
+static int code_to_temp(struct exynos_tmu_data *data, u16 temp_code)
 {
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	int temp;
