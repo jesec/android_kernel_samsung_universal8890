@@ -139,6 +139,13 @@ struct exynos_tmu_registers {
 	u32	tmu_ctrl;
 	u32	tmu_ctrl1;
 	u32     test_mux_addr_shift;
+	/* vref and slope otp value */
+	u32	buf_vref_otp_reg;
+	u32	buf_vref_otp_shift;
+	u32	buf_vref_otp_mask;
+	u32	buf_slope_otp_reg;
+	u32	buf_slope_otp_shitf;
+	u32	buf_slope_otp_mask;
 	u32	therm_trip_mode_shift;
 	u32	therm_trip_mode_mask;
 	u32	therm_trip_en_shift;

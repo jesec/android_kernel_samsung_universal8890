@@ -352,7 +352,7 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	const struct exynos_tmu_registers *reg = pdata->registers;
-	unsigned int con, interrupt_en;
+	unsigned int con, interrupt_en, otp_fuse;
 	int timeout, status;
 
 	mutex_lock(&data->lock);
@@ -362,11 +362,31 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 	if (pdata->test_mux)
 		con |= (pdata->test_mux << reg->test_mux_addr_shift);
 
-	con &= ~(EXYNOS_TMU_REF_VOLTAGE_MASK << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
-	con |= pdata->reference_voltage << EXYNOS_TMU_REF_VOLTAGE_SHIFT;
+	/* Add reg->buf_vref_otp_reg register condition at EXYNOS8890 */
+	/* Beacuse we read otp data and write this value to control register */
+	if (!reg->buf_vref_otp_reg) {
+		con &= ~(EXYNOS_TMU_REF_VOLTAGE_MASK << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
+		con |= pdata->reference_voltage << EXYNOS_TMU_REF_VOLTAGE_SHIFT;
+	} else {
+		/* Write to otp save data */
+		con &= ~(EXYNOS_TMU_REF_VOLTAGE_MASK << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
+		otp_fuse = readl(data->base + reg->buf_vref_otp_reg);
+		otp_fuse = (otp_fuse >> reg->buf_slope_otp_shitf) & reg->buf_vref_otp_mask;
+		con |= (otp_fuse << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
+	}
 
-	con &= ~(EXYNOS_TMU_BUF_SLOPE_SEL_MASK << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
-	con |= (pdata->gain << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
+	/* Add reg->buf_vref_otp_reg register condition at EXYNOS8890 */
+	/* Beacuse we read otp data and write this value to control register */
+	if (!reg->buf_slope_otp_reg) {
+		con &= ~(EXYNOS_TMU_BUF_SLOPE_SEL_MASK << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
+		con |= (pdata->gain << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
+	} else {
+		/* Write to otp save data */
+		con &= ~(EXYNOS_TMU_BUF_SLOPE_SEL_MASK << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
+		otp_fuse = readl(data->base + reg->buf_slope_otp_reg);
+		otp_fuse = (otp_fuse >> reg->buf_slope_otp_shitf) & reg->buf_slope_otp_mask;
+		con |= (otp_fuse << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
+	}
 
 	if (pdata->noise_cancel_mode) {
 		con &= ~(reg->therm_trip_mode_mask <<
