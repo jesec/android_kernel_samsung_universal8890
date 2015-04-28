@@ -2079,7 +2079,8 @@ void decon_reg_chmap_validate(struct decon_device *decon, struct decon_reg_data 
 	unsigned short i, bitmap = 0;
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
-		if (regs->win_regs[i].wincon & WIN_EN_F) {
+		if ((regs->win_regs[i].wincon & WIN_EN_F) &&
+			(!regs->win_regs[i].winmap_state)) {
 			if (bitmap & (1 << regs->vpp_config[i].idma_type)) {
 				decon_warn("Channel-%d is mapped to multiple windows\n",
 					regs->vpp_config[i].idma_type);
@@ -2111,8 +2112,12 @@ static void decon_check_vpp_used(struct decon_device *decon,
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		struct decon_win *win = decon->windows[i];
-		win->vpp_id = regs->vpp_config[i].idma_type;
-		if (regs->win_regs[i].wincon & WIN_EN_F) {
+		if (!regs->win_regs[i].winmap_state)
+			win->vpp_id = regs->vpp_config[i].idma_type;
+		else
+			win->vpp_id = 0xF;
+		if ((regs->win_regs[i].wincon & WIN_EN_F) &&
+			(!regs->win_regs[i].winmap_state)) {
 			decon->vpp_usage_bitmask |= (1 << win->vpp_id);
 			decon->vpp_used[win->vpp_id] = true;
 		}
