@@ -31,29 +31,7 @@
 #include <soc/samsung/tmu.h>
 
 #include "exynos_tmu_data.h"
-/**
- * struct cpufreq_cooling_device - data for cooling device with cpufreq
- * @id: unique integer value corresponding to each cpufreq_cooling_device
- *	registered.
- * @cool_dev: thermal_cooling_device pointer to keep track of the
- *	registered cooling device.
- * @cpufreq_state: integer value representing the current state of cpufreq
- *	cooling	devices.
- * @cpufreq_val: integer value representing the absolute value of the clipped
- *	frequency.
- * @allowed_cpus: all the cpus involved for this cpufreq_cooling_device.
- *
- * This structure is required for keeping information of each
- * cpufreq_cooling_device registered. In order to prevent corruption of this a
- * mutex lock cooling_cpufreq_lock is used.
- */
-struct cpufreq_cooling_device {
-	int id;
-	struct thermal_cooling_device *cool_dev;
-	unsigned int cpufreq_state;
-	unsigned int cpufreq_val;
-	struct cpumask allowed_cpus;
-};
+
 static DEFINE_IDR(cpufreq_idr);
 static DEFINE_MUTEX(cooling_cpufreq_lock);
 static BLOCKING_NOTIFIER_HEAD(cpu_notifier);
