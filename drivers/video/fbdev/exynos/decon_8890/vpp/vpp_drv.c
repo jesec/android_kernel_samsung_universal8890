@@ -232,6 +232,7 @@ err:
 	dev_err(DEV, "src f_w : %d, src f_h: %d\n", src->f_w, src->f_h);
 	dev_err(DEV, "src w : %d, src h: %d\n", src->w, src->h);
 	dev_err(DEV, "dst w : %d, dst h: %d\n", dst->w, dst->h);
+	dev_err(DEV, "rotation : %d, color_format : %d\n",config->vpp_parm.rot, config->format);
 
 	return -EINVAL;
 }
