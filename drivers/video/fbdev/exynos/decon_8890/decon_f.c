@@ -37,18 +37,17 @@ static void decon_oneshot_underrun_log(struct decon_device *decon)
 		return;
 
 	if (decon->underrun_stat.underrun_cnt > DECON_UNDERRUN_THRESHOLD) {
-		decon_warn("underrun (cnt %d), tot_bw %d, int_bw %d, disp_bw %d, mif(%ld), chmap(0x%x), win(0x%lx), aclk(%ld), lh_disp(%ld)\n",
+		decon_warn("[underrun]: (cnt %d), tot_bw %d, int_bw %d, disp_bw %d\n",
 				decon->underrun_stat.underrun_cnt,
 				decon->underrun_stat.prev_bw,
 				decon->underrun_stat.prev_int_bw,
-				decon->underrun_stat.prev_disp_bw,
-				(decon->underrun_stat.mif_pll >> 1) / MHZ,
+				decon->underrun_stat.prev_disp_bw);
+		decon_warn("                  chmap(0x%08x), win(0x%lx), aclk(%ld)\n",
 				decon->underrun_stat.chmap,
 				decon->underrun_stat.used_windows,
-				decon->underrun_stat.aclk / MHZ,
-				decon->underrun_stat.lh_disp0 / MHZ);
+				decon->underrun_stat.aclk / MHZ);
+		decon->underrun_stat.underrun_cnt = 0;
 	}
-	decon->underrun_stat.underrun_cnt = 0;
 
 	queue_work(decon->fifo_irq_wq, &decon->fifo_irq_work);
 }
@@ -94,7 +93,8 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 		decon->underrun_stat.prev_bw = decon->prev_bw;
 		decon->underrun_stat.prev_int_bw = decon->prev_int_bw;
 		decon->underrun_stat.prev_disp_bw = decon->prev_disp_bw;
-		/*decon->underrun_stat.chmap = decon_read(0, WINCHMAP0 + * SHADOW_OFFSET);*/
+		decon->underrun_stat.chmap = decon_read(0, RESOURCE_SEL_SEL_1);
+		decon->underrun_stat.aclk = decon->res.pclk->rate;
 		decon_f_get_enabled_win(decon);
 		decon_oneshot_underrun_log(decon);
 	}
