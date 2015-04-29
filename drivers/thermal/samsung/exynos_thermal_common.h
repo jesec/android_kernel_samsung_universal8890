@@ -94,6 +94,8 @@ struct thermal_sensor_conf {
 	struct device *dev;
 	enum dev_type d_type;
 	int id;
+	int hotplug_in_threshold;
+	int hotplug_out_threshold;
 };
 
 /*Functions used exynos based thermal sensor driver*/
