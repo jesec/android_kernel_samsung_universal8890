@@ -1483,7 +1483,7 @@ static struct v4l2_queryctrl controls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "Hierarchical Coding Layer",
 		.minimum = 0,
-		.maximum = 7,
+		.maximum = 5,
 		.step = 1,
 		.default_value = 0, /* need to check defualt value */
 	},
@@ -2739,17 +2739,18 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 
 			if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH)
 				p->codec.h264.num_hier_layer = temporal_LC.temporal_layer_count;
-			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+
 			/* enable RC_BIT_RATE_CHANGE */
-			value |= (1 << 2);
+			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+			if (temporal_LC.temporal_layer_bitrate[0] > 0)
+				value |= (1 << 2);
+			else
+				value &= ~(1 << 2);
 			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
 
 			mfc_debug(2, "temporal layer count : %d\n", temporal_LC.temporal_layer_count);
-			if(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC ||
-				ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC ||
-				ctx->codec_mode == S5P_FIMV_CODEC_VP9_ENC)
-				s5p_mfc_write_reg(dev,
-					temporal_LC.temporal_layer_count, S5P_FIMV_E_NUM_T_LAYER);
+			s5p_mfc_write_reg(dev,
+				temporal_LC.temporal_layer_count, S5P_FIMV_E_NUM_T_LAYER);
 			for(i = 0; i < temporal_LC.temporal_layer_count; i++) {
 				mfc_debug(2, "temporal layer bitrate[%d] : %d\n",
 					i, temporal_LC.temporal_layer_bitrate[i]);
