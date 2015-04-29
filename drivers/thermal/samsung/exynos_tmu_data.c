@@ -813,6 +813,8 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 		.temp_level = 86, \
 	}, \
 	.freq_tab_count = 3, \
+	.hotplug_in_threshold = 91,	\
+	.hotplug_out_threshold = 91,	\
 	.type = SOC_ARCH_EXYNOS8890, \
 	.d_type = BIG_CPU, \
 	.registers = &exynos8890_tmu_registers, \

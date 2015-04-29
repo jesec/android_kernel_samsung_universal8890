@@ -136,6 +136,7 @@ struct thermal_zone_device_ops {
 			  enum thermal_trend *);
 	int (*notify) (struct thermal_zone_device *, int,
 		       enum thermal_trip_type);
+	int (*throttle_cpu_hotplug) (struct thermal_zone_device *);
 };
 
 struct thermal_cooling_device_ops {

@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/suspend.h>
 #include <linux/thermal.h>
+#include <soc/samsung/cpufreq.h>
 
 #include "exynos_thermal_common.h"
 
@@ -41,6 +42,7 @@ struct exynos_thermal_zone {
 };
 
 static bool suspended;
+static bool is_cpu_hotplugged_out;
 
 /* Get mode callback functions for thermal zone */
 static int exynos_get_mode(struct thermal_zone_device *thermal,
@@ -321,6 +323,53 @@ static int exynos_get_trend(struct thermal_zone_device *thermal,
 
 	return 0;
 }
+
+static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
+{
+	struct exynos_thermal_zone *th_zone = thermal->devdata;
+	struct thermal_sensor_conf *data = th_zone->sensor_conf;
+	struct cpufreq_cooling_device *cpufreq_device = (struct cpufreq_cooling_device *)th_zone->cool_dev[0]->devdata;
+	int ret = 0;
+	int cur_temp = 0;
+
+	if (!thermal->temperature)
+		return -EINVAL;
+
+	cur_temp = thermal->temperature / MCELSIUS;
+
+	if (is_cpu_hotplugged_out) {
+		if (cur_temp < data->hotplug_in_threshold) {
+			/*
+			 * If current temperature is lower than low threshold,
+			 * call cluster1_cores_hotplug(false) for hotplugged out cpus.
+			 */
+			ret = cluster1_cores_hotplug(false);
+			if (ret) {
+				pr_err("%s: failed cluster1 cores hotplug in\n",
+							__func__);
+			} else {
+				is_cpu_hotplugged_out = false;
+				cpufreq_device->cpufreq_state = 0;
+			}
+		}
+	} else {
+		if (cur_temp >= data->hotplug_out_threshold) {
+			/*
+			 * If current temperature is higher than high threshold,
+			 * call cluster1_cores_hotplug(true) to hold temperature down.
+			 */
+			ret = cluster1_cores_hotplug(true);
+			if (ret)
+				pr_err("%s: failed cluster1 cores hotplug out\n",
+							__func__);
+			else
+				is_cpu_hotplugged_out = true;
+		}
+	}
+
+	return ret;
+}
+
 /* Operation callback functions for thermal zone */
 static struct thermal_zone_device_ops exynos_dev_ops = {
 	.bind = exynos_bind,
@@ -333,6 +382,21 @@ static struct thermal_zone_device_ops exynos_dev_ops = {
 	.get_trip_type = exynos_get_trip_type,
 	.get_trip_temp = exynos_get_trip_temp,
 	.get_crit_temp = exynos_get_crit_temp,
+};
+
+/* Operation callback functions for thermal zone */
+static struct thermal_zone_device_ops exynos_dev_hotplug_ops = {
+	.bind = exynos_bind,
+	.unbind = exynos_unbind,
+	.get_temp = exynos_get_temp,
+	.set_emul_temp = exynos_set_emul_temp,
+	.get_trend = exynos_get_trend,
+	.get_mode = exynos_get_mode,
+	.set_mode = exynos_set_mode,
+	.get_trip_type = exynos_get_trip_type,
+	.get_trip_temp = exynos_get_trip_temp,
+	.get_crit_temp = exynos_get_crit_temp,
+	.throttle_cpu_hotplug = exynos_throttle_cpu_hotplug,
 };
 
 /*
@@ -459,11 +523,20 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 		th_zone->cool_dev_size++;
 	}
 
-	th_zone->therm_dev = thermal_zone_device_register(
-			sensor_conf->name, sensor_conf->trip_data.trip_count,
-			0, th_zone, &exynos_dev_ops, NULL, 0,
-			sensor_conf->trip_data.trigger_falling ? 0 :
-			IDLE_INTERVAL);
+	/* Add hotplug function ops to BIG core */
+	if (sensor_conf->d_type == BIG_CPU) {
+		th_zone->therm_dev = thermal_zone_device_register(
+				sensor_conf->name, sensor_conf->trip_data.trip_count,
+				0, th_zone, &exynos_dev_hotplug_ops, NULL, 0,
+				sensor_conf->trip_data.trigger_falling ? 0 :
+				IDLE_INTERVAL);
+	} else {
+		th_zone->therm_dev = thermal_zone_device_register(
+				sensor_conf->name, sensor_conf->trip_data.trip_count,
+				0, th_zone, &exynos_dev_ops, NULL, 0,
+				sensor_conf->trip_data.trigger_falling ? 0 :
+				IDLE_INTERVAL);
+	}
 
 	if (IS_ERR(th_zone->therm_dev)) {
 		dev_err(sensor_conf->dev,

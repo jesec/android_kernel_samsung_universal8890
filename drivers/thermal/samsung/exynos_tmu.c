@@ -909,6 +909,10 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		sensor_conf->cooling_data.freq_data[i].temp_level =
 					pdata->freq_tab[i].temp_level;
 	}
+
+	sensor_conf->hotplug_in_threshold = pdata->hotplug_in_threshold;
+	sensor_conf->hotplug_out_threshold = pdata->hotplug_out_threshold;
+
 	sensor_conf->dev = &pdev->dev;
 	/* Register the sensor with thermal management interface */
 	ret = exynos_register_thermal(sensor_conf);
