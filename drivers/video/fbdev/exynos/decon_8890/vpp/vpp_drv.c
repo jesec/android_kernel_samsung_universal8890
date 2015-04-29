@@ -499,17 +499,23 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 		struct device *dev = &vpp->pdev->dev;
 		u32 ipoption[vpp->pbuf_num];
 		ipoption[0] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
-		ipoption[2] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
+
+		if (is_vgr1(vpp)) {
+			ipoption[3] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
+			ipoption[4] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
+		}
 
 		if (cur_read_order == SYSMMU_PBUFCFG_ASCENDING) {
 			ipoption[1] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
-			ipoption[3] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
+			ipoption[2] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
 		} else {
 			ipoption[1] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
-			ipoption[3] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
+			ipoption[2] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
 		}
+
 		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
 			pm_qos_update_request(&vpp->vpp_mif_qos, MIF_LV1);
+
 		ret = sysmmu_set_prefetch_buffer_property(dev,
 				vpp->pbuf_num, 0, ipoption, NULL);
 		if (ret)
@@ -956,6 +962,13 @@ static int vpp_probe(struct platform_device *pdev)
 		dev_err(DEV, "failed to get PB info\n");
 		return ret;
 	}
+
+	/*
+	 * VGR1 sysmmu uses 6 PB, but there are only 5 axids from master
+	 */
+	if (is_vgr1(vpp))
+		vpp->pbuf_num = 5;
+
 	vpp->pdev = pdev;
 
 	vpp_config_id(vpp);

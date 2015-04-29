@@ -46,6 +46,7 @@
 #define is_fraction(x) ((x) >> 15)
 #define is_vpp0_series(vpp) ((vpp->id == 0 || vpp->id == 1 || vpp->id == 2 || vpp->id == 3))
 #define is_vgr(vpp) ((vpp->id == 6) || (vpp->id == 7))
+#define is_vgr1(vpp) (vpp->id == 7)
 #define is_g(vpp) ((vpp->id == 0) || (vpp->id == 1) || (vpp->id == 4) || (vpp->id == 5))
 #define is_wb(vpp) (vpp->id == 8)
 #define is_scaling(vpp) ((vpp->h_ratio != (1 << 20)) || (vpp->v_ratio != (1 << 20)))
