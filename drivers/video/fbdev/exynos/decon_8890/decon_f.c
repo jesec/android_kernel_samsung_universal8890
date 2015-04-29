@@ -179,12 +179,12 @@ void decon_f_set_clocks(struct decon_device *decon)
 	/* TODO: ACLK */
 	cal_dfs_set_rate(dvfs_disp, clks.decon[CLK_ID_ACLK] * 1000);
 
-	decon_dbg("%s:dpll %ld pclk %ld vclk %ld eclk %ld\n",
+	decon_dbg("%s:dpll %ld pclk %ld vclk %ld eclk %ld Mhz\n",
 		__func__,
-		clk_get_rate(decon->res.dpll),
-		clk_get_rate(decon->res.pclk),
-		clk_get_rate(decon->res.vclk_leaf),
-		clk_get_rate(decon->res.eclk_leaf));
+		clk_get_rate(decon->res.dpll) / MHZ,
+		clk_get_rate(decon->res.pclk) / MHZ,
+		clk_get_rate(decon->res.vclk_leaf) / MHZ,
+		clk_get_rate(decon->res.eclk_leaf) / MHZ);
 
 	return;
 }
