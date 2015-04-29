@@ -452,8 +452,8 @@ void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_form
 				vc->sca_w_max = SCALED_WIDTH_MAX;
 				vc->sca_h_min = SCALED_HEIGHT_MIN;
 				vc->sca_h_max = SCALED_HEIGHT_MAX;
-				vc->sca_mul_w = G_SCALED_SIZE_MULTIPLE;
-				vc->sca_mul_h = G_SCALED_SIZE_MULTIPLE;
+				vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+				vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 			}
 		} else {
 			if (!vi->yuv) {
@@ -467,7 +467,7 @@ void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_form
 				vc->sca_h_max = SCALED_HEIGHT_MAX;
 				vc->src_mul_x = RGB_SRC_OFFSET_MULTIPLE;
 				vc->src_mul_y = RGB_SRC_OFFSET_MULTIPLE;
-				vc->sca_mul_w = SCALED_SIZE_ROT1_MUL;
+				vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
 
 				if (vi->pre_none) {
 					vc->img_mul_w = PRE_RGB_WIDTH;
@@ -484,13 +484,13 @@ void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_form
 					vc->src_h_min = ROT1_RGB_SRC_HEIGHT_MIN;
 					vc->img_w_min = ROT1_RGB_IMG_WIDTH_MIN;
 					vc->img_h_min = ROT1_RGB_IMG_HEIGHT_MIN;
-					vc->sca_mul_h = SCALED_SIZE_ROT1_MUL;
+					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 				} else {
 					vc->src_w_min = ROT2_RGB_SRC_WIDTH_MIN;
 					vc->src_h_min = ROT2_RGB_SRC_HEIGHT_MIN;
 					vc->img_w_min = ROT2_RGB_IMG_WIDTH_MIN;
 					vc->img_h_min = ROT2_RGB_IMG_HEIGHT_MIN;
-					vc->sca_mul_h = SCALED_SIZE_ROT2_MUL;
+					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 				}
 				if (vi->normal) {
 					vc->img_w_max = ROT4_RGB_IMG_WIDTH_MAX;
@@ -557,10 +557,10 @@ void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_form
 					}
 					if (!vi->rot) {
 						vc->src_mul_y = SRC_ROT2_MUL_Y;
-						vc->sca_mul_h = SCALED_SIZE_ROT1_MUL;
+						vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 					} else {
 						vc->src_mul_y = SRC_ROT1_MUL_Y;
-						vc->sca_mul_h = SCALED_SIZE_ROT2_MUL;
+						vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 					}
 				} else {
 					vc->src_mul_h = YUV_SRC_SIZE_MULTIPLE;
