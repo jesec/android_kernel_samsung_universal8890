@@ -23,6 +23,7 @@ thermal_sys-$(CONFIG_THERMAL_GOV_USER_SPACE)	+= user_space.o
 ifeq ($(CONFIG_EXYNOS_THERMAL),y)
 thermal_sys-$(CONFIG_CPU_THERMAL)	+= samsung/cpu_cooling.o
 thermal_sys-$(CONFIG_GPU_THERMAL)	+= samsung/gpu_cooling.o
+thermal_sys-$(CONFIG_ISP_THERMAL)	+= samsung/isp_cooling.o
 else
 thermal_sys-$(CONFIG_CPU_THERMAL)	+= cpu_cooling.o
 endif
