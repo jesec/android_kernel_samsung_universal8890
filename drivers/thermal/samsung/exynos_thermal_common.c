@@ -22,6 +22,7 @@
 
 #include <linux/cpu_cooling.h>
 #include <linux/gpu_cooling.h>
+#include <linux/isp_cooling.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/suspend.h>
@@ -167,6 +168,8 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 			level = cpufreq_cooling_get_level(4, clip_data->freq_clip_max);
 		else if (data->d_type == GPU)
 			level = gpufreq_cooling_get_level(0, clip_data->freq_clip_max);
+		else if (data->d_type == ISP)
+			level = isp_cooling_get_fps(0, clip_data->freq_clip_max);
 		else
 			level = (int)THERMAL_CSTATE_INVALID;
 
@@ -443,6 +446,9 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 		} else if (sensor_conf->d_type ==  GPU) {
 			th_zone->cool_dev[th_zone->cool_dev_size] =
 					gpufreq_cooling_register(&mask_val);
+		} else if (sensor_conf->d_type ==  ISP) {
+			th_zone->cool_dev[th_zone->cool_dev_size] =
+					isp_cooling_register(&mask_val);
 		}
 		if (IS_ERR(th_zone->cool_dev[th_zone->cool_dev_size])) {
 			dev_err(sensor_conf->dev,
@@ -503,6 +509,8 @@ void exynos_unregister_thermal(struct thermal_sensor_conf *sensor_conf)
 			cpufreq_cooling_unregister(th_zone->cool_dev[i]);
 		else if (sensor_conf->d_type == GPU)
 			gpufreq_cooling_unregister(th_zone->cool_dev[i]);
+		else if (sensor_conf->d_type == ISP)
+			isp_cooling_unregister(th_zone->cool_dev[i]);
 	}
 
 	if (sensor_conf->id == 0)
