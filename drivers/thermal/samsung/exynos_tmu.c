@@ -72,6 +72,7 @@ struct exynos_tmu_data {
 	struct thermal_sensor_conf *reg_conf;
 	struct list_head node;
 	int temp;
+	int vaild;
 };
 
 /* list of multiple instance for each thermal sensor */
@@ -556,9 +557,20 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 
 	mutex_lock(&data->lock);
 
-	temp_code = readl(data->base + reg->tmu_cur_temp);
+	/* Check to the vaild data */
+	if (((pdata->d_type == ISP) || (pdata->d_type == GPU)) && reg->valid_mask) {
+		data->vaild = readl(data->base + reg->tmu_status);
+		data->vaild = ((data->vaild >> reg->valid_p0_shift) & reg->valid_mask);
 
-	temp = code_to_temp(data, temp_code);
+		if (data->vaild) {
+			temp_code = readl(data->base + reg->tmu_cur_temp);
+			temp = code_to_temp(data, temp_code);
+		} else
+			temp = 15;
+	} else {
+		temp_code = readl(data->base + reg->tmu_cur_temp);
+		temp = code_to_temp(data, temp_code);
+	}
 #if defined(CONFIG_CPU_THERMAL_IPA)
 	data->temp = temp;
 

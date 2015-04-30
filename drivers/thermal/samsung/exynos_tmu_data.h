@@ -202,6 +202,12 @@ extern struct exynos_tmu_init_data const exynos3250_default_tmu_data;
 #define EXYNOS8890_TMU_RISE_INT_SHIFT		0
 #define EXYNOS8890_TMU_FALL_INT_MASK		0xff
 #define EXYNOS8890_TMU_FALL_INT_SHIFT		16
+#define EXYNOS8890_VALID_MASK			0x1
+#define EXYNOS8890_VALID_P0_SHIFT		12
+#define EXYNOS8890_VALID_P1_SHIFT		13
+#define EXYNOS8890_VALID_P2_SHIFT		14
+#define EXYNOS8890_VALID_P3_SHIFT		15
+#define EXYNOS8890_VALID_P4_SHIFT		16
 
 /* Define Exynos Global constant value */
 #define		EXYNOS_MAX_TEMP		125

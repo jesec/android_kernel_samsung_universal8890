@@ -152,6 +152,12 @@ struct exynos_tmu_registers {
 	u32	lpi0_mode_en_shift;
 
 	u32	tmu_status;
+	u32	valid_mask;
+	u32	valid_p0_shift;
+	u32	valid_p1_shift;
+	u32	valid_p2_shift;
+	u32	valid_p3_shift;
+	u32	valid_p4_shift;
 
 	u32	tmu_cur_temp;
 
