@@ -663,7 +663,7 @@ static int m2m1shot_open(struct inode *inode, struct file *filp)
 	if (ret) /* kref_put() is not called not to call .free_context() */
 		kfree(ctx);
 
-	return 0;
+	return ret;
 }
 
 static int m2m1shot_release(struct inode *inode, struct file *filp)
