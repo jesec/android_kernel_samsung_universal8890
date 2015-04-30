@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/ipa.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -34,6 +35,7 @@
 #include <linux/exynos-ss.h>
 
 #include <soc/samsung/exynos-pm.h>
+#include <soc/samsung/cpufreq.h>
 
 #include "exynos_thermal_common.h"
 #include "exynos_tmu.h"
@@ -69,6 +71,7 @@ struct exynos_tmu_data {
 	struct regulator *regulator;
 	struct thermal_sensor_conf *reg_conf;
 	struct list_head node;
+	int temp;
 };
 
 /* list of multiple instance for each thermal sensor */
@@ -520,19 +523,48 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 	mutex_unlock(&data->lock);
 }
 
+#if defined(CONFIG_CPU_THERMAL_IPA)
+int ipa_hotplug(bool removecores)
+{
+	return cluster1_cores_hotplug(removecores);
+}
+
+static int exynos_tmu_max_temp_read(struct exynos_tmu_data *data)
+{
+	int max_temp = 0;
+
+	list_for_each_entry(data, &dtm_dev_list, node) {
+		if (data->temp > max_temp)
+			max_temp = data->temp;
+	}
+	check_switch_ipa_on(max_temp);
+
+	return max_temp;
+}
+
+static struct ipa_sensor_conf ipa_sensor_conf = {
+	.read_soc_temperature	= (int (*)(void *))exynos_tmu_max_temp_read,
+};
+#endif
+
 static int exynos_tmu_read(struct exynos_tmu_data *data)
 {
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	const struct exynos_tmu_registers *reg = pdata->registers;
 	u32 temp_code;
-	int temp;
+	int temp, max_temp;
 
 	mutex_lock(&data->lock);
 
 	temp_code = readl(data->base + reg->tmu_cur_temp);
 
 	temp = code_to_temp(data, temp_code);
+#if defined(CONFIG_CPU_THERMAL_IPA)
+	data->temp = temp;
 
+	if (!(pdata->d_type == ISP))
+		max_temp = exynos_tmu_max_temp_read(data);
+#endif
 	exynos_ss_printk("[TMU] id[%d] , %d\n", data->id, temp);
 	mutex_unlock(&data->lock);
 
@@ -914,6 +946,13 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	sensor_conf->hotplug_out_threshold = pdata->hotplug_out_threshold;
 
 	sensor_conf->dev = &pdev->dev;
+
+#if defined(CONFIG_CPU_THERMAL_IPA)
+	if (sensor_conf->id == 0) {
+		ipa_sensor_conf.private_data = sensor_conf->driver_data;
+		ipa_register_thermal_sensor(&ipa_sensor_conf);
+	}
+#endif
 	/* Register the sensor with thermal management interface */
 	ret = exynos_register_thermal(sensor_conf);
 	if (ret) {

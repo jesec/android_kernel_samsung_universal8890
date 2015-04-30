@@ -246,8 +246,6 @@ static int isp_apply_cooling(struct isp_cooling_device *isp_device,
 
 	isp_device->isp_state = cooling_state;
 
-	pr_info("[isp tmu] cooling_state : %d \n", isp_device->isp_state);
-
 	blocking_notifier_call_chain(&isp_notifier, cooling_state, &cooling_state);
 
 	return 0;
