@@ -30,6 +30,7 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
+#include <linux/of.h>
 
 #include <trace/events/sched.h>
 #ifdef CONFIG_HMP_VARIABLE_SCALE
@@ -2687,8 +2688,8 @@ static inline void update_rq_runnable_avg(struct rq *rq, int runnable) {}
  * tweaking suit particular needs.
  */
 
-unsigned int hmp_up_threshold = 430;
-unsigned int hmp_down_threshold = 204;
+unsigned int hmp_up_threshold = 700;
+unsigned int hmp_down_threshold = 256;
 
 unsigned int hmp_semiboost_up_threshold = 400;
 unsigned int hmp_semiboost_down_threshold = 150;
@@ -9927,12 +9928,44 @@ core_initcall(register_sched_cpufreq_notifier);
 
 #endif /* CONFIG_HMP_FREQUENCY_INVARIANT_SCALE */
 
-#ifdef BOOT_BOOST_DURATION
-static int __init hmp_boot_boost(void)
+#if defined(CONFIG_SCHED_HMP)
+static int __init hmp_param_init(void)
 {
-	hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + BOOT_BOOST_DURATION;
+#if defined(CONFIG_OF)
+	struct device_node *hmp_param_node;
+	unsigned int duration = 0;
 
+	hmp_param_node = of_find_node_by_path("/cpus/hmp");
+	if (!hmp_param_node) {
+		pr_warn("%s hmp node is not exist!\n",__func__);
+		return -ENOENT;
+	}
+
+	if (of_property_read_u32(hmp_param_node,
+				"up_threshold", &hmp_up_threshold))
+		pr_warn("%s missing up_threshold property\n",__func__);
+
+	if (of_property_read_u32(hmp_param_node,
+				"down_threshold", &hmp_down_threshold))
+		pr_warn("%s missing down_threshold property\n",__func__);
+
+	if (!of_property_read_u32(hmp_param_node,
+				"bootboost-duration-us", &duration)) {
+		hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + duration;
+		pr_info("hmp_boostpulse_endtime is set(%llu)\n",hmp_boostpulse_endtime);
+	}
+
+	if (of_property_read_u32(hmp_param_node,
+			"semiboost_up_threshold",&hmp_semiboost_up_threshold))
+		pr_warn("%s missing semiboost_up_threshold property\n",__func__);
+
+	if (of_property_read_u32(hmp_param_node,
+			"semiboost_down_threshold", &hmp_semiboost_down_threshold))
+		pr_warn("%s missing semiboost_down_threshold property\n",__func__);
+#else
+	hmp_boostpulse_endtime = ktime_to_us(ktime_get()) + BOOT_BOOST_DURATION;
+#endif
 	return 0;
 }
-pure_initcall(hmp_boot_boost);
+pure_initcall(hmp_param_init);
 #endif
