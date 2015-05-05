@@ -148,6 +148,237 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static int compat_get_fimg2d_param(struct fimg2d_param __user *data,
+				struct compat_fimg2d_param __user *data32)
+{
+	int err;
+	compat_ulong_t ul;
+	compat_int_t i;
+	enum rotation rotate_mode;
+	enum premultiplied premult;
+	enum scaling scaling_mode;
+	enum repeat repeat_mode;
+	unsigned char g_alpha;
+	bool b;
+
+	err = get_user(ul, &data32->solid_color);
+	err |= put_user(ul, &data->solid_color);
+	err |= get_user(g_alpha, &data32->g_alpha);
+	err |= put_user(g_alpha, &data->g_alpha);
+	err |= get_user(rotate_mode, &data32->rotate);
+	err |= put_user(rotate_mode, &data->rotate);
+	err |= get_user(premult, &data32->premult);
+	err |= put_user(premult, &data->premult);
+	err |= get_user(scaling_mode, &data32->scaling.mode);
+	err |= put_user(scaling_mode, &data->scaling.mode);
+	err |= get_user(i, &data32->scaling.src_w);
+	err |= put_user(i, &data->scaling.src_w);
+	err |= get_user(i, &data32->scaling.src_h);
+	err |= put_user(i, &data->scaling.src_h);
+	err |= get_user(i, &data32->scaling.dst_w);
+	err |= put_user(i, &data->scaling.dst_w);
+	err |= get_user(i, &data32->scaling.dst_h);
+	err |= put_user(i, &data->scaling.dst_h);
+	err |= get_user(repeat_mode, &data32->repeat.mode);
+	err |= put_user(repeat_mode, &data->repeat.mode);
+	err |= get_user(ul, &data32->repeat.pad_color);
+	err |= put_user(ul, &data->repeat.pad_color);
+	err |= get_user(b, &data32->clipping.enable);
+	err |= put_user(b, &data->clipping.enable);
+	err |= get_user(i, &data32->clipping.x1);
+	err |= put_user(i, &data->clipping.x1);
+	err |= get_user(i, &data32->clipping.y1);
+	err |= put_user(i, &data->clipping.y1);
+	err |= get_user(i, &data32->clipping.x2);
+	err |= put_user(i, &data->clipping.x2);
+	err |= get_user(i, &data32->clipping.y2);
+	err |= put_user(i, &data->clipping.y2);
+
+	return err;
+}
+
+static int compat_get_fimg2d_image(struct fimg2d_image __user *data,
+							compat_uptr_t uaddr)
+{
+	struct compat_fimg2d_image __user *data32 = compat_ptr(uaddr);
+	compat_int_t i;
+	compat_ulong_t ul;
+	enum pixel_order order;
+	enum color_format fmt;
+	enum addr_space addr_type;
+	enum blit_op op;
+	bool need_cacheopr;
+	int err;
+
+	err = get_user(i, &data32->layer_num);
+	err |= put_user(i, &data->layer_num);
+	err |= get_user(i, &data32->width);
+	err |= put_user(i, &data->width);
+	err |= get_user(i, &data32->height);
+	err |= put_user(i, &data->height);
+	err |= get_user(i, &data32->stride);
+	err |= put_user(i, &data->stride);
+	err |= get_user(op, &data32->op);
+	err |= put_user(op, &data->op);
+	err |= get_user(order, &data32->order);
+	err |= put_user(order, &data->order);
+	err |= get_user(fmt, &data32->fmt);
+	err |= put_user(fmt, &data->fmt);
+	/* struct fimg2d_param is handled in other function. */
+	err |= get_user(addr_type, &data32->addr.type);
+	err |= put_user(addr_type, &data->addr.type);
+	err |= get_user(ul, &data32->addr.start);
+	err |= put_user(ul, &data->addr.start);
+	err |= get_user(ul, &data32->addr.header);
+	err |= put_user(ul, &data->addr.header);
+	err |= get_user(i, &data32->rect.x1);
+	err |= put_user(i, &data->rect.x1);
+	err |= get_user(i, &data32->rect.y1);
+	err |= put_user(i, &data->rect.y1);
+	err |= get_user(i, &data32->rect.x2);
+	err |= put_user(i, &data->rect.x2);
+	err |= get_user(i, &data32->rect.y2);
+	err |= put_user(i, &data->rect.y2);
+	err |= get_user(need_cacheopr, &data32->need_cacheopr);
+	err |= put_user(need_cacheopr, &data->need_cacheopr);
+	err |= get_user(i, &data32->acquire_fence_fd);
+	err |= put_user(i, &data->acquire_fence_fd);
+
+	err |= compat_get_fimg2d_param(&data->param, &data32->param);
+
+	return err;
+}
+
+static long compat_fimg2d_ioctl32(struct file *file, unsigned int cmd,
+							unsigned long arg)
+{
+	switch (cmd) {
+	case COMPAT_FIMG2D_BITBLT_BLIT:
+	{
+		struct compat_fimg2d_blit __user *data32;
+		struct fimg2d_blit __user *data;
+		struct mm_struct *mm;
+		bool use_fence, dither;
+		enum fimg2d_qos_level qos_lv;
+		compat_uint_t seq_no;
+		unsigned long stack_cursor = 0;
+		int err;
+		int i;
+
+		mm = get_task_mm(current);
+		if (!mm) {
+			fimg2d_err("no mm for ctx\n");
+			return -ENXIO;
+		}
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+		if (!data) {
+			fimg2d_err("failed to allocate user compat space\n");
+			mmput(mm);
+			return -ENOMEM;
+		}
+
+		stack_cursor += sizeof(*data);
+		if (clear_user(data, sizeof(*data))) {
+			fimg2d_err("failed to access to userspace\n");
+			mmput(mm);
+			return -EPERM;
+		}
+
+		err = get_user(use_fence, &data32->use_fence);
+		err |= put_user(use_fence, &data->use_fence);
+		if (err) {
+			fimg2d_err("failed to get compat data\n");
+			mmput(mm);
+			return err;
+		}
+
+		err = get_user(dither, &data32->dither);
+		err |= put_user(dither, &data->dither);
+		if (err) {
+			fimg2d_err("failed to get compat data\n");
+			mmput(mm);
+			return err;
+		}
+
+		for (i = 0; i < MAX_SRC; i++) {
+			if (data32->src[i]) {
+				unsigned long size;
+
+				size = sizeof(*data->src[i]) + stack_cursor;
+				data->src[i] = compat_alloc_user_space(size);
+				if (!data->src[i]) {
+					fimg2d_err("user space alloc failed");
+					fimg2d_err("src layer[%d]", i);
+					mmput(mm);
+					return -ENOMEM;
+				}
+
+				stack_cursor += sizeof(*data->src[i]);
+				err = compat_get_fimg2d_image(data->src[i],
+							data32->src[i]);
+				if (err) {
+					fimg2d_err("failed to get src data\n");
+					mmput(mm);
+					return err;
+				}
+
+			}
+		}
+
+		if (data32->dst) {
+			data->dst = compat_alloc_user_space(sizeof(*data->dst) +
+								stack_cursor);
+			if (!data->dst) {
+				fimg2d_err("failed to allocate user compat space\n");
+				mmput(mm);
+				return -ENOMEM;
+			}
+
+			stack_cursor += sizeof(*data->dst);
+			err = compat_get_fimg2d_image(data->dst, data32->dst);
+			if (err) {
+				fimg2d_err("failed to get compat data\n");
+				mmput(mm);
+				return err;
+			}
+		}
+
+		err = get_user(seq_no, &data32->seq_no);
+		err |= put_user(seq_no, &data->seq_no);
+		if (err) {
+			fimg2d_err("failed to get compat data\n");
+			mmput(mm);
+			return err;
+		}
+
+		err = get_user(qos_lv, &data32->qos_lv);
+		err |= put_user(qos_lv, &data->qos_lv);
+		if (err) {
+			fimg2d_err("failed to get compat data\n");
+			mmput(mm);
+			return err;
+		}
+
+		err = file->f_op->unlocked_ioctl(file,
+				FIMG2D_BITBLT_BLIT, (unsigned long)data);
+		mmput(mm);
+		return err;
+	}
+	case COMPAT_FIMG2D_BITBLT_SYNC:
+	{
+		return file->f_op->unlocked_ioctl(file,
+				FIMG2D_BITBLT_SYNC, arg);
+	}
+	default:
+		fimg2d_err("unknown ioctl\n");
+		return -EINVAL;
+	}
+}
+#endif
+
 /* fops */
 static const struct file_operations fimg2d_fops = {
 	.owner          = THIS_MODULE,
@@ -156,6 +387,9 @@ static const struct file_operations fimg2d_fops = {
 	.mmap           = fimg2d_mmap,
 	.poll           = fimg2d_poll,
 	.unlocked_ioctl = fimg2d_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= compat_fimg2d_ioctl32,
+#endif
 };
 
 /* miscdev */
