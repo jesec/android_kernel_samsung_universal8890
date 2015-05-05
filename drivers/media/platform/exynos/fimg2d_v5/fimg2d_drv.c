@@ -498,8 +498,21 @@ static void g2d_parse_dt(struct device_node *np, struct fimg2d_platdata *pdata)
 static int fimg2d_sysmmu_fault_handler(struct iommu_domain *domain,
 		struct device *dev, unsigned long iova, int flags, void *token)
 {
-	/* TODO */
+	struct fimg2d_bltcmd *cmd;
 
+	cmd = fimg2d_get_command(ctrl, 0);
+	if (!cmd) {
+		fimg2d_err("no available command\n");
+		goto done;
+	}
+
+	fimg2d_debug_command(cmd);
+
+	if (atomic_read(&ctrl->busy)) {
+		fimg2d_err("dumping g2d registers..\n");
+		ctrl->dump(ctrl);
+	}
+done:
 	return 0;
 }
 
