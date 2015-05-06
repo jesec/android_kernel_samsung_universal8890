@@ -860,7 +860,7 @@ int decon_enable(struct decon_device *decon)
 	int state = decon->state;
 	int ret = 0;
 
-	decon_dbg("enable decon-%s\n", decon->id ? "ext" : "int");
+	decon_dbg("enable decon-%d\n", decon->id);
 	exynos_ss_printk("%s:state %d: active %d:+\n", __func__,
 				decon->state, pm_runtime_active(decon->dev));
 
@@ -1008,12 +1008,10 @@ int decon_disable(struct decon_device *decon)
 {
 	struct decon_mode_info psr;
 	int ret = 0;
-	int i, j;
 	unsigned long irq_flags;
 	int state = decon->state;
-	int old_plane_cnt[MAX_DECON_S_WIN];
 
-	exynos_ss_printk("disable decon-%s, state(%d) cnt %d\n", decon->id ? "ext" : "int",
+	exynos_ss_printk("disable decon-%d, state(%d) cnt %d\n", decon->id,
 				decon->state, pm_runtime_active(decon->dev));
 
 	if (decon->state != DECON_STATE_LPD_ENT_REQ)
@@ -1039,34 +1037,6 @@ int decon_disable(struct decon_device *decon)
 			decon->eint_status) {
 		disable_irq(decon->irq);
 		decon->eint_status = 0;
-	}
-
-	if (decon->out_type == DECON_OUT_WB) {
-		if (decon->wb_timeline_max > decon->wb_timeline->value) {
-			if (wait_event_interruptible_timeout(decon->wait_frmdone,
-					atomic_read(&decon->wb_done) == STATE_DONE,
-					msecs_to_jiffies(VSYNC_TIMEOUT_MSEC)) == 0) {
-				decon_warn("write-back timeout\n");
-			} else {
-				decon->frame_done_cnt_cur++;
-				atomic_set(&decon->wb_done, STATE_IDLE);
-			}
-			sw_sync_timeline_inc(decon->wb_timeline, 1);
-		}
-
-		for (i = 0; i < MAX_DECON_S_WIN; i++) {
-			old_plane_cnt[i] = decon->windows[i]->plane_cnt;
-			for (j = 0; j < old_plane_cnt[i]; ++j) {
-				decon_free_dma_buf(decon,
-					&decon->windows[i]->dma_buf_data[j]);
-			}
-		}
-
-		decon->frame_done_cnt_target += decon->frame_done_cnt_cur;
-		decon_info("write-back cur:%d/total:%d, timeline:%d/max:%d\n",
-			decon->frame_done_cnt_cur, decon->frame_done_cnt_target,
-			decon->wb_timeline->value, decon->wb_timeline_max);
-		decon->frame_done_cnt_cur = 0;
 	}
 
 	decon_to_psr_info(decon, &psr);
@@ -1171,8 +1141,8 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 	struct decon_device *decon = win->decon;
 	int ret = 0;
 
-	decon_info("decon-%s %s mode: %dtype (0: DSI, 1: HDMI, 2:WB)\n",
-			decon->id ? "ext" : "int",
+	decon_info("decon-%d %s mode: %dtype (0: DSI, 1: HDMI, 2:WB)\n",
+			decon->id,
 			blank_mode == FB_BLANK_UNBLANK ? "UNBLANK" : "POWERDOWN",
 			decon->out_type);
 
@@ -1503,7 +1473,7 @@ static void decon_set_protected_content(struct decon_device *decon,
 	/* ODMA(for writeback) protection config (WB1)*/
 	if (decon->out_type == DECON_OUT_WB)
 		if (decon_get_protected_idma(decon, cur_protect_bits))
-			cur_protect_bits |= (1 << DECON_ODMA_WB);
+			cur_protect_bits |= (1 << ODMA_WB);
 
 	if (decon->prev_protection_bitmask != cur_protect_bits) {
 		decon_reg_wait_linecnt_is_zero_timeout(decon->id, 0, 35 * 1000);
@@ -1690,80 +1660,53 @@ err_invalid:
 	return ret;
 }
 
-static int decon_set_wb_buffer(struct decon_device *decon, int fd,
-				struct decon_reg_data *regs)
+static int decon_set_wb_buffer(struct decon_device *decon,
+		struct decon_win_config *win_config, struct decon_reg_data *regs)
 {
 	struct ion_handle *handle;
 	struct dma_buf *buf;
-	struct decon_dma_buf_data wb_dma_buf_data;
-	int ret = 0;
-	size_t buf_size = 0, window_size = 0;
-	struct decon_win_config_data *win_data;
-	struct sync_fence *fence;
-	struct sync_pt *pt;
+	struct decon_dma_buf_data dma_buf_data[MAX_BUF_PLANE_CNT];
+	int ret = 0, i;
+	size_t buf_size = 0;
+	int plane_cnt;
+	struct device *dev;
+	struct decon_win_config *config = &win_config[MAX_DECON_WIN];
 
 	DISP_SS_EVENT_LOG(DISP_EVT_WB_SET_BUFFER, &decon->sd, ktime_set(0, 0));
-	win_data = &decon->ioctl_data.win_data;
-	handle = ion_import_dma_buf(decon->ion_client, win_data->fd_odma);
-	if (IS_ERR(handle)) {
-		decon_err("failed to import fd_odma\n");
-		ret = PTR_ERR(handle);
-		goto fail;
-	}
 
-	buf = dma_buf_get(win_data->fd_odma);
-	if (IS_ERR_OR_NULL(buf)) {
-		decon_err("dma_buf_get() failed: %ld\n", PTR_ERR(buf));
-		ret = PTR_ERR(buf);
-		goto fail_buf;
-	}
+	plane_cnt = decon_get_plane_cnt(config->format);
+	for (i = 0; i < plane_cnt; ++i) {
+		handle = ion_import_dma_buf(decon->ion_client, config->fd_idma[i]);
+		if (IS_ERR(handle)) {
+			decon_err("failed to import fd_odma:%d\n", config->fd_idma[i]);
+			ret = PTR_ERR(handle);
+			goto fail;
+		}
 
-	window_size = decon->lcd_info->width * decon->lcd_info->height *
-		WB_DEFAULT_BPP / 8;
-	buf_size = decon_map_ion_handle(decon, decon->dev, &wb_dma_buf_data,
+		buf = dma_buf_get(config->fd_idma[i]);
+		if (IS_ERR_OR_NULL(buf)) {
+			decon_err("dma_buf_get() failed: %ld\n", PTR_ERR(buf));
+			ret = PTR_ERR(buf);
+			goto fail_buf;
+		}
+
+		/* idma_type Should be ODMA_WB */
+		dev = decon->mdev->vpp_dev[config->idma_type];
+		buf_size = decon_map_ion_handle(decon, dev, &dma_buf_data[i],
 				handle, buf, 0);
-	if (!buf_size) {
-		decon_err("failed to mapping buffer\n");
-		ret = -ENOMEM;
-		goto fail_map;
-	} else if (buf_size < window_size) {
-		decon_err("writeback output size(%zu) > buffer size(%zu)\n",
-				window_size, buf_size);
-		ret = -EINVAL;
-		goto fail_pt;
+		if (!buf_size) {
+			decon_err("failed to mapping buffer\n");
+			ret = -ENOMEM;
+			goto fail_map;
+		}
+		regs->dma_buf_data[MAX_DECON_WIN][i] = dma_buf_data[i];
+		config->vpp_parm.addr[i] = dma_buf_data[i].dma_addr;
 	}
 
-	decon->wb_timeline_max++;
-	pt = sw_sync_pt_create(decon->wb_timeline, decon->wb_timeline_max);
-	if (!pt) {
-		decon_err("failed to create sync_pt\n");
-		ret = -ENOMEM;
-		goto fail_pt;
-	}
-
-	fence = sync_fence_create("wb_display", pt);
-	if (!fence) {
-		decon_err("failed to craete fence\n");
-		ret = -ENOMEM;
-		goto fail_fence;
-	}
-
-	sync_fence_install(fence, fd);
-	win_data->fence = fd;
 	handle = NULL;
 	buf = NULL;
-	decon->wb_dma_buf_data = wb_dma_buf_data;
-	regs->wb_dma_buf_data = wb_dma_buf_data;
-	regs->wb_whole_w = decon->lcd_info->width;
-	regs->wb_whole_h = decon->lcd_info->height;
 
 	return ret;
-
-fail_fence:
-	sync_pt_free(pt);
-
-fail_pt:
-	decon_free_dma_buf(decon, &wb_dma_buf_data);
 
 fail_map:
 	if (buf)
@@ -2128,14 +2071,22 @@ void decon_vpp_wait_for_update(struct decon_device *decon,
 	int i = 0;
 	struct v4l2_subdev *sd = NULL;
 
-	for (i = 0; i < decon->pdata->max_win; i++) {
-		struct decon_win *win = decon->windows[i];
-		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
-			sd = decon->mdev->vpp_sd[win->vpp_id];
+	for (i = 0; i < MAX_VPP_SUBDEV; i++) {
+		if (decon->vpp_used[i] && (!(decon->vpp_usage_bitmask & (1 << i)))) {
+			sd = decon->mdev->vpp_sd[i];
 			v4l2_subdev_call(sd, core, ioctl,
 					VPP_WAIT_FOR_UPDATE, NULL);
 		}
 	}
+}
+
+void decon_vpp_wait_wb_framedone(struct decon_device *decon)
+{
+	struct v4l2_subdev *sd = NULL;
+
+	sd = decon->mdev->vpp_sd[ODMA_WB];
+	v4l2_subdev_call(sd, core, ioctl,
+			VPP_WAIT_FOR_FRAMEDONE, NULL);
 }
 
 static void decon_get_vpp_min_lock(struct decon_device *decon,
@@ -2283,15 +2234,25 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 		}
 	}
 
+	if (decon->out_type == DECON_OUT_WB) {
+		decon->vpp_usage_bitmask |= (1 << ODMA_WB);
+		decon->vpp_used[ODMA_WB] = true;
+		sd = decon->mdev->vpp_sd[ODMA_WB];
+		if (v4l2_subdev_call(sd, core, ioctl, VPP_WIN_CONFIG,
+				&regs->vpp_config[MAX_DECON_WIN])) {
+			decon_err("Failed to config VPP-%d\n", ODMA_WB);
+			decon->vpp_usage_bitmask &= ~(1 << ODMA_WB);
+			decon->vpp_err_stat[ODMA_WB] = true;
+		} else
+			DISP_SS_EVENT_LOG(DISP_EVT_WB_SW_TRIGGER, &decon->sd, ktime_set(0, 0));
+	}
+
 	/* DMA protection(SFW) enable must be happen on vpp domain is alive */
 	decon_set_protected_content(decon, regs);
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE)
 	mdnie_reg_update_frame(decon->lcd_info->xres, decon->lcd_info->yres);
 #endif
-	if (decon->out_type == DECON_OUT_WB)
-		decon_reg_set_wb_frame(decon->id, regs->wb_whole_w, regs->wb_whole_h,
-				regs->wb_dma_buf_data.dma_addr);
 
 	decon_win_shadow_update_req(decon, win_bitmap);
 	decon_to_psr_info(decon, &psr);
@@ -2419,16 +2380,13 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 
 	__decon_update_regs(decon, regs);
 	if (decon->out_type == DECON_OUT_WB) {
-		decon_reg_wb_swtrigger(decon->id);
-		DISP_SS_EVENT_LOG(DISP_EVT_WB_SW_TRIGGER, &decon->sd, ktime_set(0, 0));
-		if (wait_event_interruptible_timeout(decon->wait_frmdone,
-					atomic_read(&decon->wb_done) == STATE_DONE,
-					msecs_to_jiffies(VSYNC_TIMEOUT_MSEC)) == 0) {
-			decon_err("write-back timeout, but continue progress\n");
-		} else {
-			decon->frame_done_cnt_cur++;
-			atomic_set(&decon->wb_done, STATE_IDLE);
-		}
+		decon_vpp_wait_for_update(decon, regs);
+		decon_vpp_wait_wb_framedone(decon);
+		/* Stop to prevent resource conflict */
+		decon_reg_direct_on_off(decon->id, 0);
+		decon_reg_shadow_update_req(decon->id);
+		decon_dbg("write-back timeline:%d, max:%d\n",
+				decon->timeline->value, decon->timeline_max);
 	} else {
 		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
 
@@ -2458,15 +2416,19 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	decon->trig_mask_timestamp =  ktime_get();
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		for (j = 0; j < old_plane_cnt[i]; ++j)
-			decon_free_dma_buf(decon, &old_dma_bufs[i][j]);
+			if (decon->out_type == DECON_OUT_WB)
+				decon_free_dma_buf(decon, &regs->dma_buf_data[i][j]);
+			else
+				decon_free_dma_buf(decon, &old_dma_bufs[i][j]);
 	}
+
 	if (decon->out_type == DECON_OUT_WB) {
-		decon_free_dma_buf(decon, &regs->wb_dma_buf_data);
-		sw_sync_timeline_inc(decon->wb_timeline, 1);
-		DISP_SS_EVENT_LOG(DISP_EVT_WB_TIMELINE_INC, &decon->sd, ktime_set(0, 0));
-	} else {
-		sw_sync_timeline_inc(decon->timeline, 1);
+		old_plane_cnt[0] = decon_get_plane_cnt(regs->vpp_config[MAX_DECON_WIN].format);
+		for (j = 0; j < old_plane_cnt[0]; ++j)
+			decon_free_dma_buf(decon, &regs->dma_buf_data[MAX_DECON_WIN][j]);
 	}
+
+	sw_sync_timeline_inc(decon->timeline, 1);
 	decon_set_vpp_min_lock_lately(decon, regs);
 	decon_vpp_stop(decon, false);
 
@@ -2626,7 +2588,10 @@ static int decon_set_win_config(struct decon_device *decon,
 		}
 	}
 
-	for (i = 0; i < decon->pdata->max_win; i++) {
+	if (decon->out_type == DECON_OUT_WB)
+		ret = decon_set_wb_buffer(decon, win_config, regs);
+
+	for (i = 0; i < MAX_VPP_SUBDEV; i++) {
 		memcpy(&regs->vpp_config[i], &win_config[i],
 				sizeof(struct decon_win_config));
 		regs->vpp_config[i].format =
@@ -2637,8 +2602,6 @@ static int decon_set_win_config(struct decon_device *decon,
 	decon_dbg("Total BW = %d Mbits, Max BW per window = %d Mbits\n",
 			bw / (1024 * 1024), MAX_BW_PER_WINDOW / (1024 * 1024));
 
-	if (decon->out_type == DECON_OUT_WB)
-		ret = decon_set_wb_buffer(decon, fd, regs);
 	if (ret) {
 		for (i = 0; i < decon->pdata->max_win; i++) {
 			decon->windows[i]->fbinfo->fix = decon->windows[i]->prev_fix;
@@ -2649,20 +2612,19 @@ static int decon_set_win_config(struct decon_device *decon,
 				decon_free_dma_buf(decon, &regs->dma_buf_data[i][j]);
 		}
 		if (decon->out_type == DECON_OUT_WB) {
-			decon_free_dma_buf(decon, &regs->wb_dma_buf_data);
-			decon_err("failed to set buffer for wb\n");
+			plane_cnt = decon_get_plane_cnt(regs->vpp_config[MAX_DECON_WIN].format);
+			for (j = 0; j < plane_cnt; ++j)
+				decon_free_dma_buf(decon, &regs->dma_buf_data[MAX_DECON_WIN][j]);
 		}
 		put_unused_fd(fd);
 		kfree(regs);
 	} else {
-		if (decon->out_type != DECON_OUT_WB) {
-			decon_lpd_block(decon);
-			decon->timeline_max++;
-			pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
-			fence = sync_fence_create("display", pt);
-			sync_fence_install(fence, fd);
-			win_data->fence = fd;
-		}
+		decon_lpd_block(decon);
+		decon->timeline_max++;
+		pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
+		fence = sync_fence_create("display", pt);
+		sync_fence_install(fence, fd);
+		win_data->fence = fd;
 		mutex_lock(&decon->update_regs_list_lock);
 		list_add_tail(&regs->list, &decon->update_regs_list);
 		mutex_unlock(&decon->update_regs_list_lock);
@@ -2827,19 +2789,22 @@ void decon_clocks_info(struct decon_device *decon)
 				clk_get_rate(decon->res.pclk) / MHZ);
 	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.eclk_leaf),
 				clk_get_rate(decon->res.eclk_leaf) / MHZ);
-	decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.vclk_leaf),
+	if (decon->id != 2) {
+		decon_info("%s: %ld Mhz\n", __clk_get_name(decon->res.vclk_leaf),
 				clk_get_rate(decon->res.vclk_leaf) / MHZ);
+	}
 }
 
 void decon_put_clocks(struct decon_device *decon)
 {
-	if (decon->id == 0)
+	if (decon->id != 2) {
 		clk_put(decon->res.dpll);
+		clk_put(decon->res.vclk);
+		clk_put(decon->res.vclk_leaf);
+	}
 	clk_put(decon->res.pclk);
 	clk_put(decon->res.eclk);
 	clk_put(decon->res.eclk_leaf);
-	clk_put(decon->res.vclk);
-	clk_put(decon->res.vclk_leaf);
 }
 
 static int decon_runtime_resume(struct device *dev)
@@ -2851,16 +2816,19 @@ static int decon_runtime_resume(struct device *dev)
 	decon_dbg("decon%d %s +\n", decon->id, __func__);
 	mutex_lock(&decon->mutex);
 
-	if (decon->id == 0)
+	if (decon->id != 2) {
 		clk_prepare_enable(decon->res.dpll);
+		clk_prepare_enable(decon->res.vclk);
+		clk_prepare_enable(decon->res.vclk_leaf);
+	}
 	clk_prepare_enable(decon->res.pclk);
 	clk_prepare_enable(decon->res.eclk);
 	clk_prepare_enable(decon->res.eclk_leaf);
-	clk_prepare_enable(decon->res.vclk);
-	clk_prepare_enable(decon->res.vclk_leaf);
 
 	if (!decon->id)
 		decon_f_set_clocks(decon);
+	else if (decon->id == 2)
+		decon_t_set_clocks(decon);
 	else
 		decon_s_set_clocks(decon);
 
@@ -2882,13 +2850,14 @@ static int decon_runtime_suspend(struct device *dev)
 	decon_dbg("decon%d %s +\n", decon->id, __func__);
 	mutex_lock(&decon->mutex);
 
-	clk_disable_unprepare(decon->res.pclk);
 	clk_disable_unprepare(decon->res.eclk);
 	clk_disable_unprepare(decon->res.eclk_leaf);
-	clk_disable_unprepare(decon->res.vclk);
-	clk_disable_unprepare(decon->res.vclk_leaf);
-	if (decon->id == 0)
+	clk_disable_unprepare(decon->res.pclk);
+	if (decon->id != 2) {
+		clk_disable_unprepare(decon->res.vclk);
+		clk_disable_unprepare(decon->res.vclk_leaf);
 		clk_disable_unprepare(decon->res.dpll);
+	}
 
 	mutex_unlock(&decon->mutex);
 	decon_dbg("decon%d %s -\n", decon->id, __func__);
@@ -2962,9 +2931,10 @@ static int decon_s_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 	decon->lcd_info->vsa = 2;
 	decon->lcd_info->hsa = 20;
 	decon->lcd_info->fps = 60;
+	decon->lcd_info->mic_ratio = 1;
 	decon->out_type = DECON_OUT_WB;
 
-	decon_info("decon-ext output size for writeback %dx%d\n",
+	decon_info("decon-%d output size for writeback %dx%d\n", decon->id,
 			decon->lcd_info->width, decon->lcd_info->height);
 
 	return 0;
@@ -3140,26 +3110,14 @@ static int decon_register_entity(struct decon_device *decon)
 		} else if (decon->pdata->out_type == DECON_OUT_HDMI) {
 			ret = find_subdev_hdmi(decon);
 #endif
-		} else {
-			/* TODO */
-			decon_err("Not Supported output media device\n");
-			return -ENODEV;
 		}
 
 		break;
 	case 2:
-		/* Fixed to DSIM1 */
-		if (decon->pdata->out_type == DECON_OUT_DSI) {
-			decon_err("DECON_OUT_DSI is not supported\n");
 #ifdef CONFIG_VIDEO_EXYNOS_HDMI
-		} else if (decon->pdata->out_type == DECON_OUT_HDMI) {
+		if (decon->pdata->out_type == DECON_OUT_HDMI) {
 			ret = find_subdev_hdmi(decon);
 #endif
-		} else {
-			/* TODO */
-			decon_err("Not Supported output media device\n");
-			return -ENODEV;
-		}
 		break;
 	}
 
@@ -3428,7 +3386,7 @@ static void decon_parse_pdata(struct decon_device *decon, struct device *dev)
 		/* DSI: 0, EDP: 1  & HDMI: 2*/
 		of_property_read_u32(dev->of_node, "out_type",
 				&decon->pdata->out_type);
-		decon_info("out type(%d). 0: DSI 1: EDP 2: HDMI 3: NONE\n",
+		decon_info("out type(%d). 0: DSI 1: EDP 2: HDMI 3: WB\n",
 				decon->pdata->out_type);
 
 		/* DSI_MODE_SINGLE: 0, DSI_MODE_DUAL_DISPLAY: 1  & DSI_MODE_DUAL_DSI: 2*/
@@ -3547,7 +3505,7 @@ static int decon_probe(struct platform_device *pdev)
 		break;
 	case 2:
 		decon_t_drvdata = decon;
-		decon_s_get_clocks(decon);
+		decon_t_get_clocks(decon);
 		decon->decon[0] = decon_f_drvdata;
 		decon->decon[1] = decon_s_drvdata;
 		decon->default_idma = IDMA_G3;
@@ -3569,7 +3527,11 @@ static int decon_probe(struct platform_device *pdev)
 	mutex_init(&decon->vsync_info.irq_lock);
 	snprintf(device_name, MAX_NAME_SIZE, "decon%d", decon->id);
 	decon->timeline = sw_sync_timeline_create(device_name);
-	decon->timeline_max = 1;
+
+	if (decon->pdata->out_type == DECON_OUT_WB)
+		decon->timeline_max = 0;
+	else
+		decon->timeline_max = 1;
 
 	/* Get IRQ resource and register IRQ, create thread */
 	switch (decon->id) {
@@ -3605,7 +3567,7 @@ static int decon_probe(struct platform_device *pdev)
 		if (decon->decon[0])
 			decon->debug_root = decon->decon[0]->debug_root;
 
-		ret = decon_s_register_irq(pdev, decon);
+		ret = decon_t_register_irq(pdev, decon);
 		if (ret)
 			goto fail;
 		break;
@@ -3632,7 +3594,7 @@ static int decon_probe(struct platform_device *pdev)
 
 	decon->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(decon->pinctrl)) {
-		decon_err("failed to get decon-%d pinctrl\n", decon->id);
+		decon_warn("failed to get decon-%d pinctrl\n", decon->id);
 		decon->pinctrl = NULL;
 	} else {
 		decon->decon_te_on = pinctrl_lookup_state(decon->pinctrl, "decon_te_on");
@@ -3715,8 +3677,6 @@ static int decon_probe(struct platform_device *pdev)
 	init_kthread_work(&decon->update_regs_work, decon_update_regs_handler);
 
 	snprintf(device_name, MAX_NAME_SIZE, "decon%d-wb", decon->id);
-	decon->wb_timeline = sw_sync_timeline_create(device_name);
-	decon->wb_timeline_max = 0;
 
 	if (decon->pdata->out_type == DECON_OUT_DSI) {
 		ret = decon_set_lcd_config(decon);

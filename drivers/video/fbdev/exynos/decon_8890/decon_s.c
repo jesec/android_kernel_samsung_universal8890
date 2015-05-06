@@ -88,7 +88,7 @@ int decon_s_register_irq(struct platform_device *pdev, struct decon_device *deco
 		return ret;
 	}
 
-	/* 1: frame irq */
+	/* 1: VStatus irq */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
 	ret = devm_request_irq(dev, res->start, decon_s_irq_handler, 0,
 			pdev->name, decon);
@@ -97,7 +97,7 @@ int decon_s_register_irq(struct platform_device *pdev, struct decon_device *deco
 		return ret;
 	}
 
-	/* 2: i80 irq */
+	/* 2: FrameDone irq */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 2);
 	ret = devm_request_irq(dev, res->start, decon_s_irq_handler, 0,
 			pdev->name, decon);
@@ -106,7 +106,7 @@ int decon_s_register_irq(struct platform_device *pdev, struct decon_device *deco
 		return ret;
 	}
 
-	/* 3: wb frame done irq */
+	/* 3: Extra Interrupts: Resource Conflict irq */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 3);
 	ret = devm_request_irq(dev, res->start, decon_s_irq_handler, 0,
 			pdev->name, decon);

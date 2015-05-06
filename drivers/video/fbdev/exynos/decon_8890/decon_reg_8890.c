@@ -621,11 +621,14 @@ static void decon_reg_set_data_path(u32 id, int dsi_mode, u32 mic_ratio)
 			val |= COMP_DISPIF_NOCOMP_SPLITBYP_U0FF_U0DISP;
 		else if (dsi_mode == DSI_MODE_DUAL_DSI)
 			val |= COMP_DISPIF_NOCOMP_SPLITBYP_U0U1FF_U0U1DISP;
-	} else {
+	} else if (id == 1) {
 		mask = COMP_DISPIF_WB_PATH_MASK;
 		if (mic_ratio > 1)
 			val |= COMP_MIC_DECON1_SHIFT;
 		val |= COMP_DISPIF_NOCOMP_U2FF_U2DISP;
+	} else {
+		mask = COMP_DISPIF_WB_PATH_MASK;
+		val |= COMP_DISPIF_PRE_WB;
 	}
 	decon_write_mask(id, DATA_PATH_CONTROL, val, mask);
 
@@ -915,6 +918,7 @@ u32 decon_reg_get_height(u32 id, int dsi_mode)
 
 const unsigned long decon_clocks_table[][CLK_ID_MAX] = {
 	/* VCLK,  ECLK,  ACLK,  PCLK,  DISP_PLL,  resolution, MIC_ratio, DSC ratio */
+	{    71,   168,   400,    66,        71, 1080 * 1920,         1,         1},
 	{   125, 137.5,   400,    66,       125, 1440 * 2560,         1,         1},
 	{  62.5, 137.5,   400,    66,      62.5, 1440 * 2560,         1,         2},
 	{   141, 137.5,   400,    66,       141, 1440 * 2560,         1,         3},
@@ -927,11 +931,11 @@ void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_param *p)
 	int i = sizeof(decon_clocks_table) / sizeof(decon_clocks_table[0]) - 1;
 
 	/* set reset value */
-	clks->decon[CLK_ID_VCLK] = decon_clocks_table[i][CLK_ID_VCLK];
-	clks->decon[CLK_ID_ECLK] = decon_clocks_table[i][CLK_ID_ECLK];
-	clks->decon[CLK_ID_ACLK] = decon_clocks_table[i][CLK_ID_ACLK];
-	clks->decon[CLK_ID_PCLK] = decon_clocks_table[i][CLK_ID_PCLK];
-	clks->decon[CLK_ID_DPLL] = decon_clocks_table[i][CLK_ID_DPLL];
+	clks->decon[CLK_ID_VCLK] = decon_clocks_table[0][CLK_ID_VCLK];
+	clks->decon[CLK_ID_ECLK] = decon_clocks_table[0][CLK_ID_ECLK];
+	clks->decon[CLK_ID_ACLK] = decon_clocks_table[0][CLK_ID_ACLK];
+	clks->decon[CLK_ID_PCLK] = decon_clocks_table[0][CLK_ID_PCLK];
+	clks->decon[CLK_ID_DPLL] = decon_clocks_table[0][CLK_ID_DPLL];
 
 	while (i--) {
 		if (decon_clocks_table[i][CLK_ID_RESOLUTION]

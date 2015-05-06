@@ -47,25 +47,19 @@ extern int decon_log_level;
 #define MAX_NAME_SIZE		32
 
 #define MAX_DECON_PADS		9
-#define DECON_PAD_WB		6
+#define DECON_PAD_WB		8
 
 #define MAX_BUF_PLANE_CNT	3
 #define DECON_ENTER_LPD_CNT	3
 #define MIN_BLK_MODE_WIDTH	144
 #define MIN_BLK_MODE_HEIGHT	10
 
-#define DECON_ENABLE		1
-#define DECON_DISABLE		0
-#define STATE_IDLE		0
-#define STATE_DONE		1
 #define DECON_BACKGROUND	0
 #define VSYNC_TIMEOUT_MSEC	200
 #define MAX_BW_PER_WINDOW	(2560 * 1600 * 4 * 60)
 #define LCD_DEFAULT_BPP		24
-#define WB_DEFAULT_BPP         32
 
 #define DECON_TZPC_OFFSET	3
-#define DECON_ODMA_WB		9
 #define MAX_DMA_TYPE		10
 
 #define DISP_UTIL		70
@@ -359,6 +353,7 @@ struct decon_win_config {
 		DECON_WIN_STATE_UPDATE,
 	} state;
 
+	/* Reusability:This struct is used for IDMA and ODMA */
 	union {
 		__u32 color;
 		struct {
@@ -386,8 +381,7 @@ struct decon_win_config {
 struct decon_reg_data {
 	struct list_head		list;
 	struct decon_window_regs	win_regs[MAX_DECON_WIN];
-	struct decon_dma_buf_data	dma_buf_data[MAX_DECON_WIN][MAX_BUF_PLANE_CNT];
-	struct decon_dma_buf_data	wb_dma_buf_data;
+	struct decon_dma_buf_data	dma_buf_data[MAX_DECON_WIN + 1][MAX_BUF_PLANE_CNT];
 	unsigned int			bandwidth;
 	unsigned int			num_of_window;
 	u32				win_overlap_cnt;
@@ -395,9 +389,7 @@ struct decon_reg_data {
 	u32				disp_bw;
 	u32                             int_bw;
 	struct decon_rect		overlap_rect;
-	u32				wb_whole_w;
-	u32				wb_whole_h;
-	struct decon_win_config		vpp_config[MAX_DECON_WIN];
+	struct decon_win_config		vpp_config[MAX_DECON_WIN + 1];
 	struct decon_win_rect		block_rect[MAX_DECON_WIN];
 #ifdef CONFIG_FB_WINDOW_UPDATE
 	struct decon_win_rect		update_win;
@@ -492,8 +484,6 @@ typedef enum disp_ss_event_type {
 	/* write-back events */
 	DISP_EVT_WB_SET_BUFFER,
 	DISP_EVT_WB_SW_TRIGGER,
-	DISP_EVT_WB_TIMELINE_INC,
-	DISP_EVT_WB_FRAME_DONE,
 	DISP_EVT_WB_SET_FORMAT,
 
 	DISP_EVT_MAX, /* End of EVENT */
@@ -640,8 +630,6 @@ struct decon_device {
 	struct ion_client		*ion_client;
 	struct sw_sync_timeline		*timeline;
 	int				timeline_max;
-	struct sw_sync_timeline		*wb_timeline;
-	int				wb_timeline_max;
 
 	struct mutex			output_lock;
 	struct mutex			mutex;
@@ -673,8 +661,6 @@ struct decon_device {
 	void __iomem			*cam_status[2];
 	u32				prev_protection_bitmask;
 	u32				cur_protection_bitmask;
-	struct decon_dma_buf_data	wb_dma_buf_data;
-	atomic_t wb_done;
 
 	unsigned int			irq;
 #ifdef CONFIG_CPU_IDLE
@@ -756,12 +742,16 @@ int create_link_hdmi(struct decon_device *decon);
 int decon_int_remap_eint(struct decon_device *decon);
 int decon_f_register_irq(struct platform_device *pdev, struct decon_device *decon);
 int decon_s_register_irq(struct platform_device *pdev, struct decon_device *decon);
+int decon_t_register_irq(struct platform_device *pdev, struct decon_device *decon);
 irqreturn_t decon_f_irq_handler(int irq, void *dev_data);
 irqreturn_t decon_s_irq_handler(int irq, void *dev_data);
+irqreturn_t decon_t_irq_handler(int irq, void *dev_data);
 int decon_f_get_clocks(struct decon_device *decon);
 int decon_s_get_clocks(struct decon_device *decon);
+int decon_t_get_clocks(struct decon_device *decon);
 void decon_f_set_clocks(struct decon_device *decon);
 void decon_s_set_clocks(struct decon_device *decon);
+void decon_t_set_clocks(struct decon_device *decon);
 int decon_register_lpd_work(struct decon_device *decon);
 int decon_exit_lpd(struct decon_device *decon);
 int decon_lpd_block_exit(struct decon_device *decon);

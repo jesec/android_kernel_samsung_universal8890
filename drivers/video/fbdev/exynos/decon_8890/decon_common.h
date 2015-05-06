@@ -52,6 +52,7 @@ enum decon_set_trig {
 	DECON_TRIG_ENABLE
 };
 
+/* Type is used for IDMA and ODMA */
 enum decon_idma_type {
 	IDMA_G0 = 0,	/* Dedicated to WIN7 */
 	IDMA_G1,
@@ -61,6 +62,7 @@ enum decon_idma_type {
 	IDMA_G3,
 	IDMA_VGR0,
 	IDMA_VGR1,
+	ODMA_WB,
 };
 
 enum decon_output_type {

@@ -144,10 +144,6 @@ static inline void disp_ss_event_log_decon
 		break;
 	case DISP_EVT_WB_SET_BUFFER:
 	case DISP_EVT_WB_SW_TRIGGER:
-	case DISP_EVT_WB_TIMELINE_INC:
-	case DISP_EVT_WB_FRAME_DONE:
-		log->data.frame.timeline = decon->wb_timeline->value;
-		log->data.frame.timeline_max = decon->wb_timeline_max;
 		break;
 	case DISP_EVT_TE_INTERRUPT:
 	case DISP_EVT_UNDERRUN:
@@ -284,8 +280,6 @@ void DISP_SS_EVENT_LOG(disp_ss_event_t type, struct v4l2_subdev *sd, ktime_t tim
 	case DISP_EVT_DECON_FRAMEDONE_WAIT:
 	case DISP_EVT_WB_SET_BUFFER:
 	case DISP_EVT_WB_SW_TRIGGER:
-	case DISP_EVT_WB_TIMELINE_INC:
-	case DISP_EVT_WB_FRAME_DONE:
 		disp_ss_event_log_decon(type, sd, time);
 		break;
 	case DISP_EVT_DSIM_FRAMEDONE:
