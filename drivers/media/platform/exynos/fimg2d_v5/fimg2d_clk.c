@@ -34,16 +34,72 @@ void fimg2d_clk_off(struct fimg2d_control *ctrl)
 	fimg2d_debug("%s : clock disable\n", __func__);
 }
 
+int exynos8890_fimg2d_clk_setup(struct fimg2d_control *ctrl)
+{
+	struct fimg2d_platdata *pdata;
+
+	pdata = ctrl->pdata;
+
+	of_property_read_string_index(ctrl->dev->of_node,
+		"clock-names", 0, (const char **)&(pdata->gate_clkname));
+
+	fimg2d_info("Done fimg2d clock setup\n");
+
+	return 0;
+}
+
 int fimg2d_clk_setup(struct fimg2d_control *ctrl)
 {
+	struct fimg2d_platdata *pdata;
+	struct clk *sclk = NULL;
 	int ret = 0;
 
-	/* TODO */
+	pdata = ctrl->pdata;
 
+	if (ip_is_g2d_8j()) {
+		if (exynos8890_fimg2d_clk_setup(ctrl)) {
+			fimg2d_err("failed to setup clk\n");
+			ret = -ENOENT;
+			goto err_clk1;
+		}
+	} else {
+		sclk = clk_get(ctrl->dev, pdata->clkname);
+		if (IS_ERR(sclk)) {
+			fimg2d_err("failed to get fimg2d clk\n");
+			ret = -ENOENT;
+			goto err_clk1;
+		}
+		fimg2d_info("fimg2d clk name: %s clkrate: %ld\n",
+				pdata->clkname, clk_get_rate(sclk));
+	}
+
+	/* clock for gating */
+	ctrl->clock = clk_get(ctrl->dev, pdata->gate_clkname);
+	if (IS_ERR(ctrl->clock)) {
+		fimg2d_err("failed to get gate clk\n");
+		ret = -ENOENT;
+		goto err_clk2;
+	}
+
+	if (clk_prepare(ctrl->clock))
+		fimg2d_err("failed to prepare gate clock\n");
+
+	fimg2d_info("gate clk: %s\n", pdata->gate_clkname);
+
+	return ret;
+
+err_clk2:
+	if (sclk)
+		clk_put(sclk);
+	if (ctrl->clock)
+		clk_put(ctrl->clock);
+
+err_clk1:
 	return ret;
 }
 
 void fimg2d_clk_release(struct fimg2d_control *ctrl)
 {
-	/* TODO */
+	clk_unprepare(ctrl->clock);
+	clk_put(ctrl->clock);
 }
