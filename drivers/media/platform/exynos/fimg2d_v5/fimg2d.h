@@ -275,6 +275,7 @@ struct fimg2d_dma {
 };
 
 struct fimg2d_dma_dva {
+	int fd;
 	struct dma_buf *dma_buf;
 	struct dma_buf_attachment *attachment;
 	struct sg_table *sg_table;
