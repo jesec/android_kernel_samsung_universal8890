@@ -279,7 +279,7 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 	if (th_zone->sensor_conf->d_type == BIG_CPU)
 		cpufreq_set_cur_temp(suspended, *temp / 1000);
 	else  if (th_zone->sensor_conf->d_type == CPU)
-		gpufreq_set_cur_temp(suspended, *temp / 1000);
+		cpufreq_set_cur_temp(suspended, *temp / 1000);
 	else  if (th_zone->sensor_conf->d_type == GPU)
 		gpufreq_set_cur_temp(suspended, *temp / 1000);
 
