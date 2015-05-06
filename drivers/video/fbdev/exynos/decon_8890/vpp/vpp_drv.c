@@ -131,6 +131,27 @@ static int vpp_wait_for_update(struct vpp_dev *vpp)
 	return 0;
 }
 
+static int vpp_wait_for_framedone(struct vpp_dev *vpp)
+{
+	int done_cnt;
+	int ret;
+
+	if (test_bit(VPP_POWER_ON, &vpp->state)) {
+		done_cnt = vpp->done_count;
+		dev_dbg(DEV, "%s (%d, %d)\n", __func__,
+				done_cnt, vpp->done_count);
+		ret = wait_event_interruptible_timeout(vpp->update_queue,
+				(done_cnt != vpp->done_count),
+				msecs_to_jiffies(17));
+		if (ret == 0) {
+			dev_err(DEV, "timeout of frame done(%d, %d)\n",
+				done_cnt, vpp->done_count);
+			return -ETIMEDOUT;
+		}
+	}
+	return 0;
+}
+
 static void vpp_separate_fraction_value(struct vpp_dev *vpp,
 			int *integer, u32 *fract_val)
 {
@@ -695,6 +716,10 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 
 	case VPP_WAIT_IDLE:
 		vpp_reg_wait_idle(vpp->id);
+		break;
+
+	case VPP_WAIT_FOR_FRAMEDONE:
+		ret = vpp_wait_for_framedone(vpp);
 		break;
 
 	default:
