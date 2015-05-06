@@ -362,6 +362,7 @@ struct decon_win_config {
 	/* destination OSD coordinates */
 	struct decon_frame dst;
 	bool protection;
+	bool compression;
 };
 
 struct decon_reg_data {
