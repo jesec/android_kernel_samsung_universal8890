@@ -274,11 +274,38 @@ static int fimg2d5x_configure(struct fimg2d_control *ctrl,
 	return 0;
 }
 
+static void fimg2d5x_run(struct fimg2d_control *ctrl)
+{
+	fimg2d_debug("start blit\n");
+	fimg2d5x_enable_irq(ctrl);
+	fimg2d5x_clear_irq(ctrl);
+	fimg2d5x_start_blit(ctrl);
+}
+
+static void fimg2d5x_stop(struct fimg2d_control *ctrl)
+{
+	if (fimg2d5x_is_blit_done(ctrl)) {
+		fimg2d_debug("blit done\n");
+		fimg2d5x_disable_irq(ctrl);
+		fimg2d5x_clear_irq(ctrl);
+		atomic_set(&ctrl->busy, 0);
+		wake_up(&ctrl->wait_q);
+	}
+}
+
+static void fimg2d5x_dump(struct fimg2d_control *ctrl)
+{
+	fimg2d5x_dump_regs(ctrl);
+}
+
 int fimg2d_register_ops(struct fimg2d_control *ctrl)
 {
 	/* TODO */
 	ctrl->blit = fimg2d5x_bitblt;
 	ctrl->configure = fimg2d5x_configure;
+	ctrl->run = fimg2d5x_run;
+	ctrl->dump = fimg2d5x_dump;
+	ctrl->stop = fimg2d5x_stop;
 
 	return 0;
 };
