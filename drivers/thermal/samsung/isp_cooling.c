@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/thermal/gpu_cooling.c
+ *  linux/drivers/thermal/isp_cooling.c
  *
  *  Copyright (C) 2012	Samsung Electronics Co., Ltd(http://www.samsung.com)
  *  Copyright (C) 2012  Amit Daniel <amit.kachhap@linaro.org>
@@ -42,7 +42,7 @@
  *	cooling	devices.
  * @isp_val: integer value representing the absolute value of the clipped
  *	frequency.
- * @allowed_gpus: all the gpus involved for this isp_cooling_device.
+ * @allowed_isp: all the isp involved for this isp_cooling_device.
  *
  * This structure is required for keeping information of each
  * isp_cooling_device registered. In order to prevent corruption of this a
@@ -117,14 +117,14 @@ enum isp_cooling_property {
 };
 
 /**
- * get_property - fetch a property of interest for a give gpu.
- * @gpu: gpu for which the property is required
+ * get_property - fetch a property of interest for a give isp.
+ * @isp: isp for which the property is required
  * @input: query parameter
  * @output: query return
  * @property: type of query (frequency, level, max level)
  *
  * This is the common function to
- * 1. get maximum gpu cooling states
+ * 1. get maximum isp cooling states
  * 2. translate frequency to cooling state
  * 3. translate cooling state to frequency
  * Note that the code may be not in good shape
@@ -135,7 +135,7 @@ enum isp_cooling_property {
  *
  * Return: 0 on success, -EINVAL when invalid parameters are passed.
  */
-static int get_property(unsigned int gpu, unsigned long input,
+static int get_property(unsigned int isp, unsigned long input,
 			unsigned int *output,
 			enum isp_cooling_property property)
 {
@@ -204,8 +204,8 @@ static int get_property(unsigned int gpu, unsigned long input,
 }
 
 /**
- * isp_cooling_get_level - for a give gpu, return the cooling level.
- * @gpu: gpu for which the level is required
+ * isp_cooling_get_level - for a give isp, return the cooling level.
+ * @isp: isp for which the level is required
  * @freq: the frequency of interest
  *
  * This function will match the cooling level corresponding to the
@@ -352,7 +352,7 @@ int exynos_isp_add_notifier(struct notifier_block *n)
 /**
  * __isp_cooling_register - helper function to create isp cooling device
  * @np: a valid struct device_node to the cooling device device tree node
- * @clip_gpus: gpumask of gpus where the frequency constraints will happen.
+ * @clip_isp: ispmask of isp where the frequency constraints will happen.
  *
  * This interface function registers the isp cooling device with the name
  * "thermal-isp-%x". This api can support multiple instances of isp
@@ -364,7 +364,7 @@ int exynos_isp_add_notifier(struct notifier_block *n)
  */
 static struct thermal_cooling_device *
 __isp_cooling_register(struct device_node *np,
-			   const struct cpumask *clip_gpus)
+			   const struct cpumask *clip_isp)
 {
 	struct thermal_cooling_device *cool_dev;
 	struct isp_cooling_device *isp_dev = NULL;
@@ -405,7 +405,7 @@ __isp_cooling_register(struct device_node *np,
 
 /**
  * isp_cooling_register - function to create isp cooling device.
- * @clip_gpus: cpumask of gpus where the frequency constraints will happen.
+ * @clip_isp: cpumask of gpus where the frequency constraints will happen.
  *
  * This interface function registers the isp cooling device with the name
  * "thermal-isp-%x". This api can support multiple instances of isp
@@ -415,16 +415,16 @@ __isp_cooling_register(struct device_node *np,
  * on failure, it returns a corresponding ERR_PTR().
  */
 struct thermal_cooling_device *
-isp_cooling_register(const struct cpumask *clip_gpus)
+isp_cooling_register(const struct cpumask *clip_isp)
 {
-	return __isp_cooling_register(NULL, clip_gpus);
+	return __isp_cooling_register(NULL, clip_isp);
 }
 EXPORT_SYMBOL_GPL(isp_cooling_register);
 
 /**
  * of_isp_cooling_register - function to create isp cooling device.
  * @np: a valid struct device_node to the cooling device device tree node
- * @clip_gpus: cpumask of gpus where the frequency constraints will happen.
+ * @clip_isp: cpumask of gpus where the frequency constraints will happen.
  *
  * This interface function registers the isp cooling device with the name
  * "thermal-isp-%x". This api can support multiple instances of isp
@@ -436,12 +436,12 @@ EXPORT_SYMBOL_GPL(isp_cooling_register);
  */
 struct thermal_cooling_device *
 of_isp_cooling_register(struct device_node *np,
-			    const struct cpumask *clip_gpus)
+			    const struct cpumask *clip_isp)
 {
 	if (!np)
 		return ERR_PTR(-EINVAL);
 
-	return __isp_cooling_register(np, clip_gpus);
+	return __isp_cooling_register(np, clip_isp);
 }
 EXPORT_SYMBOL_GPL(of_isp_cooling_register);
 
