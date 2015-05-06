@@ -498,6 +498,12 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	vpp->v_ratio = p.vpp_v_ratio;
 
 	vpp_select_format(vpp, &vi);
+
+	if (config->compression && is_rotation(config)) {
+		dev_err(DEV,"Unsupported rotation when using afbc enable");
+		return -EINVAL;
+	}
+
 	ret = vpp_reg_set_in_format(vpp->id, &vi);
 	if (ret)
 		goto err;
