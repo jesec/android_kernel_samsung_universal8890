@@ -151,6 +151,26 @@ static void fimg2d_job_waiting(struct work_struct *work)
 	}
 }
 
+static int fimg2d_context_wait(struct fimg2d_context *ctx)
+{
+	int ret;
+
+	ret = wait_event_timeout(ctx->wait_q, !atomic_read(&ctx->ncmd),
+			CTX_TIMEOUT);
+	if (!ret) {
+		fimg2d_err("ctx %p wait timeout\n", ctx);
+		return -ETIME;
+	}
+
+	if (ctx->state == CTX_ERROR) {
+		ctx->state = CTX_READY;
+		fimg2d_err("ctx %p error before blit\n", ctx);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static irqreturn_t fimg2d_irq(int irq, void *dev_id)
 {
 	fimg2d_debug("irq\n");
@@ -302,7 +322,12 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 
 	case FIMG2D_BITBLT_SYNC:
-		/* TODO */
+		fimg2d_debug("Begin sync of ctx %p\n", ctx);
+		ret = fimg2d_context_wait(ctx);
+		if (ret)
+			fimg2d_err("Failed to wait, ret = %d\n", ret);
+		mmput(ctx->mm);
+		fimg2d_debug("End of sync ctx %p\n", ctx);
 		break;
 
 	default:
