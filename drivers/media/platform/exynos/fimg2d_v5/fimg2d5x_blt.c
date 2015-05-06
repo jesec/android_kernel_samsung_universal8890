@@ -32,6 +32,10 @@
 
 #define BLIT_TIMEOUT	msecs_to_jiffies(8000)
 
+#define MAX_PREFBUFS	6
+static int nbufs;
+static struct sysmmu_prefbuf prefbuf[MAX_PREFBUFS];
+
 static int fimg2d5x_blit_wait(struct fimg2d_control *ctrl,
 		struct fimg2d_bltcmd *cmd)
 {
@@ -134,10 +138,147 @@ fail_n_del:
 	return ret;
 }
 
+static int fast_op(struct fimg2d_image *s)
+{
+	int fop;
+
+	fop = s->op;
+
+	/* TODO: translate op */
+
+	return fop;
+}
+
+static int fimg2d5x_configure(struct fimg2d_control *ctrl,
+		struct fimg2d_bltcmd *cmd)
+{
+	int op;
+	enum image_sel srcsel;
+	struct fimg2d_param *p;
+	struct fimg2d_image *src, *dst;
+	struct sysmmu_prefbuf *pbuf;
+	struct fimg2d_memops *memops = cmd->memops;
+	enum addr_space addr_type;
+	int i;
+	int ret;
+
+	addr_type = cmd->image_dst.addr.type;
+
+	fimg2d_debug("ctx %p seq_no(%u)\n", cmd->ctx, cmd->blt.seq_no);
+
+	p = &cmd->image_src[0].param;
+	dst = &cmd->image_dst;
+
+	fimg2d5x_init(ctrl);
+
+	nbufs = 0;
+	pbuf = &prefbuf[nbufs];
+
+	if (!memops) {
+		fimg2d_err("No memops registered, type = %d\n", addr_type);
+		return -EFAULT;
+	}
+
+	ret = memops->map(ctrl, cmd);
+	if (ret) {
+		fimg2d_err("Failed to memory mapping\n");
+		fimg2d_info("s/w fallback (ret = %d)\n", ret);
+		return ret;
+	}
+
+	/* src */
+	for (i = 0; i < MAX_SRC; i++) {
+		src = &cmd->image_src[i];
+		if (!src->addr.type) {
+			if (src->op != BLIT_OP_SOLID_FILL)
+				continue;
+		}
+
+		p = &cmd->image_src[i].param;
+
+		srcsel = IMG_MEMORY;
+		op = fast_op(src);
+
+		switch (op) {
+		case BLIT_OP_SOLID_FILL:
+			srcsel = IMG_CONSTANT_COLOR;
+			fimg2d5x_set_fgcolor(ctrl, src, p->solid_color);
+			break;
+		case BLIT_OP_CLR:
+			srcsel = IMG_CONSTANT_COLOR;
+			fimg2d5x_set_color_fill(ctrl, 0);
+			break;
+		case BLIT_OP_DST:
+			srcsel = IMG_CONSTANT_COLOR;
+			break;
+		default:
+			fimg2d5x_enable_alpha(ctrl, src, p->g_alpha);
+			fimg2d5x_set_alpha_composite(ctrl, src, op, p->g_alpha);
+			if (p->premult != NON_PREMULTIPLIED)
+				fimg2d5x_set_premultiplied(ctrl, src);
+			break;
+		}
+
+		fimg2d5x_set_src_type(ctrl, src, srcsel);
+		fimg2d5x_set_src_rect(ctrl, src, &src->rect);
+		fimg2d5x_set_src_repeat(ctrl, src, &p->repeat);
+
+		if (srcsel != IMG_CONSTANT_COLOR)
+			fimg2d5x_set_src_image(ctrl, src, &cmd->dma_src[i]);
+
+		if (p->scaling.mode)
+			fimg2d5x_set_src_scaling(ctrl, src,
+					&p->scaling, &p->repeat);
+
+		/* TODO: clipping enable should be always true. */
+		if (p->clipping.enable)
+			fimg2d5x_enable_clipping(ctrl, src, &p->clipping);
+
+		/* rotation */
+		if (p->rotate)
+			fimg2d5x_set_rotation(ctrl, src, p->rotate);
+
+		fimg2d5x_set_layer_valid(ctrl, src);
+
+		/* prefbuf */
+		pbuf->base = cmd->dma_src[i].base.iova;
+		pbuf->size = cmd->dma_src[i].base.size;
+		pbuf->config = SYSMMU_PBUFCFG_DEFAULT_INPUT;
+		nbufs++;
+		pbuf++;
+	}
+
+	/* dst */
+	if (dst->addr.type) {
+		fimg2d5x_set_dst_image(ctrl, dst, &cmd->dma_dst);
+		fimg2d5x_set_dst_rect(ctrl, &dst->rect);
+
+		/* prefbuf */
+		pbuf->base = cmd->dma_dst.base.iova;
+		pbuf->size = cmd->dma_dst.base.size;
+		pbuf->config = SYSMMU_PBUFCFG_DEFAULT_OUTPUT;
+		nbufs++;
+		pbuf++;
+	}
+
+	sysmmu_set_prefetch_buffer_by_region(ctrl->dev, prefbuf, nbufs);
+
+	/* dithering */
+	if (cmd->blt.dither)
+		fimg2d5x_enable_dithering(ctrl);
+
+	/* Update flag */
+	if (cmd->src_flag)
+		fimg2d5x_layer_update(ctrl, cmd->src_flag);
+
+	return 0;
+}
+
 int fimg2d_register_ops(struct fimg2d_control *ctrl)
 {
 	/* TODO */
 	ctrl->blit = fimg2d5x_bitblt;
+	ctrl->configure = fimg2d5x_configure;
 
 	return 0;
 };
