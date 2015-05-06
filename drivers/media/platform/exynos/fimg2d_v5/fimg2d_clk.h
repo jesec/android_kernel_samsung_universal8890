@@ -18,4 +18,13 @@ void fimg2d_clk_release(struct fimg2d_control *ctrl);
 void fimg2d_clk_on(struct fimg2d_control *ctrl);
 void fimg2d_clk_off(struct fimg2d_control *ctrl);
 
+#ifndef CONFIG_PM_RUNTIME
+static int fimg2d5x_get_clk_cnt(struct clk *clk)
+{
+	return __clk_is_enabled(clk);
+}
+#else
+#define	fimg2d5x_get_clk_cnt(clk)	true
+#endif
+
 #endif /* __FIMG2D_CLK_H__ */
