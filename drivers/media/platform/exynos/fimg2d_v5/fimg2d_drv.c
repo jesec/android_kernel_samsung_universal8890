@@ -161,6 +161,18 @@ static irqreturn_t fimg2d_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int fimg2d_request_bitblt(struct fimg2d_control *ctrl,
+		struct fimg2d_bltcmd *cmd)
+{
+	fimg2d_debug("Request bitblt\n");
+	if (cmd->blt.use_fence)
+		wake_up(&ctrl->waiting_waitq);
+	else
+		wake_up(&ctrl->running_waitq);
+
+	return 0;
+}
+
 static int fimg2d_open(struct inode *inode, struct file *file)
 {
 	struct fimg2d_context *ctx;
@@ -216,10 +228,77 @@ static unsigned int fimg2d_poll(struct file *file, struct poll_table_struct *w)
 static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
+	struct fimg2d_context *ctx;
+	struct mm_struct *mm;
+	struct fimg2d_bltcmd *bltcmd;
+	struct fimg2d_image *img;
+
+	struct fimg2d_blit __user *user_blt;
+	struct fimg2d_image __user *user_img;
+	int i, err;
+
+	ctx = file->private_data;
 
 	switch (cmd) {
 	case FIMG2D_BITBLT_BLIT:
-		/* TODO */
+		mm = get_task_mm(current);
+		if (!mm) {
+			fimg2d_err("no mm for ctx\n");
+			return -ENXIO;
+		}
+
+		g2d_lock(&ctrl->drvlock);
+		ctx->mm = mm;
+
+		if (atomic_read(&ctrl->suspended)) {
+			fimg2d_err("driver is unavailable, do sw fallback\n");
+			g2d_unlock(&ctrl->drvlock);
+			mmput(mm);
+			return -EPERM;
+		}
+
+		bltcmd = fimg2d_add_command(ctrl, ctx,
+					(struct fimg2d_blit __user *)arg, &ret);
+		if (ret) {
+			fimg2d_err("add command not allowed, ret = %d\n", ret);
+			g2d_unlock(&ctrl->drvlock);
+			mmput(mm);
+			return ret;
+		}
+
+		fimg2d_pm_qos_update(ctrl, FIMG2D_QOS_ON);
+
+		if (bltcmd->blt.use_fence) {
+			user_blt = (struct fimg2d_blit __user *)arg;
+			for (i = 0; i < MAX_SRC; i++) {
+				img = &bltcmd->image_src[i];
+				if (!img->addr.type)
+					continue;
+
+				user_img = (struct fimg2d_image __user *)
+							user_blt->src[i];
+
+				err = put_user(img->release_fence_fd,
+						&user_img->release_fence_fd);
+			}
+			user_img = (struct fimg2d_image __user *)user_blt->dst;
+			err = put_user(img->release_fence_fd,
+						&user_img->release_fence_fd);
+		}
+
+		ret = fimg2d_request_bitblt(ctrl, bltcmd);
+		if (ret) {
+			fimg2d_info("request bitblit not allowed\n");
+			fimg2d_info("so passing to s/w fallback.\n");
+			g2d_unlock(&ctrl->drvlock);
+			mmput(mm);
+			return -EBUSY;
+		}
+
+		g2d_unlock(&ctrl->drvlock);
+
+		if (bltcmd->image_dst.addr.type != ADDR_USER)
+			mmput(mm);
 		break;
 
 	case FIMG2D_BITBLT_SYNC:
