@@ -54,14 +54,101 @@ module_param(g2d_debug, int, S_IRUGO | S_IWUSR);
 static struct fimg2d_control *ctrl;
 static struct fimg2d_qos g2d_qos_table[G2D_LV_END];
 
+static int fimg2d_do_bitblt(struct fimg2d_control *ctrl)
+{
+	int ret;
+
+	pm_runtime_get_sync(ctrl->dev);
+	fimg2d_debug("Done pm_runtime_get_sync()\n");
+
+	fimg2d_clk_on(ctrl);
+	ret = ctrl->blit(ctrl);
+	fimg2d_clk_off(ctrl);
+
+	pm_runtime_put_sync(ctrl->dev);
+	fimg2d_debug("Done pm_runtime_put_sync()\n");
+
+	return ret;
+}
+
 static void fimg2d_job_running(struct work_struct *work)
 {
-	/* TODO */
+	struct fimg2d_control *ctrl;
+
+	ctrl = container_of(work, struct fimg2d_control, running_work);
+
+	fimg2d_info("Start running thread\n");
+
+	while (1) {
+		wait_event(ctrl->running_waitq,
+				atomic_read(&ctrl->n_running_q));
+		fimg2d_debug("Job running...\n");
+		fimg2d_do_bitblt(ctrl);
+	}
+}
+
+static int fimg2d_fence_wait(struct fimg2d_bltcmd *cmd)
+{
+	struct fimg2d_image *img;
+	int i;
+	int err;
+
+	for (i = 0; i < MAX_SRC; i++) {
+		img = &cmd->image_src[i];
+		if (!img->addr.type)
+			continue;
+
+		if (img->fence) {
+			err = sync_fence_wait(img->fence, 900);
+			if (err < 0) {
+				fimg2d_err("Error(%d) for waiting src[%d]\n",
+									err, i);
+			}
+		}
+	}
+
+	img = &cmd->image_dst;
+	if (img->fence) {
+		err = sync_fence_wait(img->fence, 900);
+		if (err < 0)
+			fimg2d_err("Error(%d) for waiting dst\n", err);
+	}
+
+	return 0;
 }
 
 static void fimg2d_job_waiting(struct work_struct *work)
 {
-	/* TODO */
+	struct fimg2d_control *ctrl;
+	struct fimg2d_bltcmd *cmd;
+	unsigned long flags;
+
+	ctrl = container_of(work, struct fimg2d_control, waiting_work);
+
+	fimg2d_info("Start waiting thread\n");
+
+	while (1) {
+		wait_event(ctrl->waiting_waitq,
+					atomic_read(&ctrl->n_waiting_q));
+		fimg2d_debug("Job waiting...\n");
+
+		/* Get the waiting command */
+		cmd = fimg2d_get_command(ctrl, 1);
+
+		/* Do the fence waiting */
+		fimg2d_fence_wait(cmd);
+
+		/* Remove list item from waiting q and add to running q */
+		/* FIXME: Need to cleanup to use common API */
+		g2d_spin_lock(&ctrl->bltlock, flags);
+		list_del(&cmd->node);
+		atomic_dec(&ctrl->n_waiting_q);
+		list_add_tail(&cmd->node, &ctrl->running_job_q);
+		atomic_inc(&ctrl->n_running_q);
+		g2d_spin_unlock(&ctrl->bltlock, flags);
+
+		wake_up(&ctrl->running_waitq);
+	}
 }
 
 static irqreturn_t fimg2d_irq(int irq, void *dev_id)
