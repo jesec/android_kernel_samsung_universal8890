@@ -42,6 +42,7 @@
 #include <soc/samsung/exynos-powermode.h>
 #include <soc/samsung/asv-exynos.h>
 #include <soc/samsung/tmu.h>
+#include <soc/samsung/ap_param_parser.h>
 
 #define POWER_COEFF_15P		68 /* percore param */
 #define POWER_COEFF_7P		10 /* percore  param */
@@ -2071,12 +2072,88 @@ static struct platform_device_id exynos_mp_cpufreq_driver_ids[] = {
 };
 MODULE_DEVICE_TABLE(platform, exynos_mp_cpufreq_driver_ids);
 
+#if defined(CONFIG_AP_PARAM)
+static void exynos_mp_cpufreq_parse_minlock(char *cluster_name, unsigned int frequency, unsigned int *mif_freq)
+{
+	int i;
+	void *cpumif_block;
+	struct ap_param_minlock_domain *domain;
+
+	cpumif_block = ap_param_get_block(BLOCK_MINLOCK);
+	if (cpumif_block == NULL)
+		return;
+
+	domain = ap_param_minlock_get_domain(cpumif_block, cluster_name);
+	if (domain == NULL)
+		return;
+
+	for (i = 0; i < domain->num_of_level; ++i) {
+		if (domain->level[i].main_frequencies == frequency) {
+			*mif_freq = domain->level[i].sub_frequencies;
+			return;
+		}
+	}
+
+	*mif_freq = 0;
+	return;
+}
+
+static int exynos_mp_cpufreq_parse_frequency(char *cluster_name, struct exynos_dvfs_info *ptr)
+{
+	int i;
+	void *dvfs_block;
+	struct ap_param_dvfs_domain *domain;
+
+	dvfs_block = ap_param_get_block(BLOCK_DVFS);
+	if (dvfs_block == NULL)
+		return -ENODEV;
+
+	domain = ap_param_dvfs_get_domain(dvfs_block, cluster_name);
+	if (domain == NULL)
+		return -ENODEV;
+
+	ptr->freq_table = kzalloc(sizeof(struct cpufreq_frequency_table)
+				* (domain->num_of_level + 1), GFP_KERNEL);
+	if (ptr->freq_table == NULL) {
+		pr_err("%s: failed to allocate memory for freq_table\n", __func__);
+		return -ENOMEM;
+	}
+
+	ptr->volt_table = kzalloc(sizeof(unsigned int)
+				* domain->num_of_level, GFP_KERNEL);
+	if (ptr->volt_table == NULL) {
+		pr_err("%s: failed to allocate for volt_table\n", __func__);
+		return -ENOMEM;
+	}
+
+	ptr->bus_table = kzalloc(sizeof(unsigned int)
+				* domain->num_of_level, GFP_KERNEL);
+	if (ptr->bus_table == NULL) {
+		pr_err("%s: failed to allocate for bus_table\n", __func__);
+		return -ENOMEM;
+	}
+
+	ptr->max_idx_num = domain->num_of_level;
+	for (i = 0; i < domain->num_of_level; ++i) {
+		ptr->freq_table[i].driver_data = i;
+		ptr->freq_table[i].frequency = domain->list_level[i].level;
+		ptr->volt_table[i] = 0;
+		exynos_mp_cpufreq_parse_minlock(cluster_name, ptr->freq_table[i].frequency, &ptr->bus_table[i]);
+	}
+
+	return 0;
+}
+#endif
+
 static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 {
 	struct exynos_dvfs_info *ptr = exynos_info[cl];
 	struct cpufreq_dvfs_table *table_ptr;
 	unsigned int table_size, i;
+	const char *cluster_domain_name;
+	char *cluster_name;
 	int ret;
+	int not_using_ap_param = true;
 
 	if (!np) {
 		pr_info("%s: cpufreq_dt is not existed. \n", __func__);
@@ -2116,54 +2193,67 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 		if (of_property_read_u32(np, "cl1_en_smpl", &ptr->en_smpl))
 			return -ENODEV;
 	}
-	/* memory alloc for table */
-	ptr->freq_table = kzalloc(sizeof(struct cpufreq_frequency_table)
-			* (ptr->max_idx_num + 1), GFP_KERNEL);
-	if (ptr->freq_table == NULL) {
-		pr_err("%s: failed to allocate memory for freq_table\n", __func__);
-		return -ENOMEM;
-	}
 
-	ptr->volt_table = kzalloc(sizeof(unsigned int)
-				* ptr->max_idx_num, GFP_KERNEL);
-	if (ptr->volt_table == NULL) {
-		pr_err("%s: failed to allocate for volt_table\n", __func__);
-		return -ENOMEM;
-	}
+	cluster_name = (cl ? "cl1_dvfs_table" :  "cl0_dvfs_table");
 
-	ptr->bus_table = kzalloc(sizeof(unsigned int)
-				* ptr->max_idx_num, GFP_KERNEL);
-	if (ptr->bus_table == NULL) {
-		pr_err("%s: failed to allocate for bus_table\n", __func__);
-		return -ENOMEM;
-	}
-
-	/* temparary table for dt parse*/
-	table_ptr = kzalloc(sizeof(struct cpufreq_dvfs_table)
-				* ptr->max_idx_num, GFP_KERNEL);
-	if (table_ptr == NULL) {
-		pr_err("%s: failed to allocate for cpufreq_dvfs_table\n", __func__);
-		kfree(table_ptr);
-		return -ENOMEM;
-	}
-	table_size = sizeof(struct cpufreq_dvfs_table) / sizeof(unsigned int);
-
-	ret = of_property_read_u32_array(np, (cl ? "cl1_dvfs_table" :  "cl0_dvfs_table"),
-			(unsigned int *)table_ptr, table_size * (ptr->max_idx_num));
-	if (ret < 0)
+	if (of_property_read_string(np, (cl ? "cl1_dvfs_domain_name" : "cl0_dvfs_domain_name"),
+				&cluster_domain_name))
 		return -ENODEV;
 
-	/* freq/volt/bus table is initailized by DT */
-	for (i = 0; i < ptr->max_idx_num; i++) {
-		ptr->freq_table[i].driver_data = table_ptr[i].index;
-		ptr->freq_table[i].frequency = table_ptr[i].frequency;
-		ptr->bus_table[i] = table_ptr[i].bus_qos_lock;
-		ptr->volt_table[i] = table_ptr[i].voltage;
+#if defined(CONFIG_AP_PARAM)
+	not_using_ap_param = exynos_mp_cpufreq_parse_frequency((char *)cluster_domain_name, ptr);
+#endif
+	if (not_using_ap_param) {
+		/* memory alloc for table */
+		ptr->freq_table = kzalloc(sizeof(struct cpufreq_frequency_table)
+				* (ptr->max_idx_num + 1), GFP_KERNEL);
+		if (ptr->freq_table == NULL) {
+			pr_err("%s: failed to allocate memory for freq_table\n", __func__);
+			return -ENOMEM;
+		}
+
+		ptr->volt_table = kzalloc(sizeof(unsigned int)
+					* ptr->max_idx_num, GFP_KERNEL);
+		if (ptr->volt_table == NULL) {
+			pr_err("%s: failed to allocate for volt_table\n", __func__);
+			return -ENOMEM;
+		}
+
+		ptr->bus_table = kzalloc(sizeof(unsigned int)
+					* ptr->max_idx_num, GFP_KERNEL);
+		if (ptr->bus_table == NULL) {
+			pr_err("%s: failed to allocate for bus_table\n", __func__);
+			return -ENOMEM;
+		}
+
+		/* temparary table for dt parse*/
+		table_ptr = kzalloc(sizeof(struct cpufreq_dvfs_table)
+				* ptr->max_idx_num, GFP_KERNEL);
+		if (table_ptr == NULL) {
+			pr_err("%s: failed to allocate for cpufreq_dvfs_table\n", __func__);
+			kfree(table_ptr);
+			return -ENOMEM;
+		}
+		table_size = sizeof(struct cpufreq_dvfs_table) / sizeof(unsigned int);
+
+		ret = of_property_read_u32_array(np, cluster_name,
+				(unsigned int *)table_ptr, table_size * (ptr->max_idx_num));
+		if (ret < 0)
+			return -ENODEV;
+
+		/* freq/volt/bus table is initailized by DT */
+		for (i = 0; i < ptr->max_idx_num; i++) {
+			ptr->freq_table[i].driver_data = table_ptr[i].index;
+			ptr->freq_table[i].frequency = table_ptr[i].frequency;
+			ptr->volt_table[i] = table_ptr[i].voltage;
+			ptr->bus_table[i] = table_ptr[i].bus_qos_lock;
+		}
+
+		kfree(table_ptr);
 	}
+
 	ptr->freq_table[ptr->max_idx_num].driver_data = ptr->max_idx_num;
 	ptr->freq_table[ptr->max_idx_num].frequency = CPUFREQ_TABLE_END;
-
-	kfree(table_ptr);
 
 	return 0;
 }
