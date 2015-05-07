@@ -317,8 +317,9 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		g2d_unlock(&ctrl->drvlock);
 
-		if (bltcmd->image_dst.addr.type != ADDR_USER)
+		if (!bltcmd->mm)
 			mmput(mm);
+
 		break;
 
 	case FIMG2D_BITBLT_SYNC:
@@ -326,7 +327,6 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		ret = fimg2d_context_wait(ctx);
 		if (ret)
 			fimg2d_err("Failed to wait, ret = %d\n", ret);
-		mmput(ctx->mm);
 		fimg2d_debug("End of sync ctx %p\n", ctx);
 		break;
 

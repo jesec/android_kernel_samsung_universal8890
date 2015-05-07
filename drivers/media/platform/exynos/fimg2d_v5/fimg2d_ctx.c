@@ -381,6 +381,11 @@ struct fimg2d_bltcmd *fimg2d_add_command(struct fimg2d_control *ctrl,
 		blt->dst = &cmd->image_dst;
 	}
 
+	if (blt->dst->addr.type == ADDR_USER)
+		cmd->mm = ctx->mm;
+	else
+		cmd->mm = NULL;
+
 	fimg2d_dump_command(cmd);
 
 	perf_start(cmd, PERF_TOTAL);
@@ -412,7 +417,8 @@ struct fimg2d_bltcmd *fimg2d_add_command(struct fimg2d_control *ctrl,
 	atomic_inc(&ctx->ncmd);
 	fimg2d_enqueue(cmd, ctrl);
 	fimg2d_debug("ctx %p pgd %p ncmd(%d) seq_no(%u)\n",
-			cmd->ctx, (unsigned long *)cmd->ctx->mm->pgd,
+			cmd->ctx,
+			cmd->mm ? (unsigned long *)cmd->mm->pgd : NULL,
 			atomic_read(&ctx->ncmd), cmd->blt.seq_no);
 	g2d_spin_unlock(&ctrl->bltlock, flags);
 
@@ -431,6 +437,8 @@ void fimg2d_del_command(struct fimg2d_control *ctrl, struct fimg2d_bltcmd *cmd)
 
 	perf_end(cmd, PERF_TOTAL);
 	perf_print(cmd);
+	if (cmd->mm)
+		mmput(cmd->mm);
 	g2d_spin_lock(&ctrl->bltlock, flags);
 	fimg2d_dequeue(cmd, ctrl);
 	kfree(cmd);
@@ -511,7 +519,7 @@ static void fimg2d_unmap_each_user_buffer(struct fimg2d_control *ctrl,
 					struct fimg2d_dma_group *dgroup)
 {
 	if (dgroup->base.size > 0) {
-		exynos_sysmmu_unmap_user_pages(ctrl->dev, cmd->ctx->mm,
+		exynos_sysmmu_unmap_user_pages(ctrl->dev, cmd->mm,
 				dgroup->base.addr,
 				dgroup->base.iova +
 				dgroup->base.offset,
@@ -556,7 +564,7 @@ static int fimg2d_map_each_user_buffer(struct fimg2d_control *ctrl,
 	int ret;
 
 	ret = exynos_sysmmu_map_user_pages(
-			ctrl->dev, cmd->ctx->mm,
+			ctrl->dev, cmd->mm,
 			dgroup->base.addr,
 			dgroup->base.iova +
 			dgroup->base.offset,

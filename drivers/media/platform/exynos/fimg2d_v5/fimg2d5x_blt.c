@@ -97,15 +97,15 @@ int fimg2d5x_bitblt(struct fimg2d_control *ctrl)
 	memops = cmd->memops;
 
 	if (addr_type == ADDR_USER) {
-		if (!ctx->mm || !ctx->mm->pgd) {
+		if (!cmd->mm || !cmd->mm->pgd) {
 			atomic_set(&ctrl->busy, 0);
-			fimg2d_err("ctx->mm:0x%p or ctx->mm->pgd:0x%p\n",
-					ctx->mm,
-					(ctx->mm) ? ctx->mm->pgd : NULL);
+			fimg2d_err("cmd->mm:0x%p or cmd->mm->pgd:0x%p\n",
+					cmd->mm,
+					(cmd->mm) ? cmd->mm->pgd : NULL);
 			ret = -EPERM;
 			goto fail_n_unmap;
 		}
-		pgd = (unsigned long *)ctx->mm->pgd;
+		pgd = (unsigned long *)cmd->mm->pgd;
 		fimg2d_debug("%s : sysmmu enable: pgd %p ctx %p seq_no(%u)\n",
 				__func__, pgd, ctx, cmd->blt.seq_no);
 	}
