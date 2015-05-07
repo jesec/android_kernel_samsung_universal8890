@@ -579,21 +579,27 @@ void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_form
 				}
 			}
 		}
-	} else {
-		vc->dst_mul_w = DST_SIZE_MULTIPLE;
-		vc->dst_mul_h = DST_SIZE_MULTIPLE;
-		vc->dst_w_min = DST_SIZE_WIDTH_MIN;
-		vc->dst_w_max = DST_SIZE_WIDTH_MAX;
-		vc->dst_h_min = DST_SIZE_HEIGHT_MIN;
-		vc->dst_h_max = DST_SIZE_HEIGHT_MAX;
+	} else { /* write-back case */
+		vc->src_mul_w = DST_SIZE_MULTIPLE;
+		vc->src_mul_h = DST_SIZE_MULTIPLE;
+		vc->src_w_min = DST_SIZE_WIDTH_MIN;
+		vc->src_w_max = DST_SIZE_WIDTH_MAX;
+		vc->src_h_min = DST_SIZE_HEIGHT_MIN;
+		vc->src_h_max = DST_SIZE_HEIGHT_MAX;
 		vc->img_mul_w = DST_IMGAGE_MULTIPLE;
 		vc->img_mul_h = DST_IMGAGE_MULTIPLE;
 		vc->img_w_min = DST_IMG_WIDTH_MIN;
 		vc->img_w_max = DST_IMG_MAX;
 		vc->img_h_min = DST_IMG_HEIGHT_MIN;
 		vc->img_h_max = DST_IMG_MAX;
-		vc->dst_mul_x = DST_OFFSET_MULTIPLE;
-		vc->dst_mul_y = DST_OFFSET_MULTIPLE;
+		vc->sca_w_min = DST_SIZE_WIDTH_MIN;
+		vc->sca_w_max = DST_SIZE_WIDTH_MAX;
+		vc->sca_h_min = DST_SIZE_HEIGHT_MIN;
+		vc->sca_h_max = DST_SIZE_HEIGHT_MAX;
+		vc->src_mul_x = DST_OFFSET_MULTIPLE;
+		vc->src_mul_y = DST_OFFSET_MULTIPLE;
+		vc->sca_mul_w = DST_OFFSET_MULTIPLE;
+		vc->sca_mul_h = DST_OFFSET_MULTIPLE;
 	}
 }
 
