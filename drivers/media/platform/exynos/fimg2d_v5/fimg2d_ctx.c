@@ -161,6 +161,7 @@ static int fimg2d_check_params(struct fimg2d_bltcmd *cmd)
 {
 	struct fimg2d_blit *blt = &cmd->blt;
 	struct fimg2d_image *img;
+	struct fimg2d_image *dst;
 	struct fimg2d_scale *scl;
 	struct fimg2d_clip *clp;
 	struct fimg2d_rect *r;
@@ -184,35 +185,37 @@ static int fimg2d_check_params(struct fimg2d_bltcmd *cmd)
 	}
 
 	/* Check for destination */
-	img = &cmd->image_dst;
-	ret = fimg2d_check_image(img);
+	dst = &cmd->image_dst;
+	ret = fimg2d_check_image(dst);
 	if (ret) {
-		fimg2d_err("check image failed, ret = %d\n", ret);
+		fimg2d_err("check dst image failed, ret = %d\n", ret);
 		return -3;
 	}
 
 	/* Check for source */
 	for (i = 0; i < MAX_SRC; i++) {
 		img = &cmd->image_src[i];
-		if (fimg2d_check_image(img))
+		if (fimg2d_check_image(img)) {
+			fimg2d_err("check src[%d] image failed, ret = %d\n",
+								i, ret);
 			return -4;
+		}
 
 		clp = &img->param.clipping;
 		if (clp->enable) {
-			w = img->width;
-			h = img->height;
-			r = &img->rect;
+			w = dst->width;
+			h = dst->height;
+			r = &dst->rect;
 
 			if (clp->x1 < 0 || clp->y1 < 0 ||
 				clp->x1 >= w || clp->y1 >= h ||
 				clp->x1 >= clp->x2 || clp->y1 >= clp->y2) {
-				fimg2d_err("clp(%d, %d, %d, %d) w,h(%d, %d), r(%d, %d, %d, %d)\n",
-					clp->x1, clp->y1, clp->x2, clp->y2,
+				fimg2d_err("Src[%d] clp(%d,%d,%d,%d)\n",
+					i, clp->x1, clp->y1, clp->x2, clp->y2);
+				fimg2d_err("Dst w,h(%d,%d) r(%d,%d,%d,%d)\n",
 					w, h, r->x1, r->y1, r->x2, r->y2);
 				return -5;
 			}
-			fimg2d_info("Layer:%d, Clipping(%d, %d, %d, %d)\n",
-					i, clp->x1, clp->y1, clp->x2, clp->y2);
 		}
 
 		scl = &img->param.scaling;
