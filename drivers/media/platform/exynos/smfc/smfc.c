@@ -172,6 +172,13 @@ static int smfc_vb2_queue_setup(struct vb2_queue *vq,
 {
 	struct smfc_ctx *ctx = vb2_get_drv_priv(vq);
 
+	if (!(ctx->flags & SMFC_CTX_COMPRESS) && (*num_buffers > 1)) {
+		dev_info(ctx->smfc->dev,
+			"Decompression does not allow >1 buffers\n");
+		dev_info(ctx->smfc->dev, "forced buffer count to 1\n");
+		*num_buffers = 1;
+	}
+
 	if (smfc_is_compressed_type(ctx, vq->type)) {
 		/*
 		 * SMFC is able to stop compression if the target buffer is not
@@ -217,27 +224,60 @@ static int smfc_vb2_buf_prepare(struct vb2_buffer *vb)
 {
 	struct smfc_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	unsigned int i;
+	bool clean_cache = !(vb->v4l2_buf.flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN);
+	bool full_clean = false;
 
-	if (!smfc_is_compressed_type(ctx, vb->vb2_queue->type)) {
-		unsigned long payload = ctx->width * ctx->height;
-		for (i = 0; i < ctx->img_fmt->num_buffers; i++) {
-			unsigned long planebytes;
-			planebytes = (payload * ctx->img_fmt->bpp_buf[i]) / 8;
-			if (vb2_get_plane_payload(vb, i) < planebytes) {
-				dev_err(ctx->smfc->dev,
-				"Too small bytes_used[%u]=%lu (req.:%lu)\n",
-				i, vb2_get_plane_payload(vb, i), planebytes);
-				return -EINVAL;
+	/* output buffers should have valid bytes_used */
+	if (V4L2_TYPE_IS_OUTPUT(vb->vb2_queue->type)) {
+		if (!!(ctx->flags & SMFC_CTX_COMPRESS)) {
+			unsigned long payload = ctx->width * ctx->height;
+
+			for (i = 0; i < ctx->img_fmt->num_buffers; i++) {
+				unsigned long planebytes = payload;
+
+				planebytes *= ctx->img_fmt->bpp_buf[i];
+				planebytes /= 8;
+				if (vb2_get_plane_payload(vb, i) < planebytes) {
+					dev_err(ctx->smfc->dev,
+					"Too small payload[%u]=%lu (req:%lu)\n",
+					i, vb2_get_plane_payload(vb, i),
+					planebytes);
+					return -EINVAL;
+				}
 			}
-		}
+		} else {
+			/* buffer contains JPEG stream to decompress */
+			int ret = smfc_parse_jpeg_header(ctx, vb);
 
-		if (!(vb->v4l2_buf.flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN))
-			return vb2_ion_buf_prepare_exact(vb);
+			if (ret != 0)
+				return ret;
+		}
 	} else {
-		if (!(vb->v4l2_buf.flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN))
-			return vb2_ion_buf_prepare(vb);
+		/*
+		 * capture payload of compression is configured
+		 * in exynos_smfc_irq_handler().
+		 */
+		if (!(ctx->flags & SMFC_CTX_COMPRESS)) {
+			unsigned long payload = ctx->width * ctx->height;
+
+			for (i = 0; i < ctx->img_fmt->num_buffers; i++) {
+				unsigned long planebits = payload;
+
+				planebits *= ctx->img_fmt->bpp_buf[i];
+				vb2_set_plane_payload(vb, i, planebits / 8);
+			}
+		} else {
+			/*
+			 * capture buffer of compression should be fully
+			 * invalidated
+			 */
+			full_clean = true;
+		}
 	}
 
+	if (clean_cache)
+		return (full_clean) ?
+			vb2_ion_buf_prepare(vb) : vb2_ion_buf_prepare_exact(vb);
 	return 0;
 }
 
@@ -418,6 +458,9 @@ static int exynos_smfc_release(struct file *filp)
 			clk_unprepare(ctx->smfc->clk_gate2);
 	}
 
+	kfree(ctx->quantizer_tables);
+	kfree(ctx->huffman_tables);
+
 	kfree(ctx);
 
 	return 0;
@@ -490,12 +533,26 @@ static void smfc_m2m_device_run(void *priv)
 		goto err_hwfc;
 
 	smfc_hwconfigure_reset(ctx->smfc);
-	smfc_hwconfigure_tables(ctx, quality_factor);
-	smfc_hwconfigure_image(ctx, chroma_hfactor, chroma_vfactor);
-	if (!!(ctx->flags & SMFC_CTX_B2B_COMPRESS) &&
-			!!(ctx->flags & SMFC_CTX_COMPRESS)) {
-		smfc_hwconfigure_2nd_tables(ctx, thumb_quality_factor);
-		smfc_hwconfigure_2nd_image(ctx, !!enable_hwfc);
+
+	if (!!(ctx->flags & SMFC_CTX_COMPRESS)) {
+		smfc_hwconfigure_tables(ctx, quality_factor);
+		smfc_hwconfigure_image(ctx, chroma_hfactor, chroma_vfactor);
+		if (!!(ctx->flags & SMFC_CTX_B2B_COMPRESS)) {
+			smfc_hwconfigure_2nd_tables(ctx, thumb_quality_factor);
+			smfc_hwconfigure_2nd_image(ctx, !!enable_hwfc);
+		}
+	} else {
+		if ((ctx->stream_width != ctx->width) ||
+				(ctx->stream_height != ctx->height)) {
+			dev_err(ctx->smfc->dev,
+				"Downscaling on decompression not allowed\n");
+			/* It is okay to abort after reset */
+			goto err_invalid_size;
+		}
+
+		smfc_hwconfigure_image(ctx,
+				ctx->stream_hfactor, ctx->stream_vfactor);
+		smfc_hwconfigure_tables_for_decompression(ctx);
 	}
 
 	spin_lock_irqsave(&ctx->smfc->flag_lock, flags);
@@ -516,6 +573,7 @@ static void smfc_m2m_device_run(void *priv)
 	smfc_hwconfigure_start(ctx, restart_interval, !!enable_hwfc);
 
 	return;
+err_invalid_size:
 err_hwfc:
 	if (!IS_ERR(ctx->smfc->clk_gate)) {
 		clk_disable(ctx->smfc->clk_gate);
