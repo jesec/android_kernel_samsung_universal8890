@@ -1632,6 +1632,46 @@ static struct console s3c24xx_serial_console = {
 	.setup		= s3c24xx_serial_console_setup,
 	.data		= &s3c24xx_uart_drv,
 };
+
+#define UFCON		0x08
+#define FIFO_ENABLED	(1<<0)
+#define UTXH		0x20
+#define URXH		0x24
+#define UTRSTAT		0x10
+#define UTRSTAT_TXFE	(1<<1)
+#define UTRSTAT_RXDR	(1<<0)
+
+static void
+exynos_serial_early_write(struct console *con, const char *s, unsigned n)
+{
+	struct earlycon_device *dev = con->data;
+	struct uart_port *port = &dev->port;
+	unsigned char __iomem *early_base = port->membase;
+	char *ch = (char *)s;
+
+	while (n--) {
+		while (!(readl_relaxed(early_base + UFCON) & FIFO_ENABLED))
+			;
+		writeb_relaxed(*ch, early_base + UTXH);
+		while (!(readl_relaxed(early_base + UTRSTAT) & UTRSTAT_TXFE))
+			;
+		ch++;
+	}
+	while (!(readl_relaxed(early_base + UFCON) & FIFO_ENABLED))
+		;
+	writeb_relaxed('\r', early_base + UTXH);
+}
+
+static int __init
+exynos_serial_early_console_setup(struct earlycon_device *device, const char *opt)
+{
+	if (!device->port.membase)
+		return -ENODEV;
+
+	device->con->write = exynos_serial_early_write;
+	return 0;
+}
+EARLYCON_DECLARE(exynos, exynos_serial_early_console_setup);
 #endif /* CONFIG_SERIAL_SAMSUNG_CONSOLE */
 
 #ifdef CONFIG_CPU_S3C2410
