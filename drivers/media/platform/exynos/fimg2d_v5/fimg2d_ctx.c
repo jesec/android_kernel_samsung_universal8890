@@ -562,7 +562,8 @@ static int fimg2d_unmap_user_buffers(struct fimg2d_control *ctrl,
 }
 
 static int fimg2d_map_each_user_buffer(struct fimg2d_control *ctrl,
-		struct fimg2d_bltcmd *cmd, struct fimg2d_dma_group *dgroup)
+		struct fimg2d_bltcmd *cmd, struct fimg2d_dma_group *dgroup,
+		bool write)
 {
 	int ret;
 
@@ -571,7 +572,7 @@ static int fimg2d_map_each_user_buffer(struct fimg2d_control *ctrl,
 			dgroup->base.addr,
 			dgroup->base.iova +
 			dgroup->base.offset,
-			dgroup->base.size, 0,
+			dgroup->base.size, write,
 			IS_ENABLED(CONFIG_FIMG2D_CCI_SNOOP));
 	if (ret) {
 		dgroup->is_mapped = 0;
@@ -598,7 +599,7 @@ static int fimg2d_map_user_buffers(struct fimg2d_control *ctrl,
 			continue;
 
 		dgroup = &cmd->dma_src[i];
-		ret = fimg2d_map_each_user_buffer(ctrl, cmd, dgroup);
+		ret = fimg2d_map_each_user_buffer(ctrl, cmd, dgroup, 0);
 		if (ret) {
 			fimg2d_err("Failed to map source[%d] user buffer\n", i);
 			goto map_user_fail;
@@ -608,7 +609,7 @@ static int fimg2d_map_user_buffers(struct fimg2d_control *ctrl,
 	img = &cmd->image_dst;
 	dgroup = &cmd->dma_dst;
 
-	ret = fimg2d_map_each_user_buffer(ctrl, cmd, dgroup);
+	ret = fimg2d_map_each_user_buffer(ctrl, cmd, dgroup, 1);
 	if (ret)
 		goto map_user_fail;
 
