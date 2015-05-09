@@ -146,6 +146,7 @@ void fimg2d5x_set_layer_valid(struct fimg2d_control *ctrl,
 				struct fimg2d_image *s);
 void fimg2d5x_layer_update(struct fimg2d_control *ctrl,
 				u32 flag);
+void fimg2d5x_set_dst_depremult(struct fimg2d_control *ctrl);
 void fimg2d5x_set_src_type(struct fimg2d_control *ctrl, struct fimg2d_image *s,
 				enum image_sel type);
 void fimg2d5x_set_src_image(struct fimg2d_control *ctrl,

@@ -87,6 +87,17 @@ void fimg2d5x_layer_update(struct fimg2d_control *ctrl, u32 flag)
 	wr(flag, FIMG2D_LAYER_UPDATE_REG);
 }
 
+void fimg2d5x_set_dst_depremult(struct fimg2d_control *ctrl)
+{
+	u32 cfg;
+
+	cfg = rd(FIMG2D_BITBLT_COMMAND_REG);
+
+	cfg |= FIMG2D_DST_DE_PREMULT;
+
+	wr(cfg, FIMG2D_BITBLT_COMMAND_REG);
+}
+
 void fimg2d5x_set_src_type(struct fimg2d_control *ctrl,
 			struct fimg2d_image *s, enum image_sel type)
 {
@@ -314,7 +325,7 @@ void fimg2d5x_set_premultiplied(struct fimg2d_control *ctrl,
 
 	/* FIXME: 0xf means [27:24]. Is it correct? */
 	cfg = rd(FIMG2D_LAYERn_COMMAND_REG(n));
-	cfg |= FIMG2D_PREMULT_ALL;
+	cfg |= FIMG2D_PREMULT_PER_PIXEL;
 
 	wr(cfg, FIMG2D_LAYERn_COMMAND_REG(n));
 }

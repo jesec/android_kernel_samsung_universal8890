@@ -268,8 +268,10 @@ static int fimg2d5x_configure(struct fimg2d_control *ctrl,
 		fimg2d5x_enable_dithering(ctrl);
 
 	/* Update flag */
-	if (cmd->src_flag)
+	if (cmd->src_flag) {
 		fimg2d5x_layer_update(ctrl, cmd->src_flag);
+		fimg2d5x_set_dst_depremult(ctrl);
+	}
 
 	return 0;
 }
