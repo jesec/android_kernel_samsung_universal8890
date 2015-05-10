@@ -828,8 +828,11 @@ static inline void decon_lpd_trig_reset(struct decon_device *decon)
 
 static inline bool is_cam_not_running(struct decon_device *decon)
 {
-	return (!((decon_reg_get_cam_status(decon->cam_status[0]) & 0xF) ||
+	if (!decon->id)
+		return (!((decon_reg_get_cam_status(decon->cam_status[0]) & 0xF) ||
 		(decon_reg_get_cam_status(decon->cam_status[1]) & 0xF)));
+	else
+		return true;
 }
 static inline bool decon_lpd_enter_cond(struct decon_device *decon)
 {
