@@ -493,11 +493,11 @@ void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_form
 					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 				}
 				if (vi->normal) {
-					vc->img_w_max = ROT4_RGB_IMG_WIDTH_MAX;
-					vc->img_h_max = ROT4_RGB_IMG_HEIGHT_MAX;
-				} else {
 					vc->img_w_max = ROT3_RGB_IMG_WIDTH_MAX;
 					vc->img_h_max = ROT3_RGB_IMG_HEIGHT_MAX;
+				} else {
+					vc->img_w_max = ROT4_RGB_IMG_WIDTH_MAX;
+					vc->img_h_max = ROT4_RGB_IMG_HEIGHT_MAX;
 					vc->blk_w_min = ROT3_RGB_BLK_WIDTH_MIN;
 					vc->blk_w_max = ROT3_RGB_BLK_WIDTH_MAX;
 					vc->blk_h_min = ROT3_RGB_BLK_HEIGHT_MIN;
@@ -525,12 +525,12 @@ void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_form
 					vc->img_w_min = ROT2_YUV_IMG_WIDTH_MIN;
 					vc->img_h_min = ROT2_YUV_IMG_HEIGHT_MIN;
 				}
-				if (!vi->normal) {
-					vc->img_w_max = ROT4_YUV_IMG_WIDTH_MAX;
-					vc->img_h_max = ROT4_YUV_IMG_HEIGHT_MAX;
-				} else {
+				if (vi->normal) {
 					vc->img_w_max = ROT3_YUV_IMG_WIDTH_MAX;
 					vc->img_h_max = ROT3_YUV_IMG_HEIGHT_MAX;
+				} else {
+					vc->img_w_max = ROT4_YUV_IMG_WIDTH_MAX;
+					vc->img_h_max = ROT4_YUV_IMG_HEIGHT_MAX;
 				}
 				if (vi->yuv422) {
 					vc->src_mul_h = YUV_SRC_SIZE_MUL_HEIGHT;
