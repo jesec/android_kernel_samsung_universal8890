@@ -129,7 +129,7 @@ void fimg2d5x_set_src_type(struct fimg2d_control *ctrl,
  *
  */
 static struct fimg2d_channel_src src_order_table[] = {
-	{ 3, 2, 1, 0 },		/* ARGB_8888 */
+	{ 3, 0, 1, 2 },		/* ARGB_8888 */
 	{ 0, 1, 2, 3 },		/* BGRA_8888 */
 	{ 0, 3, 2, 1 },		/* RGBA_8888 */
 	{ 5, 2, 1, 0 },		/* RGB_565 */
@@ -237,7 +237,7 @@ void fimg2d5x_set_src_rect(struct fimg2d_control *ctrl,
  *
  */
 static struct fimg2d_channel_dst dst_order_table[] = {
-	{ 3, 2, 1, 0 },		/* ARGB_8888 */
+	{ 3, 0, 1, 2 },		/* ARGB_8888 */
 	{ 0, 1, 2, 3 },		/* BGRA_8888 */
 	{ 2, 1, 0, 3 },		/* RGBA_8888 */
 	{ 0, 2, 1, 0 },		/* RGB_565 : 3rd Ch has no meaning */
