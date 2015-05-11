@@ -43,6 +43,7 @@
 #include <mach/asv-exynos.h>
 #include <mach/exynos-pm.h>
 #include <mach/regs-pmu-exynos8890.h>
+#include <mach/exynos-powermode.h>
 
 /* firmware file information */
 #define fw_checksum	61921
@@ -73,6 +74,7 @@ u32 default_vol[4] = {100000, 100000, 100000, 100000};
 #endif
 
 static bool apm_power_down = false;
+static int idle_ip_index;
 
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
 void samsung_mbox_enable_irq(void)
@@ -383,6 +385,8 @@ static void thread_mailbox_work(struct work_struct *work)
 		/* This condition is lcd on */
 		/* Local power up to cortex M3 */
 		if (sram_status == SRAM_STABLE) {
+			exynos_update_ip_idle_status(idle_ip_index, 0);
+
 			exynos_apm_power_up();
 
 			/* Enable CORTEX M3 */
@@ -428,33 +432,11 @@ static void thread_mailbox_work(struct work_struct *work)
 
 			/* local power down(reset) to CORTEX M3 */
 			exynos_apm_power_down();
-		}
+
+			exynos_update_ip_idle_status(idle_ip_index, 1); }
 	}
 }
 static DECLARE_WORK(mailbox_work, thread_mailbox_work);
-
-static int exynos_mailbox_notifier(struct notifier_block *self,
-					unsigned long cmd, void *v)
-{
-	int ret = NOTIFY_DONE;
-	int tmp;
-
-	switch (cmd) {
-	case LPA_PREPARE:
-		tmp = __raw_readl(EXYNOS_PMU_CORTEXM3_APM_STATUS);
-		if (tmp & APM_LOCAL_PWR_CFG_RUN)
-			ret = -EBUSY;
-		break;
-	default:
-		break;
-	}
-
-	return notifier_from_errno(ret);
-}
-
-static struct notifier_block exynos_mailbox_notifier_block = {
-	.notifier_call = exynos_mailbox_notifier,
-};
 
 static int exynos_mailbox_fb_notifier(struct notifier_block *nb,
 					unsigned long val, void *data)
@@ -669,7 +651,6 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, samsung_mbox);
 
-	exynos_pm_register_notifier(&exynos_mailbox_notifier_block);
 	register_reboot_notifier(&exynos_mailbox_reboot_notifier);
 
 	mailbox_wq = create_singlethread_workqueue("thred-mailbox");
@@ -678,6 +659,9 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 	}
 
 	fb_register_client(&exynos_mailbox_fb_notifier_block);
+
+	idle_ip_index = exynos_get_idle_ip_index(dev_name(&pdev->dev));
+	exynos_update_ip_idle_status(idle_ip_index, 1);
 
 	/* Write rcc table to apm sram area */
 //	set_rcc_info();
@@ -700,7 +684,6 @@ static int samsung_mbox_remove(struct platform_device *pdev)
 #endif
 
 	mbox_controller_unregister(&samsung_mbox->mbox_con);
-	exynos_pm_unregister_notifier(&exynos_mailbox_notifier_block);
 	unregister_reboot_notifier(&exynos_mailbox_reboot_notifier);
 	fb_unregister_client(&exynos_mailbox_fb_notifier_block);
 
