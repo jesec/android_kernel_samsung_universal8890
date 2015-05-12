@@ -3589,7 +3589,7 @@ static int decon_probe(struct platform_device *pdev)
 	decon->ion_client = ion_client_create(ion_exynos, device_name);
 	if (IS_ERR(decon->ion_client)) {
 		decon_err("failed to ion_client_create\n");
-		goto fail_thread;
+		goto fail_psr_thread;
 	}
 
 	decon->pinctrl = devm_pinctrl_get(dev);
@@ -3662,8 +3662,8 @@ static int decon_probe(struct platform_device *pdev)
 	mutex_init(&decon->mutex);
 
 	/* init work thread for update registers */
-	INIT_LIST_HEAD(&decon->update_regs_list);
 	mutex_init(&decon->update_regs_list_lock);
+	INIT_LIST_HEAD(&decon->update_regs_list);
 	init_kthread_worker(&decon->update_regs_worker);
 
 	decon->update_regs_thread = kthread_run(kthread_worker_fn,
@@ -3672,7 +3672,7 @@ static int decon_probe(struct platform_device *pdev)
 		ret = PTR_ERR(decon->update_regs_thread);
 		decon->update_regs_thread = NULL;
 		decon_err("failed to run update_regs thread\n");
-		goto fail_entity;
+		goto fail_update_thread;
 	}
 	init_kthread_work(&decon->update_regs_work, decon_update_regs_handler);
 
@@ -3682,7 +3682,7 @@ static int decon_probe(struct platform_device *pdev)
 		ret = decon_set_lcd_config(decon);
 		if (ret) {
 			decon_err("failed to set lcd information\n");
-			goto fail_iovmm;
+			goto fail_update_thread;
 		}
 	}
 	platform_set_drvdata(pdev, decon);
@@ -3705,7 +3705,7 @@ static int decon_probe(struct platform_device *pdev)
 			if (decon->pinctrl && decon->decon_te_on) {
 				if (pinctrl_select_state(decon->pinctrl, decon->decon_te_on)) {
 					decon_err("failed to turn on Decon_TE\n");
-					goto fail_iovmm;
+					goto fail_update_thread;
 				}
 			}
 		}
@@ -3774,7 +3774,14 @@ decon_init_done:
 
 		decon->state = DECON_STATE_INIT;
 
+		/* [W/A] prevent sleep enter during LCD on */
+		ret = device_init_wakeup(decon->dev, true);
+		if (ret) {
+			dev_err(decon->dev, "failed to init wakeup device\n");
+			goto fail_update_thread;
+		}
 		pm_stay_awake(decon->dev);
+
 		if (dev->of_node) {
 			of_property_read_u32(dev->of_node, "sw_te_wa",
 					&decon->sw_te_wa);
@@ -3830,8 +3837,11 @@ decon_init_done:
 
 	return 0;
 
-fail_iovmm:
-fail_thread:
+fail_update_thread:
+	mutex_destroy(&decon->output_lock);
+	mutex_destroy(&decon->mutex);
+	mutex_destroy(&decon->update_regs_list_lock);
+
 	if (decon->update_regs_thread)
 		kthread_stop(decon->update_regs_thread);
 
