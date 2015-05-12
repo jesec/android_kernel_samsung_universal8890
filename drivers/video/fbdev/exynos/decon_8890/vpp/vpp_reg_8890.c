@@ -288,7 +288,7 @@ void vpp_reg_set_scale_ratio(u32 id, struct vpp_size_param *p, u32 rot_en)
 	p->vpp_h_ratio = h_ratio;
 	p->vpp_v_ratio = v_ratio;
 
-	vpp_dbg("h_ratio : %#x, v_ratio : %#x\n", h_ratio, v_ratio);
+	vpp_dbg("h_ratio : %#x, v_ratio : %#x\n", p->vpp_h_ratio, p->vpp_v_ratio);
 }
 
 void vpp_reg_set_in_buf_addr(u32 id, struct vpp_size_param *p)

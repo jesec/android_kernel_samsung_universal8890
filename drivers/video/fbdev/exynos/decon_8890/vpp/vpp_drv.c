@@ -619,6 +619,9 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	if (ret)
 		goto err;
 
+	vpp->h_ratio = p.vpp_h_ratio;
+	vpp->v_ratio = p.vpp_v_ratio;
+
 	if (vpp_check_block_mode(vpp))
 		vpp_reg_set_in_block_size(vpp->id, true, &p);
 	else
