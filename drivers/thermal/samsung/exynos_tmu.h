@@ -130,6 +130,8 @@ enum soc_type {
  */
 struct exynos_tmu_registers {
 	u32	triminfo_data;
+	u32	calib_sel_shift;
+	u32	calib_sel_mask;
 
 	u32	triminfo_ctrl[MAX_TRIMINFO_CTRL_REG];
 	u32	triminfo_ctrl_count;

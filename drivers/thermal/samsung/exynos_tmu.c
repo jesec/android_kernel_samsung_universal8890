@@ -179,6 +179,16 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 
 	mutex_lock(&data->lock);
 
+	if (reg->calib_sel_shift) {
+		status = (readb(data->base + reg->triminfo_data) >> reg->calib_sel_shift) \
+				& reg->calib_sel_mask;
+
+		if (status)
+			pdata->cal_type = TYPE_TWO_POINT_TRIMMING;
+		else
+			pdata->cal_type = TYPE_ONE_POINT_TRIMMING;
+	}
+
 	if (TMU_SUPPORTS(pdata, READY_STATUS)) {
 		timeout = 10;
 		while (1) {

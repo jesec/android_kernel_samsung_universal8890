@@ -159,6 +159,8 @@ extern struct exynos_tmu_init_data const exynos3250_default_tmu_data;
 /*exynos8890 specific registers*/
 #define EXYNOS8890_TMU_TEMP_MASK		0x1ff
 #define EXYNOS8890_TRIMINFO_85_SHIFT		9
+#define EXYNOS8890_CALIB_SEL_SHIFT		23
+#define EXYNOS8890_CALIB_SEL_MASK		1
 
 #define EXYNOS8890_TMU_RISE6_7			0x50
 #define EXYNOS8890_TMU_RISE4_5			0x54
