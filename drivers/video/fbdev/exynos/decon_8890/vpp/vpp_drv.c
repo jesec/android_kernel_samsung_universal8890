@@ -321,6 +321,38 @@ static int vpp_init(struct vpp_dev *vpp)
 {
 	int ret = 0;
 
+	if(vpp->id == 0 || vpp->id == 2) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G0, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp0: %d\n", ret);
+			return -EBUSY;
+		}
+	}
+
+	if(vpp->id == 1 || vpp->id == 3) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G1, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp0: %d)\n", ret);
+			return -EBUSY;
+		}
+	}
+
+	if(vpp->id == 4 || vpp->id == 6) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_VGR0, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp1: %d\n", ret);
+			return -EBUSY;
+		}
+	}
+
+	if(vpp->id == 5 || vpp->id == 7 || vpp->id == 8) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G3, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp1: %d)\n", ret);
+			return -EBUSY;
+		}
+	}
+
 	ret = vpp_clk_enable(vpp);
 	if (ret)
 		return ret;
@@ -983,6 +1015,7 @@ static int vpp_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to allocate local vpp mem\n");
 		return -ENOMEM;
 	}
+
 	vpp->id = of_alias_get_id(dev->of_node, "vpp");
 
 	pr_info("###%s:VPP%d probe : start\n", __func__, vpp->id);
@@ -1002,6 +1035,38 @@ static int vpp_probe(struct platform_device *pdev)
 	vpp->pdev = pdev;
 
 	vpp_config_id(vpp);
+
+	if(vpp->id == 0 || vpp->id == 2) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G0, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp0: %d\n", ret);
+			return -EBUSY;
+		}
+	}
+
+	if(vpp->id == 1 || vpp->id == 3) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G1, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp0: %d)\n", ret);
+			return -EBUSY;
+		}
+	}
+
+	if(vpp->id == 4 || vpp->id == 6) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_VGR0, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp1: %d\n", ret);
+			return -EBUSY;
+		}
+	}
+
+	if(vpp->id == 5 || vpp->id == 7 || vpp->id == 8) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G3, 0);
+		if (ret != 2) {
+			vpp_err("smc call fail for vpp1: %d)\n", ret);
+			return -EBUSY;
+		}
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	vpp->regs = devm_request_and_ioremap(dev, res);
