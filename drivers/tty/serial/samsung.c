@@ -1336,6 +1336,21 @@ static struct s3c24xx_uart_port s3c24xx_serial_ports[CONFIG_SERIAL_SAMSUNG_UARTS
 #endif
 };
 
+static struct s3c24xx_uart_port *exynos_serial_default_port(int port_index)
+{
+	s3c24xx_serial_ports[port_index].port.lock =
+		__SPIN_LOCK_UNLOCKED(s3c24xx_serial_ports[port_index].port.lock);
+	s3c24xx_serial_ports[port_index].port.iotype = UPIO_MEM;
+	s3c24xx_serial_ports[port_index].port.uartclk = 0;
+	s3c24xx_serial_ports[port_index].port.fifosize = 0;
+	s3c24xx_serial_ports[port_index].port.ops =
+		&s3c24xx_serial_ops;
+	s3c24xx_serial_ports[port_index].port.flags = UPF_BOOT_AUTOCONF;
+	s3c24xx_serial_ports[port_index].port.line = port_index;
+
+	return &s3c24xx_serial_ports[port_index];
+}
+
 /* s3c24xx_serial_resetport
  *
  * reset the fifos and other the settings.
@@ -1578,7 +1593,7 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 {
 	struct s3c24xx_uart_port *ourport;
 	int index = probe_index;
-	int ret;
+	int ret, fifo_size;
 	int port_index = probe_index;
 
 	dbg("s3c24xx_serial_probe(%p) %d\n", pdev, index);
@@ -1593,6 +1608,9 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 		}
 	}
 	ourport = &s3c24xx_serial_ports[port_index];
+
+	if (ourport->port.line != port_index)
+		ourport = exynos_serial_default_port(port_index);
 
 	ourport->drv_data = s3c24xx_get_driver_data(pdev);
 	if (!ourport->drv_data) {
@@ -1609,6 +1627,16 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	ourport->port.fifosize = (ourport->info->fifosize) ?
 		ourport->info->fifosize :
 		ourport->drv_data->fifosize[port_index];
+
+	if (!of_property_read_u32(pdev->dev.of_node, "samsung,fifo-size",
+				&fifo_size)) {
+		ourport->port.fifosize = fifo_size;
+		ourport->info->fifosize = fifo_size;
+	} else {
+		dev_err(&pdev->dev,
+				"Please add FIFO size in device tree!(UART%d)\n", port_index);
+		return -EINVAL;
+	}
 
 	probe_index++;
 
@@ -2221,9 +2249,36 @@ static struct s3c24xx_serial_drv_data exynos4210_serial_drv_data = {
 	},
 	.fifosize = { 256, 64, 16, 16 },
 };
+
+static struct s3c24xx_serial_drv_data exynos_serial_drv_data = {
+	.info = &(struct s3c24xx_uart_info) {
+		.name		= "Samsung Exynos UART",
+		.type		= PORT_S3C6400,
+		.has_divslot	= 1,
+		.rx_fifomask	= S5PV210_UFSTAT_RXMASK,
+		.rx_fifoshift	= S5PV210_UFSTAT_RXSHIFT,
+		.rx_fifofull	= S5PV210_UFSTAT_RXFULL,
+		.tx_fifofull	= S5PV210_UFSTAT_TXFULL,
+		.tx_fifomask	= S5PV210_UFSTAT_TXMASK,
+		.tx_fifoshift	= S5PV210_UFSTAT_TXSHIFT,
+		.def_clk_sel	= S3C2410_UCON_CLKSEL0,
+		.num_clks	= 1,
+		.clksel_mask	= 0,
+		.clksel_shift	= 0,
+	},
+	.def_cfg = &(struct s3c2410_uartcfg) {
+		.ucon		= S5PV210_UCON_DEFAULT,
+		.ufcon		= S5PV210_UFCON_DEFAULT,
+		.has_fracval	= 1,
+	},
+	.fifosize = { 0, },
+};
+
 #define EXYNOS4210_SERIAL_DRV_DATA ((kernel_ulong_t)&exynos4210_serial_drv_data)
+#define EXYNOS_SERIAL_DRV_DATA ((kernel_ulong_t)&exynos_serial_drv_data)
 #else
 #define EXYNOS4210_SERIAL_DRV_DATA (kernel_ulong_t)NULL
+#define EXYNOS_SERIAL_DRV_DATA (kernel_ulong_t)NULL
 #endif
 
 static struct platform_device_id s3c24xx_serial_driver_ids[] = {
@@ -2245,6 +2300,9 @@ static struct platform_device_id s3c24xx_serial_driver_ids[] = {
 	}, {
 		.name		= "exynos4210-uart",
 		.driver_data	= EXYNOS4210_SERIAL_DRV_DATA,
+	}, {
+		.name		= "exynos-uart",
+		.driver_data	= EXYNOS_SERIAL_DRV_DATA,
 	},
 	{ },
 };
@@ -2264,6 +2322,8 @@ static const struct of_device_id s3c24xx_uart_dt_match[] = {
 		.data = (void *)S5PV210_SERIAL_DRV_DATA },
 	{ .compatible = "samsung,exynos4210-uart",
 		.data = (void *)EXYNOS4210_SERIAL_DRV_DATA },
+	{ .compatible = "samsung,exynos-uart",
+		.data = (void *)EXYNOS_SERIAL_DRV_DATA },
 	{},
 };
 MODULE_DEVICE_TABLE(of, s3c24xx_uart_dt_match);
