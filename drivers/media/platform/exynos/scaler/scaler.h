@@ -353,6 +353,7 @@ struct sc_ctx;
  * @version:	IP version number
  * @busmon_nb:	busmon notifier block
  * @busmon_m:	busmon master name
+ * @cfw:	cfw flag
  */
 struct sc_dev {
 	struct device			*dev;
@@ -382,6 +383,7 @@ struct sc_dev {
 	u32				version;
 	struct notifier_block		busmon_nb;
 	char				*busmon_m;
+	u32				cfw;
 };
 
 enum SC_CONTEXT_TYPE {

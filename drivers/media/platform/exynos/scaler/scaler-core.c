@@ -1999,16 +1999,21 @@ static void sc_job_finish(struct sc_dev *sc, struct sc_ctx *ctx)
 		}
 		clear_bit(CTX_RUN, &ctx->flags);
 
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 		if (test_bit(DEV_CP, &sc->state)) {
+			int ret;
 			/* m2m1shot never enables contents protection */
-			exynos_smc(SMC_PROTECTION_SET, 0,
+			ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					SC_SMC_PROTECTION_ID(sc->dev_id),
 					SMC_PROTECTION_DISABLE);
+			if (ret != SMC_TZPC_OK)
+				dev_err(sc->dev,
+				"fail to protection disable (%d)\n", ret);
 			__vb2_ion_set_protected_unlocked(
 					ctx->sc_dev->alloc_ctx, false);
 			clear_bit(DEV_CP, &sc->state);
 		}
-
+#endif
 		src_vb = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 
@@ -2382,15 +2387,26 @@ static int sc_run_next_job(struct sc_dev *sc)
 			ctx->ktime_m2m1shot = ktime_get();
 		}
 	}
-
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	if (sc->cfw) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT,
+				SC_SMC_PROTECTION_ID(sc->dev_id), 0);
+		if (ret != SMC_TZPC_OK)
+			dev_err(sc->dev,
+				"fail to set cfw protection (%d)\n", ret);
+	}
 	if (ctx->cp_enabled) {
 		set_bit(DEV_CP, &sc->state);
 		__vb2_ion_set_protected_unlocked(ctx->sc_dev->alloc_ctx, true);
-		exynos_smc(SMC_PROTECTION_SET, 0,
+		ret = exynos_smc(SMC_PROTECTION_SET, 0,
 			   SC_SMC_PROTECTION_ID(sc->dev_id),
 			   SMC_PROTECTION_ENABLE);
+		if (ret != SMC_TZPC_OK)
+			dev_err(sc->dev,
+				"fail to protection enable (%d)\n", ret);
 	}
-
+#endif
 	sc_hwset_start(sc);
 
 	return 0;
@@ -2433,14 +2449,19 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 
 	del_timer(&sc->wdt.timer);
 
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (test_bit(DEV_CP, &sc->state)) {
-		exynos_smc(SMC_PROTECTION_SET, 0,
+		int ret;
+		ret = exynos_smc(SMC_PROTECTION_SET, 0,
 			   SC_SMC_PROTECTION_ID(sc->dev_id),
 			   SMC_PROTECTION_DISABLE);
+		if (ret != SMC_TZPC_OK)
+			dev_err(sc->dev,
+				"fail to protection disable (%d)\n", ret);
 		__vb2_ion_set_protected_unlocked(ctx->sc_dev->alloc_ctx, false);
 		clear_bit(DEV_CP, &sc->state);
 	}
-
+#endif
 	sc_clk_power_disable(sc);
 
 	clear_bit(CTX_RUN, &ctx->flags);
@@ -3345,6 +3366,10 @@ static int sc_probe(struct platform_device *pdev)
 	if (of_property_read_string(pdev->dev.of_node, "busmon,master",
 					(const char **)&sc->busmon_m))
 		sc->busmon_m = NULL;
+
+	if (of_property_read_u32(pdev->dev.of_node, "mscl,cfw",
+				(u32 *)&sc->cfw))
+		sc->cfw = 0;
 
 	ret = exynos_create_iovmm(&pdev->dev, 3, 3);
 	if (ret) {
