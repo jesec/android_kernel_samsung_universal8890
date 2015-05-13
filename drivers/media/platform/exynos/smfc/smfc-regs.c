@@ -293,6 +293,7 @@ void smfc_hwconfigure_image(struct smfc_ctx *ctx,
 	struct vb2_buffer *vb2buf_img, *vb2buf_jpg;
 	u32 stream_address;
 	u32 format = ctx->img_fmt->regcfg;
+	u32 maxstreamsize;
 
 	__raw_writel(ctx->width | (ctx->height << 16),
 			ctx->smfc->reg + REG_MAIN_IMAGE_SIZE);
@@ -315,12 +316,14 @@ void smfc_hwconfigure_image(struct smfc_ctx *ctx,
 	}
 
 	smfc_hwconfigure_image_base(ctx, vb2buf_img, false);
-	stream_address = smfc_hwconfigure_jpeg_base(ctx, vb2buf_jpg, false);
-
 	__raw_writel(format, ctx->smfc->reg + REG_MAIN_IMAGE_FORMAT);
-	__raw_writel(vb2_plane_size(vb2buf_jpg, 0) -
-					(stream_address & SMFC_ADDR_ALIGN_MASK),
-			ctx->smfc->reg + REG_MAIN_MAX_STREAM_SIZE);
+	stream_address = smfc_hwconfigure_jpeg_base(ctx, vb2buf_jpg, false);
+	maxstreamsize = round_down(vb2_plane_size(vb2buf_jpg, 0),
+						SMFC_STREAMSIZE_ALIGN);
+	if (!IS_ALIGNED(stream_address, 16))
+		maxstreamsize += SMFC_EXTRA_STREAMSIZE(stream_address);
+
+	__raw_writel(maxstreamsize, ctx->smfc->reg + REG_MAIN_MAX_STREAM_SIZE);
 }
 
 void smfc_hwconfigure_start(struct smfc_ctx *ctx,
