@@ -163,7 +163,7 @@ static int exynos_send_message(struct mbox_client *mbox_cl, void *msg)
 		ret = check_rx_data((void *)msg);
 		if (ret == APM_GPIO_ERR) {
 			pr_err("mailbox : gpio not set to gpio-i2c \n");
-			apm_wfi_prepare = 1;
+			apm_wfi_prepare = APM_ON;
 			mbox_free_channel(chan);
 			return ERR_TIMEOUT;
 		} else if (ret < 0) {
@@ -174,7 +174,7 @@ static int exynos_send_message(struct mbox_client *mbox_cl, void *msg)
 	} else {
 		pr_err("%s : Mailbox timeout\n", __func__);
 		pr_err("POLLING status: 0x%x\n", __raw_readl(EXYNOS_MAILBOX_RX_INT));
-		apm_wfi_prepare = 1;
+		apm_wfi_prepare = APM_ON;
 		mbox_free_channel(chan);
 		return ERR_TIMEOUT;
 	}
@@ -200,13 +200,13 @@ static int exynos_send_message_bulk_read(struct mbox_client *mbox_cl, void *msg)
 			pr_err("[%s] mailbox send error \n", __func__);
 			return ERR_RETRY;
 		} else if (ret == APM_GPIO_ERR) {
-			apm_wfi_prepare = 1;
+			apm_wfi_prepare = APM_ON;
 			mbox_free_channel(chan);
 			return ERR_TIMEOUT;
 		}
 	} else {
 		pr_err("%s : Mailbox timeout error \n", __func__);
-		apm_wfi_prepare = 1;
+		apm_wfi_prepare = APM_ON;
 		mbox_free_channel(chan);
 		return ERR_TIMEOUT;
 	}
@@ -533,7 +533,7 @@ int exynos8890_apm_enter_wfi(void)
 
 	mutex_lock(&cl_mutex);
 
-	if (apm_wfi_prepare) {
+	if (apm_wfi_prepare == APM_TIMEOUT) {
 		mutex_unlock(&cl_mutex);
 		return 0;
 	}
@@ -758,7 +758,7 @@ int exynos8890_apm_read(unsigned int type, unsigned int reg, unsigned int *val)
 		}
 	} else {
 		pr_err("%s : Mailbox timeout error \n", __func__);
-		apm_wfi_prepare = 1;
+		apm_wfi_prepare = APM_ON;
 		mbox_free_channel(chan);
 		data_history();
 		goto timeout;

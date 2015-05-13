@@ -25,7 +25,7 @@
 
 /* Add OPS */
 struct cl_ops *cl_ops;
-int apm_wfi_prepare = 1;
+int apm_wfi_prepare = APM_ON;
 static int cm3_status;
 static unsigned int cl_mode_status = CL_ON;
 extern struct cl_ops exynos_cl_function_ops;
@@ -252,7 +252,7 @@ static int exynos_apm_function_notifier(struct notifier_block *notifier,
 	switch (pm_event) {
 		case APM_READY:
 			cm3_status = APM_MODE;
-			apm_wfi_prepare = 0;
+			apm_wfi_prepare = APM_OFF;
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
 			samsung_mbox_enable_irq();
 #endif
@@ -266,11 +266,11 @@ static int exynos_apm_function_notifier(struct notifier_block *notifier,
 			if (cm3_status == APM_MODE)
 				pr_info("mailbox: apm -> hsi2c mode \n");
 			cm3_status = HSI2C_MODE;
-			apm_wfi_prepare = 1;
+			apm_wfi_prepare = APM_ON;
 			break;
 		case APM_TIMEOUT:
 			cm3_status = APM_TIMOUT;
-			apm_wfi_prepare = 1;
+			apm_wfi_prepare = APM_WFI_TIMEOUT;
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
 			samsung_mbox_disable_irq();
 #endif
