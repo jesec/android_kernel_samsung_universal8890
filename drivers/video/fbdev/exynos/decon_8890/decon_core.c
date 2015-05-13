@@ -19,6 +19,7 @@
 #include <linux/fb.h>
 #include <linux/delay.h>
 #include <linux/clk-provider.h>
+#include <linux/console.h>
 #include <linux/dma-buf.h>
 #include <linux/exynos_ion.h>
 #include <linux/ion.h>
@@ -87,42 +88,52 @@ static int decon_runtime_suspend(struct device *dev);
 static void decon_set_protected_content(struct decon_device *decon,
 		struct decon_reg_data *reg);
 
+static void vpp_dump(struct decon_device *decon);
 #ifdef CONFIG_USE_VSYNC_SKIP
 static atomic_t extra_vsync_wait;
 #endif /* CCONFIG_USE_VSYNC_SKIP */
 
 void decon_dump(struct decon_device *decon)
 {
+	int acquired = console_trylock();
+
 	decon_info("\n=== DECON%d SFR DUMP ===\n", decon->id);
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs, 0x300, false);
+			decon->regs, 0x2AC, false);
 
-	decon_info("\n=== DECON%d MIC SFR DUMP ===\n", decon->id);
-	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs + 0x1000, 0x20, false);
+	if (decon->lcd_info->mic_ratio > 1) {
+		decon_info("\n=== DECON%d MIC SFR DUMP ===\n", decon->id);
+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
+				decon->regs + 0x1000, 0x20, false);
+	} else {
+		decon_info("\n=== DECON%d DSC0 SFR DUMP ===\n", decon->id);
+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
+				decon->regs + 0x2000, 0xA0, false);
 
-	decon_info("\n=== DECON%d DSC0 SFR DUMP ===\n", decon->id);
-	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs + 0x2000, 0xA0, false);
+		decon_info("\n=== DECON%d DSC1 SFR DUMP ===\n", decon->id);
+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
+				decon->regs + 0x3000, 0xA0, false);
+	}
 
-	decon_info("\n=== DECON%d DSC1 SFR DUMP ===\n", decon->id);
-	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs + 0x3000, 0xA0, false);
+	if (decon->pdata->dsi_mode != DSI_MODE_SINGLE) {
+		decon_info("\n=== DECON%d DISPIF2 SFR DUMP ===\n", decon->id);
+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
+				decon->regs + 0x5080, 0x80, false);
 
-	decon_info("\n=== DECON%d DISPIF2 SFR DUMP ===\n", decon->id);
-	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs + 0x5080, 0x80, false);
-
-	decon_info("\n=== DECON%d DISPIF3 SFR DUMP ===\n", decon->id);
-	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs + 0x6080, 0x80, false);
+		decon_info("\n=== DECON%d DISPIF3 SFR DUMP ===\n", decon->id);
+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
+				decon->regs + 0x6080, 0x80, false);
+	}
 
 	decon_info("\n=== DECON%d SHADOW SFR DUMP ===\n", decon->id);
-
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			decon->regs + SHADOW_OFFSET, 0x300, false);
+			decon->regs + SHADOW_OFFSET, 0x2AC, false);
 
 	v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_DUMP, NULL);
+	vpp_dump(decon);
+
+	if (acquired)
+		console_unlock();
 }
 
 /* ---------- CHECK FUNCTIONS ----------- */
@@ -2392,7 +2403,6 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 
 		if (decon_reg_wait_for_update_timeout(decon->id, SHADOW_UPDATE_TIMEOUT) < 0) {
 			decon_dump(decon);
-			vpp_dump(decon);
 			BUG();
 		}
 

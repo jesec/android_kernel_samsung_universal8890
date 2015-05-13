@@ -77,7 +77,7 @@ static void dsim_dump(struct dsim_device *dsim)
 	dsim_info("=== DSIM SFR DUMP ===\n");
 
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			dsim->reg_base, 0xBC, false);
+			dsim->reg_base, 0xC0, false);
 }
 
 static void dsim_long_data_wr(struct dsim_device *dsim, unsigned long data0, unsigned int data1)
