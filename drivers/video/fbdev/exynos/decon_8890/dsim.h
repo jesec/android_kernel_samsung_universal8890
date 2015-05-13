@@ -136,6 +136,7 @@ struct mipi_dsim_lcd_driver {
 	int	(*suspend)(struct dsim_device *dsim);
 	int	(*displayon)(struct dsim_device *dsim);
 	int	(*resume)(struct dsim_device *dsim);
+	int	(*dump)(struct dsim_device *dsim);
 };
 
 int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
@@ -154,6 +155,19 @@ static inline struct dsim_device *get_dsim_drvdata(u32 id)
 		return dsim1_for_decon;
 	else
 		return dsim0_for_decon;
+}
+
+static inline int dsim_rd_data(u32 id, u32 cmd_id,
+	 u32 addr, u32 size, u8 *buf)
+{
+	int ret;
+	struct dsim_device *dsim = get_dsim_drvdata(id);
+
+	ret = dsim_read_data(dsim, cmd_id, addr, size, buf);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 static inline int dsim_wr_data(u32 id, u32 cmd_id, unsigned long d0, u32 d1)
