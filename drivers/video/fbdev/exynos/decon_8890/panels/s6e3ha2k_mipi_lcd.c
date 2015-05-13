@@ -198,9 +198,16 @@ static int s6e3ha2k_resume(struct dsim_device *dsim)
 	return 0;
 }
 
+static int s6e3ha2k_dump(struct dsim_device *dsim)
+{
+	lcd_dump(dsim->id);
+	return 0;
+}
+
 struct mipi_dsim_lcd_driver s6e3ha2k_mipi_lcd_driver = {
 	.probe		= s6e3ha2k_probe,
 	.displayon	= s6e3ha2k_displayon,
 	.suspend	= s6e3ha2k_suspend,
 	.resume		= s6e3ha2k_resume,
+	.dump		= s6e3ha2k_dump,
 };

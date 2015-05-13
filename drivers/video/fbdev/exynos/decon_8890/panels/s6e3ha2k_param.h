@@ -12,6 +12,11 @@
 #ifndef __S6E3HA0K_PARAM_H__
 #define __S6E3HA0K_PARAM_H__
 
+#define S6E3HA2_ID_REG			0x04
+#define S6E3HA2_RD_LEN			3
+#define S6E3HA2_RDDPM_ADDR		0x0A
+#define S6E3HA2_RDDSM_ADDR		0x0E
+
 /* MIPI commands list */
 static const unsigned char SEQ_TEST_KEY_ON_F0[] = {
 	0xF0,
@@ -21,6 +26,11 @@ static const unsigned char SEQ_TEST_KEY_ON_F0[] = {
 static const unsigned char SEQ_TEST_KEY_ON_FC[] = {
 	0xFC,
 	0x5A, 0x5A
+};
+
+static const unsigned char SEQ_TEST_KEY_OFF_FC[] = {
+	0xFC,
+	0xA5, 0xA5
 };
 
 static const unsigned char SEQ_SLEEP_OUT[] = {

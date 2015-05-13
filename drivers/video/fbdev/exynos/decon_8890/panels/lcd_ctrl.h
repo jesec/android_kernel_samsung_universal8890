@@ -19,5 +19,6 @@ void lcd_enable(int id);
 void lcd_disable(int id);
 int lcd_gamma_ctrl(int id, unsigned int backlightlevel);
 int lcd_gamma_update(int id);
+int lcd_dump(int id);
 
 #endif /* __LCD_CTRL_H__ */
