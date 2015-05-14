@@ -808,16 +808,7 @@ static int dsim_enable(struct dsim_device *dsim)
 	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
 			&dsim->clks_param.clks);
 
-	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks,
-			DSIM_LANE_CLOCK | dsim->data_lane, 1);
-
-	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
-
-	dsim_reg_set_hs_clock(dsim->id, 1);
-
-	/* enable interrupts */
-	dsim_reg_set_int(dsim->id, 1);
-	dsim_reg_set_standby(dsim->id, 1);
+	dsim_reg_start(dsim->id, &dsim->clks_param.clks, DSIM_LANE_CLOCK | dsim->data_lane);
 
 	dsim->state = DSIM_STATE_HSCLKEN;
 
@@ -858,27 +849,6 @@ static int dsim_disable(struct dsim_device *dsim)
 	return 0;
 }
 
-static int dsim_set_ulps_by_ddi(struct dsim_device *dsim, u32 en)
-{
-	int ret;
-
-	switch (dsim->lcd_info.ddi_type) {
-	case TYPE_OF_SM_DDI:
-		ret = dsim_reg_set_smddi_ulps(dsim->id, en, dsim->data_lane);
-		break;
-	case TYPE_OF_MAGNA_DDI:
-		dsim_err("This ddi(%d) doesn't support ULPS\n", dsim->lcd_info.ddi_type);
-		ret = -EINVAL;
-		break;
-	case TYPE_OF_NORMAL_DDI:
-	default:
-		ret = dsim_reg_set_ulps(dsim->id, en, dsim->data_lane);
-		break;
-	}
-
-	return ret;
-}
-
 static int dsim_enter_ulps(struct dsim_device *dsim)
 {
 	int ret = 0;
@@ -906,24 +876,10 @@ static int dsim_enter_ulps(struct dsim_device *dsim)
 
 	disable_irq(dsim->irq);
 
-	/* disable HS clock */
-	dsim_reg_set_hs_clock(dsim->id, 0);
-
-	/* try to enter ULPS mode. The sequence is depends on DDI type */
-	ret = dsim_set_ulps_by_ddi(dsim, 1);
-	if (ret < 0) {
-		dsim_info("%s: failed to enter ULPS: %d", __func__, ret);
+	ret = dsim_reg_stop_and_enter_ulps(dsim->id, dsim->lcd_info.ddi_type,
+			DSIM_LANE_CLOCK | dsim->data_lane);
+	if (ret < 0)
 		dsim_dump(dsim);
-		ret = 0;
-	}
-
-	/* make CLK/DATA Lane as LP00 */
-	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 0);
-
-	dsim_reg_set_clocks(dsim->id, NULL, DSIM_LANE_CLOCK | dsim->data_lane, 0);
-
-	dsim_reg_sw_reset(dsim->id);
-	dsim_reg_set_standby(dsim->id, 0);
 
 	dsim_d_phy_onoff(dsim, 0);
 
@@ -962,31 +918,21 @@ static int dsim_exit_ulps(struct dsim_device *dsim)
 	dsim_runtime_resume(dsim->dev);
 #endif
 
+	enable_irq(dsim->irq);
+
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
 
 	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
 			&dsim->clks_param.clks);
 
-	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks,
-			DSIM_LANE_CLOCK | dsim->data_lane, 1);
-
-	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
-
-	/* try to exit ULPS mode. The sequence is depends on DDI type */
-	ret = dsim_set_ulps_by_ddi(dsim, 0);
-	if (ret < 0) {
-		dsim_info("%s: failed to exit ULPS: %d", __func__, ret);
+	ret = dsim_reg_exit_ulps_and_start(dsim->id, dsim->lcd_info.ddi_type,
+			&dsim->clks_param.clks, DSIM_LANE_CLOCK | dsim->data_lane);
+	if (ret < 0)
 		dsim_dump(dsim);
-	}
-
-	dsim_reg_set_hs_clock(dsim->id, 1);
-
-	enable_irq(dsim->irq);
 
 	/* enable interrupts */
 	dsim_reg_set_int(dsim->id, 1);
-	dsim_reg_set_standby(dsim->id, 1);
 
 	dsim->state = DSIM_STATE_HSCLKEN;
 
@@ -1377,16 +1323,7 @@ static int dsim_probe(struct platform_device *pdev)
 	dsim_set_panel_power(dsim, 1);
 	dsim_reset_panel(dsim);
 
-	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks,
-			DSIM_LANE_CLOCK | dsim->data_lane, 1);
-
-	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
-
-	dsim_reg_set_hs_clock(dsim->id, 1);
-
-	/* enable interrupts */
-	dsim_reg_set_int(dsim->id, 1);
-	dsim_reg_set_standby(dsim->id, 1);
+	dsim_reg_start(dsim->id, &dsim->clks_param.clks, DSIM_LANE_CLOCK | dsim->data_lane);
 
 dsim_init_done:
 	dsim->state = DSIM_STATE_HSCLKEN;

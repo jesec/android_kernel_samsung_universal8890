@@ -64,8 +64,10 @@ struct dsim_clks_param {
 };
 
 /* CAL APIs list */
-int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks);
-void dsim_reg_init_probe(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks);
+int dsim_reg_init(u32 id, struct decon_lcd *lcd_info,
+			u32 data_lane_cnt, struct dsim_clks *clks);
+void dsim_reg_init_probe(u32 id, struct decon_lcd *lcd_info,
+			u32 data_lane_cnt, struct dsim_clks *clks);
 int dsim_reg_set_clocks(u32 id, struct dsim_clks *clks, u32 lane, u32 en);
 int dsim_reg_set_lanes(u32 id, u32 lanes, u32 en);
 int dsim_reg_set_hs_clock(u32 id, u32 en);
@@ -145,6 +147,7 @@ void dsim_reg_wr_tx_header(u32 id, u32 data_id, unsigned long data0, u32 data1);
 void dsim_reg_wr_tx_payload(u32 id, u32 payload);
 void dsim_reg_enter_ulps(u32 id, u32 enter);
 void dsim_reg_exit_ulps(u32 id, u32 exit);
+int dsim_reg_set_ulps_by_ddi(u32 id, u32 ddi_type, u32 lanes, u32 en);
 int dsim_reg_wait_enter_ulps_state(u32 id, u32 lanes);
 int dsim_reg_wait_exit_ulps_state(u32 id);
 void dsim_reg_set_standby(u32 id, u32 en);
@@ -157,6 +160,10 @@ void dsim_reg_set_pkt_go_ready(u32 id);
 void dsim_reg_set_pkt_go_cnt(u32 id, unsigned int count);
 void dsim_reg_set_shadow(u32 id, u32 en);
 void dsim_reg_shadow_update(u32 id);
+int dsim_reg_exit_ulps_and_start(u32 id, u32 ddi_type,
+			struct dsim_clks *clks, u32 lanes);
+int dsim_reg_stop_and_enter_ulps(u32 id, u32 ddi_type, u32 lanes);
+void dsim_reg_start(u32 id, struct dsim_clks *clks, u32 lanes);
 void dsim_reg_stop(u32 id, u32 lanes);
 
 #endif /* _DSIM_COMMON_H_ */

@@ -1328,6 +1328,31 @@ int dsim_reg_set_smddi_ulps(u32 id, u32 en, u32 lanes)
 	return ret;
 }
 
+int dsim_reg_set_ulps_by_ddi(u32 id, u32 ddi_type, u32 lanes, u32 en)
+{
+	int ret;
+
+	switch (ddi_type) {
+	case TYPE_OF_SM_DDI:
+		ret = dsim_reg_set_smddi_ulps(id, en, lanes);
+		break;
+	case TYPE_OF_MAGNA_DDI:
+		dsim_err("This ddi(%d) doesn't support ULPS\n", ddi_type);
+		ret = -EINVAL;
+		break;
+	case TYPE_OF_NORMAL_DDI:
+	default:
+		ret = dsim_reg_set_ulps(id, en, lanes);
+		break;
+	}
+
+	if (ret < 0)
+		dsim_err("%s: failed to %s ULPS", __func__,
+				en ? "enter" : "exit");
+
+	return ret;
+}
+
 void dsim_reg_set_bist(u32 id, u32 en, u32 vfp, u32 format, u32 type)
 {
 	dsim_reg_set_standby(id, !en);
@@ -1351,6 +1376,66 @@ u32 dsim_reg_get_xres(u32 id)
 	return DSIM_RESOL_HOZVAL_GET(val);
 }
 
+/* Exit ULPS mode and set clocks and lanes */
+int dsim_reg_exit_ulps_and_start(u32 id, u32 ddi_type, struct dsim_clks *clks, u32 lanes)
+{
+	int ret = 0;
+
+	dsim_reg_set_clocks(id, clks, lanes, 1);
+
+	dsim_reg_set_lanes(id, lanes, 1);
+
+	/* try to exit ULPS mode. The sequence is depends on DDI type */
+	ret = dsim_reg_set_ulps_by_ddi(id, ddi_type, lanes, 0);
+
+	dsim_reg_set_hs_clock(id, 1);
+
+	dsim_reg_set_standby(id, 1);
+
+	dsim_reg_set_int(id, 1);
+
+	return ret;
+}
+
+/* Unset clocks and lanes and enter ULPS mode */
+int dsim_reg_stop_and_enter_ulps(u32 id, u32 ddi_type, u32 lanes)
+{
+	int ret = 0;
+
+	dsim_reg_set_int(id, 0);
+
+	/* unset standby and disable HS clock */
+	dsim_reg_set_hs_clock(id, 0);
+
+	/* try to enter ULPS mode. The sequence is depends on DDI type */
+	ret = dsim_reg_set_ulps_by_ddi(id, ddi_type, lanes, 1);
+
+	dsim_reg_set_lanes(id, lanes, 0);
+
+	dsim_reg_set_clocks(id, NULL, lanes, 0);
+
+	dsim_reg_sw_reset(id);
+
+	dsim_reg_set_standby(id, 0);
+
+	return ret;
+}
+
+/* Set clocks and lanes and HS ready */
+void dsim_reg_start(u32 id, struct dsim_clks *clks, u32 lanes)
+{
+	dsim_reg_set_clocks(id, clks, lanes, 1);
+
+	dsim_reg_set_lanes(id, lanes, 1);
+
+	dsim_reg_set_hs_clock(id, 1);
+
+	dsim_reg_set_standby(id, 1);
+
+	dsim_reg_set_int(id, 1);
+}
+
+/* Unset clocks and lanes and stop_state */
 void dsim_reg_stop(u32 id, u32 lanes)
 {
 	/* disable interrupts */
