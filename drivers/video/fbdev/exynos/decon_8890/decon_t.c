@@ -68,6 +68,7 @@ irqreturn_t decon_t_irq_handler(int irq, void *dev_data)
 		decon_err("DECON_T FIFO underrun\n");
 	}
 	if (irq_sts_reg & INT_FRAME_DONE_INT_PEND) {
+		decon_lpd_trig_reset(decon);
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
 		decon_dbg("DECON_T Frame Done is occured\n");
 	}

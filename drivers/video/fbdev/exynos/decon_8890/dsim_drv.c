@@ -615,7 +615,6 @@ static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 	unsigned int int_src;
 	struct dsim_device *dsim = dev_id;
 	int active;
-	struct decon_device *decon = (struct decon_device *)dsim->decon;
 
 	spin_lock(&dsim->slock);
 
@@ -635,10 +634,8 @@ static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 		complete(&dsim_ph_wr_comp);
 	if (int_src & DSIM_INTSRC_RX_DAT_DONE)
 		complete(&dsim_rd_comp);
-	if (int_src & DSIM_INTSRC_FRAME_DONE) {
+	if (int_src & DSIM_INTSRC_FRAME_DONE)
 		DISP_SS_EVENT_LOG(DISP_EVT_DSIM_FRAMEDONE, &dsim->sd, ktime_set(0, 0));
-		decon_lpd_trig_reset(decon);
-	}
 	if (int_src & DSIM_INTSRC_ERR_RX_ECC)
 		dev_err(dsim->dev, "RX ECC Multibit error was detected!\n");
 	dsim_reg_clear_int(dsim->id, int_src);

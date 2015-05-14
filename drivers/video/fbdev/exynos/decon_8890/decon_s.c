@@ -43,6 +43,7 @@ irqreturn_t decon_s_irq_handler(int irq, void *dev_data)
 	if (irq_sts_reg & INT_FRAME_DONE_INT_PEND) {
 		decon_warn("DECON-ext frame done interrupt shouldn't happen\n");
 		decon_write_mask(decon->id, INTERRUPT_PENDING, ~0, INT_FRAME_DONE_INT_PEND);
+		decon_lpd_trig_reset(decon);
 	}
 #if 0 /* TODO */
 	wb_irq_sts_reg = decon_read(decon->id, VIDINTCON3);

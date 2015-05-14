@@ -101,6 +101,7 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 
 	if (irq_sts_reg & INT_FRAME_DONE_INT_PEND) {
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
+		decon_lpd_trig_reset(decon);
 		decon->frame_done_cnt_cur++;
 		wake_up_interruptible_all(&decon->wait_frmdone);
 		if (decon->sw_te_wa) {
