@@ -158,10 +158,10 @@ static void decon_win_conig_to_regs_param
 
 	win_regs->wincon = wincon(transp_length, alpha0, alpha1,
 			win_config->plane_alpha, win_config->blending);
-	win_regs->win_start_pos = win_start_pos(win_config->dst.x, win_config->dst.y);
-	win_regs->win_end_pos = win_end_pos(win_config->dst.x, win_config->dst.y,
+	win_regs->start_pos = win_start_pos(win_config->dst.x, win_config->dst.y);
+	win_regs->end_pos = win_end_pos(win_config->dst.x, win_config->dst.y,
 			win_config->dst.w, win_config->dst.h);
-	win_regs->win_pixel_cnt = (win_config->dst.w * win_config->dst.h);
+	win_regs->pixel_count = (win_config->dst.w * win_config->dst.h);
 	win_regs->whole_w = win_config->dst.f_w;
 	win_regs->whole_h = win_config->dst.f_h;
 	win_regs->offset_x = win_config->dst.x;
@@ -193,7 +193,7 @@ u32 wincon(u32 transp_len, u32 a0, u32 a1,
 	if (is_plane_alpha) {
 		if (transp_len) {
 			if (blending != DECON_BLENDING_NONE)
-				data |= WIN_ALPHA_MUL_F;
+				data |= WIN_CONTROL_ALPHA_MUL_F;
 		} else {
 			if (blending == DECON_BLENDING_PREMULT)
 				blending = DECON_BLENDING_COVERAGE;
@@ -201,29 +201,29 @@ u32 wincon(u32 transp_len, u32 a0, u32 a1,
 	}
 
 	if (transp_len > 1)
-		data |= WIN_ALPHA_SEL_PIXEL;
+		data |= WIN_CONTROL_ALPHA_SEL_F(W_ALPHA_SEL_F_BYAEN);
 
 	switch (blending) {
 	case DECON_BLENDING_NONE:
-		data |= WIN_BLEND_FUNC_COPY;
+		data |= WIN_CONTROL_FUNC_F(PD_FUNC_COPY);
 		break;
 
 	case DECON_BLENDING_PREMULT:
 		if (!is_plane_alpha) {
-			data |= WIN_BLEND_FUNC_SRC_OVER;
+			data |= WIN_CONTROL_FUNC_F(PD_FUNC_SOURCE_OVER);
 		} else {
 			/* need to check the eq: it is SPEC-OUT */
-			data |= WIN_BLEND_FUNC_SRC_TOP;
+			data |= WIN_CONTROL_FUNC_F(PD_FUNC_SOURCE_A_TOP);
 		}
 		break;
 
 	case DECON_BLENDING_COVERAGE:
 	default:
-		data |= WIN_BLEND_FUNC_LEGACY;
+		data |= WIN_CONTROL_FUNC_F(PD_FUNC_LEGACY);
 		break;
 	}
 
-	data |= WIN_ALPHA0_F(a0) | WIN_ALPHA1_F(a1);
+	data |= WIN_CONTROL_ALPHA0_F(a0) | WIN_CONTROL_ALPHA1_F(a1);
 
 	return data;
 }
@@ -1014,7 +1014,7 @@ int decon_disable(struct decon_device *decon)
 
 	decon_to_psr_info(decon, &psr);
 	decon_reg_stop(decon->id, decon->out_idx, &psr);
-	decon_reg_clear_int(decon->id);
+	decon_reg_clear_int_all(decon->id);
 
 	/* DMA protection disable must be happen on vpp domain is alive */
 	decon_set_protected_content(decon, NULL);
@@ -1986,12 +1986,12 @@ void decon_reg_chmap_validate(struct decon_device *decon, struct decon_reg_data 
 	unsigned short i, bitmap = 0;
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
-		if ((regs->win_regs[i].wincon & WIN_EN_F) &&
+		if ((regs->win_regs[i].wincon & WIN_CONTROL_EN_F) &&
 			(!regs->win_regs[i].winmap_state)) {
 			if (bitmap & (1 << regs->vpp_config[i].idma_type)) {
 				decon_warn("Channel-%d is mapped to multiple windows\n",
 					regs->vpp_config[i].idma_type);
-				regs->win_regs[i].wincon &= (~WIN_EN_F);
+				regs->win_regs[i].wincon &= (~WIN_CONTROL_EN_F);
 			}
 			bitmap |= 1 << regs->vpp_config[i].idma_type;
 		}
@@ -2023,7 +2023,7 @@ static void decon_check_vpp_used(struct decon_device *decon,
 			win->vpp_id = regs->vpp_config[i].idma_type;
 		else
 			win->vpp_id = 0xF;
-		if ((regs->win_regs[i].wincon & WIN_EN_F) &&
+		if ((regs->win_regs[i].wincon & WIN_CONTROL_EN_F) &&
 			(!regs->win_regs[i].winmap_state)) {
 			decon->vpp_usage_bitmask |= (1 << win->vpp_id);
 			decon->vpp_used[win->vpp_id] = true;
@@ -2158,7 +2158,7 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		struct decon_win *win = decon->windows[i];
 
-		if (regs->win_regs[i].wincon & WIN_EN_F)
+		if (regs->win_regs[i].wincon & WIN_CONTROL_EN_F)
 			win_bitmap |= 1 << i;
 
 		/* set decon registers for each window */
@@ -2177,7 +2177,7 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 					VPP_WIN_CONFIG, &regs->vpp_config[i]);
 			if (vpp_ret) {
 				decon_err("Failed to config VPP-%d\n", win->vpp_id);
-				regs->win_regs[i].wincon &= (~WIN_EN_F);
+				regs->win_regs[i].wincon &= (~WIN_CONTROL_EN_F);
 				decon_write(decon->id, WIN_CONTROL(i), regs->win_regs[i].wincon);
 				decon->vpp_usage_bitmask &= ~(1 << win->vpp_id);
 				decon->vpp_err_stat[win->vpp_id] = true;
@@ -2350,7 +2350,7 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 		decon_vpp_wait_wb_framedone(decon);
 		/* Stop to prevent resource conflict */
 		decon_reg_direct_on_off(decon->id, 0);
-		decon_reg_shadow_update_req(decon->id);
+		decon_reg_update_req_global(decon->id);
 		decon_dbg("write-back timeline:%d, max:%d\n",
 				decon->timeline->value, decon->timeline_max);
 	} else {
@@ -2367,7 +2367,8 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 
 		if (!decon->id) {
 			/* clear I80 Framedone pending interrupt */
-			decon_write_mask(decon->id, INTERRUPT_PENDING, ~0, INT_FRAME_DONE_INT_PEND);
+			decon_write_mask(decon->id, INTERRUPT_PENDING, ~0,
+				INTERRUPT_FRAME_DONE_INT_EN);
 			decon->frame_done_cnt_target = decon->frame_done_cnt_cur + 1;
 		}
 
@@ -2505,7 +2506,7 @@ static int decon_set_win_config(struct decon_device *decon,
 			break;
 		case DECON_WIN_STATE_COLOR:
 			enabled = 1;
-			color |= WIN_MAPCOLOR_F(config->color);
+			color = config->color;
 			decon_win_conig_to_regs_param(0, config, win_regs, IDMA_G0);
 			break;
 		case DECON_WIN_STATE_BUFFER:
@@ -2532,12 +2533,12 @@ static int decon_set_win_config(struct decon_device *decon,
 			break;
 		}
 		if (enabled)
-			win_regs->wincon |= WIN_EN_F;
+			win_regs->wincon |= WIN_CONTROL_EN_F;
 		else
-			win_regs->wincon &= ~WIN_EN_F;
+			win_regs->wincon &= ~WIN_CONTROL_EN_F;
 
 		if (color_map) {
-			win_regs->winmap_color = color;
+			win_regs->colormap = color;
 			win_regs->winmap_state = color_map;
 		}
 
@@ -3661,15 +3662,16 @@ static int decon_probe(struct platform_device *pdev)
 		if (decon_reg_init(decon->id, decon->out_idx, &p) < 0)
 			goto decon_init_done;
 
+		memset(&win_regs, 0, sizeof(struct decon_win_config));
 		win_regs.wincon = wincon(0x8, 0xFF, 0xFF, 0xFF, DECON_BLENDING_NONE);
-		win_regs.wincon |= WIN_EN_F;
-		win_regs.win_start_pos = win_start_pos(0, 0);
-		win_regs.win_end_pos = win_end_pos(0, 0, fbinfo->var.xres, fbinfo->var.yres);
+		win_regs.wincon |= WIN_CONTROL_EN_F;
+		win_regs.start_pos = win_start_pos(0, 0);
+		win_regs.end_pos = win_end_pos(0, 0, fbinfo->var.xres, fbinfo->var.yres);
 		pr_info("xres %d yres %d win_start_pos %x win_end_pos %x\n",
-			fbinfo->var.xres, fbinfo->var.yres, win_regs.win_start_pos,
-			win_regs.win_end_pos);
-		win_regs.winmap_color = 0x00FF00;
-		win_regs.win_pixel_cnt = fbinfo->var.xres * fbinfo->var.yres;
+			fbinfo->var.xres, fbinfo->var.yres, win_regs.start_pos,
+			win_regs.end_pos);
+		win_regs.colormap = 0x00FF00;
+		win_regs.pixel_count = fbinfo->var.xres * fbinfo->var.yres;
 		win_regs.whole_w = fbinfo->var.xres_virtual;
 		win_regs.whole_h = fbinfo->var.yres_virtual;
 		win_regs.offset_x = fbinfo->var.xoffset;
@@ -3697,7 +3699,7 @@ static int decon_probe(struct platform_device *pdev)
 			decon->vpp_err_stat[decon->default_idma] = true;
 		}
 
-		decon_reg_win_shadow_update_req(decon->id, win_idx);
+		decon_reg_update_req_window(decon->id, win_idx);
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE)
 		if (!decon->id)
@@ -3710,7 +3712,6 @@ static int decon_probe(struct platform_device *pdev)
 		dsim = container_of(decon->output_sd, struct dsim_device, sd);
 		dsim->decon = (void *)decon;
 		call_panel_ops(dsim, displayon, dsim);
-		decon_reg_update_req_and_unmask(decon->id, &psr);
 		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
 		if (decon_reg_wait_update_done_and_mask(decon->id, &psr, SHADOW_UPDATE_TIMEOUT)
 				< 0)

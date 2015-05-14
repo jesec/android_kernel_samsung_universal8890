@@ -1,4 +1,4 @@
-/* linux/drivers/video/exynos/decon/decon_reg_7420.c
+/* linux/drivers/video/exynos/decon_8890/decon_reg_8890.c
  *
  * Copyright 2013-2015 Samsung Electronics
  *      Jiun Yu <jiun.yu@samsung.com>
@@ -15,31 +15,18 @@
 #ifdef FW_TEST
 #include "decon_fw.h"
 #define __iomem
-#define DISP_SS_BASE_ADDR	0x13970000
 #else
 #include "decon.h"
 #endif
 
-/*
-* Connection between IDMAs and WINx
-* IDMA_G0 -> Channel7
-* IDMA_G1 -> Channel0
-* ...
-* IDMA_VGR1 -> Channel6
-*/
-static int IDMA2CHMAP[MAX_DECON_WIN] = {
-	0x7, 0x0, 0x3, 0x4, 0x1, 0x2, 0x5, 0x6
-};
-
 /******************* CAL raw functions implementation *************************/
-/* ---------- SYSTEM REGISTER CONTROL ----------- */
 void decon_reg_set_disp_ss_cfg(u32 id, void __iomem *disp_ss_regs,
 	u32 dsi_idx, struct decon_mode_info *psr)
 {
 	u32 val;
 
 	if (!disp_ss_regs) {
-		decon_info("disp_ss regs is not mapped\n");
+		decon_err("disp_ss_regs is not mapped\n");
 		return;
 	}
 
@@ -47,8 +34,7 @@ void decon_reg_set_disp_ss_cfg(u32 id, void __iomem *disp_ss_regs,
 
 	switch (id) {
 	case 0:
-		/* TODO: DUAL_DSI */
-		val = ((val & (~DISP_CFG_SYNC_MODE0_MASK)) | DISP_CFG_SYNC_MODE0_TE_F);
+		val = ((val & (~DISP_CFG_SYNC_MODE0_MASK)) | DISP_CFG_SYNC_MODE0_TE(dsi_idx));
 		if ((psr->out_type == DECON_OUT_DSI) && (dsi_idx <= 2)) {
 			val = (val & (~DISP_CFG_DSIM_PATH_CFG1_DISP_IF_MASK(dsi_idx)));
 			val |= DISP_CFG_DSIM_PATH_CFG1_DISP_IF0(dsi_idx) |
@@ -59,18 +45,19 @@ void decon_reg_set_disp_ss_cfg(u32 id, void __iomem *disp_ss_regs,
 					DISP_CFG_DSIM_PATH_CFG0_EN(1);
 			}
 		} else if (psr->out_type == DECON_OUT_EDP) {
-			/* TODO: need to disable IF0 -> DSIM path */
 			val |= DISP_CFG_DP_PATH_CFG0_EN;
 		}
 		break;
+
 	case 1:
-		val = ((val & (~DISP_CFG_SYNC_MODE1_MASK)) | DISP_CFG_SYNC_MODE1_TE_S);
+		val = ((val & (~DISP_CFG_SYNC_MODE1_MASK)) | DISP_CFG_SYNC_MODE1_TE(dsi_idx));
 		if ((psr->out_type == DECON_OUT_DSI) && (dsi_idx <= 2)) {
 			val = (val & (~DISP_CFG_DSIM_PATH_CFG1_DISP_IF_MASK(dsi_idx)));
 			val |= DISP_CFG_DSIM_PATH_CFG1_DISP_IF2(dsi_idx) |
 				DISP_CFG_DSIM_PATH_CFG0_EN(dsi_idx);
 		}
 		break;
+
 	default:
 		break;
 	}
@@ -82,13 +69,9 @@ int decon_reg_reset(u32 id)
 {
 	int tries;
 
-	decon_write(id, GLOBAL_CONTROL, GLOBAL_SWRESET);
-	if (!id) {
-		decon_write(id, DSC_CONTROL_0(0), DSC_ENC_SREST);
-		decon_write(id, DSC_CONTROL_0(1), DSC_ENC_SREST);
-	}
+	decon_write(id, GLOBAL_CONTROL, GLOBAL_CONTROL_SRESET);
 	for (tries = 2000; tries; --tries) {
-		if (~decon_read(id, GLOBAL_CONTROL) & GLOBAL_SWRESET)
+		if (~decon_read(id, GLOBAL_CONTROL) & GLOBAL_CONTROL_SRESET)
 			break;
 		udelay(10);
 	}
@@ -101,270 +84,579 @@ int decon_reg_reset(u32 id)
 	return 0;
 }
 
-/* TODO Auto clock gating is enable as default : CLOCK_CONTROL_0 */
 void decon_reg_set_clkgate_mode(u32 id, u32 en)
 {
-
 	u32 val = en ? ~0 : 0;
-	decon_write_mask(id, CLOCK_CONTROL_0, val, QACTIVE_VALUE);
-	return;
+
+	if (id == 0)
+		decon_write_mask(id, CLOCK_CONTROL_0, val, CLOCK_CONTROL_0_F_MASK);
+	else if (id == 1)
+		decon_write_mask(id, CLOCK_CONTROL_0, val, CLOCK_CONTROL_0_S_MASK);
+	else if (id == 2)
+		decon_write_mask(id, CLOCK_CONTROL_0, val, CLOCK_CONTROL_0_T_MASK);
 }
 
-void decon_reg_set_vidout(u32 id, struct decon_mode_info *psr,
-				u32 dsi_idx, u32 en)
+void decon_reg_set_vclk_freerun(u32 id, u32 en)
 {
-	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
-		decon_write_mask(id, GLOBAL_CONTROL, GLOBAL_OPERATION_I80_F,
-					GLOBAL_OPERATION_MODE_MASK);
+	u32 val = en ? ~0 : 0;
+
+	if (id == 0)
+		decon_write_mask(0, DISPIF0_DISPIF1_CONTROL, val, DISPIF0_DISPIF1_CONTROL_FREE_RUN_EN);
+	else if (id == 1)
+		decon_write_mask(0, DISPIF2_CONTROL, val, DISPIF2_CONTROL_FREE_RUN_EN);
+	else if (id == 2)
+		decon_write_mask(0, DISPIF3_CONTROL, val, DISPIF3_CONTROL_FREE_RUN_EN);
+}
+
+/*
+ * VCLK is the video source clock of DECON
+ * NUM   : NUM_VALUE_OF_VCLK[7:0]
+ * DENOM : DENOM_VALUE_OF_VCLK[23:16]
+*/
+void decon_reg_set_vclk_divider(u32 id, u32 denom, u32 num)
+{
+	u32 val;
+
+	if (num == 1)
+		denom = (denom * 2) - 1;
+	else {
+		num = num - 1;
+		denom = denom - 1;
+	}
+
+	val = DIVIDER_DENOM_VALUE_OF_CLK_F(denom)
+		| DIVIDER_NUM_VALUE_OF_CLK_F(num);
+
+	/* VCLK controlled by DECON_F(id=0) only */
+	if (id == 0)
+		decon_write(0, VCLK_DIVIDER_CONTROL, val);
+	else if (id == 1)
+		decon_write(0, VCLK2_DIVIDER_CONTROL, val);
+	else if (id == 2)
+		decon_write(0, VCLK3_DIVIDER_CONTROL, val);
+}
+
+/*
+ * ECLK is the video source clock of DECON
+ * NUM   : NUM_VALUE_OF_VCLK[7:0]
+ * DENOM : DENOM_VALUE_OF_VCLK[23:16]
+*/
+void decon_reg_set_eclk_divider(u32 id, u32 denom, u32 num)
+{
+	u32 val;
+
+	if (num == 1)
+		denom = (denom * 2) - 1;
+	else {
+		num = num - 1;
+		denom = denom - 1;
+	}
+
+	val = DIVIDER_DENOM_VALUE_OF_CLK_F(denom)
+		| DIVIDER_NUM_VALUE_OF_CLK_F(num);
+
+	decon_write(id, ECLK_DIVIDER_CONTROL, val);
+}
+
+void decon_reg_set_sram_share(u32 id, u32 en)
+{
+	u32 val = en ? ~0 : 0;
+
+	if (id == 0)
+		decon_write_mask(id, SRAM_SHARE_ENABLE, val, (SRAM_SHARE_ENABLE_DSC_F | SRAM_SHARE_ENABLE_F));
+}
+
+void decon_reg_set_data_path(u32 id, enum decon_data_path data_path, enum decon_enhance_path enhance_path)
+{
+	u32 val, mask;
+
+	val = DATA_PATH_CONTROL_ENHANCE(enhance_path) | DATA_PATH_CONTROL_PATH(data_path);
+	mask = DATA_PATH_CONTROL_ENHANCE_MASK | DATA_PATH_CONTROL_PATH_MASK;
+
+	decon_write_mask(id, DATA_PATH_CONTROL, val, mask);
+}
+
+void decon_reg_get_data_path(u32 id, enum decon_data_path *data_path, enum decon_enhance_path *enhance_path)
+{
+	u32 val;
+
+	val = decon_read(id, DATA_PATH_CONTROL);
+
+	*data_path = DATA_PATH_CONTROL_PATH_GET(val);
+	*enhance_path = DATA_PATH_CONTROL_ENHANCE_GET(val);
+}
+
+void decon_reg_set_operation_mode(u32 id, enum decon_psr_mode mode)
+{
+	if (mode == DECON_MIPI_COMMAND_MODE)
+		decon_write_mask(id, GLOBAL_CONTROL, GLOBAL_CONTROL_OPERATION_MODE_I80IF_F,
+						 GLOBAL_CONTROL_OPERATION_MODE_F);
 	else
-		decon_write_mask(id, GLOBAL_CONTROL, GLOBAL_OPERATION_RGBIF_F,
-				GLOBAL_OPERATION_MODE_MASK);
-	/* TODO Writeback : DECON_EXT not using DSI
-	if (id && psr->out_type != DECON_OUT_DSI)
-		decon_write_mask(id, VIDOUTCON0, VIDOUTCON0_TV_MODE,
-			VIDOUTCON0_TV_MODE);
-	*/
-
-	/* TODO Should be determined
-	decon_write_mask(id, VIDOUTCON0, en ? ~0 : 0, VIDOUTCON0_LCD_ON_F);
-	if (dsi_mode == DSI_MODE_DUAL)
-		decon_write_mask(id, VIDOUTCON0, en ? ~0 : 0,
-				VIDOUTCON0_LCD_DUAL_ON_F);
-	*/
+		decon_write_mask(id, GLOBAL_CONTROL, GLOBAL_CONTROL_OPERATION_MODE_RGBIF_F,
+						 GLOBAL_CONTROL_OPERATION_MODE_F);
 }
 
-void decon_reg_set_crc(u32 id, u32 en)
+void decon_reg_set_blender_bg_image_size(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
 {
-	u32 val = en ? ~0 : 0;
+	u32 width, val, mask;
 
-	decon_write_mask(id, CRC_CONTROL, val, CRC_START);
+	width = lcd_info->xres;
+
+	if (dsi_mode == DSI_MODE_DUAL_DSI)
+		width = width * 2;
+
+	val = BLENDER_BG_HEIGHT_F(lcd_info->yres) | BLENDER_BG_WIDTH_F(width);
+	mask = BLENDER_BG_HEIGHT_MASK | BLENDER_BG_WIDTH_MASK;
+	decon_write_mask(id, BLENDER_BG_IMAGE_SIZE_0, val, mask);
+
+	val = (lcd_info->yres) * width;
+	decon_write_mask(id, BLENDER_BG_IMAGE_SIZE_1, val, ~0);
 }
 
-void decon_reg_set_fixvclk(u32 id, int disp_idx, enum decon_hold_scheme mode)
+void decon_reg_get_blender_bg_image_size(u32 id, u32 *p_width, u32 *p_height)
 {
-	u32 val = DISPIF_VCLK_HOLD;
+	u32 val;
 
-	switch (mode) {
-	case DECON_VCLK_HOLD:
-		val = DISPIF_VCLK_HOLD;
-		break;
-	case DECON_VCLK_RUNNING:
-		val = DISPIF_VCLK_RUN;
-		break;
-	case DECON_VCLK_RUN_VDEN_DISABLE:
-		val = DISPIF_VCLK_RUN_VDEN_DISABLE;
-		break;
-	}
+	val = decon_read(id, BLENDER_BG_IMAGE_SIZE_0);
 
-	decon_write_mask(id, DISPIF_CONTROL(disp_idx), val, DISPIF_OUT_CLOCK_UNDERRUN_SCHEME_F_MASK);
+	*p_width = BLENDER_BG_WIDTH_GET(val);
+	*p_height = BLENDER_BG_HEIGHT_GET(val);
 }
 
-void decon_reg_clear_win(u32 id, int win_idx)
+void decon_reg_set_underrun_scheme(u32 id, enum decon_hold_scheme mode)
 {
-	decon_write(id, WIN_CONTROL(win_idx), WIN_CONTROL_RESET_VAL);
-	decon_write(id, WIN_START_POSITION(win_idx), 0);
-	decon_write(id, WIN_END_POSITION(win_idx), 0);
-	decon_write(id, WIN_COLORMAP(win_idx), 0);
-	decon_write(id, WIN_START_TIME_CONTROL(win_idx), 0);
-	decon_write(id, WIN_PIXEL_COUNT(win_idx), 0x1);
+	if (id == 0)
+		decon_write_mask(0, DISPIF0_DISPIF1_CONTROL, DISPIF0_DISPIF1_CONTROL_UNDERRUN_SCHEME_F(mode), DISPIF0_DISPIF1_CONTROL_UNDERRUN_SCHEME_MASK);
+	else if (id == 1)
+		decon_write_mask(0, DISPIF2_CONTROL, DISPIF2_CONTROL_UNDERRUN_SCHEME_F(mode), DISPIF2_CONTROL_UNDERRUN_SCHEME_MASK);
+	else if (id == 2)
+		decon_write_mask(0, DISPIF3_CONTROL, DISPIF3_CONTROL_UNDERRUN_SCHEME_F(mode), DISPIF3_CONTROL_UNDERRUN_SCHEME_MASK);
 }
 
-void decon_reg_set_rgb_order(u32 id, int disp_idx, enum decon_rgb_order order)
+void decon_reg_set_rgb_order(u32 id, enum decon_rgb_order order)
 {
-	u32 val = DISPIF_RGB_ORDER_O_RGB;
-
-	switch (order) {
-	case DECON_RGB:
-		val = DISPIF_RGB_ORDER_O_RGB;
-		break;
-	case DECON_GBR:
-		val = DISPIF_RGB_ORDER_O_GBR;
-		break;
-	case DECON_BRG:
-		val = DISPIF_RGB_ORDER_O_BRG;
-		break;
-	case DECON_BGR:
-		val = DISPIF_RGB_ORDER_O_BGR;
-		break;
-	case DECON_RBG:
-		val = DISPIF_RGB_ORDER_O_RBG;
-		break;
-	case DECON_GRB:
-		val = DISPIF_RGB_ORDER_O_GRB;
-		break;
-	}
-
-	decon_write_mask(id, DISPIF_CONTROL(disp_idx), val, DISPIF_OUT_RGB_ORDER_F_MASK);
+	if (id == 0)
+		decon_write_mask(0, DISPIF0_DISPIF1_CONTROL, DISPIF0_DISPIF1_CONTROL_OUT_RGB_ORDER_F(order), DISPIF0_DISPIF1_CONTROL_OUT_RGB_ORDER_MASK);
+	else if (id == 1)
+		decon_write_mask(0, DISPIF2_CONTROL, DISPIF2_CONTROL_OUT_RGB_ORDER_F(order), DISPIF2_CONTROL_OUT_RGB_ORDER_MASK);
+	else if (id == 2)
+		decon_write_mask(0, DISPIF3_CONTROL, DISPIF3_CONTROL_OUT_RGB_ORDER_F(order), DISPIF3_CONTROL_OUT_RGB_ORDER_MASK);
 }
 
-void __get_mic_compressed_size(struct decon_lcd *info, u32 *width, u32 *height)
+void decon_reg_set_frame_fifo_size(u32 id, enum decon_dsi_mode dsi_mode, u32 width, u32 height)
 {
-	switch (info->mic_ratio) {
-	case 2:
-		*height = info->yres;
-		*width = (info->xres / info->mic_ratio);
-		break;
-	case 3:
-		/* TODO */
-		break;
-	default:
-		*height = info->yres;
-		*width = info->xres;
-		break;
+	u32 val;
+
+	val = FRAME_FIFO_HEIGHT_F(height) | FRAME_FIFO_WIDTH_F(width);
+	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_0, val);
+
+	val = height * width;
+	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_1, val);
+
+	if (dsi_mode == DSI_MODE_DUAL_DSI) {
+		val = FRAME_FIFO_HEIGHT_F(height) | FRAME_FIFO_WIDTH_F(width);
+		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_0, val);
+
+		val = height * width;
+		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_1, val);
 	}
 }
 
-void decon_reg_set_porch(u32 id, int disp_idx, struct decon_lcd *info)
+void decon_reg_set_splitter(u32 id, enum decon_dsi_mode dsi_mode, u32 width, u32 height)
 {
-	u32 val = 0;
+	u32 val;
+	u32 cr_0_setting_guide = 0;	/* 0 : guide about 1/2 mic, 1 : UM's guide about 1/2 mic */
+	enum decon_mic_comp_ratio cr;
 
-	/* CAUTION : Zero is not allowed*/
-	val = DISPIF_VBPD0_F(info->vbp) | DISPIF_VFPD0_F(info->vfp);
-	decon_write(id, DISPIF_TIMING_CONTROL_0(disp_idx), val);
+	if (id == 0) {
+		if (dsi_mode == DSI_MODE_DUAL_DSI) {
 
-	val = DISPIF_VSPD0_F(info->vsa);
-	decon_write(id, DISPIF_TIMING_CONTROL_1(disp_idx), val);
+			cr = (decon_read_mask(id, MIC_CONTROL, MIC_PARA_CR_CTRL_MASK)) >> MIC_PARA_CR_CTRL_SHIFT;	/* 0 : 1/2, 1 : 1/3 */
 
-	val = DISPIF_HBPD0_F(info->hbp) | DISPIF_HFPD0_F(info->hfp);
-	decon_write(id, DISPIF_TIMING_CONTROL_2(disp_idx), val);
+			if ((cr_0_setting_guide == 0) && (cr == MIC_COMP_RATIO_1_2)) {
+				decon_write(id, SPLITTER_CONTROL_0, (width / 2));
 
-	val = DISPIF_HSPD0_F(info->hsa);
-	decon_write(id, DISPIF_TIMING_CONTROL_3(disp_idx), val);
+				val = SPLITTER_HEIGHT_F(height) | SPLITTER_WIDTH_F(width);
+				decon_write(id, SPLITTER_SIZE_CONTROL_0, val);
+
+				val = height * width;
+				decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
+			} else {
+				decon_write(id, SPLITTER_CONTROL_0, width);
+
+				val = SPLITTER_HEIGHT_F(height) | SPLITTER_WIDTH_F((width) * 2);
+				decon_write(id, SPLITTER_SIZE_CONTROL_0, val);
+
+				val = height * width * 2;
+				decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
+			}
+		} else {
+			decon_write(id, SPLITTER_CONTROL_0, 0);
+
+			val = SPLITTER_HEIGHT_F(height) | SPLITTER_WIDTH_F(width);
+			decon_write(id, SPLITTER_SIZE_CONTROL_0, val);
+
+			val = height * width;
+			decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
+		}
+	}
 }
 
-/* TODO : Check It needed to JF */
-void decon_reg_set_linecnt_op_threshold(u32 id, int dsi_idx, u32 th)
+void decon_reg_set_dispif_porch(u32 id, int dsi_idx, struct decon_lcd *lcd_info)
 {
-	return;
+	u32 val;
+
+	val = DISPIF_TIMING_VBPD_F(lcd_info->vbp) | DISPIF_TIMING_VFPD_F(lcd_info->vfp);
+	if (id == 0) {
+		if (dsi_idx == 0)
+			decon_write(0, DISPIF0_TIMING_CONTROL_0, val);
+		else if (dsi_idx == 1)
+			decon_write(0, DISPIF1_TIMING_CONTROL_0, val);
+	} else if (id == 1)
+		decon_write(0, DISPIF2_TIMING_CONTROL_0, val);
+	else if (id == 2)
+		decon_write(0, DISPIF3_TIMING_CONTROL_0, val);
+
+	val = DISPIF_TIMING_VSPD_F(lcd_info->vsa);
+	if (id == 0) {
+		if (dsi_idx == 0)
+			decon_write(0, DISPIF0_TIMING_CONTROL_1, val);
+		else if (dsi_idx == 1)
+			decon_write(0, DISPIF1_TIMING_CONTROL_1, val);
+	} else if (id == 1)
+		decon_write(0, DISPIF2_TIMING_CONTROL_1, val);
+	else if (id == 2)
+		decon_write(0, DISPIF3_TIMING_CONTROL_1, val);
+
+	val = DISPIF_TIMING_HBPD_F(lcd_info->hbp) | DISPIF_TIMING_HFPD_F(lcd_info->hfp);
+	if (id == 0) {
+		if (dsi_idx == 0)
+			decon_write(0, DISPIF0_TIMING_CONTROL_2, val);
+		else if (dsi_idx == 1)
+			decon_write(0, DISPIF1_TIMING_CONTROL_2, val);
+	} else if (id == 1)
+		decon_write(0, DISPIF2_TIMING_CONTROL_2, val);
+	else if (id == 2)
+		decon_write(0, DISPIF3_TIMING_CONTROL_2, val);
+
+	val = DISPIF_TIMING_HSPD_F(lcd_info->hsa);
+	if (id == 0) {
+		if (dsi_idx == 0)
+			decon_write(0, DISPIF0_TIMING_CONTROL_3, val);
+		else if (dsi_idx == 1)
+			decon_write(0, DISPIF1_TIMING_CONTROL_3, val);
+	} else if (id == 1)
+		decon_write(0, DISPIF2_TIMING_CONTROL_3, val);
+	else if (id == 2)
+		decon_write(0, DISPIF3_TIMING_CONTROL_3, val);
 }
 
-/* TODO : Do JF need this? */
-void decon_reg_set_clkval(u32 id, u32 clkdiv)
+void decon_reg_set_dispif_size(u32 id, int dsi_idx, u32 width, u32 height)
 {
-	return;
+	u32 val;
+
+	val = DISPIF_HEIGHT_F(height) | DISPIF_WIDTH_F(width);
+	if (id == 0) {
+		if (dsi_idx == 0)
+			decon_write(0, DISPIF0_SIZE_CONTROL_0, val);
+		else if (dsi_idx == 1)
+			decon_write(0, DISPIF1_SIZE_CONTROL_0, val);
+	} else if (id == 1)
+		decon_write(0, DISPIF2_SIZE_CONTROL_0, val);
+	else if (id == 2)
+		decon_write(0, DISPIF3_SIZE_CONTROL_0, val);
+
+	val = width * height;
+	if (id == 0) {
+		if (dsi_idx == 0)
+			decon_write(0, DISPIF0_SIZE_CONTROL_1, val);
+		else if (dsi_idx == 1)
+			decon_write(0, DISPIF1_SIZE_CONTROL_1, val);
+	} else if (id == 1)
+		decon_write(0, DISPIF2_SIZE_CONTROL_1, val);
+	else if (id == 2)
+		decon_write(0, DISPIF3_SIZE_CONTROL_1, val);
+}
+
+void decon_reg_get_dispif_size(u32 id, int dsi_idx, u32 *p_width, u32 *p_height)
+{
+	u32 val;
+
+	if (id == 0) {
+		if (dsi_idx == 0)
+			val = decon_read(0, DISPIF0_SIZE_CONTROL_0);
+		else if (dsi_idx == 1)
+			val = decon_read(0, DISPIF1_SIZE_CONTROL_0);
+	} else if (id == 1)
+		val = decon_read(0, DISPIF2_SIZE_CONTROL_0);
+	else if (id == 2)
+		val = decon_read(0, DISPIF3_SIZE_CONTROL_0);
+
+	*p_width = DISPIF_WIDTH_GET(val);
+	*p_height = DISPIF_HEIGHT_GET(val);
+}
+
+void decon_reg_set_comp_size(u32 id, enum decon_mic_comp_ratio cr, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
+{
+	u32 ratio_type; /* 0 : 12N, 1: 12N4, 2 : 12N8, 3 : ratio2 */
+	u32 mic_width_in_bytes, mic_dummy_in_bytes;
+	u32 width;
+	u32 temp_size, odd_n = 0;
+	u32 cr_0_setting_guide = 0;	/* 0 : guide about 1/2 mic, 1 : UM's guide about 1/2 mic */
+
+	if (dsi_mode == DSI_MODE_DUAL_DSI)
+		width = lcd_info->xres * 2;
+	else
+		width = lcd_info->xres;
+
+	if (cr) {
+		/* 1/3 ratio */
+		temp_size = width / 12;
+		if (temp_size % 2)
+			odd_n = 1;
+		else
+			odd_n = 0;
+
+		if ((width % 12) == 0) {  /* 12n */
+			ratio_type = 0;
+
+			if (dsi_mode) {
+				if (odd_n)
+					mic_dummy_in_bytes = 12;
+				else
+					mic_dummy_in_bytes = 0;
+			} else
+				mic_dummy_in_bytes = 0;
+		} else if ((width % 12) == 4) { /* 12n+4 */
+			ratio_type = 1;
+
+			if (dsi_mode) {
+				if (odd_n)
+					mic_dummy_in_bytes = 8;
+				else
+					mic_dummy_in_bytes = 20;
+			} else
+				mic_dummy_in_bytes = 16;
+		} else if ((width % 12) == 8) {  /* 12n+8 */
+			ratio_type = 2;
+
+			if (dsi_mode) {
+				if (odd_n)
+					mic_dummy_in_bytes = 4;
+				else
+					mic_dummy_in_bytes = 16;
+			} else
+				mic_dummy_in_bytes = 8;
+		} else {
+			decon_err("\nUnsupported Width\n");
+		}
+
+		mic_width_in_bytes = (width * 2) / (1 + dsi_mode) + mic_dummy_in_bytes;
+	} else {
+		/* 1/2 ratio */
+		if (dsi_mode) {
+			if (width % 8) {
+				decon_err("\nUnsupported Width\n");
+			}
+		} else {
+			if (width % 4) {
+				decon_err("\nUnsupported Width\n");
+			}
+		}
+
+		ratio_type = 3;
+
+		if (cr_0_setting_guide)
+			mic_width_in_bytes = (width / 2) * 3 / (1 + dsi_mode);
+		else
+			mic_width_in_bytes = (width / 2) * 3;
+
+		mic_dummy_in_bytes = 0;
+	}
+
+	decon_dbg("\nratio_type=%d\n", ratio_type);
+
+	/* set MIC Dummy Size in Bytes */
+	decon_write_mask(id, MIC_CONTROL, MIC_DUMMY_F(mic_dummy_in_bytes), MIC_DUMMY_MASK);
+
+	/* set MIC Comp. Size in Bytes */
+	decon_write_mask(id, MIC_SIZE_CONTROL, MIC_WIDTH_C_F(mic_width_in_bytes), MIC_WIDTH_C_MASK);
+
+	if (cr) {	/* 1/3 ratio */
+		/* set Splitter Size */
+		decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), ((lcd_info->yres) / 2));
+
+		/* set Frame FIFO Size */
+		decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3), ((lcd_info->yres) / 2));
+
+		/* set Display Size */
+		decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+		if (dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+	} else {
+		if (cr_0_setting_guide) {
+			/* set Splitter Size */
+			decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+			/* set Frame FIFO Size */
+			decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+			/* set Display Size */
+			decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3), (lcd_info->yres));
+			if (dsi_mode == DSI_MODE_DUAL_DSI)
+				decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3), (lcd_info->yres));
+		} else {
+			if (dsi_mode == DSI_MODE_DUAL_DSI) {
+				/* set Splitter Size */
+				decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+				/* set Frame FIFO Size */
+				decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+
+				/* set Display Size */
+				decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+				decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+
+			} else {
+				/* set Splitter Size */
+				decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+				/* set Frame FIFO Size */
+				decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+				/* set Display Size */
+				decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3), (lcd_info->yres));
+			}
+		}
+	}
+}
+
+void decon_reg_config_mic(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
+{
+	enum decon_mic_comp_ratio cr = lcd_info->mic_ratio;	/* 0 : 1/2, 1 : 1/3 */
+
+	if (id == 0) {
+		/* set slice mode */
+		decon_write_mask(id, MIC_CONTROL, MIC_SLICE_NUM_F(dsi_mode), MIC_SLICE_NUM_MASK);
+
+		/* set pixel order */
+		decon_write_mask(id, MIC_CONTROL, MIC_PIXEL_ORDER_F(cr), MIC_PIXEL_ORDER_MASK);	/* x1/2: should be 0 for display with DDI, x1/3: 1 */
+
+		/* set compratio */
+		decon_write_mask(id, MIC_CONTROL, MIC_PARA_CR_CTRL_F(cr), MIC_PARA_CR_CTRL_MASK);
+
+		/* set compression size */
+		decon_reg_set_comp_size(id, cr, dsi_mode, lcd_info);
+	}
+}
+
+void decon_reg_update_req_global(u32 id)
+{
+	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, ~0, SHADOW_REG_UPDATE_REQ_GLOBAL);
+}
+
+void decon_reg_update_req_window(u32 id, u32 win_idx)
+{
+	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, ~0, SHADOW_REG_UPDATE_REQ_WIN(win_idx));
+}
+
+void decon_reg_all_win_shadow_update_req(u32 id)
+{
+	u32 mask;
+
+	/* DECON_F has 8 windows */
+	if (!id)
+		mask = SHADOW_REG_UPDATE_REQ_FOR_DECON_F;
+	/* DECON_S/T has 4 windows */
+	else
+		mask = SHADOW_REG_UPDATE_REQ_FOR_DECON_T;
+
+	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, ~0, mask);
 }
 
 void decon_reg_direct_on_off(u32 id, u32 en)
 {
 	u32 val = en ? ~0 : 0;
 
-	decon_write_mask(id, GLOBAL_CONTROL, val, GLOBAL_DECON_EN_F | GLOBAL_DECON_EN);
+	decon_write_mask(id, GLOBAL_CONTROL, val, GLOBAL_CONTROL_DECON_EN | GLOBAL_CONTROL_DECON_EN_F);
 }
 
 void decon_reg_per_frame_off(u32 id)
 {
-	decon_write_mask(id, GLOBAL_CONTROL, 0, GLOBAL_DECON_EN_F);
+	decon_write_mask(id, GLOBAL_CONTROL, 0, GLOBAL_CONTROL_DECON_EN_F);
 }
 
-/* TODO Check : Freerun mode is able to set per DISPIF at JF, currently Fix
- * as 0 */
-void decon_reg_set_freerun_mode(u32 id, u32 en)
+void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
 {
-	decon_write_mask(id, DISPIF_CONTROL(0), en ? ~0 : 0, DISPIF_OUT_CLOCK_FREE_RUN_EN);
-}
+	decon_reg_set_rgb_order(id, DECON_RGB);
 
-/* TODO Writeback */
-void decon_reg_set_wb_frame(u32 id, u32 width, u32 height, dma_addr_t addr)
-{
-#if 0
-	decon_write(id, VIDWB_ADD0, addr);
-	decon_write(id, VIDWB_WHOLE_X, info->width);
-	decon_write(id, VIDWB_WHOLE_Y, info->height);
-	decon_write_mask(id, FRAMEFIFO_REG10, ~0, FRAMEFIFO_WB_MODE_F);
-	decon_write_mask(id, VIDOUTCON0, 0, VIDOUTCON0_LCD_ON_F);
-	decon_write_mask(id, VIDOUTCON0, ~0,
-			VIDOUTCON0_WB_F | VIDOUTCON0_WB_SRC_SEL_F);
-#endif
-}
+	decon_reg_set_dispif_porch(id, 0, lcd_info);
 
+	if (dsi_mode == DSI_MODE_DUAL_DSI)
+		decon_reg_set_dispif_porch(id, 1, lcd_info);
 
-/* TODO Writeback */
-void decon_reg_wb_swtrigger(u32 id)
-{
-#if 0
-	decon_write_mask(id, TRIGCON, ~0, TRIGCON_SWTRIGCMD_WB);
-#endif
-}
+	if (lcd_info->mic_enabled) {
+		if (id != 0)
+			decon_err("\n   [ERROR!!!] decon.%d doesn't support MIC\n", id);
+		decon_reg_config_mic(id, dsi_mode, lcd_info);
 
-void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode,
-		struct decon_lcd *lcd_info, u32 dsi_idx)
-{
-	int disp_idx = (!id) ? id : (id + 1);
+		if (dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTER_U0FFU1FF_DISP0DISP1, ENHANCEPATH_ENHANCE_ALL_OFF);
+		else
+			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTERBYPASS_U0FF_DISP0, ENHANCEPATH_ENHANCE_ALL_OFF);
+	} else {
+		decon_reg_set_splitter(id, dsi_mode, lcd_info->xres, lcd_info->yres);
+		decon_reg_set_frame_fifo_size(id, dsi_mode, lcd_info->xres, lcd_info->yres);
+		decon_reg_set_dispif_size(id, 0, lcd_info->xres, lcd_info->yres);
+		if (dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_dispif_size(id, 1, lcd_info->xres, lcd_info->yres);
 
-	decon_reg_set_rgb_order(id, disp_idx, DECON_RGB);
-	decon_reg_set_porch(id, disp_idx, lcd_info);
-	decon_reg_config_mic(id, lcd_info);
-
-	if (lcd_info->mode == DECON_VIDEO_MODE)
-		decon_reg_set_linecnt_op_threshold(id, dsi_idx, lcd_info->yres - 1);
-
-	if (!id && (dsi_mode == DSI_MODE_DUAL_DSI)) {
-		decon_reg_set_rgb_order(id, 1, DECON_RGB);
-		decon_reg_set_porch(id, 1, lcd_info);
-
-		if (lcd_info->mode == DECON_VIDEO_MODE)
-			decon_reg_set_linecnt_op_threshold(id, 1, lcd_info->yres - 1);
+		if (dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_data_path(id, DATAPATH_NOCOMP_SPLITTER_U0FFU1FF_DISP0DISP1, ENHANCEPATH_ENHANCE_ALL_OFF);
+		else
+			decon_reg_set_data_path(id, DATAPATH_NOCOMP_SPLITTERBYPASS_U0FF_DISP0, ENHANCEPATH_ENHANCE_ALL_OFF);
 	}
 
-	decon_reg_set_clkval(id, 0);
-
-	decon_reg_set_freerun_mode(id, 1);
+	decon_reg_set_vclk_freerun(id, 1);
 	decon_reg_direct_on_off(id, 0);
 }
 
+
 void decon_reg_configure_trigger(u32 id, enum decon_trig_mode mode)
 {
-	u32 mask, val = 0;
+	u32 val, mask;
 
-	mask =  TRIG_CON_HW_TRIG_EN;
+	mask = HW_SW_TRIG_CONTROL_HW_TRIG_EN;
 
-	/* SW_TRIG case, just disable HW_TRIG */
-	if (mode == DECON_HW_TRIG) {
-		mask |= TRIG_CON_HW_TRIG_MASK;
-		val = TRIG_CON_HW_TRIG_EN | TRIG_CON_HW_TRIG_MASK;
-	}
+	if (mode == DECON_SW_TRIG)
+		val = 0;
+	else
+		val = ~0;
 
 	decon_write_mask(id, HW_SW_TRIG_CONTROL, val, mask);
 }
 
-void decon_reg_set_winmap(u32 id, u32 idx, u32 color, u32 en)
+
+u32 decon_reg_get_linecnt(u32 id, int dispif_idx)
 {
-	u32 val = en ? WIN_MAPCOLOR_EN_F : 0;
+	u32 val;
 
-	/* Enable */
-	decon_write_mask(id, WIN_CONTROL(idx), val, WIN_MAPCOLOR_EN_MASK);
+	if (dispif_idx == 0)
+		val = decon_read_mask(0, DISPIF_LINE_COUNT, DISPIF_LINE_COUNT_DISPIF0_MASK) >> DISPIF_LINE_COUNT_DISPIF0_SHIFT;
+	else if (dispif_idx == 1)
+		val = decon_read_mask(0, DISPIF_LINE_COUNT, DISPIF_LINE_COUNT_DISPIF1_MASK) >> DISPIF_LINE_COUNT_DISPIF1_SHIFT;
+	else if (dispif_idx == 2)
+		val = decon_read_mask(0, DISPIF2_LINE_COUNT, DISPIF2_LINE_COUNT_MASK) >> DISPIF2_LINE_COUNT_SHIFT;
+	else if (dispif_idx == 3)
+		val = decon_read_mask(0, DISPIF3_LINE_COUNT, DISPIF3_LINE_COUNT_MASK) >> DISPIF3_LINE_COUNT_SHIFT;
 
-	/* Color Set */
-	val = WIN_MAPCOLOR_F(color);
-	decon_write_mask(id, WIN_COLORMAP(idx), val, WIN_MAPCOLOUR_MASK);
-}
-
-/* TODO */
-void decon_reg_set_disp_if_colmap(u32 id, u32 idx, u32 color)
-{
-	/* If Decon and DISPIF is ON when all wins are disabled, DISP generates mapcolor */
-}
-
-u32 decon_reg_get_linecnt(u32 id, int disp_idx)
-{
-	if (disp_idx == 1)
-		return DISPIF1_LINECNT_GET(decon_read(id, DISPIF_LINE_COUNT(disp_idx)));
-	else
-		return DISPIF_LINECNT_GET(decon_read(id, DISPIF_LINE_COUNT(disp_idx)));
-}
-
-/* TODO Move to driver */
-u32 decon_reg_get_vstatus(u32 id, int dsi_idx)
-{
-	return 0;
-	/* return decon_read(id, VIDCON1(dsi_idx)) & VIDCON1_VSTATUS_MASK; */
+	return val;
 }
 
 /* timeout : usec */
-/* TODO: VSTATUS related */
 int decon_reg_wait_linecnt_is_zero_timeout(u32 id, int dsi_idx, unsigned long timeout)
 {
-	unsigned long delay_time = 10;
+	unsigned long delay_time = 100;
 	int disp_idx = (!id) ? id : (id + 1);
 	unsigned long cnt = timeout / delay_time;
 	u32 linecnt;
@@ -385,21 +677,18 @@ int decon_reg_wait_linecnt_is_zero_timeout(u32 id, int dsi_idx, unsigned long ti
 	return 0;
 }
 
-/* change from.. u32 decon_reg_get_stop_status(u32 id) */
-/* TODO Check just Idle or not? Move to driver */
 u32 decon_reg_get_idle_status(u32 id)
 {
 	u32 val;
 
 	val = decon_read(id, GLOBAL_CONTROL);
-	if (val & GLOBAL_RUN_STATUS)
+	if (val & GLOBAL_CONTROL_IDLE_STATUS)
 		return 1;
 
 	return 0;
 }
 
-/* TODO Move to driver */
-int decon_reg_wait_stop_status_timeout(u32 id, unsigned long timeout)
+int decon_reg_wait_idle_status_timeout(u32 id, unsigned long timeout)
 {
 	unsigned long delay_time = 10;
 	unsigned long cnt = timeout / delay_time;
@@ -409,428 +698,103 @@ int decon_reg_wait_stop_status_timeout(u32 id, unsigned long timeout)
 		status = decon_reg_get_idle_status(id);
 		cnt--;
 		udelay(delay_time);
-	} while (status && cnt);
+	} while (!status && cnt);
 
 	if (!cnt) {
-		decon_err("wait timeout decon stop status(%u)\n", status);
+		decon_err("wait timeout decon idle status(%u)\n", status);
 		return -EBUSY;
 	}
 
 	return 0;
 }
 
-/* DONE */
-int decon_reg_is_win_enabled(u32 id, int win_idx)
+u32 decon_reg_get_run_status(u32 id)
 {
-	if (decon_read(id, WIN_CONTROL(win_idx)) & WIN_EN_F)
+	u32 val;
+
+	val = decon_read(id, GLOBAL_CONTROL);
+	if (val & GLOBAL_CONTROL_RUN_STATUS)
 		return 1;
 
 	return 0;
 }
 
-/* DONE */
-int decon_reg_is_shadow_updated(u32 id)
+int decon_reg_wait_run_status_timeout(u32 id, unsigned long timeout)
 {
-	if (decon_read(id, SHADOW_REG_UPDATE_REQ) & SHADOW_REG_UPDATE_REQ_DECON)
-		return 0;
+	unsigned long delay_time = 10;
+	unsigned long cnt = timeout / delay_time;
+	u32 status;
 
-	return 1;
-}
+	do {
+		status = decon_reg_get_run_status(id);
+		cnt--;
+		udelay(delay_time);
+	} while (status && cnt);
 
-/* TODO Check the maching for JF */
-void decon_reg_config_size(u32 id, int dsi_idx, int dsi_mode, struct decon_lcd *lcd_info)
-{
-	u32 mic_w;
-	u32 split_w, frame_fifo_w, dispif_w, dispif_h;
-	u32 xfact, yfact;
-	u32 slice = 1;
-	u32 val;
-	int disp_idx = (!id) ? id : (id + 1);
-
-	/* BG_IMG Size */
-	val = BLND_BG_WIDTH_F(lcd_info->xres) | BLND_BG_HEIGHT_F(lcd_info->yres);
-	decon_write(id, BLENDER_BG_IMAGE_SIZE_0, val);
-	decon_write(id, BLENDER_BG_IMAGE_SIZE_1, lcd_info->xres * lcd_info->yres);
-
-	/* MIC SIZE */
-	if (lcd_info->mic_ratio == 2) {
-		mic_w = (lcd_info->xres >> 1) * MIC_PIX_IN_BYTES;
-		decon_write(id, MIC_SIZE_CONTROL, mic_w);
-		yfact = lcd_info->yres;
-	} else if (lcd_info->mic_ratio == 3) {
-		/* TODO : Slice Mode */
-		if ((lcd_info->xres % 12) == 0) {
-			xfact = lcd_info->xres / 12;
-			yfact = lcd_info->yres >> 1;
-			mic_w = 24 * xfact * MIC_PIX_IN_BYTES;
-		} else if (((lcd_info->xres - 4) % 12) == 0) {
-			xfact = (lcd_info->xres - 4) / 12;
-			yfact = lcd_info->yres >> 1;
-			mic_w = 24 * xfact * MIC_PIX_IN_BYTES + 24;
-		} else if (((lcd_info->xres - 8) % 12) == 0) {
-			xfact = (lcd_info->xres - 8) / 12;
-			yfact = lcd_info->yres >> 1;
-			mic_w = 24 * xfact * MIC_PIX_IN_BYTES + 24;
-		}
-		decon_write(id, MIC_SIZE_CONTROL, mic_w);
-	} else {
-		mic_w = lcd_info->xres * MIC_PIX_IN_BYTES;
-		yfact = lcd_info->yres;
-	}
-
-	/* TODO : Dual Slice Mode */
-	if (slice == 1)
-		split_w = (mic_w / 3);
-	else
-		split_w = (mic_w / 3) << 1;
-
-	/* SPLITTER_SIZE */
-	if (!id) {
-		val = SPLITTER_WIDTH_F(split_w) | SPLITTER_HEIGHT_F(yfact);
-		decon_write(id, SPLITTER_SIZE_CONTROL_0, val);
-		val = split_w * yfact;
-		decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
-		if (slice == 1)
-			decon_write_mask(id, SPLITTER_CONTROL_0, 0, SPLIT_CON_STARTPTR_MASK);
-		else
-			decon_write_mask(id, SPLITTER_CONTROL_0, (split_w >> 1), SPLIT_CON_STARTPTR_MASK);
-	}
-
-	/* FRAME_FIFO_SIZE */
-	if (dsi_mode == DSI_MODE_DUAL_DSI)
-		frame_fifo_w = split_w >> 1;
-	else
-		frame_fifo_w = split_w;
-
-	val = FRAME_FIFO_WIDTH_F(frame_fifo_w) | FRAME_FIFO_HEIGHT_F(yfact);
-	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_0, val);
-	decon_write(id, FRAME_FIFO_0_SIZE_CONTROL_1, frame_fifo_w * yfact);
-	if (!id) {
-		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_0, val);
-		decon_write(id, FRAME_FIFO_1_SIZE_CONTROL_1, frame_fifo_w * yfact);
-	}
-
-	/* DISP_IF SIZE */
-	if (lcd_info->mic_ratio == 3) {
-		dispif_w = frame_fifo_w >> 1;
-		dispif_h = yfact << 1;
-	} else {
-		dispif_w = frame_fifo_w;
-		dispif_h = yfact;
-	}
-	val = DISPIF_HEIGHT_F(dispif_h) | DISPIF_WIDTH_F(dispif_w);
-	decon_write(id, DISPIF_SIZE_CONTROL_0(disp_idx), val);
-
-	val = DISPIF_PIXEL_COUNT_F(dispif_w * dispif_h);
-	decon_write(id, DISPIF_SIZE_CONTROL_1(disp_idx), val);
-	if (!id && (dsi_mode == DSI_MODE_DUAL_DSI)) {
-		val = DISPIF_HEIGHT_F(dispif_h) | DISPIF_WIDTH_F(dispif_w);
-		decon_write(id, DISPIF_SIZE_CONTROL_0(1), val);
-
-		val = DISPIF_PIXEL_COUNT_F(dispif_w * dispif_h);
-		decon_write(id, DISPIF_SIZE_CONTROL_1(1), val);
-	}
-
-	return;
-}
-
-void decon_reg_config_mic(u32 id, struct decon_lcd *lcd_info)
-{
-	u32 dummy;
-	u32 val, mask;
-
-	if (id)
-		return;
-
-	if (lcd_info->mic_ratio == 2) {
-		val = MIC_PARA_CR_CTRL_1_BY_2 | MIC_PIXEL_0_1_ORDER;
-		mask = MIC_PARA_CR_CTRL_F | MIC_PIXEL_ORDER_F;
-		decon_write_mask(id, MIC_CONTROL, val, mask);
-	} else if (lcd_info->mic_ratio == 3) {
-		val = MIC_PARA_CR_CTRL_1_BY_3 | MIC_PIXEL_0_1_ORDER;
-		mask = MIC_PARA_CR_CTRL_F | MIC_PIXEL_ORDER_F;
-		decon_write_mask(id, MIC_CONTROL, val, mask);
-		/* TODO : Slice Mode */
-		if ((lcd_info->xres % 12) == 0)
-			dummy = 0;
-		else if (((lcd_info->xres - 4) % 12) == 0)
-			dummy = 16;
-		else if (((lcd_info->xres - 8) % 12) == 0)
-			dummy = 8;
-		decon_write_mask(id, MIC_CONTROL, MIC_DUMMY_F(dummy), MIC_DUMMY_MASK);
-	}
-}
-
-/* TODO Select Interrupts! */
-void decon_reg_clear_int(u32 id)
-{
-	u32 mask;
-
-	mask = INTERRUPT_PENDING |
-		INT_DISPIF_VSTATUS_INT_PEND |
-		INT_RESOURCE_CONFLICT_INT_PEND |
-		INT_FRAME_DONE_INT_PEND |
-		INT_FIFO_LEVEL_INT_PEND;
-
-	decon_write_mask(id, INTERRUPT_PENDING, mask, mask);
-}
-
-void decon_reg_config_win_channel(u32 id, u32 win_idx, enum decon_idma_type type)
-{
-	u32 data;
-
-	if (type >= MAX_DECON_WIN) {
-		decon_err("%s:invalid index of Channel = %d\n", __func__, type);
-		type = type & (MAX_DECON_WIN - 1);
-	}
-
-	data = WIN_CHMAP_F(IDMA2CHMAP[type]);
-	decon_write_mask(id, WIN_CONTROL(win_idx), data, WIN_CHMAP_F_MASK);
-}
-
-/* TODO Implement later */
-void decon_reg_set_mdnie_pclk(u32 id, u32 en)
-{
-	return;
-
-}
-
-/* TODO Implement later */
-void decon_reg_enable_mdnie(u32 id, u32 en)
-{
-	return;
-}
-
-/* TODO Implement later */
-void decon_reg_set_mdnie_blank(u32 id, u32 front, u32 sync, u32 back, u32 line)
-{
-	return;
-}
-
-static void decon_reg_set_data_path(u32 id, int dsi_mode, u32 mic_ratio)
-{
-	u32 mask, val = 0;
-
-	if (id == 0) {
-		mask = DATA_PATH_CTRL_ENHANCE_PATH_MASK | COMP_DISPIF_WB_PATH_MASK;
-		if (mic_ratio > 1)
-			val |= COMP_MIC_DECON0_SHIFT;
-
-		/* TODO: MDNIE */
-		if (dsi_mode == DSI_MODE_SINGLE)
-			val |= COMP_DISPIF_NOCOMP_SPLITBYP_U0FF_U0DISP;
-		else if (dsi_mode == DSI_MODE_DUAL_DSI)
-			val |= COMP_DISPIF_NOCOMP_SPLITBYP_U0U1FF_U0U1DISP;
-	} else if (id == 1) {
-		mask = COMP_DISPIF_WB_PATH_MASK;
-		if (mic_ratio > 1)
-			val |= COMP_MIC_DECON1_SHIFT;
-		val |= COMP_DISPIF_NOCOMP_U2FF_U2DISP;
-	} else {
-		mask = COMP_DISPIF_WB_PATH_MASK;
-		val |= COMP_DISPIF_PRE_WB;
-	}
-	decon_write_mask(id, DATA_PATH_CONTROL, val, mask);
-
-}
-
-/***************** CAL APIs implementation *******************/
-int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
-{
-	int win_idx;
-	struct decon_lcd *lcd_info = p->lcd_info;
-	struct decon_mode_info *psr = &p->psr;
-	int disp_idx = (!id) ? id : (id + 1);
-
-	/* DECON does not need to start, if DECON is already
-	 * running(enabled in LCD_ON_UBOOT) */
-	if (decon_reg_get_idle_status(id)) {
-		decon_reg_init_probe(id, dsi_idx, p);
-		decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+	if (!cnt) {
+		decon_err("wait timeout decon run status(%u)\n", status);
 		return -EBUSY;
 	}
-
-	/* Configure a DISP_SS */
-	decon_reg_set_disp_ss_cfg(id, p->disp_ss_regs, dsi_idx, psr);
-
-	decon_reg_reset(id);
-	decon_reg_set_clkgate_mode(id, 1);
-	decon_reg_set_vidout(id, psr, dsi_idx, 1);
-	decon_reg_set_crc(id, 0);
-
-	decon_reg_set_data_path(id, psr->dsi_mode, lcd_info->mic_ratio);
-	decon_reg_config_mic(id, lcd_info);
-	decon_reg_config_size(id, dsi_idx, psr->dsi_mode, lcd_info);
-	/* TODO: Config the splitter with x_start_pos of right side image */
-
-#if 0 /* TODO Need it? */
-	if (id) {
-		decon_reg_set_default_win_channel(id);
-		/*
-		 * Interrupt of DECON-EXT should be set to video mode,
-		 * because of malfunction of I80 frame done interrupt.
-		 */
-		psr->psr_mode = DECON_VIDEO_MODE;
-		decon_reg_set_int(id, psr, dsi_mode, 1);
-		psr->psr_mode = DECON_MIPI_COMMAND_MODE;
-	}
-#endif
-
-	decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_HOLD);
-
-	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI))
-		decon_reg_set_fixvclk(id, 1, DECON_VCLK_HOLD);
-
-	for (win_idx = 0; win_idx < p->nr_windows; win_idx++)
-		decon_reg_clear_win(id, win_idx);
-
-	/* RGB order -> porch values -> LINECNT_OP_THRESHOLD -> clock divider
-	 * -> freerun mode --> stop DECON */
-	decon_reg_configure_lcd(id, psr->dsi_mode, lcd_info, dsi_idx);
-
-	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
-		decon_reg_configure_trigger(id, psr->trig_mode);
-
-	/* asserted interrupt should be cleared before initializing decon hw */
-	decon_reg_clear_int(id);
 
 	return 0;
 }
 
-void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
+void decon_reg_clear_int_all(u32 id)
 {
-	struct decon_lcd *lcd_info = p->lcd_info;
-	struct decon_mode_info *psr = &p->psr;
-	int disp_idx = (!id) ? id : (id + 1);
-
-
-	decon_reg_set_clkgate_mode(id, dsi_idx);
-	decon_reg_set_vidout(id, psr, dsi_idx, 1);
-	decon_reg_set_crc(id, 0);
-
-	decon_reg_set_data_path(id, psr->dsi_mode, lcd_info->mic_ratio);
-	decon_reg_config_mic(id, lcd_info);
-	decon_reg_config_size(id, dsi_idx, psr->dsi_mode, lcd_info);
-	/* Does exynos7420 decon always use DECON_VCLK_HOLD ? */
-	decon_reg_set_fixvclk(id, disp_idx, DECON_VCLK_HOLD);
-
-	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI))
-		decon_reg_set_fixvclk(id, 1, DECON_VCLK_HOLD);
-
-	decon_reg_set_rgb_order(id, dsi_idx, DECON_RGB);
-	decon_reg_set_porch(id, dsi_idx, lcd_info);
-	if (lcd_info->mode == DECON_VIDEO_MODE)
-		decon_reg_set_linecnt_op_threshold(id, dsi_idx, lcd_info->yres - 1);
-
-	if (!id && (psr->dsi_mode == DSI_MODE_DUAL_DSI)) {
-		decon_reg_set_rgb_order(id, 1, DECON_RGB);
-		decon_reg_set_porch(id, 1, lcd_info);
-		if (lcd_info->mode == DECON_VIDEO_MODE)
-			decon_reg_set_linecnt_op_threshold(id, 1, lcd_info->yres - 1);
-	}
-
-	decon_reg_set_clkval(id, 0);
-	decon_reg_set_freerun_mode(id, 0);
-	decon_reg_shadow_update_req(id);
-
-	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
-		decon_reg_configure_trigger(id, psr->trig_mode);
-}
-
-void decon_reg_start(u32 id, struct decon_mode_info *psr)
-{
-	decon_reg_direct_on_off(id, 1);
-	decon_reg_shadow_update_req(id);
-	decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
-}
-
-int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
-{
-	int ret = 0;
-
-	decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
-
-	if (decon_reg_get_idle_status(id) == 1) {
-		/* timeout : 50ms */
-		/* TODO: dual DSI scenario */
-		ret = decon_reg_wait_linecnt_is_zero_timeout(id, dsi_idx, 50 * 1000);
-		if (ret)
-			goto err;
-
-		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE) {
-			decon_reg_direct_on_off(id, 0);
-			decon_reg_shadow_update_req(id);
-		} else {
-			decon_reg_per_frame_off(id);
-			decon_reg_shadow_update_req(id);
-			decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
-		}
-
-		/* timeout : 20ms */
-		ret = decon_reg_wait_stop_status_timeout(id, 20 * 1000);
-		if (ret)
-			goto err;
-	}
-err:
-	ret = decon_reg_reset(id);
-
-	return ret;
-}
-
-/* TODO shoud be modified for JF */
-void decon_reg_set_window_control(u32 id, int win_idx,
-		struct decon_window_regs *regs, u32 winmap_en)
-{
-	decon_write(id, WIN_CONTROL(win_idx), regs->wincon);
-	decon_write(id, WIN_START_POSITION(win_idx), regs->win_start_pos);
-	decon_write(id, WIN_END_POSITION(win_idx), regs->win_end_pos);
-	decon_write(id, WIN_PIXEL_COUNT(win_idx), regs->win_pixel_cnt);
-
-	decon_reg_set_winmap(id, win_idx, regs->winmap_color, winmap_en);
-
-	decon_reg_config_win_channel(id, win_idx, regs->type);
-}
-
-void decon_reg_set_int(u32 id, struct decon_mode_info *psr, u32 en)
-{
-	u32 val;
-
-	decon_reg_clear_int(id);
-	if (en) {
-		val = INTR_INT_EN | INTR_FIFO_INT_EN | INTR_RES_CONFLICT_INT_EN;
-		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE) {
-			decon_write_mask(id, INTERRUPT_PENDING, ~0, INT_FRAME_DONE_INT_PEND);
-			val |= INTR_FRAME_DONE_INT_EN;
-		}
-		val |= INTR_DISPIF_VSTATUS_SEL_VSYNC | INTR_DISPIF_VSTATUS_INT_EN |
-			INTR_DISPIF_VSTATUS_INT_EN;
-		/* TODO: write back */
-		decon_write_mask(id, INTERRUPT_ENABLE, val, ~0);
-	} else {
-		decon_write_mask(id, INTERRUPT_ENABLE, 0, INTR_INT_EN);
-	}
-}
-
-/* Is it need to do hw trigger unmask and mask asynchronously in case of dual DSI */
-void decon_reg_set_trigger(u32 id, struct decon_mode_info *psr,
-			enum decon_set_trig en)
-{
-	u32 val = (en == DECON_TRIG_ENABLE) ? 0 : ~0;
 	u32 mask;
 
-	if (psr->psr_mode == DECON_VIDEO_MODE)
-		return;
+	/* mask = INTERRUPT_DISPIF_VSTATUS | INTERRUPT_RESOURCE_CONFLICT | INTERRUPT_FRAME_DONE | INTERRUPT_FIFO_LEVEL; */
+	mask = ~0;
+	decon_write_mask(id, INTERRUPT_PENDING, ~0, mask);
+}
 
-	if (psr->trig_mode == DECON_SW_TRIG) {
-		mask = TRIG_CON_SW_TRIG;
-		val = (en == DECON_TRIG_ENABLE) ? ~0 : 0;
-	} else {
-		mask = TRIG_CON_HW_TRIG_MASK;
-		val = (en == DECON_TRIG_ENABLE) ? 0 : ~0;
+u32 decon_get_win_channel(u32 id, u32 win_idx, enum decon_idma_type type)
+{
+	u32 ch_id;
+
+	switch (type) {
+	case IDMA_G0_S:
+	case IDMA_G0:
+		ch_id = 7;
+		break;
+	case IDMA_G1:
+		ch_id = 0;
+		break;
+	case IDMA_G2:
+		ch_id = 1;
+		break;
+	case IDMA_G3:
+		ch_id = 2;
+		break;
+	case IDMA_VG0:
+		ch_id = 3;
+		break;
+	case IDMA_VG1:
+		ch_id = 4;
+		break;
+	case IDMA_VGR0:
+		ch_id = 5;
+		break;
+	case IDMA_VGR1:
+		ch_id = 6;
+		break;
+	default:
+		decon_dbg("channel(0x%x) is not valid\n", type);
+		return -EINVAL;
 	}
 
-	decon_write_mask(id, HW_SW_TRIG_CONTROL, val, mask);
+	return ch_id;
 }
+
+void decon_reg_config_win_channel(u32 id, u32 win_idx, enum decon_idma_type type)
+{
+	u32 ch_id;
+
+	ch_id = decon_get_win_channel(id, win_idx, type);
+
+	decon_write_mask(id, WIN_CONTROL(win_idx), WIN_CONTROL_CHMAP_F(ch_id), WIN_CONTROL_CHMAP_MASK);
+}
+
 
 /* wait until shadow update is finished */
 int decon_reg_wait_for_update_timeout(u32 id, unsigned long timeout)
@@ -849,59 +813,393 @@ int decon_reg_wait_for_update_timeout(u32 id, unsigned long timeout)
 	return 0;
 }
 
+
 /* wait until shadow update is finished */
-int decon_reg_wait_update_done_and_mask(u32 id, struct decon_mode_info *psr,
-		unsigned long timeout)
+int decon_reg_wait_for_window_update_timeout(u32 id, u32 win_idx, unsigned long timeout)
 {
-	int ret;
-	ret = decon_reg_wait_for_update_timeout(id, timeout);
-	decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+	unsigned long delay_time = 100;
+	unsigned long cnt = timeout / delay_time;
+
+	while ((decon_read(id, SHADOW_REG_UPDATE_REQ) & SHADOW_REG_UPDATE_REQ_WIN(win_idx)) && --cnt)
+		udelay(delay_time);
+
+	if (!cnt) {
+		decon_err("timeout of updating decon window registers\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+
+
+/* Is it need to do hw trigger unmask and mask asynchronously in case of dual DSI */
+/* enable(unmask) / disable(mask) hw trigger */
+void decon_reg_set_trigger(u32 id, struct decon_mode_info *psr, enum decon_set_trig en)
+{
+	u32 val = (en == DECON_TRIG_ENABLE) ? ~0 : 0;
+	u32 mask;
+
+	if (psr->psr_mode == DECON_VIDEO_MODE)
+		return;
+
+	if (psr->trig_mode == DECON_SW_TRIG) {
+		val = (en == DECON_TRIG_ENABLE) ? ~0 : 0;
+		mask = HW_SW_TRIG_CONTROL_SW_TRIG;
+	} else {
+		val = (en == DECON_TRIG_DISABLE) ? ~0 : 0;
+		mask = HW_SW_TRIG_CONTROL_HW_TRIG_MASK;
+	}
+
+	decon_write_mask(id, HW_SW_TRIG_CONTROL, val, mask);
+}
+
+
+/***************** CAL APIs implementation *******************/
+int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
+{
+	struct decon_lcd *lcd_info = p->lcd_info;
+	struct decon_mode_info *psr = &p->psr;
+
+	/* DECON does not need to start, if DECON is already
+	 * running(enabled in LCD_ON_UBOOT) */
+	if (decon_reg_get_run_status(id)) {
+		decon_info("decon_reg_init already called by BOOTLOADER\n");
+		decon_reg_init_probe(id, dsi_idx, p);
+		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+			decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+		return -EBUSY;
+	}
+
+	/* Configure a DISP_SS */
+	decon_reg_set_disp_ss_cfg(id, p->disp_ss_regs, dsi_idx, psr);
+
+	decon_reg_reset(id);
+
+	decon_reg_set_clkgate_mode(id, 1);
+
+	if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
+		/* (denom, num) : VCLK=VCLK_SRC * (num+1)/(denom+1) */
+		decon_reg_set_vclk_divider(id, 2, 1);
+	else
+		/* (denom, num) : VCLK=VCLK_SRC * (num+1)/(denom+1) */
+		decon_reg_set_vclk_divider(id, 1, 1);
+
+	/* (denom, num) : ECLK=ECLK_SRC * (num+1)/(denom+1) */
+	decon_reg_set_eclk_divider(id, 1, 1);
+
+	decon_reg_set_sram_share(id, 0);
+
+	decon_reg_set_operation_mode(id, psr->psr_mode);
+
+	decon_reg_set_blender_bg_image_size(id, psr->dsi_mode, lcd_info);
+
+	if (id == 2) {
+		/*
+		 * Interrupt of DECON-T should be set to video mode,
+		 * because of malfunction of I80 frame done interrupt.
+		 */
+		psr->psr_mode = DECON_VIDEO_MODE;
+		decon_reg_set_int(id, psr, 1);
+		decon_reg_set_underrun_scheme(id, DECON_VCLK_NOT_AFFECTED);
+
+		/* RGB order -> frame fifo size -> splitter -> porch values -> mic configuration -> freerun mode --> stop DECON */
+		decon_reg_configure_lcd(id, psr->dsi_mode, lcd_info);
+	} else {
+		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+			decon_reg_set_underrun_scheme(id, DECON_VCLK_HOLD_ONLY);		/* guided by designer to change from DECON_VCLK_RUNNING_VDEN_DISABLE */
+		else
+			decon_reg_set_underrun_scheme(id, DECON_VCLK_HOLD_ONLY);
+
+		/* RGB order -> frame fifo size -> splitter -> porch values -> mic configuration -> freerun mode --> stop DECON */
+		decon_reg_configure_lcd(id, psr->dsi_mode, lcd_info);
+
+		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE) {
+			decon_reg_configure_trigger(id, psr->trig_mode);
+			decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+		}
+	}
+
+	/* FIXME: DECON_T dedicated to PRE_WB */
+	if (p->psr.out_type == DECON_OUT_WB)
+		decon_reg_set_data_path(id, DATAPATH_PREWB_ONLY, ENHANCEPATH_ENHANCE_ALL_OFF);
+
+	/* asserted interrupt should be cleared before initializing decon hw */
+	decon_reg_clear_int_all(id);
+
+	return 0;
+}
+
+
+void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
+{
+	struct decon_lcd *lcd_info = p->lcd_info;
+	struct decon_mode_info *psr = &p->psr;
+
+	decon_reg_set_clkgate_mode(id, 1);
+
+	if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
+		decon_reg_set_vclk_divider(id, 2, 1);	/* (denom, num) : VCLK=VCLK_SRC * (num+1)/(denom+1) */
+	else
+		decon_reg_set_vclk_divider(id, 1, 1);	/* (denom, num) : VCLK=VCLK_SRC * (num+1)/(denom+1) */
+
+	decon_reg_set_eclk_divider(id, 1, 1);	/* (denom, num) : ECLK=ECLK_SRC * (num+1)/(denom+1) */
+
+	decon_reg_set_sram_share(id, 0);
+
+	decon_reg_set_operation_mode(id, psr->psr_mode);
+
+	decon_reg_set_blender_bg_image_size(id, psr->dsi_mode, lcd_info);
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+		decon_reg_set_underrun_scheme(id, DECON_VCLK_HOLD_ONLY);		/* guided by designer to change from DECON_VCLK_RUNNING_VDEN_DISABLE */
+	else
+		decon_reg_set_underrun_scheme(id, DECON_VCLK_HOLD_ONLY);
+
+	/*
+	* ->
+	* same as decon_reg_configure_lcd(...) function
+	* except using decon_reg_update_req_global(id) instead of decon_reg_direct_on_off(id, 0)
+	*/
+	decon_reg_set_rgb_order(id, DECON_RGB);
+
+	decon_reg_set_dispif_porch(id, 0, lcd_info);
+
+	if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
+		decon_reg_set_dispif_porch(id, 1, lcd_info);
+
+	if (lcd_info->mic_enabled) {
+		if (id != 0)
+			decon_err("\n   [ERROR!!!] decon.%d doesn't support MIC\n", id);
+		decon_reg_config_mic(id, psr->dsi_mode, lcd_info);
+
+		if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTER_U0FFU1FF_DISP0DISP1, ENHANCEPATH_ENHANCE_ALL_OFF);
+		else
+			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTERBYPASS_U0FF_DISP0, ENHANCEPATH_ENHANCE_ALL_OFF);
+	} else {
+		decon_reg_set_splitter(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
+		decon_reg_set_frame_fifo_size(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
+		decon_reg_set_dispif_size(id, 0, lcd_info->xres, lcd_info->yres);
+		if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_dispif_size(id, 1, lcd_info->xres, lcd_info->yres);
+
+		if (psr->dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_data_path(id, DATAPATH_NOCOMP_SPLITTER_U0FFU1FF_DISP0DISP1, ENHANCEPATH_ENHANCE_ALL_OFF);
+		else
+			decon_reg_set_data_path(id, DATAPATH_NOCOMP_SPLITTERBYPASS_U0FF_DISP0, ENHANCEPATH_ENHANCE_ALL_OFF);
+	}
+
+	decon_reg_set_vclk_freerun(id, 1);
+	decon_reg_update_req_global(id);
+	/*
+	* <-
+	*/
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE) {
+		decon_reg_configure_trigger(id, psr->trig_mode);
+		decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+	}
+}
+
+
+void decon_reg_start(u32 id, struct decon_mode_info *psr)
+{
+	decon_reg_direct_on_off(id, 1);
+
+	decon_reg_update_req_global(id);
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+		decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
+}
+
+
+int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
+{
+	int ret = 0;
+
+#if 0		/* method which I recommends */
+	decon_reg_per_frame_off(id);
+	decon_reg_update_req_global(id);
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE) {
+		if (psr->trig_mode == DECON_SW_TRIG) {
+			/* s/w trigger will work in case vertical status is not active in codition TRIG_AUTO_MASK_EN is enabled */
+			ret = decon_reg_wait_idle_status_timeout(id, 20 * 1000);	/* timeout : 20ms */
+			if (ret)
+				goto err;
+		}
+		decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
+	}
+
+	/* timeout : 20ms */
+	ret = decon_reg_wait_run_status_timeout(id, 20 * 1000);
+	if (ret)
+		goto err;
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+		decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+
+	decon_reg_per_frame_off(id);	/* UM guide : clear ENVID_F again in case of per-frame stop (because of Q-channel??) */
+
+#else		/* method which SWSOL wants */
+	if ((psr->psr_mode == DECON_MIPI_COMMAND_MODE) &&
+			(psr->trig_mode == DECON_HW_TRIG)) {
+		decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+	}
+
+	/* timeout : 50ms */
+	/* TODO: dual DSI scenario */
+	ret = decon_reg_wait_linecnt_is_zero_timeout(id, dsi_idx, 50 * 1000);
+	if (ret)
+		goto err;
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+		decon_reg_direct_on_off(id, 0);
+	else
+		decon_reg_per_frame_off(id);
+
+	decon_reg_update_req_global(id);
+
+	/* timeout : 20ms */
+	ret = decon_reg_wait_run_status_timeout(id, 20 * 1000);
+	if (ret)
+		goto err;
+#endif
+
+err:
+	ret = decon_reg_reset(id);
+
 	return ret;
 }
 
+
+void decon_reg_set_int(u32 id, struct decon_mode_info *psr, u32 en)
+{
+	u32 val;
+
+	decon_reg_clear_int_all(id);
+
+#if 0
+	if (en) {
+		val = INTERRUPT_INT_EN | INTERRUPT_FIFO_LEVEL_INT_EN | INTERRUPT_RESOURCE_CONFLICT_INT_EN | INTERRUPT_DPU0_INT_EN | INTERRUPT_DPU1_INT_EN;
+		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+			val |= INTERRUPT_FRAME_DONE_INT_EN;
+		else
+			val |= INTERRUPT_DISPIF_VSTATUS_INT_EN | INTERRUPT_DISPIF_VSTATUS_VSA;
+		decon_write_mask(id, INTERRUPT_ENABLE, val, ~0);
+	} else {
+		decon_write_mask(id, INTERRUPT_ENABLE, 0, INTERRUPT_INT_EN);
+	}
+
+#else	/* OS always use Vstatus Interrupt irrespective of operating mode */
+	if (en) {
+		val = INTERRUPT_INT_EN | INTERRUPT_FIFO_LEVEL_INT_EN | INTERRUPT_RESOURCE_CONFLICT_INT_EN | INTERRUPT_DPU0_INT_EN | INTERRUPT_DPU1_INT_EN;
+		if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+			val |= INTERRUPT_FRAME_DONE_INT_EN;
+			val |= INTERRUPT_DISPIF_VSTATUS_INT_EN | INTERRUPT_DISPIF_VSTATUS_VSA;
+		decon_write_mask(id, INTERRUPT_ENABLE, val, ~0);
+	} else {
+		decon_write_mask(id, INTERRUPT_ENABLE, 0, INTERRUPT_INT_EN);
+	}
+#endif
+}
+
+void decon_reg_set_winmap(u32 id, u32 idx, u32 color, u32 en)
+{
+	u32 val = en ? WIN_CONTROL_MAPCOLOR_EN_F : 0;
+
+	/* Enable */
+	decon_write_mask(id, WIN_CONTROL(idx), val, WIN_CONTROL_MAPCOLOR_EN_MASK);
+
+	/* Color Set */
+	val = WIN_COLORMAP_MAPCOLOR_F(color);
+	decon_write_mask(id, WIN_COLORMAP(idx), val, WIN_COLORMAP_MAPCOLOR_MASK);
+}
+
+void decon_reg_set_window_control(u32 id, int win_idx,
+		struct decon_window_regs *regs, u32 winmap_en)
+{
+	decon_write(id, WIN_CONTROL(win_idx), regs->wincon);
+	decon_write(id, WIN_START_POSITION(win_idx), regs->start_pos);
+	decon_write(id, WIN_END_POSITION(win_idx), regs->end_pos);
+	decon_write(id, WIN_START_TIME_CONTROL(win_idx), regs->start_time);
+	decon_write(id, WIN_PIXEL_COUNT(win_idx), regs->pixel_count);
+
+	decon_reg_set_winmap(id, win_idx, regs->colormap, winmap_en);
+	decon_reg_config_win_channel(id, win_idx, regs->type);
+
+	decon_dbg("%s: regs->type(%d)\n", __func__, regs->type);
+}
+
+
 void decon_reg_update_req_and_unmask(u32 id, struct decon_mode_info *psr)
 {
-	decon_reg_shadow_update_req(id);
-	decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
+	decon_reg_update_req_global(id);
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+		decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
 }
 
-void decon_reg_win_shadow_update_clear_wait(u32 id, u32 win_idx, unsigned long timeout)
+
+int decon_reg_wait_update_done_and_mask(u32 id, struct decon_mode_info *psr, u32 timeout)
 {
-	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, 0, SHADOW_REG_UPDATE_REQ_WIN(win_idx));
-	decon_reg_wait_for_update_timeout(id, timeout);
+	int result;
+
+	result = decon_reg_wait_for_update_timeout(id, timeout);
+
+	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
+		decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
+
+	return result;
 }
 
-/* request window shadow update */
-void decon_reg_win_shadow_update_req(u32 id, u32 win_idx)
+int decon_reg_get_interrupt_and_clear(u32 id)
 {
-	u32 val = ~0;
+	u32 val = decon_read(id, INTERRUPT_PENDING);
 
-	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, val, SHADOW_REG_UPDATE_REQ_WIN(win_idx));
+	if (val & INTERRUPT_FIFO_LEVEL_INT_EN)
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_FIFO_LEVEL_INT_EN);
+
+	if (val & INTERRUPT_FRAME_DONE_INT_EN)
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_FRAME_DONE_INT_EN);
+
+	if (val & INTERRUPT_ODD_FRAME_START_INT_EN)
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_ODD_FRAME_START_INT_EN);
+
+	if (val & INTERRUPT_EVEN_FRAME_START_INT_EN)
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_EVEN_FRAME_START_INT_EN);
+
+	if (val & INTERRUPT_RESOURCE_CONFLICT_INT_EN) {
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_RESOURCE_CONFLICT_INT_EN);
+		decon_warn("RESOURCE_OCCUPANCY_INFO_0: 0x%x, INFO_1: 0x%x\n",
+			decon_read(id, RESOURCE_OCCUPANCY_INFO_0),
+			decon_read(id, RESOURCE_OCCUPANCY_INFO_1));
+		decon_warn("RESOURCE_SEL_0: 0x%x, SEL_1: 0x%x, INDUCER: 0x%x\n",
+			decon_read(id, RESOURCE_SEL_0),
+			decon_read(id, RESOURCE_SEL_1),
+			decon_read(id, RESOURCE_CONFLICTION_INDUCER));
+	}
+
+	if (val & INTERRUPT_DISPIF_VSTATUS_INT_EN)
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_DISPIF_VSTATUS_INT_EN);
+
+	if (val & INTERRUPT_DPU0_INT_EN)
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_DPU0_INT_EN);
+
+	if (val & INTERRUPT_DPU1_INT_EN)
+		decon_write(id, INTERRUPT_PENDING, INTERRUPT_DPU1_INT_EN);
+
+	return val;
 }
 
-void decon_reg_all_win_shadow_update_req(u32 id)
+/******************  OS Only ******************/
+int decon_reg_is_win_enabled(u32 id, int win_idx)
 {
-	u32 mask;
+	if (decon_read(id, WIN_CONTROL(win_idx)) & WIN_CONTROL_EN_F)
+		return 1;
 
-	if (!id)
-		mask = 0xFF;
-	else
-		mask = 0xF;
-
-	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, ~0, mask);
-}
-
-void decon_reg_shadow_update_req(u32 id)
-{
-	u32 val = ~0;
-
-	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, val, SHADOW_REG_UPDATE_REQ_DECON);
-}
-
-void decon_reg_activate_window(u32 id, u32 index)
-{
-	decon_write_mask(id, WIN_CONTROL(index), ~0, WIN_EN_F);
-	decon_reg_win_shadow_update_req(id, index);
+	return 0;
 }
 
 u32 decon_reg_get_width(u32 id, int dsi_mode)
@@ -910,7 +1208,7 @@ u32 decon_reg_get_width(u32 id, int dsi_mode)
 	u32 val = 0;
 
 	val = decon_read(id, DISPIF_SIZE_CONTROL_0(disp_idx));
-	return (val >> DISPIF_WIDTH_START_POS) & DISPIF_W_H_MASK;
+	return (val >> DISPIF_WIDTH_START_POS) & DISPIF_WIDTH_MASK;
 }
 
 u32 decon_reg_get_height(u32 id, int dsi_mode)
@@ -919,20 +1217,18 @@ u32 decon_reg_get_height(u32 id, int dsi_mode)
 	u32 val = 0;
 
 	val = decon_read(id, DISPIF_SIZE_CONTROL_0(disp_idx));
-	return (val >> DISPIF_HEIGHT_START_POS) & DISPIF_W_H_MASK;
+	return (val >> DISPIF_HEIGHT_START_POS) & DISPIF_WIDTH_MASK;
 }
 
 const unsigned long decon_clocks_table[][CLK_ID_MAX] = {
-	/* VCLK,  ECLK,  ACLK,  PCLK,  DISP_PLL,  resolution, MIC_ratio, DSC ratio */
-	{    71,   168,   400,    66,        71, 1080 * 1920,         1,         1},
-	{   125, 137.5,   400,    66,       125, 1440 * 2560,         1,         1},
-	{  62.5, 137.5,   400,    66,      62.5, 1440 * 2560,         1,         2},
-	{   141, 137.5,   400,    66,       141, 1440 * 2560,         1,         3},
-	{    63,   168,   400,    66,        63, 1440 * 2560,         2,         1},
-	{  41.7, 137.5,   400,    66,      62.5, 1440 * 2560,         3,         1},
+	/* VCLK,  ECLK,  ACLK,  PCLK,  DISP_PLL,  resolution,            MIC_ratio, DSC ratio */
+	{    71,   168,   400,    66,        71, 1080 * 1920,     MIC_COMP_BYPASS,         1},
+	{    63,   168,   400,    66,        63, 1440 * 2560,  MIC_COMP_RATIO_1_2,         1},
+	{  41.7, 137.5,   400,    66,      62.5, 1440 * 2560,  MIC_COMP_RATIO_1_3,         1},
+	{   141, 137.5,   400,    66,       141, 1440 * 2560,     MIC_COMP_BYPASS,         1},
 };
 
-void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_param *p)
+void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_lcd *lcd_info)
 {
 	int i = sizeof(decon_clocks_table) / sizeof(decon_clocks_table[0]) - 1;
 
@@ -945,13 +1241,26 @@ void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_param *p)
 
 	while (i--) {
 		if (decon_clocks_table[i][CLK_ID_RESOLUTION]
-				!= p->lcd_info->xres * p->lcd_info->yres) {
+				!= lcd_info->xres * lcd_info->yres) {
 			continue;
 		}
 
-		if (decon_clocks_table[i][CLK_ID_MIC_RATIO]
-				!= p->lcd_info->mic_ratio) {
-			continue;
+		if (!lcd_info->mic_enabled && !lcd_info->dsc_enabled) {
+			if (decon_clocks_table[i][CLK_ID_MIC_RATIO]
+					!= MIC_COMP_BYPASS)
+				continue;
+		}
+
+		if (lcd_info->mic_enabled) {
+			if (decon_clocks_table[i][CLK_ID_MIC_RATIO]
+					!= lcd_info->mic_ratio)
+				continue;
+		}
+
+		if (lcd_info->dsc_enabled) {
+			if (decon_clocks_table[i][CLK_ID_DSC_RATIO]
+					!= lcd_info->dsc_slice)
+				continue;
 		}
 
 		clks->decon[CLK_ID_VCLK] = decon_clocks_table[i][CLK_ID_VCLK];
@@ -970,44 +1279,3 @@ void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_param *p)
 		clks->decon[CLK_ID_PCLK],
 		clks->decon[CLK_ID_DPLL]);
 }
-
-u32 decon_reg_get_interrupt_and_clear(u32 id)
-{
-	u32 irq_status;
-	irq_status = decon_read(id, INTERRUPT_PENDING);
-
-	/* All pending interrupts are cleared */
-	decon_write(id, INTERRUPT_PENDING, irq_status);
-
-	if (irq_status & INT_RESOURCE_CONFLICT_INT_PEND) {
-		decon_warn("RESOURCE_OCCUPANCY_INFO_0: 0x%x, RESOURCE_OCCUPANCY_INFO_1: 0x%x\n",
-			decon_read(id, RESOURCE_OCCUPANCY_INFO_0),
-			decon_read(id, RESOURCE_OCCUPANCY_INFO_1));
-		decon_info("RESOURCE_SEL_SEL_0: 0x%x, RESOURCE_SEL_SEL_1: 0x%x, RESOURCE_CONFLICTION_INDUCER: 0x%x\n",
-			decon_read(id, RESOURCE_OCCUPANCY_INFO_0),
-			decon_read(id, RESOURCE_OCCUPANCY_INFO_1),
-			decon_read(id, RESOURCE_CONFLICTION_INDUCER));
-	}
-
-	return irq_status;
-}
-
-/* TODO implement later
-void decon_reg_set_block_mode(u32 id, u32 win_idx, u32 x, u32 y, u32 w, u32 h, u32 en)
-{
-	u32 val = en ? ~0 : 0;
-	u32 blk_offset = 0, blk_size = 0;
-
-	blk_offset = VIDW_BLKOFFSET_Y_F(y) | VIDW_BLKOFFSET_X_F(x);
-	blk_size = VIDW_BLKSIZE_W_F(w) | VIDW_BLKSIZE_H_F(h);
-
-	decon_write_mask(id, VIDW_BLKOFFSET(win_idx), blk_offset, VIDW_BLKOFFSET_MASK);
-	decon_write_mask(id, VIDW_BLKSIZE(win_idx), blk_size, VIDW_BLKSIZE_MASK);
-	decon_write_mask(id, WINCON(win_idx), val, WINCON_BLK_EN_F);
-}
-
-void decon_reg_set_tui_va(u32 id, u32 va)
-{
-	decon_write(id, VIDW_ADD2(6), va);
-}
-*/

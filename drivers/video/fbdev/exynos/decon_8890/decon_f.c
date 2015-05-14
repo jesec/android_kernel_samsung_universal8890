@@ -59,7 +59,7 @@ static void decon_f_get_enabled_win(struct decon_device *decon)
 	decon->underrun_stat.used_windows = 0;
 
 	for (i = 0; i < MAX_DECON_WIN; ++i)
-		if (decon_read(decon->id, (WIN_CONTROL(i)) + SHADOW_OFFSET) & WIN_EN_F)
+		if (decon_read(decon->id, (WIN_CONTROL(i)) + SHADOW_OFFSET) & WIN_CONTROL_EN_F)
 			set_bit(i * 4, &decon->underrun_stat.used_windows);
 }
 
@@ -80,7 +80,7 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 
 	irq_sts_reg = decon_reg_get_interrupt_and_clear(decon->id);
 
-	if (irq_sts_reg & INT_DISPIF_VSTATUS_INT_PEND) {
+	if (irq_sts_reg & INTERRUPT_DISPIF_VSTATUS_INT_EN) {
 		/* VSYNC interrupt, accept it */
 		decon->frame_start_cnt_cur++;
 		wake_up_interruptible_all(&decon->wait_vstatus);
@@ -90,18 +90,18 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 		}
 	}
 
-	if (irq_sts_reg & INT_FIFO_LEVEL_INT_PEND) {
+	if (irq_sts_reg & INTERRUPT_FIFO_LEVEL_INT_EN) {
 		decon->underrun_stat.fifo_level = fifo_level;
 		decon->underrun_stat.prev_bw = decon->prev_bw;
 		decon->underrun_stat.prev_int_bw = decon->prev_int_bw;
 		decon->underrun_stat.prev_disp_bw = decon->prev_disp_bw;
-		decon->underrun_stat.chmap = decon_read(0, RESOURCE_SEL_SEL_1);
+		decon->underrun_stat.chmap = decon_read(0, RESOURCE_SEL_1);
 		decon->underrun_stat.aclk = decon->res.pclk->rate;
 		decon_f_get_enabled_win(decon);
 		decon_oneshot_underrun_log(decon);
 	}
 
-	if (irq_sts_reg & INT_FRAME_DONE_INT_PEND) {
+	if (irq_sts_reg & INTERRUPT_FRAME_DONE_INT_EN) {
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
 		decon_lpd_trig_reset(decon);
 		decon->frame_done_cnt_cur++;
@@ -166,7 +166,7 @@ void decon_f_set_clocks(struct decon_device *decon)
 	struct decon_param p;
 
 	decon_to_init_param(decon, &p);
-	decon_reg_get_clock_ratio(&clks, &p);
+	decon_reg_get_clock_ratio(&clks, p.lcd_info);
 
 	/* VCLK */
 	decon_clk_set_rate(dev, decon->res.dpll,

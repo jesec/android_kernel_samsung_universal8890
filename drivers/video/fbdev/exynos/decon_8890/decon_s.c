@@ -21,7 +21,6 @@ irqreturn_t decon_s_irq_handler(int irq, void *dev_data)
 	struct decon_device *decon = dev_data;
 	ktime_t timestamp = ktime_get();
 	u32 irq_sts_reg;
-	/*u32 wb_irq_sts_reg;*/
 
 	spin_lock(&decon->slock);
 	if ((decon->state == DECON_STATE_OFF) ||
@@ -29,36 +28,20 @@ irqreturn_t decon_s_irq_handler(int irq, void *dev_data)
 		goto irq_end;
 	}
 
-	irq_sts_reg = decon_read(decon->id, INTERRUPT_PENDING);
-	if (irq_sts_reg & INT_DISPIF_VSTATUS_INT_PEND) {
-		/* VSYNC interrupt, accept it */
-		decon_write_mask(decon->id, INTERRUPT_PENDING, ~0, INT_DISPIF_VSTATUS_INT_PEND);
+	irq_sts_reg = decon_reg_get_interrupt_and_clear(decon->id);
+	if (irq_sts_reg & INTERRUPT_DISPIF_VSTATUS_INT_EN) {
 		decon->vsync_info.timestamp = timestamp;
 		wake_up_interruptible_all(&decon->vsync_info.wait);
 	}
-	if (irq_sts_reg & INT_FIFO_LEVEL_INT_PEND) {
+	if (irq_sts_reg & INTERRUPT_FIFO_LEVEL_INT_EN) {
 		decon_err("DECON-ext FIFO underrun\n");
-		decon_write_mask(decon->id, INTERRUPT_PENDING, ~0, INT_FIFO_LEVEL_INT_PEND);
+		/* TODO: Event logging */
 	}
-	if (irq_sts_reg & INT_FRAME_DONE_INT_PEND) {
+	if (irq_sts_reg & INTERRUPT_FRAME_DONE_INT_EN) {
 		decon_warn("DECON-ext frame done interrupt shouldn't happen\n");
-		decon_write_mask(decon->id, INTERRUPT_PENDING, ~0, INT_FRAME_DONE_INT_PEND);
 		decon_lpd_trig_reset(decon);
 	}
-#if 0 /* TODO */
-	wb_irq_sts_reg = decon_read(decon->id, VIDINTCON3);
-	if (wb_irq_sts_reg & VIDINTCON3_WB_FRAME_DONE) {
-		decon_dbg("write-back frame done\n");
-		DISP_SS_EVENT_LOG(DISP_EVT_WB_FRAME_DONE, &decon->sd, ktime_set(0, 0));
-		decon_write_mask(decon->id, VIDINTCON3, ~0, VIDINTCON3_WB_FRAME_DONE);
-		atomic_set(&decon->wb_done, STATE_DONE);
-		wake_up_interruptible_all(&decon->wait_frmdone);
-		decon_reg_per_frame_off(decon->id);
-		decon_reg_update_standalone(decon->id);
-		decon_reg_wb_swtrigger(decon->id);
-		decon_reg_wait_stop_status_timeout(decon->id, 20 * 1000);
-	}
-#endif
+
 irq_end:
 	spin_unlock(&decon->slock);
 	return IRQ_HANDLED;

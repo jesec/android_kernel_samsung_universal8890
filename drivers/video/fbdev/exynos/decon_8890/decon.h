@@ -685,7 +685,7 @@ static inline u32 decon_read(u32 id, u32 reg_id)
 static inline u32 decon_read_mask(u32 id, u32 reg_id, u32 mask)
 {
 	u32 val = decon_read(id, reg_id);
-	val &= (~mask);
+	val &= (mask);
 	return val;
 }
 
@@ -820,14 +820,12 @@ static inline bool is_any_pending_frames(struct decon_device *decon)
 
 static inline u32 win_start_pos(int x, int y)
 {
-	return (((y << WIN_STRPTR_Y_F_POS) & WIN_STRPTR_Y_F_MASK) |
-		((x << WIN_STRPTR_X_F_POS) & WIN_STRPTR_X_F_MASK));
+	return (WIN_STRPTR_Y_F(y) | WIN_STRPTR_X_F(x));
 }
 
 static inline u32 win_end_pos(int x, int y,  u32 xres, u32 yres)
 {
-	return ((((y + yres - 1) << WIN_ENDPTR_Y_F_POS) & WIN_ENDPTR_Y_F_MASK) |
-		(((x + xres - 1) << WIN_ENDPTR_X_F_POS) & WIN_ENDPTR_X_F_MASK));
+	return (WIN_ENDPTR_Y_F(y + yres - 1) | WIN_ENDPTR_X_F(x + xres - 1));
 }
 
 /* IOCTL commands */

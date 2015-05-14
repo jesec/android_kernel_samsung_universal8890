@@ -334,7 +334,7 @@ void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *reg
 	memset(&log->data.reg, 0, sizeof(struct decon_update_reg_data));
 
 	for (win = 0; win < MAX_DECON_WIN; win++) {
-		if (regs->win_regs[win].wincon & WIN_EN_F) {
+		if (regs->win_regs[win].wincon & WIN_CONTROL_EN_F) {
 			memcpy(&log->data.reg.win_regs[win], &regs->win_regs[win],
 				sizeof(struct decon_window_regs));
 			memcpy(&log->data.reg.win_config[win], &regs->vpp_config[win],

@@ -144,15 +144,15 @@ int decon_set_par(struct fb_info *info)
 	info->fix.ypanstep = fb_panstep(var->yres, var->yres_virtual);
 
 	if (decon_reg_is_win_enabled(decon->id, win_no))
-		win_regs.wincon = WIN_EN_F;
+		win_regs.wincon = WIN_CONTROL_EN_F;
 	else
 		win_regs.wincon = 0;
 
 	win_regs.wincon |= wincon(var->transp.length, 0, 0xFF,
 				0xFF, DECON_BLENDING_NONE);
-	win_regs.win_start_pos = win_start_pos(0, 0);
-	win_regs.win_end_pos = win_end_pos(0, 0, var->xres, var->yres);
-	win_regs.win_pixel_cnt = (var->xres * var->yres);
+	win_regs.start_pos = win_start_pos(0, 0);
+	win_regs.end_pos = win_end_pos(0, 0, var->xres, var->yres);
+	win_regs.pixel_count = (var->xres * var->yres);
 	win_regs.whole_w = var->xoffset + var->xres;
 	win_regs.whole_h = var->yoffset + var->yres;
 	win_regs.offset_x = var->xoffset;
@@ -363,7 +363,7 @@ int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		decon->vpp_err_stat[win->vpp_id] = true;
 	}
 
-	decon_reg_win_shadow_update_req(decon->id, win->index);
+	decon_reg_update_req_window(decon->id, win->index);
 
 	decon_to_psr_info(decon, &psr);
 	decon_reg_update_req_and_unmask(decon->id, &psr);

@@ -62,11 +62,11 @@ irqreturn_t decon_t_irq_handler(int irq, void *dev_data)
 
 	irq_sts_reg = decon_reg_get_interrupt_and_clear(decon->id);
 
-	if (irq_sts_reg & INT_FIFO_LEVEL_INT_PEND) {
+	if (irq_sts_reg & INTERRUPT_FIFO_LEVEL_INT_EN) {
 		/* Need to debugging */
 		decon_err("DECON_T FIFO underrun\n");
 	}
-	if (irq_sts_reg & INT_FRAME_DONE_INT_PEND) {
+	if (irq_sts_reg & INTERRUPT_FRAME_DONE_INT_EN) {
 		decon_lpd_trig_reset(decon);
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
 		decon_dbg("DECON_T Frame Done is occured\n");
@@ -106,7 +106,7 @@ void decon_t_set_clocks(struct decon_device *decon)
 	struct decon_param p;
 
 	decon_to_init_param(decon, &p);
-	decon_reg_get_clock_ratio(&clks, &p);
+	decon_reg_get_clock_ratio(&clks, p.lcd_info);
 
 	/* ECLK */
 	decon_clk_set_rate(dev, decon->res.eclk_leaf,
