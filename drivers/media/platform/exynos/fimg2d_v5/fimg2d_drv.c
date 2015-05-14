@@ -31,6 +31,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/exynos_iovmm.h>
 #include <linux/ion.h>
+#include <linux/smc.h>
 #include "fimg2d.h"
 #include "fimg2d_clk.h"
 #include "fimg2d_ctx.h"
@@ -934,6 +935,18 @@ static int fimg2d_runtime_suspend(struct device *dev)
 
 static int fimg2d_runtime_resume(struct device *dev)
 {
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+	int ret;
+
+	if (ip_is_g2d_8j()) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT,
+				PROT_G2D, 0);
+		if (ret != SMC_TZPC_OK)
+			fimg2d_err("fail to set cfw protection (%d)\n", ret);
+		else
+			fimg2d_debug("success to set cfw protection\n");
+	}
+#endif
 	fimg2d_debug("runtime resume... done\n");
 
 	return 0;
