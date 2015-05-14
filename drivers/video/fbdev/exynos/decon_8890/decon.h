@@ -60,6 +60,7 @@ extern int decon_log_level;
 
 #define DECON_TZPC_OFFSET	3
 #define MAX_DMA_TYPE		10
+#define MAX_FRM_DONE_WAIT	34
 
 #define DISP_UTIL		70
 #define DECON_INT_UTIL		65

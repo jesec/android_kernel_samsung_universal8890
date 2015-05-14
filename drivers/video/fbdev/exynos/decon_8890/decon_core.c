@@ -688,11 +688,11 @@ static void decon_wait_for_framedone(struct decon_device *decon)
 	int ret;
 	s64 time_ms = ktime_to_ms(ktime_get()) - ktime_to_ms(decon->trig_mask_timestamp);
 
-	if (time_ms < 17) {
+	if (time_ms < MAX_FRM_DONE_WAIT) {
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE_WAIT, &decon->sd, ktime_set(0, 0));
 		ret = wait_event_interruptible_timeout(decon->wait_frmdone,
 				(decon->frame_done_cnt_target <= decon->frame_done_cnt_cur),
-				msecs_to_jiffies(17 - time_ms));
+				msecs_to_jiffies(MAX_FRM_DONE_WAIT - time_ms));
 	}
 }
 
@@ -711,11 +711,6 @@ static int decon_reg_ddi_partial_cmd(struct decon_device *decon, struct decon_wi
 	/* w is right & h is bottom */
 	win_rect.w = rect->x + rect->w - 1;
 	win_rect.h = rect->y + rect->h - 1;
-#ifdef CONFIG_DECON_MIPI_DSI_PKTGO
-	ret = v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_PKT_GO_DISABLE, NULL);
-	if (ret)
-		decon_err("Failed to disable Packet-go in %s\n", __func__);
-#endif
 	ret = v4l2_subdev_call(decon->output_sd, core, ioctl,
 			DSIM_IOC_PARTIAL_CMD, &win_rect);
 	if (ret) {
@@ -724,9 +719,6 @@ static int decon_reg_ddi_partial_cmd(struct decon_device *decon, struct decon_wi
 				__func__, decon->output_sd->name, rect->x,
 				rect->y, rect->w, rect->h);
 	}
-#ifdef CONFIG_DECON_MIPI_DSI_PKTGO
-	v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_PKT_GO_ENABLE, NULL); /* Don't care failure or success */
-#endif
 
 	return ret;
 }
@@ -753,8 +745,7 @@ static int decon_win_update_disp_config(struct decon_device *decon,
 				win_rect->w, win_rect->h);
 	}
 
-	decon_reg_config_mic(decon->id, 0, &lcd_info);
-	decon_reg_set_porch(decon->id, 0, &lcd_info);
+	decon_reg_set_partial_update(decon->id, decon->pdata->dsi_mode, &lcd_info);
 	decon_win_update_dbg("[WIN_UPDATE]%s : vfp %d vbp %d vsa %d hfp %d hbp %d hsa %d w %d h %d\n",
 			__func__,
 			lcd_info.vfp, lcd_info.vbp, lcd_info.vsa,
@@ -1688,74 +1679,6 @@ fail:
 }
 
 #ifdef CONFIG_FB_WINDOW_UPDATE
-static void decon_modulate_overlap_cnt(struct decon_device *decon,
-		struct decon_win_config *win_config,
-		struct decon_reg_data *regs)
-{
-	struct decon_lcd *lcd_info = decon->lcd_info;
-	int i;
-	int overlap_cnt = regs->win_overlap_cnt;
-
-	/*
-	* If VPP layer is present and the layer's width is over 10%
-	* of LCD_WIDTH, original overlap count must be used.
-	* - If overlap count is 1:
-	* => width < 0.8 * LCD_WIDTH  ===> overlap count 1 ¡æ 0.
-	* => (width > 0.8 * LCD_WIDTH) && (height <= 60) => overlap count 1 ¡æ 0
-	* - If overlap count is 2:
-	* => width < 0.4 * LCD_WIDTH  ===> overlap count 2 ¡æ 0.
-	* => (width < 0.6 * LCD_WIDTH) && (height <= 30) => overlap count 2 ¡æ 0
-	* => (width < 0.8 * LCD_WIDTH) && (height <= 10) => overlap count 2 ¡æ 0
-	* - If overlap count is 3:
-	* => width < 0.2 * LCD_WIDTH  ===> overlap count 3 ¡æ 0.
-	* => (width < 0.4 * LCD_WIDTH) && (height <= 15) => overlap count 3 ¡æ 0
-	* => (width < 0.6 * LCD_WIDTH) && (height <= 8) => overlap count 3 ¡æ 0
-	*/
-
-	if (regs->need_update) {
-		for (i = 0; i < decon->pdata->max_win; i++) {
-			struct decon_win_config *config = &win_config[i];
-			if ((config->state != DECON_WIN_STATE_DISABLED)) {
-				/* VPP layer dst width is over 10% */
-				if (config->dst.w * 10 > lcd_info->xres)
-					return;
-			}
-		}
-
-		switch (regs->win_overlap_cnt) {
-		case 1:
-			if ((regs->update_win.w * 10 < lcd_info->xres * 8) ||
-				(regs->update_win.h <= 60)) {
-				regs->win_overlap_cnt = 0;
-			}
-			break;
-		case 2:
-			if ((regs->update_win.w * 10 < lcd_info->xres * 4) ||
-			((regs->update_win.w * 10 < lcd_info->xres * 6) &&
-			 (regs->update_win.h <= 30)) ||
-			((regs->update_win.w * 10 < lcd_info->xres * 8) &&
-			 (regs->update_win.h <= 10))) {
-				regs->win_overlap_cnt = 0;
-			}
-			break;
-		case 3:
-			if ((regs->update_win.w * 10 < lcd_info->xres * 2) ||
-			((regs->update_win.w * 10 < lcd_info->xres * 4) &&
-			 (regs->update_win.h <= 15)) ||
-			((regs->update_win.w * 10 < lcd_info->xres * 6) &&
-			 (regs->update_win.h <= 8))) {
-				regs->win_overlap_cnt = 0;
-			}
-			break;
-		default:
-			break;
-		}
-		decon_dbg("WIN_UPDATE[%d %d] overlap_cnt[%d -> %d]\n", regs->update_win.w,
-				regs->update_win.h, overlap_cnt, regs->win_overlap_cnt);
-	}
-	return;
-}
-
 static inline void decon_update_2_full(struct decon_device *decon,
 			struct decon_reg_data *regs,
 			struct decon_lcd *lcd_info,

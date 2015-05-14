@@ -1013,6 +1013,27 @@ void decon_reg_start(u32 id, struct decon_mode_info *psr)
 		decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
 }
 
+void decon_reg_set_partial_update(u32 id, enum decon_dsi_mode dsi_mode,
+		struct decon_lcd *lcd_info)
+{
+	decon_reg_set_blender_bg_image_size(id, dsi_mode, lcd_info);
+	decon_reg_set_dispif_porch(id, 0, lcd_info);
+
+	if (dsi_mode == DSI_MODE_DUAL_DSI)
+		decon_reg_set_dispif_porch(id, 1, lcd_info);
+
+	if (lcd_info->mic_enabled) {
+		if (id != 0)
+			decon_err("\n   [ERROR!!!] decon.%d doesn't support MIC\n", id);
+		decon_reg_config_mic(id, dsi_mode, lcd_info);
+	} else {
+		decon_reg_set_splitter(id, dsi_mode, lcd_info->xres, lcd_info->yres);
+		decon_reg_set_frame_fifo_size(id, dsi_mode, lcd_info->xres, lcd_info->yres);
+		decon_reg_set_dispif_size(id, 0, lcd_info->xres, lcd_info->yres);
+		if (dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_dispif_size(id, 1, lcd_info->xres, lcd_info->yres);
+	}
+}
 
 int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
 {

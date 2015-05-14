@@ -305,5 +305,7 @@ int decon_reg_is_win_enabled(u32 id, int win_idx);
 u32 decon_reg_get_width(u32 id, int dsi_mode);
 u32 decon_reg_get_height(u32 id, int dsi_mode);
 void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_lcd *lcd_info);
+void decon_reg_set_partial_update(u32 id, enum decon_dsi_mode dsi_mode,
+		struct decon_lcd *lcd_info);
 
 #endif /* ___SAMSUNG_DECON_COMMON_H__ */
