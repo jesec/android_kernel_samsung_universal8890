@@ -416,10 +416,10 @@ void dsim_reg_set_porch(u32 id, struct decon_lcd *lcd)
 
 	/* FIXME: considered 1/2, 1/3 MIC */
 	switch (lcd->mic_ratio) {
-	case 2:
+	case MIC_COMP_RATIO_1_2:
 		width = (lcd->xres >> 1) + (lcd->xres % 4);
 		break;
-	case 3:
+	case MIC_COMP_RATIO_1_3:
 		break;
 	default:
 		width = lcd->xres;

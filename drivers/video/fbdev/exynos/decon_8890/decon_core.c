@@ -101,11 +101,11 @@ void decon_dump(struct decon_device *decon)
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
 			decon->regs, 0x2AC, false);
 
-	if (decon->lcd_info->mic_ratio > 1) {
+	if (decon->lcd_info->mic_enabled) {
 		decon_info("\n=== DECON%d MIC SFR DUMP ===\n", decon->id);
 		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
 				decon->regs + 0x1000, 0x20, false);
-	} else {
+	} else if (decon->lcd_info->dsc_enabled) {
 		decon_info("\n=== DECON%d DSC0 SFR DUMP ===\n", decon->id);
 		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
 				decon->regs + 0x2000, 0xA0, false);
@@ -2890,7 +2890,6 @@ static int decon_s_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 	decon->lcd_info->vsa = 2;
 	decon->lcd_info->hsa = 20;
 	decon->lcd_info->fps = 60;
-	decon->lcd_info->mic_ratio = 1;
 	decon->out_type = DECON_OUT_WB;
 
 	decon_info("decon-%d output size for writeback %dx%d\n", decon->id,

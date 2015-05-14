@@ -15,6 +15,13 @@ enum decon_psr_mode {
 	DECON_MIPI_COMMAND_MODE = 2,
 };
 
+/* Mic ratio: 0: 1/2 ratio, 1: 1/3 ratio */
+enum decon_mic_comp_ratio {
+	MIC_COMP_RATIO_1_2 = 0,
+	MIC_COMP_RATIO_1_3 = 1,
+	MIC_COMP_BYPASS
+};
+
 enum mic_ver {
 	MIC_VER_1_1,
 	MIC_VER_1_2,
@@ -47,10 +54,12 @@ struct decon_lcd {
 	unsigned int esc_clk;
 
 	unsigned int fps;
-	unsigned int mic_ratio;
+	unsigned int mic_enabled;
+	enum decon_mic_comp_ratio mic_ratio;
+	unsigned int dsc_enabled;
+	unsigned int dsc_slice;
 	enum mic_ver mic_ver;
 	enum type_of_ddi ddi_type;
-	/* FIXME: Will be added related with DSC */
 };
 
 #endif

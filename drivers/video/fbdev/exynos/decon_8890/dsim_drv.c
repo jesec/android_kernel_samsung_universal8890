@@ -1224,8 +1224,21 @@ static int dsim_parse_lcd_info(struct dsim_device *dsim)
 	dsim->clks_param.clks.esc_clk = dsim->lcd_info.esc_clk;
 	dsim_dbg("requested escape clock(%d)\n", dsim->lcd_info.esc_clk);
 
-	of_property_read_u32(node, "mic", &dsim->lcd_info.mic_ratio);
-	dsim_info("mic ratio (%d)\n", dsim->lcd_info.mic_ratio);
+	of_property_read_u32(node, "mic_en", &dsim->lcd_info.mic_enabled);
+	dsim_info("mic enabled (%d)\n", dsim->lcd_info.mic_enabled);
+
+	of_property_read_u32(node, "mic_ratio", &dsim->lcd_info.mic_ratio);
+	switch (dsim->lcd_info.mic_ratio) {
+	case MIC_COMP_RATIO_1_2:
+		dsim_info("mic ratio (%s)\n", "MIC_COMP_RATIO_1_2");
+		break;
+	case MIC_COMP_RATIO_1_3:
+		dsim_info("mic ratio (%s)\n", "MIC_COMP_RATIO_1_3");
+		break;
+	default: /*MIC_COMP_BYPASS*/
+		dsim_info("mic ratio (%s)\n", "MIC_COMP_BYPASS");
+		break;
+	}
 
 	of_property_read_u32(node, "mic_ver", &dsim->lcd_info.mic_ver);
 	dsim_dbg("mic version(%d)\n", dsim->lcd_info.mic_ver);
