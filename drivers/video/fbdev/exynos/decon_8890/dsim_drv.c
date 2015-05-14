@@ -614,7 +614,7 @@ static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 		complete(&dsim_wr_comp);
 	if (int_src & DSIM_INTSRC_SFR_PH_FIFO_EMPTY)
 		complete(&dsim_ph_wr_comp);
-	if (int_src & DSIM_INTSRC_RX_DAT_DONE)
+	if (int_src & DSIM_INTSRC_RX_DATA_DONE)
 		complete(&dsim_rd_comp);
 	if (int_src & DSIM_INTSRC_FRAME_DONE)
 		DISP_SS_EVENT_LOG(DISP_EVT_DSIM_FRAMEDONE, &dsim->sd, ktime_set(0, 0));
@@ -803,20 +803,21 @@ static int dsim_enable(struct dsim_device *dsim)
 
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
+	dsim_reset_panel(dsim);
 
-	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt);
+	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
+			&dsim->clks_param.clks);
 
-	dsim_reg_enable_clocks(dsim->id, &dsim->clks_param,
-			DSIM_LANE_CLOCK | dsim->data_lane);
+	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks,
+			DSIM_LANE_CLOCK | dsim->data_lane, 1);
 
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
 
-	dsim_reset_panel(dsim);
-
-	dsim_reg_set_hs_clock(dsim->id, &dsim->lcd_info, 1);
+	dsim_reg_set_hs_clock(dsim->id, 1);
 
 	/* enable interrupts */
 	dsim_reg_set_int(dsim->id, 1);
+	dsim_reg_set_standby(dsim->id, 1);
 
 	dsim->state = DSIM_STATE_HSCLKEN;
 
@@ -843,10 +844,9 @@ static int dsim_disable(struct dsim_device *dsim)
 	dsim->state = DSIM_STATE_SUSPEND;
 	mutex_unlock(&dsim_rd_wr_mutex);
 
-	dsim_reg_stop(dsim->id, &dsim->lcd_info, DSIM_LANE_CLOCK | dsim->data_lane);
+	dsim_reg_stop(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane);
 
 	dsim_d_phy_onoff(dsim, 0);
-
 	dsim_set_panel_power(dsim, 0);
 
 #if defined(CONFIG_PM_RUNTIME)
@@ -907,7 +907,7 @@ static int dsim_enter_ulps(struct dsim_device *dsim)
 	disable_irq(dsim->irq);
 
 	/* disable HS clock */
-	dsim_reg_set_hs_clock(dsim->id, &dsim->lcd_info, 0);
+	dsim_reg_set_hs_clock(dsim->id, 0);
 
 	/* try to enter ULPS mode. The sequence is depends on DDI type */
 	ret = dsim_set_ulps_by_ddi(dsim, 1);
@@ -923,6 +923,7 @@ static int dsim_enter_ulps(struct dsim_device *dsim)
 	dsim_reg_set_clocks(dsim->id, NULL, DSIM_LANE_CLOCK | dsim->data_lane, 0);
 
 	dsim_reg_sw_reset(dsim->id);
+	dsim_reg_set_standby(dsim->id, 0);
 
 	dsim_d_phy_onoff(dsim, 0);
 
@@ -964,10 +965,11 @@ static int dsim_exit_ulps(struct dsim_device *dsim)
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
 
-	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt);
+	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
+			&dsim->clks_param.clks);
 
-	dsim_reg_enable_clocks(dsim->id, &dsim->clks_param,
-			DSIM_LANE_CLOCK | dsim->data_lane);
+	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks,
+			DSIM_LANE_CLOCK | dsim->data_lane, 1);
 
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
 
@@ -978,12 +980,13 @@ static int dsim_exit_ulps(struct dsim_device *dsim)
 		dsim_dump(dsim);
 	}
 
-	dsim_reg_set_hs_clock(dsim->id, &dsim->lcd_info, 1);
+	dsim_reg_set_hs_clock(dsim->id, 1);
 
 	enable_irq(dsim->irq);
 
 	/* enable interrupts */
 	dsim_reg_set_int(dsim->id, 1);
+	dsim_reg_set_standby(dsim->id, 1);
 
 	dsim->state = DSIM_STATE_HSCLKEN;
 
@@ -1364,26 +1367,25 @@ static int dsim_probe(struct platform_device *pdev)
 	dsim_runtime_resume(dsim->dev);
 #endif
 
-	dsim_reg_prepare_clocks(&dsim->clks_param);
-
 	dsim_set_panel_power(dsim, 1);
+	dsim_reset_panel(dsim);
 
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
 
-	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt);
+	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
+			&dsim->clks_param.clks);
 
-	dsim_reg_enable_clocks(dsim->id, &dsim->clks_param,
-			DSIM_LANE_CLOCK | dsim->data_lane);
+	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks,
+			DSIM_LANE_CLOCK | dsim->data_lane, 1);
 
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
 
-	dsim_reset_panel(dsim);
-
-	dsim_reg_set_hs_clock(dsim->id, &dsim->lcd_info, 1);
+	dsim_reg_set_hs_clock(dsim->id, 1);
 
 	/* enable interrupts */
 	dsim_reg_set_int(dsim->id, 1);
+	dsim_reg_set_standby(dsim->id, 1);
 
 	dsim->state = DSIM_STATE_HSCLKEN;
 

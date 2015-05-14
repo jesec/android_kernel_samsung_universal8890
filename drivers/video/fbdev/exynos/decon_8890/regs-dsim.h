@@ -14,97 +14,93 @@
 #ifndef _REGS_DSIM_H
 #define _REGS_DSIM_H
 
-/* DSIM LINK status register */
 #define DSIM_LINK_STATUS			(0x4)
 #define DSIM_STATUS_PLL_STABLE			(1 << 24)
-#define DSIM_STATUS_SW_RST_RELEASE		(1 << 20)
-#define DSIM_STATUS_CMD_MODE_STATUS		(1 << 16)
-#define DSIM_STATUS_VID_MODE_STATUS		(1 << 15)
 
-/* RGB FSM status register */
 #define DSIM_DPHY_STATUS			(0x8)
-#define DSIM_STATUS_TX_READY_HS_CLK		(1 << 10)
-#define DSIM_STATUS_ULPS_CLK			(1 << 9)
-#define DSIM_STATUS_STOP_STATE_CLK		(1 << 8)
-#define DSIM_STATUS_ULPS_DAT(_x)		(((_x) & 0xf) << 4)
 #define DSIM_STATUS_STOP_STATE_DAT(_x)		(((_x) & 0xf) << 0)
+#define DSIM_STATUS_ULPS_DAT(_x)		(((_x) & 0xf) << 4)
+#define DSIM_STATUS_STOP_STATE_CLK		(1 << 8)
+#define DSIM_STATUS_ULPS_CLK			(1 << 9)
+#define DSIM_STATUS_TX_READY_HS_CLK		(1 << 10)
 #define DSIM_STATUS_ULPS_DATA_LANE_GET(x)	(((x) >> 4) & 0xf)
 
-/* Function or Dphy software reset register */
 #define DSIM_SWRST				(0xc)
 #define DSIM_SWRST_FUNCRST			(1 << 16)
-#define DSIM_SWRST_DPHYRST			(1 << 8)
+#define DSIM_DPHY_RST				(1 << 8)
 #define DSIM_SWRST_RESET			(1 << 0)
 
-/* Clock control register */
 #define DSIM_CLKCTRL				(0x10)
 #define DSIM_CLKCTRL_TX_REQUEST_HSCLK		(1 << 20)
 #define DSIM_CLKCTRL_BYTECLK_EN			(1 << 17)
 #define DSIM_CLKCTRL_ESCCLK_EN			(1 << 16)
-#define DSIM_CLKCTRL_LANE_ESCCLK_EN(_x)		((_x) << 8)
 #define DSIM_CLKCTRL_LANE_ESCCLK_EN_MASK	(0x1f << 8)
+#define DSIM_CLKCTRL_LANE_ESCCLK_EN(_x)		((_x) << 8)
 #define DSIM_CLKCTRL_ESC_PRESCALER(_x)		((_x) << 0)
-#define DSIM_CLKCTRL_ESC_PRESCALER_MASK		(0xff << 0)
+#define DSIM_CLKCTRL_ESC_PRESCALER_MASK		(0xffff << 0)
 
 /* Time out register */
-#define DSIM_TIMEOUT				(0x14)
+#define DSIM_TIMEOUT0				(0x14)
 #define DSIM_TIMEOUT_BTA_TOUT(_x)		((_x) << 16)
-#define DSIM_TIMEOUT_BTA_TOUT_MASK		(0xffff << 16)
+#define DSIM_TIMEOUT_BTA_TOUT_MASK		(0xff << 16)
 #define DSIM_TIMEOUT_LPDR_TOUT(_x)		((_x) << 0)
 #define DSIM_TIMEOUT_LPDR_TOUT_MASK		(0xffff << 0)
 
+/* Time out register */
 #define DSIM_TIMEOUT1				(0x18)
+#define DSIM_TIMEOUT_HSYNC_TOUT(_x)		((_x) << 0)
+#define DSIM_TIMEOUT_HSYNC_TOUT_MASK		(0xff << 0)
 
 /* Escape mode register */
 #define DSIM_ESCMODE				(0x1c)
 #define DSIM_ESCMODE_STOP_STATE_CNT(_x)		((_x) << 21)
 #define DSIM_ESCMODE_STOP_STATE_CNT_MASK	(0x7ff << 21)
 #define DSIM_ESCMODE_FORCE_STOP_STATE		(1 << 20)
+#define DSIM_ESCMODE_FORCE_BTA			(1 << 16)
 #define DSIM_ESCMODE_CMD_LPDT			(1 << 7)
-#define DSIM_ESCMODE_TX_LPDT			(1 << 6)
-#define DSIM_ESCMODE_TX_TRIGGER_RSTL		(1 << 4)
+#define DSIM_ESCMODE_TRIGGER_RST		(1 << 4)
 #define DSIM_ESCMODE_TX_ULPS_DATA		(1 << 3)
 #define DSIM_ESCMODE_TX_ULPS_DATA_EXIT		(1 << 2)
 #define DSIM_ESCMODE_TX_ULPS_CLK		(1 << 1)
 #define DSIM_ESCMODE_TX_ULPS_CLK_EXIT		(1 << 0)
 
 /* Display image resolution register */
-#define DSIM_MDRESOL				(0x20)
-#define DSIM_MDRESOL_VRESOL(x)			(((x) & 0xfff) << 16)
-#define DSIM_MDRESOL_VRESOL_MASK		(0xfff << 16)
-#define DSIM_MDRESOL_HRESOL(x)			(((x) & 0Xfff) << 0)
-#define DSIM_MDRESOL_HRESOL_MASK		(0xfff << 0)
-
-#define DSIM_MDRESOL_LINEVAL_GET(_v)		(((_v) >> 16) & 0xfff)
-#define DSIM_MDRESOL_HOZVAL_GET(_v)		(((_v) >> 0) & 0xfff)
+#define DSIM_RESOL				(0x20)
+#define DSIM_RESOL_VRESOL(x)			(((x) & 0xfff) << 16)
+#define DSIM_RESOL_VRESOL_MASK			(0xfff << 16)
+#define DSIM_RESOL_HRESOL(x)			(((x) & 0Xfff) << 0)
+#define DSIM_RESOL_HRESOL_MASK			(0xfff << 0)
+#define DSIM_RESOL_LINEVAL_GET(_v)		(((_v) >> 16) & 0xfff)
+#define DSIM_RESOL_HOZVAL_GET(_v)		(((_v) >> 0) & 0xfff)
 
 /* Main display Vporch register */
-#define DSIM_MVPORCH				(0x24)
-#define DSIM_MVPORCH_CMD_ALLOW(_x)		((_x) << 28)
-#define DSIM_MVPORCH_CMD_ALLOW_MASK		(0xf << 28)
-#define DSIM_MVPORCH_STABLE_VFP(_x)		((_x) << 16)
-#define DSIM_MVPORCH_STABLE_VFP_MASK		(0x7ff << 16)
-#define DSIM_MVPORCH_VBP(_x)			((_x) << 0)
-#define DSIM_MVPORCH_VBP_MASK			(0x7ff << 0)
+#define DSIM_VPORCH				(0x24)
+#define DSIM_VPORCH_CMD_ALLOW(_x)		((_x) << 28)
+#define DSIM_VPORCH_CMD_ALLOW_MASK		(0xf << 28)
+#define DSIM_VPORCH_STABLE_VFP(_x)		((_x) << 16)
+#define DSIM_VPORCH_STABLE_VFP_MASK		(0x7ff << 16)
+#define DSIM_VPORCH_VBP(_x)			((_x) << 0)
+#define DSIM_VPORCH_VBP_MASK			(0x7ff << 0)
 
 /* Main display Hporch register */
-#define DSIM_MHPORCH				(0x28)
-#define DSIM_MHPORCH_HFP(_x)			((_x) << 16)
-#define DSIM_MHPORCH_HFP_MASK			(0xffff << 16)
-#define DSIM_MHPORCH_HBP(_x)			((_x) << 0)
-#define DSIM_MHPORCH_HBP_MASK			(0xffff << 0)
+#define DSIM_HPORCH				(0x28)
+#define DSIM_HPORCH_HFP(_x)			((_x) << 16)
+#define DSIM_HPORCH_HFP_MASK			(0xffff << 16)
+#define DSIM_HPORCH_HBP(_x)			((_x) << 0)
+#define DSIM_HPORCH_HBP_MASK			(0xffff << 0)
 
 /* Main display sync area register */
-#define DSIM_MSYNC				(0x2C)
-#define DSIM_MSYNC_VSA(_x)			((_x) << 16)
-#define DSIM_MSYNC_VSA_MASK			(0x3ff << 16)
-#define DSIM_MSYNC_HSA(_x)			((_x) << 0)
-#define DSIM_MSYNC_HSA_MASK			(0xffff << 0)
+#define DSIM_SYNC				(0x2C)
+#define DSIM_SYNC_VSA(_x)			((_x) << 16)
+#define DSIM_SYNC_VSA_MASK			(0x7ff << 16)
+#define DSIM_SYNC_HSA(_x)			((_x) << 0)
+#define DSIM_SYNC_HSA_MASK			(0xffff << 0)
 
 /* Configuration register */
 #define DSIM_CONFIG				(0x30)
 #define DSIM_CONFIG_NONCONTINUOUS_CLOCK_LANE	(1 << 31)
 #define DSIM_CONFIG_CLKLANE_STOP_START		(1 << 30)
+#define DSIM_CONFIG_FLUSH_VS			(1 << 29)
 #define DSIM_CONFIG_SYNC_INFORM			(1 << 27)
 #define DSIM_CONFIG_BURST_MODE			(1 << 26)
 #define DSIM_CONFIG_HSYNC_PRESERVE		(1 << 25)
@@ -112,36 +108,51 @@
 #define DSIM_CONFIG_HFP_DISABLE			(1 << 22)
 #define DSIM_CONFIG_HBP_DISABLE			(1 << 21)
 #define DSIM_CONFIG_HSA_DISABLE			(1 << 20)
+#define DSIM_CONFIG_CPRS_EN			(1 << 19)
 #define DSIM_CONFIG_VIDEO_MODE			(1 << 18)
+#define DSIM_CONFIG_VC_CONTROL			(1 << 17)
+#define DSIM_CONFIG_VC_ID(_x)			((_x) << 16)
+#define DSIM_CONFIG_VC_ID_MASK			(0x3 << 16)
 #define DSIM_CONFIG_PIXEL_FORMAT(_x)		((_x) << 12)
 #define DSIM_CONFIG_PIXEL_FORMAT_MASK		(0x7 << 12)
-#define DSIM_CONFIG_MULTI_PIXEL_MODE		(0x1 << 11)
-#define DSIM_CONFIG_MULTI_PIXEL_MASK		(0x0 << 11)
+#define DSIM_CONFIG_MULTI_PIX			(1 << 11)
+#define DSIM_CONFIG_Q_CHANNEL_EN		(1 << 10)
 #define DSIM_CONFIG_PER_FRAME_READ_EN		(1 << 9)
-#define DSIM_CONFIG_NUM_OF_DATA_LANE(x)		((x) << 5)
+#define DSIM_CONFIG_NUM_OF_DATA_LANE(_x)	((_x) << 5)
 #define DSIM_CONFIG_NUM_OF_DATA_LANE_MASK	(0x3 << 5)
-#define DSIM_CONFIG_LANE_EN(_x)			(((_x) & 0x1f) << 0)
+#define DSIM_CONFIG_LANES_EN(_x)		(((_x) & 0x1f) << 0)
 
 /* Interrupt source register */
 #define DSIM_INTSRC				(0x34)
 #define DSIM_INTSRC_PLL_STABLE			(1 << 31)
+#define DSIM_INTSRC_SW_RST_RELEASE		(1 << 30)
 #define DSIM_INTSRC_SFR_PL_FIFO_EMPTY		(1 << 29)
 #define DSIM_INTSRC_SFR_PH_FIFO_EMPTY		(1 << 28)
 #define DSIM_INTSRC_SFR_PH_FIFO_OVERFLOW	(1 << 26)
+#define DSIM_INTSRC_BUS_TURN_OVER		(1 << 25)
 #define DSIM_INTSRC_FRAME_DONE			(1 << 24)
-#define DSIM_INTSRC_RX_DAT_DONE			(1 << 18)
+#define DSIM_INTSRC_ABNRMAL_CMD_ST		(1 << 22)
+#define DSIM_INTSRC_LPDR_TOUT			(1 << 21)
+#define DSIM_INTSRC_BTA_TOUT			(1 << 20)
+#define DSIM_INTSRC_HSYNC_TOUT			(1 << 19)
+#define DSIM_INTSRC_RX_DATA_DONE		(1 << 18)
 #define DSIM_INTSRC_ERR_RX_ECC			(1 << 15)
 
 /* Interrupt mask register */
 #define DSIM_INTMSK				(0x38)
 #define DSIM_INTMSK_PLL_STABLE			(1 << 31)
-#define DSIM_INTMSK_SW_RST_RELEASE		(1 << 30)
+#define DSIM_INTSRC_SW_RST_RELEASE		(1 << 30)
 #define DSIM_INTMSK_SFR_PL_FIFO_EMPTY		(1 << 29)
 #define DSIM_INTMSK_SFR_PH_FIFO_EMPTY		(1 << 28)
 #define DSIM_INTMSK_SFR_PH_FIFO_OVERFLOW	(1 << 26)
+#define DSIM_INTMSK_BUS_TURN_OVER		(1 << 25)
 #define DSIM_INTMSK_FRAME_DONE			(1 << 24)
+#define DSIM_INTMSK_ABNORMAL_CMD_ST		(1 << 22)
+#define DSIM_INTMSK_LPDR_TOUT			(1 << 21)
+#define DSIM_INTMSK_BTA_TOUT			(1 << 20)
+#define DSIM_INTMSK_HSYNC_TOUT			(1 << 19)
 #define DSIM_INTMSK_RX_DATA_DONE		(1 << 18)
-#define DSIM_INTMSK_RX_ECC			(1 << 15)
+#define DSIM_INTMSK_ERR_RX_ECC			(1 << 15)
 
 /* Packet Header FIFO register */
 #define DSIM_PKTHDR				(0x3c)
@@ -155,65 +166,113 @@
 /* Read FIFO register */
 #define DSIM_RXFIFO				(0x44)
 
-/* Display image resolution register */
-#define DSIM_SFRCTRL				(0x48)
-#define DSIM_STAND_BY				(1 << 4)
-#define DSIM_SHADOW_UPDATE			(1 << 1)
-#define DSIM_SHADOW_EN				(1 << 0)
+/* SFR control Register for Stanby & Shadow*/
+#define DSIM_SFR_CTRL				(0x48)
+#define DSIM_SFR_CTRL_STANDBY			(1 << 4)
+#define DSIM_SFR_CTRL_SHADOW_UPDATE		(1 << 1)
+#define DSIM_SFR_CTRL_SHADOW_EN			(1 << 0)
 
 /* FIFO status and control register */
 #define DSIM_FIFOCTRL				(0x4C)
+#define DSIM_FIFOCTRL_NUMBER_OF_PH_SFR(_x)	(((_x) & 0x3f) << 16)
+#define DSIM_FIFOCTRL_EMPTY_RX			(1 << 12)
 #define DSIM_FIFOCTRL_FULL_PH_SFR		(1 << 11)
 #define DSIM_FIFOCTRL_FULL_PL_SFR		(1 << 9)
 #define DSIM_FIFOCTRL_INIT_SFR			(1 << 1)
 
-/* Multi packet configuration */
+/* Muli slice setting register*/
+#define DSIM_CPRS_CTRL				(0x58)
+#define DSIM_CPRS_CTRL_MULI_SLICE_PACKET	(1 << 3)
+#define DSIM_CPRS_CTRL_NUM_OF_SLICE(_x)		((_x) << 0)
+#define DSIM_CPRS_CTRL_NUM_OF_SLICE_MASK	(0x7 << 0)
+
+/*Slice01 size register*/
+#define DSIM_SLICE01				(0x5C)
+#define DSIM_SLICE01_SIZE_OF_SLICE1(_x)		((_x) << 16)
+#define DSIM_SLICE01_SIZE_OF_SLICE1_MASK	(0x1fff << 16)
+#define DSIM_SLICE01_SIZE_OF_SLICE0(_x)		((_x) << 0)
+#define DSIM_SLICE01_SIZE_OF_SLICE0_MASK	(0x1fff << 0)
+
+/*Slice23 size register*/
+#define DSIM_SLICE23				(0x60)
+#define DSIM_SLICE23_SIZE_OF_SLICE3(_x)		((_x) << 16)
+#define DSIM_SLICE23_SIZE_OF_SLICE3_MASK	(0x1fff << 16)
+#define DSIM_SLICE23_SIZE_OF_SLICE2(_x)		((_x) << 0)
+#define DSIM_SLICE23_SIZE_OF_SLICE2_MASK	(0x1fff << 0)
+
+/* Command configuration register */
 #define DSIM_CMD_CONFIG				(0x78)
+#define DSIM_CMD_CONFIG_TE_DETECT_POLARITY	(1 << 25)
+#define DSIM_CMD_CONFIG_VSYNC_DETECT_POLARITY	(1 << 24)
 #define DSIM_CMD_CONFIG_PKT_GO_RDY		(1 << 22)
 #define DSIM_CMD_CONFIG_PKT_GO_EN		(1 << 21)
 #define DSIM_CMD_CONFIG_CMD_CTRL_SEL		(1 << 20)
 #define DSIM_CMD_CONFIG_PKT_SEND_CNT(_x)	((_x) << 8)
 #define DSIM_CMD_CONFIG_PKT_SEND_CNT_MASK	(0xfff << 8)
 #define DSIM_CMD_CONFIG_MULTI_CMD_PKT_EN	(1 << 7)
-#define DSIM_CMD_CONFIG_MULTI_CMD_PKT_CNT(_x)	((_x) << 0)
-#define DSIM_CMD_CONFIG_MULTI_CMD_PKT_MASK	(0x3f << 0)
+#define DSIM_CMD_CONFIG_MULTI_PKT_CNT(_x)	((_x) << 0)
+#define DSIM_CMD_CONFIG_MULTI_PKT_CNT_MASK	(0xffff << 0)
 
-/* Command TE control */
-#define DSIM_CMD_TE_CTRL1			(0x7c)
-#define DSIM_CMD_TE_CTRL2			(0x80)
-#define DSIM_CMD_STATUS				(0x84)
+/* TE based command register*/
+#define DSIM_CMD_TE_CTRL0			(0x7C)
+#define DSIM_CMD_TE_CTRL0_TIME_STABLE_VFP(_x)	((_x) << 16)
+#define DSIM_CMD_TE_CTRL0_TIME_STABLE_VFP_MASK	(0xffff << 16)
+#define DSIM_CMD_TE_CTRL0_TIME_VSYNC_TOUT(_x)	((_x) << 0)
+#define DSIM_CMD_TE_CTRL0_TIME_VSYNC_TOUT_MASK	(0xffff << 0)
+
+/* TE based command register*/
+#define DSIM_CMD_TE_CTRL1			(0x80)
+#define DSIM_CMD_TE_CTRL1_TIME_TE_PROTECT_ON(_x) ((_x) << 16)
+#define DSIM_CMD_TE_CTRL1_TIME_TE_PROTECT_ON_MASK (0xffff << 16)
+#define DSIM_CMD_TE_CTRL1_TIME_TE_TOUT(_x)	((_x) << 0)
+#define DSIM_CMD_TE_CTRL1_TIME_TE_TOUT_MASK	(0xffff << 0)
+
+/*Command Mode Status register*/
+#define DSIM_CMD_STATUS				(0x87)
+#define	DSIM_CMD_STATUS_ABNORMAL_CAUSE_ST(_x)	(((_x) & 0x3ff) << 0)
+
+/*BIST generation register*/
+#define	DSIM_BIST_GEN				(0x88)
+#define DSIM_BIST_GEN_BIST_VFP(_x)		((_x) << 20)
+#define DSIM_BIST_GEN_BIST_VFP_MASK		(0x7ff << 20)
+#define DSIM_BIST_GEN_BIST_START		(1 << 16)
+#define	DSIM_BIST_GEN_COLORIMETRIC_FORMAT	(1 << 6)
+#define	DSIM_BIST_GEN_HSYNC_POLARITY		(1 << 5)
+#define	DSIM_BIST_GEN_VSYNC_POLARITY		(1 << 4)
+#define	DSIM_BIST_GEN_BIST_BAR_WIDTH		(1 << 3)
+#define	DSIM_BIST_GEN_BIST_TYPE(_x)		((_x) << 1)
+#define	DSIM_BIST_GEN_BIST_TYPE_MASK		(0x3 << 1)
+#define	DSIM_BIST_GEN_BIST_EN			(1 << 0)
+
+/*DSIM to CSI loopback register*/
+#define	DSIM_CSIS_LB				(0x8C)
+#define	DSIM_CSIS_LB_CSIS_LB_EN			(1 << 8)
+#define DSIM_CSIS_LB_CSIS_PH(_x)		((_x) << 0)
+#define DSIM_CSIS_LB_CSIS_PH_MASK		(0xff << 0)
 
 /* PLL control register */
 #define DSIM_PLLCTRL				(0x94)
 #define DSIM_PLLCTRL_DPDN_SWAP_CLK		(1 << 25)
 #define DSIM_PLLCTRL_DPDN_SWAP_DATA		(1 << 24)
 #define DSIM_PLLCTRL_PLL_EN			(1 << 23)
-#define DSIM_PLLCTRL_PMS_MASK			(0x7ffff << 1)
+#define DSIM_PLLCTRL_PMS_MASK			(0x7ffff << 0)
 
-/* PLL control register1 */
-#define DSIM_PLLCTRL1					(0x98)
-#define DSIM_PLLCTRL1_AFC_INITIAL_DEALY_PIN		(0x1 << 6)	/* default value is 1 */
-#define DSIM_PLLCTRL1_LOCK_DETECTOR_INPUT_MARGIN(_x)	((_x) << 7)	/* default value is 11 */
-#define DSIM_PLLCTRL1_LOCK_DETECTOR_INPUT_MARGIN_MASK	(0x3 << 7)
-#define DSIM_PLLCTRL1_LOCK_DETECTOR_OUTPUT_MARGIN(_x)	((_x) << 9)	/* default value is 11 */
-#define DSIM_PLLCTRL1_LOCK_DETECTOR_OUTPUT_MARGIN_MASK	(0x3 << 9)
-#define DSIM_PLLCTRL1_LOCK_DETECTOR_DETECT_RESOL(_x)	((_x) << 11)	/* default value is 11 */
-#define DSIM_PLLCTRL1_LOCK_DETECTOR_DETECT_RESOL_MASK	(0x3 << 11)
-#define DSIM_PLLCTRL1_CHARGE_PUMP_CURRENT(_x)		((_x) << 20)	/* default value is 1 */
-#define DSIM_PLLCTRL1_CHARGE_PUMP_CURRENT_MASK		(0x3 << 20)
-#define DSIM_PLLCTRL1_AFC_OPERATION_MODE_SELECT		(0x1 << 24)	/* default value is 1 */
+/* M_PLL CTR1 register*/
+#define DSIM_PLL_CTRL1				(0x98)
+#define DSIM_PLL_CTRL1_M_PLL_CTRL1		(0xffffffff << 0)
+
+/* M_PLL CTR1 register*/
+#define DSIM_PLL_CTRL2				(0x9C)
+#define DSIM_PLL_CTRL2_M_PLL_CTRL2		(0xffffffff << 0)
 
 /* PLL timer register */
 #define DSIM_PLLTMR				(0xa0)
 
 /* D-PHY Master & Slave Analog block characteristics control register */
 #define DSIM_PHYCTRL				(0xa4)
+#define DSIM_PHYCTRL_VREG			(1 << 26)
 #define DSIM_PHYCTRL_B_DPHYCTL0(_x)		((_x) << 0)
-#define DSIM_PHYCTRL_B_DPHYCTL0_MASK		(0xffff << 0)
-
-#define DSIM_PHYCTRL_B2				(0xa8)
-#define DSIM_PHYCTRL_M1				(0xac)
-#define DSIM_PHYCTRL_M2				(0xb0)
+#define DSIM_PHYCTRL_B_DPHYCTL0_MASK		(0x3ff << 0)
 
 /* D-PHY Master global operating timing register */
 #define DSIM_PHYTIMING				(0xb4)
