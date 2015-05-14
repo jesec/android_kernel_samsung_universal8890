@@ -64,7 +64,7 @@ struct dsim_clks_param {
 };
 
 /* CAL APIs list */
-void dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks);
+int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks);
 void dsim_reg_init_probe(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks);
 int dsim_reg_set_clocks(u32 id, struct dsim_clks *clks, u32 lane, u32 en);
 int dsim_reg_set_lanes(u32 id, u32 lanes, u32 en);

@@ -1019,13 +1019,27 @@ static int dsim_reg_get_dphy_timing(u32 hs_clk, u32 esc_clk, struct dphy_timing_
 	return 0;
 }
 
-void dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks)
+int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks)
 {
 	unsigned int esc_div;
 	unsigned int time_stable_vfp;
 	unsigned int time_vsync_tout;
 	unsigned int time_te_protect_on;
 	unsigned int time_te_tout;
+
+	/*
+	 * DSIM does not need to init, if DSIM is already
+	 * becomes HS status because of  LCD_ON_UBOOT
+	 */
+	if (dsim_reg_is_hs_clk_ready(id)) {
+		dsim_reg_init_probe(id, lcd_info, data_lane_cnt, clks);
+		/* FIXME: Please add more sequence */
+		/* dsim_reg_set_clocks */
+		/* dsim_reg_set_lanes */
+		/* dsim_reg_set_hs_clock */
+		/* dsim_reg_set_standby */
+		return -EBUSY;
+	}
 
 	/* get byte clock */
 	clks->byte_clk = clks->hs_clk / 8;
@@ -1077,6 +1091,8 @@ void dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct
 	dsim_reg_set_lpdr_timeout(id);
 	dsim_reg_set_hsync_timeout(id, 3);
 	/*should be adding dsc code*/
+
+	return 0;
 }
 
 void dsim_reg_init_probe(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks)
