@@ -45,13 +45,21 @@
 #include <linux/suspend.h>
 #include <linux/of.h>
 
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 #include <sound/exynos.h>
-
+#endif
 #include <asm/irq.h>
 
 #include "samsung.h"
 #include "../../pinctrl/core.h"
+
+#ifdef CONFIG_CPU_IDLE
 #include <mach/exynos-pm.h>
+#endif
+
+#ifdef CONFIG_PM_DEVFREQ
+#include <linux/pm_qos.h>
+#endif
 
 #if	defined(CONFIG_SERIAL_SAMSUNG_DEBUG) &&	\
 	defined(CONFIG_DEBUG_LL) &&		\
@@ -521,7 +529,7 @@ static irqreturn_t s3c24xx_serial_tx_chars(int irq, void *id)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_PM_DEVFREQ
+#ifdef CONFIG_ARM_EXYNOS_DEVFREQ
 static void s3c64xx_serial_qos_func(struct work_struct *work)
 {
 	struct s3c24xx_uart_port *ourport =
@@ -745,6 +753,7 @@ static int s3c64xx_serial_startup(struct uart_port *port)
 
 static void aud_uart_gpio_cfg(struct device *dev, int level)
 {
+#ifdef CONFIG_PINCTRL_SAMSUNG
 	struct pinctrl_state *pins_default;
 	int status = 0;
 
@@ -782,6 +791,7 @@ static void aud_uart_gpio_cfg(struct device *dev, int level)
 	return;
 
 err_no_pinctrl:
+#endif
 	dev_err(dev, "failed to configure gpio for audio\n");
 }
 
@@ -1071,8 +1081,6 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 
 	if (ourport->info->has_divslot)
 		wr_regl(port, S3C2443_DIVSLOT, udivslot);
-
-	wr_regl(port, S3C2410_UMCON, umcon);
 
 	dbg("uart: ulcon = 0x%08x, ucon = 0x%08x, ufcon = 0x%08x\n",
 	    rd_regl(port, S3C2410_ULCON),
@@ -1548,6 +1556,7 @@ void s3c24xx_serial_fifo_wait(void)
 }
 EXPORT_SYMBOL_GPL(s3c24xx_serial_fifo_wait);
 
+#ifdef CONFIG_CPU_IDLE
 static int s3c24xx_serial_notifier(struct notifier_block *self,
 				unsigned long cmd, void *v)
 {
@@ -1563,10 +1572,10 @@ static int s3c24xx_serial_notifier(struct notifier_block *self,
 static struct notifier_block s3c24xx_serial_notifier_block = {
 	.notifier_call = s3c24xx_serial_notifier,
 };
+#endif
 
 static int s3c24xx_serial_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct s3c24xx_uart_port *ourport;
 	int index = probe_index;
 	int ret;
@@ -1605,7 +1614,7 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 
 	dbg("%s: initialising port %p...\n", __func__, ourport);
 
-#ifdef CONFIG_PM_DEVFREQ
+#ifdef CONFIG_ARM_EXYNOS_DEVFREQ
 	if (of_property_read_u32(pdev->dev.of_node, "mif_qos_val",
 						&ourport->mif_qos_val))
 		ourport->mif_qos_val = 0;
@@ -1655,19 +1664,21 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 #ifdef CONFIG_SND_SAMSUNG_AUDSS
 		lpass_set_gpio_cb(&pdev->dev, &aud_uart_gpio_idle);
 #endif
+#ifdef CONFIG_PINCTRL_SAMSUNG
 		aud_uart_pinctrl = devm_pinctrl_get(&pdev->dev);
 		if (IS_ERR(aud_uart_pinctrl)) {
 			dev_err(&pdev->dev, "could not get AUD pinctrl\n");
-			goto probe_err;
+		} else {
+			uart_pin_state[AUD_UART_PIN_IDLE] =
+				pinctrl_lookup_state(aud_uart_pinctrl, PINCTRL_STATE_IDLE);
+			uart_pin_state[AUD_UART_PIN_LPM] =
+				pinctrl_lookup_state(aud_uart_pinctrl, "lpm");
+			uart_pin_state[AUD_UART_PIN_DEFAULT] =
+				pinctrl_lookup_state(aud_uart_pinctrl, PINCTRL_STATE_DEFAULT);
 		}
-		uart_pin_state[AUD_UART_PIN_IDLE] =
-			pinctrl_lookup_state(aud_uart_pinctrl, PINCTRL_STATE_IDLE);
-		uart_pin_state[AUD_UART_PIN_LPM] =
-			pinctrl_lookup_state(aud_uart_pinctrl, "lpm");
-		uart_pin_state[AUD_UART_PIN_DEFAULT] =
-			pinctrl_lookup_state(aud_uart_pinctrl, PINCTRL_STATE_DEFAULT);
+#endif
 
-#ifdef CONFIG_SND_SOC_SAMSUNG
+#ifdef CONFIG_SND_SAMSUNG_AUDSS
 		/* Audio uart always on */
 		lpass_get_sync(&pdev->dev);
 		dev_err(&pdev->dev, "AUD-UART : Audio block power enable.\n");
@@ -2282,7 +2293,10 @@ static int __init s3c24xx_serial_modinit(void)
 		return ret;
 	}
 
+#ifdef CONFIG_CPU_IDLE
 	exynos_pm_register_notifier(&s3c24xx_serial_notifier_block);
+#endif
+
 	return platform_driver_register(&samsung_serial_driver);
 }
 
