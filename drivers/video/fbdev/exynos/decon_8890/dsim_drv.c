@@ -490,25 +490,7 @@ int dsim_read_data(struct dsim_device *dsim, u32 data_id,
 	}
 
 	rx_fifo = readl(dsim->reg_base + DSIM_RXFIFO);
-	if (rx_fifo != DSIM_RX_FIFO_READ_DONE) {
-		dev_info(dsim->dev, "%s Can't find RX FIFO READ DONE FLAG : %x\n",
-			__func__, rx_fifo);
-		goto clear_rx_fifo;
-	}
 	ret = rx_size;
-	goto exit;
-
-clear_rx_fifo:
-	i = 0;
-	while (1) {
-		rx_fifo = readl(dsim->reg_base + DSIM_RXFIFO);
-		if ((rx_fifo == DSIM_RX_FIFO_READ_DONE) ||
-				(i > DSIM_MAX_RX_FIFO))
-			break;
-		dev_info(dsim->dev, "%s clear rx fifo : %08x\n", __func__, rx_fifo);
-		i++;
-	}
-	ret = 0;
 	goto exit;
 
 rx_error:
