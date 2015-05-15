@@ -45,7 +45,7 @@
 #include <mach/regs-pmu-exynos8890.h>
 
 /* firmware file information */
-#define fw_checksum	18693
+#define fw_checksum	61921
 char *firmware_file = "apm_8890.h";
 
 extern char* protocol_name;
