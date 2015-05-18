@@ -42,6 +42,11 @@ static const unsigned char SEQ_REG_F2[] = {
 	0x67, 0x41, 0xC3, 0x06, 0x0A
 };
 
+static const unsigned char SEQ_TE_START_SETTING[] = {
+	0xB9,
+	0x10, 0x09, 0xFF, 0x00, 0x09
+};
+
 static const unsigned char SEQ_REG_F9[] = {
 	0xF9,
 	0x29

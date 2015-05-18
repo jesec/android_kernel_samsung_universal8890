@@ -123,6 +123,10 @@ void lcd_init(int id, struct decon_lcd *lcd)
 				ARRAY_SIZE(SEQ_REG_F2)) < 0)
 		dsim_err("fail to write F2 init command.\n");
 
+	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TE_START_SETTING,
+				ARRAY_SIZE(SEQ_TE_START_SETTING)) < 0)
+		dsim_err("fail to write TE_START_SETTING command.\n");
+
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, SEQ_TE_ON[0], 0) < 0)
 		dsim_err("fail to write TE_on init command.\n");
 
