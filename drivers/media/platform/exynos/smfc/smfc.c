@@ -172,6 +172,8 @@ const struct smfc_image_format smfc_image_formats[] = {
 		.bpp_pix	= {16},
 		.num_planes	= 1,
 		.num_buffers	= 1,
+		.chroma_hfactor	= 1,
+		.chroma_vfactor	= 1,
 	}, {
 		.description	= "RGB565 BE 16BPP",
 		.v4l2_pixfmt	= V4L2_PIX_FMT_RGB565X,
@@ -180,6 +182,8 @@ const struct smfc_image_format smfc_image_formats[] = {
 		.bpp_pix	= {16},
 		.num_planes	= 1,
 		.num_buffers	= 1,
+		.chroma_hfactor	= 1,
+		.chroma_vfactor	= 1,
 	}, {
 		.description	= "RGB888 LE 24BPP",
 		.v4l2_pixfmt	= V4L2_PIX_FMT_RGB24,
@@ -188,6 +192,8 @@ const struct smfc_image_format smfc_image_formats[] = {
 		.bpp_pix	= {24},
 		.num_planes	= 1,
 		.num_buffers	= 1,
+		.chroma_hfactor	= 1,
+		.chroma_vfactor	= 1,
 	}, {
 		.description	= "RGB888 BE 24BPP",
 		.v4l2_pixfmt	= V4L2_PIX_FMT_BGR24,
@@ -196,6 +202,8 @@ const struct smfc_image_format smfc_image_formats[] = {
 		.bpp_pix	= {24},
 		.num_planes	= 1,
 		.num_buffers	= 1,
+		.chroma_hfactor	= 1,
+		.chroma_vfactor	= 1,
 	}, {
 		.description	= "ABGR8888 LE 32BPP",
 		.v4l2_pixfmt	= V4L2_PIX_FMT_RGB32,
@@ -203,6 +211,8 @@ const struct smfc_image_format smfc_image_formats[] = {
 		.bpp_pix	= {32},
 		.num_planes	= 1,
 		.num_buffers	= 1,
+		.chroma_hfactor	= 1,
+		.chroma_vfactor	= 1,
 	}, {
 		.description	= "ARGB8888 BE 32BPP",
 		.v4l2_pixfmt	= V4L2_PIX_FMT_BGR32,
@@ -210,6 +220,8 @@ const struct smfc_image_format smfc_image_formats[] = {
 		.bpp_pix	= {32},
 		.num_planes	= 1,
 		.num_buffers	= 1,
+		.chroma_hfactor	= 1,
+		.chroma_vfactor	= 1,
 	},
 	/* multi-planar formats must be at the last becuse of VIDOC_ENUM_FMT */
 	{
