@@ -811,15 +811,15 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.second_point_trim = 85, \
 	.default_temp_offset = 25, \
 	.freq_tab[0] = { \
-		.freq_clip_max = 936 * 1000, \
+		.freq_clip_max = 1560 * 1000, \
 		.temp_level = 76, \
 	}, \
 	.freq_tab[1] = { \
-		.freq_clip_max = 832 * 1000, \
+		.freq_clip_max = 1040 * 1000, \
 		.temp_level = 81, \
 	}, \
 	.freq_tab[2] = { \
-		.freq_clip_max = 728 * 1000, \
+		.freq_clip_max = 416 * 1000, \
 		.temp_level = 86, \
 	}, \
 	.freq_tab_count = 3, \
