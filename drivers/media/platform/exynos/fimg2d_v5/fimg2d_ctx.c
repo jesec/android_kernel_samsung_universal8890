@@ -791,7 +791,7 @@ int fimg2d_prepare_each_dmabuf_buffer(struct fimg2d_control *ctrl,
 				goto use_fence_err;
 			}
 		} else {
-			fimg2d_err("No acquire fence for offset[%d]\n", offset);
+			fimg2d_debug("No acquire fence for offset[%d]\n", offset);
 			img->fence = NULL;
 		}
 	}

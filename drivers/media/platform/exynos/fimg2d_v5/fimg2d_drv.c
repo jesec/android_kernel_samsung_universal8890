@@ -105,6 +105,7 @@ static int fimg2d_fence_wait(struct fimg2d_bltcmd *cmd)
 				fimg2d_err("Error(%d) for waiting src[%d]\n",
 									err, i);
 			}
+			sync_fence_put(img->fence);
 		}
 	}
 
@@ -113,6 +114,7 @@ static int fimg2d_fence_wait(struct fimg2d_bltcmd *cmd)
 		err = sync_fence_wait(img->fence, 900);
 		if (err < 0)
 			fimg2d_err("Error(%d) for waiting dst\n", err);
+		sync_fence_put(img->fence);
 	}
 
 	return 0;
@@ -302,6 +304,7 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				err = put_user(img->release_fence_fd,
 						&user_img->release_fence_fd);
 			}
+			img = &bltcmd->image_dst;
 			user_img = (struct fimg2d_image __user *)user_blt->dst;
 			err = put_user(img->release_fence_fd,
 						&user_img->release_fence_fd);
