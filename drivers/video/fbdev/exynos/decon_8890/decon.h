@@ -663,9 +663,6 @@ struct decon_device {
 	u32				cur_protection_bitmask;
 
 	unsigned int			irq;
-#ifdef CONFIG_CPU_IDLE
-        struct notifier_block           lpc_nb;
-#endif
 	struct dentry			*debug_root;
 #ifdef CONFIG_DECON_EVENT_LOG
 	struct dentry			*debug_event;

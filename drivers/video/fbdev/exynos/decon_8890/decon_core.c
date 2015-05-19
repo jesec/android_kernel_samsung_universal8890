@@ -491,28 +491,6 @@ static unsigned int decon_calc_bandwidth(u32 w, u32 h, u32 bits_per_pixel, int f
 	return bw;
 }
 
-#ifdef CONFIG_CPU_IDLE
-static int exynos_decon_lpc_event(struct notifier_block *notifier,
-		unsigned long pm_event, void *v)
-{
-	struct decon_device *decon = get_decon_drvdata(0);
-	int err = NOTIFY_DONE;
-
-	switch (pm_event) {
-	case LPC_PREPARE:
-		if (decon->state != DECON_STATE_LPD)
-			err = -EBUSY;
-		break;
-	}
-
-	return notifier_from_errno(err);
-}
-
-static struct notifier_block exynos_decon_lpc_nb = {
-	.notifier_call = exynos_decon_lpc_event,
-};
-#endif
-
 /* ---------- OVERLAP COUNT CALCULATION ----------- */
 static inline int rect_width(struct decon_rect *r)
 {
@@ -3837,10 +3815,6 @@ decon_init_done:
 	for (i = 0; i < MAX_VPP_SUBDEV; i++)
 		decon->vpp_used[i] = false;
 
-#ifdef CONFIG_CPU_IDLE
-	decon->lpc_nb = exynos_decon_lpc_nb;
-	exynos_pm_register_notifier(&decon->lpc_nb);
-#endif
 	decon->log_cnt = 0;
 
 	decon_info("decon%d registered successfully", decon->id);
