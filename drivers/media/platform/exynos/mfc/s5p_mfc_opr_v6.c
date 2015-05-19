@@ -2672,7 +2672,14 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 	if (dec->is_dual_dpb)
 		reg |= (0x1 << S5P_FIMV_D_OPT_DISPLAY_LINEAR_EN);
 
+	/* conceal control to specific color */
+	if (FW_HAS_CONCEAL_CONTROL(dev))
+		reg |= (0x3 << S5P_FIMV_D_OPT_CONCEAL_CONTROL);
+
 	WRITEL(reg, S5P_FIMV_D_DEC_OPTIONS);
+
+	if (FW_HAS_CONCEAL_CONTROL(dev))
+		WRITEL(MFC_CONCEAL_COLOR, S5P_FIMV_D_FORCE_PIXEL_VAL);
 
 	if (ctx->codec_mode == S5P_FIMV_CODEC_FIMV1_DEC) {
 		mfc_debug(2, "Setting FIMV1 resolution to %dx%d\n",

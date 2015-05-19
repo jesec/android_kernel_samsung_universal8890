@@ -73,6 +73,9 @@
 #define FLAG_LAST_FRAME		0x80000000
 #define MFC_MAX_INTERVAL	(2 * USEC_PER_SEC)
 
+/* MFC conceal color is black */
+#define MFC_CONCEAL_COLOR	0x8020000
+
 /* Maximum number of temporal layers */
 #define VIDEO_MAX_TEMPORAL_LAYERS 7
 
@@ -1128,6 +1131,7 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 					IS_MFCv10X(dev))
 #define FW_HAS_E_MIN_SCRATCH_BUF(dev)	(IS_MFCv9X(dev) || IS_MFCv10X(dev))
 #define FW_HAS_INT_TIMEOUT(dev)		(IS_MFCv9X(dev) || IS_MFCv10X(dev))
+#define FW_HAS_CONCEAL_CONTROL(dev)	IS_MFCv10X(dev)
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
 

@@ -174,6 +174,7 @@ static inline unsigned int r2h_bits(int cmd)
 #define S5P_FIMV_D_CRC_CTRL			0xF0B0
 #define S5P_FIMV_D_DEC_OPTIONS			0xF0B4
 #define S5P_FIMV_D_OPT_DISPLAY_LINEAR_EN	11
+#define S5P_FIMV_D_OPT_CONCEAL_CONTROL		8
 #define S5P_FIMV_D_OPT_DISCARD_RCV_HEADER	7
 #define S5P_FIMV_D_OPT_IDR_DECODING_SHFT	6
 #define S5P_FIMV_D_OPT_FMO_ASO_CTRL_MASK	4
@@ -193,6 +194,8 @@ static inline unsigned int r2h_bits(int cmd)
 
 #define S5P_FIMV_D_SEI_ENABLE			0xF0C4
 #define S5P_FIMV_D_SEI_NEED_INIT_BUFFER_SHIFT	1
+
+#define S5P_FIMV_D_FORCE_PIXEL_VAL		-1
 
 /* Buffer setting registers */
 /* Session return */
