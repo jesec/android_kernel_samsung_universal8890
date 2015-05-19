@@ -904,15 +904,7 @@ int decon_enable(struct decon_device *decon)
 			goto err;
 		}
 	} else {
-		/* start output device (mipi-dsi or hdmi) */
-		if (decon->out_type == DECON_OUT_HDMI) {
-			ret = v4l2_subdev_call(decon->output_sd, core, s_power, 1);
-			if (ret) {
-				decon_err("failed to get power for %s\n",
-						decon->output_sd->name);
-				goto err;
-			}
-		} else if (decon->out_type == DECON_OUT_DSI) {
+		if (decon->out_type == DECON_OUT_DSI) {
 			pm_stay_awake(decon->dev);
 			dev_warn(decon->dev, "pm_stay_awake");
 			ret = v4l2_subdev_call(decon->output_sd, video, s_stream, 1);
@@ -954,14 +946,6 @@ int decon_enable(struct decon_device *decon)
 				decon_err("Failed to call DSIM packet go enable!\n");
 		}
 #endif
-	}
-	if (decon->out_type == DECON_OUT_HDMI) {
-		ret = v4l2_subdev_call(decon->output_sd, video, s_stream, 1);
-		if (ret) {
-			decon_err("starting stream failed for %s\n",
-					decon->output_sd->name);
-			goto err;
-		}
 	}
 
 #ifdef CONFIG_FB_WINDOW_UPDATE
@@ -1092,14 +1076,7 @@ int decon_disable(struct decon_device *decon)
 				goto err;
 			}
 		}
-		if (decon->out_type == DECON_OUT_HDMI) {
-			ret = v4l2_subdev_call(decon->output_sd, core, s_power, 0);
-			if (ret) {
-				decon_err("failed to put power for %s\n",
-						decon->output_sd->name);
-				goto err;
-			}
-		} else if (decon->out_type == DECON_OUT_DSI) {
+		if (decon->out_type == DECON_OUT_DSI) {
 			pm_relax(decon->dev);
 			dev_warn(decon->dev, "pm_relax");
 		}
@@ -3015,10 +2992,6 @@ static int decon_create_links(struct decon_device *decon,
 	case 1:
 		if (decon->pdata->out_type == DECON_OUT_DSI)
 			ret = create_link_mipi(decon, 2);
-#ifdef CONFIG_VIDEO_EXYNOS_HDMI
-		else
-			ret = create_link_hdmi(decon);
-#endif
 		break;
 	case 3:
 		if (decon->pdata->out_type == DECON_OUT_DSI)
@@ -3078,7 +3051,7 @@ static int decon_register_entity(struct decon_device *decon)
 	decon_info("%s entity init\n", sd->name);
 
 	switch (decon->id) {
-		/* All decons can be LINKED to DSIM0/1/2, eDP & HDMI */
+		/* All decons can be LINKED to DSIM0/1/2 */
 	case 0:
 		/* Fixed to DSIM0 or eDP */
 		if (decon->pdata->out_type == DECON_OUT_DSI) {
@@ -3091,21 +3064,13 @@ static int decon_register_entity(struct decon_device *decon)
 
 		break;
 	case 1:
-		/* Fixed to DSIM1 or HDMI */
+		/* Fixed to DSIM1 */
 		if (decon->pdata->out_type == DECON_OUT_DSI) {
 			ret = find_subdev_mipi(decon, 1);
-#ifdef CONFIG_VIDEO_EXYNOS_HDMI
-		} else if (decon->pdata->out_type == DECON_OUT_HDMI) {
-			ret = find_subdev_hdmi(decon);
-#endif
 		}
 
 		break;
 	case 2:
-#ifdef CONFIG_VIDEO_EXYNOS_HDMI
-		if (decon->pdata->out_type == DECON_OUT_HDMI) {
-			ret = find_subdev_hdmi(decon);
-#endif
 		break;
 	}
 

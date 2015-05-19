@@ -291,21 +291,6 @@ enum decon_blending {
 	DECON_BLENDING_MAX = 3,
 };
 
-struct exynos_hdmi_data {
-	enum {
-		EXYNOS_HDMI_STATE_PRESET = 0,
-		EXYNOS_HDMI_STATE_ENUM_PRESET,
-		EXYNOS_HDMI_STATE_CEC_ADDR,
-		EXYNOS_HDMI_STATE_HDCP,
-		EXYNOS_HDMI_STATE_AUDIO,
-	} state;
-	struct	v4l2_dv_timings timings;
-	struct	v4l2_enum_dv_timings etimings;
-	__u32	cec_addr;
-	__u32	audio_info;
-	int	hdcp;
-};
-
 enum vpp_rotate {
 	VPP_ROT_NORMAL = 0x0,
 	VPP_ROT_XFLIP,
@@ -408,7 +393,6 @@ union decon_ioctl_data {
 	struct decon_user_window user_window;
 	struct s3c_fb_user_plane_alpha user_alpha;
 	struct s3c_fb_user_chroma user_chroma;
-	struct exynos_hdmi_data hdmi_data;
 	struct decon_win_config_data win_data;
 	u32 vsync;
 };
@@ -733,9 +717,7 @@ static inline void decon_write_mask(u32 id, u32 reg_id, u32 val, u32 mask)
 /* common function API */
 bool decon_validate_x_alignment(struct decon_device *decon, int x, u32 w,
 		u32 bits_per_pixel);
-int find_subdev_hdmi(struct decon_device *decon);
 int create_link_mipi(struct decon_device *decon, int id);
-int create_link_hdmi(struct decon_device *decon);
 int decon_int_remap_eint(struct decon_device *decon);
 int decon_f_register_irq(struct platform_device *pdev, struct decon_device *decon);
 int decon_s_register_irq(struct platform_device *pdev, struct decon_device *decon);
@@ -873,11 +855,6 @@ static inline u32 win_end_pos(int x, int y,  u32 xres, u32 yres)
 #define S3CFB_WIN_CONFIG		_IOW('F', 209, \
 						struct decon_win_config_data)
 #define S3CFB_WIN_PSR_EXIT		_IOW('F', 210, int)
-
-#define EXYNOS_GET_HDMI_CONFIG		_IOW('F', 220, \
-						struct exynos_hdmi_data)
-#define EXYNOS_SET_HDMI_CONFIG		_IOW('F', 221, \
-						struct exynos_hdmi_data)
 
 #define DECON_IOC_LPD_EXIT_LOCK		_IOW('L', 0, u32)
 #define DECON_IOC_LPD_UNLOCK		_IOW('L', 1, u32)
