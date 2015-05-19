@@ -195,16 +195,14 @@ static void vpp_set_initial_phase(struct vpp_dev *vpp)
 	}
 }
 
-static int vpp_check_size(struct vpp_dev *vpp)
+static int vpp_check_size(struct vpp_dev *vpp, struct vpp_img_format *vi)
 {
 	struct decon_win_config *config = vpp->config;
 	struct decon_frame *src = &config->src;
 	struct decon_frame *dst = &config->dst;
 	struct vpp_size_constraints vc;
-	struct vpp_img_format vi;
 
-	vpp_select_format(vpp, &vi);
-	vpp_constraints_params(&vc, &vi);
+	vpp_constraints_params(&vc, vi);
 
 	if ((!check_align(src->x, src->y, vc.src_mul_x, vc.src_mul_y)) ||
 	   (!check_align(src->f_w, src->f_h, vc.src_mul_w, vc.src_mul_h)) ||
@@ -625,13 +623,14 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	vpp->h_ratio = p.vpp_h_ratio;
 	vpp->v_ratio = p.vpp_v_ratio;
 
+	vpp_select_format(vpp, &vi);
 	ret = vpp_reg_set_in_format(vpp->id, config->format, &vi);
 	if (ret)
 		goto err;
 
 	vpp_set_initial_phase(vpp);
 
-	ret = vpp_check_size(vpp);
+	ret = vpp_check_size(vpp, &vi);
 	if (ret)
 		goto err;
 
