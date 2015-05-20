@@ -276,6 +276,7 @@ void DISP_SS_EVENT_LOG(disp_ss_event_t type, struct v4l2_subdev *sd, ktime_t tim
 	case DISP_EVT_DECON_RESUME:
 	case DISP_EVT_LINECNT_ZERO:
 	case DISP_EVT_TRIG_MASK:
+	case DISP_EVT_TRIG_UNMASK:
 	case DISP_EVT_DECON_FRAMEDONE:
 	case DISP_EVT_DECON_FRAMEDONE_WAIT:
 	case DISP_EVT_WB_SET_BUFFER:
@@ -331,18 +332,19 @@ void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *reg
 	log->type = DISP_EVT_UPDATE_HANDLER;
 
 	memset(&log->data.reg, 0, sizeof(struct decon_update_reg_data));
-	log->data.reg.bw = regs->bw;
-	log->data.reg.int_bw = regs->int_bw;
-	log->data.reg.disp_bw = regs->disp_bw;
 
 	for (win = 0; win < MAX_DECON_WIN; win++) {
 		if (regs->win_regs[win].wincon & WIN_EN_F) {
 			memcpy(&log->data.reg.win_regs[win], &regs->win_regs[win],
-				sizeof(struct decon_win_config));
+				sizeof(struct decon_window_regs));
 			memcpy(&log->data.reg.win_config[win], &regs->vpp_config[win],
 				sizeof(struct decon_win_config));
 		}
 	}
+
+	if (decon->out_type == DECON_OUT_WB)
+		memcpy(&log->data.reg.win_config[MAX_DECON_WIN], &regs->vpp_config[MAX_DECON_WIN],
+				sizeof(struct decon_win_config));
 
 #ifdef CONFIG_FB_WINDOW_UPDATE
 	if ((regs->need_update) ||
@@ -356,27 +358,11 @@ void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *reg
 		log->data.reg.win.h = decon->lcd_info->yres;
 	}
 #else
-	memset(&log->data.reg.win, 0, sizeof(struct decon_rect));
+	log->data.reg.win.x = 0;
+	log->data.reg.win.y = 0;
+	log->data.reg.win.w = decon->lcd_info->xres;
+	log->data.reg.win.h = decon->lcd_info->yres;
 #endif
-}
-
-void DISP_SS_EVENT_LOG_S_FMT(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt)
-{
-	struct decon_device *decon = container_of(sd, struct decon_device, sd);
-	int idx = atomic_inc_return(&decon->disp_ss_log_idx) % DISP_EVENT_LOG_MAX;
-	struct disp_ss_log *log = &decon->disp_ss_log[idx];
-
-	log->time = ktime_get();
-	log->type = DISP_EVT_WB_SET_FORMAT;
-
-	memset(&log->data.fmt, 0, sizeof(struct v4l2_subdev_format));
-	log->data.fmt.which = fmt->which;
-	log->data.fmt.pad = fmt->pad;
-	log->data.fmt.format.width = fmt->format.width;
-	log->data.fmt.format.height = fmt->format.height;
-	log->data.fmt.format.code = fmt->format.code;
-	log->data.fmt.format.field = fmt->format.field;
-	log->data.fmt.format.colorspace = fmt->format.colorspace;
 }
 
 /* Common API to log a event related with DSIM COMMAND */
@@ -471,10 +457,7 @@ void DISP_SS_EVENT_SHOW(struct seq_file *s, struct decon_device *decon)
 			break;
 		case DISP_EVT_UPDATE_HANDLER:
 			seq_printf(s, "%20s  ", "UPDATE_HANDLER");
-			seq_printf(s, "bw(tot=%d,int=%d,disp=%d), (%d,%d,%d,%d)\n",
-					log->data.reg.bw,
-					log->data.reg.int_bw,
-					log->data.reg.disp_bw,
+			seq_printf(s, "Partial Size (%d,%d,%d,%d)\n",
 					log->data.reg.win.x,
 					log->data.reg.win.y,
 					log->data.reg.win.w,

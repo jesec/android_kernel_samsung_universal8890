@@ -2223,6 +2223,7 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	decon_win_shadow_update_req(decon, win_bitmap);
 	decon_to_psr_info(decon, &psr);
 	decon_reg_start(decon->id, &psr);
+	DISP_SS_EVENT_LOG(DISP_EVT_TRIG_UNMASK, &decon->sd, ktime_set(0, 0));
 #ifdef CONFIG_DECON_MIPI_DSI_PKTGO
 	if (!decon->id) {
 		ret = v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_PKT_GO_ENABLE, NULL);
@@ -2865,8 +2866,6 @@ static int decon_s_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 {
 	struct decon_device *decon = container_of(sd, struct decon_device, sd);
 	struct decon_lcd *porch;
-
-	DISP_SS_EVENT_LOG_S_FMT(&decon->sd, format);
 
 	if (format->pad != DECON_PAD_WB) {
 		decon_err("it is possible only output format setting\n");

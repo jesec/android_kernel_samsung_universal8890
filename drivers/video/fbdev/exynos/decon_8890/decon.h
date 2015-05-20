@@ -442,6 +442,7 @@ typedef enum disp_ss_event_type {
 	DISP_EVT_UPDATE_HANDLER,
 	DISP_EVT_DSIM_COMMAND,
 	DISP_EVT_TRIG_MASK,
+	DISP_EVT_TRIG_UNMASK,
 	DISP_EVT_DECON_FRAMEDONE_WAIT,
 
 	/* Related with VPP */
@@ -468,7 +469,6 @@ typedef enum disp_ss_event_type {
 	/* write-back events */
 	DISP_EVT_WB_SET_BUFFER,
 	DISP_EVT_WB_SW_TRIGGER,
-	DISP_EVT_WB_SET_FORMAT,
 
 	DISP_EVT_MAX, /* End of EVENT */
 } disp_ss_event_t;
@@ -481,11 +481,8 @@ struct disp_log_pm {
 
 /* Related with S3CFB_WIN_CONFIG */
 struct decon_update_reg_data {
-	u32 bw;
-	u32 int_bw;
-	u32 disp_bw;
 	struct decon_window_regs 	win_regs[MAX_DECON_WIN];
-	struct decon_win_config 	win_config[MAX_DECON_WIN];
+	struct decon_win_config 	win_config[MAX_DECON_WIN + 1];
 	struct decon_win_rect 		win;
 };
 
@@ -502,12 +499,6 @@ struct disp_log_vpp {
 	u32 done_cnt;
 };
 
-/* Related with frame count */
-struct disp_frame {
-	u32 timeline;
-	u32 timeline_max;
-};
-
 /**
  * struct disp_ss_log - Display Subsystem Log
  * This struct includes DECON/DSIM/VPP
@@ -520,8 +511,6 @@ struct disp_ss_log {
 		struct decon_update_reg_data reg;
 		struct dsim_log_cmd_buf cmd_buf;
 		struct disp_log_pm pm;
-		struct v4l2_subdev_format fmt;
-		struct disp_frame frame;
 	} data;
 };
 
@@ -543,7 +532,6 @@ typedef enum disp_ss_event_log_level_type {
 #define DISP_SS_EVENT_START() ktime_t start = ktime_get()
 void DISP_SS_EVENT_LOG(disp_ss_event_t type, struct v4l2_subdev *sd, ktime_t time);
 void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *regs);
-void DISP_SS_EVENT_LOG_S_FMT(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt);
 void DISP_SS_EVENT_LOG_CMD(struct v4l2_subdev *sd, u32 cmd_id, unsigned long data);
 void DISP_SS_EVENT_SHOW(struct seq_file *s, struct decon_device *decon);
 void DISP_SS_EVENT_SIZE_ERR_LOG(struct v4l2_subdev *sd, struct disp_ss_size_info *info);
@@ -551,7 +539,6 @@ void DISP_SS_EVENT_SIZE_ERR_LOG(struct v4l2_subdev *sd, struct disp_ss_size_info
 #define DISP_SS_EVENT_START(...) do { } while(0)
 #define DISP_SS_EVENT_LOG(...) do { } while(0)
 #define DISP_SS_EVENT_LOG_WINCON(...) do { } while(0)
-#define DISP_SS_EVENT_LOG_S_FMT(...) do { } while(0)
 #define DISP_SS_EVENT_LOG_CMD(...) do { } while(0)
 #define DISP_SS_EVENT_SHOW(...) do { } while(0)
 #define DISP_SS_EVENT_SIZE_ERR_LOG(...) do { } while(0)
