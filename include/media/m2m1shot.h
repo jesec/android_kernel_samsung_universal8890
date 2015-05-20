@@ -127,6 +127,7 @@ struct m2m1shot_buffer_plane_dma {
 	struct sg_table *sgt;
 	dma_addr_t dma_addr;
 	void *priv;
+	off_t offset;
 };
 
 /**

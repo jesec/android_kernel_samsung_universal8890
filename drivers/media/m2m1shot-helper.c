@@ -73,16 +73,16 @@ int m2m1shot_dma_addr_map(struct device *dev,
 
 	if (plane->dmabuf) {
 		iova = ion_iovmm_map(plane->attachment, 0,
-					plane->bytes_used, dir, plane_idx);
+					plane->bytes_used, dir);
 	} else {
 		iova = iovmm_map(dev, plane->sgt->sgl, 0,
-					plane->bytes_used, dir, plane_idx);
+					plane->bytes_used, dir);
 	}
 
 	if (IS_ERR_VALUE(iova))
 		return (int)iova;
 
-	buf->plane[plane_idx].dma_addr = iova;
+	buf->plane[plane_idx].dma_addr = iova + plane->offset;
 
 	return 0;
 }
@@ -91,11 +91,12 @@ void m2m1shot_dma_addr_unmap(struct device *dev,
 			struct m2m1shot_buffer_dma *buf, int plane_idx)
 {
 	struct m2m1shot_buffer_plane_dma *plane = &buf->plane[plane_idx];
+	dma_addr_t dma_addr = plane->dma_addr - plane->offset;
 
 	if (plane->dmabuf)
-		ion_iovmm_unmap(plane->attachment, plane->dma_addr);
+		ion_iovmm_unmap(plane->attachment, dma_addr);
 	else
-		iovmm_unmap(dev, plane->dma_addr);
+		iovmm_unmap(dev, dma_addr);
 
 	plane->dma_addr = 0;
 }

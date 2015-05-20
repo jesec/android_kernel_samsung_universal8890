@@ -291,7 +291,8 @@ static void m2m1shot_buffer_put_userptr_plane(
 }
 
 static struct dma_buf *m2m1shot_buffer_check_userptr(
-		struct m2m1shot_device *m21dev, unsigned long start, size_t len)
+		struct m2m1shot_device *m21dev, unsigned long start, size_t len,
+		off_t *out_offset)
 {
 	struct dma_buf *dmabuf = NULL;
 	struct vm_area_struct *vma;
@@ -309,6 +310,8 @@ static struct dma_buf *m2m1shot_buffer_check_userptr(
 		goto finish;
 
 	dmabuf = get_dma_buf_file(vma->vm_file);
+	if (dmabuf != NULL)
+		*out_offset = start - vma->vm_start;
 finish:
 	up_read(&current->mm->mmap_sem);
 	return dmabuf;
@@ -321,10 +324,12 @@ static int m2m1shot_buffer_get_userptr(struct m2m1shot_device *m21dev,
 {
 	int i, ret = 0;
 	struct dma_buf *dmabuf;
+	off_t offset;
 
 	for (i = 0; i < buffer->num_planes; i++) {
 		dmabuf = m2m1shot_buffer_check_userptr(m21dev,
-				buffer->plane[i].userptr, buffer->plane[i].len);
+				buffer->plane[i].userptr, buffer->plane[i].len,
+				&offset);
 		if (IS_ERR(dmabuf)) {
 			ret = PTR_ERR(dmabuf);
 			goto err;
@@ -342,6 +347,7 @@ static int m2m1shot_buffer_get_userptr(struct m2m1shot_device *m21dev,
 			dma_buffer->plane[i].dmabuf = dmabuf;
 			dma_buffer->plane[i].attachment = dma_buf_attach(
 							dmabuf, m21dev->dev);
+			dma_buffer->plane[i].offset = offset;
 			if (IS_ERR(dma_buffer->plane[i].attachment)) {
 				dev_err(m21dev->dev,
 					"%s: Failed to attach dmabuf\n",
