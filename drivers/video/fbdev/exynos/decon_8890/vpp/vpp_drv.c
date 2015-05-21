@@ -616,6 +616,7 @@ static int vpp_set_config(struct vpp_dev *vpp)
 		enable_irq(vpp->irq);
 	}
 
+	vpp_reg_wait_pingpong_clear(vpp->id);
 	vpp_to_scale_params(vpp, &p);
 	ret = vpp_set_scale_info(vpp, &p);
 	if (ret)

@@ -80,6 +80,20 @@ int vpp_reg_set_sw_reset(u32 id)
 	return -EBUSY;
 }
 
+void vpp_reg_wait_pingpong_clear(u32 id)
+{
+	u32 cfg = 0;
+	unsigned long cnt = 1700;
+
+	do {
+		cfg = vpp_read(id, VG_PINGPONG_UPDATE);
+		if (!(cfg & (VG_ADDR_PINGPONG_UPDATE)))
+			return;
+		udelay(10);
+	} while (--cnt);
+	vpp_err("timeout of VPP(%d) pingpong_clear\n", id);
+}
+
 void vpp_reg_set_realtime_path(u32 id)
 {
 	vpp_write_mask(id, VG_ENABLE, ~0, VG_ENABLE_RT_PATH_EN);

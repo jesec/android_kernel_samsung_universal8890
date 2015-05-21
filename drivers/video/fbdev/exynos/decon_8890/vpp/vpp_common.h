@@ -222,4 +222,5 @@ void vpp_reg_set_clear_irq(u32 id, u32 irq);
 void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_format *vi);
 void vpp_reg_init(u32 id);
 void vpp_reg_deinit(u32 id, u32 reset_en);
+void vpp_reg_wait_pingpong_clear(u32 id);
 #endif /* ___SAMSUNG_VPP_COMMON_H__ */
