@@ -243,6 +243,23 @@ static void init_ps_hold_setting(void)
 	pwrcal_writel(PS_HOLD_CONTROL, tmp);
 }
 
+static void enable_armidleclockdown(void)
+{
+/* Kernel control idle clock down feature
+   So, this part is comment out in CAL code*/
+	pwrcal_setbit(PWR_CTRL3_MNGS, 0, 1); //PWR_CTRL3[0] USE_L2QACTIVE = 1
+	pwrcal_setbit(PWR_CTRL3_MNGS, 1, 1); // PWR_CTRL3[1] IGNORE_L2QREQUEST = 1
+	pwrcal_setf(PWR_CTRL3_MNGS, 16, 0x7, 0x7); // PWR_CTRL3[18:16] L2QDELAY = 3'b111 (512 timer ticks)
+	pwrcal_setbit(PWR_CTRL3_APOLLO, 0, 1); // PWR_CTRL3[0] USE_L2QACTIVE = 1
+	pwrcal_setbit(PWR_CTRL3_APOLLO, 1, 0); // PWR_CTRL3[0] IGNORE_L2QREQUEST = 0
+}
+
+static void disable_armidleclockdown(void)
+{
+	pwrcal_setbit(PWR_CTRL3_MNGS, 0, 0); //PWR_CTRL3[0] USE_L2QACTIVE = 0
+	pwrcal_setbit(PWR_CTRL3_APOLLO, 0, 0); // PWR_CTRL3[0] USE_L2QACTIVE = 0
+}
+
 static void pwrcal_syspwr_init(void)
 {
 	init_pmu_feedback();
@@ -253,6 +270,7 @@ static void pwrcal_syspwr_init(void)
 	set_pmu_lpi_mask();
 	init_pmu_stable_counter();
 	init_ps_hold_setting();
+	enable_armidleclockdown();
 }
 
 
@@ -2085,6 +2103,7 @@ static void pwrcal_syspwr_prepare(int mode)
 {
 	save_cmusfr(mode);
 	syspwr_hwacg_control();
+	disable_armidleclockdown();
 
 	set_pmu_sys_pwr_reg(mode);
 	set_pmu_central_seq(true);
@@ -2210,6 +2229,7 @@ static void pwrcal_syspwr_post(int mode)
 {
 
 	syspwr_hwacg_control_post();
+	enable_armidleclockdown();
 
 	if (pwrcal_getbit(CENTRAL_SEQ_CONFIGURATION , 16) == 0x1) {
 		pwrcal_setf(QSTATE_CTRL_APM, 0, 0x3, 0x3);
@@ -2256,6 +2276,7 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 	set_pmu_central_seq(false);
 
 	syspwr_hwacg_control_post();
+	enable_armidleclockdown();
 
 	switch (mode) {
 	case syspwr_stop:
