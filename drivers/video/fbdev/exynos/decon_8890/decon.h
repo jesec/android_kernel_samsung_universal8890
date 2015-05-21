@@ -650,7 +650,10 @@ struct decon_device {
 	struct pm_qos_request		disp_qos;
 	int				frame_done_cnt_cur;
 	int				frame_done_cnt_target;
+	int				frame_start_cnt_cur;
+	int				frame_start_cnt_target;
 	wait_queue_head_t		wait_frmdone;
+	wait_queue_head_t		wait_vstatus;
 	ktime_t				trig_mask_timestamp;
 	int                             frame_idle;
 	int				eint_status;

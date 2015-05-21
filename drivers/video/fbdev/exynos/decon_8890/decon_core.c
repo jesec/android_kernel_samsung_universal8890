@@ -2276,6 +2276,20 @@ wait_done:
 	return 0;
 }
 
+void decon_wait_for_vstatus(struct decon_device *decon, u32 timeout)
+{
+	int ret;
+
+	if (decon->id)
+		return;
+
+	ret = wait_event_timeout(decon->wait_vstatus,
+			(decon->frame_start_cnt_target <= decon->frame_start_cnt_cur),
+			msecs_to_jiffies(timeout));
+	if (!ret)
+		decon_warn("%s:timeout\n", __func__);
+}
+
 static void decon_update_regs(struct decon_device *decon, struct decon_reg_data *regs)
 {
 	struct decon_dma_buf_data old_dma_bufs[decon->pdata->max_win][MAX_BUF_PLANE_CNT];
@@ -2340,8 +2354,9 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 		decon_dbg("write-back timeline:%d, max:%d\n",
 				decon->timeline->value, decon->timeline_max);
 	} else {
+		decon->frame_start_cnt_target = decon->frame_start_cnt_cur + 1;
 		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
-
+		decon_wait_for_vstatus(decon, 50);
 		if (decon_reg_wait_for_update_timeout(decon->id, SHADOW_UPDATE_TIMEOUT) < 0) {
 			decon_dump(decon);
 			BUG();
@@ -3461,6 +3476,7 @@ static int decon_probe(struct platform_device *pdev)
 	spin_lock_init(&decon->slock);
 	init_waitqueue_head(&decon->vsync_info.wait);
 	init_waitqueue_head(&decon->wait_frmdone);
+	init_waitqueue_head(&decon->wait_vstatus);
 	mutex_init(&decon->vsync_info.irq_lock);
 	snprintf(device_name, MAX_NAME_SIZE, "decon%d", decon->id);
 	decon->timeline = sw_sync_timeline_create(device_name);

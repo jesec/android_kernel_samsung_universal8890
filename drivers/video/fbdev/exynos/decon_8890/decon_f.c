@@ -82,6 +82,8 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 
 	if (irq_sts_reg & INT_DISPIF_VSTATUS_INT_PEND) {
 		/* VSYNC interrupt, accept it */
+		decon->frame_start_cnt_cur++;
+		wake_up_interruptible_all(&decon->wait_vstatus);
 		if (decon->pdata->psr_mode == DECON_VIDEO_MODE) {
 			decon->vsync_info.timestamp = timestamp;
 			wake_up_interruptible_all(&decon->vsync_info.wait);
