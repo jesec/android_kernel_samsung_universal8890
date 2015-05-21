@@ -879,10 +879,16 @@ void decon_reg_win_shadow_update_req(u32 id, u32 win_idx)
 	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, val, SHADOW_REG_UPDATE_REQ_WIN(win_idx));
 }
 
-void decon_reg_all_win_shadow_update_req(u32 id, u32 max_win)
+void decon_reg_all_win_shadow_update_req(u32 id)
 {
-	u32 val = ~(1 << max_win);
-	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, val, val);
+	u32 mask;
+
+	if (!id)
+		mask = 0xFF;
+	else
+		mask = 0xF;
+
+	decon_write_mask(id, SHADOW_REG_UPDATE_REQ, ~0, mask);
 }
 
 void decon_reg_shadow_update_req(u32 id)

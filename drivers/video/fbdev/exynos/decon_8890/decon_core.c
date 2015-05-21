@@ -2134,21 +2134,6 @@ static void decon_set_qos(struct decon_device *decon,
 }
 #endif
 
-static void decon_win_shadow_update_req(struct decon_device *decon, int win_bitmap)
-{
-	int i;
-	u32 mask;
-
-	/* Should be updated when window is changed */
-	for (i = 0; i < decon->pdata->max_win; i++) {
-		mask = (1 << i);
-		if ((win_bitmap & mask) || (decon->prev_win_bitmap & mask))
-			decon_reg_win_shadow_update_req(decon->id, i);
-	}
-	decon->prev_win_bitmap = win_bitmap;
-	return;
-}
-
 static void __decon_update_regs(struct decon_device *decon, struct decon_reg_data *regs)
 {
 	unsigned short i, j;
@@ -2220,7 +2205,7 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	mdnie_reg_update_frame(decon->lcd_info->xres, decon->lcd_info->yres);
 #endif
 
-	decon_win_shadow_update_req(decon, win_bitmap);
+	decon_reg_all_win_shadow_update_req(decon->id);
 	decon_to_psr_info(decon, &psr);
 	decon_reg_start(decon->id, &psr);
 	DISP_SS_EVENT_LOG(DISP_EVT_TRIG_UNMASK, &decon->sd, ktime_set(0, 0));
@@ -3662,7 +3647,6 @@ static int decon_probe(struct platform_device *pdev)
 			}
 		}
 
-		decon->prev_win_bitmap = (1 << decon->pdata->default_win);
 		decon_to_init_param(decon, &p);
 		if (decon_reg_init(decon->id, decon->out_idx, &p) < 0)
 			goto decon_init_done;

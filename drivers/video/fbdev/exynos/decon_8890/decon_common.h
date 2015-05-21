@@ -174,5 +174,5 @@ u32 decon_reg_get_width(u32 id, int dsi_mode);
 u32 decon_reg_get_height(u32 id, int dsi_mode);
 void decon_reg_win_shadow_update_clear_wait(u32 id, u32 win_idx, unsigned long timeout);
 void decon_reg_win_shadow_update_req(u32 id, u32 win_idx);
-void decon_reg_all_win_shadow_update_req(u32 id, u32 max_win);
+void decon_reg_all_win_shadow_update_req(u32 id);
 #endif /* ___SAMSUNG_DECON_COMMON_H__ */
