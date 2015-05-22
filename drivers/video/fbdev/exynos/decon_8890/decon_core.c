@@ -2509,11 +2509,6 @@ static int decon_set_win_config(struct decon_device *decon,
 			decon_win_conig_to_regs_param(0, config, win_regs, IDMA_G0);
 			break;
 		case DECON_WIN_STATE_BUFFER:
-			if (decon->id && i == DECON_BACKGROUND) {
-				decon_warn("decon-ext win[0]: background\n");
-				break;
-			}
-
 			if (!decon->id && ((config->idma_type == IDMA_G0) &&
 					(i != MAX_DECON_WIN - 1))) {
 				decon_info("%s: idma_type %d win-id %d\n",

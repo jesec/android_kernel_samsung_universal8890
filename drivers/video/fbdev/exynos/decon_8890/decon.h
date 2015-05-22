@@ -54,7 +54,6 @@ extern int decon_log_level;
 #define MIN_BLK_MODE_WIDTH	144
 #define MIN_BLK_MODE_HEIGHT	10
 
-#define DECON_BACKGROUND	0
 #define VSYNC_TIMEOUT_MSEC	200
 #define MAX_BW_PER_WINDOW	(2560 * 1600 * 4 * 60)
 #define LCD_DEFAULT_BPP		24
