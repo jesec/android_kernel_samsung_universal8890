@@ -596,6 +596,7 @@ struct decon_device {
 	struct workqueue_struct		*lpd_wq;
 	atomic_t			lpd_trig_cnt;
 	atomic_t			lpd_block_cnt;
+	bool				lpd_init_status;
 
 	struct ion_client		*ion_client;
 	struct sw_sync_timeline		*timeline;

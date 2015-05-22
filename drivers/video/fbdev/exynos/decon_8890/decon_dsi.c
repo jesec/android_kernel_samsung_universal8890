@@ -679,7 +679,7 @@ int decon_lpd_block_exit(struct decon_device *decon)
 {
 	int ret = 0;
 
-	if (!decon)
+	if (!decon || !decon->lpd_init_status)
 		return 0;
 
 	decon_lpd_block(decon);
@@ -721,6 +721,9 @@ static void decon_lpd_handler(struct work_struct *work)
 	struct decon_device *decon =
 			container_of(work, struct decon_device, lpd_work);
 
+	if (!decon || !decon->lpd_init_status)
+		return;
+
 	if (decon_lpd_enter_cond(decon))
 		decon_enter_lpd(decon);
 }
@@ -739,6 +742,7 @@ int decon_register_lpd_work(struct decon_device *decon)
 	}
 
 	INIT_WORK(&decon->lpd_work, decon_lpd_handler);
+	decon->lpd_init_status = true;
 
 	return 0;
 }
