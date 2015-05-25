@@ -294,4 +294,6 @@ extern int pwrcal_clk_disable(struct pwrcal_clk *clk);
 extern unsigned int _cal_clk_get(char *name);
 extern struct pwrcal_clk *cal_get_clk(unsigned int id);
 
+extern void clk_init(void);
+extern struct pwrcal_clk *clk_find(char *clk_name);
 #endif

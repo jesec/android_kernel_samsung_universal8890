@@ -568,6 +568,8 @@ int cal_init(void)
 		return 0;
 
 	cal_rae_init();
+	clk_init();
+	dfs_init();
 	vclk_init();
 
 	if (cal_asv_ops.asv_init)

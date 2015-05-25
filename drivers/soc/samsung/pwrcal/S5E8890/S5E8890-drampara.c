@@ -1,6 +1,9 @@
 #include "../pwrcal-env.h"
 #include "../pwrcal-rae.h"
 #include "S5E8890-sfrbase.h"
+#include "S5E8890-vclk-internal.h"
+
+#include <mach/ap_param_parser.h>
 
 #ifndef MHZ
 #define MHZ		((unsigned long long)1000000)
@@ -122,6 +125,52 @@ enum smc_dram_mode_register {
 	DRAM_MR40 = 40,
 };
 
+enum timing_parameter_column {
+	DramTiming0,
+	DramTiming1,
+	DramTiming2,
+	DramTiming3,
+	DramTiming4,
+	DramTiming5,
+	DramTiming6,
+	DramTiming7,
+	DramTiming8,
+	DramTiming9,
+	DramDerateTiming0,
+	DramDerateTiming1,
+	Dimm0AutoRefTiming1,
+	Dimm1AutoRefTiming1,
+	AutoRefTiming2,
+	PwrMgmtTiming0,
+	PwrMgmtTiming1,
+	PwrMgmtTiming2,
+	PwrMgmtTiming3,
+	TmrTrnInterval,
+	DFIDelay1,
+	DFIDelay2,
+	DvfsTrnCtl,
+	TrnTiming0,
+	TrnTiming1,
+	TrnTiming2,
+	DVFSn_CON0,
+	DVFSn_CON1,
+	DVFSn_CON2,
+	DVFSn_CON3,
+	DVFSn_CON4,
+	DirectCmd_MR1,
+	DirectCmd_MR2,
+	DirectCmd_MR3,
+	DirectCmd_MR11,
+	DirectCmd_MR12,
+	DirectCmd_MR14,
+	DirectCmd_MR22,
+
+	num_of_g_smc_dfs_table_column = TrnTiming2 - DramTiming0 + 1,
+	num_of_g_phy_dfs_table_column = DVFSn_CON4 - DVFSn_CON0 + 1,
+	num_of_g_dram_dfs_table_column = DirectCmd_MR22 - DirectCmd_MR1 + 1,
+	num_of_dram_parameter = num_of_g_smc_dfs_table_column + num_of_g_phy_dfs_table_column + num_of_g_dram_dfs_table_column,
+};
+
 struct smc_dfs_table {
 	unsigned int DramTiming0;
 	unsigned int DramTiming1;
@@ -169,101 +218,33 @@ struct dram_dfs_table {
 	unsigned int DirectCmd_MR22;
 };
 
-static const struct smc_dfs_table g_smc_dfs_table[] = { /*
-  Freq       DramTiming0 DramTiming1 DramTiming2 DramTiming3 DramTiming4 DramTiming5 DramTiming6 DramTiming7 DramTiming8 DramTiming9 DramDerateTiming0 DramDerateTiming1 Dimm0AutoRefTiming1 Dimm1AutoRefTiming1 AutoRefTiming2 PwrMgmtTiming0 PwrMgmtTiming1 PwrMgmtTiming2 PwrMgmtTiming3 TmrTrnInterval DFIDelay1   DFIDelay2  DvfsTrnCtl  TrnTiming0  TrnTiming1  TrnTiming2 */
-/*L0 1846*/ {0x00081411, 0x11073B27, 0x0A000025, 0x00000100, 0x110A0A00, 0x001B0E05, 0x00070004, 0x00070004, 0x00001504, 0x0D18281E,   0x3F291613,       0x0000130B,        0x005400A7,         0x005400A7,       0x0000000A,     0x07020907,    0x00000707,    0x000000B0,    0x00000904,    0x00000000, 0x0001081A, 0x00001A07, 0x00000303, 0x2F220EE7, 0x222F1722, 0x00000014},
-/*L1 1742*/ {0x00081310, 0x10073825, 0x09000023, 0x00000100, 0x10090900, 0x001A0E05, 0x00070004, 0x00070004, 0x00001504, 0x0D17281D,   0x3C271412,       0x0000120B,        0x004F009D,         0x004F009D,       0x00000009,     0x07020907,    0x00000707,    0x000000A6,    0x00000882,    0x00000000, 0x00010819, 0x00001907, 0x00000303, 0x2E220EDA, 0x222E1622, 0x00000014},
-/*L2 1560*/ {0x0007110F, 0x0F063221, 0x08000020, 0x00000100, 0x0F080800, 0x00180C05, 0x00070004, 0x00070004, 0x00001304, 0x0B14281A,   0x35231210,       0x0000100A,        0x0047008D,         0x0047008D,       0x00000008,     0x06020806,    0x00000606,    0x00000095,    0x0000079E,    0x00000000, 0x00010717, 0x00001706, 0x00000303, 0x2C1E0CC3, 0x1E2C141E, 0x00000014},
-/*L3 1482*/ {0x0007100E, 0x0E063020, 0x0800001E, 0x00000100, 0x0E080800, 0x00180C05, 0x00070004, 0x00070004, 0x00001304, 0x0B142819,   0x3321110F,       0x00000F09,        0x00430086,         0x00430086,       0x00000008,     0x06020806,    0x00000606,    0x0000008D,    0x0000073D,    0x00000000, 0x00010717, 0x00001706, 0x00000303, 0x2C1E0CBA, 0x1E2C141E, 0x00000014},
-/*L4 1352*/ {0x00070F0D, 0x0D062C1D, 0x0700001C, 0x00000100, 0x0D070700, 0x00170B05, 0x00070004, 0x00070004, 0x00001304, 0x0A132817,   0x2F1E100E,       0x00000E09,        0x003D007A,         0x003D007A,       0x00000007,     0x06020806,    0x00000606,    0x00000081,    0x0000069A,    0x00000000, 0x00010716, 0x00001606, 0x00000303, 0x2B1D0BA9, 0x1D2B131D, 0x00000014},
-/*L5 1222*/ {0x00060D0B, 0x0B05271A, 0x07000019, 0x00000100, 0x0B070700, 0x00150A05, 0x00070004, 0x00070004, 0x00001204, 0x0A122815,   0x2A1B0E0D,       0x00000D08,        0x0037006E,         0x0037006E,       0x00000007,     0x05020705,    0x00000505,    0x00000075,    0x000005F8,    0x00000000, 0x00010614, 0x00001405, 0x00000303, 0x291B0A99, 0x1B29121B, 0x00000014},
-/*L6 1092*/ {0x00060C0A, 0x0A052317, 0x06000016, 0x00000100, 0x0A060600, 0x00140905, 0x00070004, 0x00070004, 0x00001104, 0x0A112813,   0x26180D0B,	     0x00000B07,		0x00320063,		    0x00320063,		  0x00000006,	  0x05020705,    0x00000505,	0x00000069,	   0x00000555,	  0x00000000, 0x00010613, 0x00001305, 0x00000303, 0x281A0989, 0x1A28111A, 0x00000014},
-/*L7  962*/ {0x00050B09, 0x09042015, 0x05000014, 0x00000100, 0x09050500, 0x00110805, 0x00070004, 0x00070004, 0x00000F04, 0x0A0F2811,   0x22160C0A,	     0x00000A06,	    0x002C0057,		    0x002C0057,		  0x00000005,	  0x04020604,    0x00000404,	0x0000005D,	   0x000004B3,	  0x00000000, 0x00010510, 0x00001004, 0x00000303, 0x25180879, 0x16250F18, 0x00000014},
-/*L8  832*/ {0x00050908, 0x08041B12, 0x05000011, 0x00000100, 0x08050500, 0x00100705, 0x00070004, 0x00070004, 0x00000F04, 0x0A0F270F,   0x1D130A09,	     0x00000905,		0x0026004B,		    0x0026004B,		  0x00000005,     0x04020604,    0x00000404,	0x00000050,	   0x00000410,	  0x00000000, 0x0001050F, 0x00000F04, 0x00000000, 0x24180768, 0x16240F18, 0x00000014},
-/*L9  676*/ {0x00040808, 0x0804170F, 0x0400000E, 0x00000100, 0x07040400, 0x000D0605, 0x00070004, 0x00070004, 0x00000D04, 0x0A0D210D,   0x190F0807,	     0x00000705,		0x001F003D,		    0x001F003D,		  0x00000004,	  0x03020503,    0x00000404,	0x00000042,	   0x0000034D,	  0x00000000, 0x0001040C, 0x00000C03, 0x00000000, 0x21180655, 0x13210D18, 0x00000014},
-/*L10 572*/ {0x00040708, 0x0804140D, 0x0400000C, 0x00000100, 0x06040400, 0x000D0605, 0x00070004, 0x00070004, 0x00000D04, 0x0A0D210B,   0x160D0706,	     0x00000604,	    0x001A0034,		    0x001A0034,		  0x00000004,	  0x03020503,    0x00000404,	0x00000038,	   0x000002CB,	  0x00000000, 0x0001040C, 0x00000C03, 0x00000000, 0x21180548, 0x13210D18, 0x00000014},
-/*L11 416*/ {0x00030508, 0x08040E09, 0x04000009, 0x00000100, 0x04040400, 0x000A0605, 0x00070005, 0x00070005, 0x00000B04, 0x0A0C1C09,   0x0F0A0505,	     0x00000504,	    0x00130026,		    0x00130026,		  0x00000004,	  0x03020403,    0x00000404,    0x00000029,	   0x00000208,	  0x00000000, 0x00010309, 0x00000902, 0x00000000, 0x1E180434, 0x101E0C18, 0x00000014},
-/*L12 286*/ {0x00030408, 0x08040C07, 0x04000006, 0x00000100, 0x04040400, 0x000A0605, 0x00070007, 0x00070007, 0x00000B04, 0x0A0C1C07,   0x0D070404,	     0x00000404,		0x000D001A,		    0x000D001A,		  0x00000004,	  0x03020403,    0x00000404,	0x0000001D,	   0x00000166,	  0x00000000, 0x00010309, 0x00000902, 0x00000000, 0x1E180324, 0x101E0C18, 0x00000014}
+static struct smc_dfs_table *g_smc_dfs_table;
+static struct phy_dfs_table *g_phy_dfs_table;
+static struct dram_dfs_table *g_dram_dfs_table;
+static unsigned long long *mif_freq_to_level;
+static int num_mif_freq_to_level;
+
+static const struct smc_dfs_table g_smc_dfs_table_switch[] = {
+	/* DramTiming0__n,	DramTiming1__n,	DramTiming2__n,	DramTiming3__n,	DramTiming4__n,	DramTiming5__n,	DramTiming6__n,	DramTiming7__n,	DramTiming8__n,	DramTiming9__n,	DramDerateTiming0__n,	DramDerateTiming1__n,	Dimm0AutoRefTiming1__n,	Dimm1AutoRefTiming1__n,	AutoRefTiming2__n,	PwmMgmtTiming0_n,	PwmMgmtTiming1__n,	PwmMgmtTiming2__n,	PwmMgmtTiming3__n,	TmrTrnIntvl,	DFIDelay1,	DFIDelay2,	DvfsTrnCtl,	TrnTiming0,	TrnTiming1,	TrnTiming2 */
+/* BUS3_PLL SW 936 */	{ 0x00050a09,	0x09041e14,	0x05000013,	0x00000100,	0x09050500,	0x00110805,	0x00070004,	0x00070004,	0x00001004,	0x0a132811,	0x20150b0a,	0x00000a06,	0x002b0055,	0x002b0055,	0x00000005,	0x04020604,	0x00000404,	0x0000005a,	0x00000492,	0x00000000,	0x00010510,	0x00001004,	0x00000303,	0x25180875,	0x16250f18,	0x00000014 },
+/* BUS0_PLL SW 468 */	{ 0x00030505,	0x05040f0a,	0x0400000a,	0x00000100,	0x05040400,	0x000a0605,	0x00070004,	0x00070004,	0x00000c04,	0x0a101c0a,	0x100b0605,	0x00000504,	0x0016002b,	0x0016002b,	0x00000004,	0x03020403,	0x00000404,	0x0000002e,	0x00000249,	0x00000000,	0x00010309,	0x00000902,	0x00000000,	0x1e18043b,	0x101e0c18,	0x00000014 }
 };
 
-static const struct phy_dfs_table g_phy_dfs_table[] = { /*
-  Freq       DVFSn_CON0  DVFSn_CON1  DVFSn_CON2  DVFSn_CON3  DVFSn_CON4*/
-/*L0 1846*/ {0x73691800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L1 1742*/ {0x6CE91800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L2 1560*/ {0x61881800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L3 1482*/ {0x5CA81800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L4 1352*/ {0x54881800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L5 1222*/ {0x4C671800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L6 1092*/ {0x44471800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L7  962*/ {0x3C259800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/*L8  832*/ {0x34058800, 0x80100000, 0x00004051, 0x7DF3FFFF, 0x00003F3F},
-/*L9  676*/ {0x2A440800, 0x80100000, 0x00004051, 0x7DF3FFFF, 0x00003F3F},
-/*L10 572*/ {0x23C40800, 0x80100000, 0x00004051, 0x7DF3FFFF, 0x00003F3F},
-/*L11 416*/ {0x1A030800, 0xC0100000, 0xA3004051, 0x7DF3FFFF, 0x00003F3F},
-/*L11 286*/ {0x11E30800, 0xC0100000, 0xA3004051, 0x7DF3FFFF, 0x00003F3F}
+static const struct phy_dfs_table g_phy_dfs_table_switch[] = {
+	/* DVFSn_CON0,	DVFSn_CON1,	DVFSn_CON2,	DVFSn_CON3,	DVFSn_CON4 */
+/* BUS3_PLL SW 936 */	{ 0x3a859800,	0x80100000,	0x4001a070,	0x7df3ffff,	0x00003f3f },
+/* BUS0_PLL SW 468 */	{ 0x1d430800,	0x80100000,	0x00004051,	0x7df3ffff,	0x00003f3f }
 };
 
-static const struct dram_dfs_table g_dram_dfs_table[] = { /*
-  Freq           MR1         MR2         MR3         MR11        MR12        MR14        MR22   */
-/*L0 1846*/ {0x0000006E, 0x00000036, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L1 1742*/ {0x0000006E, 0x00000036, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L2 1560*/ {0x0000005E, 0x0000002D, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L3 1482*/ {0x0000005E, 0x0000002D, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L4 1352*/ {0x0000005E, 0x0000002D, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L5 1222*/ {0x0000004E, 0x00000024, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L6 1092*/ {0x0000004E, 0x00000024, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L7  962*/ {0x0000003E, 0x0000001B, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L8  832*/ {0x00000036, 0x0000001B, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L9  676*/ {0x00000026, 0x00000012, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L10 572*/ {0x00000026, 0x00000012, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L11 416*/ {0x00000016, 0x00000009, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/*L12 286*/ {0x00000016, 0x00000009, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026}
-};
-
-static const unsigned long long mif_freq_to_level[] = {
-/*L0 1846*/ 1846 * MHZ,
-/*L1 1742*/ 1742 * MHZ,
-/*L2 1560*/ 1560 * MHZ,
-/*L3 1482*/ 1482 * MHZ,
-/*L4 1352*/ 1352 * MHZ,
-/*L5 1222*/ 1222 * MHZ,
-/*L6 1092*/ 1092 * MHZ,
-/*L7  962*/  962 * MHZ,
-/*L8  832*/  832 * MHZ,
-/*L9  676*/  676 * MHZ,
-/*L10 572*/  572 * MHZ,
-/*L11 416*/  416 * MHZ,
-/*L12 286*/  286 * MHZ,
-};
-
-
-static const struct smc_dfs_table g_smc_dfs_table_switch[] = { /*
-  Freq       DramTiming0 DramTiming1 DramTiming2 DramTiming3 DramTiming4 DramTiming5 DramTiming6 DramTiming7 DramTiming8 DramTiming9 DramDerateTiming0 DramDerateTiming1 Dimm0AutoRefTiming1 Dimm1AutoRefTiming1 AutoRefTiming2 PwrMgmtTiming0 PwrMgmtTiming1 PwrMgmtTiming2 PwrMgmtTiming3 TmrTrnInterval DFIDelay1   DFIDelay2  DvfsTrnCtl  TrnTiming0  TrnTiming1  TrnTiming2 */
-/* 962 */ {0x00050B09, 0x09042015, 0x05000014, 0x00000100, 0x09050500, 0x00110805, 0x00070004, 0x00070004, 0x00000F04, 0x0A0F2811,	 0x22160C0A,	   0x00000A06,		  0x002C0057,		  0x002C0057,		0x00000005,	0x04020604,    0x00000404,	  0x0000005D,	 0x000004B3,	0x00000000, 0x00010510, 0x00001004, 0x00000303, 0x25180879, 0x16250F18, 0x00000014},
-//* 936 */ {0x00050A09, 0x09041E14, 0x05000013, 0x00000100, 0x09050500, 0x00110805, 0x00070004, 0x00070004, 0x00000F04, 0x0A0F2811,	0x20150B0A,	   0x00000A06,		  0x002B0055,		  0x002B0055,		0x00000005,	0x04020604,    0x00000404,	  0x0000005A,	 0x00000492,	0x00000000, 0x00010510, 0x00001004, 0x00000303, 0x25180875, 0x16250F18, 0x00000014},
-/* 572 */ {0x00040708, 0x0804140D, 0x0400000C, 0x00000100, 0x06040400, 0x000D0605, 0x00070004, 0x00070004, 0x00000D04, 0x0A0D210B,	 0x160D0706,	   0x00000604,		  0x001A0034,		  0x001A0034,		0x00000004,	0x03020503,    0x00000404,	  0x00000038,	 0x000002CB,	0x00000000, 0x0001040C, 0x00000C03, 0x00000000, 0x21180548, 0x13210D18, 0x00000014}
-//* 468 */ {0x00030508, 0x08040F0A, 0x0400000A, 0x00000100, 0x05040400, 0x000A0605, 0x00070005, 0x00070005, 0x00000B04, 0x0A0C1C0A,   0x100B0605,	     0x00000504,	    0x0016002B,		    0x0016002B,		  0x00000004,	  0x03020403,    0x00000404,    0x0000002E,	   0x00000249,	  0x00000000, 0x00010309, 0x00000902, 0x00000000, 0x1E18043B, 0x101E0C18, 0x00000014}
-};
-
-static const struct phy_dfs_table g_phy_dfs_table_switch[] = { /*
-  Freq       DVFSn_CON0  DVFSn_CON1  DVFSn_CON2  DVFSn_CON3  DVFSn_CON4*/
-/* 962 */ {0x3C259800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-//* 936 */ {0x3A859800, 0x80100000, 0x4001A070, 0x7DF3FFFF, 0x00003F3F},
-/* 572 */ {0x23C40800, 0x80100000, 0x00004051, 0x7DF3FFFF, 0x00003F3F}
-//* 468 */ {0x1D430800, 0xC0100000, 0x00004051, 0x7DF3FFFF, 0x00003F3F}
-};
-
-static const struct dram_dfs_table g_dram_dfs_table_switch[] = { /*
-  Freq           MR1         MR2         MR3         MR11        MR12        MR14        MR22   */
-/* 962 */ {0x0000003E, 0x0000001B, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-//* 936 */ {0x0000003E, 0x0000001B, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026},
-/* 572 */ {0x00000026, 0x00000012, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026}
-//* 468 */ {0x00000016, 0x00000009, 0x000000F1, 0x00000004, 0x0000005D, 0x00000017, 0x00000026}
+static const struct dram_dfs_table g_dram_dfs_table_switch[] = {
+	/* MR1OP,	MR2OP,	MR3OP,	MR11OP,	MR12OP,	MR14OP,	MR22OP */
+/* BUS3_PLL SW 936 */	{ 0x3e,	0x1b,	0xf1,	0x04,	0x5d,	0x17,	0x26 },
+/* BUS0_PLL SW 468 */	{ 0x16,	0x09,	0xf1,	0x04,	0x5d,	0x17,	0x26 }
 };
 
 static const unsigned long long mif_freq_to_level_switch[] = {
-/* 936 */  936 * MHZ,
-/* 468 */  468 * MHZ
+/* BUS3_PLL SW 936 */	936 * MHZ,
+/* BUS0_PLL SW 468 */	468 * MHZ
 };
 
 void dmc_misc_direct_dmc_enable(int enable)
@@ -281,7 +262,7 @@ void smc_mode_register_write(int mr, int op)
 static unsigned int convert_to_level(unsigned long long freq)
 {
 	int idx;
-	int tablesize = sizeof(mif_freq_to_level) / sizeof(mif_freq_to_level[0]);
+	int tablesize = num_mif_freq_to_level;
 
 	for (idx = tablesize - 1; idx >= 0; idx--)
 		if (freq <= mif_freq_to_level[idx])
@@ -354,11 +335,15 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		pwrcal_writel(PHY_DVFS0_CON3, g_phy_dfs_table[target_mif_level_idx].DVFSn_CON3);
 		pwrcal_writel(PHY_DVFS0_CON4, g_phy_dfs_table[target_mif_level_idx].DVFSn_CON4);
 
-		mr13 = (0x1<<7)|(0x0<<6)|(0x0<<5);	//0x0 = FSP-WR[6], 0x1 = FSP_OP[7]
+		mr13 = (0x1<<7)|(0x0<<6)|(0x0<<5)|(0x1<<3);	//FSP-OP=0x1, FSP-WR=0x0, DMD=0x0, VRCG=0x1
 		smc_mode_register_write(DRAM_MR13, mr13);
 		smc_mode_register_write(DRAM_MR1, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR1);
 		smc_mode_register_write(DRAM_MR2, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR2);
 		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR3);
+		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR11);
+		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR12);
+		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR14);
+		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR22);
 
 		mr13 &= ~(0x1<<7);	// clear FSP-OP[7]
 		pwrcal_writel(MRS_DATA1, mr13);
@@ -403,11 +388,15 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		pwrcal_writel(PHY_DVFS1_CON3, g_phy_dfs_table_switch[target_mif_level_switch_idx].DVFSn_CON3);
 		pwrcal_writel(PHY_DVFS1_CON4, g_phy_dfs_table_switch[target_mif_level_switch_idx].DVFSn_CON4);
 
-		mr13 = (0x0<<7)|(0x1<<6)|(0x0<<5);	//0x1 = FSP-WR[6], 0x0 = FSP_OP[7]
+		mr13 = (0x0<<7)|(0x1<<6)|(0x0<<5)|(0x1<<3);	//FSP-OP=0x0, FSP-WR=0x1, DMD=0x0, VRCG=0x1
 		smc_mode_register_write(DRAM_MR13, mr13);
 		smc_mode_register_write(DRAM_MR1, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR1);
 		smc_mode_register_write(DRAM_MR2, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR2);
 		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR3);
+		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR11);
+		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR12);
+		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR14);
+		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR22);
 
 		mr13 &= ~(0x1<<7);	// clear FSP-OP[7]
 		mr13 |= (0x1<<7);	// set FSP-OP[7]=0x1
@@ -416,4 +405,109 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		pr_err("wrong DMC timing set selection on DVFS\n");
 		return;
 	}
+}
+
+
+void dfs_dram_param_init(void)
+{
+	int i;
+	void *dram_block;
+	int memory_size = 3; // means 3GB
+	struct ap_param_timing_param_size *size;
+
+	dram_block = ap_param_get_block(BLOCK_TIMING_PARAM);
+	if (dram_block == NULL)
+		return;
+
+	size = ap_param_timing_param_get_size(dram_block, memory_size);
+	if (size == NULL)
+		return;
+
+	if (num_of_g_smc_dfs_table_column + num_of_g_phy_dfs_table_column + num_of_g_dram_dfs_table_column != size->num_of_timing_param)
+		return;
+
+	g_smc_dfs_table = kzalloc(sizeof(struct smc_dfs_table) * num_of_g_smc_dfs_table_column * size->num_of_level, GFP_KERNEL);
+	if (g_smc_dfs_table == NULL)
+		return;
+
+	g_phy_dfs_table = kzalloc(sizeof(struct phy_dfs_table) * num_of_g_phy_dfs_table_column * size->num_of_level, GFP_KERNEL);
+	if (g_phy_dfs_table == NULL)
+		return;
+
+	g_dram_dfs_table = kzalloc(sizeof(struct dram_dfs_table) * num_of_g_dram_dfs_table_column * size->num_of_level, GFP_KERNEL);
+	if (g_dram_dfs_table == NULL)
+		return;
+
+	for (i = 0; i < size->num_of_level; ++i) {
+		g_smc_dfs_table[i].DramTiming0 = size->timing_parameter[i * num_of_dram_parameter + DramTiming0];
+		g_smc_dfs_table[i].DramTiming1 = size->timing_parameter[i * num_of_dram_parameter + DramTiming1];
+		g_smc_dfs_table[i].DramTiming2 = size->timing_parameter[i * num_of_dram_parameter + DramTiming2];
+		g_smc_dfs_table[i].DramTiming3 = size->timing_parameter[i * num_of_dram_parameter + DramTiming3];
+		g_smc_dfs_table[i].DramTiming4 = size->timing_parameter[i * num_of_dram_parameter + DramTiming4];
+		g_smc_dfs_table[i].DramTiming5 = size->timing_parameter[i * num_of_dram_parameter + DramTiming5];
+		g_smc_dfs_table[i].DramTiming6 = size->timing_parameter[i * num_of_dram_parameter + DramTiming6];
+		g_smc_dfs_table[i].DramTiming7 = size->timing_parameter[i * num_of_dram_parameter + DramTiming7];
+		g_smc_dfs_table[i].DramTiming8 = size->timing_parameter[i * num_of_dram_parameter + DramTiming8];
+		g_smc_dfs_table[i].DramTiming9 = size->timing_parameter[i * num_of_dram_parameter + DramTiming9];
+		g_smc_dfs_table[i].DramDerateTiming0 = size->timing_parameter[i * num_of_dram_parameter + DramDerateTiming0];
+		g_smc_dfs_table[i].DramDerateTiming1 = size->timing_parameter[i * num_of_dram_parameter + DramDerateTiming1];
+		g_smc_dfs_table[i].Dimm0AutoRefTiming1 = size->timing_parameter[i * num_of_dram_parameter + Dimm0AutoRefTiming1];
+		g_smc_dfs_table[i].Dimm1AutoRefTiming1 = size->timing_parameter[i * num_of_dram_parameter + Dimm1AutoRefTiming1];
+		g_smc_dfs_table[i].AutoRefTiming2 = size->timing_parameter[i * num_of_dram_parameter + AutoRefTiming2];
+		g_smc_dfs_table[i].PwrMgmtTiming0 = size->timing_parameter[i * num_of_dram_parameter + PwrMgmtTiming0];
+		g_smc_dfs_table[i].PwrMgmtTiming1 = size->timing_parameter[i * num_of_dram_parameter + PwrMgmtTiming1];
+		g_smc_dfs_table[i].PwrMgmtTiming2 = size->timing_parameter[i * num_of_dram_parameter + PwrMgmtTiming2];
+		g_smc_dfs_table[i].PwrMgmtTiming3 = size->timing_parameter[i * num_of_dram_parameter + PwrMgmtTiming3];
+		g_smc_dfs_table[i].TmrTrnInterval = size->timing_parameter[i * num_of_dram_parameter + TmrTrnInterval];
+		g_smc_dfs_table[i].DFIDelay1 = size->timing_parameter[i * num_of_dram_parameter + DFIDelay1];
+		g_smc_dfs_table[i].DFIDelay2 = size->timing_parameter[i * num_of_dram_parameter + DFIDelay2];
+		g_smc_dfs_table[i].DvfsTrnCtl = size->timing_parameter[i * num_of_dram_parameter + DvfsTrnCtl];
+		g_smc_dfs_table[i].TrnTiming0 = size->timing_parameter[i * num_of_dram_parameter + TrnTiming0];
+		g_smc_dfs_table[i].TrnTiming1 = size->timing_parameter[i * num_of_dram_parameter + TrnTiming1];
+		g_smc_dfs_table[i].TrnTiming2 = size->timing_parameter[i * num_of_dram_parameter + TrnTiming2];
+
+		g_phy_dfs_table[i].DVFSn_CON0 = size->timing_parameter[i * num_of_dram_parameter + DVFSn_CON0];
+		g_phy_dfs_table[i].DVFSn_CON1 = size->timing_parameter[i * num_of_dram_parameter + DVFSn_CON1];
+		g_phy_dfs_table[i].DVFSn_CON2 = size->timing_parameter[i * num_of_dram_parameter + DVFSn_CON2];
+		g_phy_dfs_table[i].DVFSn_CON3 = size->timing_parameter[i * num_of_dram_parameter + DVFSn_CON3];
+		g_phy_dfs_table[i].DVFSn_CON4 = size->timing_parameter[i * num_of_dram_parameter + DVFSn_CON4];
+
+		g_dram_dfs_table[i].DirectCmd_MR1 = size->timing_parameter[i * num_of_dram_parameter + DirectCmd_MR1];
+		g_dram_dfs_table[i].DirectCmd_MR2 = size->timing_parameter[i * num_of_dram_parameter + DirectCmd_MR2];
+		g_dram_dfs_table[i].DirectCmd_MR3 = size->timing_parameter[i * num_of_dram_parameter + DirectCmd_MR3];
+		g_dram_dfs_table[i].DirectCmd_MR11 = size->timing_parameter[i * num_of_dram_parameter + DirectCmd_MR11];
+		g_dram_dfs_table[i].DirectCmd_MR12 = size->timing_parameter[i * num_of_dram_parameter + DirectCmd_MR12];
+		g_dram_dfs_table[i].DirectCmd_MR14 = size->timing_parameter[i * num_of_dram_parameter + DirectCmd_MR14];
+		g_dram_dfs_table[i].DirectCmd_MR22 = size->timing_parameter[i * num_of_dram_parameter + DirectCmd_MR22];
+	}
+}
+
+void dfs_mif_level_init(void)
+{
+	int i;
+	void *dvfs_block;
+	struct ap_param_dvfs_domain *domain;
+
+	dvfs_block = ap_param_get_block(BLOCK_DVFS);
+	if (dvfs_block == NULL)
+		return;
+
+	domain = ap_param_dvfs_get_domain(dvfs_block, vclk_dvfs_mif.vclk.name);
+	if (domain == NULL)
+		return;
+
+	mif_freq_to_level = kzalloc(sizeof(unsigned long long) * domain->num_of_level, GFP_KERNEL);
+	if (mif_freq_to_level == NULL)
+		return;
+
+	num_mif_freq_to_level = domain->num_of_level;
+
+	for (i = 0; i < domain->num_of_level; ++i)
+		mif_freq_to_level[i] = domain->list_level[i].level * KHZ;
+}
+
+void dfs_dram_init(void)
+{
+	dfs_dram_param_init();
+	dfs_mif_level_init();
 }

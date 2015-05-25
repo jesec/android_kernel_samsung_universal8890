@@ -29,6 +29,8 @@ static void cam0_prev(int enable)
 	}
 
 	if (enable == 0) {
+		vclk_disable(VCLK(dvfs_cam));
+
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS0_CSIS0_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS0_CSIS0_USER, 27, 1);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS1_CSIS0_USER, 12, 0);
@@ -61,6 +63,8 @@ static void cam1_prev(int enable)
 		pwrcal_setbit(CLK_ENABLE_ACLK_ISP0_TPU_LOCAL, 0, 1);
 	}
 	if (enable == 0) {
+		vclk_disable(VCLK(dvfs_cam));
+
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS0_CSIS2_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS0_CSIS2_USER, 27, 1);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS1_CSIS2_USER, 12, 0);
@@ -411,6 +415,8 @@ static void g3d_prev(int enable)
 static void cam0_post(int enable)
 {
 	if (enable == 1) {
+		vclk_enable(VCLK(dvfs_cam));
+
 		pwrcal_gate_disable(CLK(CAM0_GATE_ACLK_CSIS0));
 		pwrcal_gate_disable(CLK(CAM0_GATE_PCLK_CSIS0));
 		pwrcal_gate_disable(CLK(CAM0_GATE_ACLK_CSIS1));
@@ -546,6 +552,8 @@ static void disp0_post(int enable)
 static void cam1_post(int enable)
 {
 	if (enable == 1) {
+		vclk_enable(VCLK(dvfs_cam));
+
 		pwrcal_gate_disable(CLK(CAM1_GATE_ACLK_SMMU_VRA));
 		pwrcal_gate_disable(CLK(CAM1_GATE_ACLK_SMMU_ISPCPU));
 		pwrcal_gate_disable(CLK(CAM1_GATE_ACLK_SMMU_IS_B));

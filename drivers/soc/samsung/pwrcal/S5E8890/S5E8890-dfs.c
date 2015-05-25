@@ -9,14 +9,8 @@
 #include "S5E8890-cmu.h"
 #include "S5E8890-vclk-internal.h"
 
+#include <mach/ap_param_parser.h>
 
-extern unsigned int dfsbig_rate_table[];
-extern unsigned int dfslittle_rate_table[];
-extern unsigned int dfsg3d_rate_table[];
-extern unsigned int dfsmif_rate_table[];
-extern unsigned int dfsint_rate_table[];
-extern unsigned int dfscam_rate_table[];
-extern unsigned int dfsdisp_rate_table[];
 
 extern int offset_percent;
 extern int set_big_volt;
@@ -96,23 +90,10 @@ struct aclk_ccore_800_table {
 	unsigned int rate;
 	unsigned int mux;
 	unsigned int div;
+	unsigned int sci_ratio;
+	unsigned int smc_ratio;
 };
-static struct aclk_ccore_800_table rate_table_aclk_ccore_800[] = {
-	{936,	4,	0},
-	{936,	4,	0},
-	{800,	1,	0},
-	{800,	1,	0},
-	{800,	1,	0},
-	{672,	2,	0},
-	{672,	2,	0},
-	{672,	2,	0},
-	{468,	4,	1},
-	{400,	1,	1},
-	{336,	2,	1},
-	{224,	2,	2},
-	{224,	2,	2},
-	{112,	2,	5},
-};
+static struct aclk_ccore_800_table *rate_table_aclk_ccore_800;
 
 static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct dfs_table *table)
 {
@@ -215,11 +196,11 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 		table->switch_pre(rate_switch, rate_to);
 
 	/* 3-3 */
-	rate_sci = rate_table_aclk_ccore_800[lv_to].rate;
-	rate_smc = rate_to / 2000;
 	mux_value = rate_table_aclk_ccore_800[lv_to].mux;
 	div_value = rate_table_aclk_ccore_800[lv_to].div;
 	mux_switch = (rate_switch >= 936000) ? 3 : 4;
+	rate_sci = rate_table_aclk_ccore_800[lv_to].sci_ratio;
+	rate_smc = rate_table_aclk_ccore_800[lv_to].smc_ratio;
 	pscdc_trans(rate_sci, rate_smc, mux_switch, 0, 1, 1, 0, mux_value, div_value, 1, 1);
 
 	/* 3-4 */
@@ -239,24 +220,6 @@ errorout:
 	return -1;
 }
 
-
-static struct pwrcal_clk *dfsbig_members[] = {
-	REPRESENT_RATE,
-	CLK(MNGS_PLL),
-	CLK(MNGS_DIV_MNGS),
-	CLK(MNGS_DIV_ACLK_MNGS),
-	CLK(MNGS_DIV_PCLK_MNGS),
-	CLK(MNGS_DIV_ATCLK_MNGS_CORE),
-	CLK(MNGS_DIV_PCLK_DBG_MNGS),
-	CLK(MNGS_DIV_CNTCLK_MNGS),
-	CLK(MNGS_DIV_MNGS_PLL),
-	CLK(MNGS_DIV_SCLK_PROMISE_MNGS),
-	CLK(MNGS_DIV_ATCLK_MNGS_SOC),
-	CLK(MNGS_DIV_ATCLK_MNGS_CSSYS_TRACECLK),
-	CLK(MNGS_DIV_ATCLK_MNGS_ASYNCATB_CAM1),
-	CLK(MNGS_DIV_ATCLK_MNGS_ASYNCATB_AUD),
-};
-
 struct dfs_switch dfsbig_switches[] = {
 	{	936000,	3,	1	},
 	{	624000,	3,	2	},
@@ -266,12 +229,6 @@ struct dfs_switch dfsbig_switches[] = {
 };
 
 static struct dfs_table dfsbig_table = {
-	.members = dfsbig_members,
-	.rate_table = dfsbig_rate_table,
-	.num_of_members = ARRAY_SIZE(dfsbig_members),
-	.num_of_lv = 28,
-	.max_freq = 1872000,
-	.min_freq = 208000,
 	.switches = dfsbig_switches,
 	.num_of_switches = ARRAY_SIZE(dfsbig_switches),
 	.switch_mux = CLK(MNGS_MUX_MNGS),
@@ -304,19 +261,6 @@ struct pwrcal_clk_set dfsbig_en_list[] = {
 	{CLK_NONE,	0,	-1},
 };
 
-static struct pwrcal_clk *dfslittle_members[] = {
-	REPRESENT_RATE,
-	CLK(APOLLO_PLL),
-	CLK(APOLLO_DIV_ACLK_APOLLO),
-	CLK(APOLLO_DIV_PCLK_APOLLO),
-	CLK(APOLLO_DIV_ATCLK_APOLLO),
-	CLK(APOLLO_DIV_PCLK_DBG_APOLLO),
-	CLK(APOLLO_DIV_CNTCLK_APOLLO),
-	CLK(APOLLO_DIV_APOLLO_PLL),
-	CLK(APOLLO_DIV_SCLK_PROMISE_APOLLO),
-	CLK(APOLLO_DIV_APOLLO_RUN_MONITOR),
-};
-
 struct dfs_switch dfslittle_switches[] = {
 	{	936000,	3,	0	},
 	{	468000,	3,	1	},
@@ -326,12 +270,6 @@ struct dfs_switch dfslittle_switches[] = {
 };
 
 static struct dfs_table dfslittle_table = {
-	.members = dfslittle_members,
-	.rate_table = dfslittle_rate_table,
-	.num_of_members = ARRAY_SIZE(dfslittle_members),
-	.num_of_lv = 19,
-	.max_freq = 1378000,
-	.min_freq = 130000,
 	.switches = dfslittle_switches,
 	.num_of_switches = ARRAY_SIZE(dfslittle_switches),
 	.switch_mux = CLK(APOLLO_MUX_APOLLO),
@@ -360,15 +298,6 @@ struct pwrcal_clk_set dfslittle_en_list[] = {
 	{CLK_NONE,	0,	-1},
 };
 
-static struct pwrcal_clk *dfsg3d_members[] = {
-	REPRESENT_RATE,
-	CLK(G3D_PLL),
-	CLK(G3D_DIV_ACLK_G3D),
-	CLK(G3D_DIV_PCLK_G3D),
-	CLK(G3D_DIV_SCLK_HPM_G3D),
-	CLK(G3D_DIV_SCLK_ATE_G3D),
-};
-
 struct dfs_switch dfsg3d_switches[] = {
 	{	936000,	3,	0	},
 	{	468000,	3,	1	},
@@ -379,12 +308,6 @@ struct dfs_switch dfsg3d_switches[] = {
 };
 
 static struct dfs_table dfsg3d_table = {
-	.members = dfsg3d_members,
-	.rate_table = dfsg3d_rate_table,
-	.num_of_members = ARRAY_SIZE(dfsg3d_members),
-	.num_of_lv = 12,
-	.max_freq = 598000,
-	.min_freq = 273000,
 	.switches = dfsg3d_switches,
 	.num_of_switches = ARRAY_SIZE(dfsg3d_switches),
 	.switch_mux = CLK(G3D_MUX_G3D),
@@ -409,37 +332,6 @@ struct pwrcal_clk_set dfsg3d_en_list[] = {
 	{CLK_NONE,	0,	-1},
 };
 
-static struct pwrcal_clk *dfsmif_members[] = {
-	REPRESENT_RATE,
-	CLK(MIF_PLL),
-	CLK(MIF0_MUX_PCLK_MIF),
-	CLK(MIF1_MUX_PCLK_MIF),
-	CLK(MIF2_MUX_PCLK_MIF),
-	CLK(MIF3_MUX_PCLK_MIF),
-	CLK(MIF0_MUX_SCLK_HPM_MIF),
-	CLK(MIF1_MUX_SCLK_HPM_MIF),
-	CLK(MIF2_MUX_SCLK_HPM_MIF),
-	CLK(MIF3_MUX_SCLK_HPM_MIF),
-	CLK(TOP_MUX_ACLK_CCORE_528),
-	CLK(TOP_MUX_ACLK_CCORE_264),
-	CLK(TOP_MUX_ACLK_CCORE_132),
-	CLK(TOP_MUX_PCLK_CCORE_66),
-	CLK(TOP_MUX_ACLK_CCORE_G3D_800),
-	CLK(MIF0_DIV_PCLK_MIF),
-	CLK(MIF1_DIV_PCLK_MIF),
-	CLK(MIF2_DIV_PCLK_MIF),
-	CLK(MIF3_DIV_PCLK_MIF),
-	CLK(MIF0_DIV_SCLK_HPM_MIF),
-	CLK(MIF1_DIV_SCLK_HPM_MIF),
-	CLK(MIF2_DIV_SCLK_HPM_MIF),
-	CLK(MIF3_DIV_SCLK_HPM_MIF),
-	CLK(TOP_DIV_ACLK_CCORE_528),
-	CLK(TOP_DIV_ACLK_CCORE_264),
-	CLK(TOP_DIV_ACLK_CCORE_132),
-	CLK(TOP_DIV_PCLK_CCORE_66),
-	CLK(TOP_DIV_ACLK_CCORE_G3D_800),
-};
-
 struct dfs_switch dfsmif_switches[] = {
 	{	468000,	4,	1	},
 };
@@ -451,12 +343,6 @@ extern void dfsmif_switch_pre(unsigned int rate_from, unsigned int rate_to);
 extern void dfsmif_switch_post(unsigned int rate_from, unsigned int rate_to);
 
 static struct dfs_table dfsmif_table = {
-	.members = dfsmif_members,
-	.rate_table = dfsmif_rate_table,
-	.num_of_members = ARRAY_SIZE(dfsmif_members),
-	.num_of_lv = 14,
-	.max_freq = 1222000,
-	.min_freq = 286000,
 	.switches = dfsmif_switches,
 	.num_of_switches = ARRAY_SIZE(dfsmif_switches),
 	.switch_mux = CLK_NONE,
@@ -511,74 +397,7 @@ struct pwrcal_clk_set dfsmif_en_list[] = {
 	{CLK_NONE,	0,	-1},
 };
 
-static struct pwrcal_clk *dfsint_members[] = {
-	REPRESENT_RATE,
-	CLK(TOP_MUX_ACLK_BUS0_528),
-	CLK(TOP_MUX_ACLK_BUS1_528),
-	CLK(TOP_MUX_ACLK_BUS0_200),
-	CLK(TOP_MUX_PCLK_BUS0_132),
-	CLK(TOP_MUX_PCLK_BUS1_132),
-	CLK(TOP_MUX_ACLK_IMEM_266),
-	CLK(TOP_MUX_ACLK_IMEM_200),
-	CLK(TOP_MUX_ACLK_IMEM_100),
-	CLK(TOP_MUX_ACLK_MFC_600),
-	CLK(TOP_MUX_ACLK_MSCL0_528),
-	CLK(TOP_MUX_ACLK_MSCL1_528),
-	CLK(TOP_MUX_ACLK_PERIS_66),
-	CLK(TOP_MUX_ACLK_FSYS0_200),
-	CLK(TOP_MUX_ACLK_FSYS1_200),
-	CLK(TOP_MUX_ACLK_PERIC0_66),
-	CLK(TOP_MUX_ACLK_PERIC1_66),
-	CLK(TOP_MUX_ACLK_ISP0_TREX_528),
-	CLK(TOP_MUX_ACLK_ISP0_ISP0_528),
-	CLK(TOP_MUX_ACLK_ISP0_TPU_400),
-	CLK(TOP_MUX_ACLK_ISP1_ISP1_468),
-	CLK(TOP_MUX_ACLK_CAM1_ARM_672),
-	CLK(TOP_MUX_ACLK_CAM1_TREX_VRA_528),
-	CLK(TOP_MUX_ACLK_CAM1_TREX_B_528),
-	CLK(TOP_MUX_ACLK_CAM1_BUS_264),
-	CLK(TOP_MUX_ACLK_CAM1_PERI_84),
-	CLK(TOP_MUX_ACLK_CAM1_CSIS2_414),
-	CLK(TOP_MUX_ACLK_CAM1_CSIS3_132),
-	CLK(TOP_MUX_ACLK_CAM1_SCL_566),
-	CLK(TOP_DIV_ACLK_BUS0_528),
-	CLK(TOP_DIV_ACLK_BUS1_528),
-	CLK(TOP_DIV_ACLK_BUS0_200),
-	CLK(TOP_DIV_PCLK_BUS0_132),
-	CLK(TOP_DIV_PCLK_BUS1_132),
-	CLK(TOP_DIV_ACLK_IMEM_266),
-	CLK(TOP_DIV_ACLK_IMEM_200),
-	CLK(TOP_DIV_ACLK_IMEM_100),
-	CLK(TOP_DIV_ACLK_MFC_600),
-	CLK(TOP_DIV_ACLK_MSCL0_528),
-	CLK(TOP_DIV_ACLK_MSCL1_528),
-	CLK(TOP_DIV_ACLK_PERIS_66),
-	CLK(TOP_DIV_ACLK_FSYS0_200),
-	CLK(TOP_DIV_ACLK_FSYS1_200),
-	CLK(TOP_DIV_ACLK_PERIC0_66),
-	CLK(TOP_DIV_ACLK_PERIC1_66),
-	CLK(TOP_DIV_ACLK_ISP0_TREX_528),
-	CLK(TOP_DIV_ACLK_ISP0_ISP0_528),
-	CLK(TOP_DIV_ACLK_ISP0_TPU_400),
-	CLK(TOP_DIV_ACLK_ISP1_ISP1_468),
-	CLK(TOP_DIV_ACLK_CAM1_ARM_672),
-	CLK(TOP_DIV_ACLK_CAM1_TREX_VRA_528),
-	CLK(TOP_DIV_ACLK_CAM1_TREX_B_528),
-	CLK(TOP_DIV_ACLK_CAM1_BUS_264),
-	CLK(TOP_DIV_ACLK_CAM1_PERI_84),
-	CLK(TOP_DIV_ACLK_CAM1_CSIS2_414),
-	CLK(TOP_DIV_ACLK_CAM1_CSIS3_132),
-	CLK(TOP_DIV_ACLK_CAM1_SCL_566),
-};
-
-
 static struct dfs_table dfsint_table = {
-	.members = dfsint_members,
-	.rate_table = dfsint_rate_table,
-	.num_of_members = ARRAY_SIZE(dfsint_members),
-	.num_of_lv = 18,
-	.max_freq = 690000,
-	.min_freq = 200000,
 };
 
 
@@ -646,36 +465,11 @@ struct pwrcal_clk_set dfsint_en_list[] = {
 	{CLK_NONE,	0,	-1},
 };
 
-
-static struct pwrcal_clk *dfscam_members[] = {
-	REPRESENT_RATE,
-	CLK(TOP_MUX_ACLK_CAM0_TREX_528),
-	CLK(TOP_MUX_ACLK_CAM0_CSIS0_414),
-	CLK(TOP_MUX_ACLK_CAM0_CSIS1_168),
-	CLK(TOP_MUX_ACLK_CAM0_CSIS2_234),
-	CLK(TOP_MUX_ACLK_CAM0_3AA0_414),
-	CLK(TOP_MUX_ACLK_CAM0_3AA1_414),
-	CLK(TOP_MUX_ACLK_CAM0_CSIS3_132),
-	CLK(TOP_DIV_ACLK_CAM0_TREX_528),
-	CLK(TOP_DIV_ACLK_CAM0_CSIS0_414),
-	CLK(TOP_DIV_ACLK_CAM0_CSIS1_168),
-	CLK(TOP_DIV_ACLK_CAM0_CSIS2_234),
-	CLK(TOP_DIV_ACLK_CAM0_3AA0_414),
-	CLK(TOP_DIV_ACLK_CAM0_3AA1_414),
-	CLK(TOP_DIV_ACLK_CAM0_CSIS3_132),
-};
-
 static struct dfs_table dfscam_table = {
-	.members = dfscam_members,
-	.rate_table = dfscam_rate_table,
-	.num_of_members = ARRAY_SIZE(dfscam_members),
-	.num_of_lv = 10,
-	.max_freq = 690000,
-	.min_freq = 600000,
 };
 
 struct pwrcal_clk_set dfscam_en_list[] = {
-	{CLK(ISP_PLL),	819000,	0},
+	{CLK(ISP_PLL),	409500,	0},
 	{CLK_NONE,	0,	-1},
 };
 
@@ -697,26 +491,7 @@ struct pwrcal_clk *dfscam_dfsclkgrp[] = {
 	CLK(ISP_PLL),
 };
 
-static struct pwrcal_clk *dfsdisp_members[] = {
-	REPRESENT_RATE,
-	CLK(TOP_MUX_ACLK_DISP0_0_400),
-	CLK(TOP_MUX_ACLK_DISP0_1_400),
-	CLK(TOP_MUX_ACLK_DISP1_0_400),
-	CLK(TOP_MUX_ACLK_DISP1_1_400),
-	CLK(TOP_DIV_ACLK_DISP0_0_400),
-	CLK(TOP_DIV_ACLK_DISP0_1_400),
-	CLK(TOP_DIV_ACLK_DISP1_0_400),
-	CLK(TOP_DIV_ACLK_DISP1_1_400),
-};
-
-
 static struct dfs_table dfsdisp_table = {
-	.members = dfsdisp_members,
-	.rate_table = dfsdisp_rate_table,
-	.num_of_members = ARRAY_SIZE(dfsdisp_members),
-	.num_of_lv = 4,
-	.max_freq = 400000,
-	.min_freq = 168000,
 };
 
 struct pwrcal_clk *dfsdisp_dfsclkgrp[] = {
@@ -846,17 +621,6 @@ static struct vclk_dfs_ops dfslittle_dfsops = {
 	.get_margin_param = common_get_margin_param,
 };
 
-
-static int dfsg3d_set_ema(unsigned int volt)
-{
-	if (volt > 750000)
-		pwrcal_writel(EMA_RF2_UHD_CON, 0x00000005);
-	else
-		pwrcal_writel(EMA_RF2_UHD_CON, 0x0000000E);
-
-	return 0;
-}
-
 static int dfsg3d_dvs(int command)
 {
 	unsigned int timeout = 0;
@@ -905,7 +669,6 @@ static int dfsg3d_asv_voltage_table(unsigned int *table)
 }
 
 static struct vclk_dfs_ops dfsg3d_dfsops = {
-	.set_ema = dfsg3d_set_ema,
 	.dvs = dfsg3d_dvs,
 	.get_rate_table = dfsg3d_get_rate_table,
 	.get_asv_table = dfsg3d_asv_voltage_table,
@@ -985,7 +748,34 @@ int dfsint_get_target_rate(char *member, unsigned long rate)
 		unsigned int mux;
 		unsigned int div;
 	} target_list[] = {
-		{"aclk_bus0_532",	0,	0},
+		{"ACLK_BUS0_528",	TOP_MUX_ACLK_BUS0_528,	TOP_DIV_ACLK_BUS0_528},
+		{"ACLK_BUS1_528",	TOP_MUX_ACLK_BUS1_528,	TOP_DIV_ACLK_BUS1_528},
+		{"ACLK_BUS0_200",	TOP_MUX_ACLK_BUS0_200,	TOP_DIV_ACLK_BUS0_200},
+		{"PCLK_BUS0_132",	TOP_MUX_PCLK_BUS0_132,	TOP_DIV_PCLK_BUS0_132},
+		{"PCLK_BUS1_132",	TOP_MUX_PCLK_BUS1_132,	TOP_DIV_PCLK_BUS1_132},
+		{"ACLK_IMEM_266",	TOP_MUX_ACLK_IMEM_266,	TOP_DIV_ACLK_IMEM_266},
+		{"ACLK_IMEM_200",	TOP_MUX_ACLK_IMEM_200,	TOP_DIV_ACLK_IMEM_200},
+		{"ACLK_IMEM_100",	TOP_MUX_ACLK_IMEM_100,	TOP_DIV_ACLK_IMEM_100},
+		{"ACLK_MFC_600",	TOP_MUX_ACLK_MFC_600,	TOP_DIV_ACLK_MFC_600},
+		{"ACLK_MSCL0_528",	TOP_MUX_ACLK_MSCL0_528,	TOP_DIV_ACLK_MSCL0_528},
+		{"ACLK_MSCL1_528",	TOP_MUX_ACLK_MSCL1_528,	TOP_DIV_ACLK_MSCL1_528},
+		{"ACLK_PERIS_66",	TOP_MUX_ACLK_PERIS_66,	TOP_DIV_ACLK_PERIS_66},
+		{"ACLK_FSYS0_200",	TOP_MUX_ACLK_FSYS0_200,	TOP_DIV_ACLK_FSYS0_200},
+		{"ACLK_FSYS1_200",	TOP_MUX_ACLK_FSYS1_200,	TOP_DIV_ACLK_FSYS1_200},
+		{"ACLK_PERIC0_66",	TOP_MUX_ACLK_PERIC0_66,	TOP_DIV_ACLK_PERIC0_66},
+		{"ACLK_PERIC1_66",	TOP_MUX_ACLK_PERIC1_66,	TOP_DIV_ACLK_PERIC1_66},
+		{"ACLK_ISP0_TREX_528",	TOP_MUX_ACLK_ISP0_TREX_528,	TOP_DIV_ACLK_ISP0_TREX_528},
+		{"ACLK_ISP0_ISP0_528",	TOP_MUX_ACLK_ISP0_ISP0_528,	TOP_DIV_ACLK_ISP0_ISP0_528},
+		{"ACLK_ISP0_TPU_400",	TOP_MUX_ACLK_ISP0_TPU_400,	TOP_DIV_ACLK_ISP0_TPU_400},
+		{"ACLK_ISP1_ISP1_468",	TOP_MUX_ACLK_ISP1_ISP1_468,	TOP_DIV_ACLK_ISP1_ISP1_468},
+		{"ACLK_CAM1_ARM_672",	TOP_MUX_ACLK_CAM1_ARM_672,	TOP_DIV_ACLK_CAM1_ARM_672},
+		{"ACLK_CAM1_TREX_VRA_528",	TOP_MUX_ACLK_CAM1_TREX_VRA_528,	TOP_DIV_ACLK_CAM1_TREX_VRA_528},
+		{"ACLK_CAM1_TREX_B_528",	TOP_MUX_ACLK_CAM1_TREX_B_528,	TOP_DIV_ACLK_CAM1_TREX_B_528},
+		{"ACLK_CAM1_BUS_264",	TOP_MUX_ACLK_CAM1_BUS_264,	TOP_DIV_ACLK_CAM1_BUS_264},
+		{"ACLK_CAM1_PERI_84",	TOP_MUX_ACLK_CAM1_PERI_84,	TOP_DIV_ACLK_CAM1_PERI_84},
+		{"ACLK_CAM1_CSIS2_414",	TOP_MUX_ACLK_CAM1_CSIS2_414,	TOP_DIV_ACLK_CAM1_CSIS2_414},
+		{"ACLK_CAM1_CSIS3_132",	TOP_MUX_ACLK_CAM1_CSIS3_132,	TOP_DIV_ACLK_CAM1_CSIS3_132},
+		{"ACLK_CAM1_SCL_566",	TOP_MUX_ACLK_CAM1_SCL_566,	TOP_DIV_ACLK_CAM1_SCL_566},
 	};
 	int target = -1;
 	unsigned long represent[32];
@@ -1194,3 +984,92 @@ DFS(dvfs_disp) = {
 	.table		= &dfsdisp_table,
 	.dfsops		= &dfsdisp_dfsops,
 };
+
+
+void dfs_set_clk_information(struct pwrcal_vclk_dfs *dfs)
+{
+	int i, j;
+	void *dvfs_block;
+	struct ap_param_dvfs_domain *dvfs_domain;
+	struct dfs_table *dvfs_table;
+
+	dvfs_block = ap_param_get_block("DVFS");
+	if (dvfs_block == NULL)
+		return;
+
+	dvfs_domain = ap_param_dvfs_get_domain(dvfs_block, dfs->vclk.name);
+	if (dvfs_domain == NULL)
+		return;
+
+	dvfs_table = dfs->table;
+	dvfs_table->num_of_lv = dvfs_domain->num_of_level;
+	dvfs_table->num_of_members = dvfs_domain->num_of_clock + 1;
+	dvfs_table->max_freq = dvfs_domain->max_frequency;
+	dvfs_table->min_freq = dvfs_domain->min_frequency;
+
+	dvfs_table->members = kzalloc(sizeof(struct pwrcal_clk *) * (dvfs_domain->num_of_clock + 1), GFP_KERNEL);
+	if (dvfs_table->members == NULL)
+		return;
+
+	dvfs_table->members[0] = REPRESENT_RATE;
+	for (i = 0; i < dvfs_domain->num_of_clock; ++i) {
+		dvfs_table->members[i + 1] = clk_find(dvfs_domain->list_clock[i]);
+		if (dvfs_table->members[i] == NULL)
+			return;
+	}
+
+	dvfs_table->rate_table = kzalloc(sizeof(unsigned int) * (dvfs_domain->num_of_clock + 1) * dvfs_domain->num_of_level, GFP_KERNEL);
+	if (dvfs_table->rate_table == NULL)
+		return;
+
+	for (i = 0; i < dvfs_domain->num_of_level; ++i) {
+
+		dvfs_table->rate_table[i * (dvfs_domain->num_of_clock + 1)] = dvfs_domain->list_level[i].level;
+		for (j = 0; j <= dvfs_domain->num_of_clock; ++j) {
+			dvfs_table->rate_table[i * (dvfs_domain->num_of_clock + 1) + j + 1] =
+				dvfs_domain->list_dvfs_value[i * dvfs_domain->num_of_clock + j];
+		}
+	}
+
+}
+
+void dfs_set_pscdc_information(void)
+{
+	int i;
+	void *gen_block;
+	struct ap_param_gen_param_table *pscdc;
+
+	gen_block = ap_param_get_block("GEN");
+	if (gen_block == NULL)
+		return;
+
+	pscdc = ap_param_gen_param_get_table(gen_block, "PSCDC");
+	if (pscdc == NULL)
+		return;
+
+	rate_table_aclk_ccore_800 = kzalloc(sizeof(struct aclk_ccore_800_table) * (pscdc->num_of_row), GFP_KERNEL);
+	if (rate_table_aclk_ccore_800 == NULL)
+		return;
+
+	for (i = 0; i < pscdc->num_of_row; i++) {
+		rate_table_aclk_ccore_800[i].rate = pscdc->parameter[i * pscdc->num_of_col + 0];
+		rate_table_aclk_ccore_800[i].mux = pscdc->parameter[i * pscdc->num_of_col + 1];
+		rate_table_aclk_ccore_800[i].div = pscdc->parameter[i * pscdc->num_of_col + 2];
+		rate_table_aclk_ccore_800[i].sci_ratio = pscdc->parameter[i * pscdc->num_of_col + 3];
+		rate_table_aclk_ccore_800[i].smc_ratio = pscdc->parameter[i * pscdc->num_of_col + 4];
+	}
+}
+
+void dfs_init(void)
+{
+	dfs_set_clk_information(&vclk_dvfs_big);
+	dfs_set_clk_information(&vclk_dvfs_little);
+	dfs_set_clk_information(&vclk_dvfs_g3d);
+	dfs_set_clk_information(&vclk_dvfs_mif);
+	dfs_set_clk_information(&vclk_dvfs_int);
+	dfs_set_clk_information(&vclk_dvfs_cam);
+	dfs_set_clk_information(&vclk_dvfs_disp);
+
+	dfs_dram_init();
+	dfs_set_pscdc_information();
+}

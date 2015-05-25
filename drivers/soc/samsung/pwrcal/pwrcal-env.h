@@ -20,6 +20,7 @@
 #include <string.h>
 #include <common.h>
 #include <kernel/timer.h>
+#include <compat.h>
 
 #define pr_err(_msg, args...)	\
 	console_printf(0, "\033[1;31;5merror::func=%s, "_msg"\033[0m\n", \
