@@ -1379,6 +1379,8 @@ int s5p_mfc_set_enc_stream_buffer(struct s5p_mfc_ctx *ctx,
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 
+	size = ALIGN(size, 512);
+
 	WRITEL(addr, S5P_FIMV_E_STREAM_BUFFER_ADDR); /* 16B align */
 	WRITEL(size, S5P_FIMV_E_STREAM_BUFFER_SIZE);
 
