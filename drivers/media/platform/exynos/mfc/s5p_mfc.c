@@ -2256,7 +2256,7 @@ static int s5p_mfc_release(struct file *file)
 		kfree(ctx->dec_priv->ref_info);
 		kfree(ctx->dec_priv);
 	} else if (ctx->type == MFCINST_ENCODER) {
-		enc_cleanup_user_shared_handle(ctx);
+		enc_cleanup_user_shared_handle(ctx, &enc->sh_handle_svc);
 		kfree(ctx->enc_priv);
 	}
 

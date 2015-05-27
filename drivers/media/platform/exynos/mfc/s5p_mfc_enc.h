@@ -17,6 +17,7 @@
 
 const struct v4l2_ioctl_ops *get_enc_v4l2_ioctl_ops(void);
 int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx);
-int enc_cleanup_user_shared_handle(struct s5p_mfc_ctx *ctx);
+int enc_cleanup_user_shared_handle(struct s5p_mfc_ctx *ctx,
+				struct mfc_user_shared_handle *handle);
 
 #endif /* __S5P_MFC_ENC_H */

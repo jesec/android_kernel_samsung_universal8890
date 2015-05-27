@@ -563,7 +563,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			== V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_CH) {
 
 			memcpy(&temporal_LC,
-				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
+				enc->sh_handle_svc.virt, sizeof(struct temporal_layer_info));
 
 			if(((temporal_LC.temporal_layer_count & 0x7) < 1) ||
 				((temporal_LC.temporal_layer_count > 3) &&
@@ -769,7 +769,7 @@ static int enc_set_buf_ctrls_val_nal_q(struct s5p_mfc_ctx *ctx,
 		case V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH:
 		case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH:
 			memcpy(&temporal_LC,
-				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
+				enc->sh_handle_svc.virt, sizeof(struct temporal_layer_info));
 
 			if (((temporal_LC.temporal_layer_count & 0x7) < 1) ||
 				((temporal_LC.temporal_layer_count > 3) &&
@@ -2804,54 +2804,54 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	return ret;
 }
 
-static int process_user_shared_handle_enc(struct s5p_mfc_ctx *ctx)
+static int process_user_shared_handle_enc(struct s5p_mfc_ctx *ctx,
+			struct mfc_user_shared_handle *handle)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
-	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	int ret = 0;
 
-	enc->sh_handle.ion_handle =
-		ion_import_dma_buf(dev->mfc_ion_client, enc->sh_handle.fd);
-	if (IS_ERR(enc->sh_handle.ion_handle)) {
+	handle->ion_handle =
+		ion_import_dma_buf(dev->mfc_ion_client, handle->fd);
+	if (IS_ERR(handle->ion_handle)) {
 		mfc_err_ctx("Failed to import fd\n");
-		ret = PTR_ERR(enc->sh_handle.ion_handle);
+		ret = PTR_ERR(handle->ion_handle);
 		goto import_dma_fail;
 	}
 
-	enc->sh_handle.virt =
-		ion_map_kernel(dev->mfc_ion_client, enc->sh_handle.ion_handle);
-	if (enc->sh_handle.virt == NULL) {
+	handle->virt =
+		ion_map_kernel(dev->mfc_ion_client, handle->ion_handle);
+	if (handle->virt == NULL) {
 		mfc_err_ctx("Failed to get kernel virtual address\n");
 		ret = -EINVAL;
 		goto map_kernel_fail;
 	}
 
 	mfc_debug(2, "User Handle: fd = %d, virt = 0x%p\n",
-				enc->sh_handle.fd, enc->sh_handle.virt);
+				handle->fd, handle->virt);
 
 	return 0;
 
 map_kernel_fail:
-	ion_free(dev->mfc_ion_client, enc->sh_handle.ion_handle);
+	ion_free(dev->mfc_ion_client, handle->ion_handle);
 
 import_dma_fail:
 	return ret;
 }
 
 
-int enc_cleanup_user_shared_handle(struct s5p_mfc_ctx *ctx)
+int enc_cleanup_user_shared_handle(struct s5p_mfc_ctx *ctx,
+				struct mfc_user_shared_handle *handle)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
-	struct s5p_mfc_enc *enc = ctx->enc_priv;
 
-	if (enc->sh_handle.fd == -1)
+	if (handle->fd == -1)
 		return 0;
 
-	if (enc->sh_handle.virt)
+	if (handle->virt)
 		ion_unmap_kernel(dev->mfc_ion_client,
-					enc->sh_handle.ion_handle);
+					handle->ion_handle);
 
-	ion_free(dev->mfc_ion_client, enc->sh_handle.ion_handle);
+	ion_free(dev->mfc_ion_client, handle->ion_handle);
 
 	return 0;
 }
@@ -2928,10 +2928,11 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 					V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH) ||
 					(ctx_ctrl->id == \
 					V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_CH)) &&
-					(enc->sh_handle.fd == -1)) {
-						enc->sh_handle.fd = ctrl->value;
-						if (process_user_shared_handle_enc(ctx)) {
-							enc->sh_handle.fd = -1;
+					(enc->sh_handle_svc.fd == -1)) {
+						enc->sh_handle_svc.fd = ctrl->value;
+						if (process_user_shared_handle_enc(ctx,
+									&enc->sh_handle_svc)) {
+							enc->sh_handle_svc.fd = -1;
 							return -EINVAL;
 						}
 				}
@@ -3650,7 +3651,7 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 
 	INIT_LIST_HEAD(&enc->ref_queue);
 	enc->ref_queue_cnt = 0;
-	enc->sh_handle.fd = -1;
+	enc->sh_handle_svc.fd = -1;
 	p->config_qp = 34;
 
 	/* Init videobuf2 queue for OUTPUT */
