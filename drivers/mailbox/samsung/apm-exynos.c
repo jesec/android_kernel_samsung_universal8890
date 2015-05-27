@@ -1,9 +1,9 @@
 /* linux/arch/arm/mach-exynos/apm-exynos.c
  *
- * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (c) 2015 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com/
  *
- * EXYNOS7420 - APM driver
+ * EXYNOS - APM driver
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -330,7 +330,7 @@ static int __init exynos_apm_init(void)
 {
 	return platform_driver_register(&exynos_apm_driver);
 }
-late_initcall(exynos_apm_init);
+fs_initcall(exynos_apm_init);
 
 static void __exit exynos_apm_exit(void)
 {
