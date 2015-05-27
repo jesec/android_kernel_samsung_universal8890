@@ -493,9 +493,9 @@ void sc_hwset_csc_coef(struct sc_dev *sc, enum sc_csc_idx idx,
 			cfg |= SCALER_CFG_CSC_Y_OFFSET_SRC;
 	} else if (idx == CSC_R2Y) {
 		if (csc->csc_range == SC_CSC_WIDE)
-			cfg |= SCALER_CFG_CSC_Y_OFFSET_DST;
-		else
 			cfg &= ~SCALER_CFG_CSC_Y_OFFSET_DST;
+		else
+			cfg |= SCALER_CFG_CSC_Y_OFFSET_DST;
 	}
 	writel(cfg, sc->regs + SCALER_CFG);
 }
