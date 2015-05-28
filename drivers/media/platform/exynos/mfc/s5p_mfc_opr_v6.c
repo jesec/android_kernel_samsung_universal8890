@@ -2037,11 +2037,14 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 
 	if (p_264->num_hier_layer) {
-		reg |= 0x7 << 0x4;
 		reg |= (p_264->hier_qp_type & 0x1) << 0x3;
 		reg |= p_264->num_hier_layer & 0x7;
-		if (!p_264->hier_ref_type)
+		if (!p_264->hier_ref_type) {
 			reg |= 0x1 << 7;
+			reg |= (p_264->num_hier_layer & 0x7) << 4;
+		} else {
+			reg |= 0x7 << 4;
+		}
 		WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 		mfc_debug(2, "set NUM_T_LAYER : enable_ltr %d, num_hier_layer: %d, hier_ref_type : %d, NUM_T_LAYER: 0x%x\n",
 				p_264->enable_ltr, p_264->num_hier_layer, p_264->hier_ref_type, reg);
