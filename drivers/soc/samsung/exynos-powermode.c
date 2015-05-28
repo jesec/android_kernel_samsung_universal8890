@@ -524,6 +524,22 @@ int determine_lpm(void)
 	return SYS_ALPA;
 }
 
+void exynos_prepare_cp_call(void)
+{
+	exynos_set_idle_ip_mask(SYS_SLEEP);
+	exynos_set_wakeupmask(SYS_SLEEP);
+
+	cal_pm_enter(SYS_ALPA);
+}
+
+void exynos_wakeup_cp_call(bool early_wakeup)
+{
+	if (early_wakeup)
+		cal_pm_earlywakeup(SYS_ALPA);
+	else
+		cal_pm_exit(SYS_ALPA);
+}
+
 /******************************************************************************
  *                              Driver initialized                            *
  ******************************************************************************/

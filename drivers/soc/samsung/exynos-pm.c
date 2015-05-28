@@ -21,6 +21,8 @@
 #include <soc/samsung/exynos-pmu.h>
 #include <soc/samsung/exynos-powermode.h>
 
+#include <sound/exynos.h>
+
 #define EXYNOS8890_PA_GPIO_ALIVE	0x10580000
 #define WAKEUP_STAT_EINT                (1 << 0)
 #define WAKEUP_STAT_RTC_ALARM           (1 << 1)
@@ -176,17 +178,30 @@ EXPORT_SYMBOL_GPL(exynos_pm_lpa_exit);
 static int exynos_pm_enter(suspend_state_t state)
 {
 	int ret = 0;
+	int cp_call, index;
 
-	exynos_prepare_sys_powerdown(SYS_SLEEP);
+	cp_call = is_cp_aud_enabled();
+	if (cp_call) {
+		index = PSCI_SYSTEM_CP_CALL;
+		exynos_prepare_cp_call();
+		pr_info("%s: Enter ALPA mode for voice call\n",__func__);
+	} else {
+		index = PSCI_SYSTEM_SLEEP;
+		exynos_prepare_sys_powerdown(SYS_SLEEP);
+		pr_info("%s: Enter sleep mode\n",__func__);
+	}
 
 	/* This will also act as our return point when
 	 * we resume as it saves its own register state and restores it
 	 * during the resume. */
-	ret = cpu_suspend(PSCI_SYSTEM_SLEEP);
+	ret = cpu_suspend(index);
 	if (ret)
 		pr_info("%s: return to originator\n", __func__);
 
-	exynos_wakeup_sys_powerdown(SYS_SLEEP, (bool)ret);
+	if (cp_call)
+		exynos_wakeup_cp_call(ret);
+	else
+		exynos_wakeup_sys_powerdown(SYS_SLEEP, (bool)ret);
 
 	exynos_show_wakeup_reason((bool)ret);
 

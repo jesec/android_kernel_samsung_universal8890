@@ -540,6 +540,9 @@ static int psci_suspend_customized_finisher(unsigned long index)
 	case PSCI_SYSTEM_SLEEP:
 		state.affinity_level = 3;
 		break;
+	case PSCI_SYSTEM_CP_CALL:
+		state.affinity_level = 1;
+		break;
 	default:
 		panic("Unsupported psci state, index = %ld\n", index);
 		break;
