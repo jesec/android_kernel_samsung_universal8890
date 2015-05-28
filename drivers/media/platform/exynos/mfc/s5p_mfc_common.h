@@ -172,6 +172,7 @@
 
 #define FW_SUPPORT_SKYPE(dev)		IS_MFCv10X(dev) &&		\
 					(dev->fw.date >= 0x150901)
+#define FW_HAS_ROI_CONTROL(dev)		IS_MFCv10X(dev)
 
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
 
@@ -210,6 +211,7 @@
 #define	ENC_SET_SPARE_SIZE		(1 << 1)
 #define	ENC_SET_TEMP_SVC_CH		(1 << 2)
 #define	ENC_SET_SKYPE_FLAG		(1 << 3)
+#define	ENC_SET_ROI_CONTROL		(1 << 4)
 
 #define MFC_QOS_FLAG_NODATA		0xFFFFFFFF
 

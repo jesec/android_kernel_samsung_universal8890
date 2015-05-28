@@ -1918,6 +1918,24 @@ static struct v4l2_queryctrl controls[] = {
 		.step = 1,
 		.default_value = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_ROI_CONTROL,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Region-Of-Interest control",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_ROI_ENABLE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Region-Of-Interest enable",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 1,
+		.default_value = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)
@@ -2296,6 +2314,18 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.addr = S5P_FIMV_E_FIXED_PICTURE_QP,
 		.mask = 0x000000FF,
 		.shft = 24,
+		.flag_mode = MFC_CTRL_MODE_NONE,
+		.flag_addr = 0,
+		.flag_shft = 0,
+	},
+	{	/* Region-Of-Interest control */
+		.type = MFC_CTRL_TYPE_SET,
+		.id = V4L2_CID_MPEG_VIDEO_ROI_CONTROL,
+		.is_volatile = 1,
+		.mode = MFC_CTRL_MODE_SFR,
+		.addr = S5P_FIMV_E_RC_ROI_CTRL,
+		.mask = 0xFFFFFFFF,
+		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
 		.flag_addr = 0,
 		.flag_shft = 0,

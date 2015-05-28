@@ -401,4 +401,10 @@ enum v4l2_mpeg_video_hevc_hierarchical_coding_type {
 #define V4L2_CID_MPEG_VIDEO_DISABLE_IVF_HEADER			\
 					(V4L2_CID_MPEG_MFC_BASE + 181)
 
+/* CIDs for new common interface */
+#define V4L2_CID_MPEG_VIDEO_ROI_CONTROL				\
+					(V4L2_CID_MPEG_MFC_BASE + 190)
+#define V4L2_CID_MPEG_VIDEO_ROI_ENABLE				\
+					(V4L2_CID_MPEG_MFC_BASE + 191)
+
 #endif /* __EXYNOS_MFC_MEDIA_H */

@@ -2257,6 +2257,8 @@ static int s5p_mfc_release(struct file *file)
 		kfree(ctx->dec_priv);
 	} else if (ctx->type == MFCINST_ENCODER) {
 		enc_cleanup_user_shared_handle(ctx, &enc->sh_handle_svc);
+		enc_cleanup_user_shared_handle(ctx, &enc->sh_handle_roi);
+		s5p_mfc_release_enc_roi_buffer(ctx);
 		kfree(ctx->enc_priv);
 	}
 
@@ -2931,6 +2933,7 @@ struct s5p_mfc_buf_size_v6 mfc_buf_size_v6 = {
 	.h264_enc_ctx	= PAGE_ALIGN(0x19000),	/* 100KB */
 	.hevc_enc_ctx	= PAGE_ALIGN(0x7800),	/*  30KB */
 	.other_enc_ctx	= PAGE_ALIGN(0x3C00),	/*  15KB */
+	.shared_buf	= PAGE_ALIGN(0x2000),	/*   8KB */
 };
 
 struct s5p_mfc_buf_size buf_size_v5 = {

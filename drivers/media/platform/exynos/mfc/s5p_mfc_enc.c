@@ -100,6 +100,11 @@ static int check_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		mfc_err_ctx("Not support feature(0x%x) for F/W\n", ctrl->id);
 		return -ERANGE;
 	}
+	if (!FW_HAS_ROI_CONTROL(dev) && ctrl->id == \
+			V4L2_CID_MPEG_VIDEO_ROI_CONTROL) {
+		mfc_err_ctx("Not support feature(0x%x) for F/W\n", ctrl->id);
+		return -ERANGE;
+	}
 
 	return 0;
 }
@@ -445,6 +450,9 @@ static int enc_to_buf_ctrls(struct s5p_mfc_ctx *ctx, struct list_head *head)
 {
 	struct s5p_mfc_ctx_ctrl *ctx_ctrl;
 	struct s5p_mfc_buf_ctrl *buf_ctrl;
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	int index = 0;
+	unsigned int reg = 0;
 
 	list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 		if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET) || !ctx_ctrl->has_new)
@@ -461,6 +469,20 @@ static int enc_to_buf_ctrls(struct s5p_mfc_ctx *ctx, struct list_head *head)
 					buf_ctrl->updated = 0;
 
 				ctx_ctrl->has_new = 0;
+				if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_ROI_CONTROL) {
+					index = enc->roi_index;
+					if (enc->roi_info[index].enable) {
+						enc->roi_index =
+							(index + 1) % MFC_MAX_EXTRA_BUF;
+						reg |= enc->roi_info[index].enable;
+						reg &= ~(0xFF << 8);
+						reg |= (enc->roi_info[index].lower_qp << 8);
+						reg &= ~(0xFFFF << 16);
+						reg |= (enc->roi_info[index].upper_qp << 16);
+					}
+					buf_ctrl->val = reg;
+					buf_ctrl->old_val2 = index;
+				}
 				break;
 			}
 		}
@@ -653,6 +675,12 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		/* per buffer QP setting change */
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_CONFIG_QP)
 			p->config_qp = buf_ctrl->val;
+
+		/* set the ROI buffer DVA */
+		if ((buf_ctrl->id == V4L2_CID_MPEG_VIDEO_ROI_CONTROL) &&
+				FW_HAS_ROI_CONTROL(dev))
+			MFC_WRITEL(enc->roi_buf[buf_ctrl->old_val2].ofs,
+						S5P_FIMV_E_ROI_BUFFER_ADDR);
 
 invalid_layer_count:
 		mfc_debug(8, "Set buffer control "\
@@ -1660,6 +1688,13 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 					ctx->num);
 			return -ENOMEM;
 		}
+		if (FW_HAS_ROI_CONTROL(dev)) {
+			ret = s5p_mfc_alloc_enc_roi_buffer(ctx);
+			if (ret) {
+				mfc_err_ctx("Failed to allocate ROI buffers.\n");
+				return -ENOMEM;
+			}
+		}
 
 		spin_lock_irq(&dev->condlock);
 		set_bit(ctx->num, &dev->ctx_work_bits);
@@ -2054,6 +2089,9 @@ static int enc_ext_info(struct s5p_mfc_ctx *ctx)
 
 	if (FW_SUPPORT_SKYPE(dev))
 		val |= ENC_SET_SKYPE_FLAG;
+
+	if (FW_HAS_ROI_CONTROL(dev))
+		val |= ENC_SET_ROI_CONTROL;
 
 	return val;
 }
@@ -2784,6 +2822,9 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_STORE_REF:
 		p->codec.hevc.store_ref = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_ROI_ENABLE:
+		p->codec.hevc.roi_enable = ctrl->value;
+		break;
 	case V4L2_CID_MPEG_MFC_H264_VUI_RESTRICTION_ENABLE:
 		p->codec.h264.vui_enable = ctrl->value;
 		break;
@@ -2866,6 +2907,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	struct s5p_mfc_ctx_ctrl *ctx_ctrl;
 	int ret = 0;
 	int found = 0;
+	int index = 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_CACHEABLE:
@@ -2909,6 +2951,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_H264_USE_LTR:
 	case V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY:
 	case V4L2_CID_MPEG_MFC_CONFIG_QP:
+	case V4L2_CID_MPEG_VIDEO_ROI_CONTROL:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))
 				continue;
@@ -2940,6 +2983,24 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 					ctx_ctrl->val = h264_level((enum v4l2_mpeg_video_h264_level)(ctrl->value));
 				if (ctx_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_PROFILE)
 					ctx_ctrl->val = h264_profile(ctx, (enum v4l2_mpeg_video_h264_profile)(ctrl->value));
+				if (ctx_ctrl->id == \
+					V4L2_CID_MPEG_VIDEO_ROI_CONTROL) {
+					enc->sh_handle_roi.fd = ctrl->value;
+					if (process_user_shared_handle_enc(ctx,
+								&enc->sh_handle_roi)) {
+						enc->sh_handle_roi.fd = -1;
+						return -EINVAL;
+					}
+					index = enc->roi_index;
+					memcpy(&enc->roi_info[index],
+							enc->sh_handle_roi.virt,
+							sizeof(struct mfc_enc_roi_info));
+					if (copy_from_user(enc->roi_buf[index].virt,
+							enc->roi_info[index].addr,
+							enc->roi_info[index].size))
+						return -EFAULT;
+				}
+
 				found = 1;
 				break;
 			}
@@ -3652,6 +3713,7 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	INIT_LIST_HEAD(&enc->ref_queue);
 	enc->ref_queue_cnt = 0;
 	enc->sh_handle_svc.fd = -1;
+	enc->sh_handle_roi.fd = -1;
 	p->config_qp = 34;
 
 	/* Init videobuf2 queue for OUTPUT */

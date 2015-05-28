@@ -1170,7 +1170,14 @@ int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 		reg |= p_hevc->rc_frame_qp;
 		MFC_WRITEL(reg, S5P_FIMV_E_FIXED_PICTURE_QP);
 	}
-		mfc_debug_leave();
+
+	/* ROI enable: it must set on SEQ_START only for HEVC encoder */
+	reg = MFC_READL(S5P_FIMV_E_RC_ROI_CTRL);
+	reg &= ~(0x1);
+	reg |= (p_hevc->roi_enable);
+	MFC_WRITEL(reg, S5P_FIMV_E_RC_ROI_CTRL);
+
+	mfc_debug_leave();
 
 	return 0;
 }

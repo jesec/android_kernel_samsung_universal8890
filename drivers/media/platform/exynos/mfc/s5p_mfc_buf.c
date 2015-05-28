@@ -651,6 +651,71 @@ void s5p_mfc_release_dev_context_buffer(struct s5p_mfc_dev *dev)
 #endif
 }
 
+/* Allocation buffer of ROI macroblock information */
+int mfc_alloc_enc_roi_buffer(struct s5p_mfc_ctx *ctx, struct s5p_mfc_extra_buf *roi_buf)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_buf_size_v6 *buf_size = dev->variant->buf_size->buf;
+	void *alloc_ctx;
+
+	alloc_ctx = dev->alloc_ctx;
+	roi_buf->alloc = s5p_mfc_mem_alloc_priv(alloc_ctx,
+			buf_size->shared_buf);
+	if (IS_ERR(roi_buf->alloc)) {
+		mfc_err("failed to allocate shared memory\n");
+		return PTR_ERR(roi_buf->alloc);
+	}
+
+	roi_buf->ofs = s5p_mfc_mem_daddr_priv(roi_buf->alloc);
+	roi_buf->virt = s5p_mfc_mem_vaddr_priv(roi_buf->alloc);
+	if (!roi_buf->virt) {
+		s5p_mfc_mem_free_priv(roi_buf->alloc);
+		roi_buf->ofs = 0;
+		roi_buf->alloc = NULL;
+
+		mfc_err("failed to virt addr of shared memory\n");
+		return -ENOMEM;
+	}
+
+	memset((void *)roi_buf->virt, 0, buf_size->shared_buf);
+	s5p_mfc_mem_clean_priv(roi_buf->alloc, roi_buf->virt, 0,
+			buf_size->shared_buf);
+
+	return 0;
+}
+
+/* Wrapper : allocation ROI buffers */
+int s5p_mfc_alloc_enc_roi_buffer(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	int i;
+
+	for (i = 0; i < MFC_MAX_EXTRA_BUF; i++) {
+		if (mfc_alloc_enc_roi_buffer(ctx, &enc->roi_buf[i]) < 0) {
+			mfc_err("Remapping shared mem buffer failed.\n");
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
+/* Release buffer of ROI macroblock information */
+void s5p_mfc_release_enc_roi_buffer(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	int i;
+
+	for (i = 0; i < MFC_MAX_EXTRA_BUF; i++) {
+		if (enc->roi_buf[i].alloc) {
+			s5p_mfc_mem_free_priv(enc->roi_buf[i].alloc);
+			enc->roi_buf[i].alloc = NULL;
+			enc->roi_buf[i].ofs = 0;
+			enc->roi_buf[i].virt = NULL;
+		}
+	}
+}
+
 static int calc_plane(int width, int height, int is_tiled)
 {
 	int mbX, mbY;

@@ -38,6 +38,7 @@
 #define MFC_MAX_PLANES		3
 #define MFC_MAX_DPBS		32
 #define MFC_MAX_BUFFERS		32
+#define MFC_MAX_EXTRA_BUF	10
 #define MFC_TIME_INDEX		8
 
 /* Maximum number of temporal layers */
@@ -205,6 +206,7 @@ struct s5p_mfc_buf_size_v6 {
 	unsigned int h264_enc_ctx;
 	unsigned int hevc_enc_ctx;
 	unsigned int other_enc_ctx;
+	unsigned int shared_buf;
 };
 
 struct s5p_mfc_buf_size {
@@ -518,6 +520,7 @@ struct s5p_mfc_hevc_enc_params {
 	u8 user_ref;
 	u8 store_ref;
 	u8 prepend_sps_pps_to_idr;
+	u8 roi_enable;
 };
 
 /**
@@ -683,6 +686,14 @@ struct temporal_layer_info {
 	unsigned int temporal_layer_bitrate[VIDEO_MAX_TEMPORAL_LAYERS];
 };
 
+struct mfc_enc_roi_info {
+	char *addr;
+	int size;
+	int upper_qp;
+	int lower_qp;
+	bool enable;
+};
+
 struct mfc_user_shared_handle {
 	int fd;
 	struct ion_handle *ion_handle;
@@ -797,6 +808,10 @@ struct s5p_mfc_enc {
 
 	int stored_tag;
 	struct mfc_user_shared_handle sh_handle_svc;
+	struct mfc_user_shared_handle sh_handle_roi;
+	int roi_index;
+	struct s5p_mfc_extra_buf roi_buf[MFC_MAX_EXTRA_BUF];
+	struct mfc_enc_roi_info roi_info[MFC_MAX_EXTRA_BUF];
 };
 
 struct s5p_mfc_fmt {
