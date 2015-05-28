@@ -2710,8 +2710,17 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG)
 			enc->stored_tag = buf_ctrl->val;
 
-		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER)
-			p->codec.h264.num_hier_layer = buf_ctrl->val;
+		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
+			p->codec.h264.num_hier_layer = buf_ctrl->val & 0x7;
+			p->codec.h264.hier_ref_type = (buf_ctrl->val >> 16) & 0x1;
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
+			buf_ctrl->old_val2 = (value >> 7) & 1;
+			if (p->codec.h264.hier_ref_type)
+				value &= ~(1 << 7);
+			else
+				value |= 1 << 7;
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
+		}
 
 		if (buf_ctrl->id
 			== V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH ||
@@ -2737,8 +2746,10 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				goto invalid_layer_count;
 			}
 
-			if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH)
-				p->codec.h264.num_hier_layer = temporal_LC.temporal_layer_count;
+			if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH) {
+				p->codec.h264.num_hier_layer = temporal_LC.temporal_layer_count & 0x7;
+				p->codec.h264.hier_ref_type = (temporal_LC.temporal_layer_count >> 16) & 0x1;
+			}
 
 			/* enable RC_BIT_RATE_CHANGE */
 			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
@@ -2749,8 +2760,16 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
 
 			mfc_debug(2, "temporal layer count : %d\n", temporal_LC.temporal_layer_count);
-			s5p_mfc_write_reg(dev,
-				temporal_LC.temporal_layer_count, S5P_FIMV_E_NUM_T_LAYER);
+
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
+			buf_ctrl->old_val2 = value;
+
+			value = (temporal_LC.temporal_layer_count & 0x7);
+			if (p->codec.h264.hier_ref_type)
+				value &= ~(1 << 7);
+			else
+				value |=  (1 << 7);
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
 			for(i = 0; i < temporal_LC.temporal_layer_count; i++) {
 				mfc_debug(2, "temporal layer bitrate[%d] : %d\n",
 					i, temporal_LC.temporal_layer_bitrate[i]);
@@ -2913,6 +2932,14 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY) {
 			s5p_mfc_write_reg(dev, buf_ctrl->old_val, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
 			s5p_mfc_write_reg(dev, buf_ctrl->old_val2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
+		}
+		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH)
+			s5p_mfc_write_reg(dev, buf_ctrl->old_val2, S5P_FIMV_E_NUM_T_LAYER);
+		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
+			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
+			value &= ~(0x1 << 7);
+			value |= (buf_ctrl->old_val2 << 7);
+			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
 		}
 	}
 
@@ -4168,7 +4195,8 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		(enum v4l2_mpeg_video_h264_hierarchical_coding_type)(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER:
-		p->codec.h264.num_hier_layer = ctrl->value;
+		p->codec.h264.num_hier_layer = ctrl->value & 0x7;
+		p->codec.h264.hier_ref_type = (ctrl->value >> 16) & 0x1;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP:
 		p->codec.h264.hier_qp_layer[(ctrl->value >> 16) & 0x7]

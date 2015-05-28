@@ -453,6 +453,7 @@ struct s5p_mfc_h264_enc_params {
 	u8 hier_qp_enable;
 	enum v4l2_mpeg_video_h264_hierarchical_coding_type hier_qp_type;
 	u8 num_hier_layer;
+	u8 hier_ref_type;
 	u8 hier_qp_layer[7];
 	u32 hier_bit_layer[7];
 	u8 sei_gen_enable;

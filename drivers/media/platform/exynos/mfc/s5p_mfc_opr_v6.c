@@ -2017,6 +2017,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		reg &= ~(0x3 << 0);
 		reg |= (0x0 << 0); /* TODO: add new CID for this */
 		WRITEL(reg, S5P_FIMV_E_H264_OPTIONS_2);
+		mfc_debug(2, "enable_ltr : %d\n", p_264->enable_ltr);
 	}
 
 #if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
@@ -2030,6 +2031,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	reg &= ~(0x1 << 8);
 	reg |= ((p_264->hier_qp_enable & 0x1) << 8);
 	WRITEL(reg, S5P_FIMV_E_H264_OPTIONS);
+	mfc_debug(2, "hier_qp_enable : %d, num_hier_layer : %d\n", p_264->hier_qp_enable, p_264->num_hier_layer);
 	reg = 0;
 	/* number of coding layer should be zero when hierarchical is disable */
 	WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
@@ -2038,7 +2040,11 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		reg |= 0x7 << 0x4;
 		reg |= (p_264->hier_qp_type & 0x1) << 0x3;
 		reg |= p_264->num_hier_layer & 0x7;
+		if (!p_264->hier_ref_type)
+			reg |= 0x1 << 7;
 		WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
+		mfc_debug(2, "set NUM_T_LAYER : enable_ltr %d, num_hier_layer: %d, hier_ref_type : %d, NUM_T_LAYER: 0x%x\n",
+				p_264->enable_ltr, p_264->num_hier_layer, p_264->hier_ref_type, reg);
 		/* QP value for each layer */
 		if (p_264->hier_qp_enable) {
 			for (i = 0; i < (p_264->num_hier_layer & 0x7); i++)
