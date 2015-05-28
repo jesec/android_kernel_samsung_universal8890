@@ -997,7 +997,7 @@ static long dsim_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		ret = dsim_partial_area_command(dsim, arg);
 		break;
 	case DSIM_IOC_SET_PORCH:
-		dsim_reg_set_porch(dsim->id, (struct decon_lcd *)v4l2_get_subdev_hostdata(sd));
+		dsim_reg_set_partial_update(dsim->id, (struct decon_lcd *)v4l2_get_subdev_hostdata(sd));
 		break;
 #endif
 	case DSIM_IOC_DUMP:

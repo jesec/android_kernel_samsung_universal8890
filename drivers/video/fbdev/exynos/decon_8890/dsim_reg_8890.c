@@ -411,6 +411,18 @@ void dsim_reg_set_porch(u32 id, struct decon_lcd *lcd)
 	}
 }
 
+/* Set porch and resolution to support Partial update */
+void dsim_reg_set_partial_update(u32 id, struct decon_lcd *lcd_info)
+{
+	dsim_reg_set_standby(id, 0);
+
+	dsim_reg_set_vresol(id, lcd_info->yres);
+	dsim_reg_set_hresol(id, lcd_info->xres, lcd_info);
+	dsim_reg_set_porch(id, lcd_info);
+
+	dsim_reg_set_standby(id, 1);
+}
+
 void dsim_reg_set_pixel_format(u32 id, u32 pixformat)
 {
 	u32 val = DSIM_CONFIG_PIXEL_FORMAT(pixformat);

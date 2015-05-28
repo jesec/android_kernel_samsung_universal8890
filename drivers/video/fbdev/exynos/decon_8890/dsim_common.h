@@ -165,5 +165,6 @@ int dsim_reg_exit_ulps_and_start(u32 id, u32 ddi_type,
 int dsim_reg_stop_and_enter_ulps(u32 id, u32 ddi_type, u32 lanes);
 void dsim_reg_start(u32 id, struct dsim_clks *clks, u32 lanes);
 void dsim_reg_stop(u32 id, u32 lanes);
+void dsim_reg_set_partial_update(u32 id, struct decon_lcd *lcd_info);
 
 #endif /* _DSIM_COMMON_H_ */
