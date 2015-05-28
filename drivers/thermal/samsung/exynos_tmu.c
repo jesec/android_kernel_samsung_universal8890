@@ -37,6 +37,10 @@
 #include <soc/samsung/exynos-pm.h>
 #include <soc/samsung/cpufreq.h>
 
+#if defined(CONFIG_AP_PARAM)
+#include <soc/samsung/ap_param_parser.h>
+#endif
+
 #include "exynos_thermal_common.h"
 #include "exynos_tmu.h"
 #include "exynos_tmu_data.h"
@@ -878,6 +882,49 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 	return 0;
 }
 
+#if defined(CONFIG_AP_PARAM)
+static int exynos_tmu_ap_param_set_information(struct platform_device *pdev)
+{
+	int i;
+	void *thermal_block;
+	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
+	struct exynos_tmu_platform_data *pdata = data->pdata;
+	struct ap_param_ap_thermal_function *function;
+
+	if (pdata->tmu_name == NULL)
+		return 0;
+
+	thermal_block = ap_param_get_block(BLOCK_AP_THERMAL);
+	if (thermal_block == NULL) {
+		dev_err(&pdev->dev, "Failed to get thermal block");
+		return 0;
+	}
+
+	function = ap_param_ap_thermal_get_function(thermal_block, pdata->tmu_name);
+	if (function == NULL) {
+		dev_err(&pdev->dev, "Failed to get thermal block %s", pdata->tmu_name);
+		return 0;
+	}
+
+	/* setting trigger */
+	for (i = 0; i < function->num_of_range; ++i) {
+		pdata->trigger_levels[i] = function->range_list[i].lower_bound_temperature;
+		pdata->trigger_enable[i] = true;
+
+		if (function->range_list[i].sw_trip)
+			pdata->trigger_type[i] = SW_TRIP;
+		else
+			pdata->trigger_type[i] = (i == function->num_of_range - 1 ? HW_TRIP : THROTTLE_ACTIVE);
+
+		pdata->freq_tab[i].temp_level = function->range_list[i].lower_bound_temperature;
+		pdata->freq_tab[i].freq_clip_max = function->range_list[i].max_frequency;
+	}
+	pdata->freq_tab_count = function->num_of_range;
+
+	return 0;
+}
+#endif
+
 static int exynos_tmu_probe(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data;
@@ -920,6 +967,14 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Platform not supported\n");
 		goto err;
 	}
+
+#if defined(CONFIG_AP_PARAM)
+	ret = exynos_tmu_ap_param_set_information(pdev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to ap_param\n");
+		goto err;
+	}
+#endif
 
 	ret = exynos_tmu_initialize(pdev);
 	if (ret) {

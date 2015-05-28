@@ -264,6 +264,7 @@ struct exynos_tmu_registers {
  * This structure is required for configuration of exynos_tmu driver.
  */
 struct exynos_tmu_platform_data {
+	char *tmu_name;
 	u32 temp_bit;
 	u32 temp_mask;
 	u8 threshold;
