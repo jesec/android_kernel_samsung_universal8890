@@ -453,7 +453,6 @@ int dsim_read_data(struct dsim_device *dsim, u32 data_id,
 	switch (rx_fifo & 0xff) {
 	case MIPI_DSI_RX_ACKNOWLEDGE_AND_ERROR_REPORT:
 		dsim_rx_err_handler(dsim, rx_fifo);
-		goto rx_error;
 	case MIPI_DSI_RX_END_OF_TRANSMISSION:
 		dev_dbg(dsim->dev, "EoTp was received from LCD module.\n");
 		break;
