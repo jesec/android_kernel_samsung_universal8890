@@ -2576,6 +2576,10 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 		return NULL;
 	}
 
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	set_tsk_thread_flag(current, TIF_MEMALLOC);
+#endif
+
 	/*
 	 * GFP_THISNODE (meaning __GFP_THISNODE, __GFP_NORETRY and
 	 * __GFP_NOWARN set) should not cause reclaim since the subsystem
@@ -2783,9 +2787,15 @@ rebalance:
 	}
 
 nopage:
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	clear_tsk_thread_flag(current, TIF_MEMALLOC);
+#endif
 	warn_alloc_failed(gfp_mask, order, NULL);
 	return page;
 got_pg:
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	clear_tsk_thread_flag(current, TIF_MEMALLOC);
+#endif
 	if (kmemcheck_enabled)
 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
 

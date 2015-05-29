@@ -68,6 +68,22 @@ static unsigned long lowmem_deathpending_timeout;
 			pr_info(x);			\
 	} while (0)
 
+static int test_task_flag(struct task_struct *p, int flag)
+{
+	struct task_struct *t = p;
+
+	do {
+		task_lock(t);
+		if (test_tsk_thread_flag(t, flag)) {
+			task_unlock(t);
+			return 1;
+		}
+		task_unlock(t);
+	} while_each_thread(p, t);
+
+	return 0;
+}
+
 static unsigned long lowmem_count(struct shrinker *s,
 				  struct shrink_control *sc)
 {
@@ -126,6 +142,10 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		if (tsk->flags & PF_KTHREAD)
 			continue;
 
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+		if (test_task_flag(tsk, TIF_MEMALLOC))
+			continue;
+#endif
 		p = find_lock_task_mm(tsk);
 		if (!p)
 			continue;
@@ -144,6 +164,8 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		tasksize = get_mm_rss(p->mm);
 		task_unlock(p);
 		if (tasksize <= 0)
+			continue;
+		if (same_thread_group(p, current))
 			continue;
 		if (selected) {
 			if (oom_score_adj < selected_oom_score_adj)
