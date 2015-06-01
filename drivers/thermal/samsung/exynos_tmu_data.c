@@ -819,7 +819,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 		.temp_level = 81, \
 	}, \
 	.freq_tab[2] = { \
-		.freq_clip_max = 416 * 1000, \
+		.freq_clip_max = 728 * 1000, \
 		.temp_level = 86, \
 	}, \
 	.freq_tab_count = 3, \
@@ -884,7 +884,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 		.temp_level = 91, \
 	}, \
 	.freq_tab[3] = { \
-		.freq_clip_max = 338 * 1000, \
+		.freq_clip_max = 442 * 1000, \
 		.temp_level = 96, \
 	}, \
 	.freq_tab_count = 4, \
