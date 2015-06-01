@@ -1168,6 +1168,12 @@ static int dsim_parse_lcd_info(struct dsim_device *dsim)
 	dsim->clks_param.clks.hs_clk = dsim->lcd_info.hs_clk;
 	dsim_dbg("requested hs clock(%d)\n", dsim->lcd_info.hs_clk);
 
+	of_property_read_u32_array(node, "timing,pms", res, 3);
+	dsim->lcd_info.dphy_pms.p = res[0];
+	dsim->lcd_info.dphy_pms.m = res[1];
+	dsim->lcd_info.dphy_pms.s = res[2];
+	dsim_dbg("p(%d), m(%d), s(%d)\n", res[0], res[1], res[2]);
+
 	of_property_read_u32(node, "timing,dsi-escape-clk", &dsim->lcd_info.esc_clk);
 	dsim->clks_param.clks.esc_clk = dsim->lcd_info.esc_clk;
 	dsim_dbg("requested escape clock(%d)\n", dsim->lcd_info.esc_clk);

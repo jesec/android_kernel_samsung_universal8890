@@ -34,6 +34,12 @@ enum type_of_ddi {
 	TYPE_OF_NORMAL_DDI,
 };
 
+struct stdphy_pms {
+	unsigned int p;
+	unsigned int m;
+	unsigned int s;
+};
+
 struct decon_lcd {
 	enum decon_psr_mode mode;
 	unsigned int vfp;
@@ -51,6 +57,7 @@ struct decon_lcd {
 	unsigned int height;
 
 	unsigned int hs_clk;
+	struct stdphy_pms dphy_pms;
 	unsigned int esc_clk;
 
 	unsigned int fps;
