@@ -804,6 +804,8 @@ static int dsim_enable(struct dsim_device *dsim)
 	dsim_d_phy_onoff(dsim, 1);
 	dsim_reset_panel(dsim);
 
+	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
+	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
 	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
 			&dsim->clks_param.clks);
 
@@ -922,11 +924,13 @@ static int dsim_exit_ulps(struct dsim_device *dsim)
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
 
+	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
+	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
 	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
 			&dsim->clks_param.clks);
 
 	ret = dsim_reg_exit_ulps_and_start(dsim->id, dsim->lcd_info.ddi_type,
-			&dsim->clks_param.clks, DSIM_LANE_CLOCK | dsim->data_lane);
+			DSIM_LANE_CLOCK | dsim->data_lane);
 	if (ret < 0)
 		dsim_dump(dsim);
 
@@ -1321,6 +1325,8 @@ static int dsim_probe(struct platform_device *pdev)
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
 
+	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
+	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
 	if (dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
 			&dsim->clks_param.clks) < 0)
 			goto dsim_init_done;

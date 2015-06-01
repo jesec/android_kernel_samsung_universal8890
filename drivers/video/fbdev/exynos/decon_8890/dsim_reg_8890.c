@@ -942,58 +942,6 @@ void dsim_reg_set_standby(u32 id, u32 en)
 	dsim_write_mask(id, DSIM_SFR_CTRL, val, DSIM_SFR_CTRL_STANDBY);
 }
 
-/*
- * input parameter
- *	- pll_freq : requested pll frequency
- *
- * output parameters
- *	- p, m, s : calculated p, m, s values
- *	- pll_freq : adjusted pll frequency
- */
-static int dsim_reg_calculate_pms(struct dsim_pll_param *pll)
-{
-	u32 p_div, m_div, s_div;
-	u32 target_freq, fin_pll, voc_out, fout_cal;
-	u32 fin = 26;
-
-	dsim_dbg("requested HS clock is %u\n", pll->pll_freq);
-	target_freq = pll->pll_freq;
-
-	for (p_div = 1; p_div <= 63; p_div++) {
-		for (m_div = 64; m_div <= 1023; m_div++) {
-			for (s_div = 0; s_div <= 5; s_div++) {
-				fin_pll = fin / p_div;
-				voc_out = (m_div * fin) / p_div;
-				fout_cal = (m_div * fin) / (p_div * (1 << s_div));
-
-				if ((fin_pll < 2) || (fin_pll > 6))
-					continue;
-				if ((voc_out < 600) || (voc_out > 1200))
-					continue;
-				if ((fout_cal < 80) || (fout_cal > 1200))
-					continue;
-				if (fout_cal < target_freq)
-					continue;
-				if ((target_freq <= fout_cal) && (fout_cal <= 1500))
-					goto calculation_success;
-			}
-		}
-	}
-
-	dsim_err("failed to calculate PMS values for DPHY\n");
-	return -EINVAL;
-
-calculation_success:
-	pll->p = p_div;
-	pll->m = m_div;
-	pll->s = s_div;
-	pll->pll_freq = fout_cal;
-	dsim_dbg("calculated HS clock is %u Mhz. p(%u), m(%u), s(%u)\n",
-			pll->pll_freq, pll->p, pll->m, pll->s);
-
-	return 0;
-}
-
 static int dsim_reg_get_dphy_timing(u32 hs_clk, u32 esc_clk, struct dphy_timing_value *t)
 {
 	int i = sizeof(dphy_timing) / sizeof(dphy_timing[0]) - 1;
@@ -1046,11 +994,6 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	 */
 	if (dsim_reg_is_hs_clk_ready(id)) {
 		dsim_reg_init_probe(id, lcd_info, data_lane_cnt, clks);
-		/* FIXME: Please add more sequence */
-		/* dsim_reg_set_clocks */
-		/* dsim_reg_set_lanes */
-		/* dsim_reg_set_hs_clock */
-		/* dsim_reg_set_standby */
 		return -EBUSY;
 	}
 
@@ -1091,7 +1034,7 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 		/*set TE base command*/
 		time_stable_vfp = lcd_info->xres * DSIM_STABLE_VFP_VALUE * 3 / 100;
 		time_vsync_tout = lcd_info->vfp * lcd_info->xres * 3 / 100;
-		time_te_protect_on = ((clks->hs_clk/8) * 16) * 10;
+		time_te_protect_on = (clks->hs_clk/8) * 165;
 		time_te_tout = (clks->hs_clk/8) * 18 * 10;
 		dsim_reg_set_command_control(id, 0);
 		dsim_reg_set_time_stable_vfp(id, time_stable_vfp);
@@ -1104,7 +1047,6 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	dsim_reg_set_lpdr_timeout(id);
 	dsim_reg_set_hsync_timeout(id, 3);
 	/*should be adding dsc code*/
-
 	return 0;
 }
 
@@ -1123,7 +1065,7 @@ void dsim_reg_init_probe(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, 
 
 /*
  * configure and set DPHY PLL, byte clock, escape clock and hs clock
- *	- calculate PMS using requested HS clock from driver
+ *	- PMS value have to be optained by using PMS Gen. tool (MSC_PLL_WIZARD2_00.exe)
  *	- PLL out is source clock of HS clock
  *	- byte clock = HS clock / 8
  *	- calculate divider of escape clock using requested escape clock
@@ -1138,36 +1080,32 @@ void dsim_reg_init_probe(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, 
  *		in : requested escape clock. out : calculated escape clock
  *	- byte_clk : out parameter. byte clock = hs clock / 8
  */
-int dsim_reg_set_clocks(u32 id, struct dsim_clks *clks, u32 lane, u32 en)
+int dsim_reg_set_clocks(u32 id, struct dsim_clks *clks, struct stdphy_pms *dphy_pms, u32 en)
 {
 	unsigned int esc_div;
 	struct dsim_pll_param pll;
 	struct dphy_timing_value t;
 	int ret = 0;
+	u32 fin = 26;
 
 	if (en) {
-
+		/* set p, m, s to DPHY PLL */
+		/* PMS value has to be optained by PMS calculation tool released to customer*/
+		pll.p = dphy_pms->p;
+		pll.m = dphy_pms->m;
+		pll.s = dphy_pms->s;
 		/* requested DPHY PLL frequency(HS clock) */
-		pll.pll_freq = clks->hs_clk;
-		/* calculate p, m, s for setting DPHY PLL and hs clock */
-		ret = dsim_reg_calculate_pms(&pll);
-		if (ret < 0)
-			return ret;
+		pll.pll_freq = (pll.m * fin) / (pll.p * (1 << pll.s));
+
 		/* store calculated hs clock */
 		clks->hs_clk = pll.pll_freq;
-		/* set p, m, s to DPHY PLL */
-#if (1)
-		/* FIXME: Will be replaced to some calcuation function */
-		pll.p = 3;
-		pll.m = 127;
-#endif
+
 		dsim_reg_set_pll_freq(id, pll.p, pll.m, pll.s);
 		/* set PLL's lock time */
 		dsim_reg_pll_stable_time(id);
 
 		/* set M_PLL_CTRL1*/
 		dsim_reg_set_m_pll_ctrl1(id, DSIM_M_PLL_CTRL1[id]);
-
 		dsim_reg_set_m_pll_ctrl2(id, DSIM_M_PLL_CTRL2);
 
 		/* get byte clock */
@@ -1176,6 +1114,7 @@ int dsim_reg_set_clocks(u32 id, struct dsim_clks *clks, u32 lane, u32 en)
 
 		/* requeseted escape clock */
 		dsim_dbg("requested escape clock %u MHz\n", clks->esc_clk);
+
 		/* escape clock divider */
 		esc_div = clks->byte_clk / clks->esc_clk;
 
@@ -1390,23 +1329,14 @@ u32 dsim_reg_get_xres(u32 id)
 }
 
 /* Exit ULPS mode and set clocks and lanes */
-int dsim_reg_exit_ulps_and_start(u32 id, u32 ddi_type, struct dsim_clks *clks, u32 lanes)
+int dsim_reg_exit_ulps_and_start(u32 id, u32 ddi_type, u32 lanes)
 {
 	int ret = 0;
-
-	dsim_reg_set_clocks(id, clks, lanes, 1);
-
-	dsim_reg_set_lanes(id, lanes, 1);
-
 	/* try to exit ULPS mode. The sequence is depends on DDI type */
 	ret = dsim_reg_set_ulps_by_ddi(id, ddi_type, lanes, 0);
-
 	dsim_reg_set_hs_clock(id, 1);
-
 	dsim_reg_set_standby(id, 1);
-
 	dsim_reg_set_int(id, 1);
-
 	return ret;
 }
 
@@ -1414,37 +1344,26 @@ int dsim_reg_exit_ulps_and_start(u32 id, u32 ddi_type, struct dsim_clks *clks, u
 int dsim_reg_stop_and_enter_ulps(u32 id, u32 ddi_type, u32 lanes)
 {
 	int ret = 0;
-
 	dsim_reg_set_int(id, 0);
-
 	/* unset standby and disable HS clock */
 	dsim_reg_set_hs_clock(id, 0);
-
 	/* try to enter ULPS mode. The sequence is depends on DDI type */
 	ret = dsim_reg_set_ulps_by_ddi(id, ddi_type, lanes, 1);
-
-	dsim_reg_set_lanes(id, lanes, 0);
-
-	dsim_reg_set_clocks(id, NULL, lanes, 0);
-
-	dsim_reg_sw_reset(id);
-
 	dsim_reg_set_standby(id, 0);
-
+	dsim_reg_set_hs_clock(id, 0);
+	dsim_reg_set_lanes(id, lanes, 0);
+	dsim_reg_set_esc_clk_on_lane(id, 0, lanes);
+	dsim_reg_enable_byte_clock(id, 0);
+	dsim_reg_set_clocks(id, NULL, NULL, 0);
+	dsim_reg_sw_reset(id);
 	return ret;
 }
 
 /* Set clocks and lanes and HS ready */
 void dsim_reg_start(u32 id, struct dsim_clks *clks, u32 lanes)
 {
-	dsim_reg_set_clocks(id, clks, lanes, 1);
-
-	dsim_reg_set_lanes(id, lanes, 1);
-
 	dsim_reg_set_hs_clock(id, 1);
-
 	dsim_reg_set_standby(id, 1);
-
 	dsim_reg_set_int(id, 1);
 }
 
@@ -1455,13 +1374,11 @@ void dsim_reg_stop(u32 id, u32 lanes)
 	dsim_reg_set_int(id, 0);
 
 	/* unset standby and disable HS clock */
-	dsim_reg_set_hs_clock(id, 0);
-
-	dsim_reg_set_lanes(id, lanes, 0);
-
-	dsim_reg_set_clocks(id, NULL, lanes, 0);
-
-	dsim_reg_sw_reset(id);
-
 	dsim_reg_set_standby(id, 0);
+	dsim_reg_set_hs_clock(id, 0);
+	dsim_reg_set_lanes(id, lanes, 0);
+	dsim_reg_set_esc_clk_on_lane(id, 0, lanes);
+	dsim_reg_enable_byte_clock(id, 0);
+	dsim_reg_set_clocks(id, NULL, NULL, 0);
+	dsim_reg_sw_reset(id);
 }
