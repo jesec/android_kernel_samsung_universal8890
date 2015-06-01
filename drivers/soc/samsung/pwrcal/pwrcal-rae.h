@@ -34,7 +34,7 @@ extern struct v2p_sfr v2psfrmap[];
 extern int num_of_v2psfrmap;
 #define DEFINE_V2P(v, p)	\
 	[v >> 16] = {	.pa = p,	.ma = (void *)p,	}
-#define MAP_IDX(va)	(((unsigned long)va & 0xFFFF0000) >> 16)
+#define MAP_IDX(va)	(((unsigned long)va & 0x0FFF0000) >> 16)
 
 extern void *spinlock_enable_offset;
 

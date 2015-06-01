@@ -11,31 +11,28 @@ DEFINE_SPINLOCK(pwrcal_rae_spinlock);
 unsigned int pwrcal_readl(void *addr)
 {
 	unsigned int ret;
-	void *ma = addr;
-	unsigned long flag;
+	void *ma;
 
 #ifdef PWRCAL_TARGET_LINUX
 	ma = v2psfrmap[MAP_IDX(addr)].ma + ((unsigned long)addr & 0xFFFF);
-	if (addr < spinlock_enable_offset)
+#else
+	ma = (void *)((unsigned long)addr & ~(0x80000000));
 #endif
-		spin_lock_irqsave(&pwrcal_rae_spinlock, flag);
 
 	ret = *((volatile unsigned int *)(ma));
-
-#ifdef PWRCAL_TARGET_LINUX
-	if (addr < spinlock_enable_offset)
-#endif
-		spin_unlock_irqrestore(&pwrcal_rae_spinlock, flag);
 
 	return ret;
 }
 void pwrcal_writel(void *addr, unsigned int regv)
 {
-	void *ma = addr;
+	void *ma;
 	unsigned long flag;
 #ifdef PWRCAL_TARGET_LINUX
 	ma = v2psfrmap[MAP_IDX(addr)].ma + ((unsigned long)addr & 0xFFFF);
-	if (addr < spinlock_enable_offset)
+	if (addr < spinlock_enable_offset && !((unsigned long)addr & 0x80000000))
+#else
+	ma = (void *)((unsigned long)addr & ~(0x80000000));
+	if (!((unsigned long)addr & 0x80000000))
 #endif
 		spin_lock_irqsave(&pwrcal_rae_spinlock, flag);
 
@@ -43,6 +40,8 @@ void pwrcal_writel(void *addr, unsigned int regv)
 
 #ifdef PWRCAL_TARGET_LINUX
 	if (addr < spinlock_enable_offset)
+#else
+	if (!((unsigned long)addr & 0x80000000))
 #endif
 		spin_unlock_irqrestore(&pwrcal_rae_spinlock, flag);
 }
@@ -56,13 +55,17 @@ unsigned int pwrcal_getbit(void *addr, unsigned int bitp)
 }
 void pwrcal_setbit(void *addr, unsigned int bitp, unsigned int bitv)
 {
-	void *ma = addr;
+	void *ma;
 	unsigned int mask = 1 << bitp;
 	unsigned int regv;
 	unsigned long flag;
+
 #ifdef PWRCAL_TARGET_LINUX
 	ma = v2psfrmap[MAP_IDX(addr)].ma + ((unsigned long)addr & 0xFFFF);
-	if (addr < spinlock_enable_offset)
+	if (addr < spinlock_enable_offset && !((unsigned long)addr & 0x80000000))
+#else
+	ma = (void *)((unsigned long)addr & ~(0x80000000));
+	if (!((unsigned long)addr & 0x80000000))
 #endif
 		spin_lock_irqsave(&pwrcal_rae_spinlock, flag);
 
@@ -73,6 +76,8 @@ void pwrcal_setbit(void *addr, unsigned int bitp, unsigned int bitv)
 
 #ifdef PWRCAL_TARGET_LINUX
 	if (addr < spinlock_enable_offset)
+#else
+	if (!((unsigned long)addr & 0x80000000))
 #endif
 		spin_unlock_irqrestore(&pwrcal_rae_spinlock, flag);
 }
@@ -89,13 +94,17 @@ void pwrcal_setf(void *addr,
 		unsigned int fieldm,
 		unsigned int fieldv)
 {
-	void *ma = addr;
+	void *ma;
 	unsigned int mask = fieldm << fieldp;
 	unsigned int regv;
 	unsigned long flag;
+
 #ifdef PWRCAL_TARGET_LINUX
 	ma = v2psfrmap[MAP_IDX(addr)].ma + ((unsigned long)addr & 0xFFFF);
-	if (addr < spinlock_enable_offset)
+	if (addr < spinlock_enable_offset && !((unsigned long)addr & 0x80000000))
+#else
+	ma = (void *)((unsigned long)addr & ~(0x80000000));
+	if (!((unsigned long)addr & 0x80000000))
 #endif
 		spin_lock_irqsave(&pwrcal_rae_spinlock, flag);
 
@@ -106,6 +115,8 @@ void pwrcal_setf(void *addr,
 
 #ifdef PWRCAL_TARGET_LINUX
 	if (addr < spinlock_enable_offset)
+#else
+	if (!((unsigned long)addr & 0x80000000))
 #endif
 		spin_unlock_irqrestore(&pwrcal_rae_spinlock, flag);
 }
