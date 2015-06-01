@@ -417,6 +417,8 @@ static void cam0_post(int enable)
 	if (enable == 1) {
 		vclk_enable(VCLK(dvfs_cam));
 
+		pwrcal_writel(CAM0_DRCG_EN, 0x1F);
+
 		pwrcal_gate_disable(CLK(CAM0_GATE_ACLK_CSIS0));
 		pwrcal_gate_disable(CLK(CAM0_GATE_PCLK_CSIS0));
 		pwrcal_gate_disable(CLK(CAM0_GATE_ACLK_CSIS1));
@@ -433,6 +435,8 @@ static void cam0_post(int enable)
 static void mscl_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(MSCL_DRCG_EN, 0x3FF);
+
 		pwrcal_writel(CG_CTRL_MAN_ACLK_MSCL0_528,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_MSCL0_528_SECURE_SFW_MSCL_0,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_MSCL1_528,	0);
@@ -465,6 +469,9 @@ static void g3d_post(int enable)
 {
 	if (enable == 1) {
 		udelay(40);
+
+		pwrcal_writel(G3D_DRCG_EN, 0x3F);
+
 		pwrcal_gate_disable(CLK(G3D_GATE_ACLK_PPMU_G3D0));
 		pwrcal_gate_disable(CLK(G3D_GATE_ACLK_PPMU_G3D1));
 		pwrcal_gate_disable(CLK(G3D_GATE_PCLK_PPMU_G3D0));
@@ -488,6 +495,8 @@ static void g3d_post(int enable)
 static void disp0_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(DISP0_DRCG_EN, 0x3f);
+
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_0_400,	0x00000020);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_1_400,	0x00000020);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_0_400_SECURE_SFW_DISP0_0,	0);
@@ -554,6 +563,8 @@ static void cam1_post(int enable)
 	if (enable == 1) {
 		vclk_enable(VCLK(dvfs_cam));
 
+		pwrcal_writel(CAM1_DRCG_EN, 0x7FFFF);
+
 		pwrcal_gate_disable(CLK(CAM1_GATE_ACLK_SMMU_VRA));
 		pwrcal_gate_disable(CLK(CAM1_GATE_ACLK_SMMU_ISPCPU));
 		pwrcal_gate_disable(CLK(CAM1_GATE_ACLK_SMMU_IS_B));
@@ -599,6 +610,8 @@ static void cam1_post(int enable)
 static void aud_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(AUD_DRCG_EN, 0xF);
+
 		pwrcal_gate_disable(CLK(AUD_GATE_SCLK_CA5));
 		pwrcal_gate_disable(CLK(AUD_GATE_ACLK_DMAC));
 		pwrcal_gate_disable(CLK(AUD_GATE_ACLK_SRAMC));
@@ -624,6 +637,8 @@ static void aud_post(int enable)
 static void fsys0_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(FSYS0_DRCG_EN, 0x7FF);
+
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBDRD30_UDRD30_PHYCLOCK_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBDRD30_UDRD30_PIPE_PCLK_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_TX0_SYMBOL_USER, 27, 0);
@@ -682,11 +697,14 @@ static void fsys0_post(int enable)
 
 		pwrcal_writel(PAD_RETENTION_MMC0_OPTION, PAD_INITIATE_WAKEUP);
 		pwrcal_writel(PAD_RETENTION_UFS_OPTION, PAD_INITIATE_WAKEUP);
+		pwrcal_writel(PAD_RETENTION_USB_OPTION, PAD_INITIATE_WAKEUP);
 	}
 }
 static void isp0_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(ISP0_DRCG_EN, 0x7);
+
 		pwrcal_gate_disable(CLK(ISP0_GATE_CLK_AXI_LH_ASYNC_SI_TOP_ISP0));
 		pwrcal_gate_disable(CLK(ISP0_GATE_CLK_C_TREX_C));
 		pwrcal_gate_disable(CLK(ISP0_GATE_ACLK_SysMMU601));
@@ -702,6 +720,8 @@ static void isp0_post(int enable)
 static void isp1_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(ISP1_DRCG_EN, 0x3);
+
 		pwrcal_gate_disable(CLK(ISP1_GATE_ACLK_FIMC_ISP1));
 		pwrcal_gate_disable(CLK(ISP1_GATE_ACLK_XIU_N_ASYNC_SI));
 		pwrcal_gate_disable(CLK(ISP1_GATE_PCLK_FIMC_ISP1));
@@ -711,6 +731,8 @@ static void isp1_post(int enable)
 static void mfc_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(MFC_DRCG_EN, 0x7);
+
 		pwrcal_writel(CG_CTRL_MAN_ACLK_MFC_600,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_MFC_600_SECURE_SFW_MFC_0,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_MFC_600_SECURE_SFW_MFC_1,	0);
@@ -741,6 +763,8 @@ static void mfc_post(int enable)
 static void disp1_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(DISP1_DRCG_EN, 0x7F);
+
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_0_400,	0x00000008);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_1_400,	0x00000008);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_0_400_SECURE_SFW_DISP1_0,	0);
@@ -778,6 +802,8 @@ static void disp1_post(int enable)
 static void fsys1_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_writel(FSYS1_DRCG_EN, 0x1F);
+
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_TX0_SYMBOL_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_RX0_SYMBOL_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI0_TX0_USER, 27, 0);
