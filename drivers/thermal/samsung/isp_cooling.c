@@ -344,7 +344,7 @@ static struct thermal_cooling_device_ops const isp_cooling_ops = {
 };
 
 
-int exynos_isp_add_notifier(struct notifier_block *n)
+int exynos_tmu_isp_add_notifier(struct notifier_block *n)
 {
 	return blocking_notifier_chain_register(&isp_notifier, n);
 }
