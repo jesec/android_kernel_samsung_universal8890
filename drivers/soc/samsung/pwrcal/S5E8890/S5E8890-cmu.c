@@ -714,7 +714,7 @@ int _pwrcal_private_mux_set_src(struct pwrcal_clk *clk, unsigned int src)
 {
 	struct pwrcal_clk *mout_top_mif_pll_submux[4] = {CLK(MIF0_MUX_MIF_PLL), CLK(MIF1_MUX_MIF_PLL), CLK(MIF2_MUX_MIF_PLL), CLK(MIF3_MUX_MIF_PLL)};
 	struct pwrcal_clk *mout_top_bus_pll_user_submux[4] = {CLK(MIF0_MUX_BUS_PLL_USER), CLK(MIF1_MUX_BUS_PLL_USER), CLK(MIF2_MUX_BUS_PLL_USER), CLK(MIF3_MUX_BUS_PLL_USER)};
-	struct pwrcal_clk *mout_top_aclk_mif_pll_submux[4] = {CLK(MIF0_MUX_ACLK_MIF_PLL), CLK(MIF3_MUX_ACLK_MIF_PLL), CLK(MIF3_MUX_ACLK_MIF_PLL), CLK(MIF3_MUX_ACLK_MIF_PLL)};
+	struct pwrcal_clk *mout_top_aclk_mif_pll_submux[4] = {CLK(MIF0_MUX_ACLK_MIF_PLL), CLK(MIF1_MUX_ACLK_MIF_PLL), CLK(MIF2_MUX_ACLK_MIF_PLL), CLK(MIF3_MUX_ACLK_MIF_PLL)};
 	struct pwrcal_clk **submux;
 	struct pwrcal_mux *mux = to_mux(clk);
 	int timeout;
