@@ -1607,7 +1607,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 #endif
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	i2c->regs = devm_request_and_ioremap(&pdev->dev, mem);
+	i2c->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (i2c->regs == NULL) {
 		dev_err(&pdev->dev, "cannot map HS-I2C IO\n");
 		ret = PTR_ERR(i2c->regs);
@@ -1616,7 +1616,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (mem != NULL) {
-		i2c->regs_mailbox = devm_request_and_ioremap(&pdev->dev, mem);
+		i2c->regs_mailbox = devm_ioremap_resource(&pdev->dev, mem);
 
 		if (i2c->regs_mailbox == NULL) {
 			dev_err(&pdev->dev, "cannot map MAILBOX IO\n");
@@ -1634,7 +1634,7 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		/* for enable Batcher in PMU */
 		mem = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 		if (mem != NULL) {
-			pmu_batcher = devm_request_and_ioremap(&pdev->dev, mem);
+			pmu_batcher = devm_ioremap_resource(&pdev->dev, mem);
 
 			if (pmu_batcher == NULL) {
 				dev_err(&pdev->dev, "cannot map PMIC for batcher enable\n");
