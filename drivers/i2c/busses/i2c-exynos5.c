@@ -25,7 +25,6 @@
 #include <linux/io.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
-#include <linux/of_i2c.h>
 #include <linux/of_gpio.h>
 #include "../../pinctrl/core.h"
 #ifdef CONFIG_PWRCAL
@@ -1721,7 +1720,6 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		goto err_clk;
 	}
 
-	of_i2c_register_devices(&i2c->adap);
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
