@@ -118,7 +118,8 @@ struct vpp_dev {
 	u32				update_cnt;
 	u32				update_cnt_prev;
 	struct decon_win_config	*config;
-	struct pm_qos_request		vpp_int_qos;
+	struct pm_qos_request		*vpp_disp_qos;
+	struct pm_qos_request		*vpp_int_qos;
 	struct pm_qos_request		vpp_mif_qos;
 	u32				h_ratio;
 	u32				v_ratio;
@@ -127,12 +128,12 @@ struct vpp_dev {
 	unsigned int			irq;
 	u32				prev_read_order;
 	u32				pbuf_num;
-	u32				cur_bw;
-	u32				prev_bw;
-	u32				cur_int;
-	u32				prev_int;
+	u64				disp_cur_bw;
+	u64				cur_bw;
+	u64				prev_bw;
 	u32				sc_w;
 	u32				sc_h;
+	struct decon_bts		*bts_ops;
 };
 
 extern struct vpp_dev *vpp0_for_decon;

@@ -644,8 +644,13 @@ struct decon_device {
 	struct pinctrl			*pinctrl;
         struct pinctrl_state 		*decon_te_on;
         struct pinctrl_state		*decon_te_off;
+	struct pm_qos_request		mif_qos;
 	struct pm_qos_request		int_qos;
 	struct pm_qos_request		disp_qos;
+	u32				disp_cur;
+	u32				disp_prev;
+	struct decon_init_bts		*bts_init_ops;
+
 	int				frame_done_cnt_cur;
 	int				frame_done_cnt_target;
 	int				frame_start_cnt_cur;

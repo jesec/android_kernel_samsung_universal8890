@@ -22,6 +22,8 @@
 #include "vpp.h"
 #include "vpp_common.h"
 #include "../decon_helper.h"
+#include "../decon_bts.h"
+
 /*
  * Gscaler constraints
  * This is base of without rotation.
@@ -368,132 +370,6 @@ static int vpp_init(struct vpp_dev *vpp)
 	return 0;
 }
 
-#ifdef CONFIG_PM_DEVFREQ
-#define MULTI_FACTOR (1 << 10)
-static void vpp_get_bts_scale_factor(struct vpp_dev *vpp, bool is_mif)
-{
-	struct decon_win_config *config = vpp->config;
-	struct decon_frame *src = &config->src;
-	struct decon_frame *dst = &config->dst;
-	u32 src_w = is_rotation(config) ? src->h : src->w;
-	u32 src_h = is_rotation(config) ? src->w : src->h;
-
-	if (is_mif) {
-		vpp->sc_w = MULTI_FACTOR * src_w / dst->w;
-		vpp->sc_h = MULTI_FACTOR * src_h / dst->h;
-	} else {
-		vpp->sc_w = (src_w <= dst->w) ?
-			MULTI_FACTOR : MULTI_FACTOR * src_w / dst->w;
-		vpp->sc_h = (src_h <= dst->h) ?
-			MULTI_FACTOR : MULTI_FACTOR * src_h / dst->h;
-	}
-}
-
-static int vpp_get_min_int_lock(struct vpp_dev *vpp)
-{
-	struct decon_win_config *config = vpp->config;
-	struct decon_frame *dst = &config->dst;
-	struct decon_device *decon = get_decon_drvdata(0);
-	u32 vclk_mic = (clk_get_rate(decon->res.vclk_leaf) / MHZ) * 2;
-	u32 lcd_width = decon->lcd_info->xres;
-	int ret = 0;
-
-	vpp_get_bts_scale_factor(vpp, false);
-
-	if ((vpp->sc_w == MULTI_FACTOR) && (vpp->sc_h == MULTI_FACTOR)) {
-		vpp->cur_int = vclk_mic / 2 * KHZ;
-	} else {
-		u64 scale_factor = (vclk_mic * vpp->sc_w * vpp->sc_h) / 2;
-		u64 dst_factor = (dst->w * MULTI_FACTOR) / lcd_width;
-
-		vpp->cur_int = (scale_factor * dst_factor * KHZ) /
-				(MULTI_FACTOR * MULTI_FACTOR * MULTI_FACTOR);
-		if (vpp->cur_int > INT_LV7) {
-			dev_err(DEV, "Bandwidth has exceeded 400MHz %s\n", __func__);
-			dev_err(DEV, "scale_factor %lld, dst_factor %lld, cur_int %d vclk_mic %d\n",
-					scale_factor, dst_factor, vpp->cur_int, vclk_mic);
-			ret = -ERANGE;
-		}
-	}
-
-	dev_dbg(DEV, "vpp-%d int get: %d\n", vpp->id, vpp->cur_int);
-
-	return ret;
-}
-
-static void vpp_set_min_int_lock(struct vpp_dev *vpp, bool enable)
-{
-	if (enable) {
-		pm_qos_update_request(&vpp->vpp_int_qos,
-				vpp_get_int_freq(vpp->cur_int));
-	} else {
-		pm_qos_update_request(&vpp->vpp_int_qos, 0);
-		vpp->prev_int = vpp->cur_int = 0;
-	}
-
-	dev_dbg(DEV, "vpp-%d int set : %d\n", vpp->id, vpp->cur_int);
-}
-
-static void vpp_get_min_mif_lock(struct vpp_dev *vpp)
-{
-	struct decon_win_config *config = vpp->config;
-	struct decon_device *decon = get_decon_drvdata(0);
-	u32 vclk_mic = (clk_get_rate(decon->res.vclk_leaf) / MHZ) * 2;
-	u8 bpl, rot_factor = 0;
-	u32 scale_factor = 0;
-
-	rot_factor = is_rotation(config) ? 4 : 1;
-
-	if (is_rgb(config))
-		bpl = is_rgb16(config) ? 4 : 8;
-	else if (is_yuv422(config))
-		bpl = 4;
-	else
-		bpl = 3;
-
-	vpp_get_bts_scale_factor(vpp, true);
-
-	scale_factor = ((vclk_mic * vpp->sc_w * vpp->sc_h) /
-			(MULTI_FACTOR *	MULTI_FACTOR) * bpl) / 2;
-	vpp->cur_bw = scale_factor * rot_factor * KHZ;
-
-	dev_dbg(DEV, "vpp-%d bw get: %d\n", vpp->id, vpp->cur_bw);
-}
-
-static void vpp_set_min_mif_lock(struct vpp_dev *vpp, bool enable)
-{
-	struct decon_win_config *config = vpp->config;
-	u8 vpp_type;
-	enum vpp_bw_type bw_type;
-
-	if (is_rotation(config)) {
-		if (config->src.w * config->src.h >= FULLHD_SRC)
-			bw_type = BW_FULLHD_ROT;
-		else
-			bw_type = BW_ROT;
-	} else {
-		bw_type = BW_DEFAULT;
-	}
-
-	vpp_type = vpp->id + 2;
-
-	if (enable) {
-		exynos7_update_media_scenario(vpp_type, vpp->cur_bw,
-				bw_type);
-	} else {
-		exynos7_update_media_scenario(vpp_type, 0, BW_DEFAULT);
-		vpp->prev_bw = vpp->cur_bw = 0;
-	}
-
-	dev_dbg(DEV, "vpp-%d bw set: %d\n", vpp->id, vpp->cur_bw);
-}
-#else
-#define vpp_get_min_mif_lock(vpp) do {} while (0)
-#define vpp_get_min_int_lock(vpp) do {} while (0)
-#define vpp_set_min_mif_lock(vpp, enalbe) do {} while (0)
-#define vpp_set_min_int_lock(vpp, enalbe) do {} while (0)
-#endif
-
 static int vpp_deinit(struct vpp_dev *vpp, bool do_sw_reset)
 {
 	clear_bit(VPP_POWER_ON, &vpp->state);
@@ -562,16 +438,10 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 			ipoption[2] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
 		}
 
-		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
-			pm_qos_update_request(&vpp->vpp_mif_qos, MIF_LV1);
-
 		ret = sysmmu_set_prefetch_buffer_property(dev,
 				vpp->pbuf_num, 0, ipoption, NULL);
 		if (ret)
 			dev_err(DEV, "failed set pbuf\n");
-	} else {
-		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
-			pm_qos_update_request(&vpp->vpp_mif_qos, 0);
 	}
 
 	vpp->prev_read_order = cur_read_order;
@@ -719,10 +589,7 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 		del_timer(&vpp->op_timer);
 		vpp_deinit(vpp, need_reset);
 		spin_unlock_irqrestore(&vpp->slock, flags);
-		vpp_set_min_mif_lock(vpp, 0);
-		vpp_set_min_int_lock(vpp, 0);
-		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
-			pm_qos_update_request(&vpp->vpp_mif_qos, 0);
+		call_bts_ops(vpp, bts_set_zero_bw, vpp);
 
 		iovmm_deactivate(DEV);
 		pm_runtime_put_sync(DEV);
@@ -732,20 +599,17 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 
 	case VPP_GET_BTS_VAL:
 		vpp->config = (struct decon_win_config *)arg;
-		vpp_get_min_mif_lock(vpp);
-#ifdef CONFIG_PM_DEVFREQ
-		ret = vpp_get_min_int_lock(vpp);
-#endif
+		call_bts_ops(vpp, bts_get_bw, vpp);
 		break;
 
 	case VPP_SET_BW:
 		vpp->config = (struct decon_win_config *)arg;
-		vpp_set_min_mif_lock(vpp, true);
+		call_bts_ops(vpp, bts_set_calc_bw, vpp);
 		break;
 
-	case VPP_SET_MIN_INT:
+	case VPP_SET_ROT_MIF:
 		vpp->config = (struct decon_win_config *)arg;
-		vpp_set_min_int_lock(vpp, true);
+		call_bts_ops(vpp, bts_set_rot_mif, vpp);
 		break;
 
 	case VPP_WAIT_FOR_UPDATE:
@@ -1126,12 +990,9 @@ static int vpp_probe(struct platform_device *pdev)
 	setup_timer(&vpp->op_timer, vpp_op_timer_handler,
 			(unsigned long)vpp);
 
-	if (IS_ENABLED(CONFIG_PM_DEVFREQ)) {
-		pm_qos_add_request(&vpp->vpp_int_qos,
-			PM_QOS_DEVICE_THROUGHPUT, 0);
-		pm_qos_add_request(&vpp->vpp_mif_qos,
-			PM_QOS_BUS_THROUGHPUT, 0);
-	}
+	vpp->bts_ops = &decon_bts_control;
+
+	pm_qos_add_request(&vpp->vpp_mif_qos, PM_QOS_BUS_THROUGHPUT, 0);
 
 	mutex_init(&vpp->mlock);
 	spin_lock_init(&vpp->slock);
@@ -1151,10 +1012,7 @@ static int vpp_remove(struct platform_device *pdev)
 	iovmm_deactivate(&vpp->pdev->dev);
 	vpp_clk_put(vpp);
 
-	if (IS_ENABLED(CONFIG_PM_DEVFREQ)) {
-		pm_qos_remove_request(&vpp->vpp_int_qos);
-		pm_qos_remove_request(&vpp->vpp_mif_qos);
-	}
+	pm_qos_remove_request(&vpp->vpp_mif_qos);
 
 	dev_info(DEV, "%s driver unloaded\n", pdev->name);
 

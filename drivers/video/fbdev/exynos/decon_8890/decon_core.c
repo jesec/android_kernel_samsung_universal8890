@@ -41,6 +41,7 @@
 #include "./panels/lcd_ctrl.h"
 #include "../../../../staging/android/sw_sync.h"
 #include "vpp/vpp.h"
+#include "decon_bts.h"
 
 #ifdef CONFIG_MACH_VELOCE8890
 #define DISP_SYSMMU_DIS
@@ -861,6 +862,7 @@ int decon_enable(struct decon_device *decon)
 #else
 	decon_runtime_resume(decon->dev);
 #endif
+	call_init_ops(decon, bts_set_init, decon);
 
 #if defined(CONFIG_DECON_DEVFREQ)
 	if (!decon->id) {
@@ -1020,6 +1022,8 @@ int decon_disable(struct decon_device *decon)
 	if (state == DECON_STATE_LPD_ENT_REQ)
 		decon->state = DECON_STATE_LPD;
 	spin_unlock_irqrestore(&decon->slock, irq_flags);
+
+	call_init_ops(decon, bts_release_init, decon);
 #if defined(CONFIG_DECON_DEVFREQ)
 	if (!decon->id) {
 		exynos7_update_media_scenario(TYPE_DECON_INT, 0, 0);
@@ -2010,10 +2014,14 @@ static void decon_set_vpp_min_lock_early(struct decon_device *decon,
 						VPP_SET_BW,
 						&regs->vpp_config[i]);
 			}
-			if (vpp->cur_int > vpp->prev_int) {
-				v4l2_subdev_call(sd, core, ioctl,
-						VPP_SET_MIN_INT,
-						&regs->vpp_config[i]);
+
+			v4l2_subdev_call(sd, core, ioctl,
+					VPP_SET_ROT_MIF,
+					&regs->vpp_config[i]);
+
+			if (decon->disp_cur > decon->disp_prev) {
+				pm_qos_update_request(&decon->disp_qos, decon->disp_cur);
+				pm_qos_update_request(&decon->int_qos, decon->disp_cur);
 			}
 		}
 	}
@@ -2035,21 +2043,67 @@ static void decon_set_vpp_min_lock_lately(struct decon_device *decon,
 						VPP_SET_BW,
 						&regs->vpp_config[i]);
 			}
-			if (vpp->cur_int < vpp->prev_int) {
-				v4l2_subdev_call(sd, core, ioctl,
-						VPP_SET_MIN_INT,
-						&regs->vpp_config[i]);
-			}
-
 			vpp->prev_bw = vpp->cur_bw;
-			vpp->prev_int = vpp->cur_int;
+
+			v4l2_subdev_call(sd, core, ioctl,
+					VPP_SET_ROT_MIF,
+					&regs->vpp_config[i]);
+
+			if (decon->disp_cur < decon->disp_prev) {
+				pm_qos_update_request(&decon->disp_qos, decon->disp_cur);
+				pm_qos_update_request(&decon->int_qos, decon->disp_cur);
+			}
+			decon->disp_prev = decon->disp_cur;
+
 		}
 	}
 }
 
+void decon_set_vpp_disp_min_lock(struct decon_device *decon,
+		struct decon_reg_data *regs)
+{
+	int i = 0;
+	u64 disp_bw[4] = {0, 0, 0, 0};
+	u64 disp_max_bw = 0;
+	struct v4l2_subdev *sd = NULL;
+
+	for (i = 0; i < decon->pdata->max_win; i++) {
+		struct decon_win *win = decon->windows[i];
+		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
+			struct vpp_dev *vpp;
+			sd = decon->mdev->vpp_sd[win->vpp_id];
+			vpp = v4l2_get_subdevdata(sd);
+
+			/*
+			 *  VPP0(G0), VPP1(G1), VPP2(VG0), VPP3(VG1),
+			 *  VPP4(G2), VPP5(G3), VPP6(VGR0), VPP7(VGR1), VPP8(WB)
+			 *  vpp_bus_bw[0] = DISP0_0_BW = G0 + VG0;
+			 *  vpp_bus_bw[1] = DISP0_1_BW = G1 + VG1;
+			 *  vpp_bus_bw[2] = DISP1_0_BW = G2 + VGR0;
+			 *  vpp_bus_bw[3] = DISP1_1_BW = G3 + VGR1 + WB;
+			 */
+			if((vpp->id == 0) || (vpp->id == 2))
+				disp_bw[0] = disp_bw[0] + vpp->disp_cur_bw;
+			if((vpp->id == 1) || (vpp->id == 3))
+				disp_bw[1] = disp_bw[1] + vpp->disp_cur_bw;
+			if((vpp->id == 4) || (vpp->id == 6))
+				disp_bw[2] = disp_bw[2] + vpp->disp_cur_bw;
+			if((vpp->id == 5) || (vpp->id == 7) || (vpp->id == 8))
+				disp_bw[3] = disp_bw[3] + vpp->disp_cur_bw;
+		}
+	}
+
+	disp_max_bw = disp_bw[0];
+	for (i = 0; i < 4; i++) {
+		if (disp_max_bw < disp_bw[i])
+			disp_max_bw = disp_bw[i];
+	}
+	decon->disp_cur = disp_max_bw;
+}
+
 #if defined(CONFIG_DECON_DEVFREQ)
 #else
-static void decon_set_qos(struct decon_device *decon,
+void decon_set_qos(struct decon_device *decon,
 			struct decon_reg_data *regs, int is_after)
 {
 	return;
@@ -2241,9 +2295,9 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 			decon_fence_wait(regs->dma_buf_data[i][0].fence);
 	}
 
-	decon_set_qos(decon, regs, 0);
 	decon_check_vpp_used(decon, regs);
 	decon_get_vpp_min_lock(decon, regs);
+	decon_set_vpp_disp_min_lock(decon, regs);
 	decon_set_vpp_min_lock_early(decon, regs);
 
 	DISP_SS_EVENT_LOG_WINCON(&decon->sd, regs);
@@ -2320,8 +2374,6 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	sw_sync_timeline_inc(decon->timeline, 1);
 	decon_set_vpp_min_lock_lately(decon, regs);
 	decon_vpp_stop(decon, false);
-
-	decon_set_qos(decon, regs, 1);
 }
 
 static void decon_update_regs_handler(struct kthread_work *work)
@@ -3558,6 +3610,11 @@ static int decon_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, decon);
 	pm_runtime_enable(dev);
+
+	decon->bts_init_ops = &decon_init_bts_control;
+
+	if (!decon->id)
+		call_init_ops(decon, bts_add, decon);
 
 #if defined(CONFIG_DECON_DEVFREQ)
 	decon->default_bw = decon_calc_bandwidth(fbinfo->var.xres,
