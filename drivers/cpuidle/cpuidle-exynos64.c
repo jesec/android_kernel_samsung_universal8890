@@ -53,6 +53,7 @@ static void post_idle(unsigned int cpuid)
 	cpu_pm_exit();
 }
 
+#if 0
 static bool nonboot_cpus_working(void)
 {
 	return (num_online_cpus() > 1);
@@ -73,6 +74,7 @@ static int find_available_low_state(struct cpuidle_device *dev,
 
 	return IDLE_C1;
 }
+#endif
 
 /***************************************************************************
  *                           Cpuidle state handler                         *
@@ -105,6 +107,7 @@ static int exynos_enter_c2(struct cpuidle_device *dev,
 	return index;
 }
 
+#if 0
 static int exynos_enter_lpm(struct cpuidle_device *dev,
 				struct cpuidle_driver *drv, int index)
 {
@@ -124,6 +127,7 @@ static int exynos_enter_lpm(struct cpuidle_device *dev,
 
 	return index;
 }
+#endif
 
 static int exynos_enter_idle_state(struct cpuidle_device *dev,
 				struct cpuidle_driver *drv, int index)
@@ -137,6 +141,7 @@ static int exynos_enter_idle_state(struct cpuidle_device *dev,
 	case IDLE_C2:
 		func = exynos_enter_c2;
 		break;
+#if 0
 	case IDLE_LPM:
 		/*
 		 * In exynos, system can enter LPM when only boot core is running.
@@ -149,6 +154,7 @@ static int exynos_enter_idle_state(struct cpuidle_device *dev,
 			func = exynos_enter_lpm;
 		}
 		break;
+#endif
 	default:
 		pr_err("%s : Invalid index: %d\n", __func__, index);
 		return -EINVAL;
