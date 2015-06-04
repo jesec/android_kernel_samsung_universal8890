@@ -144,8 +144,8 @@ static int vpp_wait_for_framedone(struct vpp_dev *vpp)
 				(done_cnt != vpp->done_count),
 				msecs_to_jiffies(17));
 		if (ret == 0) {
-			dev_err(DEV, "timeout of frame done(%d, %d)\n",
-				done_cnt, vpp->done_count);
+			dev_err(DEV, "timeout of frame done(st:%d, up:%d, %d, do:%d)\n",
+				vpp->start_count, vpp->update_cnt, done_cnt, vpp->done_count);
 			return -ETIMEDOUT;
 		}
 	}

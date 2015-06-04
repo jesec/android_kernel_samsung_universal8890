@@ -69,7 +69,8 @@ irqreturn_t decon_t_irq_handler(int irq, void *dev_data)
 	if (irq_sts_reg & INTERRUPT_FRAME_DONE_INT_EN) {
 		decon_lpd_trig_reset(decon);
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
-		decon_dbg("DECON_T Frame Done is occured\n");
+		decon_dbg("%s Frame Done is occured. timeline:%d, %d\n",
+				__func__, decon->timeline->value, decon->timeline_max);
 	}
 irq_end:
 	spin_unlock(&decon->slock);

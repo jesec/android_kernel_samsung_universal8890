@@ -1008,9 +1008,11 @@ int decon_disable(struct decon_device *decon)
 	decon_reg_clear_int_all(decon->id);
 
 	/* DMA protection disable must be happen on vpp domain is alive */
-	decon_set_protected_content(decon, NULL);
-	decon->vpp_usage_bitmask = 0;
-	decon_vpp_stop(decon, true);
+	if (decon->out_type != DECON_OUT_WB) {
+		decon_set_protected_content(decon, NULL);
+		decon->vpp_usage_bitmask = 0;
+		decon_vpp_stop(decon, true);
+	}
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE)
 	if (!decon->id)
@@ -2272,8 +2274,8 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 		decon_vpp_wait_for_update(decon, regs);
 		decon_vpp_wait_wb_framedone(decon);
 		/* Stop to prevent resource conflict */
-		decon_reg_direct_on_off(decon->id, 0);
-		decon_reg_update_req_global(decon->id);
+		decon->vpp_usage_bitmask = 0;
+		decon_set_protected_content(decon, NULL);
 		decon_dbg("write-back timeline:%d, max:%d\n",
 				decon->timeline->value, decon->timeline_max);
 	} else {
