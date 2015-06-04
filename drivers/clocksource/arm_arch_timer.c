@@ -446,12 +446,18 @@ static cycle_t arch_counter_read_cc(const struct cyclecounter *cc)
 	return arch_timer_read_counter();
 }
 
+static void arch_timer_resume(struct clocksource *cs)
+{
+	arch_timer_setup(this_cpu_ptr(arch_timer_evt));
+}
+
 static struct clocksource clocksource_counter = {
 	.name	= "arch_sys_counter",
 	.rating	= 400,
 	.read	= arch_counter_read,
 	.mask	= CLOCKSOURCE_MASK(56),
-	.flags	= CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
+	.flags	= CLOCK_SOURCE_IS_CONTINUOUS,
+	.resume	= arch_timer_resume,
 };
 
 static struct cyclecounter cyclecounter = {
