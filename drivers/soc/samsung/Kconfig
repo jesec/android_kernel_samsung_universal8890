@@ -1,0 +1,9 @@
+#
+# EXYNOS Soc drivers
+#
+menuconfig SOC_EXYNOS
+	bool "SAMSUNG SOC drivers support"
+
+if SOC_EXYNOS
+
+endif #SOC_EXYNOS
