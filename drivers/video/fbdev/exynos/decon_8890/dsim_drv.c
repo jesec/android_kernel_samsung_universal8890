@@ -796,13 +796,14 @@ static int dsim_enable(struct dsim_device *dsim)
 	dsim_runtime_resume(dsim->dev);
 #endif
 
+	/* Panel power on */
 	dsim_set_panel_power(dsim, 1);
+	dsim_reset_panel(dsim);
 
 	call_panel_ops(dsim, resume, dsim);
 
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
-	dsim_reset_panel(dsim);
 
 	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
@@ -1322,6 +1323,10 @@ static int dsim_probe(struct platform_device *pdev)
 	dsim_runtime_resume(dsim->dev);
 #endif
 
+	/* Panel power on */
+	dsim_set_panel_power(dsim, 1);
+	dsim_reset_panel(dsim);
+
 	/* DPHY power on */
 	dsim_d_phy_onoff(dsim, 1);
 
@@ -1330,9 +1335,6 @@ static int dsim_probe(struct platform_device *pdev)
 	if (dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
 			&dsim->clks_param.clks) < 0)
 			goto dsim_init_done;
-
-	dsim_set_panel_power(dsim, 1);
-	dsim_reset_panel(dsim);
 
 	dsim_reg_start(dsim->id, &dsim->clks_param.clks, DSIM_LANE_CLOCK | dsim->data_lane);
 
