@@ -1,0 +1,18 @@
+#
+# Exynos multimedia device drivers
+#
+config VIDEO_EXYNOS
+        bool "Exynos Multimedia Devices"
+        depends on ARCH_EXYNOS8
+        default y
+        help
+          This is a representative exynos multimedia device.
+
+if VIDEO_EXYNOS
+        source "drivers/media/platform/exynos/mdev/Kconfig"
+endif
+
+config MEDIA_EXYNOS
+        bool
+        help
+          Compile mdev to use exynos media device driver.
