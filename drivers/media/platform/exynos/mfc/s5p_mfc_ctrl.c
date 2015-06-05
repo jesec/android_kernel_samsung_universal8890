@@ -574,6 +574,8 @@ int s5p_mfc_sleep(struct s5p_mfc_dev *dev)
 	}
 
 err_mfc_sleep:
+	if (IS_MFCv10X(dev))
+		s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_MFC_CLOCK_OFF);
 	s5p_mfc_clock_off(dev);
 	mfc_debug_leave();
 
@@ -641,6 +643,9 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 		s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_RISC_ON);
 	else
 		s5p_mfc_write_reg(dev, 0x3ff, S5P_FIMV_SW_RESET);
+
+	if (IS_MFCv10X(dev))
+		s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_MFC_CLOCK_OFF);
 
 	mfc_debug(2, "Will now wait for completion of firmware transfer.\n");
 	if (FW_WAKEUP_AFTER_RISC_ON(dev)) {
