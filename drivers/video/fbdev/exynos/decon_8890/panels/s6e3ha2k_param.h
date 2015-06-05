@@ -52,11 +52,6 @@ static const unsigned char SEQ_REG_F9[] = {
 	0x29
 };
 
-static const unsigned char SEQ_REG_B9[] = {
-	0xB9,
-	0x10, 0x09, 0xff, 0x00, 0x09
-};
-
 static const unsigned char SEQ_TOUCH_HSYNC[] = {
 	0xBD,
 	0x30, 0x22, 0x02, 0x16, 0x02, 0x16
@@ -64,7 +59,7 @@ static const unsigned char SEQ_TOUCH_HSYNC[] = {
 
 static const unsigned char SEQ_PENTILE_CONTROL[] = {
 	0xC0,
-	0x30, 0x00, 0xD8, 0xD
+	0x30, 0x00, 0xD8, 0xD8
 };
 
 static const unsigned char SEQ_COLUMN_ADDRESS[] = {
@@ -131,6 +126,7 @@ static const unsigned char SEQ_DISPLAY_ON[] = {
 
 static const unsigned char SEQ_TE_ON[] = {
 	0x35,
+	0x00
 };
 
 #endif /* __S6E3HA0K_PARAM_H__ */

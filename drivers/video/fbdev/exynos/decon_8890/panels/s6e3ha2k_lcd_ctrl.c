@@ -100,32 +100,30 @@ void lcd_init(int id, struct decon_lcd *lcd)
 				ARRAY_SIZE(SEQ_REG_F2)) < 0)
 		dsim_err("fail to write F2 init command.\n");
 
-	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_REG_F9,
-				ARRAY_SIZE(SEQ_REG_F9)) < 0)
-		dsim_err("fail to write F9 init command.\n");
+	if (lcd->mic_enabled)
+		if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_REG_F9,
+					ARRAY_SIZE(SEQ_REG_F9)) < 0)
+			dsim_err("fail to write F9 init command.\n");
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, (unsigned long)SEQ_SLEEP_OUT[0], 0) < 0)
 		dsim_err("fail to write SLEEP_OUT init command.\n");
 
-	msleep(20);
+	msleep(100);
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TEST_KEY_ON_F0,
 				ARRAY_SIZE(SEQ_TEST_KEY_ON_F0)) < 0)
 		dsim_err("fail to write KEY_ON init command.\n");
 
-	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_REG_B9,
-				ARRAY_SIZE(SEQ_REG_B9)) < 0)
-		dsim_err("fail to write KEY_ON init command.\n");
+	/* TE rising time change : 10 line earlier */
+	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TE_START_SETTING,
+				ARRAY_SIZE(SEQ_TE_START_SETTING)) < 0)
+		dsim_err("fail to write TE_START_SETTING command.\n");
 
-	msleep(120);
+	msleep(100);
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_REG_F2,
 				ARRAY_SIZE(SEQ_REG_F2)) < 0)
 		dsim_err("fail to write F2 init command.\n");
-
-	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TE_START_SETTING,
-				ARRAY_SIZE(SEQ_TE_START_SETTING)) < 0)
-		dsim_err("fail to write TE_START_SETTING command.\n");
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, SEQ_TE_ON[0], 0) < 0)
 		dsim_err("fail to write TE_on init command.\n");
