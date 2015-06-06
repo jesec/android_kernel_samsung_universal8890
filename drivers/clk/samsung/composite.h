@@ -418,4 +418,14 @@ extern void __init samsung_register_of_fixed_ext(
 			unsigned int nr_fixed_rate_clk,
 			struct of_device_id *clk_matches);
 
+extern void samsung_clk_save(void __iomem *base,
+			struct samsung_clk_reg_dump *rd,
+			unsigned int num_regs);
+extern void samsung_clk_restore(void __iomem *base,
+			const struct samsung_clk_reg_dump *rd,
+			unsigned int num_regs);
+extern struct samsung_clk_reg_dump *samsung_clk_alloc_reg_dump(
+			const unsigned long *rdump,
+			unsigned long nr_rdump);
+
 #endif /* __SAMSUNG_CLK_COMPOSITE_H */
