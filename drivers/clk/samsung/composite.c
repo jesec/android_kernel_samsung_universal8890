@@ -31,7 +31,6 @@
 static DEFINE_SPINLOCK(lock);
 
 #ifdef CONFIG_PM_SLEEP
-
 void samsung_clk_save(void __iomem *base,
 				    struct samsung_clk_reg_dump *rd,
 				    unsigned int num_regs)

@@ -471,9 +471,7 @@ extern void __init samsung_register_vclk(struct init_vclk *list,
 				unsigned int nr_vclk);
 
 extern void __init samsung_clk_init(struct device_node *np, void __iomem *base,
-		unsigned long nr_clks, unsigned long *rdump,
-		unsigned long nr_rdump, unsigned long *soc_rdump,
-		unsigned long nr_soc_rdump);
+				unsigned long nr_clks);
 
 extern void __init samsung_register_of_fixed_ext(
 			struct samsung_clk_provider *ctx,
