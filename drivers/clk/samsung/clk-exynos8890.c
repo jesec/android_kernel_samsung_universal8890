@@ -524,6 +524,8 @@ void __init exynos8890_clk_init(struct device_node *np)
 	samsung_register_vclk(ctx, exynos8890_peris_vclks, ARRAY_SIZE(exynos8890_peris_vclks));
 	samsung_register_vclk(ctx, exynos8890_ccore_vclks, ARRAY_SIZE(exynos8890_ccore_vclks));
 
+	samsung_clk_of_add_provider(np, ctx);
+
 	pr_info("EXYNOS8890: Clock setup completed\n");
 }
 CLK_OF_DECLARE(exynos8890_clks, "samsung,exynos8890-clock", exynos8890_clk_init);
