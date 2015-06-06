@@ -8,7 +8,11 @@
  * This file contains clocks of Exynos8890.
  */
 
+#include <linux/clk.h>
+#include <linux/clkdev.h>
+#include <linux/clk-provider.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 
 #include <dt-bindings/clock/exynos8890.h>
 #include "../../soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
@@ -476,39 +480,49 @@ static struct init_vclk exynos8890_disp1_vclks[] __initdata = {
 
 void __init exynos8890_clk_init(struct device_node *np)
 {
+	struct samsung_clk_provider *ctx;
+	void __iomem *reg_base;
 	int ret;
 
-	if (!np)
-		panic("%s: unable to determine SoC\n", __func__);
+	if (np) {
+		reg_base = of_iomap(np, 0);
+		if (!reg_base)
+			panic("%s: failed to map registers\n", __func__);
+	} else {
+		panic("%s: unable to determine soc\n", __func__);
+	}
 
 	ret = cal_init();
 	if (ret)
 		pr_err("%s: unable to initialize power cal\n", __func__);
 
-	samsung_clk_init(np, 0, nr_clks, NULL, 0, NULL, 0);
-	samsung_register_of_fixed_ext(exynos8890_fixed_rate_ext_clks,
+	ctx = samsung_clk_init(np, reg_base, nr_clks);
+	if (!ctx)
+		panic("%s: unable to allocate context.\n", __func__);
+
+	samsung_register_of_fixed_ext(ctx, exynos8890_fixed_rate_ext_clks,
 			ARRAY_SIZE(exynos8890_fixed_rate_ext_clks),
 			ext_clk_match);
 
 	/* Regist clock local IP */
-	samsung_register_vclk(exynos8890_audio_vclks, ARRAY_SIZE(exynos8890_audio_vclks));
-	samsung_register_vclk(exynos8890_cam0_vclks, ARRAY_SIZE(exynos8890_cam0_vclks));
-	samsung_register_vclk(exynos8890_cam1_vclks, ARRAY_SIZE(exynos8890_cam1_vclks));
-	samsung_register_vclk(exynos8890_disp0_vclks, ARRAY_SIZE(exynos8890_disp0_vclks));
-	samsung_register_vclk(exynos8890_disp1_vclks, ARRAY_SIZE(exynos8890_disp1_vclks));
-	samsung_register_vclk(exynos8890_fsys0_vclks, ARRAY_SIZE(exynos8890_fsys0_vclks));
-	samsung_register_vclk(exynos8890_fsys1_vclks, ARRAY_SIZE(exynos8890_fsys1_vclks));
-	samsung_register_vclk(exynos8890_g3d_vclks, ARRAY_SIZE(exynos8890_g3d_vclks));
-	samsung_register_vclk(exynos8890_imem_vclks, ARRAY_SIZE(exynos8890_imem_vclks));
-	samsung_register_vclk(exynos8890_isp0_vclks, ARRAY_SIZE(exynos8890_isp0_vclks));
-	samsung_register_vclk(exynos8890_isp1_vclks, ARRAY_SIZE(exynos8890_isp1_vclks));
-	samsung_register_vclk(exynos8890_isp_sensor_vclks, ARRAY_SIZE(exynos8890_isp1_vclks));
-	samsung_register_vclk(exynos8890_mfc_vclks, ARRAY_SIZE(exynos8890_mfc_vclks));
-	samsung_register_vclk(exynos8890_mscl_vclks, ARRAY_SIZE(exynos8890_mscl_vclks));
-	samsung_register_vclk(exynos8890_peric0_vclks, ARRAY_SIZE(exynos8890_peric0_vclks));
-	samsung_register_vclk(exynos8890_peric1_vclks, ARRAY_SIZE(exynos8890_peric1_vclks));
-	samsung_register_vclk(exynos8890_peris_vclks, ARRAY_SIZE(exynos8890_peris_vclks));
-	samsung_register_vclk(exynos8890_ccore_vclks, ARRAY_SIZE(exynos8890_ccore_vclks));
+	samsung_register_vclk(ctx, exynos8890_audio_vclks, ARRAY_SIZE(exynos8890_audio_vclks));
+	samsung_register_vclk(ctx, exynos8890_cam0_vclks, ARRAY_SIZE(exynos8890_cam0_vclks));
+	samsung_register_vclk(ctx, exynos8890_cam1_vclks, ARRAY_SIZE(exynos8890_cam1_vclks));
+	samsung_register_vclk(ctx, exynos8890_disp0_vclks, ARRAY_SIZE(exynos8890_disp0_vclks));
+	samsung_register_vclk(ctx, exynos8890_disp1_vclks, ARRAY_SIZE(exynos8890_disp1_vclks));
+	samsung_register_vclk(ctx, exynos8890_fsys0_vclks, ARRAY_SIZE(exynos8890_fsys0_vclks));
+	samsung_register_vclk(ctx, exynos8890_fsys1_vclks, ARRAY_SIZE(exynos8890_fsys1_vclks));
+	samsung_register_vclk(ctx, exynos8890_g3d_vclks, ARRAY_SIZE(exynos8890_g3d_vclks));
+	samsung_register_vclk(ctx, exynos8890_imem_vclks, ARRAY_SIZE(exynos8890_imem_vclks));
+	samsung_register_vclk(ctx, exynos8890_isp0_vclks, ARRAY_SIZE(exynos8890_isp0_vclks));
+	samsung_register_vclk(ctx, exynos8890_isp1_vclks, ARRAY_SIZE(exynos8890_isp1_vclks));
+	samsung_register_vclk(ctx, exynos8890_isp_sensor_vclks, ARRAY_SIZE(exynos8890_isp1_vclks));
+	samsung_register_vclk(ctx, exynos8890_mfc_vclks, ARRAY_SIZE(exynos8890_mfc_vclks));
+	samsung_register_vclk(ctx, exynos8890_mscl_vclks, ARRAY_SIZE(exynos8890_mscl_vclks));
+	samsung_register_vclk(ctx, exynos8890_peric0_vclks, ARRAY_SIZE(exynos8890_peric0_vclks));
+	samsung_register_vclk(ctx, exynos8890_peric1_vclks, ARRAY_SIZE(exynos8890_peric1_vclks));
+	samsung_register_vclk(ctx, exynos8890_peris_vclks, ARRAY_SIZE(exynos8890_peris_vclks));
+	samsung_register_vclk(ctx, exynos8890_ccore_vclks, ARRAY_SIZE(exynos8890_ccore_vclks));
 
 	pr_info("EXYNOS8890: Clock setup completed\n");
 }

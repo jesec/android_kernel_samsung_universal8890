@@ -18,6 +18,18 @@
 #include "../../soc/samsung/pwrcal/pwrcal.h"
 
 /*
+ * struct samsung_clk_provider: information about clock provider
+ * @reg_base: virtual address for the register base.
+ * @clk_data: holds clock related data like clk* and number of clocks.
+ * @lock: maintains exclusion bwtween callbacks for a given clock-provider.
+ */
+struct samsung_clk_provider {
+	void __iomem *reg_base;
+	struct clk_onecell_data clk_data;
+	spinlock_t lock;
+};
+
+/*
  * struct samsung_clk_reg_dump: register dump of clock controller registers.
  * @offset: clock register offset from the controller base address.
  * @value: the value to be register at offset.
@@ -429,8 +441,10 @@ struct samsung_usermux {
 		.alias		= a,					\
 	}
 
-extern void __init samsung_register_usermux(struct samsung_usermux *list,
-			unsigned int nr_usermux);
+extern void __init samsung_register_usermux(
+		struct samsung_clk_provider *ctx,
+		struct samsung_usermux *list,
+		unsigned int nr_usermux);
 
 /*
  * struct init_vclk: initial information for virtual clocks
@@ -467,11 +481,12 @@ struct samsung_vclk {
 		.alias		= a,		\
 	}
 
-extern void __init samsung_register_vclk(struct init_vclk *list,
-				unsigned int nr_vclk);
+extern void __init samsung_register_vclk(struct samsung_clk_provider *ctx,
+		struct init_vclk *list, unsigned int nr_vclk);
 
-extern void __init samsung_clk_init(struct device_node *np, void __iomem *base,
-				unsigned long nr_clks);
+extern struct samsung_clk_provider *__init samsung_clk_init(
+			struct device_node *np, void __iomem *base,
+			unsigned long nr_clks);
 
 extern void __init samsung_register_of_fixed_ext(
 			struct samsung_clk_provider *ctx,
