@@ -3050,6 +3050,7 @@ static int decon_fb_alloc_memory(struct decon_device *decon, struct decon_win *w
 
 	win->dma_buf_data[1].fence = NULL;
 	win->dma_buf_data[2].fence = NULL;
+	win->plane_cnt = 1;
 	dev = decon->mdev->vpp_dev[decon->default_idma];
 	ret = decon_map_ion_handle(decon, dev, &win->dma_buf_data[0],
 			handle, buf, win->index);
