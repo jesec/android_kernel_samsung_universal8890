@@ -236,7 +236,9 @@ static int soc_compr_free(struct snd_compr_stream *cstream)
 			SND_SOC_DAPM_STREAM_STOP);
 	}
 
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 out:
+#endif
 	mutex_unlock(&rtd->pcm_mutex);
 	return 0;
 }
