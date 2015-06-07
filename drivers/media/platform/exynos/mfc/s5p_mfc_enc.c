@@ -3891,6 +3891,9 @@ static int enc_ext_info(struct s5p_mfc_ctx *ctx)
 	if (FW_HAS_TEMPORAL_SVC_CH(dev))
 		val |= ENC_SET_TEMP_SVC_CH;
 
+	if (FW_SUPPORT_SKYPE(dev))
+		val |= ENC_SET_SKYPE_FLAG;
+
 	return val;
 }
 

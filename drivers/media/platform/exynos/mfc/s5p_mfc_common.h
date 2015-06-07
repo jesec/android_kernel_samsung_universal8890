@@ -1154,6 +1154,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define FW_HAS_INT_TIMEOUT(dev)		(IS_MFCv9X(dev) || IS_MFCv10X(dev))
 #define FW_HAS_CONCEAL_CONTROL(dev)	IS_MFCv10X(dev)
 
+#define FW_SUPPORT_SKYPE(dev)		IS_MFCv9X(dev) &&		\
+					(dev->fw.date >= 0x150603)
+
 #define HW_LOCK_CLEAR_MASK		(0xFFFFFFFF)
 
 #define is_h264(ctx)		((ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC) ||\
@@ -1185,6 +1188,7 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 #define	ENC_SET_RGB_INPUT		(1 << 0)
 #define	ENC_SET_SPARE_SIZE		(1 << 1)
 #define	ENC_SET_TEMP_SVC_CH		(1 << 2)
+#define	ENC_SET_SKYPE_FLAG		(1 << 3)
 
 #define MFC_QOS_FLAG_NODATA		0xFFFFFFFF
 
