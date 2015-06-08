@@ -955,7 +955,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 		.temp_level = 96, \
 	}, \
 	.freq_tab[5] = { \
-		.freq_clip_max = 169 * 1000, \
+		.freq_clip_max = 273 * 1000, \
 		.temp_level = 101, \
 	}, \
 	.freq_tab_count = 6, \
@@ -969,17 +969,20 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 #define EXYNOS8890_TMU_DATA_ISP \
 	.temp_bit = 9,		\
 	.temp_mask = 0x1FF,	\
-	.trigger_levels[0] = 91, \
-	.trigger_levels[1] = 96, \
-	.trigger_levels[2] = 110, \
+	.trigger_levels[0] = 86, \
+	.trigger_levels[1] = 91, \
+	.trigger_levels[2] = 96, \
+	.trigger_levels[3] = 110, \
 	.trigger_enable[0] = 1, \
 	.trigger_enable[1] = 1, \
 	.trigger_enable[2] = 1, \
+	.trigger_enable[3] = 1, \
 	.trigger_type[0] = THROTTLE_ACTIVE, \
 	.trigger_type[1] = THROTTLE_ACTIVE, \
-	.trigger_type[2] = HW_TRIP, \
-	.max_trigger_level = 3, \
-	.non_hw_trigger_levels = 2, \
+	.trigger_type[2] = THROTTLE_ACTIVE, \
+	.trigger_type[3] = THROTTLE_ACTIVE, \
+	.max_trigger_level = 4, \
+	.non_hw_trigger_levels = 4, \
 	.gain = 5, \
 	.reference_voltage = 16, \
 	.noise_cancel_mode = 2, \
@@ -991,14 +994,18 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.second_point_trim = 85, \
 	.default_temp_offset = 25, \
 	.freq_tab[0] = { \
+		.freq_clip_max = 60, \
+		.temp_level = 86, \
+	}, \
+	.freq_tab[1] = { \
 		.freq_clip_max = 15, \
 		.temp_level = 91, \
 	}, \
-	.freq_tab[1] = { \
+	.freq_tab[2] = { \
 		.freq_clip_max = 5, \
 		.temp_level = 96, \
 	}, \
-	.freq_tab_count = 2, \
+	.freq_tab_count = 3, \
 	.type = SOC_ARCH_EXYNOS8890, \
 	.d_type = ISP, \
 	.registers = &exynos8890_tmu_registers, \
