@@ -1188,16 +1188,14 @@ static int __init s3c24xx_serial_console_init(void)
 
 	console_clk = clk_get(NULL, pclk_name);
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get Console pclk(%d)!(it's not err)\n",
-					CONFIG_S3C_LOWLEVEL_UART_PORT);
+		pr_err("Can't get %s!(it's not err)\n", pclk_name);
 	} else {
 		clk_prepare_enable(console_clk);
 	}
 
 	console_clk = clk_get(NULL, sclk_name);
 	if (IS_ERR(console_clk)) {
-		pr_err("Can't get Console sclk(%d)!(it's not err)\n",
-					CONFIG_S3C_LOWLEVEL_UART_PORT);
+		pr_err("Can't get %s!(it's not err)\n", sclk_name);
 	} else {
 		clk_prepare_enable(console_clk);
 	}
@@ -1430,12 +1428,6 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	if (ret > 0)
 		ourport->tx_irq = ret;
 
-	if (of_get_property(platdev->dev.of_node,
-			"samsung,separate-uart-clk", NULL))
-		ourport->check_separated_clk = 1;
-	else
-		ourport->check_separated_clk = 0;
-
 #if defined(CONFIG_PM_RUNTIME) && defined(CONFIG_SND_SAMSUNG_AUDSS)
 	if (ourport->domain == DOMAIN_AUD)
 		lpass_register_subip(&platdev->dev, "aud-uart");
@@ -1446,7 +1438,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	else
 		ourport->check_separated_clk = 0;
 
-	snprintf(clkname, sizeof(clkname), "gatepclk_uart%d", ourport->port.line);
+	snprintf(clkname, sizeof(clkname), "gate_uart%d", ourport->port.line);
 	ourport->clk = clk_get(&platdev->dev, clkname);
 	if (IS_ERR(ourport->clk)) {
 		pr_err("%s: Controller clock not found\n",
@@ -1461,6 +1453,13 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 			pr_err("%s: Controller clock not found\n",
 					dev_name(&platdev->dev));
 			return PTR_ERR(ourport->separated_clk);
+		}
+
+		ret = clk_prepare_enable(ourport->separated_clk);
+		if (ret) {
+			pr_err("uart: clock failed to prepare+enable: %d\n", ret);
+			clk_put(ourport->separated_clk);
+			return ret;
 		}
 	}
 
@@ -1573,12 +1572,6 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	int ret;
 	int port_index = probe_index;
 
-	if (np) {
-		ret = of_alias_get_id(np, "serial");
-		if (ret >= 0)
-			index = ret;
-	}
-
 	dbg("s3c24xx_serial_probe(%p) %d\n", pdev, index);
 
 	if (pdev->dev.of_node) {
@@ -1656,14 +1649,6 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 	ret = s3c24xx_serial_init_port(ourport, pdev);
 	if (ret < 0)
 		return ret;
-
-	if (!s3c24xx_uart_drv.state) {
-		ret = uart_register_driver(&s3c24xx_uart_drv);
-		if (ret < 0) {
-			pr_err("Failed to register Samsung UART driver\n");
-			return ret;
-		}
-	}
 
 	/* Registering notifier for audio uart */
 	if (ourport->domain == DOMAIN_AUD) {
