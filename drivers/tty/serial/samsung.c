@@ -1500,8 +1500,10 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 		uart_pin_state[AUD_UART_PIN_DEFAULT] =
 			pinctrl_lookup_state(aud_uart_pinctrl, PINCTRL_STATE_DEFAULT);
 
+#ifdef CONFIG_SND_SOC_SAMSUNG
 		/* Audio uart always on */
 		lpass_get_sync(&pdev->dev);
+#endif
 	}
 
 	dbg("%s: adding port\n", __func__);
