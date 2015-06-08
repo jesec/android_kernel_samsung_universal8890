@@ -1518,7 +1518,7 @@ static int s3c24xx_serial_probe(struct platform_device *pdev)
 
 		if (ourport->cpu_qos_val)
 			pm_qos_add_request(&ourport->s3c24xx_uart_cpu_qos,
-						PM_QOS_CPU_FREQ_MIN, 0);
+						PM_QOS_CLUSTER1_FREQ_MIN, 0);
 	}
 #endif
 	if (of_find_property(pdev->dev.of_node, "samsung,lpass-subip", NULL))
