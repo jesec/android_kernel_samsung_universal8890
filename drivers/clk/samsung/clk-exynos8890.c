@@ -526,6 +526,8 @@ void __init exynos8890_clk_init(struct device_node *np)
 
 	samsung_clk_of_add_provider(np, ctx);
 
+	clk_register_fixed_factor(NULL, "pwm-clock", "gate_peric0_pwm",CLK_SET_RATE_PARENT, 1, 1);
+
 	pr_info("EXYNOS8890: Clock setup completed\n");
 }
 CLK_OF_DECLARE(exynos8890_clks, "samsung,exynos8890-clock", exynos8890_clk_init);
