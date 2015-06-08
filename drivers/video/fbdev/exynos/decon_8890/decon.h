@@ -134,6 +134,8 @@ struct exynos_decon_platdata {
 	enum decon_trig_mode	trig_mode;
 	enum decon_dsi_mode	dsi_mode;
 	enum decon_output_type	out_type;
+	int	out_idx;	/* dsim index */
+	int	out1_idx;	/* dsim index for dual DSI */
 	int	max_win;
 	int	default_win;
 };
@@ -592,6 +594,8 @@ struct decon_device {
 	struct decon_win		*windows[MAX_DECON_WIN];
 	struct decon_resources		res;
 	struct v4l2_subdev		*output_sd;
+	/* 2nd DSIM sub-device ptr for dual DSI mode */
+	struct v4l2_subdev		*output_sd1;
 	struct exynos_md		*mdev;
 
 	struct mutex			update_regs_list_lock;
@@ -615,8 +619,6 @@ struct decon_device {
 	spinlock_t			slock;
 	struct decon_vsync		vsync_info;
 	enum decon_state		state;
-	enum decon_output_type		out_type;
-	int				out_idx;
 	u32				prev_bw;
 	u32				prev_disp_bw;
 	u32				prev_int_bw;

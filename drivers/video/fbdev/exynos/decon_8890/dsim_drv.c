@@ -572,7 +572,8 @@ static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 	if (int_src & DSIM_INTSRC_RX_DATA_DONE)
 		complete(&dsim_rd_comp);
 	if (int_src & DSIM_INTSRC_FRAME_DONE)
-		DISP_SS_EVENT_LOG(DISP_EVT_DSIM_FRAMEDONE, &dsim->sd, ktime_set(0, 0));
+		/* TODO: This will be added in the future. event log should consider dual DSI
+		 * DISP_SS_EVENT_LOG(DISP_EVT_DSIM_FRAMEDONE, &dsim->sd, ktime_set(0, 0)); */
 	if (int_src & DSIM_INTSRC_ERR_RX_ECC)
 		dev_err(dsim->dev, "RX ECC Multibit error was detected!\n");
 	dsim_reg_clear_int(dsim->id, int_src);
@@ -1353,7 +1354,7 @@ dsim_init_done:
 
 	call_panel_ops(dsim, probe, dsim);
 	/* TODO: displayon is moved to decon probe only in case of lcd on probe */
-	/* dsim->panel_ops->displayon(dsim); */
+	/* call_panel_ops(dsim, displayon, dsim); */
 
 	dsim_clocks_info(dsim);
 

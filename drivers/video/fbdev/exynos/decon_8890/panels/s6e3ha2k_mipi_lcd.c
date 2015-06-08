@@ -168,9 +168,14 @@ static const struct backlight_ops s6e3ha2k_backlight_ops = {
 
 static int s6e3ha2k_probe(struct dsim_device *dsim)
 {
+	const char *backlight_dev_name[2] = {
+		"panel1",
+		"panel1_1"
+	};
+
 	dsim_base = dsim;
 
-	bd = backlight_device_register("pwm-backlight.0", NULL,
+	bd = backlight_device_register(backlight_dev_name[dsim->id], NULL,
 		NULL, &s6e3ha2k_backlight_ops, NULL);
 	if (IS_ERR(bd))
 		pr_err("failed to register backlight device!\n");

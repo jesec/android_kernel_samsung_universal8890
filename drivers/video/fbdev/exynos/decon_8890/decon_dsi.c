@@ -66,11 +66,11 @@ int find_subdev_mipi(struct decon_device *decon, int id)
 	}
 
 	decon->output_sd = md->dsim_sd[id];
-	decon->out_type = DECON_OUT_DSI;
-	decon->out_idx = id;
 
-	if (IS_ERR_OR_NULL(decon->output_sd))
+	if (IS_ERR_OR_NULL(decon->output_sd)) {
 		decon_warn("couldn't find dsim%d subdev\n", id);
+		return -ENOMEM;
+	}
 
 	v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_GET_LCD_INFO, NULL);
 	decon->lcd_info = (struct decon_lcd *)v4l2_get_subdev_hostdata(decon->output_sd);
@@ -82,6 +82,14 @@ int find_subdev_mipi(struct decon_device *decon, int id)
 		decon->lcd_info->hfp,  decon->lcd_info->hbp,  decon->lcd_info->hsa,
 		 decon->lcd_info->vfp,  decon->lcd_info->vbp,  decon->lcd_info->vsa,
 		 decon->lcd_info->xres,  decon->lcd_info->yres);
+
+	if (decon->pdata->dsi_mode == DSI_MODE_DUAL_DSI) {
+		decon->output_sd1 = md->dsim_sd[decon->pdata->out1_idx];
+		if (IS_ERR_OR_NULL(decon->output_sd1)) {
+			decon_warn("couldn't find 2nd DSIM subdev\n");
+			return -ENOMEM;
+		}
+	}
 
 	return 0;
 }
@@ -483,7 +491,7 @@ irqreturn_t decon_fb_isr_for_eint(int irq, void *dev_id)
 	}
 
 #ifdef CONFIG_DECON_LPD_DISPLAY
-	if ((decon->state == DECON_STATE_ON) && (decon->out_type == DECON_OUT_DSI)) {
+	if ((decon->state == DECON_STATE_ON) && (decon->pdata->out_type == DECON_OUT_DSI)) {
 		if (decon_min_lock_cond(decon))
 			queue_work(decon->lpd_wq, &decon->lpd_work);
 	}
@@ -499,20 +507,27 @@ irqreturn_t decon_fb_isr_for_eint(int irq, void *dev_id)
 int decon_config_eint_for_te(struct platform_device *pdev, struct decon_device *decon)
 {
 	struct device *dev = decon->dev;
-	int gpio;
+	int gpio, gpio1;
 	int ret = 0;
 
 	/* Get IRQ resource and register IRQ handler. */
-	gpio = of_get_gpio(dev->of_node, 0);
-	if (gpio < 0) {
-		decon_err("failed to get proper gpio number\n");
-		return -EINVAL;
+	if (of_get_property(dev->of_node, "gpios", NULL) != NULL) {
+		gpio = of_get_gpio(dev->of_node, 0);
+		if (gpio < 0) {
+			decon_err("failed to get proper gpio number\n");
+			return -EINVAL;
+		}
+
+		gpio1 = of_get_gpio(dev->of_node, 1);
+		if (gpio1 < 0)
+			decon_info("This board doesn't support TE GPIO of 2nd LCD\n");
 	}
 
 	gpio = gpio_to_irq(gpio);
 	decon->irq = gpio;
 	ret = devm_request_irq(dev, gpio, decon_fb_isr_for_eint,
 			  IRQF_TRIGGER_RISING, pdev->name, decon);
+
 	decon->eint_status = 1;
 
 	return ret;

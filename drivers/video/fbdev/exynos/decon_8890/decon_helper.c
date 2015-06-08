@@ -88,7 +88,7 @@ void decon_to_psr_info(struct decon_device *decon, struct decon_mode_info *psr)
 	psr->psr_mode = decon->pdata->psr_mode;
 	psr->trig_mode = decon->pdata->trig_mode;
 	psr->dsi_mode = decon->pdata->dsi_mode;
-	psr->out_type = decon->out_type;
+	psr->out_type = decon->pdata->out_type;
 }
 
 void decon_to_init_param(struct decon_device *decon, struct decon_param *p)
@@ -106,11 +106,11 @@ void decon_to_init_param(struct decon_device *decon, struct decon_param *p)
 	p->psr.psr_mode = decon->pdata->psr_mode;
 	p->psr.trig_mode = decon->pdata->trig_mode;
 	p->psr.dsi_mode = decon->pdata->dsi_mode;
-	p->psr.out_type = decon->out_type;
+	p->psr.out_type = decon->pdata->out_type;
 	p->nr_windows = decon->pdata->max_win;
 	p->disp_ss_regs = decon->ss_regs;
-	decon_dbg("###psr_mode %d trig_mode %d out_type %d nr_windows %d LCD[%d %d]\n",
-		p->psr.psr_mode, p->psr.trig_mode, p->psr.out_type, p->nr_windows,
+	decon_dbg("###psr_mode %d trig_mode %d dsi_mode %d out_type %d nr_windows %d LCD[%d %d]\n",
+		p->psr.psr_mode, p->psr.trig_mode, p->psr.dsi_mode, p->psr.out_type, p->nr_windows,
 		decon->lcd_info->xres, decon->lcd_info->yres);
 }
 
@@ -355,7 +355,7 @@ void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *reg
 		}
 	}
 
-	if (decon->out_type == DECON_OUT_WB)
+	if (decon->pdata->out_type == DECON_OUT_WB)
 		memcpy(&log->data.reg.win_config[MAX_DECON_WIN], &regs->vpp_config[MAX_DECON_WIN],
 				sizeof(struct decon_win_config));
 
