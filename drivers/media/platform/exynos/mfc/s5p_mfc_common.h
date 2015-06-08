@@ -37,6 +37,8 @@
 #include <linux/pm_qos.h>
 #endif
 
+#define MFC_DRIVER_INFO		150604
+
 #define MFC_MAX_BUFFERS		32
 #define MFC_MAX_REF_BUFS	2
 #define MFC_FRAME_PLANES	2

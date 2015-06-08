@@ -3954,6 +3954,9 @@ static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_GET_VERSION_INFO:
 		ctrl->value = mfc_version(dev);
 		break;
+	case V4L2_CID_MPEG_MFC_GET_DRIVER_INFO:
+		ctrl->value = MFC_DRIVER_INFO;
+		break;
 	case V4L2_CID_MPEG_MFC_GET_EXTRA_BUFFER_SIZE:
 		ctrl->value = mfc_linear_buf_size(mfc_version(dev));
 		break;
