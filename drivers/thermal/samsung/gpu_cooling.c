@@ -62,14 +62,12 @@ static unsigned int gpufreq_dev_count;
 
 #if defined(CONFIG_SOC_EXYNOS8890)
 static struct cpufreq_frequency_table gpu_freq_table[] = {
-	{0, 780 * 1000},
-	{1, 702 * 1000},
-	{2, 598 * 1000},
-	{3, 546 * 1000},
-	{4, 416 * 1000},
-	{5, 351 * 1000},
-	{6, 273 * 1000},
-	{7, CPUFREQ_TABLE_END},
+	{0, 598 * 1000},
+	{1, 546 * 1000},
+	{2, 416 * 1000},
+	{3, 351 * 1000},
+	{4, 273 * 1000},
+	{5, CPUFREQ_TABLE_END},
 };
 #endif
 
