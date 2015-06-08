@@ -403,7 +403,7 @@ static int exynos8890_do_cl_dvfs_stop(unsigned int cl_domain, unsigned int level
 
 	if (cl_domain == ID_G3D) {
 		/* G3D driver not use level 0, 1 */
-		level = level + 1;
+		level = level + G3D_LV_OFFSET;
 	}
 
 	channel_ack_mode(&cl);
