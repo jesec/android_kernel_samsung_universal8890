@@ -139,30 +139,30 @@ void __init exynos_pwm_clk_init(struct device_node *np)
 
 	clk_table[pwm_scaler0] = clk_register_divider(NULL, "pwm-scaler0",
 				"pwm-clock", 0, reg_base + REG_TCFG0, 0, 8,
-				0, &lock);
+				CLK_DIVIDER_ALLOW_ZERO, &lock);
 	clk_table[pwm_scaler1] = clk_register_divider(NULL, "pwm-scaler1",
 				"pwm-clock", 0, reg_base + REG_TCFG0, 8, 8,
-				0, &lock);
+				CLK_DIVIDER_ALLOW_ZERO, &lock);
 
 	clk_table[pwm_tdiv0] = clk_register_divider_table(NULL, "pwm-tdiv0",
 				"pwm-scaler0", 0, reg_base + REG_TCFG1, 0, 4,
-				0, pwm_div_table , &lock);
+				CLK_DIVIDER_ALLOW_ZERO, pwm_div_table, &lock);
 
 	clk_table[pwm_tdiv1] = clk_register_divider_table(NULL, "pwm-tdiv1",
 				"pwm-scaler0", 0, reg_base + REG_TCFG1, 4, 4,
-				0, pwm_div_table , &lock);
+				CLK_DIVIDER_ALLOW_ZERO, pwm_div_table, &lock);
 
 	clk_table[pwm_tdiv2] = clk_register_divider_table(NULL, "pwm-tdiv2",
 				"pwm-scaler1", 0, reg_base + REG_TCFG1, 8, 4,
-				0, pwm_div_table , &lock);
+				CLK_DIVIDER_ALLOW_ZERO, pwm_div_table, &lock);
 
 	clk_table[pwm_tdiv3] = clk_register_divider_table(NULL, "pwm-tdiv3",
 				"pwm-scaler1", 0, reg_base + REG_TCFG1, 12, 4,
-				0, pwm_div_table , &lock);
+				CLK_DIVIDER_ALLOW_ZERO, pwm_div_table, &lock);
 
 	clk_table[pwm_tdiv4] = clk_register_divider_table(NULL, "pwm-tdiv4",
 				"pwm-scaler1", 0, reg_base + REG_TCFG1, 16, 4,
-				0, pwm_div_table , &lock);
+				CLK_DIVIDER_ALLOW_ZERO, pwm_div_table, &lock);
 
 	clk_table[pwm_tin0] = clk_register_mux(NULL, "pwm-tin0",
 				pwm_tin0_p, ARRAY_SIZE(pwm_tin0_p), 0,
