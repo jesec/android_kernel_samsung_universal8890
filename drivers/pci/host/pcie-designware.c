@@ -295,7 +295,9 @@ static int dw_msi_setup_irq(struct msi_chip *chip, struct pci_dev *pdev,
 	else
 		msg.data = pos;
 
+#ifdef CONFIG_PCI_MSI
 	write_msi_msg(irq, &msg);
+#endif
 
 	return 0;
 }
