@@ -731,6 +731,7 @@ int decon_t_get_clocks(struct decon_device *decon);
 void decon_f_set_clocks(struct decon_device *decon);
 void decon_s_set_clocks(struct decon_device *decon);
 void decon_t_set_clocks(struct decon_device *decon);
+int decon_t_set_lcd_info(struct decon_device *decon);
 int decon_register_lpd_work(struct decon_device *decon);
 int decon_exit_lpd(struct decon_device *decon);
 int decon_lpd_block_exit(struct decon_device *decon);

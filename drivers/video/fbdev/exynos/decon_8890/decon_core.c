@@ -3493,6 +3493,8 @@ static int decon_probe(struct platform_device *pdev)
 		ret = decon_t_register_irq(pdev, decon);
 		if (ret)
 			goto fail;
+
+		decon_t_set_lcd_info(decon);
 		break;
 	}
 
