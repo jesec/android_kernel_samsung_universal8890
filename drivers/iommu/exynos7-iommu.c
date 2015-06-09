@@ -20,7 +20,7 @@
 #include <linux/errno.h>
 #include <linux/device.h>
 #include <linux/sched.h>
-#include <mach/smc.h>
+#include <linux/smc.h>
 
 #include <asm/pgtable.h>
 
