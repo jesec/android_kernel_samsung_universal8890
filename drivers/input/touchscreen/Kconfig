@@ -971,4 +971,6 @@ config TOUCHSCREEN_MXT540E
          module will be called mxt540e.
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+
+source "drivers/input/touchscreen/stm/Kconfig"
 endif
