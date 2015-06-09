@@ -741,11 +741,9 @@ void exynos_update_media_scenario(enum bts_media_type media_type,
 	total_bw = vpp_total_bw + cam_bw;
 
 	int_freq = (total_bw * 100) / (INT_UTIL * BUS_WIDTH);
-	if (int_freq > 511000)
-		int_freq = 511000;
-	/* INT_L0 shared between camera and normal scenarioes? */
-	//if (int_freq > 511000)
-	//	int_freq = 690000;
+	/* INT_L0 shared between camera and normal scenarioes */
+	if (int_freq > 468000)
+		int_freq = 690000;
 
 	if (pm_qos_request_active(&exynos8_int_bts_qos))
 		pm_qos_update_request(&exynos8_int_bts_qos, int_freq);
