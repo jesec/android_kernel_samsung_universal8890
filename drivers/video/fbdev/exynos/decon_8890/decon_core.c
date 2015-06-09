@@ -2935,20 +2935,8 @@ static int decon_create_links(struct decon_device *decon,
 	decon_info("vpp <-> decon links are created successfully\n");
 #endif
 
-	switch (decon->id) {
-	case 0:
-		if (decon->pdata->out_type == DECON_OUT_DSI)
-			ret = create_link_mipi(decon, 0);
-		break;
-	case 1:
-		if (decon->pdata->out_type == DECON_OUT_DSI)
-			ret = create_link_mipi(decon, 2);
-		break;
-	case 3:
-		if (decon->pdata->out_type == DECON_OUT_DSI)
-			ret = create_link_mipi(decon, 1);
-		break;
-	}
+	if (decon->pdata->out_type == DECON_OUT_DSI)
+		ret = create_link_mipi(decon, decon->pdata->out_idx);
 
 	return ret;
 }
@@ -3608,7 +3596,7 @@ static int decon_probe(struct platform_device *pdev)
 
 	call_init_ops(decon, bts_add, decon);
 
-	if (!decon->id && decon->pdata->out_type == DECON_OUT_DSI) {
+	if (decon->pdata->out_type == DECON_OUT_DSI) {
 		/* Enable only Decon_F during probe */
 #if defined(CONFIG_PM_RUNTIME)
 		pm_runtime_get_sync(decon->dev);
@@ -3640,14 +3628,14 @@ static int decon_probe(struct platform_device *pdev)
 		decon_dbg("xres %d yres %d win_start_pos %x win_end_pos %x\n",
 			fbinfo->var.xres, fbinfo->var.yres, win_regs.start_pos,
 			win_regs.end_pos);
-		win_regs.colormap = 0x00FF00;
+		win_regs.colormap = 0x000000;
 		win_regs.pixel_count = fbinfo->var.xres * fbinfo->var.yres;
 		win_regs.whole_w = fbinfo->var.xres_virtual;
 		win_regs.whole_h = fbinfo->var.yres_virtual;
 		win_regs.offset_x = fbinfo->var.xoffset;
 		win_regs.offset_y = fbinfo->var.yoffset;
 		win_regs.type = decon->default_idma;
-		decon_reg_set_window_control(decon->id, win_idx, &win_regs, false);
+		decon_reg_set_window_control(decon->id, win_idx, &win_regs, true);
 
 		decon->vpp_usage_bitmask |= (1 << decon->default_idma);
 		decon->vpp_used[decon->default_idma] = true;

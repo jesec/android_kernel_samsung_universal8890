@@ -525,8 +525,10 @@ int decon_config_eint_for_te(struct platform_device *pdev, struct decon_device *
 
 	gpio = gpio_to_irq(gpio);
 	decon->irq = gpio;
+
+	decon_dbg("%s: gpio(%d)\n", __func__, gpio);
 	ret = devm_request_irq(dev, gpio, decon_fb_isr_for_eint,
-			  IRQF_TRIGGER_RISING, pdev->name, decon);
+			IRQF_TRIGGER_RISING, pdev->name, decon);
 
 	decon->eint_status = 1;
 
