@@ -15,54 +15,79 @@
 #include <linux/platform_device.h>
 #include <linux/genalloc.h>
 #include <linux/iommu.h>
+#include <linux/irq.h>
+#include <linux/clk.h>
 
 #include <linux/exynos_iovmm.h>
 
-#ifdef CONFIG_SOC_EXYNOS5410
-#define IOVA_START 0x80000000
-#define IOVM_SIZE (SZ_2G - SZ_4K) /* last 4K is for error values */
-#else
+#define MODULE_NAME "exynos-sysmmu"
+
 #define IOVA_START 0x10000000
 #define IOVM_SIZE (SZ_2G + SZ_1G + SZ_256M) /* last 4K is for error values */
-#endif
 
 #define IOVM_NUM_PAGES(vmsize) (vmsize / PAGE_SIZE)
 #define IOVM_BITMAP_SIZE(vmsize) \
 		((IOVM_NUM_PAGES(vmsize) + BITS_PER_BYTE) / BITS_PER_BYTE)
 
-/* We does not consider super section mapping (16MB) */
-#define SPSECT_ORDER 24
-#define LSECT_ORDER 21
-#define SECT_ORDER 20
-#define LPAGE_ORDER 16
-#define SPAGE_ORDER 12
+#define SPSECT_ORDER	24
+#define DSECT_ORDER	21
+#define SECT_ORDER	20
+#define LPAGE_ORDER	16
+#define SPAGE_ORDER	12
 
-#define SPSECT_SIZE (1 << SPSECT_ORDER)
-#define LSECT_SIZE (1 << LSECT_ORDER)
-#define SECT_SIZE (1 << SECT_ORDER)
-#define LPAGE_SIZE (1 << LPAGE_ORDER)
-#define SPAGE_SIZE (1 << SPAGE_ORDER)
+#define SPSECT_SIZE	(1 << SPSECT_ORDER)
+#define DSECT_SIZE	(1 << DSECT_ORDER)
+#define SECT_SIZE	(1 << SECT_ORDER)
+#define LPAGE_SIZE	(1 << LPAGE_ORDER)
+#define SPAGE_SIZE	(1 << SPAGE_ORDER)
 
-#define PG_ENT_SHIFT 4 /* 36bit PA, 32bit VA */
+#define SPSECT_MASK	~(SPSECT_SIZE - 1)
+#define DSECT_MASK	~(DSECT_SIZE - 1)
+#define SECT_MASK	~(SECT_SIZE - 1)
+#define LPAGE_MASK	~(LPAGE_SIZE - 1)
+#define SPAGE_MASK	~(SPAGE_SIZE - 1)
 
-#define SPSECT_PFN_ORDER (SPSECT_ORDER - PG_ENT_SHIFT)
-#define LSECT_PFN_ORDER (LSECT_ORDER - PG_ENT_SHIFT)
-#define SECT_PFN_ORDER (SECT_ORDER - PG_ENT_SHIFT)
-#define LPAGE_PFN_ORDER (LPAGE_ORDER - PG_ENT_SHIFT)
-#define SPAGE_PFN_ORDER (SPAGE_ORDER - PG_ENT_SHIFT)
+#define SECT_PER_SPSECT		(SPSECT_SIZE / SECT_SIZE)
+#define SECT_PER_DSECT		(DSECT_SIZE / SECT_SIZE)
+#define SPAGES_PER_LPAGE	(LPAGE_SIZE / SPAGE_SIZE)
 
-#define SECT_PER_SPSECT (SPSECT_SIZE / SECT_SIZE)
-#define SECT_PER_LSECT (LSECT_SIZE / SECT_SIZE)
-#define SPAGES_PER_LPAGE (LPAGE_SIZE / SPAGE_SIZE)
+#define PGBASE_TO_PHYS(pgent)	(phys_addr_t)((pgent) << PG_ENT_SHIFT)
 
 #define MAX_NUM_PBUF	6
 #define MAX_NUM_PLANE	6
 
 #define NUM_LV1ENTRIES 4096
-#define NUM_LV2ENTRIES 256
+#define NUM_LV2ENTRIES (SECT_SIZE / SPAGE_SIZE)
+
+#define lv1ent_offset(iova) ((iova) >> SECT_ORDER)
+#define lv2ent_offset(iova) ((iova & ~SECT_MASK) >> SPAGE_ORDER)
 
 typedef u32 sysmmu_pte_t;
 typedef u32 exynos_iova_t;
+
+#define LV2TABLE_SIZE (NUM_LV2ENTRIES * sizeof(sysmmu_pte_t))
+
+#define spsection_phys(sent) PGBASE_TO_PHYS(*(sent) & SPSECT_MASK)
+#define spsection_offs(iova) ((iova) & (SPSECT_SIZE - 1))
+#define section_phys(sent) PGBASE_TO_PHYS(*(sent) & SECT_MASK)
+#define section_offs(iova) ((iova) & (SECT_SIZE - 1))
+#define lpage_phys(pent) PGBASE_TO_PHYS(*(pent) & LPAGE_MASK)
+#define lpage_offs(iova) ((iova) & (LPAGE_SIZE - 1))
+#define spage_phys(pent) PGBASE_TO_PHYS(*(pent) & SPAGE_MASK)
+#define spage_offs(iova) ((iova) & (SPAGE_SIZE - 1))
+
+#define lv2table_base(sent) ((*((phys_addr_t *)(sent)) & ~0x3F) << PG_ENT_SHIFT)
+
+#define SYSMMU_BLOCK_POLLING_COUNT 120
+
+#define REG_MMU_CTRL		0x000
+#define REG_MMU_CFG		0x004
+#define REG_MMU_STATUS		0x008
+#define REG_MMU_VERSION		0x034
+
+#define CTRL_ENABLE	0x5
+#define CTRL_BLOCK	0x7
+#define CTRL_DISABLE	0x0
 
 /*
  * Metadata attached to the owner of a group of System MMUs that belong
@@ -100,6 +125,235 @@ struct exynos_iovmm {
 
 void exynos_sysmmu_tlb_invalidate(struct device *dev, dma_addr_t start,
 				  size_t size);
+
+#define SYSMMU_FAULT_WRITE	(1 << SYSMMU_FAULTS_NUM)
+
+enum sysmmu_property {
+	SYSMMU_PROP_RESERVED,
+	SYSMMU_PROP_READ,
+	SYSMMU_PROP_WRITE,
+	SYSMMU_PROP_READWRITE = SYSMMU_PROP_READ | SYSMMU_PROP_WRITE,
+	SYSMMU_PROP_RW_MASK = SYSMMU_PROP_READWRITE,
+	SYSMMU_PROP_WINDOW_SHIFT = 16,
+	SYSMMU_PROP_WINDOW_MASK = 0x1F << SYSMMU_PROP_WINDOW_SHIFT,
+};
+
+/*
+ * Metadata attached to each System MMU devices.
+ */
+struct sysmmu_drvdata {
+	struct device *sysmmu;	/* System MMU's device descriptor */
+	struct device *master;	/* Client device that needs System MMU */
+	int nsfrs;
+	void __iomem **sfrbases;
+	struct clk *clk;
+	struct clk *clk_master;
+	int activations;
+	struct iommu_domain *domain; /* domain given to iommu_attach_device() */
+	phys_addr_t pgtable;
+	short qos;
+	spinlock_t lock;
+	struct sysmmu_prefbuf pbufs[MAX_NUM_PBUF];
+	int num_pbufs;
+	bool runtime_active;
+	enum sysmmu_property prop; /* mach/sysmmu.h */
+};
+
+struct exynos_iommu_domain {
+	struct list_head clients; /* list of sysmmu_drvdata.node */
+	sysmmu_pte_t *pgtable; /* lv1 page table, 16KB */
+	short *lv2entcnt; /* free lv2 entry counter for each section */
+	spinlock_t lock; /* lock for this structure */
+	spinlock_t pgtablelock; /* lock for modifying page table @ pgtable */
+};
+
+extern void *sysmmu_placeholder; /* Inidcate if a device is System MMU */
+
+#define is_sysmmu(sysmmu) (sysmmu->archdata.iommu == &sysmmu_placeholder)
+#define has_sysmmu(dev)							\
+	(dev->parent && dev->archdata.iommu && is_sysmmu(dev->parent))
+#define for_each_sysmmu(dev, sysmmu)					\
+	for (sysmmu = dev->parent; sysmmu && is_sysmmu(sysmmu);		\
+			sysmmu = sysmmu->parent)
+#define for_each_sysmmu_until(dev, sysmmu, until)			\
+	for (sysmmu = dev->parent; sysmmu != until; sysmmu = sysmmu->parent)
+
+#define __sysmmu_clk_enable(drvdata)	if (drvdata->clk) \
+						clk_enable(drvdata->clk)
+#define __sysmmu_clk_disable(drvdata)	if (drvdata->clk) \
+						clk_disable(drvdata->clk)
+#define __master_clk_enable(drvdata)	if (drvdata->clk_master) \
+						clk_enable(drvdata->clk_master)
+#define __master_clk_disable(drvdata)	if (drvdata->clk_master) \
+						clk_disable(drvdata->clk_master)
+
+#if defined(CONFIG_EXYNOS7_IOMMU) && defined(CONFIG_EXYNOS5_IOMMU)
+#error "CONFIG_IOMMU_EXYNOS5 and CONFIG_IOMMU_EXYNOS7 defined together"
+#endif
+
+#if defined(CONFIG_EXYNOS5_IOMMU) /* System MMU v1/2/3 */
+
+#define SYSMMU_OF_COMPAT_STRING "samsung,exynos4210-sysmmu"
+#define DEFAULT_QOS_VALUE	8
+#define PG_ENT_SHIFT 0 /* 32bit PA, 32bit VA */
+#define lv1ent_fault(sent) ((*(sent) == ZERO_LV2LINK) || \
+			   ((*(sent) & 3) == 0) || ((*(sent) & 3) == 3))
+#define lv1ent_page(sent) ((*(sent) != ZERO_LV2LINK) && \
+			  ((*(sent) & 3) == 1))
+#define lv1ent_section(sent) ((*(sent) & 3) == 2)
+#define lv1ent_dsection(sent) 0 /* Large section is not defined */
+#define lv1ent_spsection(sent) (((*(sent) & 3) == 2) && \
+			       ((*(sent) & (0x1 << 18)) == 1))
+#define lv2ent_fault(pent) ((*(pent) & 3) == 0 || \
+			   ((*(pent) & SPAGE_MASK) == fault_page))
+#define lv2ent_small(pent) ((*(pent) & 2) == 2)
+#define lv2ent_large(pent) ((*(pent) & 3) == 1)
+#define dsection_phys(sent) ({ BUG(); 0; }) /* large section is not defined */
+#define dsection_offs(iova) ({ BUG(); 0; })
+#define mk_lv1ent_spsect(pa) ((sysmmu_pte_t) ((pa) | 0x40002))
+#define mk_lv1ent_dsect(pa) ({ BUG(); 0; })
+#define mk_lv1ent_sect(pa) ((sysmmu_pte_t) ((pa) | 2))
+#define mk_lv1ent_page(pa) ((sysmmu_pte_t) ((pa) | 1))
+#define mk_lv2ent_lpage(pa) ((sysmmu_pte_t) ((pa) | 1))
+#define mk_lv2ent_spage(pa) ((sysmmu_pte_t) ((pa) | 2))
+
+#define PGSIZE_BITMAP (SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
+
+#define __exynos_sysmmu_set_df(drvdata, idx, iova) do { } while (0)
+#define __exynos_sysmmu_release_df(drvdata) do { } while (0)
+
+#elif defined(CONFIG_EXYNOS7_IOMMU) /* System MMU v5 ~ */
+
+#define SYSMMU_OF_COMPAT_STRING "samsung,exynos5430-sysmmu"
+#define DEFAULT_QOS_VALUE	-1 /* Inherited from master */
+#define PG_ENT_SHIFT 4 /* 36bit PA, 32bit VA */
+#define lv1ent_fault(sent) ((*(sent) == ZERO_LV2LINK) || \
+			   ((*(sent) & 7) == 0))
+#define lv1ent_page(sent) ((*(sent) != ZERO_LV2LINK) && \
+			  ((*(sent) & 7) == 1))
+#define lv1ent_section(sent) ((*(sent) & 7) == 2)
+#define lv1ent_dsection(sent) ((*(sent) & 7) == 4)
+#define lv1ent_spsection(sent) ((*(sent) & 7) == 6)
+#define lv2ent_fault(pent) ((*(pent) & 3) == 0 || \
+			   (PGBASE_TO_PHYS(*(pent) & SPAGE_MASK) == fault_page))
+#define lv2ent_small(pent) ((*(pent) & 2) == 2)
+#define lv2ent_large(pent) ((*(pent) & 3) == 1)
+#define dsection_phys(sent) PGBASE_TO_PHYS(*(sent) & DSECT_MASK)
+#define dsection_offs(iova) ((iova) & (DSECT_SIZE - 1))
+#define mk_lv1ent_spsect(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 6)
+#define mk_lv1ent_dsect(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 4)
+#define mk_lv1ent_sect(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 2)
+#define mk_lv1ent_page(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 1)
+#define mk_lv2ent_lpage(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 1)
+#define mk_lv2ent_spage(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 2)
+
+#define PGSIZE_BITMAP (DSECT_SIZE | SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
+
+void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata,
+			    int idx, dma_addr_t iova);
+void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata);
+
+#else
+#error "Neither CONFIG_IOMMU_EXYNOS5 nor CONFIG_IOMMU_EXYNOS7 is defined"
+#endif
+
+static inline bool set_sysmmu_active(struct sysmmu_drvdata *data)
+{
+	/* return true if the System MMU was not active previously
+	   and it needs to be initialized */
+	return ++data->activations == 1;
+}
+
+static inline bool set_sysmmu_inactive(struct sysmmu_drvdata *data)
+{
+	/* return true if the System MMU is needed to be disabled */
+	BUG_ON(data->activations < 1);
+	return --data->activations == 0;
+}
+
+static inline bool is_sysmmu_active(struct sysmmu_drvdata *data)
+{
+	return data->activations > 0;
+}
+
+#define MMU_MAJ_VER(val)	((val) >> 7)
+#define MMU_MIN_VER(val)	((val) & 0x7F)
+#define MMU_RAW_VER(reg)	(((reg) >> 21) & ((1 << 11) - 1)) /* 11 bits */
+
+#define MAKE_MMU_VER(maj, min)	((((maj) & 0xF) << 7) | ((min) & 0x7F))
+
+static inline unsigned int __raw_sysmmu_version(void __iomem *sfrbase)
+{
+	return MMU_RAW_VER(__raw_readl(sfrbase + REG_MMU_VERSION));
+}
+
+static inline void __raw_sysmmu_disable(void __iomem *sfrbase)
+{
+	__raw_writel(0, sfrbase + REG_MMU_CFG);
+	__raw_writel(CTRL_DISABLE, sfrbase + REG_MMU_CTRL);
+}
+
+static inline void __raw_sysmmu_enable(void __iomem *sfrbase)
+{
+	__raw_writel(CTRL_ENABLE, sfrbase + REG_MMU_CTRL);
+}
+
+#define sysmmu_unblock __raw_sysmmu_enable
+
+void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
+
+static inline bool sysmmu_block(void __iomem *sfrbase)
+{
+	int i = SYSMMU_BLOCK_POLLING_COUNT;
+
+	__raw_writel(CTRL_BLOCK, sfrbase + REG_MMU_CTRL);
+	while ((i > 0) && !(__raw_readl(sfrbase + REG_MMU_STATUS) & 1))
+		--i;
+
+	if (!(__raw_readl(sfrbase + REG_MMU_STATUS) & 1)) {
+		dump_sysmmu_tlb_pb(sfrbase);
+		panic("Failed to block System MMU!");
+		sysmmu_unblock(sfrbase);
+		return false;
+	}
+
+	return true;
+}
+
+void __sysmmu_init_config(struct sysmmu_drvdata *drvdata, int idx);
+void __sysmmu_set_ptbase(void __iomem *sfrbase, phys_addr_t pfn_pgtable);
+
+extern unsigned long *zero_lv2_table;
+#define ZERO_LV2LINK mk_lv1ent_page(__pa(zero_lv2_table))
+
+static inline sysmmu_pte_t *page_entry(sysmmu_pte_t *sent, unsigned long iova)
+{
+	return (sysmmu_pte_t *)(__va(lv2table_base(sent))) +
+				lv2ent_offset(iova);
+}
+
+static inline sysmmu_pte_t *section_entry(
+				sysmmu_pte_t *pgtable, unsigned long iova)
+{
+	return (sysmmu_pte_t *)(pgtable + lv1ent_offset(iova));
+}
+
+irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id);
+void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova);
+void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova);
+void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
+			int idx, unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption, unsigned int opoption);
+void __exynos_sysmmu_set_prefbuf_by_region(struct sysmmu_drvdata *drvdata,
+			int idx, struct sysmmu_prefbuf pb_reg[],
+			unsigned int num_reg);
+int __prepare_prefetch_buffers_by_plane(struct sysmmu_drvdata *drvdata,
+				struct sysmmu_prefbuf prefbuf[], int num_pb,
+				int inplanes, int onplanes,
+				int ipoption, int opoption);
+void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova);
+void __sysmmu_tlb_invalidate(void __iomem *sfrbase,
+				dma_addr_t iova, size_t size);
 
 #ifdef CONFIG_EXYNOS_IOVMM
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)

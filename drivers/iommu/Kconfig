@@ -185,18 +185,17 @@ config EXYNOS_IOMMU
 	  address space.
 
 	  If unsure, say N here.
+choice
+	prompt "Select Exynos IOMMU Type"
+	default EXYNOS7_IOMMU
+	depends on EXYNOS_IOMMU
+
+config EXYNOS5_IOMMU
+	bool "Exynos5 IOMMU Support (System MMU v1/2/3)"
 
 config EXYNOS7_IOMMU
-	bool "Exynos7 IOMMU Support"
-	depends on ARCH_EXYNOS
-	select IOMMU_API
-	help
-	  Support for the IOMMU(System MMU) of Samsung Exynos application
-	  processor family. This enables H/W multimedia accellerators to see
-	  non-linear physical memory chunks as a linear memory in their
-	  address spaces
-
-	  If unsure, say N here.
+	bool "Exynos7 IOMMU Support (System MMU v5~)"
+endchoice
 
 config EXYNOS7_IOMMU_CHECK_DF
 	bool "Check direct fetch capability"
@@ -209,7 +208,7 @@ config EXYNOS7_IOMMU_CHECK_DF
 config EXYNOS_IOVMM
 	bool "IO Virtual Memory Manager for Exynos IOMMUs"
 	select GENERIC_ALLOCATOR
-	depends on EXYNOS_IOMMU || EXYNOS7_IOMMU
+	depends on EXYNOS_IOMMU
 	default y
 	help
 	  Supporting the users of Exynos IOMMU for allocating and mapping
@@ -231,7 +230,7 @@ config EXYNOS_IOMMU_NO_MASTER_CLKGATE
 
 config EXYNOS_IOMMU_DEBUG
 	bool "Debugging log for Exynos IOMMU"
-	depends on EXYNOS_IOMMU || EXYNOS7_IOMMU
+	depends on EXYNOS_IOMMU
 	help
 	  Select this to see the detailed log message that shows what
 	  happens in the IOMMU driver.
