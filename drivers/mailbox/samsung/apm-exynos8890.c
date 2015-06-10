@@ -790,7 +790,7 @@ int exynos8890_apm_bulk_read(unsigned int type, unsigned char reg, unsigned char
 {
 	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
 	u32 result[2] = {0, 0};
-	unsigned int ret, i, shift;
+	unsigned int ret, i;
 
 	mutex_lock(&cl_mutex);
 	channel_ack_mode(&cl);
@@ -810,12 +810,10 @@ int exynos8890_apm_bulk_read(unsigned int type, unsigned char reg, unsigned char
 	result[1] = __raw_readl(EXYNOS_MAILBOX_RX(2));
 
 	for (i = 0; i < count; i++) {
-		shift = ((count-1)-i) * BYTE_SHIFT;
-		if (shift > 31)  {
-			buf[i] = result[0] >> (shift-32);
-		} else {
-			buf[i] = result[1] >> shift;
-		}
+		if (i < BYTE_4)
+			buf[i] = (result[0] >> i * BYTE_SHIFT) & BYTE_MASK;
+		else
+			buf[i] = (result[1] >> (i - BYTE_4) * BYTE_SHIFT) & BYTE_MASK;
 	}
 
 	mutex_unlock(&cl_mutex);
