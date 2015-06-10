@@ -95,7 +95,7 @@ void bts_mif_lock(struct vpp_dev *vpp)
 	struct decon_win_config *config = vpp->config;
 
 	if (is_rotation(config)) {
-		pm_qos_update_request(&vpp->vpp_mif_qos, 1222000);
+		pm_qos_update_request(&vpp->vpp_mif_qos, 1144000);
 	} else {
 		pm_qos_update_request(&vpp->vpp_mif_qos, 0);
 	}
@@ -135,7 +135,7 @@ void bts_add_request(struct decon_device *decon)
 
 void bts_send_init(struct decon_device *decon)
 {
-	pm_qos_update_request(&decon->mif_qos, 572000);
+	pm_qos_update_request(&decon->mif_qos, 546000);
 }
 
 void bts_send_release(struct decon_device *decon)
