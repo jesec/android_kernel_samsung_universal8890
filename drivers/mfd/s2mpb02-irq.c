@@ -114,17 +114,11 @@ static irqreturn_t s2mpb02_irq_thread(int irq, void *data)
 	u8 irq_reg[S2MPB02_IRQ_GROUP_NR] = {0};
 	int i, ret;
 
-	pr_debug("%s: irq gpio pre-state(0x%02x)\n", __func__,
-				gpio_get_value(s2mpb02->irq_gpio));
-
 	/* LED_INT */
 	ret = s2mpb02_read_reg(s2mpb02->i2c,
 			S2MPB02_REG_INT1, &irq_reg[LED_INT]);
 	pr_info("%s: led interrupt(0x%02x)\n",
 			__func__, irq_reg[LED_INT]);
-
-	pr_debug("%s: irq gpio post-state(0x%02x)\n", __func__,
-		gpio_get_value(s2mpb02->irq_gpio));
 
 	/* Apply masking */
 	for (i = 0; i < S2MPB02_IRQ_GROUP_NR; i++)
@@ -144,13 +138,6 @@ int s2mpb02_irq_init(struct s2mpb02_dev *s2mpb02)
 	int i;
 	int ret;
 
-	if (!s2mpb02->irq_gpio) {
-		pr_warn("%s:%s No interrupt specified.\n",
-					MFD_DEV_NAME, __func__);
-		s2mpb02->irq_base = 0;
-		return 0;
-	}
-
 	if (s2mpb02->irq_base < 0) {
 		pr_err("%s:%s No interrupt base specified.\n",
 					MFD_DEV_NAME, __func__);
@@ -158,19 +145,6 @@ int s2mpb02_irq_init(struct s2mpb02_dev *s2mpb02)
 	}
 
 	mutex_init(&s2mpb02->irqlock);
-
-	s2mpb02->irq = gpio_to_irq(s2mpb02->irq_gpio);
-	pr_info("%s:%s irq=%d, irq->gpio=%d\n", MFD_DEV_NAME, __func__,
-			s2mpb02->irq, s2mpb02->irq_gpio);
-
-	ret = gpio_request(s2mpb02->irq_gpio, "sub_pmic_irq");
-	if (ret) {
-		pr_err("%s:%s failed requesting gpio %d\n",
-			MFD_DEV_NAME, __func__,	s2mpb02->irq_gpio);
-		goto err;
-	}
-	gpio_direction_input(s2mpb02->irq_gpio);
-	gpio_free(s2mpb02->irq_gpio);
 
 	/* Mask interrupt sources */
 	for (i = 0; i < S2MPB02_IRQ_GROUP_NR; i++) {
