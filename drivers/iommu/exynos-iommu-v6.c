@@ -1803,7 +1803,7 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	data->sfrbase = devm_request_and_ioremap(dev, res);
+	data->sfrbase = devm_ioremap_resource(dev, res);
 	if (!data->sfrbase) {
 		dev_err(dev, "Unable to map IOMEM @ PA:%pa\n", &res->start);
 		return -EBUSY;
