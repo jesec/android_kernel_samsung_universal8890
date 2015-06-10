@@ -21,7 +21,6 @@
 #include <linux/delay.h>
 
 #include <linux/exynos_iovmm.h>
-#include <plat/cpu.h>
 
 #include "exynos-iommu.h"
 
