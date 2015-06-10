@@ -3359,6 +3359,12 @@ static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
 
 	spin_lock_irqsave(&dev->irqlock, flags);
 
+	if (list_empty(&ctx->dst_queue)) {
+		mfc_debug(2, "no dst buffers.\n");
+		spin_unlock_irqrestore(&dev->irqlock, flags);
+		return -EAGAIN;
+	}
+
 	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 	dst_addr = s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0);
 	dst_size = (unsigned int)vb2_plane_size(&dst_mb->vb, 0);
