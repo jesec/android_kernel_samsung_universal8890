@@ -216,6 +216,7 @@ config SOC_EXYNOS8890
 	select CLKSRC_EXYNOS_MCT
 	select PINCTRL
 	select PWRCAL
+	select SOC_EXYNOS
 
 config PWRCAL
     bool "Exynos Power Chip Abstraction Layer"
