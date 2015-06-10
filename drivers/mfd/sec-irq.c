@@ -26,8 +26,9 @@
 #include <linux/mfd/samsung/s5m8763.h>
 #include <linux/mfd/samsung/s5m8767.h>
 
+#ifdef CONFIG_EXYNOS_MBOX
 #include <mach/apm-exynos.h>
-
+#endif
 
 static struct regmap_irq s2mps15_irqs[] = {
 	[S2MPS15_IRQ_PWRONF] = {

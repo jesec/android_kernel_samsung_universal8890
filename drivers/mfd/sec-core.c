@@ -31,10 +31,14 @@
 #include <linux/regmap.h>
 
 #if defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
+#ifdef CONFIG_EXYNOS_MBOX
 #include <mach/apm-exynos.h>
+#endif
 #else
+#ifdef CONFIG_EXYNOS_MBOX
 #include <linux/apm-exynos.h>
 #include <linux/mailbox-exynos.h>
+#endif
 #endif
 
 #ifdef CONFIG_EXYNOS_MBOX
