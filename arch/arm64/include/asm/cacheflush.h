@@ -69,6 +69,7 @@
  *		- kaddr  - page address
  *		- size   - region size
  */
+extern void flush_all_cpu_caches(void);
 extern void flush_cache_all(void);
 extern void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned long end);
 extern void flush_icache_range(unsigned long start, unsigned long end);

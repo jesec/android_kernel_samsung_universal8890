@@ -673,3 +673,13 @@ int setup_profiling_timer(unsigned int multiplier)
 {
 	return -EINVAL;
 }
+
+#ifdef CONFIG_SCHED_HMP
+void flush_all_cpu_caches(void)
+{
+}
+#else
+void flush_all_cpu_caches(void)
+{
+}
+#endif
