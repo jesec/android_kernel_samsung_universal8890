@@ -908,7 +908,7 @@ static int exynos5_i2c_xfer_msg(struct exynos5_i2c *i2c, struct i2c_msg *msgs, i
 	i2c->msg_ptr = 0;
 	i2c->trans_done = 0;
 
-	init_completion(&i2c->msg_complete);
+	reinit_completion(&i2c->msg_complete);
 
 	i2c_ctl = readl(i2c->regs + HSI2C_CTL);
 	i2c_auto_conf = readl(i2c->regs + HSI2C_AUTO_CONF);
@@ -1159,7 +1159,7 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 	i2c->trans_done = 0;
 	i2c->desc_pointer = 0;
 
-	init_completion(&i2c->msg_complete);
+	reinit_completion(&i2c->msg_complete);
 
 	/*****************************/
 	/* Set Batcher IDLE Status   */
