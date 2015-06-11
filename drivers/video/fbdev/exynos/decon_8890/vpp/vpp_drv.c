@@ -602,6 +602,13 @@ static int vpp_set_config(struct vpp_dev *vpp)
 			dev_err(DEV, "Failed runtime_get(), %d\n", ret);
 			return ret;
 		}
+
+		ret = iovmm_activate(DEV);
+		if (ret < 0) {
+			dev_err(DEV, "failed to reactivate vmm\n");
+			return ret;
+		}
+
 		spin_lock_irqsave(&vpp->slock, flags);
 		ret = vpp_init(vpp);
 		if (ret < 0) {
@@ -720,6 +727,7 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 		if (IS_ENABLED(CONFIG_PM_DEVFREQ))
 			pm_qos_update_request(&vpp->vpp_mif_qos, 0);
 
+		iovmm_deactivate(DEV);
 		pm_runtime_put_sync(DEV);
 		dev_dbg(DEV, "vpp stop(%d)\n", vpp->id);
 		clear_bit(VPP_STOPPING, &vpp->state);
@@ -1117,12 +1125,6 @@ static int vpp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, vpp);
 	pm_runtime_enable(dev);
-
-	ret = iovmm_activate(dev);
-	if (ret < 0) {
-		dev_err(DEV, "failed to reactivate vmm\n");
-		return ret;
-	}
 
 	setup_timer(&vpp->op_timer, vpp_op_timer_handler,
 			(unsigned long)vpp);
