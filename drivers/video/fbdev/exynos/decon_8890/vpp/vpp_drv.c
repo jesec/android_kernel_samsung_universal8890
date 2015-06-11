@@ -316,6 +316,8 @@ static void vpp_clk_disable(struct vpp_dev *vpp)
 
 static int vpp_init(struct vpp_dev *vpp)
 {
+	struct vpp_params *vpp_parm = &vpp->config->vpp_parm;
+
 	int ret = 0;
 
 	if(vpp->id == 0 || vpp->id == 2) {
@@ -355,7 +357,7 @@ static int vpp_init(struct vpp_dev *vpp)
 		return ret;
 
 	vpp_reg_init(vpp->id);
-
+	vpp_reg_set_rgb_type(vpp->id, vpp_parm->eq_mode);
 	vpp->h_ratio = vpp->v_ratio = 0;
 	vpp->fract_val.y_x = vpp->fract_val.y_y = 0;
 	vpp->fract_val.c_x = vpp->fract_val.c_y = 0;

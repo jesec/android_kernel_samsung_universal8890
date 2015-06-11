@@ -377,9 +377,28 @@ void vpp_reg_set_out_size(u32 id, u32 dst_w, u32 dst_h)
 	vpp_write(id, VG_SCALED_SIZE, cfg);
 }
 
-void vpp_reg_set_rgb_type(u32 id)
+void vpp_reg_set_rgb_type(u32 id, u32 type)
 {
-	vpp_write(id, VG_OUT_CON, VG_OUT_CON_RGB_TYPE_601_WIDE);
+	u32 csc_eq = 0;
+
+	switch (type) {
+	case BT_601_NARROW:
+		csc_eq = VG_OUT_CON_RGB_TYPE_601_NARROW;
+		break;
+	case BT_601_WIDE:
+		csc_eq = VG_OUT_CON_RGB_TYPE_601_WIDE;
+		break;
+	case BT_709_NARROW:
+		csc_eq = VG_OUT_CON_RGB_TYPE_709_NARROW;
+		break;
+	case BT_709_WIDE:
+		csc_eq = VG_OUT_CON_RGB_TYPE_709_WIDE;
+		break;
+	default:
+		vpp_err("Unsupported CSC Equation\n");
+	}
+
+	vpp_write(id, VG_OUT_CON, csc_eq);
 }
 
 void vpp_reg_set_plane_alpha(u32 id, u32 plane_alpha)
@@ -631,7 +650,6 @@ void vpp_reg_init(u32 id)
 	vpp_reg_set_sfr_update_done_irq(id, false);
 	vpp_reg_set_enable_interrupt(id);
 	vpp_reg_set_lookup_table(id);
-	vpp_reg_set_rgb_type(id);
 	vpp_reg_set_dynamic_clock_gating(id);
 	vpp_reg_set_plane_alpha_fixed(id);
 }

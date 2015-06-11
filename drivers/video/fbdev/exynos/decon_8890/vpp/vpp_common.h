@@ -199,7 +199,7 @@ void vpp_reg_set_sfr_update_done_irq(u32 id, u32 enable);
 void vpp_reg_set_hw_reset_done_mask(u32 id, u32 enable);
 void vpp_reg_set_lookup_table(u32 id);
 void vpp_reg_set_enable_interrupt(u32 id);
-void vpp_reg_set_rgb_type(u32 id);
+void vpp_reg_set_rgb_type(u32 id, u32 type);
 void vpp_reg_set_dynamic_clock_gating(u32 id);
 void vpp_reg_set_plane_alpha_fixed(u32 id);
 
