@@ -677,7 +677,7 @@ EXPORT_SYMBOL_GPL(exynos8890_apm_write);
 int exynos8890_apm_bulk_write(unsigned int type, unsigned char reg, unsigned char *buf, unsigned int count)
 {
 	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
-	unsigned int i, shift;
+	unsigned int i;
 	int ret;
 
 	mutex_lock(&cl_mutex);
@@ -687,12 +687,10 @@ int exynos8890_apm_bulk_write(unsigned int type, unsigned char reg, unsigned cha
 	msg[0] = (type << PM_SECTION_SHIFT) | ((count-1) << MULTI_BYTE_CNT_SHIFT) | reg;
 
 	for (i = 0; i < count; i++) {
-		shift = ((count-1)-i) * BYTE_SHIFT;
-		if (shift > 31)  {
-			msg[1] |= buf[i] << (shift-32);
-		} else {
-			msg[2] |= buf[i] << shift;
-		}
+		if (i < BYTE_4)
+			msg[1] |= buf[i] << BYTE_SHIFT * i;
+		else
+			msg[2] |= buf[i] << BYTE_SHIFT * (i - BYTE_4);
 	}
 	msg[3] = TX_INTERRUPT_ENABLE;
 
