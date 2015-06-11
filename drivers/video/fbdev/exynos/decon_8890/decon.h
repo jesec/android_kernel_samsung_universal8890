@@ -66,6 +66,10 @@ extern int decon_log_level;
 #define	NO_CNT_TH		10
 #endif
 
+/* FIXME */
+#define exynos_ss_printk(...)           do { } while(0)
+#define MHZ (1000 * 1000)
+
 #define UNDERRUN_FILTER_INTERVAL_MS    100
 #define UNDERRUN_FILTER_INIT           0
 #define UNDERRUN_FILTER_IDLE           1
