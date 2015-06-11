@@ -34,6 +34,17 @@ extern int enter_c2(unsigned int cpu, int index);
 extern void wakeup_from_c2(unsigned int cpu, int early_wakeup);
 
 /**
+ * Cluster power down blocker
+ */
+extern void block_cpd(void);
+extern void release_cpd(void);
+
+/**
+ * Checking cluster idle state
+ */
+extern int check_cluster_idle_state(int cpu);
+
+/**
   IDLE_IP control
  */
 extern void exynos_update_pd_idle_status(int index, int idle);
