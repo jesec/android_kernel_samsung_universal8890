@@ -1250,7 +1250,7 @@ static int dsim_probe(struct platform_device *pdev)
 	}
 
 	dsim_info("res: start(0x%x), end(0x%x)\n", (u32)res->start, (u32)res->end);
-	dsim->reg_base = devm_request_and_ioremap(dev, res);
+	dsim->reg_base = devm_ioremap_resource(dev, res);
 	if (!dsim->reg_base) {
 		dev_err(&pdev->dev, "mipi-dsi: failed to remap io region\n");
 		ret = -EINVAL;

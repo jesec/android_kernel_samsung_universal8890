@@ -1077,7 +1077,7 @@ static int vpp_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	vpp->regs = devm_request_and_ioremap(dev, res);
+	vpp->regs = devm_ioremap_resource(dev, res);
 	if (!vpp->regs) {
 		dev_err(DEV, "Failed to map registers\n");
 		ret = -EADDRNOTAVAIL;

@@ -3388,7 +3388,7 @@ static int decon_probe(struct platform_device *pdev)
 
 	/* Get memory resource and map SFR region. */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	decon->regs = devm_request_and_ioremap(dev, res);
+	decon->regs = devm_ioremap_resource(dev, res);
 	if (decon->regs == NULL) {
 		decon_err("failed to claim register region\n");
 		return -ENOENT;
