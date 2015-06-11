@@ -3,7 +3,7 @@
 #
 config VIDEO_EXYNOS
         bool "Exynos Multimedia Devices"
-        depends on ARCH_EXYNOS8
+        depends on ARCH_EXYNOS
         default y
         help
           This is a representative exynos multimedia device.
@@ -14,5 +14,7 @@ endif
 
 config MEDIA_EXYNOS
         bool
+        depends on VIDEO_EXYNOS
+        default y
         help
           Compile mdev to use exynos media device driver.
