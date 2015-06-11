@@ -26,7 +26,6 @@
 #include <media/videobuf2-ion.h>
 
 #include <linux/exynos_iovmm.h>
-#include <plat/cpu.h>
 
 #define vb2ion_err(dev, fmt, ...) \
 	dev_err(dev, "VB2ION: " pr_fmt(fmt), ##__VA_ARGS__)
@@ -833,7 +832,7 @@ static struct dma_buf *vb2_ion_get_user_pages(unsigned long start,
 
 	priv->write = write;
 
-	dbuf = dma_buf_export(priv, &vb2_ion_dmabuf_ops, len, O_RDWR);
+	dbuf = dma_buf_export(priv, &vb2_ion_dmabuf_ops, len, O_RDWR, NULL);
 	if (IS_ERR(dbuf)) {
 		sg_free_table(&priv->sgt);
 		ret = PTR_ERR(dbuf);
