@@ -137,7 +137,7 @@ static int dsim_wait_for_cmd_fifo_empty(struct dsim_device *dsim, int id)
 		if (!wait_for_completion_timeout(&dsim_ph_wr_comp,
 			MIPI_WR_TIMEOUT)) {
 			if (dsim_read_mask(dsim->id, DSIM_INTSRC, DSIM_INTSRC_SFR_PH_FIFO_EMPTY)) {
-				INIT_COMPLETION(dsim_ph_wr_comp);
+				reinit_completion(&dsim_ph_wr_comp);
 				dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 				return 0;
 			}
@@ -148,7 +148,7 @@ static int dsim_wait_for_cmd_fifo_empty(struct dsim_device *dsim, int id)
 		if (!wait_for_completion_timeout(&dsim_wr_comp,
 			MIPI_WR_TIMEOUT)) {
 			if (dsim_read_mask(dsim->id, DSIM_INTSRC, DSIM_INTSRC_SFR_PL_FIFO_EMPTY)) {
-				INIT_COMPLETION(dsim_wr_comp);
+				reinit_completion(&dsim_wr_comp);
 				dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PL_FIFO_EMPTY);
 				return 0;
 			}
@@ -186,7 +186,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 	case MIPI_DSI_DCS_SHORT_WRITE:
 	case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
 	case MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE:
-		INIT_COMPLETION(dsim_ph_wr_comp);
+		reinit_completion(&dsim_ph_wr_comp);
 		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 		dsim_reg_wr_tx_header(dsim->id, data_id, data0, data1);
 		if (dsim_wait_for_cmd_fifo_empty(dsim, 0)) {
@@ -202,7 +202,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 	case MIPI_DSI_COLOR_MODE_ON:
 	case MIPI_DSI_SHUTDOWN_PERIPHERAL:
 	case MIPI_DSI_TURN_ON_PERIPHERAL:
-		INIT_COMPLETION(dsim_ph_wr_comp);
+		reinit_completion(&dsim_ph_wr_comp);
 		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 		dsim_reg_wr_tx_header(dsim->id, data_id, data0, data1);
 		if (dsim_wait_for_cmd_fifo_empty(dsim, 0)) {
@@ -226,7 +226,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 	case MIPI_DSI_GENERIC_READ_REQUEST_1_PARAM:
 	case MIPI_DSI_GENERIC_READ_REQUEST_2_PARAM:
 	case MIPI_DSI_DCS_READ:
-		INIT_COMPLETION(dsim_ph_wr_comp);
+		reinit_completion(&dsim_ph_wr_comp);
 		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 		dsim_reg_wr_tx_header(dsim->id, data_id, data0, data1);
 		if (dsim_wait_for_cmd_fifo_empty(dsim, 0)) {
@@ -248,8 +248,8 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 		unsigned int size;
 
 		size = data1 * 4;
-		INIT_COMPLETION(dsim_wr_comp);
-		INIT_COMPLETION(dsim_ph_wr_comp);
+		reinit_completion(&dsim_wr_comp);
+		reinit_completion(&dsim_ph_wr_comp);
 		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PL_FIFO_EMPTY |
 						DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 		/* if data count is less then 4, then send 3bytes data.  */
@@ -430,7 +430,7 @@ int dsim_read_data(struct dsim_device *dsim, u32 data_id,
 		return -EINVAL;
 	}
 
-	INIT_COMPLETION(dsim_rd_comp);
+	reinit_completion(&dsim_rd_comp);
 
 	/* Set the maximum packet size returned */
 	dsim_write_data(dsim,
