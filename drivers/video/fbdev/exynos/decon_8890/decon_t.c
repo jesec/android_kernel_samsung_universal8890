@@ -11,10 +11,10 @@
 
 #include <linux/of_gpio.h>
 #include <linux/clk-provider.h>
-#include <mach/regs-clock.h>
 
 #include "decon.h"
 #include "decon_helper.h"
+#include "../../../../staging/android/sw_sync.h"
 
 int decon_t_set_lcd_info(struct decon_device *decon)
 {

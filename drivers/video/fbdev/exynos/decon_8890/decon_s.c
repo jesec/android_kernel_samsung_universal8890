@@ -11,7 +11,6 @@
 
 #include <linux/of_gpio.h>
 #include <linux/clk-provider.h>
-#include <mach/regs-clock.h>
 
 #include "decon.h"
 #include "decon_helper.h"

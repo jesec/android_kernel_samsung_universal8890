@@ -24,8 +24,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/exynos_iovmm.h>
-#include <video/videonode.h>
-#include <mach/bts.h>
 #include <media/exynos_mc.h>
 
 #include "regs-vpp.h"

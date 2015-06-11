@@ -19,9 +19,6 @@
 #include <linux/smc.h>
 #include <linux/export.h>
 
-#include <plat/cpu.h>
-#include <mach/devfreq.h>
-
 #include "vpp.h"
 #include "vpp_common.h"
 #include "../decon_helper.h"

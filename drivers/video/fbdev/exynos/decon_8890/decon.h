@@ -18,15 +18,12 @@
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 #include <linux/kthread.h>
-#include <linux/videodev2_exynos_media.h>
 #include <linux/pm_qos.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
 #include <media/v4l2-device.h>
 #include <media/videobuf2-core.h>
 #include <media/exynos_mc.h>
-#include <mach/devfreq.h>
-#include <mach/bts.h>
 
 #include "regs-decon.h"
 #include "decon_common.h"

@@ -31,18 +31,15 @@
 #include <linux/smc.h>
 #include <linux/debugfs.h>
 
-#include <mach/regs-clock.h>
-#include <mach/exynos-pm.h>
 #include <media/exynos_mc.h>
 #include <video/mipi_display.h>
-#include <video/videonode.h>
 #include <media/v4l2-subdev.h>
 
 #include "decon.h"
 #include "dsim.h"
 #include "decon_helper.h"
 #include "./panels/lcd_ctrl.h"
-#include "../../../staging/android/sw_sync.h"
+#include "../../../../staging/android/sw_sync.h"
 #include "vpp/vpp.h"
 
 #ifdef CONFIG_MACH_VELOCE8890

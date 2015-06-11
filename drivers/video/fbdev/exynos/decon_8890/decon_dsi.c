@@ -19,9 +19,6 @@
 
 #include <media/v4l2-subdev.h>
 
-#include <mach/regs-clock.h>
-#include <plat/cpu.h>
-
 #include "decon.h"
 #include "dsim.h"
 #include "decon_helper.h"

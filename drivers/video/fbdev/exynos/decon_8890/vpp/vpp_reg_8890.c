@@ -14,7 +14,6 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/ktime.h>
-#include <mach/map.h>
 #include "vpp.h"
 #include "vpp_common.h"
 #include "vpp_coef.h"

@@ -38,9 +38,6 @@
 
 #include <video/mipi_display.h>
 
-#include <plat/cpu.h>
-
-#include <mach/map.h>
 #include <mach/exynos5-mipiphy.h>
 
 #include "regs-dsim.h"

@@ -19,11 +19,8 @@
 
 #include <media/v4l2-subdev.h>
 
-#include <mach/regs-clock.h>
-#include <plat/cpu.h>
-
-#include <../pwrcal/pwrcal.h>
-#include <../pwrcal/S5E8890/S5E8890-vclk.h>
+#include "../../../../soc/samsung/pwrcal/pwrcal.h"
+#include "../../../../soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 #include "decon.h"
 #include "dsim.h"
 #include "decon_helper.h"
