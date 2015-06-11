@@ -23,6 +23,7 @@
 
 #include <asm/cputype.h>
 #include <asm/topology.h>
+#include <asm/smp_plat.h>
 
 /*
  * cpu power table
@@ -380,42 +381,6 @@ static void update_siblings_masks(unsigned int cpuid)
 	}
 }
 
-void store_cpu_topology(unsigned int cpuid)
-{
-	struct cpu_topology *cpuid_topo = &cpu_topology[cpuid];
-	u64 mpidr;
-
-	if (cpuid_topo->cluster_id != -1)
-		goto topology_populated;
-
-	mpidr = read_cpuid_mpidr();
-
-	/* Uniprocessor systems can rely on default topology values */
-	if (mpidr & MPIDR_UP_BITMASK)
-		return;
-
-	/* Create cpu topology mapping based on MPIDR. */
-	if (mpidr & MPIDR_MT_BITMASK) {
-		/* Multiprocessor system : Multi-threads per core */
-		cpuid_topo->thread_id  = MPIDR_AFFINITY_LEVEL(mpidr, 0);
-		cpuid_topo->core_id    = MPIDR_AFFINITY_LEVEL(mpidr, 1);
-		cpuid_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 2);
-	} else {
-		/* Multiprocessor system : Single-thread per core */
-		cpuid_topo->thread_id  = -1;
-		cpuid_topo->core_id    = MPIDR_AFFINITY_LEVEL(mpidr, 0);
-		cpuid_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
-	}
-
-	pr_debug("CPU%u: cluster %d core %d thread %d mpidr %#016llx\n",
-		 cpuid, cpuid_topo->cluster_id, cpuid_topo->core_id,
-		 cpuid_topo->thread_id, mpidr);
-
-topology_populated:
-	update_siblings_masks(cpuid);
-	update_cpu_power(cpuid);
-}
-
 #ifdef CONFIG_SCHED_HMP
 
 /*
@@ -508,10 +473,10 @@ void __init arch_get_fast_and_slow_cpus(struct cpumask *fast,
 }
 
 struct cpumask hmp_slow_cpu_mask;
+struct cpumask hmp_fast_cpu_mask;
 
 void __init arch_get_hmp_domains(struct list_head *hmp_domains_list)
 {
-	struct cpumask hmp_fast_cpu_mask;
 	struct hmp_domain *domain;
 
 	arch_get_fast_and_slow_cpus(&hmp_fast_cpu_mask, &hmp_slow_cpu_mask);
@@ -611,6 +576,7 @@ void store_cpu_topology(unsigned int cpuid)
 		cpu_topology[cpuid].core_id,
 		cpu_topology[cpuid].cluster_id, mpidr);
 }
+
 
 static void __init reset_cpu_topology(void)
 {
