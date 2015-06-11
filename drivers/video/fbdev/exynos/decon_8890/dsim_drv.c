@@ -38,7 +38,7 @@
 
 #include <video/mipi_display.h>
 
-#include <mach/exynos5-mipiphy.h>
+//#include <mach/exynos5-mipiphy.h>
 
 #include "regs-dsim.h"
 #include "dsim.h"
@@ -582,7 +582,35 @@ static void dsim_read_test(struct dsim_device *dsim)
 static void dsim_d_phy_onoff(struct dsim_device *dsim,
 	unsigned int enable)
 {
-	exynos5_dism_phy_enable(0, enable);
+	void __iomem *regs_pmu;
+	void __iomem *regs_sys;
+	u32 data;
+
+	regs_pmu = ioremap(0x105C070C, 0x4);
+	regs_sys = ioremap(0x13A6100C, 0x4);
+
+	if (enable) {
+		writel(0x1, regs_pmu);
+
+		data = readl(regs_sys);
+		data &= ~(1 << 2);
+		writel(data, regs_sys);
+		data |= (1 << 2);
+		writel(data, regs_sys);
+
+	} else {
+		data = readl(regs_sys);
+		data &= ~(1 << 0);
+		writel(data, regs_sys);
+		data |= (1 << 0);
+		writel(data, regs_sys);
+
+		writel(0x0, regs_pmu);
+	}
+	iounmap(regs_pmu);
+	iounmap(regs_sys);
+	//exynos5_dism_phy_enable(0, enable);
+
 #if !defined(CONFIG_SOC_EXYNOS7580)
 	/*exynos5_dism_phy_enable(1, enable);*/
 #endif
