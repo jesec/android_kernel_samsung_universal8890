@@ -42,7 +42,7 @@ void memory_comp_init(u32 nr_disk, u32 **sswap_disk, u32 **comp_buf,
 #define CONTROL_AWUSER		28
 #define CONTROL_ARUSER		29	
 
-#define BUS_CONFIG		0x0010C
+#define BUS_CONFIG		0x001C
 #define VERSION			0x0F00
 
 #endif
