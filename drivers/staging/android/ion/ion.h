@@ -19,7 +19,7 @@
 
 #include <linux/types.h>
 
-#include "../uapi/ion.h"
+#include <uapi/linux/ion.h>
 
 struct ion_handle;
 struct ion_device;
