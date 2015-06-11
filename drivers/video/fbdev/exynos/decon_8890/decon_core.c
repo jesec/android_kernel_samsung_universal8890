@@ -531,29 +531,47 @@ static inline bool does_layer_need_scale(struct decon_win_config *config)
 }
 #endif
 
+
+static inline bool is_decon_opaque_format(int format)
+{
+	switch (format) {
+	case DECON_PIXEL_FORMAT_RGBA_8888:
+	case DECON_PIXEL_FORMAT_BGRA_8888:
+	case DECON_PIXEL_FORMAT_RGBA_5551:
+	case DECON_PIXEL_FORMAT_ARGB_8888:
+	case DECON_PIXEL_FORMAT_ABGR_8888:
+		return false;
+
+	default:
+		return true;
+	}
+}
+
 static int decon_set_win_blocking_mode(struct decon_device *decon, struct decon_win *win,
 		struct decon_win_config *win_config, struct decon_reg_data *regs)
 {
-#ifdef CONFIG_DECON_BLOCKING_MODE
 	struct decon_rect r1, r2, overlap_rect, block_rect;
 	unsigned int overlap_size, blocking_size = 0;
 	struct decon_win_config *config = &win_config[win->index];
+	struct decon_lcd *lcd_info = decon->lcd_info;
 	int j;
 	bool enabled = false;
 
+	if (config->state != DECON_WIN_STATE_BUFFER)
+		return 0;
+
 	/* Blocking mode is supported for only RGB32 color formats */
-	if (!is_rgb32(config->format) ||
-		((config->plane_alpha < 255) && (config->plane_alpha > 0)))
+	if (!is_rgb32(config->format))
 		return 0;
 
 	/* Blocking Mode is not supported if there is a rotation */
-	if (is_rotation(config))
+	if ((is_rotation(config)) || does_layer_need_scale(config))
 		return 0;
 
-	r1.left = win_config[win->index].dst.x;
-	r1.top = win_config[win->index].dst.y;
-	r1.right = r1.left + win_config[win->index].dst.w - 1;
-	r1.bottom = r1.top + win_config[win->index].dst.h - 1;
+	r1.left = config->dst.x;
+	r1.top = config->dst.y;
+	r1.right = r1.left + config->dst.w - 1;
+	r1.bottom = r1.top + config->dst.h - 1;
 
 	/* Calculate the window Blocking region from the top windows opaque rect */
 	memset(&block_rect, 0, sizeof(struct decon_rect));
@@ -566,13 +584,21 @@ static int decon_set_win_blocking_mode(struct decon_device *decon, struct decon_
 		if ((config->plane_alpha < 255) && (config->plane_alpha > 0))
 			continue;
 
-		if (!(config->covered_opaque_area.w && config->covered_opaque_area.h))
+		if (is_decon_opaque_format(config->format)) {
+			/* it is just a safety code */
+			config->opaque_area.x = config->dst.x;
+			config->opaque_area.y = config->dst.y;
+			config->opaque_area.w = config->dst.w;
+			config->opaque_area.h = config->dst.h;
+		}
+
+		if (!(config->opaque_area.w && config->opaque_area.h))
 			continue;
 
-		r2.left = config->covered_opaque_area.x;
-		r2.top = config->covered_opaque_area.y;
-		r2.right = r2.left + config->covered_opaque_area.w - 1;
-		r2.bottom = r2.top + config->covered_opaque_area.h - 1;
+		r2.left = config->opaque_area.x;
+		r2.top = config->opaque_area.y;
+		r2.right = r2.left + config->opaque_area.w - 1;
+		r2.bottom = r2.top + config->opaque_area.h - 1;
 		/* overlaps or not */
 		if (decon_intersect(&r1, &r2)) {
 			decon_intersection(&r1, &r2, &overlap_rect);
@@ -602,27 +628,45 @@ static int decon_set_win_blocking_mode(struct decon_device *decon, struct decon_
 	}
 
 	config = &win_config[win->index];
-	if ((rect_width(&block_rect) * rect_height(&block_rect)) <
-			(config->transparent_area.w * config->transparent_area.h)) {
-		block_rect.left = config->transparent_area.x;
-		block_rect.top = config->transparent_area.y;
-		block_rect.right = block_rect.left + config->transparent_area.w - 1;
-		block_rect.bottom = block_rect.top + config->transparent_area.h - 1;
-		enabled = true;
-	}
+	/* Transparent area means alpha = 0. The region can be used as blocking area. */
+        if (config->transparent_area.w && config->transparent_area.h &&
+		!decon->need_update && ((config->transparent_area.w * config->transparent_area.h * 100) >=
+		(lcd_info->xres * lcd_info->yres * 15))) {
+		/* If the transparent region is smaller than 15% of LCD, try to use CRC mode */
+                r2.left = config->transparent_area.x;
+                r2.top = config->transparent_area.y;
+                r2.right = r2.left + config->transparent_area.w - 1;
+                r2.bottom = r2.top + config->transparent_area.h - 1;
+                if (decon_intersect(&r1, &r2)) {
+                        decon_intersection(&r1, &r2, &overlap_rect);
+                        /* choose the bigger region between the two possible blocking areas */
+                        if ((rect_width(&block_rect) * rect_height(&block_rect)) <
+                                        (rect_width(&overlap_rect) * rect_height(&overlap_rect))) {
+                                if (rect_width(&overlap_rect) < MIN_BLK_MODE_WIDTH - 1 ||
+                                                rect_height(&overlap_rect) < MIN_BLK_MODE_HEIGHT - 1)
+                                        return 0;
+                                memcpy(&block_rect, &overlap_rect, sizeof(struct decon_rect));
+                                if (!is_decon_rect_differ(&r1, &block_rect)) {
+                                        /* window rect and blocking rect is same. */
+                                        win_config[win->index].state = DECON_WIN_STATE_DISABLED;
+                                        return 1;
+                                }
+                                enabled = true;
+                        }
+                }
+        }
 
 	if (enabled) {
 		regs->block_rect[win->index].w = block_rect.right - block_rect.left + 1;
 		regs->block_rect[win->index].h = block_rect.bottom - block_rect.top + 1;
-		regs->block_rect[win->index].x = block_rect.left - win_config[win->index].dst.x;
-		regs->block_rect[win->index].y = block_rect.top -  win_config[win->index].dst.y;
+		regs->block_rect[win->index].x = block_rect.left - config->dst.x;
+		regs->block_rect[win->index].y = block_rect.top -  config->dst.y;
 		decon_dbg("win-%d: block_rect[%d %d %d %d]\n", win->index, regs->block_rect[win->index].x,
 			regs->block_rect[win->index].y, regs->block_rect[win->index].w,
 			regs->block_rect[win->index].h);
-		memcpy(&win_config->block_area, &regs->block_rect[win->index],
+		memcpy(&config->block_area, &regs->block_rect[win->index],
 				sizeof(struct decon_win_rect));
 	}
-#endif
 	return 0;
 }
 

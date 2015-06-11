@@ -45,7 +45,7 @@ extern int decon_log_level;
 #define MAX_BUF_PLANE_CNT	3
 #define DECON_ENTER_LPD_CNT	3
 #define MIN_BLK_MODE_WIDTH	144
-#define MIN_BLK_MODE_HEIGHT	10
+#define MIN_BLK_MODE_HEIGHT	16
 
 #define VSYNC_TIMEOUT_MSEC	200
 #define MAX_BW_PER_WINDOW	(2560 * 1600 * 4 * 60)
