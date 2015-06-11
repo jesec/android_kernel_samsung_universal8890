@@ -542,7 +542,7 @@ static int __init add_pcie_port(struct pcie_port *pp,
 		}
 	}
 
-	pp->root_bus_nr = -1;
+	pp->root_bus_nr = 0;
 	pp->ops = &exynos_pcie_host_ops;
 
 	ret = dw_pcie_host_init(pp);
