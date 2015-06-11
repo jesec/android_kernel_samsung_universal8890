@@ -37,7 +37,7 @@
 #include <mach/exynos-fimc-is.h>
 
 #if defined(CONFIG_S3C_DMA) || defined(CONFIG_SAMSUNG_DMADEV)
-#include <mach/dma.h>
+#include <linux/dma/dma-pl330.h>
 #endif
 
 #include <mach/exynos-pm.h>
