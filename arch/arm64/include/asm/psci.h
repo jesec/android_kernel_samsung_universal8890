@@ -16,4 +16,9 @@
 
 int psci_init(void);
 
+#define PSCI_UNUSED_INDEX		128
+#define PSCI_CLUSTER_SLEEP		(PSCI_UNUSED_INDEX)
+#define PSCI_SYSTEM_IDLE		(PSCI_UNUSED_INDEX + 1)
+#define PSCI_SYSTEM_SLEEP		(PSCI_UNUSED_INDEX + 2)
+
 #endif /* __ASM_PSCI_H */
