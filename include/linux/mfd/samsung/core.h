@@ -185,11 +185,13 @@ extern int sec_rtc_bulk_write(struct sec_pmic_dev *sec_pmic, u32 reg, int count,
 				u8 *buf);
 extern int sec_rtc_update(struct sec_pmic_dev *sec_pmic, u32 reg, u32 val,
 				u32 mask);
+#if 0
 extern void s2m_init_dvs(void);
 extern int s2m_get_dvs_is_enable(void);
 extern int s2m_get_dvs_is_on(void);
 extern int s2m_set_dvs_pin(bool gpio_val);
 extern int s2m_set_g3d_pin(bool gpio_val);
+#endif
 extern void sec_core_lock(void);
 extern void sec_core_unlock(void);
 void g3d_pin_config_set(void);
