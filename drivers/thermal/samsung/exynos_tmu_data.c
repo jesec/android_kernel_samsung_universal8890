@@ -969,9 +969,9 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 #define EXYNOS8890_TMU_DATA_ISP \
 	.temp_bit = 9,		\
 	.temp_mask = 0x1FF,	\
-	.trigger_levels[0] = 86, \
-	.trigger_levels[1] = 91, \
-	.trigger_levels[2] = 96, \
+	.trigger_levels[0] = 96, \
+	.trigger_levels[1] = 101, \
+	.trigger_levels[2] = 106, \
 	.trigger_levels[3] = 110, \
 	.trigger_enable[0] = 1, \
 	.trigger_enable[1] = 1, \
@@ -995,15 +995,15 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.default_temp_offset = 25, \
 	.freq_tab[0] = { \
 		.freq_clip_max = 60, \
-		.temp_level = 86, \
+		.temp_level = 96, \
 	}, \
 	.freq_tab[1] = { \
 		.freq_clip_max = 15, \
-		.temp_level = 91, \
+		.temp_level = 101, \
 	}, \
 	.freq_tab[2] = { \
 		.freq_clip_max = 5, \
-		.temp_level = 96, \
+		.temp_level = 106, \
 	}, \
 	.freq_tab_count = 3, \
 	.type = SOC_ARCH_EXYNOS8890, \
