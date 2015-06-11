@@ -19,7 +19,6 @@
 #include "../ion_priv.h"
 
 struct ion_device *ion_exynos;
-static DEFINE_SPINLOCK(smc_lock);
 
 /* starting from index=1 regarding default index=0 for system heap */
 static int nr_heaps = 1;
@@ -62,6 +61,8 @@ static int __find_platform_heap_id(unsigned int heap_id)
 }
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+static DEFINE_SPINLOCK(smc_lock);
+
 static void __ion_secure_protect(struct exynos_ion_platform_heap *pdata)
 {
 	pr_info("%s: enter\n", __func__);
@@ -253,10 +254,11 @@ int ion_parse_heap_id(unsigned int heap_id_mask, unsigned int flags)
 	return (1 << plat_heaps[i].id);
 }
 
-static void exynos_ion_rmem_device_init(struct reserved_mem *rmem,
+static int exynos_ion_rmem_device_init(struct reserved_mem *rmem,
 						struct device *dev)
 {
 	/* Nothing to do */
+	return 0;
 }
 
 static void exynos_ion_rmem_device_release(struct reserved_mem *rmem,
@@ -274,8 +276,8 @@ static int __init exynos_ion_reserved_mem_setup(struct reserved_mem *rmem)
 {
 	struct exynos_ion_platform_heap *pdata;
 	struct ion_platform_heap *heap_data;
-	unsigned long len = 0;
-	__be32 *prop;
+	int len = 0;
+	const __be32 *prop;
 
 	BUG_ON(nr_heaps >= ION_NUM_HEAPS);
 
