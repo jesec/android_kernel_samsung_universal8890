@@ -2317,6 +2317,14 @@ static phys_addr_t exynos_iommu_iova_to_phys(struct iommu_domain *domain,
 	return phys;
 }
 
+static int exynos_iommu_add_device(struct device *dev)
+{
+	/*
+	 * implement not yet
+	 */
+	return 0;
+}
+
 static struct iommu_ops exynos_iommu_ops = {
 	.domain_init = &exynos_iommu_domain_init,
 	.domain_destroy = &exynos_iommu_domain_destroy,
@@ -2326,6 +2334,7 @@ static struct iommu_ops exynos_iommu_ops = {
 	.unmap = &exynos_iommu_unmap,
 	.iova_to_phys = &exynos_iommu_iova_to_phys,
 	.pgsize_bitmap = PGSIZE_BITMAP,
+	.add_device = &exynos_iommu_add_device,
 };
 
 static int __sysmmu_unmap_user_pages(struct device *dev,
