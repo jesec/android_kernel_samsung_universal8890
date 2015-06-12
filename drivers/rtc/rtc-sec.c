@@ -30,7 +30,9 @@
 #include <linux/mfd/samsung/s2mps15.h>
 #include <linux/mfd/samsung/s2mps16.h>
 #include <linux/mfd/samsung/s2mpu03.h>
+#if 0
 #include <mach/cpufreq.h>
+#endif
 
 #ifdef CONFIG_EXYNOS_MBOX
 #include <mach/apm-exynos.h>
@@ -502,7 +504,9 @@ static void exynos_smpl_warn_work(struct work_struct *work)
 		} while (!state);
 		break;
 	}
+#if 0
 	exynos_cpufreq_smpl_warn_notify_call_chain();
+#endif
 }
 
 static void s2m_adc_read_data(struct s2m_rtc_info *info)
