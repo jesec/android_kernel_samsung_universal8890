@@ -50,6 +50,7 @@ DEF_REG_STRUCT(LSACTLR2)
 DEF_REG_STRUCT(LSACTLR3)
 DEF_REG_STRUCT(LSACTLR4)
 DEF_REG_STRUCT(CKACTLR)
+DEF_REG_STRUCT(MCACTLR2)
 
 #define SET_CORE_REG(r, v) { .reg = &reg_##r, .val = v }
 
@@ -102,6 +103,7 @@ static struct core_register mngs_regs[] = {
 	SET_CORE_REG(LSACTLR3, 1),
 	SET_CORE_REG(LSACTLR4, 1),
 	SET_CORE_REG(CKACTLR, 1),
+	SET_CORE_REG(MCACTLR2, 0),
 	{},
 };
 
@@ -218,7 +220,7 @@ static int thread_func(void *data)
 #define NODE_SHOW(name) \
 	static ssize_t name##_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 #define NODE_ATTR(name) \
-	static struct kobj_attribute name##_attribute = __ATTR(name, 0666, name##_show, name##_store);
+	static struct kobj_attribute name##_attribute = __ATTR(name, S_IWUSR|S_IRUGO, name##_show, name##_store);
 
 NODE_STORE(core)
 {
@@ -255,7 +257,7 @@ static int core_reg_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit core_reg_remove(struct platform_device *pdev)
+static int core_reg_remove(struct platform_device *pdev)
 {
 	return 0;
 }
