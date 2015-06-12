@@ -680,11 +680,15 @@ static int exynos_low_pwr_notifier(struct notifier_block *notifier,
 	case LPA_ENTER:
 		exynos_tmu_core_control(false, BIG_CPU);
 		exynos_tmu_core_control(false, CPU);
+		exynos_tmu_core_control(false, GPU);
+		exynos_tmu_core_control(false, ISP);
 		break;
 	case LPA_ENTER_FAIL:
 	case LPA_EXIT:
 		exynos_tmu_core_control(true, BIG_CPU);
 		exynos_tmu_core_control(true, CPU);
+		exynos_tmu_core_control(true, GPU);
+		exynos_tmu_core_control(true, ISP);
 		break;
 	}
 
