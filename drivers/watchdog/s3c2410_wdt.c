@@ -283,9 +283,8 @@ static int s3c2410wdt_stop(struct watchdog_device *wdd)
 	return 0;
 }
 
-static int s3c2410wdt_stop_intclear(struct watchdog_device *wdd)
+static int s3c2410wdt_stop_intclear(struct s3c2410_wdt *wdt)
 {
-	struct s3c2410_wdt *wdt = watchdog_get_drvdata(wdd);
 	unsigned long flags;
 
 	spin_lock_irqsave(&wdt->lock, flags);
@@ -636,7 +635,7 @@ static int s3c2410wdt_probe(struct platform_device *pdev)
 	/* see if we can actually set the requested timer margin, and if
 	 * not, try the default value */
 
-	ret = s3c2410wdt_set_min_max_timeout(&s3c2410_wdd);
+	ret = s3c2410wdt_set_min_max_timeout(&wdt->wdt_device);
 	if (ret != 0) {
 		dev_err(dev, "clock rate is 0\n");
 		goto err_clk;
@@ -675,7 +674,7 @@ static int s3c2410wdt_probe(struct platform_device *pdev)
 		goto err_cpufreq;
 	}
 	/* Prevent watchdog reset while setting */
-	s3c2410wdt_stop_intclear(&s3c2410_wdd);
+	s3c2410wdt_stop_intclear(wdt);
 	/* Enable pmu watchdog reset control */
 	ret = s3c2410wdt_mask_and_disable_reset(wdt, false);
 	if (ret < 0)
@@ -784,7 +783,7 @@ static int s3c2410wdt_resume(struct device *dev)
 	writel(wdt->wtdat_save, wdt->reg_base + S3C2410_WTCNT);/* Reset count */
 	writel(wdt->wtcon_save, wdt->reg_base + S3C2410_WTCON);
 
-	s3c2410wdt_stop_intclear(&s3c2410_wdd);
+	s3c2410wdt_stop_intclear(wdt);
 	/* Enable pmu watchdog reset control */
 	ret = s3c2410wdt_mask_and_disable_reset(wdt, false);
 	if (ret < 0)
