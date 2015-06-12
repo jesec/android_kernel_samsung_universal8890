@@ -11,9 +11,19 @@
 #ifndef __EXYNOS_MEMOMY_COMPRESSOR_H
 #define __EXYNOS_MEMOMY_COMPRESSOR_H
 
-int memory_comp_start_compress(u32 disk_num, u32 nr_pages);
-void memory_comp_init(u32 nr_disk, u32 **sswap_disk, u32 **comp_buf,
-					u32 **comp_info, struct tasklet_struct *tasklet);
+#ifndef NUM_DISK
+#define NUM_DISK 4
+#endif
+struct memory_comp {
+	unsigned int	irq;
+	void __iomem	*base;
+	phys_addr_t sswap_disk_addr[NUM_DISK];
+	phys_addr_t comp_buf_addr[NUM_DISK];
+	phys_addr_t comp_info_addr[NUM_DISK];
+};
+
+int mcomp_compress_page(int disk_num, const unsigned char *in, unsigned char *out);
+int mcomp_decompress_page(const unsigned char *in, int comp_len, unsigned char *out);
 #endif
 
 /* regs */

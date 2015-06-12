@@ -32,31 +32,23 @@
 #include <linux/fcntl.h>
 #include <asm/uaccess.h>
 
-#define NUM_DISK		4
-#define CHK_SIZE		4096
-
-u64 *test_swap_disk;
-u64 *test_comp_buf;
-u64 *test_comp_info;
-
-unsigned long phy_addr;
-dma_addr_t disk, comp, info;
+#define CHK_SIZE	4096
 
 static const char driver_name[] = "exynos-mcomp";
 
 /* irq, SFR base, address information and tasklet */
-struct memory_comp {
-	unsigned int	irq;
-	void __iomem	*base;
-	u32 sswap_disk_addr[NUM_DISK];
-	u32 comp_buf_addr[NUM_DISK];
-	u32 comp_info_addr[NUM_DISK];
-};
-
 struct memory_comp mem_comp;
 struct tasklet_struct tasklet;
+static unsigned short *comp_info;
+static struct cout_pool {
+	struct list_head node;
+	unsigned char *buf;
+	bool is_used;
+} couts[10];
+static LIST_HEAD(cout_list);
+DEFINE_SPINLOCK(cout_lock);
 
-int memory_decomp(unsigned char *decout_data, unsigned char *comp_data,
+static int memory_decomp(unsigned char *decout_data, const unsigned char *comp_data,
 				unsigned int comp_len, unsigned char* Cout_data)
 {
 	register unsigned int Chdr_data;
@@ -65,7 +57,7 @@ int memory_decomp(unsigned char *decout_data, unsigned char *comp_data,
 	unsigned char* start_Cout_data;
 	unsigned char* start_decout_data;
 
-	start_comp_data = comp_data;
+	start_comp_data = (unsigned char *)comp_data;
 	start_Cout_data = Cout_data;
 	start_decout_data = decout_data;
 
@@ -224,7 +216,6 @@ int memory_decomp(unsigned char *decout_data, unsigned char *comp_data,
 
 	return 1;
 }
-EXPORT_SYMBOL_GPL(memory_decomp);
 
 /*
  * mem_comp_irq - irq clear and scheduling the sswap thread
@@ -258,42 +249,99 @@ static irqreturn_t mem_comp_irq_handler(int irq, void *dev_id)
  * and let HW IP start by writing CMD register, or return EBUSY
  * if HW IP is busy compressing another disk.
  */
-int memory_comp_start_compress(u32 disk_num, u32 nr_pages)
+static int memory_comp_start_compress(u32 disk_num, u32 nr_pages)
 {
-	u32 temp_32;
+	struct memory_comp *mc = &mem_comp;
+	phys_addr_t page;
+
 	/* check for device whether or not HW IP is compressing */
-	if (readl(mem_comp.base + CMD) & 0x1) {
-		pr_debug("%s: compressor HW is busy!\n", __func__);
-		return -EBUSY;
-	}
+	while ((readl(mc->base + CMD) & 0x1) == 0x1);
+
 	/* if 0, compress the maximum size, 8MB */
 	if (!nr_pages)
 		nr_pages = SZ_8M >> PAGE_SHIFT;
 
 	/* input align addr */
-	temp_32 = mem_comp.sswap_disk_addr[disk_num];
-	temp_32 = temp_32 >> 12;
-	__raw_writel(temp_32, mem_comp.base + DISK_ADDR);
+	page = mc->sswap_disk_addr[disk_num];
+	page = page >> 12;
+	pr_debug("disk_addr = %llx\n", page);
+	__raw_writel(page, mc->base + DISK_ADDR);
 
-	temp_32 = mem_comp.comp_buf_addr[disk_num];
-	temp_32 = temp_32 >> 12;
-	__raw_writel(temp_32, mem_comp.base + COMPBUF_ADDR);
+	page = mc->comp_buf_addr[disk_num];
+	page = page >> 12;
+	pr_debug("comp_addr = %llx\n", page);
+	__raw_writel(page, mc->base + COMPBUF_ADDR);
 
-	temp_32 = mem_comp.comp_info_addr[disk_num];
-	temp_32 = temp_32 >> 12;
-	__raw_writel(temp_32, mem_comp.base + COMPINFO_ADDR);
+	page = mc->comp_info_addr[disk_num];
+	page = page >> 12;
+	pr_debug("comp_info_addr = %llx\n", page);
+	__raw_writel(page, mc->base + COMPINFO_ADDR);
 
 	/* set cmd of start */
-	writel((nr_pages << CMD_PAGES) | CMD_START, mem_comp.base + CMD);
+	writel((nr_pages << CMD_PAGES) | CMD_START, mc->base + CMD);
+
+	while ((readl(mc->base + CMD) & 0x1) == 0x1);
 
 	return 1;
 }
-EXPORT_SYMBOL_GPL(memory_comp_start_compress);
 
-static void mcomp_dotask(unsigned long data)
+static int get_comp_len(unsigned short *comp_info, int nr_page)
 {
+	int i;
+	int len = 0;
+	int count = (nr_page % 8 == 0)? nr_page/8 : nr_page/8 + 1;
 
+	for (i = 0; i < count; i++) {
+		len += comp_info[i];
+	}
+
+	pr_debug("comp_info count: %d nr_page = %d comp_len = %d\n",
+			count, nr_page, len);
+
+	return len;
 }
+
+int mcomp_compress_page(int disk_num, const unsigned char *in, unsigned char *out)
+{
+	int comp_len;
+
+	pr_debug("%s in=%p out=%p\n", __func__, in, out);
+	mem_comp.sswap_disk_addr[disk_num] = virt_to_phys(in);
+	mem_comp.comp_buf_addr[disk_num] = virt_to_phys(out);
+	mem_comp.comp_info_addr[disk_num] = virt_to_phys(comp_info);
+	memory_comp_start_compress(disk_num, 1);
+
+	comp_len = get_comp_len(comp_info, 1);
+
+	return comp_len;
+}
+EXPORT_SYMBOL_GPL(mcomp_compress_page);
+
+int mcomp_decompress_page(const unsigned char *in, int comp_len, unsigned char *out)
+{
+	unsigned long flags;
+	struct cout_pool *cout;
+	unsigned char *buf;
+
+	spin_lock_irqsave(&cout_lock, flags);
+	list_for_each_entry(cout, &cout_list, node) {
+		if (!cout->is_used) {
+			buf = cout->buf;
+			cout->is_used = true;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&cout_lock, flags);
+
+	memory_decomp(out, in, comp_len, buf);
+
+	spin_lock_irqsave(&cout_lock, flags);
+	cout->is_used = false;
+	spin_unlock_irqrestore(&cout_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mcomp_decompress_page);
 
 static int memory_compressor_probe(struct platform_device *pdev)
 {
@@ -301,13 +349,14 @@ static int memory_compressor_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret = 0;
 	int irq, i;
+	u32 temp;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		pr_debug("Fail to get map register\n");
 		return -1;
 	}
-	mem_comp.base = devm_request_and_ioremap(dev, res);
+	mem_comp.base = devm_ioremap_resource(dev, res);
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		pr_debug("Fail to get IRQ resource \n");
@@ -326,24 +375,60 @@ static int memory_compressor_probe(struct platform_device *pdev)
 		mem_comp.sswap_disk_addr[i] = 0;
 	}
 
-	tasklet_init(&tasklet, mcomp_dotask, (unsigned long)&mem_comp);
+	/* control */
+	temp = readl(mem_comp.base + CONTROL);
+	temp |= (0x1 << CONTROL_ARUSER);
+	temp |= (0x1 << CONTROL_AWUSER);
+	temp |= (0xFF << CONTROL_THRESHOLD);
+	temp |= (0x2 << CONTROL_ARCACHE);
+	temp |= (0x2 << CONTROL_AWCACHE);
+	writel(temp, mem_comp.base + CONTROL);
 
-	/* cci enable */
-	__raw_writel(0x1 >> CONTROL_AWUSER, mem_comp.base + CONTROL);
-	__raw_writel(0x1 >> CONTROL_ARUSER, mem_comp.base + CONTROL);
+	comp_info = (unsigned short *)get_zeroed_page(GFP_KERNEL);
+	if (!comp_info) {
+		pr_info("page alloc fail\n");
+		return -1;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(couts); i++) {
+		couts[i].buf = (unsigned char *)page_address(alloc_pages(GFP_ATOMIC, 1));
+		if (!couts[i].buf) {
+			pr_info("page alloc fail: cout\n");
+			goto err_cout_alloc;
+		}
+		couts[i].is_used = false;
+		list_add(&couts[i].node, &cout_list);
+	}
 
 	dev_info(&pdev->dev, "Loaded driver for Mcomp\n");
 
 	return ret;
+
+err_cout_alloc:
+	for (i = 0; i < ARRAY_SIZE(couts); i++) {
+		if (couts[i].buf)
+			free_pages((unsigned long)couts[i].buf, 1);
+	}
+
+	return -1;
 }
 
 static int memory_compressor_remove(struct platform_device *pdev)
 {
+	int i;
+
 	/* unmapping */
 	iounmap(mem_comp.base);
 
 	/* remove an interrupt handler */
 	free_irq(mem_comp.irq, NULL);
+
+	for (i = 0; i < ARRAY_SIZE(couts); i++) {
+		if (couts[i].buf)
+			free_pages((unsigned long)couts[i].buf, 1);
+	}
+
+	free_page((unsigned long)comp_info);
 
 	return 0;
 }
