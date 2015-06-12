@@ -44,6 +44,7 @@
 #include <mach/exynos-pm.h>
 #include <mach/regs-pmu-exynos8890.h>
 #include <mach/exynos-powermode.h>
+#include "../../arch/arm64/mach-exynos/pwrcal/pwrcal.h"
 
 /* firmware file information */
 #define fw_checksum	61921
@@ -664,7 +665,7 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 	exynos_update_ip_idle_status(idle_ip_index, 1);
 
 	/* Write rcc table to apm sram area */
-//	set_rcc_info();
+	cal_asv_set_rcc_table();
 
 #if (defined(CONFIG_EXYNOS_CL_DVFS_CPU) || defined(CONFIG_EXYNOS_CL_DVFS_G3D) || defined(CONFIG_EXYNOS_CL_DVFS_MIF))
 	cl_init.cl_status = CL_ON;
@@ -701,7 +702,7 @@ static int samsung_mailbox_pm_resume_early(struct device *dev)
 	}
 
 	/* Write rcc table to apm sram area */
-	set_rcc_info();
+	cal_asv_set_rcc_table();
 
 	return 0;
 }
