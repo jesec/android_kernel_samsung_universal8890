@@ -227,6 +227,12 @@ struct printk_log {
 	u8 facility;		/* syslog facility */
 	u8 flags:5;		/* internal record flags */
 	u8 level:3;		/* syslog level */
+#ifdef CONFIG_PRINTK_PROCESS
+	char process[16];	/* process name */
+	pid_t pid;		/* process id */
+	u8 cpu;			/* cpu id */
+	u8 in_interrupt;	/* interrupt context */
+#endif
 };
 
 /*
@@ -261,7 +267,11 @@ static enum log_flags console_prev;
 static u64 clear_seq;
 static u32 clear_idx;
 
+#ifdef CONFIG_PRINTK_PROCESS
+#define PREFIX_MAX		48
+#else
 #define PREFIX_MAX		32
+#endif
 #define LOG_LINE_MAX		(1024 - PREFIX_MAX)
 
 /* record buffer */
@@ -385,6 +395,32 @@ static u32 msg_used_size(u16 text_len, u16 dict_len, u32 *pad_len)
 	return size;
 }
 
+#ifdef CONFIG_PRINTK_PROCESS
+static bool printk_process = 1;
+static size_t print_process(const struct printk_log *msg, char *buf)
+
+{
+	if (!printk_process)
+		return 0;
+
+	if (!buf)
+		return snprintf(NULL, 0, "%c[%1d:%15s:%5d] ", ' ', 0, " ", 0);
+
+	return sprintf(buf, "%c[%1d:%15s:%5d] ",
+			msg->in_interrupt ? 'I' : ' ',
+			msg->cpu,
+			msg->process,
+			msg->pid);
+}
+#else
+static bool printk_process = 0;
+static size_t print_process(const struct printk_log *msg, char *buf)
+{
+	return 0;
+}
+#endif
+module_param_named(process, printk_process, bool, S_IRUGO | S_IWUSR);
+
 /*
  * Define how much of the log buffer we could take at maximum. The value
  * must be greater than two. Note that only half of the buffer is available
@@ -463,6 +499,14 @@ static int log_store(int facility, int level,
 	memset(log_dict(msg) + dict_len, 0, pad_len);
 	msg->len = size;
 
+#ifdef CONFIG_PRINTK_PROCESS
+	if (printk_process) {
+		strncpy(msg->process, current->comm, sizeof(msg->process));
+		msg->pid = task_pid_nr(current);
+		msg->cpu = smp_processor_id();
+		msg->in_interrupt = in_interrupt() ? 1 : 0;
+	}
+#endif
 	/* insert message */
 	log_next_idx += msg->len;
 	log_next_seq++;
@@ -1000,6 +1044,9 @@ static inline void boot_delay_msec(int level)
 }
 #endif
 
+static bool printk_core_num = IS_ENABLED(CONFIG_PRINTK_CORE_NUM);
+module_param_named(core_num, printk_core_num, bool, S_IRUGO | S_IWUSR);
+
 static bool printk_time = IS_ENABLED(CONFIG_PRINTK_TIME);
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
 
@@ -1039,6 +1086,7 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+	len += print_process(msg, buf ? buf + len : NULL);
 	return len;
 }
 
@@ -1630,6 +1678,8 @@ asmlinkage int vprintk_emit(int facility, int level,
 	int this_cpu;
 	int printed_len = 0;
 	bool in_sched = false;
+	static bool prev_new_line = true;
+
 	/* cpu currently holding logbuf_lock in this function */
 	static volatile unsigned int logbuf_cpu = UINT_MAX;
 
@@ -1683,12 +1733,29 @@ asmlinkage int vprintk_emit(int facility, int level,
 	 * The printf needs to come first; we need the syslog
 	 * prefix which might be passed-in as a parameter.
 	 */
-	text_len = vscnprintf(text, sizeof(textbuf), fmt, args);
+	if (printk_core_num && prev_new_line) {
+		char tempbuf[LOG_LINE_MAX];
+		char *temp = tempbuf;
+
+		vscnprintf(temp, sizeof(tempbuf), fmt, args);
+		if (printk_get_level(tempbuf))
+			text_len = snprintf(text, sizeof(textbuf),
+					    "%c%c[c%d] %s", tempbuf[0],
+					    tempbuf[1], this_cpu, &tempbuf[2]);
+		else
+			text_len = snprintf(text, sizeof(textbuf), "[c%d] %s",
+					    this_cpu, &tempbuf[0]);
+	} else {
+		text_len = vscnprintf(text, sizeof(textbuf), fmt, args);
+	}
 
 	/* mark and strip a trailing newline */
 	if (text_len && text[text_len-1] == '\n') {
 		text_len--;
 		lflags |= LOG_NEWLINE;
+		prev_new_line = true;
+	} else {
+		prev_new_line = false;
 	}
 
 	/* strip kernel syslog prefix and extract log level or control flags */
