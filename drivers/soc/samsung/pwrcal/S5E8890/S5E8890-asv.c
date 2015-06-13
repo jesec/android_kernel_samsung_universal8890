@@ -727,6 +727,62 @@ static int asv_init(void)
 
 static void asv_print_info(void)
 {
+	int lv, max_lv, asv;
+
+	pr_info("asv_table_ver : %d\n", asv_tbl_info.asv_table_ver);
+	pr_info("fused_grp : %d\n", asv_tbl_info.fused_grp);
+
+	pr_info("mngs_asv_group : %d\n", asv_tbl_info.mngs_asv_group);
+	pr_info("mngs_modified_group : %d\n", asv_tbl_info.mngs_modified_group);
+	pr_info("apollo_asv_group : %d\n", asv_tbl_info.apollo_asv_group);
+	pr_info("apollo_modified_group : %d\n", asv_tbl_info.apollo_modified_group);
+
+	pr_info("g3d_asv_group : %d\n", asv_tbl_info.g3d_asv_group);
+	pr_info("g3d_modified_group : %d\n", asv_tbl_info.g3d_modified_group);
+	pr_info("mif_asv_group : %d\n", asv_tbl_info.mif_asv_group);
+	pr_info("mif_modified_group : %d\n", asv_tbl_info.mif_modified_group);
+
+	pr_info("int_asv_group : %d\n", asv_tbl_info.int_asv_group);
+	pr_info("int_modified_group : %d\n", asv_tbl_info.int_modified_group);
+	pr_info("disp_asv_group : %d\n", asv_tbl_info.disp_asv_group);
+	pr_info("disp_modified_group : %d\n", asv_tbl_info.disp_modified_group);
+
+	pr_info("g3d_mcs0 : %d\n", asv_tbl_info.g3d_mcs0);
+	pr_info("g3d_mcs1 : %d\n", asv_tbl_info.g3d_mcs1);
+
+	pr_info("==== RCC Table ====\n");
+	max_lv = asv_dvfs_big->table->num_of_lv;
+	if (max_lv > 25)
+		max_lv = 25;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_big, lv);
+		pr_info("big rcc [%d] : %d\n", lv, pwrcal_big_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv]);
+	}
+
+	max_lv = asv_dvfs_little->table->num_of_lv;
+	if (max_lv > 20)
+		max_lv = 20;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_little, lv);
+		pr_info("little rcc [%d] : %d\n", lv, pwrcal_little_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv]);
+	}
+
+	max_lv = asv_dvfs_g3d->table->num_of_lv;
+	if (max_lv > 11)
+		max_lv = 11;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_g3d, lv);
+		pr_info("g3d rcc [%d] : %d\n", lv, pwrcal_g3d_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv]);
+	}
+
+	max_lv = asv_dvfs_mif->table->num_of_lv;
+	if (max_lv > 16)
+		max_lv = 16;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_mif, lv);
+		pr_info("mif rcc [%d] : %d\n", lv, pwrcal_mif_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv]);
+	}
+
 }
 
 struct cal_asv_ops cal_asv_ops = {
