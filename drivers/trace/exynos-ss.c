@@ -34,6 +34,7 @@
 #include <asm/cacheflush.h>
 #include <asm/ptrace.h>
 #include <asm/memory.h>
+#include <asm/map.h>
 
 /*  Size domain */
 #define ESS_KEEP_HEADER_SZ		(SZ_256 * 3)
@@ -73,7 +74,7 @@
 #define ESS_SIGN_FORCE_REBOOT		0xDAFE
 
 /*  Specific Address Information */
-#define S5P_VA_SS_BASE			S3C_ADDR(0x03000000)
+#define S5P_VA_SS_BASE			((void __iomem __force *)(VMALLOC_START + 0xF6000000))
 #define S5P_VA_SS_SCRATCH		(S5P_VA_SS_BASE + 0x100)
 #define S5P_VA_SS_LAST_LOGBUF		(S5P_VA_SS_BASE + 0x200)
 #define S5P_VA_SS_EMERGENCY_REASON	(S5P_VA_SS_BASE + 0x300)
@@ -1045,7 +1046,7 @@ static unsigned int __init exynos_ss_remap(unsigned int base, unsigned int size)
 		ess_items[i].curr_ptr = (unsigned char *)ess_items[i].entry.vaddr;
 
 		/* fill to ess_iodesc for mapping */
-		ess_iodesc[i].type = MT_DEVICE;
+		ess_iodesc[i].type = MT_NORMAL_NC;
 		ess_iodesc[i].length = ess_items[i].entry.size;
 		ess_iodesc[i].virtual = ess_items[i].entry.vaddr;
 		ess_iodesc[i].pfn = __phys_to_pfn(ess_items[i].entry.paddr);
