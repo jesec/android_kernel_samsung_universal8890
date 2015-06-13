@@ -8,7 +8,7 @@
 
 #ifdef PWRCAL_TARGET_LINUX
 #include <linux/io.h>
-#include "../../mach/map.h"
+#include <asm/map.h>
 #endif
 #ifdef PWRCAL_TARGET_FW
 #define S5P_VA_APM_SRAM			((void *)0x11200000)
