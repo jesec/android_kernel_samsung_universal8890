@@ -52,7 +52,7 @@ struct asv_table_list {
 #define FORCE_ASV_MAGIC		0x57E90000
 static unsigned int force_asv_group[num_of_dvfs];
 
-#define APM_OTP_ADDRESS		0x101E0178
+#define APM_OTP_ADDRESS		0x101E9018
 #define APM_TABLE_BASE		0x11203700
 #define APM_FUSE_TABLE_BASE	APM_TABLE_BASE
 #define APM_RCC_TABLE_BASE	(APM_TABLE_BASE + 0x0030)
@@ -501,7 +501,7 @@ static int asv_rcc_set_table(void)
 
 	if (!apm_sram_base) {
 #ifdef PWRCAL_TARGET_LINUX
-		apm_sram_base = (void *)ioremap(v2psfrmap[i].pa, SZ_64K);
+		apm_sram_base = (void *)ioremap(APM_TABLE_BASE, SZ_4K);
 #else
 		apm_sram_base = (void *)APM_TABLE_BASE;
 #endif
