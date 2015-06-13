@@ -74,6 +74,7 @@
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
 #include <linux/compiler.h>
+#include <linux/exynos-ss.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -2870,6 +2871,7 @@ need_resched:
 	} else
 		raw_spin_unlock_irq(&rq->lock);
 
+	exynos_ss_task(cpu, rq->curr);
 	post_schedule(rq);
 
 	sched_preempt_enable_no_resched();

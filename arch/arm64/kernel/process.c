@@ -43,6 +43,7 @@
 #include <linux/hw_breakpoint.h>
 #include <linux/personality.h>
 #include <linux/notifier.h>
+#include <linux/exynos-ss.h>
 
 #include <asm/compat.h>
 #include <asm/cacheflush.h>
@@ -240,6 +241,15 @@ void __show_regs(struct pt_regs *regs)
 		lr = regs->regs[30];
 		sp = regs->sp;
 		top_reg = 29;
+	}
+	if (!user_mode(regs)) {
+		exynos_ss_save_context(regs);
+		/*
+		 *  If you want to see more kernel events after panic,
+		 *  you should modify exynos_ss_set_enable's function 2nd parameter
+		 *  to true.
+		 */
+		exynos_ss_set_enable("log_kevents", false);
 	}
 
 	show_regs_print_info(KERN_DEFAULT);

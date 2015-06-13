@@ -392,7 +392,9 @@ static int dpm_run_callback(pm_callback_t cb, struct device *dev,
 
 	pm_dev_dbg(dev, state, info);
 	trace_device_pm_callback_start(dev, info, state.event);
+	exynos_ss_suspend(cb, dev, ESS_FLAG_IN);
 	error = cb(dev);
+	exynos_ss_suspend(cb, dev, ESS_FLAG_OUT);
 	trace_device_pm_callback_end(dev, error);
 	suspend_report_result(cb, error);
 

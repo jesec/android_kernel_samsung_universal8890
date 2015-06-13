@@ -23,6 +23,8 @@
 #include <linux/sysrq.h>
 #include <linux/init.h>
 #include <linux/nmi.h>
+#include <linux/exynos-ss.h>
+#include "sched/sched.h"
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -79,6 +81,10 @@ void panic(const char *fmt, ...)
 	int state = 0;
 
 	/*
+	 * TODO: exynos_trace_stop();
+	*/
+
+	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
 	 * from deadlocking the first cpu that invokes the panic, since
 	 * there is nothing to prevent an interrupt handler (that runs
@@ -105,6 +111,9 @@ void panic(const char *fmt, ...)
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
+
+	exynos_ss_prepare_panic();
+	exynos_ss_dump_panic(buf, (size_t)strnlen(buf, sizeof(buf)));
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing
@@ -112,7 +121,7 @@ void panic(const char *fmt, ...)
 	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
 		dump_stack();
 #endif
-
+	sysrq_sched_debug_show();
 	/*
 	 * If we have crashed and we have a crash kernel loaded let it handle
 	 * everything else.
@@ -136,6 +145,12 @@ void panic(const char *fmt, ...)
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 
 	kmsg_dump(KMSG_DUMP_PANIC);
+
+	/*
+	 * TODO: exynos_cs_show_pcval();
+	 */
+
+	exynos_ss_post_panic();
 
 	/*
 	 * If you doubt kdump always works fine in any situation,

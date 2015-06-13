@@ -13,7 +13,7 @@
 #include <linux/clk-private.h>
 #include <linux/log2.h>
 #include <linux/of.h>
-//#include <linux/exynos-ss.h>
+#include <linux/exynos-ss.h>
 #include <linux/delay.h>
 #include "composite.h"
 
@@ -1268,11 +1268,11 @@ static void samsung_usermux_disable(struct clk_hw *hw)
 	if (usermux->lock)
 		spin_lock_irqsave(usermux->lock, flags);
 
-	//exynos_ss_clk(hw->clk, ESS_FLAG_IN);
+	exynos_ss_clk(hw->clk, ESS_FLAG_IN);
 	val = readl(usermux->sel_reg);
 	val &= ~(1 << usermux->sel_bit);
 	writel(val, usermux->sel_reg);
-	//exynos_ss_clk(hw->clk, ESS_FLAG_OUT);
+	exynos_ss_clk(hw->clk, ESS_FLAG_OUT);
 
 	if (usermux->stat_reg)
 		do {
