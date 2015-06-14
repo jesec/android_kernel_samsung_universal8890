@@ -166,13 +166,13 @@ static void check_usb_vbus_state(unsigned long state)
 				__func__, pdata->g_ndev.is_ready,
 					(int)pdata->g_ndev.gadget_state);
 
-	if (pdata->g_ndev.is_ready)
-#ifdef CONFIG_USB_S3C_OTGD
+	if (pdata->g_ndev.is_ready) {
+#if defined(CONFIG_USB_S3C_OTGD)
 		exynos_otg_vbus_event(pdev, pdata->g_ndev.gadget_state);
-#else
+#elif defined(CONFIG_USB_DWC3_EXYNOS)
 		dwc3_exynos_vbus_event(&pdev->dev, pdata->g_ndev.gadget_state);
 #endif
-	else
+	} else
 		pr_info("usb: %s usb_gadget_notifier is not ready.\n",
 								__func__);
 	return;
