@@ -148,8 +148,7 @@ static void check_usb_vbus_state(unsigned long state)
 	np = exynos_udc_parse_dt();
 #endif
 	if (!np) {
-		pr_err("%s: failed to get the %s device node\n",
-			__func__, np->name);
+		pr_err("%s: failed to get usb gadget device node\n", __func__);
 		return;
 	}
 
