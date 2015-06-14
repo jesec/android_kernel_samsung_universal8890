@@ -211,7 +211,7 @@ void ovc_start(struct usb_notify *u_noti)
 	u_noti->ovc_info.prev_state = HNOTIFY_INITIAL;
 	u_noti->ovc_info.poll_period = (o_notify->smsc_ovc_poll_sec) ?
 			o_notify->smsc_ovc_poll_sec : DEFAULT_OVC_POLL_SEC;
-	INIT_COMPLETION(u_noti->ovc_info.scanning_done);
+	reinit_completion(&u_noti->ovc_info.scanning_done);
 	u_noti->ovc_info.thread_remove = 0;
 	u_noti->ovc_info.th = kthread_run(ovc_scan_thread,
 			u_noti->ovc_info.data, "ovc-scan-thread");
