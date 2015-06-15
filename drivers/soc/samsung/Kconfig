@@ -1,10 +1,10 @@
 #
 # EXYNOS Soc drivers
 #
-menuconfig SOC_EXYNOS
+menuconfig SOC_SAMSUNG
 	bool "SAMSUNG SOC drivers support"
 
-if SOC_EXYNOS
+if SOC_SAMSUNG
 config EXYNOS_CHIPID
 	bool "Exynos Chip ID Driver Support"
 	depends on ARCH_EXYNOS
@@ -13,4 +13,4 @@ config EXYNOS_CHIPID
 config EXYNOS_REBOOT
 	bool "Exynos Chip Reboot Driver Support"
 	depends on ARCH_EXYNOS
-endif #SOC_EXYNOS
+endif #SOC_SAMSUNG
