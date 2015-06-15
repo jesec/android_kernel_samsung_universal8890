@@ -2,6 +2,7 @@
 # Exynos SoC Specific drivers
 #
 
+obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-pm.o
 obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-pmu.o
 
 # CAL
