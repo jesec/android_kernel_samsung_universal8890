@@ -202,7 +202,6 @@ struct sysmmu_drvdata {
 	short qos;
 	short num_pbufs;
 	int runtime_active;
-	bool suspended;
 	enum sysmmu_property prop; /* mach/sysmmu.h */
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
 	struct exynos_iommu_event_log log;

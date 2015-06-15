@@ -1861,15 +1861,6 @@ static struct of_device_id sysmmu_of_match[] __initconst = {
 };
 #endif
 
-static struct platform_driver exynos_sysmmu_driver __refdata = {
-	.probe		= exynos_sysmmu_probe,
-	.driver		= {
-		.owner		= THIS_MODULE,
-		.name		= MODULE_NAME,
-		.of_match_table = of_match_ptr(sysmmu_of_match),
-	}
-};
-
 static int exynos_iommu_domain_init(struct iommu_domain *domain)
 {
 	struct exynos_iommu_domain *priv;
@@ -2711,6 +2702,149 @@ static int __init exynos_iommu_create_domain(void)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int sysmmu_resume(struct device *dev)
+{
+	unsigned long flags;
+	struct sysmmu_drvdata *drvdata = dev_get_drvdata(dev);
+
+	TRACE_LOG("%s(%s) ----->\n", __func__, dev_name(dev));
+
+	spin_lock_irqsave(&drvdata->lock, flags);
+	if (is_sysmmu_active(drvdata) &&
+			(!pm_runtime_enabled(dev) ||
+			is_sysmmu_runtime_active(drvdata)))
+		__sysmmu_enable_nocount(drvdata);
+	spin_unlock_irqrestore(&drvdata->lock, flags);
+
+	TRACE_LOG("<----- %s(%s)\n", __func__, dev_name(dev));
+
+	return 0;
+}
+
+static int sysmmu_suspend(struct device *dev)
+{
+	unsigned long flags;
+	struct sysmmu_drvdata *drvdata = dev_get_drvdata(dev);
+
+	TRACE_LOG("%s(%s) ----->\n", __func__, dev_name(dev));
+
+	spin_lock_irqsave(&drvdata->lock, flags);
+	if (is_sysmmu_active(drvdata) &&
+			(!pm_runtime_enabled(dev) ||
+			 is_sysmmu_runtime_active(drvdata)))
+		__sysmmu_disable_nocount(drvdata);
+	spin_unlock_irqrestore(&drvdata->lock, flags);
+
+	TRACE_LOG("<----- %s(%s)\n", __func__, dev_name(dev));
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_PM_RUNTIME
+static int sysmmu_runtime_resume(struct device *dev)
+{
+	struct sysmmu_list_data *list;
+	int (*cb)(struct device *__dev);
+
+	TRACE_LOG("%s(%s) ----->\n", __func__, dev_name(dev));
+
+	for_each_sysmmu_list(dev, list) {
+		struct sysmmu_drvdata *data = dev_get_drvdata(list->sysmmu);
+		unsigned long flags;
+
+		TRACE_LOG("%s(%s)\n", __func__, dev_name(data->sysmmu));
+
+		SYSMMU_EVENT_LOG_POWERON(SYSMMU_DRVDATA_TO_LOG(data));
+
+		spin_lock_irqsave(&data->lock, flags);
+		if (get_sysmmu_runtime_active(data) && is_sysmmu_active(data))
+			__sysmmu_enable_nocount(data);
+		spin_unlock_irqrestore(&data->lock, flags);
+	}
+
+	if (dev->bus && dev->bus->pm)
+		cb = dev->bus->pm->runtime_resume;
+	else
+		cb = NULL;
+
+	if (!cb && dev->driver && dev->driver->pm)
+		cb = dev->driver->pm->runtime_resume;
+
+	TRACE_LOG("<----- %s(%s)\n", __func__, dev_name(dev));
+
+	return cb ? cb(dev) : 0;
+}
+
+static int sysmmu_runtime_suspend(struct device *dev)
+{
+	struct sysmmu_list_data *list;
+	int (*cb)(struct device *__dev);
+	int ret = 0;
+
+	TRACE_LOG("%s(%s) ----->\n", __func__, dev_name(dev));
+
+	if (dev->bus && dev->bus->pm)
+		cb = dev->bus->pm->runtime_suspend;
+	else
+		cb = NULL;
+
+	if (!cb && dev->driver && dev->driver->pm)
+		cb = dev->driver->pm->runtime_suspend;
+
+	if (cb) {
+		ret = cb(dev);
+		if (ret) {
+			dev_err(dev, "failed runtime_suspend cb func\n");
+			return ret;
+		}
+	}
+
+	for_each_sysmmu_list(dev, list) {
+		struct sysmmu_drvdata *data = dev_get_drvdata(list->sysmmu);
+		unsigned long flags;
+
+		TRACE_LOG("%s(%s)\n", __func__, dev_name(data->sysmmu));
+
+		SYSMMU_EVENT_LOG_POWEROFF(SYSMMU_DRVDATA_TO_LOG(data));
+
+		spin_lock_irqsave(&data->lock, flags);
+		if (put_sysmmu_runtime_active(data) && is_sysmmu_active(data))
+			__sysmmu_disable_nocount(data);
+		spin_unlock_irqrestore(&data->lock, flags);
+	}
+
+	TRACE_LOG("<----- %s(%s)\n", __func__, dev_name(dev));
+
+	return ret;
+}
+#endif
+
+static const struct dev_pm_ops sysmmu_pm_ops_from_master = {
+	SET_RUNTIME_PM_OPS(sysmmu_runtime_suspend, sysmmu_runtime_resume,
+			NULL)
+};
+
+static const struct dev_pm_ops sysmmu_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sysmmu_suspend, sysmmu_resume)
+};
+
+struct class exynos_iommu_class = {
+	.name	= "exynos_iommu_class",
+	.pm	= &sysmmu_pm_ops_from_master,
+};
+
+static struct platform_driver exynos_sysmmu_driver __refdata = {
+	.probe		= exynos_sysmmu_probe,
+	.driver		= {
+		.owner		= THIS_MODULE,
+		.name		= MODULE_NAME,
+		.of_match_table = of_match_ptr(sysmmu_of_match),
+		.pm		= &sysmmu_pm_ops,
+	}
+};
+
 static int __init exynos_iommu_init(void)
 {
 	struct page *page;
@@ -2763,6 +2897,93 @@ err_fault_page:
 	return ret;
 }
 arch_initcall_sync(exynos_iommu_init);
+
+static int sysmmu_hook_driver_register(struct notifier_block *nb,
+					unsigned long val,
+					void *p)
+{
+	struct device *dev = p;
+
+	/*
+	 * No System MMU assigned. See exynos_sysmmu_probe().
+	 */
+	if (dev->archdata.iommu == NULL)
+		return 0;
+
+	switch (val) {
+	case BUS_NOTIFY_BIND_DRIVER:
+	{
+		if (dev->class) {
+			dev_err(dev, "Already exist dev->class\n");
+			return -EBUSY;
+		}
+
+		dev->class = &exynos_iommu_class;
+		dev_info(dev, "exynos-iommu class is added\n");
+
+		break;
+	}
+	case BUS_NOTIFY_BOUND_DRIVER:
+	{
+		struct sysmmu_list_data *list;
+
+		if (pm_runtime_enabled(dev))
+			break;
+
+		for_each_sysmmu_list(dev, list) {
+			struct sysmmu_drvdata *data =
+					dev_get_drvdata(list->sysmmu);
+			unsigned long flags;
+			spin_lock_irqsave(&data->lock, flags);
+			if (is_sysmmu_active(data) &&
+					get_sysmmu_runtime_active(data))
+				__sysmmu_enable_nocount(data);
+			pm_runtime_disable(data->sysmmu);
+			spin_unlock_irqrestore(&data->lock, flags);
+		}
+
+		break;
+	}
+	case BUS_NOTIFY_UNBOUND_DRIVER:
+	{
+		struct exynos_iommu_owner *owner = dev->archdata.iommu;
+		WARN_ON(!list_empty(&owner->client));
+		if (dev->class)
+			dev->class = NULL;
+		dev_info(dev, "exynos-iommu class is removed\n");
+		break;
+	}
+	} /* switch (val) */
+
+	return 0;
+}
+
+static struct notifier_block sysmmu_notifier = {
+	.notifier_call = &sysmmu_hook_driver_register,
+};
+
+static int __init exynos_iommu_prepare(void)
+{
+	return bus_register_notifier(&platform_bus_type, &sysmmu_notifier);
+}
+subsys_initcall_sync(exynos_iommu_prepare);
+
+static int __init exynos_iommu_dpm_move_to_first(void)
+{
+	struct sysmmu_drvdata *data = sysmmu_drvdata_list;
+	struct device *sysmmu;
+
+	BUG_ON(!data);
+
+	for (; data != NULL; data = data->next) {
+		sysmmu = data->sysmmu;
+		device_move(sysmmu, NULL, DPM_ORDER_DEV_FIRST);
+		dev_info(sysmmu, "dpm order to first\n");
+	}
+
+	return 0;
+}
+late_initcall_sync(exynos_iommu_dpm_move_to_first);
 
 static int sysmmu_fault_notifier(struct notifier_block *nb,
 				     unsigned long fault_addr, void *data)
