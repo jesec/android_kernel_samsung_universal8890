@@ -814,11 +814,6 @@ static inline bool decon_min_lock_cond(struct decon_device *decon)
 	return (atomic_read(&decon->lpd_block_cnt) <= 0);
 }
 
-static inline bool is_any_pending_frames(struct decon_device *decon)
-{
-	return ((decon->timeline_max - decon->timeline->value) > 1);
-}
-
 static inline u32 win_start_pos(int x, int y)
 {
 	return (WIN_STRPTR_Y_F(y) | WIN_STRPTR_X_F(x));
