@@ -1921,6 +1921,9 @@ int device_move(struct device *dev, struct device *new_parent,
 	case DPM_ORDER_DEV_LAST:
 		device_pm_move_last(dev);
 		break;
+	case DPM_ORDER_DEV_FIRST:
+		device_pm_move_first(dev);
+		break;
 	}
 
 	put_device(old_parent);
