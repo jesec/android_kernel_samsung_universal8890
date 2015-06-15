@@ -64,6 +64,9 @@
  * @tin_ns:	time of one timer tick in nanoseconds with current timer rate
  */
 struct samsung_pwm_channel {
+	struct clk	*clk_div;
+	struct clk	*clk_tin;
+
 	u32 period_ns;
 	u32 duty_ns;
 	u32 tin_ns;
@@ -117,72 +120,51 @@ static inline unsigned int to_tcon_channel(unsigned int channel)
 	return (channel == 0) ? 0 : (channel + 1);
 }
 
-static void pwm_samsung_set_divisor(struct samsung_pwm_chip *pwm,
-				    unsigned int channel, u8 divisor)
+static void pwm_samsung_set_divisor(struct samsung_pwm_chip *chip,
+				    unsigned int chan, unsigned long rate)
 {
-	u8 shift = TCFG1_SHIFT(channel);
-	unsigned long flags;
-	u32 reg;
-	u8 bits;
+	struct pwm_device *pwm = &chip->chip.pwms[chan];
+	struct samsung_pwm_channel *channel = pwm_get_chip_data(pwm);
 
-	bits = (fls(divisor) - 1) - pwm->variant.div_base;
-
-	spin_lock_irqsave(&samsung_pwm_lock, flags);
-
-	reg = readl(pwm->base + REG_TCFG1);
-	reg &= ~(TCFG1_MUX_MASK << shift);
-	reg |= bits << shift;
-	writel(reg, pwm->base + REG_TCFG1);
-
-	spin_unlock_irqrestore(&samsung_pwm_lock, flags);
+	clk_set_rate(channel->clk_div, rate);
 }
 
 static int pwm_samsung_is_tdiv(struct samsung_pwm_chip *chip, unsigned int chan)
 {
-	struct samsung_pwm_variant *variant = &chip->variant;
-	u32 reg;
+	struct pwm_device *pwm = &chip->chip.pwms[chan];
+	struct samsung_pwm_channel *channel = pwm_get_chip_data(pwm);
 
-	reg = readl(chip->base + REG_TCFG1);
-	reg >>= TCFG1_SHIFT(chan);
-	reg &= TCFG1_MUX_MASK;
-
-	return (BIT(reg) & variant->tclk_mask) == 0;
+	return clk_get_parent(channel->clk_tin) == channel->clk_div;
 }
 
 static unsigned long pwm_samsung_get_tin_rate(struct samsung_pwm_chip *chip,
 					      unsigned int chan)
 {
+	struct pwm_device *pwm = &chip->chip.pwms[chan];
+	struct samsung_pwm_channel *channel = pwm_get_chip_data(pwm);
 	unsigned long rate;
-	u32 reg;
 
-	rate = clk_get_rate(chip->base_clk);
+	rate = clk_get_rate(clk_get_parent(channel->clk_div));
 
-	reg = readl(chip->base + REG_TCFG0);
-	if (chan >= 2)
-		reg >>= TCFG0_PRESCALER1_SHIFT;
-	reg &= TCFG0_PRESCALER_MASK;
-
-	return rate / (reg + 1);
+	return rate;
 }
 
 static unsigned long pwm_samsung_calc_tin(struct samsung_pwm_chip *chip,
 					  unsigned int chan, unsigned long freq)
 {
+	struct pwm_device *pwm = &chip->chip.pwms[chan];
+	struct samsung_pwm_channel *channel = pwm_get_chip_data(pwm);
 	struct samsung_pwm_variant *variant = &chip->variant;
 	unsigned long rate;
-	struct clk *clk;
 	u8 div;
 
 	if (!pwm_samsung_is_tdiv(chip, chan)) {
-		clk = (chan < 2) ? chip->tclk0 : chip->tclk1;
-		if (!IS_ERR(clk)) {
-			rate = clk_get_rate(clk);
-			if (rate)
-				return rate;
-		}
+		rate = clk_get_rate(channel->clk_tin);
+		if (rate)
+			return rate;
 
 		dev_warn(chip->chip.dev,
-			"tclk of PWM %d is inoperational, using tdiv\n", chan);
+			"tin of PWM %d is inoperational, using tdiv\n", chan);
 	}
 
 	rate = pwm_samsung_get_tin_rate(chip, chan);
@@ -197,7 +179,8 @@ static unsigned long pwm_samsung_calc_tin(struct samsung_pwm_chip *chip,
 		if ((rate >> (variant->bits + div)) < freq)
 			break;
 
-	pwm_samsung_set_divisor(chip, chan, BIT(div));
+	pwm_samsung_set_divisor(chip, chan, rate >> div);
+	dev_dbg(chip->chip.dev, "tdiv at %lu\n", clk_get_rate(channel->clk_div));
 
 	return rate >> div;
 }
@@ -206,6 +189,8 @@ static int pwm_samsung_request(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct samsung_pwm_chip *our_chip = to_samsung_pwm_chip(chip);
 	struct samsung_pwm_channel *our_chan;
+	unsigned char clk_tin_name[16];
+	unsigned char clk_tdiv_name[16];
 
 	if (!(our_chip->variant.output_mask & BIT(pwm->hwpwm))) {
 		dev_warn(chip->dev,
@@ -219,6 +204,20 @@ static int pwm_samsung_request(struct pwm_chip *chip, struct pwm_device *pwm)
 		return -ENOMEM;
 
 	pwm_set_chip_data(pwm, our_chan);
+
+	snprintf(clk_tin_name, sizeof(clk_tin_name), "pwm-tin%d", pwm->hwpwm);
+	our_chan->clk_tin = devm_clk_get(chip->dev, clk_tin_name);
+	if (IS_ERR(our_chan->clk_tin)) {
+		dev_err(chip->dev, "failed to get pwm tin clk\n");
+		return PTR_ERR(our_chan->clk_tin);
+	}
+
+	snprintf(clk_tdiv_name, sizeof(clk_tdiv_name), "pwm-tdiv%d", pwm->hwpwm);
+	our_chan->clk_div = devm_clk_get(chip->dev, clk_tdiv_name);
+	if (IS_ERR(our_chan->clk_div)) {
+		dev_err(chip->dev, "failed to get pwm tdiv clk\n");
+		return PTR_ERR(our_chan->clk_div);
+	}
 
 	return 0;
 }
@@ -298,16 +297,12 @@ static int pwm_samsung_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		u32 period;
 
 		period = NSEC_PER_SEC / period_ns;
-
 		dev_dbg(our_chip->chip.dev, "duty_ns=%d, period_ns=%d (%u)\n",
 						duty_ns, period_ns, period);
 
 		tin_rate = pwm_samsung_calc_tin(our_chip, pwm->hwpwm, period);
-
-		dev_dbg(our_chip->chip.dev, "tin_rate=%lu\n", tin_rate);
-
 		tin_ns = NSEC_PER_SEC / tin_rate;
-		tcnt = period_ns / tin_ns;
+		tcnt = DIV_ROUND_CLOSEST(period_ns, tin_ns);
 	}
 
 	/* Period is too short. */
@@ -315,7 +310,7 @@ static int pwm_samsung_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		return -ERANGE;
 
 	/* Note that counters count down. */
-	tcmp = duty_ns / tin_ns;
+	tcmp = DIV_ROUND_CLOSEST(duty_ns, tin_ns);
 
 	/* 0% duty is not available */
 	if (!tcmp)
@@ -500,7 +495,7 @@ static int pwm_samsung_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->base))
 		return PTR_ERR(chip->base);
 
-	chip->base_clk = devm_clk_get(&pdev->dev, "timers");
+	chip->base_clk = devm_clk_get(&pdev->dev, "gate_timers");
 	if (IS_ERR(chip->base_clk)) {
 		dev_err(dev, "failed to get timer base clk\n");
 		return PTR_ERR(chip->base_clk);
@@ -517,8 +512,8 @@ static int pwm_samsung_probe(struct platform_device *pdev)
 			pwm_samsung_set_invert(chip, chan, true);
 
 	/* Following clocks are optional. */
-	chip->tclk0 = devm_clk_get(&pdev->dev, "pwm-tclk0");
-	chip->tclk1 = devm_clk_get(&pdev->dev, "pwm-tclk1");
+	chip->tclk0 = devm_clk_get(&pdev->dev, "pwm-scaler0");
+	chip->tclk1 = devm_clk_get(&pdev->dev, "pwm-scaler1");
 
 	platform_set_drvdata(pdev, chip);
 
@@ -529,7 +524,7 @@ static int pwm_samsung_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	dev_dbg(dev, "base_clk at %lu, tclk0 at %lu, tclk1 at %lu\n",
+	dev_info(dev, "base_clk at %lu, tclk0 at %lu, tclk1 at %lu\n",
 		clk_get_rate(chip->base_clk),
 		!IS_ERR(chip->tclk0) ? clk_get_rate(chip->tclk0) : 0,
 		!IS_ERR(chip->tclk1) ? clk_get_rate(chip->tclk1) : 0);
