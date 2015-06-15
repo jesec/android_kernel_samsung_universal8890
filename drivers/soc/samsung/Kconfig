@@ -10,4 +10,7 @@ config EXYNOS_CHIPID
 	depends on ARCH_EXYNOS
 	select SOC_BUS
 
+config EXYNOS_REBOOT
+	bool "Exynos Chip Reboot Driver Support"
+	depends on ARCH_EXYNOS
 endif #SOC_EXYNOS
