@@ -87,7 +87,7 @@ static int exynos8890_devfreq_disp_init_freq_table(struct device *dev,
 					struct exynos_devfreq_data *data)
 {
 	u32 max_freq, min_freq;
-	struct opp *target_opp;
+	struct dev_pm_opp *target_opp;
 	u32 flags = 0;
 	int i;
 
@@ -111,7 +111,7 @@ static int exynos8890_devfreq_disp_init_freq_table(struct device *dev,
 			return PTR_ERR(target_opp);
 		}
 
-		data->max_freq = opp_get_freq(target_opp);
+		data->max_freq = dev_pm_opp_get_freq(target_opp);
 		rcu_read_unlock();
 	}
 
@@ -135,7 +135,7 @@ static int exynos8890_devfreq_disp_init_freq_table(struct device *dev,
 			return PTR_ERR(target_opp);
 		}
 
-		data->min_freq = opp_get_freq(target_opp);
+		data->min_freq = dev_pm_opp_get_freq(target_opp);
 		rcu_read_unlock();
 	}
 
@@ -145,7 +145,7 @@ static int exynos8890_devfreq_disp_init_freq_table(struct device *dev,
 	for (i = 0; i < data->max_state; i++) {
 		if (data->opp_list[i].freq > data->max_freq ||
 			data->opp_list[i].freq < data->min_freq)
-			opp_disable(dev, (unsigned long)data->opp_list[i].freq);
+			dev_pm_opp_disable(dev, (unsigned long)data->opp_list[i].freq);
 	}
 
 	return 0;

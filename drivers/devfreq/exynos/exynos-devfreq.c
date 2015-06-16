@@ -699,7 +699,7 @@ u32 get_target_devfreq_rate(enum exynos_devfreq_type type, char *name, u32 freq)
 int exynos_devfreq_sync_voltage(enum exynos_devfreq_type type, bool turn_on)
 {
 	struct exynos_devfreq_data *data;
-	struct opp *target_opp;
+	struct dev_pm_opp *target_opp;
 	unsigned long freq = 0;
 	int ret = 0;
 
@@ -732,7 +732,7 @@ int exynos_devfreq_sync_voltage(enum exynos_devfreq_type type, bool turn_on)
 				ret = PTR_ERR(target_opp);
 				goto out;
 			}
-			data->new_volt = opp_get_voltage(target_opp);
+			data->new_volt = dev_pm_opp_get_voltage(target_opp);
 			rcu_read_unlock();
 
 			ret = exynos_devfreq_set_voltage(data->dev, &data->new_volt, data);
@@ -855,7 +855,7 @@ static int exynos_init_freq_table(struct device *dev, struct exynos_devfreq_data
 
 		data->devfreq_profile.freq_table[i] = freq;
 
-		ret = opp_add(dev, freq, volt);
+		ret = dev_pm_opp_add(dev, freq, volt);
 		if (ret) {
 			dev_err(dev, "failed to add opp entries %uKhz\n", freq);
 			return ret;
@@ -880,7 +880,7 @@ static int exynos_devfreq_tmu_notifier(struct notifier_block *nb,
 {
 	struct exynos_devfreq_data *data = container_of(nb, struct exynos_devfreq_data,
 								tmu_notifier);
-	struct opp *target_opp;
+	struct dev_pm_opp *target_opp;
 	unsigned long freq = 0;
 	u32 *on = v;
 	int ret = NOTIFY_OK;
@@ -942,7 +942,7 @@ static int exynos_devfreq_tmu_notifier(struct notifier_block *nb,
 			ret = PTR_ERR(target_opp);
 			goto out2;
 		}
-		data->new_volt = opp_get_voltage(target_opp);
+		data->new_volt = dev_pm_opp_get_voltage(target_opp);
 		rcu_read_unlock();
 
 		ret = exynos_devfreq_set_voltage(data->dev, &data->new_volt, data);
@@ -1026,8 +1026,8 @@ static int exynos_devfreq_target(struct device *dev,
 	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	struct exynos_devfreq_data *data = platform_get_drvdata(pdev);
 	struct timeval before_target, after_target, before_setfreq, after_setfreq;
-	struct opp *target_opp;
-	struct opp *switch_opp;
+	struct dev_pm_opp *target_opp;
+	struct dev_pm_opp *switch_opp;
 	unsigned long switch_freq;
 	u32 switch_volt;
 	u32 target_volt;
@@ -1051,8 +1051,8 @@ static int exynos_devfreq_target(struct device *dev,
 		goto out;
 	}
 
-	*target_freq = opp_get_freq(target_opp);
-	target_volt = opp_get_voltage(target_opp);
+	*target_freq = dev_pm_opp_get_freq(target_opp);
+	target_volt = dev_pm_opp_get_voltage(target_opp);
 	rcu_read_unlock();
 
 	target_idx = exynos_devfreq_get_opp_idx(data->opp_list, data->max_state,
@@ -1128,7 +1128,7 @@ static int exynos_devfreq_target(struct device *dev,
 				goto out;
 			}
 
-			switch_volt = opp_get_voltage(switch_opp);
+			switch_volt = dev_pm_opp_get_voltage(switch_opp);
 			rcu_read_unlock();
 		}
 
