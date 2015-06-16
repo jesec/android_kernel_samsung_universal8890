@@ -23,14 +23,14 @@
 #include <linux/workqueue.h>
 
 #include <plat/cpu.h>
-#include <mach/map.h>
-#include <mach/exynos-devfreq.h>
-#include <mach/bts.h>
+#include <soc/samsung/map.h>
+#include <soc/samsung/exynos-devfreq.h>
+#include <soc/samsung/bts.h>
 #include <linux/apm-exynos.h>
-#include <mach/asv-exynos.h>
+#include <soc/samsung/asv-exynos.h>
 
-#include "../../arch/arm64/mach-exynos/pwrcal/pwrcal.h"
-#include "../../arch/arm64/mach-exynos/pwrcal/S5E8890/S5E8890-vclk.h"
+#include "../../../drivers/soc/samsung/pwrcal/pwrcal.h"
+#include "../../../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 #include "governor.h"
 #if 0
 #include "exynos8890_ppmu.h"

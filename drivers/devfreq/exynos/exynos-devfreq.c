@@ -24,8 +24,8 @@
 #include <linux/reboot.h>
 #include <linux/exynos-ss.h>
 
-#include <mach/exynos-devfreq.h>
-#include <mach/tmu.h>
+#include <soc/samsung/exynos-devfreq.h>
+#include <soc/samsung/tmu.h>
 
 #include "governor.h"
 

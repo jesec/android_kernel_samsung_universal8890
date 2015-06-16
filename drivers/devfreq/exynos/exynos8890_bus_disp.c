@@ -20,10 +20,10 @@
 #include <linux/platform_device.h>
 #include <linux/list.h>
 
-#include <mach/exynos-devfreq.h>
+#include <soc/samsung/exynos-devfreq.h>
 
-#include "../../arch/arm64/mach-exynos/pwrcal/pwrcal.h"
-#include "../../arch/arm64/mach-exynos/pwrcal/S5E8890/S5E8890-vclk.h"
+#include "../../../drivers/soc/samsung/pwrcal/pwrcal.h"
+#include "../../../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 #include "governor.h"
 
 #define DEVFREQ_DISP_REBOOT_FREQ	(528000)

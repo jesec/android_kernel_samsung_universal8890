@@ -12,7 +12,7 @@
 
 #include <linux/devfreq.h>
 #include <linux/pm_qos.h>
-#include <mach/exynos-devfreq-dep.h>
+#include <soc/samsung/exynos-devfreq-dep.h>
 
 #define EXYNOS_DEVFREQ_MODULE_NAME	"exynos-devfreq"
 #define VOLT_STEP			25000
