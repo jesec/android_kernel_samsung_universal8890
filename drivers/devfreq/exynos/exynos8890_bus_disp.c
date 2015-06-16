@@ -24,7 +24,7 @@
 
 #include "../../../drivers/soc/samsung/pwrcal/pwrcal.h"
 #include "../../../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
-#include "governor.h"
+#include "../governor.h"
 
 #define DEVFREQ_DISP_REBOOT_FREQ	(528000)
 

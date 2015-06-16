@@ -27,7 +27,7 @@
 #include <soc/samsung/exynos-devfreq.h>
 #include <soc/samsung/tmu.h>
 
-#include "governor.h"
+#include "../governor.h"
 
 static int exynos_devfreq_tmu_notifier(struct notifier_block *nb,
 					unsigned long event, void *v);
