@@ -2081,9 +2081,14 @@ static void cgroup_migrate_add_src(struct css_set *src_cset,
 	if (!list_empty(&src_cset->mg_preload_node))
 		return;
 
+	/*
+	 * TODO: must check warning message as follows
+	 */
+#if 0
 	WARN_ON(src_cset->mg_src_cgrp);
 	WARN_ON(!list_empty(&src_cset->mg_tasks));
 	WARN_ON(!list_empty(&src_cset->mg_node));
+#endif
 
 	src_cset->mg_src_cgrp = src_cgrp;
 	get_css_set(src_cset);
