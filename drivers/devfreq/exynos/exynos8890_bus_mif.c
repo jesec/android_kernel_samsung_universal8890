@@ -22,8 +22,6 @@
 #include <linux/list.h>
 #include <linux/workqueue.h>
 
-#include <plat/cpu.h>
-#include <soc/samsung/map.h>
 #include <soc/samsung/exynos-devfreq.h>
 #include <soc/samsung/bts.h>
 #include <linux/apm-exynos.h>
