@@ -28,6 +28,12 @@ enum sys_powerdown {
 };
 
 /**
+ * Functions for cpuidle driver
+ */
+extern int enter_c2(unsigned int cpu, int index);
+extern void wakeup_from_c2(unsigned int cpu, int early_wakeup);
+
+/**
   IDLE_IP control
  */
 extern void exynos_update_pd_idle_status(int index, int idle);

@@ -35,6 +35,27 @@ void exynos_update_ip_idle_status(int index, int idle)
 }
 
 /******************************************************************************
+ *                          Local power gating (C2)                           *
+ ******************************************************************************/
+/**
+ * Exynos cpuidle driver call enter_c2() and wakeup_from_c2() to handle platform
+ * specific configuration to power off the cpu power domain. It handles not only
+ * cpu power control, but also power mode subordinate to C2.
+ */
+int enter_c2(unsigned int cpu, int index)
+{
+	exynos_cpu.power_down(cpu);
+
+	return index;
+}
+
+void wakeup_from_c2(unsigned int cpu, int early_wakeup)
+{
+	if (early_wakeup)
+		exynos_cpu.power_up(cpu);
+}
+
+/******************************************************************************
  *                          Wakeup mask configuration                         *
  ******************************************************************************/
 #define NUM_WAKEUP_MASK		3
