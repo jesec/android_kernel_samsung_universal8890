@@ -255,13 +255,18 @@ void dwc3_exynos_rsw_stop(struct device *dev)
 {
 	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
 	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+	int	irq;
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	if (gpio_is_valid(rsw->id_gpio))
-		free_irq(gpio_to_irq(rsw->id_gpio), rsw);
-	if (gpio_is_valid(rsw->b_sess_gpio))
-		free_irq(gpio_to_irq(rsw->b_sess_gpio), rsw);
+	if (gpio_is_valid(rsw->id_gpio)) {
+		irq = gpio_to_irq(rsw->id_gpio);
+		devm_free_irq(exynos->dev, irq, rsw);
+	}
+	if (gpio_is_valid(rsw->b_sess_gpio)) {
+		irq = gpio_to_irq(rsw->b_sess_gpio);
+		devm_free_irq(exynos->dev, irq, rsw);
+	}
 }
 
 
