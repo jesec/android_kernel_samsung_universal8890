@@ -18,8 +18,11 @@
 #include <asm/smp_plat.h>
 #include <asm/psci.h>
 
+#include <soc/samsung/exynos-pm.h>
 #include <soc/samsung/exynos-pmu.h>
 #include <soc/samsung/exynos-powermode.h>
+
+#include "pwrcal/pwrcal.h"
 
 /******************************************************************************
  *                                  IDLE_IP                                   *
@@ -295,6 +298,56 @@ static int parsing_dt_wakeup_mask(struct device_node *np)
 	}
 
 	return 0;
+}
+
+/******************************************************************************
+ *                           System power down mode                           *
+ ******************************************************************************/
+void exynos_prepare_sys_powerdown(enum sys_powerdown mode)
+{
+	/*
+	 * exynos_prepare_sys_powerdown() is called by only cpu0.
+	 */
+	unsigned int cpu = 0;
+
+	exynos_set_wakeupmask(mode);
+
+	cal_pm_enter(mode);
+
+	switch (mode) {
+	case SYS_ALPA:
+		exynos_pm_lpa_enter();
+	case SYS_AFTR:
+		exynos_cpu.power_down(cpu);
+		exynos_cpu.power_down(cpu);
+		break;
+	default:
+		break;
+	}
+}
+
+void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
+{
+	/*
+	 * exynos_wakeup_sys_powerdown() is called by only cpu0.
+	 */
+	unsigned int cpu = 0;
+
+	if (early_wakeup)
+		cal_pm_earlywakeup(mode);
+	else
+		cal_pm_exit(mode);
+
+	switch (mode) {
+	case SYS_ALPA:
+		exynos_pm_lpa_exit();
+	case SYS_AFTR:
+		if (early_wakeup)
+			exynos_cpu.power_up(cpu);
+		break;
+	default:
+		break;
+	}
 }
 
 /******************************************************************************
