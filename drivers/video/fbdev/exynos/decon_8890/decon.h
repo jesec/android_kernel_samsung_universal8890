@@ -492,9 +492,11 @@ struct decon_update_reg_data {
 };
 
 /* Related with MIPI COMMAND read/write */
+#define DISP_CALLSTACK_MAX 4
 struct dsim_log_cmd_buf {
 	u32 id;
 	u8 buf;
+	void *caller[DISP_CALLSTACK_MAX];
 };
 
 /* Related with VPP */

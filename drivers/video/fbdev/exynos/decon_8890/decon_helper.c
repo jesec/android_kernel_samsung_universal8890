@@ -22,6 +22,8 @@
 #include "./panels/lcd_ctrl.h"
 #include <video/mipi_display.h>
 
+extern void *return_address(int);
+
 int decon_clk_set_parent(struct device *dev, const char *child, const char *parent)
 {
 	struct clk *p;
@@ -368,7 +370,7 @@ void DISP_SS_EVENT_LOG_CMD(struct v4l2_subdev *sd, u32 cmd_id, unsigned long dat
 {
 	struct dsim_device *dsim = container_of(sd, struct dsim_device, sd);
 	struct decon_device *decon = get_decon_drvdata(dsim->id);
-	int idx;
+	int idx, i;
 	struct disp_ss_log *log;
 
 	if (!decon || IS_ERR_OR_NULL(decon->debug_event))
@@ -384,6 +386,9 @@ void DISP_SS_EVENT_LOG_CMD(struct v4l2_subdev *sd, u32 cmd_id, unsigned long dat
 		log->data.cmd_buf.buf = *(u8 *)(data);
 	else
 		log->data.cmd_buf.buf = (u8)data;
+
+	for (i = 0; i < DISP_CALLSTACK_MAX; i++)
+		log->data.cmd_buf.caller[i] = (void *)((size_t)return_address(i + 1));
 }
 
 /* display logged events related with DECON */
