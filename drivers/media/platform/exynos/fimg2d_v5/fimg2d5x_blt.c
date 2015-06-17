@@ -214,8 +214,7 @@ static int fimg2d5x_configure(struct fimg2d_control *ctrl,
 		default:
 			fimg2d5x_enable_alpha(ctrl, src, p->g_alpha);
 			fimg2d5x_set_alpha_composite(ctrl, src, op, p->g_alpha);
-			if (p->premult != NON_PREMULTIPLIED)
-				fimg2d5x_set_premultiplied(ctrl, src);
+			fimg2d5x_set_premultiplied(ctrl, src, p->premult);
 			break;
 		}
 
@@ -270,7 +269,8 @@ static int fimg2d5x_configure(struct fimg2d_control *ctrl,
 	/* Update flag */
 	if (cmd->src_flag) {
 		fimg2d5x_layer_update(ctrl, cmd->src_flag);
-		fimg2d5x_set_dst_depremult(ctrl);
+		if (dst->param.premult == NON_PREMULTIPLIED)
+			fimg2d5x_set_dst_depremult(ctrl);
 	}
 
 	return 0;

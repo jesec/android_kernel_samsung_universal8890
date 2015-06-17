@@ -161,7 +161,7 @@ void fimg2d5x_set_dst_image(struct fimg2d_control *ctrl,
 void fimg2d5x_set_dst_rect(struct fimg2d_control *ctrl, struct fimg2d_rect *r);
 void fimg2d5x_set_color_fill(struct fimg2d_control *ctrl, u32 color);
 void fimg2d5x_set_premultiplied(struct fimg2d_control *ctrl,
-				struct fimg2d_image *s);
+				struct fimg2d_image *s, enum premultiplied p);
 void fimg2d5x_enable_transparent(struct fimg2d_control *ctrl);
 void fimg2d5x_enable_clipping(struct fimg2d_control *ctrl,
 				struct fimg2d_image *s,

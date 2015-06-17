@@ -316,16 +316,19 @@ void fimg2d5x_set_color_fill(struct fimg2d_control *ctrl, u32 color)
  * set alpha-demultiply for dst write (post-bitblt)
  */
 void fimg2d5x_set_premultiplied(struct fimg2d_control *ctrl,
-					struct fimg2d_image *s)
+				struct fimg2d_image *s, enum premultiplied p)
 {
 	u32 cfg;
 	int n;
 
 	n = s->layer_num;
 
-	/* FIXME: 0xf means [27:24]. Is it correct? */
 	cfg = rd(FIMG2D_LAYERn_COMMAND_REG(n));
-	cfg |= FIMG2D_PREMULT_PER_PIXEL;
+
+	if (p == PREMULTIPLIED)
+		cfg &= ~FIMG2D_PREMULT_PER_PIXEL_MUL_GALPHA;
+	else
+		cfg |= FIMG2D_PREMULT_PER_PIXEL_MUL_GALPHA;
 
 	wr(cfg, FIMG2D_LAYERn_COMMAND_REG(n));
 }
