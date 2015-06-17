@@ -204,6 +204,7 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 	dev_err(dev, "Turn %s host\n", on ? "on" : "off");
 
 	if (on) {
+		wake_lock(&dotg->wakelock);
 		dwc3_otg_set_host_mode(dotg);
 		ret = platform_device_add(dotg->dwc->xhci);
 		if (ret) {
@@ -212,6 +213,7 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 		}
 	} else {
 		platform_device_del(dotg->dwc->xhci);
+		wake_unlock(&dotg->wakelock);
 	}
 
 	return 0;
@@ -231,10 +233,12 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 		on ? "on" : "off", otg->gadget->name);
 
 	if (on) {
+		wake_lock(&dotg->wakelock);
 		dwc3_otg_set_peripheral_mode(dotg);
 		ret = usb_gadget_vbus_connect(otg->gadget);
 	} else {
 		ret = usb_gadget_vbus_disconnect(otg->gadget);
+		wake_lock(&dotg->wakelock);
 	}
 
 	return ret;
@@ -624,6 +628,8 @@ has_ext_otg:
 		}
 	}
 
+	wake_lock_init(&dotg->wakelock, WAKE_LOCK_SUSPEND, "dwc3-otg");
+
 	ret = sysfs_create_group(&dwc->dev->kobj, &dwc3_otg_attr_group);
 	if (ret)
 		dev_err(dwc->dev, "failed to create dwc3 otg attributes\n");
@@ -653,6 +659,7 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 
 has_ext_otg:
 	sysfs_remove_group(&dwc->dev->kobj, &dwc3_otg_attr_group);
+	wake_lock_destroy(&dotg->wakelock);
 	free_irq(dotg->irq, dotg);
 	dotg->otg.phy->otg = NULL;
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
