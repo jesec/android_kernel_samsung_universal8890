@@ -10,3 +10,4 @@ obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-powermode.o
 obj-$(CONFIG_PWRCAL)            += pwrcal/
 obj-$(CONFIG_EXYNOS_CHIPID)	+= exynos-chipid.o
 obj-$(CONFIG_EXYNOS_REBOOT)	+= exynos-reboot.o
+obj-$(CONFIG_PM_RUNTIME)        += pm_domains/
