@@ -303,19 +303,18 @@ static void dwc3_exynos_rsw_init(struct dwc3_exynos *exynos)
 	/* ID gpio */
 	rsw->id_gpio = of_get_named_gpio(dev->of_node,
 					"samsung,id-gpio", 0);
-	if (!gpio_is_valid(rsw->id_gpio)) {
+	if (!gpio_is_valid(rsw->id_gpio))
 		dev_info(dev, "id gpio is not available\n");
-	} else {
-		pinctrl = devm_pinctrl_get_select_default(dev);
-		if (IS_ERR(pinctrl))
-			dev_info(exynos->dev, "failed to configure id pin\n");
-	}
 
 	/* B-Session gpio */
 	rsw->b_sess_gpio = of_get_named_gpio(dev->of_node,
 					"samsung,bsess-gpio", 0);
 	if (!gpio_is_valid(rsw->b_sess_gpio))
 		dev_info(dev, "b_sess gpio is not available\n");
+
+	pinctrl = devm_pinctrl_get_select_default(dev);
+	if (IS_ERR(pinctrl))
+		dev_info(exynos->dev, "failed to configure pins\n");
 }
 
 static int dwc3_exynos_register_phys(struct dwc3_exynos *exynos)
