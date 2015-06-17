@@ -571,8 +571,8 @@ const struct cpu_operations cpu_psci_ops = {
 	.name		= "psci",
 #ifdef CONFIG_CPU_IDLE
 	.cpu_init_idle	= cpu_psci_cpu_init_idle,
-	.cpu_suspend	= cpu_psci_cpu_suspend,
 #endif
+	.cpu_suspend	= cpu_psci_cpu_suspend,
 #ifdef CONFIG_SMP
 	.cpu_init	= cpu_psci_cpu_init,
 	.cpu_prepare	= cpu_psci_cpu_prepare,
