@@ -20,7 +20,9 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/mutex.h>
 #include <linux/platform_data/dwc3-exynos.h>
+#include <linux/mutex.h>
 #include <linux/dma-mapping.h>
 #include <linux/clk.h>
 #include <linux/usb/otg.h>
@@ -30,6 +32,18 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 
+#include <linux/io.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/usb/otg-fsm.h>
+
+struct dwc3_exynos_rsw {
+	struct otg_fsm		*fsm;
+	int			boost5v_gpio;
+	int			vbus_gpio;
+	int			id_gpio;
+	int			b_sess_gpio;
+};
+
 struct dwc3_exynos {
 	struct platform_device	*usb2_phy;
 	struct platform_device	*usb3_phy;
@@ -38,25 +52,264 @@ struct dwc3_exynos {
 	struct clk		*clk;
 	struct regulator	*vdd33;
 	struct regulator	*vdd10;
+	struct dwc3_exynos_rsw  rsw;
 };
+void dwc3_otg_run_sm(struct otg_fsm *fsm);
 
-static void dwc3_exynos_setup_vbus_gpio(struct platform_device *pdev)
+#ifdef CONFIG_OF
+static const struct of_device_id exynos_dwc3_match[] = {
+	{ .compatible = "samsung,exynos5250-dwusb3" },
+	{ .compatible = "samsung,exynos5-dwusb3" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, exynos_dwc3_match);
+#endif
+
+static int dwc3_exynos_get_id_state(struct dwc3_exynos_rsw *rsw)
 {
-	struct device *dev = &pdev->dev;
-	int err;
-	int gpio;
+	if (gpio_is_valid(rsw->id_gpio))
+		return gpio_get_value(rsw->id_gpio);
+	else
+		/* B-device by default */
+		return 1;
+}
+
+static int dwc3_exynos_get_b_sess_state(struct dwc3_exynos_rsw *rsw)
+{
+	/* For now always return 1 */
+	return 1;
+}
+
+static irqreturn_t dwc3_exynos_rsw_thread_interrupt(int irq, void *_rsw)
+{
+	struct dwc3_exynos_rsw	*rsw = (struct dwc3_exynos_rsw *)_rsw;
+	struct dwc3_exynos	*exynos = container_of(rsw,
+						struct dwc3_exynos, rsw);
+
+	dev_vdbg(exynos->dev, "%s\n", __func__);
+
+	dwc3_otg_run_sm(rsw->fsm);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t dwc3_exynos_id_interrupt(int irq, void *_rsw)
+{
+	struct dwc3_exynos_rsw	*rsw = (struct dwc3_exynos_rsw *)_rsw;
+	struct dwc3_exynos	*exynos = container_of(rsw,
+						struct dwc3_exynos, rsw);
+	int			state;
+
+	state = dwc3_exynos_get_id_state(rsw);
+
+	dev_vdbg(exynos->dev, "IRQ: ID: %d\n", state);
+
+	if (rsw->fsm->id != state) {
+		rsw->fsm->id = state;
+		return IRQ_WAKE_THREAD;
+	}
+
+	return IRQ_NONE;
+}
+
+static irqreturn_t dwc3_exynos_b_sess_interrupt(int irq, void *_rsw)
+{
+	struct dwc3_exynos_rsw	*rsw = (struct dwc3_exynos_rsw *)_rsw;
+	struct dwc3_exynos	*exynos = container_of(rsw,
+						struct dwc3_exynos, rsw);
+	int			state;
+
+	state = dwc3_exynos_get_b_sess_state(rsw);
+
+	dev_vdbg(exynos->dev, "IRQ: B_Sess: %sactive\n", state ? "" : "in");
+
+	if (rsw->fsm->b_sess_vld != state) {
+		rsw->fsm->b_sess_vld = state;
+		return IRQ_WAKE_THREAD;
+	}
+
+	return IRQ_NONE;
+}
+
+void dwc3_exynos_rsw_drv_vbus(struct device *dev, int on)
+{
+	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
+	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+
+	if (on) {
+		gpio_set_value(rsw->boost5v_gpio, 1);
+		/* Do we need some delay here? */
+		gpio_set_value(rsw->vbus_gpio, 1);
+	} else {
+		gpio_set_value(rsw->vbus_gpio, 0);
+		gpio_set_value(rsw->boost5v_gpio, 0);
+	}
+}
+
+int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
+{
+	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
+	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+	unsigned long		irq_flags = IRQF_TRIGGER_RISING |
+					    IRQF_TRIGGER_FALLING;
+	int			irq;
+	int			ret;
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	fsm->id = dwc3_exynos_get_id_state(rsw);
+	fsm->b_sess_vld = dwc3_exynos_get_b_sess_state(rsw);
+	rsw->fsm = fsm;
+
+	if (gpio_is_valid(rsw->boost5v_gpio)) {
+		ret = devm_gpio_request_one(exynos->dev, rsw->boost5v_gpio,
+			GPIOF_OUT_INIT_LOW, "dwc3_boost5v_gpio");
+		if (ret) {
+			dev_err(exynos->dev, "failed to request boost5v gpio\n");
+			return ret;
+		}
+	}
+
+	if (gpio_is_valid(rsw->vbus_gpio)) {
+		ret = devm_gpio_request_one(exynos->dev, rsw->vbus_gpio,
+			GPIOF_OUT_INIT_LOW, "dwc3_vbus_gpio");
+		if (ret) {
+			dev_err(exynos->dev, "failed to request vbus gpio\n");
+			return ret;
+		}
+	}
+
+	if (gpio_is_valid(rsw->id_gpio)) {
+		ret = devm_gpio_request(exynos->dev, rsw->id_gpio,
+						"dwc3_id_gpio");
+		if (ret) {
+			dev_err(exynos->dev, "failed to request dwc3 id gpio");
+			return ret;
+		}
+
+		irq = gpio_to_irq(rsw->id_gpio);
+		ret = devm_request_threaded_irq(exynos->dev, irq,
+					dwc3_exynos_id_interrupt,
+					dwc3_exynos_rsw_thread_interrupt,
+					irq_flags, "dwc3_id", rsw);
+		if (ret) {
+			dev_err(exynos->dev, "failed to request irq #%d --> %d\n",
+					irq, ret);
+			return ret;
+		}
+	}
+
+	if (gpio_is_valid(rsw->b_sess_gpio)) {
+		ret = devm_gpio_request_one(exynos->dev, rsw->b_sess_gpio,
+						GPIOF_IN, "dwc3_b_sess_gpio");
+		if (ret) {
+			dev_err(exynos->dev, "failed to request dwc3 b_sess gpio");
+			return ret;
+		}
+
+		irq = gpio_to_irq(rsw->b_sess_gpio);
+		ret = devm_request_threaded_irq(exynos->dev, irq,
+					dwc3_exynos_b_sess_interrupt,
+					dwc3_exynos_rsw_thread_interrupt,
+					irq_flags, "dwc3_b_sess", rsw);
+		if (ret) {
+			dev_err(exynos->dev, "failed to request irq #%d --> %d\n",
+					irq, ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+void dwc3_exynos_rsw_exit(struct device *dev)
+{
+	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
+	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+
+	free_irq(gpio_to_irq(rsw->id_gpio), rsw);
+	free_irq(gpio_to_irq(rsw->b_sess_gpio), rsw);
+	rsw->fsm = NULL;
+
+}
+
+static struct dwc3_exynos *dwc3_exynos_match(struct device *dev)
+{
+	struct dwc3_exynos		*exynos = NULL;
+	const struct of_device_id	*matches = NULL;
+
+	if (!dev)
+		return NULL;
+
+#if IS_ENABLED(CONFIG_OF)
+	matches = exynos_dwc3_match;
+#endif
+	if (of_match_device(matches, dev))
+		exynos = dev_get_drvdata(dev);
+
+	return exynos;
+}
+
+bool dwc3_exynos_rsw_available(struct device *dev)
+{
+	struct dwc3_exynos	*exynos;
+	struct dwc3_exynos_rsw	*rsw;
+	bool			ret;
+
+	exynos = dwc3_exynos_match(dev);
+	if (!exynos)
+		return false;
+
+	rsw = &exynos->rsw;
+
+	ret = gpio_is_valid(rsw->boost5v_gpio) &&
+	      gpio_is_valid(rsw->vbus_gpio) &&
+	      gpio_is_valid(rsw->id_gpio) &&
+	      gpio_is_valid(rsw->b_sess_gpio);
+	if (ret)
+		dev_info(dev, "DWC3 Exynos Role Switch is available\n");
+
+	return ret;
+}
+
+
+static void dwc3_exynos_rsw_init(struct dwc3_exynos *exynos)
+{
+	struct device		*dev = exynos->dev;
+	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
+	struct pinctrl		*pinctrl;
 
 	if (!dev->of_node)
 		return;
 
-	gpio = of_get_named_gpio(dev->of_node, "samsung,vbus-gpio", 0);
-	if (!gpio_is_valid(gpio))
-		return;
+	/* Boost 5V gpio */
+	rsw->boost5v_gpio = of_get_named_gpio(dev->of_node,
+					"samsung,boost5v-gpio", 0);
+	if (!gpio_is_valid(rsw->b_sess_gpio))
+		dev_info(dev, "boost5v gpio is not available\n");
 
-	err = devm_gpio_request_one(dev, gpio, GPIOF_OUT_INIT_HIGH,
-				    "dwc3_vbus_gpio");
-	if (err)
-		dev_err(dev, "can't request dwc3 vbus gpio %d", gpio);
+	/* VBus gpio */
+	rsw->vbus_gpio = of_get_named_gpio(dev->of_node,
+					"samsung,vbus-gpio", 0);
+	if (!gpio_is_valid(rsw->b_sess_gpio))
+		dev_info(dev, "vbus gpio is not available\n");
+
+	/* ID gpio */
+	rsw->id_gpio = of_get_named_gpio(dev->of_node,
+					"samsung,id-gpio", 0);
+	if (!gpio_is_valid(rsw->id_gpio)) {
+		dev_info(dev, "id gpio is not available\n");
+	} else {
+		pinctrl = devm_pinctrl_get_select_default(dev);
+		if (IS_ERR(pinctrl))
+			dev_info(exynos->dev, "failed to configure id pin\n");
+	}
+
+	/* B-Session gpio */
+	rsw->b_sess_gpio = of_get_named_gpio(dev->of_node,
+					"samsung,bsess-gpio", 0);
+	if (!gpio_is_valid(rsw->b_sess_gpio))
+		dev_info(dev, "b_sess gpio is not available\n");
 }
 
 static int dwc3_exynos_register_phys(struct dwc3_exynos *exynos)
@@ -164,6 +417,8 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(exynos->clk);
 
+	dwc3_exynos_rsw_init(exynos);
+
 	exynos->vdd33 = devm_regulator_get(dev, "vdd33");
 	if (IS_ERR(exynos->vdd33)) {
 		dev_dbg(dev, "couldn't get regulator vdd33\n");
@@ -176,9 +431,6 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 			goto err2;
 		}
 	}
-
-	if (IS_ENABLED(CONFIG_USB_DWC3_HOST))
-		dwc3_exynos_setup_vbus_gpio(pdev);
 
 	exynos->vdd10 = devm_regulator_get(dev, "vdd10");
 	if (IS_ERR(exynos->vdd10)) {
@@ -235,15 +487,6 @@ static int dwc3_exynos_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-#ifdef CONFIG_OF
-static const struct of_device_id exynos_dwc3_match[] = {
-	{ .compatible = "samsung,exynos5250-dwusb3" },
-	{ .compatible = "samsung,exynos8-dwusb3" },
-	{},
-};
-MODULE_DEVICE_TABLE(of, exynos_dwc3_match);
-#endif
 
 #ifdef CONFIG_PM_SLEEP
 static int dwc3_exynos_suspend(struct device *dev)

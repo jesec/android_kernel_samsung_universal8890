@@ -26,6 +26,37 @@
 #include "otg.h"
 #include "io.h"
 
+#if IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
+static struct dwc3_ext_otg_ops *dwc3_otg_exynos_rsw_probe(struct dwc3 *dwc)
+{
+	struct dwc3_ext_otg_ops	*ops;
+	bool			ext_otg;
+
+	ext_otg = dwc3_exynos_rsw_available(dwc->dev->parent);
+	if (!ext_otg)
+		return NULL;
+
+	/* Allocate and init otg instance */
+	ops = devm_kzalloc(dwc->dev, sizeof(struct dwc3_ext_otg_ops),
+			GFP_KERNEL);
+	if (!ops) {
+		dev_err(dwc->dev, "unable to allocate dwc3_ext_otg_ops\n");
+		return NULL;
+	}
+
+	ops->setup = dwc3_exynos_rsw_setup;
+	ops->exit = dwc3_exynos_rsw_exit;
+	ops->drv_vbus = dwc3_exynos_rsw_drv_vbus;
+
+	return ops;
+}
+#else
+static struct dwc3_ext_otg_ops *dwc3_otg_exynos_rsw_probe(dwc)
+{
+	return NULL;
+}
+#endif
+
 static int dwc3_otg_statemachine(struct otg_fsm *fsm)
 {
 	struct usb_phy *phy	= fsm->otg->phy;
@@ -102,7 +133,7 @@ exit:
 	if (!ret)
 		ret = (phy->state != prev_state);
 
-	pr_err("OTG SM: %s => %s\n", usb_otg_state_string(prev_state),
+	pr_debug("OTG SM: %s => %s\n", usb_otg_state_string(prev_state),
 		(ret > 0) ? usb_otg_state_string(phy->state) : "(no change)");
 
 	return ret;
@@ -110,35 +141,51 @@ exit:
 
 static void dwc3_otg_set_host_mode(struct dwc3_otg *dotg)
 {
-	u32	reg;
+	struct dwc3	*dwc = dotg->dwc;
+	u32		reg;
 
-	reg = dwc3_readl(dotg->regs, DWC3_OCTL);
-	reg &= ~DWC3_OTG_OCTL_PERIMODE;
-	dwc3_writel(dotg->regs, DWC3_OCTL, reg);
+	if (dotg->regs) {
+		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
+		reg &= ~DWC3_OTG_OCTL_PERIMODE;
+		dwc3_writel(dotg->regs, DWC3_OCTL, reg);
+	} else {
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+	}
 }
 
 static void dwc3_otg_set_peripheral_mode(struct dwc3_otg *dotg)
 {
-	u32	reg;
+	struct dwc3	*dwc = dotg->dwc;
+	u32		reg;
 
-	reg = dwc3_readl(dotg->regs, DWC3_OCTL);
-	reg |= DWC3_OTG_OCTL_PERIMODE;
-	dwc3_writel(dotg->regs, DWC3_OCTL, reg);
+	if (dotg->regs) {
+		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
+		reg |= DWC3_OTG_OCTL_PERIMODE;
+		dwc3_writel(dotg->regs, DWC3_OCTL, reg);
+	} else {
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+	}
 }
 
 static void dwc3_otg_drv_vbus(struct otg_fsm *fsm, int on)
 {
 	struct dwc3_otg	*dotg = container_of(fsm, struct dwc3_otg, fsm);
-	int		ret;
+#if !IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
+       int		ret;
 
-	if (on)
-		ret = regulator_enable(dotg->vbus_reg);
-	else
-		ret = regulator_disable(dotg->vbus_reg);
+       if (on)
+	       ret = regulator_enable(dotg->vbus_reg);
+       else
+	       ret = regulator_disable(dotg->vbus_reg);
 
-	if (ret)
-		dev_err(dotg->dwc->dev, "Failed to turn Vbus %s\n",
-			on ? "on" : "off");
+       if (ret)
+	       dev_err(dotg->dwc->dev, "Failed to turn Vbus %s\n",
+			       on ? "on" : "off");
+#else
+	if (dotg->ext_otg_ops)
+		dwc3_ext_otg_drv_vbus(dotg, on);
+#endif
+
 }
 
 static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
@@ -196,7 +243,7 @@ static struct otg_fsm_ops dwc3_otg_fsm_ops = {
 	.start_gadget	= dwc3_otg_start_gadget,
 };
 
-static void dwc3_otg_run_sm(struct otg_fsm *fsm)
+void dwc3_otg_run_sm(struct otg_fsm *fsm)
 {
 	int	state_changed;
 
@@ -445,6 +492,7 @@ static const struct attribute_group dwc3_otg_attr_group = {
 int dwc3_otg_init(struct dwc3 *dwc)
 {
 	struct dwc3_otg		*dotg;
+	struct dwc3_ext_otg_ops	*ops = NULL;
 	u32			reg;
 	int			ret = 0;
 
@@ -457,6 +505,16 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		dev_err(dwc->dev, "dwc3_otg address space is not supported\n");
 
 		/*
+		 * Exynos5 SoCs don't have HW OTG, however, some boards use
+		 * simplified role switch (rsw) function based on ID/BSes
+		 * gpio interrupts. As a fall-back try to bind to Exynos5
+		 * role switch.
+		 */
+		ops = dwc3_otg_exynos_rsw_probe(dwc);
+		if (ops)
+			goto has_ext_otg;
+
+		/*
 		 * No HW OTG support in the core.
 		 * We return 0 to indicate no error, since this is acceptable
 		 * situation, just continue probe the dwc3 driver without otg.
@@ -464,6 +522,7 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		return 0;
 	}
 
+has_ext_otg:
 	/* Allocate and init otg instance */
 	dotg = devm_kzalloc(dwc->dev, sizeof(struct dwc3_otg), GFP_KERNEL);
 	if (!dotg) {
@@ -474,6 +533,8 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	/* This reference is used by dwc3 modules for checking otg existance */
 	dwc->dotg = dotg;
 	dotg->dwc = dwc;
+
+	dotg->ext_otg_ops = ops;
 
 	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
 	dotg->otg.set_host = NULL;
@@ -486,28 +547,38 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->fsm.ops = &dwc3_otg_fsm_ops;
 	dotg->fsm.otg = &dotg->otg;
 
-	dotg->vbus_reg = devm_regulator_get(dwc->dev->parent, "dwc3-vbus");
+	/* FIXME: use regulator framework for DWC3 Exynos (currently gpio) */
+#if !IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
+	dotg->vbus_reg = devm_regulator_get(dwc->dev->parent,
+			"dwc3-vbus");
 	if (IS_ERR(dotg->vbus_reg)) {
 		dev_err(dwc->dev, "Failed to obtain vbus regulator\n");
 		return -ENODEV;
 	}
+#endif
 
-	dotg->regs = dwc->regs;
+	if (dotg->ext_otg_ops) {
+		ret = dwc3_ext_otg_setup(dotg);
+		if (ret) {
+			dev_err(dwc->dev, "failed to setup external OTG\n");
+			return ret;
+		}
+	} else {
+		dotg->regs = dwc->regs;
 
-	dwc3_otg_reset(dotg);
-
-	dotg->fsm.id = dwc3_otg_get_id_state(dotg);
-	dotg->fsm.b_sess_vld = dwc3_otg_get_b_sess_state(dotg);
-
-	dotg->irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-	ret = devm_request_threaded_irq(dwc->dev, dotg->irq,
-					dwc3_otg_interrupt,
-					dwc3_otg_thread_interrupt,
-					IRQF_SHARED, "dwc3-otg", dotg);
-	if (ret) {
-		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
-				dotg->irq, ret);
-		return ret;
+		dwc3_otg_reset(dotg);
+		dotg->fsm.id = dwc3_otg_get_id_state(dotg);
+		dotg->fsm.b_sess_vld = dwc3_otg_get_b_sess_state(dotg);
+		dotg->irq = platform_get_irq(to_platform_device(dwc->dev), 0);
+		ret = devm_request_threaded_irq(dwc->dev, dotg->irq,
+				dwc3_otg_interrupt,
+				dwc3_otg_thread_interrupt,
+				IRQF_SHARED, "dwc3-otg", dotg);
+		if (ret) {
+			dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
+					dotg->irq, ret);
+			return ret;
+		}
 	}
 
 	ret = sysfs_create_group(&dwc->dev->kobj, &dwc3_otg_attr_group);
@@ -527,9 +598,17 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 	u32			reg;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GHWPARAMS6);
-	if (!(reg & DWC3_GHWPARAMS6_SRP_SUPPORT))
-		return;
+	if (!(reg & DWC3_GHWPARAMS6_SRP_SUPPORT)) {
+		if (dotg->ext_otg_ops) {
+			dwc3_ext_otg_exit(dotg);
+			goto has_ext_otg;
+		}
 
+		return;
+	}
+
+
+has_ext_otg:
 	sysfs_remove_group(&dwc->dev->kobj, &dwc3_otg_attr_group);
 	free_irq(dotg->irq, dotg);
 	dotg->otg.phy->otg = NULL;
