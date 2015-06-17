@@ -2039,7 +2039,7 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	if (p_264->num_hier_layer) {
 		reg |= (p_264->hier_qp_type & 0x1) << 0x3;
 		reg |= p_264->num_hier_layer & 0x7;
-		if (!p_264->hier_ref_type) {
+		if (p_264->hier_ref_type) {
 			reg |= 0x1 << 7;
 			reg |= (p_264->num_hier_layer & 0x7) << 4;
 		} else {

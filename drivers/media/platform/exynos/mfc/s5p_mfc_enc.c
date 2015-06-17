@@ -2725,11 +2725,11 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			buf_ctrl->old_val2 = value;
 			value &= ~(0x7 << 4);
 			if (p->codec.h264.hier_ref_type) {
-				value &= ~(0x1 << 7);
-				value |= 0x7 << 4;
-			} else {
 				value |= 0x1 << 7;
 				value |= (p->codec.h264.num_hier_layer & 0x7) << 4;
+			} else {
+				value &= ~(0x1 << 7);
+				value |= 0x7 << 4;
 			}
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
 		}
@@ -2779,11 +2779,11 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			value &= ~(0x7 << 4);
 			value |= (temporal_LC.temporal_layer_count & 0x7);
 			if (p->codec.h264.hier_ref_type) {
-				value &= ~(0x1 << 7);
-				value |= 0x7 << 4;
-			} else {
 				value |= 0x1 << 7;
 				value |= (p->codec.h264.num_hier_layer & 0x7) << 4;
+			} else {
+				value &= ~(0x1 << 7);
+				value |= 0x7 << 4;
 			}
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
 			for(i = 0; i < temporal_LC.temporal_layer_count; i++) {
