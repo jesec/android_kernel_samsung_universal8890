@@ -13,4 +13,13 @@ config EXYNOS_CHIPID
 config EXYNOS_REBOOT
 	bool "Exynos Chip Reboot Driver Support"
 	depends on ARCH_EXYNOS
+
+config SAMSUNG_DMADEV
+	bool
+	select ARM_AMBA
+	select DMADEVICES
+	select PL330_DMA if (ARCH_EXYNOS8)
+	help
+	  Use DMA device engine for PL330 DMAC.
+
 endif #SOC_SAMSUNG

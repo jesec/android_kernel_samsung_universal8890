@@ -217,6 +217,14 @@ config SOC_EXYNOS8890
 	select PINCTRL
 	select PWRCAL
 	select SOC_SAMSUNG
+	select SAMSUNG_DMADEV
+
+config ARCH_EXYNOS8
+	bool "SAMSUNG EXYNOS8"
+	select HAVE_ARM_SCU if SMP
+	select HAVE_SMP
+	help
+	  Samsung EXYNOS8 (Mongoose/A53) SoC based systems
 
 config PWRCAL
     bool "Exynos Power Chip Abstraction Layer"
