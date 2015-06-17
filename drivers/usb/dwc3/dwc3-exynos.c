@@ -28,6 +28,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
+#include <linux/of_gpio.h>
 
 struct dwc3_exynos {
 	struct platform_device	*usb2_phy;
@@ -38,6 +39,25 @@ struct dwc3_exynos {
 	struct regulator	*vdd33;
 	struct regulator	*vdd10;
 };
+
+static void dwc3_exynos_setup_vbus_gpio(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	int err;
+	int gpio;
+
+	if (!dev->of_node)
+		return;
+
+	gpio = of_get_named_gpio(dev->of_node, "samsung,vbus-gpio", 0);
+	if (!gpio_is_valid(gpio))
+		return;
+
+	err = devm_gpio_request_one(dev, gpio, GPIOF_OUT_INIT_HIGH,
+				    "dwc3_vbus_gpio");
+	if (err)
+		dev_err(dev, "can't request dwc3 vbus gpio %d", gpio);
+}
 
 static int dwc3_exynos_register_phys(struct dwc3_exynos *exynos)
 {
@@ -156,6 +176,10 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 			goto err2;
 		}
 	}
+
+	if (IS_ENABLED(CONFIG_USB_DWC3_HOST))
+		dwc3_exynos_setup_vbus_gpio(pdev);
+
 	exynos->vdd10 = devm_regulator_get(dev, "vdd10");
 	if (IS_ERR(exynos->vdd10)) {
 		dev_dbg(dev, "couldn't get regulator vdd10\n");
