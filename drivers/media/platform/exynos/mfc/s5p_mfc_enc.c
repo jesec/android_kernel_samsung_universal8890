@@ -1866,7 +1866,15 @@ static int check_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
                                 ctrl->value, c->maximum);
 		ctrl->value = c->maximum;
 	}
-
+	if (ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
+		if ((ctrl->value & ~(1 << 16)) < c->minimum || (ctrl->value & ~(1 << 16)) > c->maximum
+		    || (c->step != 0 && (ctrl->value & ~(1 << 16)) % c->step != 0)) {
+			v4l2_err(&dev->v4l2_dev, "Invalid control value\n");
+			return -ERANGE;
+		} else {
+			return 0;
+		}
+	}
 	if (ctrl->value < c->minimum || ctrl->value > c->maximum
 	    || (c->step != 0 && ctrl->value % c->step != 0)) {
 		v4l2_err(&dev->v4l2_dev, "Invalid control value\n");
