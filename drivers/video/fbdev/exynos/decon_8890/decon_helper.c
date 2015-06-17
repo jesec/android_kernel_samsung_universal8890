@@ -291,8 +291,6 @@ void DISP_SS_EVENT_LOG(disp_ss_event_t type, struct v4l2_subdev *sd, ktime_t tim
 	case DISP_EVT_VPP_FRAMEDONE:
 	case DISP_EVT_VPP_STOP:
 	case DISP_EVT_VPP_WINCON:
-	case DISP_EVT_VPP_UPDATE_DONE:
-	case DISP_EVT_VPP_SHADOW_UPDATE:
 		disp_ss_event_log_vpp(type, sd, time);
 		break;
 	default:
@@ -315,6 +313,8 @@ void DISP_SS_EVENT_LOG(disp_ss_event_t type, struct v4l2_subdev *sd, ktime_t tim
 		break;
 	case DISP_EVT_VPP_SUSPEND:
 	case DISP_EVT_VPP_RESUME:
+	case DISP_EVT_VPP_UPDATE_DONE:
+	case DISP_EVT_VPP_SHADOW_UPDATE:
 		disp_ss_event_log_vpp(type, sd, time);
 	default:
 		break;
