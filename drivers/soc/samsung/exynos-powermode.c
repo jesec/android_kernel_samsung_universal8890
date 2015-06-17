@@ -208,6 +208,45 @@ void wakeup_from_c2(unsigned int cpu, int early_wakeup)
 	spin_unlock(&c2_lock);
 }
 
+/**
+ * powermode_attr_read() / show_##file_name() -
+ * print out power mode information
+ *
+ * powermode_attr_write() / store_##file_name() -
+ * sysfs write access
+ */
+#define show_one(file_name, object)			\
+static ssize_t show_##file_name(struct kobject *kobj,	\
+	struct kobj_attribute *attr, char *buf)		\
+{							\
+	return snprintf(buf, 3, "%d\n", object);	\
+}
+
+#define store_one(file_name, object)			\
+static ssize_t store_##file_name(struct kobject *kobj,	\
+	struct kobj_attribute *attr, const char *buf,	\
+	size_t count)					\
+{							\
+	int input;					\
+							\
+	if (!sscanf(buf, "%1d", &input))		\
+		return -EINVAL;				\
+							\
+	object = !!input;				\
+							\
+	return count;					\
+}
+
+#define attr_rw(_name)					\
+static struct kobj_attribute _name =			\
+__ATTR(_name, 0644, show_##_name, store_##_name)
+
+
+show_one(blocking_cpd, cpd_blocked);
+store_one(blocking_cpd, cpd_blocked);
+
+attr_rw(blocking_cpd);
+
 /******************************************************************************
  *                          Wakeup mask configuration                         *
  ******************************************************************************/
@@ -279,6 +318,9 @@ static int __init dt_init_exynos_powermode(void)
 int __init exynos_powermode_init(void)
 {
 	dt_init_exynos_powermode();
+
+	if (sysfs_create_file(power_kobj, &blocking_cpd.attr))
+		pr_err("%s: failed to create sysfs to control CPD\n", __func__);
 
 	return 0;
 }
