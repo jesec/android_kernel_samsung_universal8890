@@ -792,6 +792,8 @@ static int s2mps16_pmic_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	sec_reg_update(iodev, S2MPS16_REG_B4CTRL1, 0x00, 0x10);
+
 	/* On sequence Config for PWREN_MIF */
 	sec_reg_write(iodev, 0x70, 0xB4);	/* seq. Buck2, Buck1 */
 	sec_reg_write(iodev, 0x71, 0x2C);	/* seq. Buck4, Buck3 */
