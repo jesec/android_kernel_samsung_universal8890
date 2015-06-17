@@ -171,6 +171,10 @@ static void dwc3_otg_drv_vbus(struct otg_fsm *fsm, int on)
 	struct dwc3_otg	*dotg = container_of(fsm, struct dwc3_otg, fsm);
        int		ret;
 
+	/* Regulator is not available */
+	if (IS_ERR(dotg->vbus_reg))
+		return;
+
        if (on)
 	       ret = regulator_enable(dotg->vbus_reg);
        else
@@ -542,10 +546,8 @@ has_ext_otg:
 
 	dotg->vbus_reg = devm_regulator_get(dwc->dev->parent,
 			"dwc3-vbus");
-	if (IS_ERR(dotg->vbus_reg)) {
-		dev_err(dwc->dev, "Failed to obtain vbus regulator\n");
-		return -ENODEV;
-	}
+	if (IS_ERR(dotg->vbus_reg))
+		dev_info(dwc->dev, "vbus regulator is not available\n");
 
 	if (dotg->ext_otg_ops) {
 		ret = dwc3_ext_otg_setup(dotg);
