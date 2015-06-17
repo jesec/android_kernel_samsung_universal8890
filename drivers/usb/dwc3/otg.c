@@ -46,7 +46,6 @@ static struct dwc3_ext_otg_ops *dwc3_otg_exynos_rsw_probe(struct dwc3 *dwc)
 
 	ops->setup = dwc3_exynos_rsw_setup;
 	ops->exit = dwc3_exynos_rsw_exit;
-	ops->drv_vbus = dwc3_exynos_rsw_drv_vbus;
 
 	return ops;
 }
@@ -170,7 +169,6 @@ static void dwc3_otg_set_peripheral_mode(struct dwc3_otg *dotg)
 static void dwc3_otg_drv_vbus(struct otg_fsm *fsm, int on)
 {
 	struct dwc3_otg	*dotg = container_of(fsm, struct dwc3_otg, fsm);
-#if !IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
        int		ret;
 
        if (on)
@@ -181,11 +179,6 @@ static void dwc3_otg_drv_vbus(struct otg_fsm *fsm, int on)
        if (ret)
 	       dev_err(dotg->dwc->dev, "Failed to turn Vbus %s\n",
 			       on ? "on" : "off");
-#else
-	if (dotg->ext_otg_ops)
-		dwc3_ext_otg_drv_vbus(dotg, on);
-#endif
-
 }
 
 static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
@@ -547,15 +540,12 @@ has_ext_otg:
 	dotg->fsm.ops = &dwc3_otg_fsm_ops;
 	dotg->fsm.otg = &dotg->otg;
 
-	/* FIXME: use regulator framework for DWC3 Exynos (currently gpio) */
-#if !IS_ENABLED(CONFIG_USB_DWC3_EXYNOS)
 	dotg->vbus_reg = devm_regulator_get(dwc->dev->parent,
 			"dwc3-vbus");
 	if (IS_ERR(dotg->vbus_reg)) {
 		dev_err(dwc->dev, "Failed to obtain vbus regulator\n");
 		return -ENODEV;
 	}
-#endif
 
 	if (dotg->ext_otg_ops) {
 		ret = dwc3_ext_otg_setup(dotg);

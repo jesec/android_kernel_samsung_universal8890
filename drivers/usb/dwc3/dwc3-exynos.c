@@ -38,8 +38,6 @@
 
 struct dwc3_exynos_rsw {
 	struct otg_fsm		*fsm;
-	int			boost5v_gpio;
-	int			vbus_gpio;
 	int			id_gpio;
 	int			b_sess_gpio;
 };
@@ -131,25 +129,6 @@ static irqreturn_t dwc3_exynos_b_sess_interrupt(int irq, void *_rsw)
 	return IRQ_NONE;
 }
 
-void dwc3_exynos_rsw_drv_vbus(struct device *dev, int on)
-{
-	struct dwc3_exynos	*exynos = dev_get_drvdata(dev);
-	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
-
-	if (on) {
-		if (gpio_is_valid(rsw->boost5v_gpio))
-			gpio_set_value(rsw->boost5v_gpio, 1);
-		/* Do we need some delay here? */
-		if (gpio_is_valid(rsw->vbus_gpio))
-			gpio_set_value(rsw->vbus_gpio, 1);
-	} else {
-		if (gpio_is_valid(rsw->vbus_gpio))
-			gpio_set_value(rsw->vbus_gpio, 0);
-		if (gpio_is_valid(rsw->boost5v_gpio))
-			gpio_set_value(rsw->boost5v_gpio, 0);
-	}
-}
-
 /**
  * dwc3_exynos_id_event - receive ID pin state change event.
  *
@@ -226,24 +205,6 @@ int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
 	fsm->id = dwc3_exynos_get_id_state(rsw);
 	fsm->b_sess_vld = dwc3_exynos_get_b_sess_state(rsw);
 	rsw->fsm = fsm;
-
-	if (gpio_is_valid(rsw->boost5v_gpio)) {
-		ret = devm_gpio_request_one(exynos->dev, rsw->boost5v_gpio,
-			GPIOF_OUT_INIT_LOW, "dwc3_boost5v_gpio");
-		if (ret) {
-			dev_err(exynos->dev, "failed to request boost5v gpio\n");
-			return ret;
-		}
-	}
-
-	if (gpio_is_valid(rsw->vbus_gpio)) {
-		ret = devm_gpio_request_one(exynos->dev, rsw->vbus_gpio,
-			GPIOF_OUT_INIT_LOW, "dwc3_vbus_gpio");
-		if (ret) {
-			dev_err(exynos->dev, "failed to request vbus gpio\n");
-			return ret;
-		}
-	}
 
 	if (gpio_is_valid(rsw->id_gpio)) {
 		ret = devm_gpio_request(exynos->dev, rsw->id_gpio,
@@ -338,18 +299,6 @@ static void dwc3_exynos_rsw_init(struct dwc3_exynos *exynos)
 
 	if (!dev->of_node)
 		return;
-
-	/* Boost 5V gpio */
-	rsw->boost5v_gpio = of_get_named_gpio(dev->of_node,
-					"samsung,boost5v-gpio", 0);
-	if (!gpio_is_valid(rsw->b_sess_gpio))
-		dev_info(dev, "boost5v gpio is not available\n");
-
-	/* VBus gpio */
-	rsw->vbus_gpio = of_get_named_gpio(dev->of_node,
-					"samsung,vbus-gpio", 0);
-	if (!gpio_is_valid(rsw->b_sess_gpio))
-		dev_info(dev, "vbus gpio is not available\n");
 
 	/* ID gpio */
 	rsw->id_gpio = of_get_named_gpio(dev->of_node,
