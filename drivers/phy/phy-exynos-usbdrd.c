@@ -265,16 +265,9 @@ static int exynos_usbdrd_phy_init(struct phy *phy)
 	return 0;
 }
 
-static int exynos_usbdrd_phy_exit(struct phy *phy)
+static void __exynos_usbdrd_phy_shutdown(struct exynos_usbdrd_phy *phy_drd)
 {
-	int ret;
 	u32 reg;
-	struct phy_usb_instance *inst = phy_get_drvdata(phy);
-	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
-
-	ret = clk_prepare_enable(phy_drd->clk);
-	if (ret)
-		return ret;
 
 	reg =	PHYUTMI_OTGDISABLE |
 		PHYUTMI_FORCESUSPEND |
@@ -293,6 +286,19 @@ static int exynos_usbdrd_phy_exit(struct phy *phy)
 	reg |=	PHYTEST_POWERDOWN_SSP |
 		PHYTEST_POWERDOWN_HSP;
 	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
+}
+
+static int exynos_usbdrd_phy_exit(struct phy *phy)
+{
+	int ret;
+	struct phy_usb_instance *inst = phy_get_drvdata(phy);
+	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
+
+	ret = clk_prepare_enable(phy_drd->clk);
+	if (ret)
+		return ret;
+
+	__exynos_usbdrd_phy_shutdown(phy_drd);
 
 	clk_disable_unprepare(phy_drd->clk);
 
@@ -498,11 +504,53 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int exynos_usbdrd_phy_resume(struct device *dev)
+{
+	int ret;
+	struct exynos_usbdrd_phy *phy_drd = dev_get_drvdata(dev);
+
+	/*
+	 * There is issue, when USB3.0 PHY is in active state
+	 * after resume. This leads to increased power consumption
+	 * if no USB drivers use the PHY.
+	 *
+	 * The following code shutdowns the PHY, so it is in defined
+	 * state (OFF) after resume. If any USB driver already got
+	 * the PHY at this time, we do nothing and just exit.
+	 */
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	ret = clk_prepare_enable(phy_drd->clk);
+	if (ret) {
+		dev_err(dev, "%s: clk_enable failed\n", __func__);
+		return ret;
+	}
+
+	__exynos_usbdrd_phy_shutdown(phy_drd);
+
+exit:
+	clk_disable_unprepare(phy_drd->clk);
+
+	return 0;
+}
+
+static const struct dev_pm_ops exynos_usbdrd_phy_dev_pm_ops = {
+	.resume	= exynos_usbdrd_phy_resume,
+};
+
+#define EXYNOS_USBDRD_PHY_PM_OPS	&(exynos_usbdrd_phy_dev_pm_ops)
+#else
+#define EXYNOS_USBDRD_PHY_PM_OPS	NULL
+#endif
+
 static struct platform_driver phy_exynos_usbdrd = {
 	.probe	= exynos_usbdrd_phy_probe,
 	.driver = {
 		.of_match_table	= exynos_usbdrd_phy_of_match,
 		.name		= "phy_exynos_usbdrd",
+		.pm		= EXYNOS_USBDRD_PHY_PM_OPS,
 	}
 };
 
