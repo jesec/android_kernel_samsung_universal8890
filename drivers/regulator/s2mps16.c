@@ -793,8 +793,16 @@ static int s2mps16_pmic_probe(struct platform_device *pdev)
 	sec_reg_write(iodev, 0x76, 0x93);	/* seq. LDO2, LDO1 */
 	sec_reg_write(iodev, 0x77, 0x60);	/* Seq. LDO4, LDO3 */
 	sec_reg_write(iodev, 0x78, 0x87);	/* seq. LDO6, LDO5 */
+#ifdef CONFIG_MACH_ESPRESSO8890
+	sec_reg_write(iodev, 0x79, 0x25);	/* Seq. LDO8, LDO7 */
+	sec_reg_write(iodev, 0x7A, 0x61);	/* Seq. LDO10, LDO9 */
+#elif CONFIG_MACH_UNIVERSAL8890
+	sec_reg_write(iodev, 0x79, 0x05);	/* Seq. LDO8, LDO7 */
+	sec_reg_write(iodev, 0x7A, 0x62);	/* Seq. LDO10, LDO9 */
+#else
 	sec_reg_write(iodev, 0x79, 0x05);	/* Seq. LDO8, LDO7 */
 	sec_reg_write(iodev, 0x7A, 0x61);	/* Seq. LDO10, LDO9 */
+#endif
 	if (s2mps16->buck11_en)
 		sec_reg_write(iodev, 0x7B, 0x50);	/* Seq. LDO12, LDO11 */
 	else
