@@ -538,10 +538,15 @@ int cal_dfs_get_rate_asv_table(unsigned int id,
 
 void cal_asv_print_info(void)
 {
-	if (cal_asv_ops.print_info)
-		cal_asv_ops.print_info();
+	if (cal_asv_ops.print_asv_info)
+		cal_asv_ops.print_asv_info();
 }
 
+void cal_rcc_print_info(void)
+{
+	if (cal_asv_ops.print_rcc_info)
+		cal_asv_ops.print_rcc_info();
+}
 
 int cal_asv_set_rcc_table(void)
 {

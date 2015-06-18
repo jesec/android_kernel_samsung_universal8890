@@ -727,8 +727,6 @@ static int asv_init(void)
 
 static void asv_print_info(void)
 {
-	int lv, max_lv, asv;
-
 	pr_info("asv_table_ver : %d\n", asv_tbl_info.asv_table_ver);
 	pr_info("fused_grp : %d\n", asv_tbl_info.fused_grp);
 
@@ -749,6 +747,11 @@ static void asv_print_info(void)
 
 	pr_info("g3d_mcs0 : %d\n", asv_tbl_info.g3d_mcs0);
 	pr_info("g3d_mcs1 : %d\n", asv_tbl_info.g3d_mcs1);
+}
+
+static void rcc_print_info(void)
+{
+	int lv, max_lv, asv;
 
 	pr_info("==== RCC Table ====\n");
 	max_lv = asv_dvfs_big->table->num_of_lv;
@@ -782,11 +785,11 @@ static void asv_print_info(void)
 		asv = get_asv_group(cal_asv_dvfs_mif, lv);
 		pr_info("mif rcc [%d] : %d\n", lv, pwrcal_mif_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv]);
 	}
-
 }
 
 struct cal_asv_ops cal_asv_ops = {
-	.print_info = asv_print_info,
+	.print_asv_info = asv_print_info,
+	.print_rcc_info = rcc_print_info,
 	.set_grp = asv_set_grp,
 	.set_tablever = asv_set_tablever,
 	.set_rcc_table = asv_rcc_set_table,
