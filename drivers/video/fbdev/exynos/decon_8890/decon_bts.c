@@ -37,7 +37,7 @@ void bts_int_mif_bw(struct vpp_dev *vpp)
 	struct decon_frame *dst = &config->dst;
 	struct decon_device *decon = get_decon_drvdata(0);
 	u32 vclk = (clk_get_rate(decon->res.vclk_leaf) * PIX_PER_CLK / MHZ);
-	/* To do, parse mic factor automatically at dt */
+	/* TODO, parse mic factor automatically at dt */
 	u32 mic_factor = HALF_MIC; /* 1/2 MIC */
 	u64 s_ratio_h, s_ratio_v = 0;
 	/* bpl is multiplied 2, it should be divied at end of eq. */
@@ -72,9 +72,9 @@ void bts_disp_bw(struct vpp_dev *vpp)
 	struct decon_frame *dst = &config->dst;
 	struct decon_device *decon = get_decon_drvdata(0);
 	u32 vclk = (clk_get_rate(decon->res.vclk_leaf) * PIX_PER_CLK / MHZ);
-	/* To do, parse mic factor automatically at dt */
+	/* TODO, parse mic factor automatically at dt */
 	u32 mic_factor = HALF_MIC; /* 1/2 MIC */
-	/* To do, parse lcd width automatically at dt */
+	/* TODO, parse lcd width automatically at dt */
 	u32 lcd_width = 1440;
 	u64 s_ratio_h, s_ratio_v = 0;
 

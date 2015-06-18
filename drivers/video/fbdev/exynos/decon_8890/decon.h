@@ -35,10 +35,6 @@ extern struct decon_device *decon_s_drvdata;
 extern struct decon_device *decon_t_drvdata;
 extern int decon_log_level;
 
-#if defined(CONFIG_ARM_EXYNOS5430_BUS_DEVFREQ) || defined(CONFIG_ARM_EXYNOS7420_BUS_DEVFREQ)
-#define CONFIG_DECON_DEVFREQ
-#endif
-
 #define NUM_DECON_IPS		(3)
 #define DRIVER_NAME		"decon"
 #define MAX_NAME_SIZE		32

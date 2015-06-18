@@ -65,12 +65,6 @@ static const struct of_device_id decon_device_table[] = {
 MODULE_DEVICE_TABLE(of, decon_device_table);
 #endif
 
-#ifdef CONFIG_DECON_DEVFREQ
-static struct pm_qos_request exynos7_tv_mif_qos;
-static struct pm_qos_request exynos7_tv_int_qos;
-static struct pm_qos_request exynos7_tv_disp_qos;
-#endif
-
 int decon_log_level = 6;
 module_param(decon_log_level, int, 0644);
 
@@ -500,7 +494,7 @@ static inline int rect_height(struct decon_rect *r)
 	return	r->bottom - r->top;
 }
 
-#if defined(CONFIG_FB_WINDOW_UPDATE) || defined(CONFIG_DECON_DEVFREQ)
+#ifdef CONFIG_FB_WINDOW_UPDATE
 static bool decon_intersect(struct decon_rect *r1, struct decon_rect *r2)
 {
 	return !(r1->left > r2->right || r1->right < r2->left ||
@@ -526,9 +520,7 @@ static int decon_union(struct decon_rect *r1,
 	r3->right = max(r1->right, r2->right);
 	return 0;
 }
-#endif
 
-#ifdef CONFIG_FB_WINDOW_UPDATE
 static bool is_decon_rect_differ(struct decon_rect *r1,
 		struct decon_rect *r2)
 {
@@ -792,13 +784,6 @@ int decon_tui_protection(struct decon_device *decon, bool tui_en)
 		*/
 		decon->out_type = DECON_OUT_TUI;
 		mutex_unlock(&decon->output_lock);
-#if defined(CONFIG_DECON_DEVFREQ)
-		/* set qos for only single window */
-		exynos7_update_media_scenario(TYPE_DECON_INT,
-						decon->default_bw, 0);
-		pm_qos_update_request(&decon->disp_qos, 167000);
-		pm_qos_update_request(&decon->int_qos, 167000);
-#endif
 	} else {
 		mutex_lock(&decon->output_lock);
 		decon->out_type = DECON_OUT_DSI;
@@ -863,27 +848,6 @@ int decon_enable(struct decon_device *decon)
 	decon_runtime_resume(decon->dev);
 #endif
 	call_init_ops(decon, bts_set_init, decon);
-
-#if defined(CONFIG_DECON_DEVFREQ)
-	if (!decon->id) {
-		exynos7_update_media_scenario(TYPE_DECON_INT,
-						decon->default_bw, 0);
-		pm_qos_update_request(&decon->disp_qos, 167000);
-		pm_qos_update_request(&decon->int_qos, 167000);
-	} else {
-		exynos7_update_media_scenario(TYPE_DECON_EXT,
-						decon->default_bw, 0);
-	}
-	decon->prev_bw = decon->default_bw;
-	decon->prev_int_bw = 167000;
-	decon->prev_disp_bw = 167000;
-	if ((decon->out_type != DECON_OUT_DSI) &&
-		(decon->out_type != DECON_OUT_TUI)) {
-		pm_qos_add_request(&exynos7_tv_mif_qos, PM_QOS_BUS_THROUGHPUT, 828000);
-		pm_qos_add_request(&exynos7_tv_int_qos, PM_QOS_DEVICE_THROUGHPUT, 468000);
-		pm_qos_add_request(&exynos7_tv_disp_qos, PM_QOS_DISPLAY_THROUGHPUT, 400000);
-	}
-#endif
 
 	if (decon->state == DECON_STATE_LPD_EXIT_REQ) {
 		ret = v4l2_subdev_call(decon->output_sd, core, ioctl,
@@ -1024,27 +988,6 @@ int decon_disable(struct decon_device *decon)
 	spin_unlock_irqrestore(&decon->slock, irq_flags);
 
 	call_init_ops(decon, bts_release_init, decon);
-#if defined(CONFIG_DECON_DEVFREQ)
-	if (!decon->id) {
-		exynos7_update_media_scenario(TYPE_DECON_INT, 0, 0);
-		pm_qos_update_request(&decon->disp_qos, 0);
-		pm_qos_update_request(&decon->int_qos, 0);
-		if (decon->prev_frame_has_yuv)
-			exynos7_update_media_scenario(TYPE_YUV, 0, 0);
-	} else {
-		exynos7_update_media_scenario(TYPE_DECON_EXT, 0, 0);
-	}
-	decon->prev_bw = 0;
-	decon->prev_int_bw = 0;
-	decon->prev_disp_bw = 0;
-	decon->prev_frame_has_yuv = 0;
-	if ((decon->out_type != DECON_OUT_DSI) &&
-		(decon->out_type != DECON_OUT_TUI)) {
-		pm_qos_remove_request(&exynos7_tv_mif_qos);
-		pm_qos_remove_request(&exynos7_tv_int_qos);
-		pm_qos_remove_request(&exynos7_tv_disp_qos);
-	}
-#endif
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(decon->dev);
 #else
@@ -2100,15 +2043,6 @@ void decon_set_vpp_disp_min_lock(struct decon_device *decon,
 	}
 	decon->disp_cur = disp_max_bw;
 }
-
-#if defined(CONFIG_DECON_DEVFREQ)
-#else
-void decon_set_qos(struct decon_device *decon,
-			struct decon_reg_data *regs, int is_after)
-{
-	return;
-}
-#endif
 
 static void __decon_update_regs(struct decon_device *decon, struct decon_reg_data *regs)
 {
@@ -3377,9 +3311,6 @@ static int decon_probe(struct platform_device *pdev)
 	struct device_node *cam_stat;
 	int i = 0;
 	int win_idx = 0;
-#if defined(CONFIG_DECON_DEVFREQ)
-	u32 vclk_rate;
-#endif
 	struct v4l2_subdev *sd = NULL;
 	struct decon_win_config config;
 
@@ -3618,12 +3549,6 @@ static int decon_probe(struct platform_device *pdev)
 	if (!decon->id)
 		call_init_ops(decon, bts_add, decon);
 
-#if defined(CONFIG_DECON_DEVFREQ)
-	decon->default_bw = decon_calc_bandwidth(fbinfo->var.xres,
-			fbinfo->var.yres, fbinfo->var.bits_per_pixel,
-			decon->windows[decon->pdata->default_win]->fps);
-	exynos7_update_media_layers(TYPE_RESOLUTION, decon->default_bw);
-#endif
 	if (!decon->id && decon->pdata->out_type == DECON_OUT_DSI) {
 		/* Enable only Decon_F during probe */
 #if defined(CONFIG_PM_RUNTIME)
@@ -3732,27 +3657,6 @@ decon_init_done:
 			if (!decon->cam_status[1])
 				decon_info("Failed to get CAM1-STAT Reg\n");
 		}
-
-#if defined(CONFIG_DECON_DEVFREQ)
-		vclk_rate = clk_get_rate(decon->res.vclk) / KHZ;
-		vclk_rate = (vclk_rate <= 0) ? 133000 : vclk_rate;
-		if (!decon->id) {
-			/* MIC_FACT = 2, PIX_BYTES = 4 */
-			decon->default_bw = vclk_rate * 2 * 4;
-			exynos7_update_media_scenario(TYPE_DECON_INT,
-							decon->default_bw, 0);
-			pm_qos_add_request(&decon->int_qos,
-						PM_QOS_DEVICE_THROUGHPUT, 0);
-			pm_qos_add_request(&decon->disp_qos,
-						PM_QOS_DISPLAY_THROUGHPUT, 0);
-		} else {
-			/*PIX_BYTES = 4 */
-			decon->default_bw = vclk_rate * 4;
-			exynos7_update_media_scenario(TYPE_DECON_EXT,
-							decon->default_bw, 0);
-		}
-		decon->prev_bw = decon->default_bw;
-#endif
 	} else { /* DECON-EXT(only single-dsi) is off at probe */
 		decon->state = DECON_STATE_INIT;
 	}
