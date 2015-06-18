@@ -18,7 +18,7 @@
 
 int decon_clk_set_parent(struct device *dev, const char *c, const char *p);
 int decon_clk_set_rate(struct device *dev, struct clk *clk,
-		const char *conid, unsigned int rate);
+		const char *conid, unsigned long rate);
 unsigned long decon_clk_get_rate(struct device *dev, const char *clkid);
 void decon_to_psr_info(struct decon_device *decon, struct decon_mode_info *psr);
 void decon_to_init_param(struct decon_device *decon, struct decon_param *p);

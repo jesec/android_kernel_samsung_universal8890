@@ -47,21 +47,19 @@ int decon_clk_set_parent(struct device *dev, const char *child, const char *pare
 }
 
 int decon_clk_set_rate(struct device *dev, struct clk *clk,
-		const char *conid, unsigned int rate)
+		const char *conid, unsigned long rate)
 {
-	struct clk *target;
-
-	if (IS_ERR_OR_NULL(conid))
-		target = clk;
-	else
-		target = clk_get(dev, conid);
-	if (IS_ERR_OR_NULL(target)) {
-		decon_err("%s: couldn't get clock : %s\n", __func__, conid);
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(clk)) {
+		if (IS_ERR_OR_NULL(conid)) {
+			decon_err("%s: couldn't set clock(%ld)\n", __func__, rate);
+			return -ENODEV;
+		}
+		clk = clk_get(dev, conid);
+		clk_set_rate(clk, rate);
+		clk_put(clk);
+	} else {
+		clk_set_rate(clk, rate);
 	}
-
-	clk_set_rate(target, rate);
-	clk_put(target);
 
 	return 0;
 }
