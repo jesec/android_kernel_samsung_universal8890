@@ -49,6 +49,12 @@ enum bts_index {
 	BTS_IDX_TREX_CP,
 	BTS_IDX_TREX_MFC0,
 	BTS_IDX_TREX_MFC1,
+	BTS_IDX_TREX_G3D0,
+	BTS_IDX_TREX_G3D1,
+	BTS_IDX_TREX_FSYS0,
+	BTS_IDX_TREX_FSYS1,
+	BTS_IDX_TREX_MSCL0,
+	BTS_IDX_TREX_MSCL1,
 	BTS_MAX,
 };
 
@@ -62,6 +68,12 @@ enum bts_index {
 #define	BTS_TREX_CP		((u64)1 << (u64)BTS_IDX_TREX_CP)
 #define	BTS_TREX_MFC0		((u64)1 << (u64)BTS_IDX_TREX_MFC0)
 #define	BTS_TREX_MFC1		((u64)1 << (u64)BTS_IDX_TREX_MFC1)
+#define	BTS_TREX_G3D0		((u64)1 << (u64)BTS_IDX_TREX_G3D0)
+#define	BTS_TREX_G3D1		((u64)1 << (u64)BTS_IDX_TREX_G3D1)
+#define	BTS_TREX_FSYS0		((u64)1 << (u64)BTS_IDX_TREX_FSYS0)
+#define	BTS_TREX_FSYS1		((u64)1 << (u64)BTS_IDX_TREX_FSYS1)
+#define	BTS_TREX_MSCL0		((u64)1 << (u64)BTS_IDX_TREX_MSCL0)
+#define	BTS_TREX_MSCL1		((u64)1 << (u64)BTS_IDX_TREX_MSCL1)
 
 enum exynos_bts_scenario {
 	BS_DISABLE,
@@ -157,7 +169,7 @@ static struct bts_info exynos8_bts[] = {
 		.pa_base = EXYNOS8890_PA_BTS_TREX_DISP0_0,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
 		.table[BS_DEFAULT].priority = 0x0000000A,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
@@ -172,7 +184,7 @@ static struct bts_info exynos8_bts[] = {
 		.pa_base = EXYNOS8890_PA_BTS_TREX_DISP0_1,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
 		.table[BS_DEFAULT].priority = 0x0000000A,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
@@ -187,7 +199,7 @@ static struct bts_info exynos8_bts[] = {
 		.pa_base = EXYNOS8890_PA_BTS_TREX_DISP1_0,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
 		.table[BS_DEFAULT].priority = 0x0000000A,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
@@ -202,7 +214,7 @@ static struct bts_info exynos8_bts[] = {
 		.pa_base = EXYNOS8890_PA_BTS_TREX_DISP1_1,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
 		.table[BS_DEFAULT].priority = 0x0000000A,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
@@ -216,8 +228,8 @@ static struct bts_info exynos8_bts[] = {
 		.pd_name = "trex",
 		.pa_base = EXYNOS8890_PA_BTS_TREX_ISP0,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
-		.table[BS_DEFAULT].priority = 0x0000000C,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].priority = 0x00000008,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x10,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
@@ -231,8 +243,8 @@ static struct bts_info exynos8_bts[] = {
 		.pd_name = "trex",
 		.pa_base = EXYNOS8890_PA_BTS_TREX_CAM0,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
-		.table[BS_DEFAULT].priority = 0x0000000C,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].priority = 0x00000008,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x10,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
@@ -247,7 +259,7 @@ static struct bts_info exynos8_bts[] = {
 		.pa_base = EXYNOS8890_PA_BTS_TREX_CAM1,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
 		.table[BS_DEFAULT].priority = 0x00000008,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
@@ -260,9 +272,10 @@ static struct bts_info exynos8_bts[] = {
 		.pd_name = "trex",
 		.pa_base = EXYNOS8890_PA_BTS_TREX_CP,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].priority = 0x0000000C,
+		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x10,
-		.table[BS_DEFAULT].bypass_en = 1,
+		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -274,8 +287,8 @@ static struct bts_info exynos8_bts[] = {
 		.pd_name = "trex",
 		.pa_base = EXYNOS8890_PA_BTS_TREX_MFC0,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
-		.table[BS_DEFAULT].priority = 0x00000008,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x8,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
@@ -288,8 +301,92 @@ static struct bts_info exynos8_bts[] = {
 		.pd_name = "trex",
 		.pa_base = EXYNOS8890_PA_BTS_TREX_MFC1,
 		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
-		.table[BS_DEFAULT].priority = 0x00000008,
-		.table[BS_DEFAULT].mo = 0x400,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x8,
+		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
+		.cur_scen = BS_DISABLE,
+		.on = false,
+		.enable = true,
+	},
+	[BTS_IDX_TREX_G3D0] = {
+		.id = BTS_TREX_G3D0,
+		.name = "g3d0",
+		.pd_name = "trex",
+		.pa_base = EXYNOS8890_PA_BTS_TREX_G3D0,
+		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x10,
+		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
+		.cur_scen = BS_DISABLE,
+		.on = false,
+		.enable = true,
+	},
+	[BTS_IDX_TREX_G3D1] = {
+		.id = BTS_TREX_G3D1,
+		.name = "g3d1",
+		.pd_name = "trex",
+		.pa_base = EXYNOS8890_PA_BTS_TREX_G3D1,
+		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x10,
+		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
+		.cur_scen = BS_DISABLE,
+		.on = false,
+		.enable = true,
+	},
+	[BTS_IDX_TREX_FSYS0] = {
+		.id = BTS_TREX_FSYS0,
+		.name = "fsys0",
+		.pd_name = "trex",
+		.pa_base = EXYNOS8890_PA_BTS_TREX_FSYS0,
+		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x4,
+		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
+		.cur_scen = BS_DISABLE,
+		.on = false,
+		.enable = true,
+	},
+	[BTS_IDX_TREX_FSYS1] = {
+		.id = BTS_TREX_FSYS1,
+		.name = "fsys1",
+		.pd_name = "trex",
+		.pa_base = EXYNOS8890_PA_BTS_TREX_FSYS1,
+		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x4,
+		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
+		.cur_scen = BS_DISABLE,
+		.on = false,
+		.enable = true,
+	},
+	[BTS_IDX_TREX_MSCL0] = {
+		.id = BTS_TREX_MSCL0,
+		.name = "mscl0",
+		.pd_name = "trex",
+		.pa_base = EXYNOS8890_PA_BTS_TREX_MSCL0,
+		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x4,
+		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
+		.cur_scen = BS_DISABLE,
+		.on = false,
+		.enable = true,
+	},
+	[BTS_IDX_TREX_MSCL1] = {
+		.id = BTS_TREX_MSCL1,
+		.name = "mscl1",
+		.pd_name = "trex",
+		.pa_base = EXYNOS8890_PA_BTS_TREX_MSCL1,
+		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO,
+		.table[BS_DEFAULT].priority = 0x00000004,
+		.table[BS_DEFAULT].mo = 0x4,
 		.table[BS_DEFAULT].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
@@ -604,14 +701,18 @@ static void scen_chaining(enum exynos_bts_scenario scen)
 
 static void bts_smc_init(void __iomem *base)
 {
+	__raw_writel(0x10101010, base + SCHED_CTRL0);
+	__raw_writel(0x10101010, base + SCHED_CTRL1);
+	__raw_writel(0x20202060, base + SCHED_CTRL2);
+	__raw_writel(0x00000010, base + SCHED_CTRL3);
 	return;
 }
 
 static void bts_trex_init(void __iomem *base)
 {
 	__raw_writel(0x0F070000, base + SCI_CTRL);
-	__raw_writel(0x002C7FFE, base + READ_QURGENT);
-	__raw_writel(0x002C7FFE, base + WRITE_QURGENT);
+	__raw_writel(0x00000000, base + READ_QURGENT);
+	__raw_writel(0x00000000, base + WRITE_QURGENT);
 	__raw_writel(0x2A55A954, base + VC_NUM0);
 	__raw_writel(0x00000CA0, base + VC_NUM1);
 	__raw_writel(0x04040404, base + TH_IMM0);

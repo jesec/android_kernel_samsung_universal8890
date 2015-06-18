@@ -265,15 +265,15 @@ void bts_settrexqos_mo_rt(addr_u32 base, unsigned int priority, unsigned int mo,
 	Outp32(base + TBTS_TIMEOUT, time_out);
 
 	if(bypass_en) {
-		Outp32(base + TBTS_RCON, 0x110);		// MO mode & Qos bypass
-		Outp32(base + TBTS_WCON, 0x110);
+		Outp32(base + TBTS_RCON, 0x111);		// MO mode & Qos bypass
+		Outp32(base + TBTS_WCON, 0x111);
 	} else {
-		Outp32(base + TBTS_RCON, 0x10);		// MO mode
-		Outp32(base + TBTS_WCON, 0x10);
+		Outp32(base + TBTS_RCON, 0x11);		// MO mode
+		Outp32(base + TBTS_WCON, 0x11);
 	}
 	Outp32(base + TBTS_EMERGENTID, master_id);
 	Outp32(base + TBTS_MASK, mask);
-	Outp32(base + TBTS_CON, 0x101001); // Time out, Urgent enable
+	Outp32(base + TBTS_CON, 0x1001); // Time out, Urgent enable
 }
 
 void bts_settrexqos_bw(addr_u32 base, unsigned int priority, unsigned int decval, unsigned int master_id, unsigned int mask)
