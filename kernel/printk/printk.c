@@ -1688,6 +1688,8 @@ static size_t cont_print_text(char *text, size_t size)
 
 	if (cont.cons == 0 && (console_prev & LOG_NEWLINE)) {
 		textlen += print_time(cont.ts_nsec, text);
+		*(text+textlen) = ' ';
+		textlen += print_process(NULL, NULL);
 		size -= textlen;
 	}
 
