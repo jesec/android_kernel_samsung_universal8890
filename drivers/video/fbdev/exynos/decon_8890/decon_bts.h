@@ -15,7 +15,6 @@
 
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
-#include <plat/cpu.h>
 
 #include "decon.h"
 #include "vpp/vpp.h"

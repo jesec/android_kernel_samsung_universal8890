@@ -81,6 +81,14 @@ extern int decon_log_level;
 #define decon_win_update_dbg(fmt, ...) while (0)
 #endif
 
+#ifndef KHZ
+#define KHZ (1000)
+#endif
+
+#ifndef MHZ
+#define MHZ (1000*1000)
+#endif
+
 #define decon_err(fmt, ...)							\
 	do {									\
 		if (decon_log_level >= 3) {					\

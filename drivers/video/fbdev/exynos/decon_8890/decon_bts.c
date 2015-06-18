@@ -11,6 +11,7 @@
 
 #include "decon_bts.h"
 #include "vpp/vpp.h"
+#include <soc/samsung/bts.h>
 
 #define MULTI_FACTOR 		(1 << 10)
 #define VPP_MAX 		9
