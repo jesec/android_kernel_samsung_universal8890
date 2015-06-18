@@ -398,6 +398,7 @@ void DISP_SS_EVENT_SHOW(struct seq_file *s, struct decon_device *decon)
 	struct disp_ss_log *log;
 	int latest = idx;
 	struct timeval tv;
+	ktime_t prev_ktime;
 
 	/* TITLE */
 	seq_printf(s, "-------------------DECON%d EVENT LOGGER ----------------------\n",
@@ -416,6 +417,7 @@ void DISP_SS_EVENT_SHOW(struct seq_file *s, struct decon_device *decon)
 		return;
 	/* Seek a oldest from current index */
 	idx = (idx + DISP_EVENT_LOG_MAX - DISP_EVENT_PRINT_MAX) % DISP_EVENT_LOG_MAX;
+	prev_ktime = ktime_set(0, 0);
 
 	do {
 		if (++idx >= DISP_EVENT_LOG_MAX)
@@ -450,13 +452,19 @@ void DISP_SS_EVENT_SHOW(struct seq_file *s, struct decon_device *decon)
 			seq_printf(s, "%20s  %20s", "WIN_CONFIG", "-\n");
 			break;
 		case DISP_EVT_TE_INTERRUPT:
-			seq_printf(s, "%20s  %20s", "TE_INTERRUPT", "-\n");
+			prev_ktime = ktime_sub(log->time, prev_ktime);
+			seq_printf(s, "%20s  ", "TE_INTERRUPT");
+			seq_printf(s, "time_diff=[%ld.%04lds]\n",
+					ktime_to_timeval(prev_ktime).tv_sec,
+					ktime_to_timeval(prev_ktime).tv_usec/100);
+			/* Update for latest DISP_EVT_TE time */
+			prev_ktime = log->time;
 			break;
 		case DISP_EVT_UNDERRUN:
 			seq_printf(s, "%20s  %20s", "UNDER_RUN", "-\n");
 			break;
-		case DISP_EVT_DSIM_FRAMEDONE:
-			seq_printf(s, "%20s  %20s", "FRAME_DONE", "-\n");
+		case DISP_EVT_DECON_FRAMEDONE:
+			seq_printf(s, "%20s  %20s", "DECON_FRAME_DONE", "-\n");
 			break;
 		case DISP_EVT_UPDATE_HANDLER:
 			seq_printf(s, "%20s  ", "UPDATE_HANDLER");
@@ -472,13 +480,22 @@ void DISP_SS_EVENT_SHOW(struct seq_file *s, struct decon_device *decon)
 					log->data.cmd_buf.id,
 					log->data.cmd_buf.buf);
 			break;
+		case DISP_EVT_TRIG_MASK:
+			seq_printf(s, "%20s  %20s", "TRIG_MASK", "-\n");
+			break;
+		case DISP_EVT_TRIG_UNMASK:
+			seq_printf(s, "%20s  %20s", "TRIG_UNMASK", "-\n");
+			break;
 		case DISP_EVT_VPP_WINCON:
 			seq_printf(s, "%20s  ", "VPP_WINCON");
-			seq_printf(s, "(id:%d)\n", log->data.vpp.id);
+			seq_printf(s, "ID:%d, start= %d, done= %d\n",
+					log->data.vpp.id,
+					log->data.vpp.start_cnt,
+					log->data.vpp.done_cnt);
 			break;
 		case DISP_EVT_VPP_FRAMEDONE:
 			seq_printf(s, "%20s  ", "VPP_FRAMEDONE");
-			seq_printf(s, "(id:%d)Num of start=%d, framedone=%d\n",
+			seq_printf(s, "ID:%d, start=%d, done=%d\n",
 					log->data.vpp.id,
 					log->data.vpp.start_cnt,
 					log->data.vpp.done_cnt);

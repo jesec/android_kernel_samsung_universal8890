@@ -528,7 +528,7 @@ struct disp_ss_size_err_info {
 
 /* Definitions below are used in the DECON */
 #define	DISP_EVENT_LOG_MAX	SZ_2K
-#define	DISP_EVENT_PRINT_MAX	256
+#define	DISP_EVENT_PRINT_MAX	512
 #define	DISP_EVENT_SIZE_ERR_MAX	16
 typedef enum disp_ss_event_log_level_type {
 	DISP_EVENT_LEVEL_LOW = 0,
