@@ -2428,8 +2428,10 @@ static void parse_mfc_qos_mif_update(struct s5p_mfc_dev *dev, struct s5p_mfc_qos
 static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 {
 	struct s5p_mfc_platdata	*pdata = mfc->pdata;
+#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	char node_name[50];
 	int i;
+#endif
 
 	if (!np)
 		return;
