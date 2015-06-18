@@ -19,8 +19,8 @@
 #include <linux/suspend.h>
 #include <linux/debugfs.h>
 
-#include <mach/exynos-pm.h>
-#include <mach/bts.h>
+#include <soc/samsung/exynos-pm.h>
+#include <soc/samsung/bts.h>
 #include "cal_bts8890.h"
 #include "regs-bts.h"
 
