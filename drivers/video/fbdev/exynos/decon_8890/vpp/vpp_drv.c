@@ -508,7 +508,6 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	if (ret)
 		goto err;
 
-	DISP_SS_EVENT_LOG(DISP_EVT_VPP_WINCON, vpp->sd, ktime_set(0, 0));
 	vpp_reg_set_in_size(vpp->id, &p);
 
 	config->src.w = p.src_w;
@@ -536,6 +535,7 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	vpp->start_count++;
 
 	vpp->update_cnt_prev = vpp->update_cnt;
+	DISP_SS_EVENT_LOG(DISP_EVT_VPP_WINCON, vpp->sd, ktime_set(0, 0));
 	return 0;
 err:
 	dev_err(DEV, "failed to set config\n");
