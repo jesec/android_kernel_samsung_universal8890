@@ -1126,14 +1126,12 @@ static int vpp_probe(struct platform_device *pdev)
 	setup_timer(&vpp->op_timer, vpp_op_timer_handler,
 			(unsigned long)vpp);
 
-	/*
 	if (IS_ENABLED(CONFIG_PM_DEVFREQ)) {
 		pm_qos_add_request(&vpp->vpp_int_qos,
 			PM_QOS_DEVICE_THROUGHPUT, 0);
 		pm_qos_add_request(&vpp->vpp_mif_qos,
 			PM_QOS_BUS_THROUGHPUT, 0);
 	}
-	*/
 
 	mutex_init(&vpp->mlock);
 	spin_lock_init(&vpp->slock);
