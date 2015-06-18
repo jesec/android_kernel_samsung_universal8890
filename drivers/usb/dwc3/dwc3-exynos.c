@@ -30,6 +30,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
+#include <linux/workqueue.h>
 #include <linux/of_gpio.h>
 
 #include <linux/io.h>
@@ -38,6 +39,7 @@
 
 struct dwc3_exynos_rsw {
 	struct otg_fsm		*fsm;
+	struct work_struct	work;
 	int			id_gpio;
 	int			b_sess_gpio;
 };
@@ -93,6 +95,14 @@ static irqreturn_t dwc3_exynos_rsw_thread_interrupt(int irq, void *_rsw)
 	return IRQ_HANDLED;
 }
 
+static void dwc3_exynos_rsw_work(struct work_struct *w)
+{
+	struct dwc3_exynos_rsw	*rsw = container_of(w,
+					struct dwc3_exynos_rsw, work);
+
+	dwc3_exynos_rsw_thread_interrupt(-1, rsw);
+}
+
 static irqreturn_t dwc3_exynos_id_interrupt(int irq, void *_rsw)
 {
 	struct dwc3_exynos_rsw	*rsw = (struct dwc3_exynos_rsw *)_rsw;
@@ -135,12 +145,11 @@ static irqreturn_t dwc3_exynos_b_sess_interrupt(int irq, void *_rsw)
  * dwc3_exynos_id_event - receive ID pin state change event.
  *
  * @state : New ID pin state.
- *
- * Context: may sleep.
  */
 int dwc3_exynos_id_event(struct device *dev, int state)
 {
 	struct dwc3_exynos	*exynos;
+	struct dwc3_exynos_rsw	*rsw;
 	struct otg_fsm		*fsm;
 
 	dev_dbg(dev, "EVENT: ID: %d\n", state);
@@ -149,13 +158,15 @@ int dwc3_exynos_id_event(struct device *dev, int state)
 	if (!exynos)
 		return -ENOENT;
 
-	fsm = exynos->rsw.fsm;
+	rsw = &exynos->rsw;
+
+	fsm = rsw->fsm;
 	if (!fsm)
 		return -ENOENT;
 
 	if (fsm->id != state) {
 		fsm->id = state;
-		dwc3_otg_run_sm(fsm);
+		schedule_work(&rsw->work);
 	}
 
 	return 0;
@@ -166,12 +177,11 @@ EXPORT_SYMBOL_GPL(dwc3_exynos_id_event);
  * dwc3_exynos_vbus_event - receive VBus change event.
  *
  * vbus_active : New VBus state, true if active, false otherwise.
- *
- * Context: may sleep.
  */
 int dwc3_exynos_vbus_event(struct device *dev, bool vbus_active)
 {
 	struct dwc3_exynos	*exynos;
+	struct dwc3_exynos_rsw	*rsw;
 	struct otg_fsm		*fsm;
 
 	dev_dbg(dev, "EVENT: VBUS: %sactive\n", vbus_active ? "" : "in");
@@ -180,13 +190,15 @@ int dwc3_exynos_vbus_event(struct device *dev, bool vbus_active)
 	if (!exynos)
 		return -ENOENT;
 
-	fsm = exynos->rsw.fsm;
+	rsw = &exynos->rsw;
+
+	fsm = rsw->fsm;
 	if (!fsm)
 		return -ENOENT;
 
 	if (fsm->b_sess_vld != vbus_active) {
 		fsm->b_sess_vld = vbus_active;
-		dwc3_otg_run_sm(fsm);
+		schedule_work(&rsw->work);
 	}
 
 	return 0;
@@ -281,6 +293,8 @@ int dwc3_exynos_rsw_setup(struct device *dev, struct otg_fsm *fsm)
 		}
 	}
 
+	INIT_WORK(&rsw->work, dwc3_exynos_rsw_work);
+
 	rsw->fsm = fsm;
 
 	return 0;
@@ -292,6 +306,8 @@ void dwc3_exynos_rsw_exit(struct device *dev)
 	struct dwc3_exynos_rsw	*rsw = &exynos->rsw;
 
 	dev_dbg(dev, "%s\n", __func__);
+
+	cancel_work_sync(&rsw->work);
 
  	rsw->fsm = NULL;
 }
