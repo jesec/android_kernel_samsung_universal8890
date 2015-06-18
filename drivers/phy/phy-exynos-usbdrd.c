@@ -305,6 +305,21 @@ static int exynos_usbdrd_phy_exit(struct phy *phy)
 	return 0;
 }
 
+static int exynos_usbdrd_phy_tune(struct phy *phy)
+{
+	int ret;
+	struct phy_usb_instance *inst = phy_get_drvdata(phy);
+	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
+
+	ret = clk_prepare_enable(phy_drd->clk);
+	if (ret)
+		return ret;
+
+	clk_disable_unprepare(phy_drd->clk);
+
+	return 0;
+}
+
 static int exynos_usbdrd_phy_power_on(struct phy *phy)
 {
 	int ret;
@@ -368,6 +383,7 @@ static struct phy *exynos_usbdrd_phy_xlate(struct device *dev,
 static struct phy_ops exynos_usbdrd_phy_ops = {
 	.init		= exynos_usbdrd_phy_init,
 	.exit		= exynos_usbdrd_phy_exit,
+	.tune		= exynos_usbdrd_phy_tune,
 	.power_on	= exynos_usbdrd_phy_power_on,
 	.power_off	= exynos_usbdrd_phy_power_off,
 	.owner		= THIS_MODULE,
