@@ -3020,7 +3020,7 @@ int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 	return 0;
 }
 
-static inline int s5p_mfc_get_new_ctx(struct s5p_mfc_dev *dev)
+int s5p_mfc_get_new_ctx(struct s5p_mfc_dev *dev)
 {
 	int new_ctx;
 	int cnt;
@@ -3696,7 +3696,14 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 		dev->curr_ctx_drm = ctx->is_drm;
 
 	mfc_debug(2, "need_cache_flush = %d, is_drm = %d\n", need_cache_flush, ctx->is_drm);
-	s5p_mfc_clock_on(dev);
+	spin_lock_irq(&dev->condlock);
+	if (!dev->has_job) {
+		spin_unlock_irq(&dev->condlock);
+		s5p_mfc_clock_on(dev);
+	} else {
+		dev->has_job = false;
+		spin_unlock_irq(&dev->condlock);
+	}
 
 	if (need_cache_flush) {
 		if (FW_HAS_BASE_CHANGE(dev)) {

@@ -1606,6 +1606,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	unsigned int err;
 	unsigned long flags;
 	unsigned int reg = 0;
+	int new_ctx;
 
 	mfc_debug_enter();
 
@@ -1871,7 +1872,17 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	if (ctx->state != MFCINST_RES_CHANGE_INIT)
 		clear_work_bit(ctx);
 
-	s5p_mfc_clock_off(dev);
+	spin_lock_irq(&dev->condlock);
+	new_ctx = s5p_mfc_get_new_ctx(dev);
+	if (new_ctx < 0) {
+		/* No contexts to run */
+		dev->has_job = false;
+		spin_unlock_irq(&dev->condlock);
+		s5p_mfc_clock_off(dev);
+	} else {
+		dev->has_job = true;
+		spin_unlock_irq(&dev->condlock);
+	}
 	if (clear_hw_bit(ctx) == 0)
 		BUG();
 	wake_up_ctx(ctx, reason, err);

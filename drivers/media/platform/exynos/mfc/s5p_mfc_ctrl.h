@@ -25,4 +25,5 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev);
 
 void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 					enum mfc_buf_usage_type buf_type);
+int s5p_mfc_get_new_ctx(struct s5p_mfc_dev *dev);
 #endif /* __S5P_MFC_CTRL_H */
