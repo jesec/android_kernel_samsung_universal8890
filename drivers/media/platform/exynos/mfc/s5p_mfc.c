@@ -354,6 +354,7 @@ inline void clear_work_bit(struct s5p_mfc_ctx *ctx)
 	}
 
 	if (s5p_mfc_ctx_ready(ctx) == 0) {
+		mfc_debug(2, "No need to run again.\n");
 		spin_lock_irq(&dev->condlock);
 		clear_bit(ctx->num, &dev->ctx_work_bits);
 		spin_unlock_irq(&dev->condlock);
@@ -1177,14 +1178,6 @@ static void s5p_mfc_handle_frame_error(struct s5p_mfc_ctx *ctx,
 
 	if (ctx->type == MFCINST_ENCODER) {
 		mfc_err_ctx("Encoder Interrupt Error: %d\n", err);
-
-		s5p_mfc_clear_int_flags();
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		wake_up_ctx(ctx, reason, err);
-		s5p_mfc_clock_off(dev);
-
-		queue_work(dev->sched_wq, &dev->sched_work);
 		return;
 	}
 
@@ -1218,27 +1211,7 @@ static void s5p_mfc_handle_frame_error(struct s5p_mfc_ctx *ctx,
 	}
 
 	mfc_debug(2, "Assesing whether this context should be run again.\n");
-	/* This context state is always RUNNING */
-	if (!s5p_mfc_dec_ctx_ready(ctx)) {
-		mfc_debug(2, "No need to run again.\n");
-		clear_work_bit(ctx);
-	}
-	mfc_debug(2, "After assesing whether this context should be run again. %d\n", ctx->src_queue_cnt);
-
-	s5p_mfc_clear_int_flags();
-	if (clear_hw_bit(ctx) == 0)
-		BUG();
-	/* Sleeping thread is waiting for FRAME_DONE in stop_streaming  */
-	if (ctx->state == MFCINST_ABORT)
-		wake_up_ctx(ctx, S5P_FIMV_R2H_CMD_FRAME_DONE_RET, err);
-	else
-		wake_up_ctx(ctx, reason, err);
-
 	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	s5p_mfc_clock_off(dev);
-
-	queue_work(dev->sched_wq, &dev->sched_work);
 }
 
 static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
@@ -1361,14 +1334,6 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 		ctx->wait_state = WAIT_DECODING;
 		mfc_debug(2, "Decoding waiting! : %d\n", ctx->wait_state);
 
-		s5p_mfc_clear_int_flags();
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		wake_up_ctx(ctx, reason, err);
-
-		s5p_mfc_clock_off(dev);
-
-		queue_work(dev->sched_wq, &dev->sched_work);
 		return;
 	}
 	if (dec->dpb_flush)
@@ -1507,24 +1472,10 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_DONE);
 		}
 	}
+
 leave_handle_frame:
 	mfc_debug(2, "Assesing whether this context should be run again.\n");
-	if (!s5p_mfc_dec_ctx_ready(ctx)) {
-		mfc_debug(2, "No need to run again.\n");
-		clear_work_bit(ctx);
-	}
-	mfc_debug(2, "After assesing whether this context should be run again.\n");
-
-	s5p_mfc_clear_int_flags();
-	if (clear_hw_bit(ctx) == 0)
-		BUG();
-	wake_up_ctx(ctx, reason, err);
-
 	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	s5p_mfc_clock_off(dev);
-
-	queue_work(dev->sched_wq, &dev->sched_work);
 }
 
 /* Error handling for interrupt */
@@ -1547,8 +1498,6 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 	}
 
 	mfc_err_ctx("Interrupt Error: %d\n", err);
-	s5p_mfc_clear_int_flags();
-	wake_up_dev(dev, reason, err);
 
 	/* Error recovery is dependent on the state of context */
 	switch (ctx->state) {
@@ -1600,18 +1549,11 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		/* This error had to happen while releasing instance */
 	case MFCINST_DPB_FLUSHING:
 		/* This error had to happen while flushing DPB */
-		clear_work_bit(ctx);
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		s5p_mfc_clock_off(dev);
-		wake_up_ctx(ctx, reason, err);
-
 		break;
 	case MFCINST_FINISHING:
 	case MFCINST_FINISHED:
 		/* It is higly probable that an error occured
 		 * while decoding a frame */
-		clear_work_bit(ctx);
 		ctx->state = MFCINST_ERROR;
 		/* Mark all dst buffers as having an error */
 		spin_lock_irqsave(&dev->irqlock, flags);
@@ -1619,24 +1561,16 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		/* Mark all src buffers as having an error */
 		s5p_mfc_cleanup_queue(&ctx->src_queue);
 		spin_unlock_irqrestore(&dev->irqlock, flags);
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-
-		s5p_mfc_clock_off(dev);
-
 		break;
 	default:
 		mfc_err_ctx("Encountered an error interrupt which had not been handled.\n");
 		mfc_err_ctx("ctx->state = %d, ctx->inst_no = %d\n",
 						ctx->state, ctx->inst_no);
-
-		clear_work_bit(ctx);
-		if (test_and_clear_bit(ctx->num, &dev->hw_lock) == 0)
-			BUG();
-		s5p_mfc_clock_off(dev);
-
 		break;
 	}
+
+	wake_up_dev(dev, reason, err);
+
 	return;
 }
 
@@ -1677,12 +1611,12 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
-		goto irq_cleanup_err;
+		goto irq_done;
 	}
 
 	if (atomic_read(&dev->pm.power) == 0) {
 		mfc_err("no mfc power on\n");
-		goto irq_poweron_err;
+		goto irq_end;
 	}
 
 	/* Reset the timeout watchdog */
@@ -1698,8 +1632,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		s5p_mfc_clear_int_flags();
 		/* Do not clear hw_lock */
 		wake_up_dev(dev, reason, err);
-		goto done;
-		break;
+		goto irq_end;
 	case S5P_FIMV_R2H_CMD_SYS_INIT_RET:
 	case S5P_FIMV_R2H_CMD_FW_STATUS_RET:
 	case S5P_FIMV_R2H_CMD_SLEEP_RET:
@@ -1708,7 +1641,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		/* Initialize hw_lock */
 		dev->hw_lock = 0;
 		wake_up_dev(dev, reason, err);
-		goto done;
+		goto irq_end;
 	}
 
 	ctx = dev->ctx[dev->curr_ctx];
@@ -1716,7 +1649,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		mfc_err("no mfc context to run\n");
 		s5p_mfc_clear_int_flags();
 		s5p_mfc_clock_off(dev);
-		goto irq_cleanup_err;
+		goto irq_done;
 	}
 
 	if (ctx->type == MFCINST_DECODER)
@@ -1766,66 +1699,53 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 				enc->in_slice = 0;
 			}
 
-			if (ctx->c_ops->post_frame_start) {
-				if (ctx->enc_res_change || ctx->enc_res_change_state) {
-					/* Right after the first NAL_START finished with the new resolution,
-					 * We need to reset the fields
-					 */
-					if (ctx->enc_res_change) {
-						reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_PARAM_CHANGE);
-						reg &= ~(0x7 << 6); /* clear resolution change bits */
-						s5p_mfc_write_reg(dev, reg, S5P_FIMV_E_PARAM_CHANGE);
+			if (ctx->enc_res_change || ctx->enc_res_change_state) {
+				/* Right after the first NAL_START finished with the new resolution,
+				 * We need to reset the fields
+				 */
+				if (ctx->enc_res_change) {
+					reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_PARAM_CHANGE);
+					reg &= ~(0x7 << 6); /* clear resolution change bits */
+					s5p_mfc_write_reg(dev, reg, S5P_FIMV_E_PARAM_CHANGE);
 
-						ctx->enc_res_change_state = ctx->enc_res_change;
-						ctx->enc_res_change = 0;
-					}
-
-					if (ctx->enc_res_change_state == 1) { /* resolution swap */
-						ctx->enc_res_change_state = 0;
-					} else if (ctx->enc_res_change_state == 2) { /* resolution change */
-						reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_NAL_DONE_INFO);
-						reg = (reg & (0x3 << 4)) >> 4;
-
-						mfc_debug(2, "Encoding Resolution Status : %d\n", reg);
-
-						if (reg == 1) { /* Resolution Change for B-frame */
-							/* Encode with previous resolution */
-							/* NOTHING TO-DO */
-						} else if (reg == 2) { /* Resolution Change for B-frame */
-							s5p_mfc_release_codec_buffers(ctx);
-							ctx->state = MFCINST_HEAD_PARSED; /* for INIT_BUFFER cmd */
-
-							ctx->enc_res_change_state = 0;
-							ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
-							mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
-								(unsigned int)ctx->min_scratch_buf_size);
-						} else if (reg == 3) { /* Resolution Change for only P-frame */
-							s5p_mfc_release_codec_buffers(ctx);
-							ctx->state = MFCINST_HEAD_PARSED; /* for INIT_BUFFER cmd */
-
-							ctx->enc_res_change_state = 0;
-							ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
-							ctx->enc_res_change_re_input = 1;
-							mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
-								(unsigned int)ctx->min_scratch_buf_size);
-						}
-					}
-					if (ctx->c_ops->post_frame_start(ctx))
-						mfc_err_ctx("post_frame_start() failed\n");
-				} else {
-					if (ctx->c_ops->post_frame_start(ctx))
-						mfc_err_ctx("post_frame_start() failed\n");
+					ctx->enc_res_change_state = ctx->enc_res_change;
+					ctx->enc_res_change = 0;
 				}
 
-				s5p_mfc_clear_int_flags();
-				if (clear_hw_bit(ctx) == 0)
-					BUG();
-				wake_up_ctx(ctx, reason, err);
+				if (ctx->enc_res_change_state == 1) { /* resolution swap */
+					ctx->enc_res_change_state = 0;
+				} else if (ctx->enc_res_change_state == 2) { /* resolution change */
+					reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_NAL_DONE_INFO);
+					reg = (reg & (0x3 << 4)) >> 4;
 
-				s5p_mfc_clock_off(dev);
+					mfc_debug(2, "Encoding Resolution Status : %d\n", reg);
 
-				queue_work(dev->sched_wq, &dev->sched_work);
+					if (reg == 1) { /* Resolution Change for B-frame */
+						/* Encode with previous resolution */
+						/* NOTHING TO-DO */
+					} else if (reg == 2) { /* Resolution Change for B-frame */
+						s5p_mfc_release_codec_buffers(ctx);
+						ctx->state = MFCINST_HEAD_PARSED; /* for INIT_BUFFER cmd */
+
+						ctx->enc_res_change_state = 0;
+						ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
+						mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
+								(unsigned int)ctx->min_scratch_buf_size);
+					} else if (reg == 3) { /* Resolution Change for only P-frame */
+						s5p_mfc_release_codec_buffers(ctx);
+						ctx->state = MFCINST_HEAD_PARSED; /* for INIT_BUFFER cmd */
+
+						ctx->enc_res_change_state = 0;
+						ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
+						ctx->enc_res_change_re_input = 1;
+						mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
+								(unsigned int)ctx->min_scratch_buf_size);
+					}
+				}
 			}
+			if (ctx->c_ops->post_frame_start)
+				if (ctx->c_ops->post_frame_start(ctx))
+					mfc_err_ctx("post_frame_start() failed\n");
 		}
 		break;
 	case S5P_FIMV_R2H_CMD_SEQ_DONE_RET:
@@ -1885,31 +1805,13 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 				}
 			}
 		}
-
-		s5p_mfc_clear_int_flags();
-		clear_work_bit(ctx);
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		wake_up_ctx(ctx, reason, err);
-
-		s5p_mfc_clock_off(dev);
-
-		queue_work(dev->sched_wq, &dev->sched_work);
 		break;
 	case S5P_FIMV_R2H_CMD_OPEN_INSTANCE_RET:
 		ctx->inst_no = s5p_mfc_get_inst_no();
 		ctx->state = MFCINST_GOT_INST;
-		clear_work_bit(ctx);
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET:
 		ctx->state = MFCINST_FREE;
-		clear_work_bit(ctx);
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_NAL_ABORT_RET:
 		if (ctx->type == MFCINST_ENCODER) {
@@ -1922,33 +1824,14 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 					mfc_err_ctx("post_frame_start() failed\n");
 		} else {
 			ctx->state = MFCINST_ABORT;
-			clear_work_bit(ctx);
 		}
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_DPB_FLUSH_RET:
 		ctx->state = MFCINST_ABORT;
-		clear_work_bit(ctx);
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET:
-		s5p_mfc_clear_int_flags();
-		ctx->int_type = reason;
-		ctx->int_err = err;
-		ctx->int_cond = 1;
-		spin_lock_irq(&dev->condlock);
-		clear_bit(ctx->num, &dev->ctx_work_bits);
-		spin_unlock_irq(&dev->condlock);
 		if (err != 0) {
-			if (clear_hw_bit(ctx) == 0)
-				BUG();
-			wake_up(&ctx->queue);
-
-			s5p_mfc_clock_off(dev);
+			mfc_err_ctx("INIT_BUFFERS_RET error: %d\n", err);
 			break;
 		}
 
@@ -1977,48 +1860,28 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			}
 			if (ctx->is_dpb_realloc)
 				ctx->is_dpb_realloc = 0;
-			if (s5p_mfc_dec_ctx_ready(ctx)) {
-				spin_lock_irq(&dev->condlock);
-				set_bit(ctx->num, &dev->ctx_work_bits);
-				spin_unlock_irq(&dev->condlock);
-			}
-		} else if (ctx->type == MFCINST_ENCODER) {
-			if (s5p_mfc_enc_ctx_ready(ctx)) {
-				spin_lock_irq(&dev->condlock);
-				set_bit(ctx->num, &dev->ctx_work_bits);
-				spin_unlock_irq(&dev->condlock);
-			}
 		}
-
-		if (clear_hw_bit(ctx) == 0)
-			BUG();
-		wake_up(&ctx->queue);
-
-		s5p_mfc_clock_off(dev);
-
-		queue_work(dev->sched_wq, &dev->sched_work);
 		break;
 	default:
-		mfc_debug(2, "Unknown int reason.\n");
-		s5p_mfc_clear_int_flags();
+		mfc_err_ctx("Unknown int reason: %d\n", reason);
 	}
 
-done:
-	mfc_debug_leave();
-	return IRQ_HANDLED;
-
-irq_cleanup_hw:
+	/* clean-up interrupt: HW flag, hw_lock, SW work_bit */
 	s5p_mfc_clear_int_flags();
+	if (ctx->state != MFCINST_RES_CHANGE_INIT)
+		clear_work_bit(ctx);
 
 	s5p_mfc_clock_off(dev);
+	if (clear_hw_bit(ctx) == 0)
+		BUG();
 	wake_up_ctx(ctx, reason, err);
 
-irq_cleanup_err:
+irq_done:
 	if (dev)
 		queue_work(dev->sched_wq, &dev->sched_work);
 
-irq_poweron_err:
-	mfc_debug(2, "via irq_cleanup_hw\n");
+irq_end:
+	mfc_debug_leave();
 	return IRQ_HANDLED;
 }
 

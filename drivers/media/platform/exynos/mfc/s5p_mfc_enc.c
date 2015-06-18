@@ -3285,12 +3285,6 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 			  ctx->src_queue_cnt, enc->ref_queue_cnt);
 	}
 
-	if ((ctx->src_queue_cnt == 0) || (ctx->dst_queue_cnt == 0)) {
-		spin_lock_irq(&dev->condlock);
-		clear_bit(ctx->num, &dev->ctx_work_bits);
-		spin_unlock_irq(&dev->condlock);
-	}
-
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	return 0;
