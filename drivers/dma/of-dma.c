@@ -268,6 +268,24 @@ bool of_dma_get_wrapper_available(struct device_node *np)
 EXPORT_SYMBOL_GPL(of_dma_get_wrapper_available);
 
 /**
+ * of_dma_get_arwrapper_address - Get the DMA WAPPER availableilable
+ * @np:		device node of DMA controller
+ *
+ */
+u64 of_dma_get_mask(struct device_node *np, char *name)
+{
+	int bit_cnt = 0;
+
+	of_property_read_u32(np, name, &bit_cnt);
+
+	if (bit_cnt)
+		return ((u64)1 << bit_cnt) - 1;
+	else
+		return -1;
+}
+EXPORT_SYMBOL_GPL(of_dma_get_mask);
+
+/**
  * of_dma_request_slave_channel - Get the DMA slave channel
  * @np:		device node to get DMA request from
  * @name:	name of desired channel
