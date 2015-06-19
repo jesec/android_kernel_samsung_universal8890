@@ -295,8 +295,15 @@ static void __exynos_usbdrd_phy_shutdown(struct exynos_usbdrd_phy *phy_drd)
 
 	/* Control PHYTEST to remove leakage current */
 	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
-	reg |=	PHYTEST_POWERDOWN_SSP |
-		PHYTEST_POWERDOWN_HSP;
+	reg |=	PHYTEST_POWERDOWN_SSP;
+	/*
+	 * To save power, it is supposed to be set to POWERDOWN mode.
+	 * However, in Exynos 5430 & 5433,
+	 * Even when HSP is set to POWERDOWN mode, there is current leakage.
+	 * Therefore, it is recommended not to set HSP to POWERDOWN mode.
+	 */
+	if (phy_drd->drv_data->cpu_type != TYPE_EXYNOS5430)
+		reg |= PHYTEST_POWERDOWN_HSP;
 	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
 }
 
