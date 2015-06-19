@@ -1046,7 +1046,7 @@ static int exynos_cpufreq_tmu_notifier(struct notifier_block *notifier,
 	int *on = v;
 	int ret = NOTIFY_OK;
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
-	int cl_index;
+	int cl_index = 0;
 #endif
 	int cold_offset = 0;
 
@@ -1061,6 +1061,9 @@ static int exynos_cpufreq_tmu_notifier(struct notifier_block *notifier,
 			volt_offset = COLD_VOLT_OFFSET;
 
 		for (cl = 0; cl < CL_END; cl++) {
+#ifdef CONFIG_EXYNOS_CL_DVFS_CPU
+			get_freq_volt(cl, freqs[cl]->old, &cl_index);
+#endif
 			volt = exynos_info[cl]->cur_volt;
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
 			exynos_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
