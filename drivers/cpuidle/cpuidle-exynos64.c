@@ -211,14 +211,14 @@ static struct notifier_block exynos_cpuidle_reboot_nb = {
 	.desc                   = "ARM WFI",\
 }
 
-static struct cpuidle_driver exynos_idle_little_driver = {
-	.name = "little_idle",
+static struct cpuidle_driver exynos_idle_boot_cluster_driver = {
+	.name = "boot_cluster_idle",
 	.owner = THIS_MODULE,
 	.states[0] = EXYNOS_CPUIDLE_WFI_STATE,
 };
 
-static struct cpuidle_driver exynos_idle_big_driver = {
-	.name = "big_idle",
+static struct cpuidle_driver exynos_idle_nonboot_cluster_driver = {
+	.name = "non-boot_cluster_idle",
 	.owner = THIS_MODULE,
 	.states[0] = EXYNOS_CPUIDLE_WFI_STATE,
 };
@@ -242,15 +242,17 @@ static void __init exynos_idle_driver_init(struct cpuidle_driver *drv,
 	drv->cpumask = cpumask;
 }
 
-static struct cpumask little_cpumask;
-static struct cpumask big_cpumask;
+static struct cpumask boot_cluster_cpumask;
+static struct cpumask nonboot_cluster_cpumask;
 
 static int __init exynos_idle_init(void)
 {
 	int ret, cpu;
 
-	exynos_idle_driver_init(&exynos_idle_little_driver, &little_cpumask, 0);
-	exynos_idle_driver_init(&exynos_idle_big_driver, &big_cpumask, 1);
+	exynos_idle_driver_init(&exynos_idle_boot_cluster_driver,
+						&boot_cluster_cpumask, 0);
+	exynos_idle_driver_init(&exynos_idle_nonboot_cluster_driver,
+						&nonboot_cluster_cpumask, 1);
 
 	/*
 	 * Initialize idle states data, starting at index 1.
@@ -258,12 +260,12 @@ static int __init exynos_idle_init(void)
 	 * let the driver initialization fail accordingly since there is no
 	 * reason to initialize the idle driver if only wfi is supported.
 	 */
-	ret = dt_init_idle_driver(&exynos_idle_little_driver,
+	ret = dt_init_idle_driver(&exynos_idle_boot_cluster_driver,
 					exynos_idle_state_match, 1);
 	if (ret < 0)
 		return ret;
 
-	ret = dt_init_idle_driver(&exynos_idle_big_driver,
+	ret = dt_init_idle_driver(&exynos_idle_nonboot_cluster_driver,
 					exynos_idle_state_match, 1);
 	if (ret < 0)
 		return ret;
@@ -280,13 +282,13 @@ static int __init exynos_idle_init(void)
 		}
 	}
 
-	ret = cpuidle_register(&exynos_idle_little_driver, NULL);
+	ret = cpuidle_register(&exynos_idle_boot_cluster_driver, NULL);
 	if (ret)
 		return ret;
 
-	ret = cpuidle_register(&exynos_idle_big_driver, NULL);
+	ret = cpuidle_register(&exynos_idle_nonboot_cluster_driver, NULL);
 	if (ret)
-		goto out_unregister_little;
+		goto out_unregister_boot_cluster;
 
 	register_pm_notifier(&exynos_cpuidle_notifier);
 	register_reboot_notifier(&exynos_cpuidle_reboot_nb);
@@ -295,8 +297,8 @@ static int __init exynos_idle_init(void)
 
 	return 0;
 
-out_unregister_little:
-	cpuidle_unregister(&exynos_idle_little_driver);
+out_unregister_boot_cluster:
+	cpuidle_unregister(&exynos_idle_boot_cluster_driver);
 
 	return ret;
 }
