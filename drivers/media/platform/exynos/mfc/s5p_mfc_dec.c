@@ -2012,6 +2012,9 @@ static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_GET_10BIT_INFO:
 		ctrl->value = dec->is_10bit;
 		break;
+	case V4L2_CID_MPEG_MFC_GET_DRIVER_INFO:
+		ctrl->value = MFC_DRIVER_INFO;
+		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_GET))
