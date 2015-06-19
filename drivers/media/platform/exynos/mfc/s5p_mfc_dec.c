@@ -1899,6 +1899,10 @@ static int dec_ext_info(struct s5p_mfc_ctx *ctx)
 		val |= DEC_SET_DUAL_DPB;
 	if (FW_HAS_DYNAMIC_DPB(dev))
 		val |= DEC_SET_DYNAMIC_DPB;
+	if (FW_HAS_LAST_DISP_INFO(dev))
+		val |= DEC_SET_LAST_FRAME_INFO;
+	if (FW_SUPPORT_SKYPE(dev))
+		val |= DEC_SET_SKYPE_FLAG;
 
 	return val;
 }

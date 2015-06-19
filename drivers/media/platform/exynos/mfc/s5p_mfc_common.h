@@ -1184,6 +1184,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 /* Extra information for Decoder */
 #define	DEC_SET_DUAL_DPB		(1 << 0)
 #define	DEC_SET_DYNAMIC_DPB		(1 << 1)
+#define	DEC_SET_LAST_FRAME_INFO		(1 << 2)
+#define	DEC_SET_SKYPE_FLAG		(1 << 3)
 /* Extra information for Encoder */
 #define	ENC_SET_RGB_INPUT		(1 << 0)
 #define	ENC_SET_SPARE_SIZE		(1 << 1)
