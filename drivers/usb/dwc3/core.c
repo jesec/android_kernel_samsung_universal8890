@@ -37,6 +37,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/usb/otg.h>
+#include <linux/phy/phy.h>
 
 #include "platform_data.h"
 #include "core.h"

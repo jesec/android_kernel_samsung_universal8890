@@ -29,6 +29,7 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/phy/phy.h>
 
 #include "debug.h"
 #include "core.h"
