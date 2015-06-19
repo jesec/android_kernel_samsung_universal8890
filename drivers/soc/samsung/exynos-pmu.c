@@ -12,6 +12,7 @@
 #include <linux/smp.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
+#include <linux/platform_device.h>
 
 #include <asm/smp_plat.h>
 
@@ -135,19 +136,42 @@ void exynos_cpu_sequencer_ctrl(int enable)
 	regmap_update_bits(pmureg, PMU_NONBOOT_CLUSTER_CPUSEQ_OPTION, 1, enable);
 }
 
-char *pmu_syscon_name = "105c0000.system-controller";
-
-int __init exynos_pmu_init(void)
+static int exynos_pmu_probe(struct platform_device *pdev)
 {
-	int ret;
+	struct device *dev = &pdev->dev;
 
-	pmureg = syscon_regmap_lookup_by_pdevname(pmu_syscon_name);
+	pmureg = syscon_regmap_lookup_by_phandle(dev->of_node,
+						"samsung,syscon-phandle");
 	if (IS_ERR(pmureg)) {
-		ret = PTR_ERR(pmureg);
-		pr_err("Fail to get regmap of PMU with err %d\n", ret);
-		return ret;
+		pr_err("Fail to get regmap of PMU\n");
+		return PTR_ERR(pmureg);
 	}
 
 	return 0;
+}
+
+static const struct of_device_id of_exynos_pmu_match[] = {
+	{ .compatible = "samsung,exynos-pmu", },
+	{ },
+};
+
+static const struct platform_device_id exynos_pmu_ids[] = {
+	{ "exynos-pmu", },
+	{ }
+};
+
+static struct platform_driver exynos_pmu_driver = {
+	.driver = {
+		.name = "exynos-pmu",
+		.owner = THIS_MODULE,
+		.of_match_table = of_exynos_pmu_match,
+	},
+	.probe		= exynos_pmu_probe,
+	.id_table	= exynos_pmu_ids,
+};
+
+int __init exynos_pmu_init(void)
+{
+	return platform_driver_register(&exynos_pmu_driver);
 }
 subsys_initcall(exynos_pmu_init);
