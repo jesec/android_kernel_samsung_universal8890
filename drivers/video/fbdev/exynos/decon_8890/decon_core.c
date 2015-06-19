@@ -3675,6 +3675,10 @@ static int decon_probe(struct platform_device *pdev)
 		config.dst.f_w = config.src.f_w;
 		config.dst.f_h = config.src.f_h;
 		sd = decon->mdev->vpp_sd[decon->default_idma];
+		/* Set a default Bandwidth */
+		if (v4l2_subdev_call(sd, core, ioctl, VPP_SET_BW, &config))
+			decon_err("Failed to VPP_SET_BW VPP-%d\n", decon->default_idma);
+
 		if (v4l2_subdev_call(sd, core, ioctl, VPP_WIN_CONFIG, &config)) {
 			decon_err("Failed to config VPP-%d\n", decon->default_idma);
 			decon->vpp_usage_bitmask &= ~(1 << decon->default_idma);

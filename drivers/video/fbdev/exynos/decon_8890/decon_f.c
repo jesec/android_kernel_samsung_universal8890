@@ -177,7 +177,8 @@ void decon_f_set_clocks(struct decon_device *decon)
 
 	/* TODO: PCLK */
 	/* TODO: ACLK */
-	cal_dfs_set_rate(dvfs_disp, clks.decon[CLK_ID_ACLK] * 1000);
+	if (!IS_ENABLED(CONFIG_PM_DEVFREQ))
+		cal_dfs_set_rate(dvfs_disp, clks.decon[CLK_ID_ACLK] * 1000);
 
 	decon_dbg("%s:dpll %ld pclk %ld vclk %ld eclk %ld Mhz\n",
 		__func__,
