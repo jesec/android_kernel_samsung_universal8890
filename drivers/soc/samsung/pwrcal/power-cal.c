@@ -579,9 +579,14 @@ int cal_init(void)
 	dfs_init();
 	vclk_init();
 
-	if (cal_asv_ops.asv_init)
+	if (cal_asv_ops.asv_init) {
 		if (cal_asv_ops.asv_init())
 			return -1;
+#ifdef PWRCAL_TARGET_LINUX
+		if (cal_asv_ops.print_asv_info)
+			cal_asv_ops.print_asv_info();
+#endif
+	}
 
 	if (cal_pm_ops.pm_init)
 		cal_pm_ops.pm_init();

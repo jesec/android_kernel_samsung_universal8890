@@ -666,6 +666,7 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 
 	/* Write rcc table to apm sram area */
 	cal_asv_set_rcc_table();
+	cal_rcc_print_info();
 
 #if (defined(CONFIG_EXYNOS_CL_DVFS_CPU) || defined(CONFIG_EXYNOS_CL_DVFS_G3D) || defined(CONFIG_EXYNOS_CL_DVFS_MIF))
 	cl_init.cl_status = CL_ON;
