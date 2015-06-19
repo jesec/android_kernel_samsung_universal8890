@@ -1614,9 +1614,9 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *g, int is_active)
 			 * Both vbus was activated by otg and pullup was
 			 * signaled by the gadget driver.
 			 */
-			dwc3_gadget_run_stop(dwc, 1);
+			dwc3_gadget_run_stop(dwc, 1, false);
 		} else {
-			dwc3_gadget_run_stop(dwc, 0);
+			dwc3_gadget_run_stop(dwc, 0, false);
 		}
 	}
 
@@ -1644,7 +1644,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 		return 0;
 	}
 
-	ret = dwc3_gadget_run_stop(dwc, is_on);
+	ret = dwc3_gadget_run_stop(dwc, is_on, false);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return ret;
