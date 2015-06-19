@@ -807,19 +807,23 @@ static void exynos_qos_nop(void *info)
 {
 }
 
-static void exynos_change_freq_nocpd(struct cpufreq_policy *policy, int cpu,
+static int exynos_change_freq_nocpd(struct cpufreq_policy *policy, int cpu,
 					unsigned int freq)
 {
+	int ret;
+
 	if (cpu >= NR_CLUST0_CPUS)
 		block_cpd();
 
 	if (check_cluster_idle_state(cpu))
 		smp_call_function_single(cpu, exynos_qos_nop, NULL, 0);
 
-	__cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_H);
+	ret = __cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_H);
 
 	if (cpu >= NR_CLUST0_CPUS)
 		release_cpd();
+
+	return ret;
 }
 
 void ipa_set_clamp(int cpu, unsigned int clamp_freq, unsigned int gov_target)
@@ -1617,7 +1621,7 @@ static int exynos_cluster1_min_qos_handler(struct notifier_block *b, unsigned lo
 	}
 #endif
 
-	exynos_change_freq_nocpd(policy, cpu, val);
+	ret = exynos_change_freq_nocpd(policy, cpu, val);
 	cpufreq_cpu_put(policy);
 
 	if (ret < 0)
@@ -1663,7 +1667,7 @@ static int exynos_cluster1_max_qos_handler(struct notifier_block *b, unsigned lo
 	}
 #endif
 
-	exynos_change_freq_nocpd(policy, cpu, val);
+	ret = exynos_change_freq_nocpd(policy, cpu, val);
 	cpufreq_cpu_put(policy);
 
 	if (ret < 0)
@@ -1721,7 +1725,7 @@ static int exynos_cluster0_min_qos_handler(struct notifier_block *b, unsigned lo
 	}
 #endif
 
-	exynos_change_freq_nocpd(policy, cpu, val);
+	ret = exynos_change_freq_nocpd(policy, cpu, val);
 	cpufreq_cpu_put(policy);
 
 	if (ret < 0)
@@ -1767,7 +1771,7 @@ static int exynos_cluster0_max_qos_handler(struct notifier_block *b, unsigned lo
 	}
 #endif
 
-	exynos_change_freq_nocpd(policy, cpu, val);
+	ret = exynos_change_freq_nocpd(policy, cpu, val);
 	cpufreq_cpu_put(policy);
 
 	if (ret < 0)
