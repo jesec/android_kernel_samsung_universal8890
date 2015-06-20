@@ -9,6 +9,8 @@
 #ifndef __PHY_EXYNOS_USBDRD_H__
 #define __PHY_EXYNOS_USBDRD_H__
 
+#include "phy-samsung-usb3-cal.h"
+
 /* Exynos USB PHY registers */
 #define EXYNOS_FSEL_9MHZ6		0x0
 #define EXYNOS_FSEL_10MHZ		0x1
@@ -16,6 +18,7 @@
 #define EXYNOS_FSEL_19MHZ2		0x3
 #define EXYNOS_FSEL_20MHZ		0x4
 #define EXYNOS_FSEL_24MHZ		0x5
+#define EXYNOS_FSEL_26MHZ		0x82
 #define EXYNOS_FSEL_50MHZ		0x7
 
 /* EXYNOS: USB DRD PHY registers */
@@ -23,13 +26,8 @@
 
 #define LINKSYSTEM_FLADJ_MASK			(0x3f << 1)
 #define LINKSYSTEM_FLADJ(_x)			((_x) << 1)
-#define LINKSYSTEM_XHCI_VERSION_CONTROL		BIT(27)
 
 #define EXYNOS_DRD_PHYUTMI			0x08
-
-#define PHYUTMI_OTGDISABLE			BIT(6)
-#define PHYUTMI_FORCESUSPEND			BIT(1)
-#define PHYUTMI_FORCESLEEP			BIT(0)
 
 #define EXYNOS_DRD_PHYPIPE			0x0c
 
@@ -37,21 +35,14 @@
 
 #define EXYNOS_DRD_PHYCLKRST			0x10
 
-#define PHYCLKRST_EN_UTMISUSPEND		BIT(31)
-
 #define PHYCLKRST_SSC_REFCLKSEL_MASK		(0xff << 23)
 #define PHYCLKRST_SSC_REFCLKSEL(_x)		((_x) << 23)
 
 #define PHYCLKRST_SSC_RANGE_MASK		(0x03 << 21)
 #define PHYCLKRST_SSC_RANGE(_x)			((_x) << 21)
 
-#define PHYCLKRST_SSC_EN			BIT(20)
-#define PHYCLKRST_REF_SSP_EN			BIT(19)
-#define PHYCLKRST_REF_CLKDIV2			BIT(18)
-
 #define PHYCLKRST_MPLL_MULTIPLIER_MASK		(0x7f << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_100MHZ_REF	(0x19 << 11)
-#define PHYCLKRST_MPLL_MULTIPLIER_50M_REF	(0x32 << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_24MHZ_REF	(0x68 << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_20MHZ_REF	(0x7d << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_19200KHZ_REF	(0x02 << 11)
@@ -64,21 +55,15 @@
 #define PHYCLKRST_FSEL_PAD_20MHZ		(0x31 << 5)
 #define PHYCLKRST_FSEL_PAD_19_2MHZ		(0x38 << 5)
 
-#define PHYCLKRST_RETENABLEN			BIT(4)
-
 #define PHYCLKRST_REFCLKSEL_MASK		(0x03 << 2)
 #define PHYCLKRST_REFCLKSEL_PAD_REFCLK		(0x2 << 2)
 #define PHYCLKRST_REFCLKSEL_EXT_REFCLK		(0x3 << 2)
-
-#define PHYCLKRST_PORTRESET			BIT(1)
-#define PHYCLKRST_COMMONONN			BIT(0)
 
 #define EXYNOS_DRD_PHYREG0			0x14
 #define EXYNOS_DRD_PHYREG1			0x18
 
 #define EXYNOS_DRD_PHYPARAM0			0x1c
 
-#define PHYPARAM0_REF_USE_PAD			BIT(31)
 #define PHYPARAM0_REF_LOSLEVEL_MASK		(0x1f << 26)
 #define PHYPARAM0_REF_LOSLEVEL			(0x9 << 26)
 
@@ -90,9 +75,6 @@
 #define EXYNOS_DRD_PHYTERM			0x24
 
 #define EXYNOS_DRD_PHYTEST			0x28
-
-#define PHYTEST_POWERDOWN_SSP			BIT(3)
-#define PHYTEST_POWERDOWN_HSP			BIT(2)
 
 #define EXYNOS_DRD_PHYADP			0x2c
 
@@ -119,6 +101,7 @@ struct exynos_usbdrd_phy_config {
 	u32 id;
 	void (*phy_isol)(struct phy_usb_instance *inst, u32 on);
 	void (*phy_init)(struct exynos_usbdrd_phy *phy_drd);
+	void (*phy_exit)(struct exynos_usbdrd_phy *phy_drd);
 	unsigned int (*set_refclk)(struct phy_usb_instance *inst);
 };
 
@@ -158,6 +141,7 @@ struct exynos_usbdrd_phy {
 	u32 extrefclk;
 	struct clk *ref_clk;
 	struct regulator *vbus;
+	struct exynos_usbphy_info usbphy_info;
 };
 
 #endif	/* __PHY_EXYNOS_USBDRD_H__ */

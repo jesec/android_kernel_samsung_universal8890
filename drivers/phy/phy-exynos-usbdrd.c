@@ -168,181 +168,84 @@ exynos_usbdrd_utmi_set_refclk(struct phy_usb_instance *inst)
 
 static void exynos_usbdrd_pipe3_init(struct exynos_usbdrd_phy *phy_drd)
 {
-	u32 reg;
+	int ret;
 
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM1);
-	/* Set Tx De-Emphasis level */
-	reg &= ~PHYPARAM1_PCS_TXDEEMPH_MASK;
-	reg |=	PHYPARAM1_PCS_TXDEEMPH;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM1);
+	ret = clk_prepare_enable(phy_drd->clk);
+	if (ret) {
+		dev_err(phy_drd->dev, "%s: Failed to enable clk\n", __func__);
+		return;
+	}
 
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
-	reg &= ~PHYTEST_POWERDOWN_SSP;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
+	samsung_exynos_cal_usb3phy_enable(&phy_drd->usbphy_info);
+
+	clk_disable_unprepare(phy_drd->clk);
 }
 
 static void exynos_usbdrd_utmi_init(struct exynos_usbdrd_phy *phy_drd)
 {
-	u32 reg;
-
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM0);
-	/* Set Loss-of-Signal Detector sensitivity */
-	reg &= ~PHYPARAM0_REF_LOSLEVEL_MASK;
-	reg |=	PHYPARAM0_REF_LOSLEVEL;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM0);
-
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM1);
-	/* Set Tx De-Emphasis level */
-	reg &= ~PHYPARAM1_PCS_TXDEEMPH_MASK;
-	reg |=	PHYPARAM1_PCS_TXDEEMPH;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM1);
-
-	/* UTMI Power Control */
-	writel(PHYUTMI_OTGDISABLE, phy_drd->reg_phy + EXYNOS_DRD_PHYUTMI);
-
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
-	reg &= ~PHYTEST_POWERDOWN_HSP;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
+	return;
 }
 
 static int exynos_usbdrd_phy_init(struct phy *phy)
 {
-	int ret;
-	u32 reg;
 	struct phy_usb_instance *inst = phy_get_drvdata(phy);
 	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
-
-	ret = clk_prepare_enable(phy_drd->clk);
-	if (ret)
-		return ret;
-
-	/* Reset USB 3.0 PHY */
-	writel(0x0, phy_drd->reg_phy + EXYNOS_DRD_PHYREG0);
-	writel(0x0, phy_drd->reg_phy + EXYNOS_DRD_PHYRESUME);
-
-	/*
-	 * Setting the Frame length Adj value[6:1] to default 0x20
-	 * See xHCI 1.0 spec, 5.2.4
-	 */
-	reg =	LINKSYSTEM_XHCI_VERSION_CONTROL |
-		LINKSYSTEM_FLADJ(0x20);
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_LINKSYSTEM);
-
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM0);
-	/* Select PHY CLK source */
-	reg &= ~PHYPARAM0_REF_USE_PAD;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM0);
-
-	/*
-	 * This bit must be set for both HS and SS operations.
-	 * Actually, this setting should be seperated from Exynos5430,
-	 * but this file was made for Exynos8 series and next.
-	 * So, it was roughly modified.
-	 */
-	if (phy_drd->drv_data->cpu_type > TYPE_EXYNOS5) {
-		reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYPIPE);
-		reg |= PHY_CLOCK_SEL;
-		writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYPIPE);
-	} else {
-		reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYUTMICLKSEL);
-		reg |= PHYUTMICLKSEL_UTMI_CLKSEL;
-		writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYUTMICLKSEL);
-	}
 
 	/* UTMI or PIPE3 specific init */
 	inst->phy_cfg->phy_init(phy_drd);
 
-	/* reference clock settings */
-	reg = inst->phy_cfg->set_refclk(inst);
-
-		/* Digital power supply in normal operating mode */
-	reg |=	PHYCLKRST_RETENABLEN |
-		/* Enable ref clock for SS function */
-		PHYCLKRST_REF_SSP_EN |
-		/* Enable spread spectrum */
-		PHYCLKRST_SSC_EN |
-		/* Power down HS Bias and PLL blocks in suspend mode */
-		PHYCLKRST_COMMONONN |
-		/* Reset the port */
-		PHYCLKRST_PORTRESET;
-
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYCLKRST);
-
-	udelay(10);
-
-	reg &= ~PHYCLKRST_PORTRESET;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYCLKRST);
-
-	clk_disable_unprepare(phy_drd->clk);
-
 	return 0;
 }
 
-static void __exynos_usbdrd_phy_shutdown(struct exynos_usbdrd_phy *phy_drd)
+static void exynos_usbdrd_pipe3_exit(struct exynos_usbdrd_phy *phy_drd)
 {
-	u32 reg;
+	int ret;
 
-	reg =	PHYUTMI_OTGDISABLE |
-		PHYUTMI_FORCESUSPEND |
-		PHYUTMI_FORCESLEEP;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYUTMI);
+	ret = clk_prepare_enable(phy_drd->clk);
+	if (ret) {
+		dev_err(phy_drd->dev, "%s: Failed to enable clk\n", __func__);
+		return;
+	}
 
-	/* Resetting the PHYCLKRST enable bits to reduce leakage current */
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYCLKRST);
-	reg &= ~(PHYCLKRST_REF_SSP_EN |
-		 PHYCLKRST_SSC_EN |
-		 PHYCLKRST_COMMONONN);
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYCLKRST);
+	samsung_exynos_cal_usb3phy_disable(&phy_drd->usbphy_info);
 
-	/* Control PHYTEST to remove leakage current */
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
-	reg |=	PHYTEST_POWERDOWN_SSP;
-	/*
-	 * To save power, it is supposed to be set to POWERDOWN mode.
-	 * However, in Exynos 5430 & 5433,
-	 * Even when HSP is set to POWERDOWN mode, there is current leakage.
-	 * Therefore, it is recommended not to set HSP to POWERDOWN mode.
-	 */
-	if (phy_drd->drv_data->cpu_type != TYPE_EXYNOS5430)
-		reg |= PHYTEST_POWERDOWN_HSP;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYTEST);
+	clk_disable_unprepare(phy_drd->clk);
+}
+
+static void exynos_usbdrd_utmi_exit(struct exynos_usbdrd_phy *phy_drd)
+{
+	return;
+}
+
+
+static void __exynos_usbdrd_phy_shutdown(struct phy_usb_instance *inst)
+{
+	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
+
+	/* UTMI or PIPE3 specific exit */
+	inst->phy_cfg->phy_exit(phy_drd);
 }
 
 static int exynos_usbdrd_phy_exit(struct phy *phy)
 {
-	int ret;
 	struct phy_usb_instance *inst = phy_get_drvdata(phy);
-	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
 
-	ret = clk_prepare_enable(phy_drd->clk);
-	if (ret)
-		return ret;
-
-	__exynos_usbdrd_phy_shutdown(phy_drd);
-
-	clk_disable_unprepare(phy_drd->clk);
+	__exynos_usbdrd_phy_shutdown(inst);
 
 	return 0;
 }
 
 static int exynos_usbdrd_phy_tune(struct phy *phy, int phy_state)
 {
-	int ret;
 	struct phy_usb_instance *inst = phy_get_drvdata(phy);
 	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
 
-	ret = clk_prepare_enable(phy_drd->clk);
-	if (ret)
-		return ret;
-
 	if (phy_state >= OTG_STATE_A_IDLE)
 		/* for host mode */
-		;
+		samsung_exynos_cal_usb3phy_tune_host(&phy_drd->usbphy_info);
 	else
 		/* for device mode */
-		;
-
-	clk_disable_unprepare(phy_drd->clk);
+		samsung_exynos_cal_usb3phy_tune_dev(&phy_drd->usbphy_info);
 
 	return 0;
 }
@@ -421,12 +324,14 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8[] = {
 		.id		= EXYNOS_DRDPHY_UTMI,
 		.phy_isol	= exynos_usbdrd_utmi_phy_isol,
 		.phy_init	= exynos_usbdrd_utmi_init,
+		.phy_exit	= exynos_usbdrd_utmi_exit,
 		.set_refclk	= exynos_usbdrd_utmi_set_refclk,
 	},
 	{
 		.id		= EXYNOS_DRDPHY_PIPE3,
 		.phy_isol	= exynos_usbdrd_pipe3_phy_isol,
 		.phy_init	= exynos_usbdrd_pipe3_init,
+		.phy_exit	= exynos_usbdrd_pipe3_exit,
 		.set_refclk	= exynos_usbdrd_pipe3_set_refclk,
 	},
 };
@@ -456,7 +361,7 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	const struct exynos_usbdrd_phy_drvdata *drv_data;
 	struct regmap *reg_pmu;
-	u32 pmu_offset;
+	u32 pmu_offset, tmp_version;
 	unsigned long ref_rate;
 	int i, ret;
 	int channel;
@@ -521,6 +426,17 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 
 	dev_vdbg(dev, "Creating usbdrd_phy phy\n");
 
+	/* For PHY CAL code */
+	ret = of_property_read_u32(node, "version", &tmp_version);
+	if (ret) {
+		dev_err(dev, "cannot get usbphy version!!!\n");
+		phy_drd->usbphy_info.version = 0x0100;
+	} else {
+		phy_drd->usbphy_info.version = tmp_version;
+	}
+	phy_drd->usbphy_info.refclk = phy_drd->extrefclk;
+	phy_drd->usbphy_info.regs_base = phy_drd->reg_phy;
+
 	for (i = 0; i < EXYNOS_DRDPHYS_NUM; i++) {
 		struct phy *phy = devm_phy_create(dev, NULL,
 						  &exynos_usbdrd_phy_ops,
@@ -551,7 +467,7 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int exynos_usbdrd_phy_resume(struct device *dev)
 {
-	int ret;
+	int ret, i;
 	struct exynos_usbdrd_phy *phy_drd = dev_get_drvdata(dev);
 
 	/*
@@ -572,9 +488,10 @@ static int exynos_usbdrd_phy_resume(struct device *dev)
 		return ret;
 	}
 
-	__exynos_usbdrd_phy_shutdown(phy_drd);
+	for (i = 0; i < EXYNOS_DRDPHYS_NUM; i++) {
+		__exynos_usbdrd_phy_shutdown(&phy_drd->phys[i]);
+	}
 
-exit:
 	clk_disable_unprepare(phy_drd->clk);
 
 	return 0;

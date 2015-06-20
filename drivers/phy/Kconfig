@@ -217,6 +217,14 @@ config PHY_EXYNOS_USBDRD
 	  This driver provides PHY interface for USB 3.0 DRD controller
 	  present on Exynos SoC series.
 
+config PHY_SAMSUNG_USB_CAL
+	bool "Samsung USB PHY CAL"
+	depends on PHY_EXYNOS_USBDRD
+	default y
+	help
+	  Enable this to support CAL (Chip Abstraction Layer)
+	  for Samsung USB PHY controller.
+
 config PHY_QCOM_APQ8064_SATA
 	tristate "Qualcomm APQ8064 SATA SerDes/PHY driver"
 	depends on ARCH_QCOM
