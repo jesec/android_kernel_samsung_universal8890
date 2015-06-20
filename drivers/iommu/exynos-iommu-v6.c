@@ -1834,7 +1834,8 @@ static int __init exynos_sysmmu_probe(struct platform_device *pdev)
 
 	ret = __sysmmu_setup(dev, data);
 	if (!ret) {
-		get_sysmmu_runtime_active(data);
+		if (!pm_runtime_enabled(dev))
+			get_sysmmu_runtime_active(data);
 		data->sysmmu = dev;
 		ATOMIC_INIT_NOTIFIER_HEAD(&data->fault_notifiers);
 		spin_lock_init(&data->lock);
