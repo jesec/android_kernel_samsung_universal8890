@@ -31,6 +31,96 @@
 
 #include "phy-exynos-usbdrd.h"
 
+static const char *exynos8_usbdrd_clk_names[] = {"aclk", "sclk", "phyclock",
+						"pipe_pclk", NULL};
+
+static int exynos_usbdrd_clk_prepare(struct exynos_usbdrd_phy *phy_drd)
+{
+	int i;
+	int ret;
+
+	for (i = 0; phy_drd->clocks[i] != NULL; i++) {
+		ret = clk_prepare(phy_drd->clocks[i]);
+		if (ret)
+			goto err;
+	}
+	return 0;
+err:
+	for (i = i - 1; i >= 0; i--)
+		clk_unprepare(phy_drd->clocks[i]);
+	return ret;
+}
+
+static int exynos_usbdrd_clk_enable(struct exynos_usbdrd_phy *phy_drd)
+{
+	int i;
+	int ret;
+
+	for (i = 0; phy_drd->clocks[i] != NULL; i++) {
+		ret = clk_enable(phy_drd->clocks[i]);
+		if (ret)
+			goto err;
+	}
+	return 0;
+err:
+	for (i = i - 1; i >= 0; i--)
+		clk_disable(phy_drd->clocks[i]);
+	return ret;
+}
+
+static void exynos_usbdrd_clk_unprepare(struct exynos_usbdrd_phy *phy_drd)
+{
+	int i;
+
+	for (i = 0; phy_drd->clocks[i] != NULL; i++)
+		clk_unprepare(phy_drd->clocks[i]);
+}
+
+static void exynos_usbdrd_clk_disable(struct exynos_usbdrd_phy *phy_drd)
+{
+	int i;
+
+	for (i = 0; phy_drd->clocks[i] != NULL; i++)
+		clk_disable(phy_drd->clocks[i]);
+}
+
+static int exynos_usbdrd_clk_get(struct exynos_usbdrd_phy *phy_drd)
+{
+	const char	**clk_ids;
+	struct clk	*clk;
+	int		clk_count;
+	int		i;
+
+	switch (phy_drd->drv_data->cpu_type) {
+	case TYPE_EXYNOS8:
+		clk_ids = exynos8_usbdrd_clk_names;
+		clk_count = (int)ARRAY_SIZE(exynos8_usbdrd_clk_names);
+		break;
+	default:
+		dev_err(phy_drd->dev, "couldn't get clock : unknown cpu type\n");
+		return -EINVAL;
+	}
+
+	phy_drd->clocks = (struct clk **) devm_kmalloc(phy_drd->dev,
+			clk_count * sizeof(struct clk *), GFP_KERNEL);
+	if (!phy_drd->clocks)
+		return -ENOMEM;
+
+	for (i = 0; clk_ids[i] != NULL; i++) {
+		clk = devm_clk_get(phy_drd->dev, clk_ids[i]);
+		if (IS_ERR_OR_NULL(clk))
+			goto err;
+
+		phy_drd->clocks[i] = clk;
+	}
+	phy_drd->clocks[i] = NULL;
+
+	return 0;
+err:
+	dev_err(phy_drd->dev, "couldn't get %s clock\n", clk_ids[i]);
+	return -EINVAL;
+}
+
 static inline
 struct exynos_usbdrd_phy *to_usbdrd_phy(struct phy_usb_instance *inst)
 {
@@ -42,35 +132,59 @@ struct exynos_usbdrd_phy *to_usbdrd_phy(struct phy_usb_instance *inst)
  * exynos_rate_to_clk() converts the supplied clock rate to the value that
  * can be written to the phy register.
  */
-static unsigned int exynos_rate_to_clk(unsigned long rate, u32 *reg)
+static unsigned int exynos_rate_to_clk(struct exynos_usbdrd_phy *phy_drd)
 {
-	/* EXYNOS_FSEL_MASK */
+	int ret;
 
-	switch (rate) {
+	switch (phy_drd->drv_data->cpu_type) {
+	case TYPE_EXYNOS8:
+	default:
+		phy_drd->ref_clk = devm_clk_get(phy_drd->dev, "ext_xtal");
+		break;
+	}
+	if (IS_ERR_OR_NULL(phy_drd->ref_clk)) {
+		dev_err(phy_drd->dev, "%s failed to get ref_clk", __func__);
+		return 0;
+	}
+	ret = clk_prepare_enable(phy_drd->ref_clk);
+	if (ret) {
+		dev_err(phy_drd->dev, "%s failed to enable ref_clk", __func__);
+		return 0;
+	}
+
+	/* EXYNOS_FSEL_MASK */
+	switch (clk_get_rate(phy_drd->ref_clk)) {
 	case 9600 * KHZ:
-		*reg = EXYNOS_FSEL_9MHZ6;
+		phy_drd->extrefclk = EXYNOS_FSEL_9MHZ6;
 		break;
 	case 10 * MHZ:
-		*reg = EXYNOS_FSEL_10MHZ;
+		phy_drd->extrefclk = EXYNOS_FSEL_10MHZ;
 		break;
 	case 12 * MHZ:
-		*reg = EXYNOS_FSEL_12MHZ;
+		phy_drd->extrefclk = EXYNOS_FSEL_12MHZ;
 		break;
 	case 19200 * KHZ:
-		*reg = EXYNOS_FSEL_19MHZ2;
+		phy_drd->extrefclk = EXYNOS_FSEL_19MHZ2;
 		break;
 	case 20 * MHZ:
-		*reg = EXYNOS_FSEL_20MHZ;
+		phy_drd->extrefclk = EXYNOS_FSEL_20MHZ;
 		break;
 	case 24 * MHZ:
-		*reg = EXYNOS_FSEL_24MHZ;
+		phy_drd->extrefclk = EXYNOS_FSEL_24MHZ;
+		break;
+	case 26 * MHZ:
+		phy_drd->extrefclk = EXYNOS_FSEL_26MHZ;
 		break;
 	case 50 * MHZ:
-		*reg = EXYNOS_FSEL_50MHZ;
+		phy_drd->extrefclk = EXYNOS_FSEL_50MHZ;
 		break;
 	default:
+		phy_drd->extrefclk = 0;
+		clk_disable_unprepare(phy_drd->ref_clk);
 		return -EINVAL;
 	}
+
+	clk_disable_unprepare(phy_drd->ref_clk);
 
 	return 0;
 }
@@ -170,15 +284,13 @@ static void exynos_usbdrd_pipe3_init(struct exynos_usbdrd_phy *phy_drd)
 {
 	int ret;
 
-	ret = clk_prepare_enable(phy_drd->clk);
+	ret = exynos_usbdrd_clk_enable(phy_drd);
 	if (ret) {
 		dev_err(phy_drd->dev, "%s: Failed to enable clk\n", __func__);
 		return;
 	}
 
 	samsung_exynos_cal_usb3phy_enable(&phy_drd->usbphy_info);
-
-	clk_disable_unprepare(phy_drd->clk);
 }
 
 static void exynos_usbdrd_utmi_init(struct exynos_usbdrd_phy *phy_drd)
@@ -199,17 +311,9 @@ static int exynos_usbdrd_phy_init(struct phy *phy)
 
 static void exynos_usbdrd_pipe3_exit(struct exynos_usbdrd_phy *phy_drd)
 {
-	int ret;
-
-	ret = clk_prepare_enable(phy_drd->clk);
-	if (ret) {
-		dev_err(phy_drd->dev, "%s: Failed to enable clk\n", __func__);
-		return;
-	}
-
 	samsung_exynos_cal_usb3phy_disable(&phy_drd->usbphy_info);
 
-	clk_disable_unprepare(phy_drd->clk);
+	exynos_usbdrd_clk_disable(phy_drd);
 }
 
 static void exynos_usbdrd_utmi_exit(struct exynos_usbdrd_phy *phy_drd)
@@ -258,14 +362,12 @@ static int exynos_usbdrd_phy_power_on(struct phy *phy)
 
 	dev_dbg(phy_drd->dev, "Request to power_on usbdrd_phy phy\n");
 
-	clk_prepare_enable(phy_drd->ref_clk);
-
 	/* Enable VBUS supply */
 	if (phy_drd->vbus) {
 		ret = regulator_enable(phy_drd->vbus);
 		if (ret) {
 			dev_err(phy_drd->dev, "Failed to enable VBUS supply\n");
-			goto fail_vbus;
+			return ret;
 		}
 	}
 
@@ -273,11 +375,6 @@ static int exynos_usbdrd_phy_power_on(struct phy *phy)
 	inst->phy_cfg->phy_isol(inst, 0);
 
 	return 0;
-
-fail_vbus:
-	clk_disable_unprepare(phy_drd->ref_clk);
-
-	return ret;
 }
 
 static int exynos_usbdrd_phy_power_off(struct phy *phy)
@@ -293,8 +390,6 @@ static int exynos_usbdrd_phy_power_off(struct phy *phy)
 	/* Disable VBUS supply */
 	if (phy_drd->vbus)
 		regulator_disable(phy_drd->vbus);
-
-	clk_disable_unprepare(phy_drd->ref_clk);
 
 	return 0;
 }
@@ -362,7 +457,6 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 	const struct exynos_usbdrd_phy_drvdata *drv_data;
 	struct regmap *reg_pmu;
 	u32 pmu_offset, tmp_version;
-	unsigned long ref_rate;
 	int i, ret;
 	int channel;
 
@@ -383,31 +477,30 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 	drv_data = match->data;
 	phy_drd->drv_data = drv_data;
 
-	phy_drd->clk = devm_clk_get(dev, "phy");
-	if (IS_ERR(phy_drd->clk)) {
-		dev_err(dev, "Failed to get clock of phy controller\n");
-		return PTR_ERR(phy_drd->clk);
-	}
-
-	phy_drd->ref_clk = devm_clk_get(dev, "ref");
-	if (IS_ERR(phy_drd->ref_clk)) {
-		dev_err(dev, "Failed to get reference clock of usbdrd phy\n");
-		return PTR_ERR(phy_drd->ref_clk);
-	}
-	ref_rate = clk_get_rate(phy_drd->ref_clk);
-
-	ret = exynos_rate_to_clk(ref_rate, &phy_drd->extrefclk);
+	ret = exynos_usbdrd_clk_get(phy_drd);
 	if (ret) {
-		dev_err(phy_drd->dev, "Clock rate (%ld) not supported\n",
-			ref_rate);
+		dev_err(dev, "%s: Failed to get clocks\n", __func__);
 		return ret;
+	}
+
+	ret = exynos_usbdrd_clk_prepare(phy_drd);
+	if (ret) {
+		dev_err(dev, "%s: Failed to prepare clocks\n", __func__);
+		return ret;
+	}
+
+	ret = exynos_rate_to_clk(phy_drd);
+	if (ret) {
+		dev_err(phy_drd->dev, "%s: Not supported ref clock\n",
+				__func__);
+		goto err1;
 	}
 
 	reg_pmu = syscon_regmap_lookup_by_phandle(dev->of_node,
 						   "samsung,pmu-syscon");
 	if (IS_ERR(reg_pmu)) {
 		dev_err(dev, "Failed to lookup PMU regmap\n");
-		return PTR_ERR(reg_pmu);
+		goto err1;
 	}
 
 	channel = of_alias_get_id(node, "usbdrdphy");
@@ -443,7 +536,7 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 						  NULL);
 		if (IS_ERR(phy)) {
 			dev_err(dev, "Failed to create usbdrd_phy phy\n");
-			return PTR_ERR(phy);
+			goto err1;
 		}
 
 		phy_drd->phys[i].phy = phy;
@@ -458,10 +551,14 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 						     exynos_usbdrd_phy_xlate);
 	if (IS_ERR(phy_provider)) {
 		dev_err(phy_drd->dev, "Failed to register phy provider\n");
-		return PTR_ERR(phy_provider);
+		goto err1;
 	}
 
 	return 0;
+err1:
+	exynos_usbdrd_clk_unprepare(phy_drd);
+
+	return ret;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -482,9 +579,9 @@ static int exynos_usbdrd_phy_resume(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	ret = clk_prepare_enable(phy_drd->clk);
+	ret = exynos_usbdrd_clk_enable(phy_drd);
 	if (ret) {
-		dev_err(dev, "%s: clk_enable failed\n", __func__);
+		dev_err(phy_drd->dev, "%s: Failed to enable clk\n", __func__);
 		return ret;
 	}
 
@@ -492,7 +589,7 @@ static int exynos_usbdrd_phy_resume(struct device *dev)
 		__exynos_usbdrd_phy_shutdown(&phy_drd->phys[i]);
 	}
 
-	clk_disable_unprepare(phy_drd->clk);
+	exynos_usbdrd_clk_disable(phy_drd);
 
 	return 0;
 }

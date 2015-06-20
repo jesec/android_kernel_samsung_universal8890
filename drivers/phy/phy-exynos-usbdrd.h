@@ -129,7 +129,7 @@ struct exynos_usbdrd_phy_drvdata {
 struct exynos_usbdrd_phy {
 	struct device *dev;
 	void __iomem *reg_phy;
-	struct clk *clk;
+	struct clk **clocks;
 	const struct exynos_usbdrd_phy_drvdata *drv_data;
 	struct phy_usb_instance {
 		struct phy *phy;
