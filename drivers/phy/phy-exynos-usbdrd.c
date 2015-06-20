@@ -26,6 +26,7 @@
 #include <linux/mfd/syscon/exynos5-pmu.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/usb/samsung_usb.h>
 
 #include "phy-exynos-usbdrd.h"
 
@@ -407,6 +408,7 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8[] = {
 static const struct exynos_usbdrd_phy_drvdata exynos8_usbdrd_phy = {
 	.phy_cfg		= phy_cfg_exynos8,
 	.pmu_offset_usbdrd0_phy	= EXYNOS5_USBDRD_PHY_CONTROL,
+	.cpu_type		= TYPE_EXYNOS8,
 };
 
 static const struct of_device_id exynos_usbdrd_phy_of_match[] = {

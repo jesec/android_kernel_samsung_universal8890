@@ -124,6 +124,7 @@ struct exynos_usbdrd_phy_drvdata {
 	const struct exynos_usbdrd_phy_config *phy_cfg;
 	u32 pmu_offset_usbdrd0_phy;
 	u32 pmu_offset_usbdrd1_phy;
+	u32 cpu_type;
 };
 
 /**
