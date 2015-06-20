@@ -426,6 +426,17 @@ static struct usb_request
 	return req;
 }
 
+/* Make bulk-out requests be divisible by the maxpacket size */
+static void set_read_req_length(struct usb_request *req)
+{
+	struct mtp_dev *dev = _mtp_dev;
+	unsigned int	rem;
+
+	rem = req->length % dev->ep_out->maxpacket;
+	if (rem > 0)
+		req->length += dev->ep_out->maxpacket - rem;
+}
+
 static void mtp_complete_in(struct usb_ep *ep, struct usb_request *req)
 {
 	struct mtp_dev *dev = _mtp_dev;
@@ -833,6 +844,8 @@ static void receive_file_work(struct work_struct *data)
 			read_req->length = (count > MTP_BULK_BUFFER_SIZE
 					? MTP_BULK_BUFFER_SIZE : count);
 			dev->rx_done = 0;
+
+			set_read_req_length(read_req);
 			ret = usb_ep_queue(dev->ep_out, read_req, GFP_KERNEL);
 			if (ret < 0) {
 				r = -EIO;
