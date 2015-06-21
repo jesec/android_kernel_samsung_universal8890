@@ -1559,28 +1559,49 @@ out_put_tag:
 	return err;
 }
 
-/**
- * ufshcd_init_query() - init the query response and request parameters
- * @hba: per-adapter instance
- * @request: address of the request pointer to be initialized
- * @response: address of the response pointer to be initialized
- * @opcode: operation to perform
- * @idn: flag idn to access
- * @index: LU number to access
- * @selector: query/flag/descriptor further identification
- */
-static inline void ufshcd_init_query(struct ufs_hba *hba,
-		struct ufs_query_req **request, struct ufs_query_res **response,
-		enum query_opcode opcode, u8 idn, u8 index, u8 selector)
+int ufshcd_prep_query(struct ufs_hba *hba, enum query_opcode op,
+		u8 idn, u8 idx, u8 sel, u32 *qry_val)
 {
-	*request = &hba->dev_cmd.query.request;
-	*response = &hba->dev_cmd.query.response;
-	memset(*request, 0, sizeof(struct ufs_query_req));
-	memset(*response, 0, sizeof(struct ufs_query_res));
-	(*request)->upiu_req.opcode = opcode;
-	(*request)->upiu_req.idn = idn;
-	(*request)->upiu_req.index = index;
-	(*request)->upiu_req.selector = selector;
+	struct ufs_query_req *request;
+	struct ufs_query_res *response;
+
+	if ((op == UPIU_QUERY_OPCODE_WRITE_ATTR) && !qry_val) {
+		dev_err(hba->dev,
+			"%s: query value required for opcode 0x%x\n",
+			__func__, op);
+		return -EINVAL;
+	}
+
+	request = &hba->dev_cmd.query.request;
+	response = &hba->dev_cmd.query.response;
+	memset(request, 0, sizeof(struct ufs_query_req));
+	memset(response, 0, sizeof(struct ufs_query_res));
+
+	switch (op) {
+	case UPIU_QUERY_OPCODE_WRITE_ATTR:
+		request->upiu_req.value = cpu_to_be32(*qry_val);
+	case UPIU_QUERY_OPCODE_SET_FLAG:
+	case UPIU_QUERY_OPCODE_CLEAR_FLAG:
+	case UPIU_QUERY_OPCODE_TOGGLE_FLAG:
+		request->query_func = UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST;
+		break;
+	case UPIU_QUERY_OPCODE_READ_ATTR:
+	case UPIU_QUERY_OPCODE_READ_FLAG:
+		request->query_func = UPIU_QUERY_FUNC_STANDARD_READ_REQUEST;
+		break;
+	default:
+		dev_err(hba->dev,
+			"%s: unexpected query opcode 0x%.2x\n",
+			__func__, op);
+		return -EINVAL;
+	}
+
+	request->upiu_req.opcode = op;
+	request->upiu_req.idn = idn;
+	request->upiu_req.index = idx;
+	request->upiu_req.selector = sel;
+
+	return 0;
 }
 
 /**
@@ -1592,46 +1613,24 @@ static inline void ufshcd_init_query(struct ufs_hba *hba,
  *
  * Returns 0 for success, non-zero in case of failure
  */
+
 static int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 			enum flag_idn idn, bool *flag_res)
 {
-	struct ufs_query_req *request = NULL;
-	struct ufs_query_res *response = NULL;
-	int err, index = 0, selector = 0;
+	struct ufs_query_res *response = &hba->dev_cmd.query.response;
+	int err;
 
 	BUG_ON(!hba);
 
-	ufshcd_hold(hba, false);
 	mutex_lock(&hba->dev_cmd.lock);
-	ufshcd_init_query(hba, &request, &response, opcode, idn, index,
-			selector);
 
-	switch (opcode) {
-	case UPIU_QUERY_OPCODE_SET_FLAG:
-	case UPIU_QUERY_OPCODE_CLEAR_FLAG:
-	case UPIU_QUERY_OPCODE_TOGGLE_FLAG:
-		request->query_func = UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST;
-		break;
-	case UPIU_QUERY_OPCODE_READ_FLAG:
-		request->query_func = UPIU_QUERY_FUNC_STANDARD_READ_REQUEST;
-		if (!flag_res) {
-			/* No dummy reads */
-			dev_err(hba->dev, "%s: Invalid argument for read request\n",
-					__func__);
-			err = -EINVAL;
-			goto out_unlock;
-		}
-		break;
-	default:
-		dev_err(hba->dev,
-			"%s: Expected query flag opcode but got = %d\n",
-			__func__, opcode);
-		err = -EINVAL;
+	err = ufshcd_prep_query(hba, opcode, idn, 0, 0, NULL);
+	if (err)
 		goto out_unlock;
-	}
 
-	err = ufshcd_exec_dev_cmd(hba, DEV_CMD_TYPE_QUERY, QUERY_REQ_TIMEOUT);
-
+	/* Send query request */
+	err = ufshcd_exec_dev_cmd(hba, DEV_CMD_TYPE_QUERY,
+			QUERY_REQ_TIMEOUT);
 	if (err) {
 		dev_err(hba->dev,
 			"%s: Sending flag query for idn %d failed, err = %d\n",
@@ -1661,10 +1660,9 @@ out_unlock:
  * Returns 0 for success, non-zero in case of failure
 */
 static int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
-			enum attr_idn idn, u8 index, u8 selector, u32 *attr_val)
+			u8 idn, u8 index, u8 selector, u32 *attr_val)
 {
-	struct ufs_query_req *request = NULL;
-	struct ufs_query_res *response = NULL;
+	struct ufs_query_res *response = &hba->dev_cmd.query.response;
 	int err;
 
 	BUG_ON(!hba);
@@ -1678,24 +1676,12 @@ static int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
 	}
 
 	mutex_lock(&hba->dev_cmd.lock);
-	ufshcd_init_query(hba, &request, &response, opcode, idn, index,
-			selector);
 
-	switch (opcode) {
-	case UPIU_QUERY_OPCODE_WRITE_ATTR:
-		request->query_func = UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST;
-		request->upiu_req.value = cpu_to_be32(*attr_val);
-		break;
-	case UPIU_QUERY_OPCODE_READ_ATTR:
-		request->query_func = UPIU_QUERY_FUNC_STANDARD_READ_REQUEST;
-		break;
-	default:
-		dev_err(hba->dev, "%s: Expected query attr opcode but got = 0x%.2x\n",
-				__func__, opcode);
-		err = -EINVAL;
+	err = ufshcd_prep_query(hba, opcode, idn, index, selector, attr_val);
+	if (err)
 		goto out_unlock;
-	}
 
+	/* send query request */
 	err = ufshcd_exec_dev_cmd(hba, DEV_CMD_TYPE_QUERY, QUERY_REQ_TIMEOUT);
 
 	if (err) {
@@ -1704,7 +1690,8 @@ static int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
 		goto out_unlock;
 	}
 
-	*attr_val = be32_to_cpu(response->upiu_res.value);
+	if (attr_val)
+		*attr_val = be32_to_cpu(response->upiu_res.value);
 
 out_unlock:
 	mutex_unlock(&hba->dev_cmd.lock);
@@ -1753,8 +1740,7 @@ static int ufshcd_query_descriptor(struct ufs_hba *hba,
 	}
 
 	mutex_lock(&hba->dev_cmd.lock);
-	ufshcd_init_query(hba, &request, &response, opcode, idn, index,
-			selector);
+	ufshcd_prep_query(hba, opcode, idn, index, selector, NULL);
 	hba->dev_cmd.query.descriptor = desc_buf;
 	request->upiu_req.length = cpu_to_be16(*buf_len);
 
