@@ -27,6 +27,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/samsung_usb.h>
+#include <linux/usb/otg.h>
 
 #include "phy-exynos-usbdrd.h"
 
@@ -324,7 +325,7 @@ static int exynos_usbdrd_phy_exit(struct phy *phy)
 	return 0;
 }
 
-static int exynos_usbdrd_phy_tune(struct phy *phy)
+static int exynos_usbdrd_phy_tune(struct phy *phy, int phy_state)
 {
 	int ret;
 	struct phy_usb_instance *inst = phy_get_drvdata(phy);
@@ -333,6 +334,13 @@ static int exynos_usbdrd_phy_tune(struct phy *phy)
 	ret = clk_prepare_enable(phy_drd->clk);
 	if (ret)
 		return ret;
+
+	if (phy_state >= OTG_STATE_A_IDLE)
+		/* for host mode */
+		;
+	else
+		/* for device mode */
+		;
 
 	clk_disable_unprepare(phy_drd->clk);
 

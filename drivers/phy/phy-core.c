@@ -227,14 +227,14 @@ out:
 }
 EXPORT_SYMBOL_GPL(phy_exit);
 
-int phy_tune(struct phy *phy)
+int phy_tune(struct phy *phy, int phy_state)
 {
 	int ret;
 
 	if (!phy || !phy->ops->tune)
 		return 0;
 
-	ret = phy->ops->tune(phy);
+	ret = phy->ops->tune(phy, phy_state);
 	if (ret < 0) {
 		dev_err(&phy->dev, "phy tune failed --> %d\n", ret);
 	} else {
