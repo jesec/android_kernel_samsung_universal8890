@@ -1679,8 +1679,18 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	if (is_on) {
 		dwc3_udc_reset(dwc);
 		/* udc reset clears CR port settings */
-		phy_tune(dwc->usb2_generic_phy);
-		phy_tune(dwc->usb3_generic_phy);
+		if (dwc->usb3_phy) {
+			/*
+			 * The state of usb phy was set by otg state machine.
+			 * Please, refer to the function "dwc3_otg_statemachine".
+			 */
+			phy_tune(dwc->usb2_generic_phy, dwc->usb3_phy->state);
+			phy_tune(dwc->usb3_generic_phy, dwc->usb3_phy->state);
+		} else {
+			/* There is not any information of the state of usb phy */
+			phy_tune(dwc->usb2_generic_phy, 0);
+			phy_tune(dwc->usb3_generic_phy, 0);
+		}
 	}
 
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);

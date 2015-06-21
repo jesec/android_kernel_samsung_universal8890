@@ -526,8 +526,18 @@ int dwc3_core_init(struct dwc3 *dwc)
 	if (ret)
 		goto err0;
 
-	phy_tune(dwc->usb2_generic_phy);
-	phy_tune(dwc->usb3_generic_phy);
+	if (dwc->usb3_phy) {
+		/*
+		 * The state of usb phy was set by otg state machine.
+		 * Please, refer to the function "dwc3_otg_statemachine".
+		 */
+		phy_tune(dwc->usb2_generic_phy, dwc->usb3_phy->state);
+		phy_tune(dwc->usb3_generic_phy, dwc->usb3_phy->state);
+	} else {
+		/* There is not any information of the state of usb phy */
+		phy_tune(dwc->usb2_generic_phy, 0);
+		phy_tune(dwc->usb3_generic_phy, 0);
+	}
 
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
@@ -669,7 +679,11 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 	if (IS_ERR(dwc->usb3_phy)) {
 		ret = PTR_ERR(dwc->usb3_phy);
 		if (ret == -ENXIO || ret == -ENODEV) {
-			dwc->usb3_phy = NULL;
+			if (IS_ENABLED(CONFIG_PHY_EXYNOS_USBDRD))
+				dwc->usb3_phy = devm_kzalloc(dev,
+					sizeof(struct usb_phy), GFP_KERNEL);
+			else
+				dwc->usb3_phy = NULL;
 		} else if (ret == -EPROBE_DEFER) {
 			return ret;
 		} else {

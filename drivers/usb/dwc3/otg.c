@@ -648,7 +648,7 @@ has_ext_otg:
 	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
 	dotg->otg.set_host = NULL;
 
-	dotg->otg.phy = dwc->usb2_phy;
+	dotg->otg.phy = dwc->usb3_phy;
 	dotg->otg.phy->otg = &dotg->otg;
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
 
