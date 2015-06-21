@@ -643,27 +643,6 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	clk = devm_clk_get(dev, "usbdrd30");
-	if (IS_ERR_OR_NULL(clk)) {
-		exynos->clk	= NULL;
-		/* fallback to separate clock control */
-		clk = devm_clk_get(dev, "aclk");
-		if (IS_ERR_OR_NULL(clk)) {
-			dev_err(dev, "couldn't get clock(s)\n");
-			retrun -EINVAL;
-		}
-		exynos->aclk	= clk;
-
-		clk = devm_clk_get(dev, "sclk");
-		if (IS_ERR_OR_NULL(clk)) {
-			dev_err(dev, "couldn't get clock\n");
-			return -EINVAL;
-		}
-		exynos->sclk	= clk;
-	} else {
-		exynos->clk	= clk;
-	}
-
 	exynos->dev	= dev;
 #if IS_ENABLED(CONFIG_OF)
 	exynos->drv_data = dwc3_exynos_get_driver_data(pdev);
