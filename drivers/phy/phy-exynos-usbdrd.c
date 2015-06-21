@@ -232,10 +232,21 @@ static int exynos_usbdrd_phy_init(struct phy *phy)
 	reg &= ~PHYPARAM0_REF_USE_PAD;
 	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYPARAM0);
 
-	/* This bit must be set for both HS and SS operations */
-	reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYUTMICLKSEL);
-	reg |= PHYUTMICLKSEL_UTMI_CLKSEL;
-	writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYUTMICLKSEL);
+	/*
+	 * This bit must be set for both HS and SS operations.
+	 * Actually, this setting should be seperated from Exynos5430,
+	 * but this file was made for Exynos8 series and next.
+	 * So, it was roughly modified.
+	 */
+	if (phy_drd->drv_data->cpu_type > TYPE_EXYNOS5) {
+		reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYPIPE);
+		reg |= PHY_CLOCK_SEL;
+		writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYPIPE);
+	} else {
+		reg = readl(phy_drd->reg_phy + EXYNOS_DRD_PHYUTMICLKSEL);
+		reg |= PHYUTMICLKSEL_UTMI_CLKSEL;
+		writel(reg, phy_drd->reg_phy + EXYNOS_DRD_PHYUTMICLKSEL);
+	}
 
 	/* UTMI or PIPE3 specific init */
 	inst->phy_cfg->phy_init(phy_drd);

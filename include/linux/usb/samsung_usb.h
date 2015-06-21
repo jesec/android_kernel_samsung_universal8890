@@ -21,6 +21,7 @@ enum samsung_cpu_type {
 	TYPE_EXYNOS7420,
 	TYPE_EXYNOS7580,
 	TYPE_EXYNOS5,
+	TYPE_EXYNOS7,
 	TYPE_EXYNOS8,
 };
 

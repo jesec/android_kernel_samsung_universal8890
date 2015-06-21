@@ -33,6 +33,8 @@
 
 #define EXYNOS_DRD_PHYPIPE			0x0c
 
+#define PHY_CLOCK_SEL				(0x1 << 4)
+
 #define EXYNOS_DRD_PHYCLKRST			0x10
 
 #define PHYCLKRST_EN_UTMISUSPEND		BIT(31)
