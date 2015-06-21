@@ -58,7 +58,7 @@
 /* Query request retries */
 #define QUERY_REQ_RETRIES 10
 /* Query request timeout */
-#define QUERY_REQ_TIMEOUT 30 /* msec */
+#define QUERY_REQ_TIMEOUT 1000 /* msec */
 
 /* Task management command timeout */
 #define TM_CMD_TIMEOUT	100 /* msecs */
@@ -1583,10 +1583,12 @@ int ufshcd_prep_query(struct ufs_hba *hba, enum query_opcode op,
 	case UPIU_QUERY_OPCODE_SET_FLAG:
 	case UPIU_QUERY_OPCODE_CLEAR_FLAG:
 	case UPIU_QUERY_OPCODE_TOGGLE_FLAG:
+	case UPIU_QUERY_OPCODE_WRITE_DESC:
 		request->query_func = UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST;
 		break;
 	case UPIU_QUERY_OPCODE_READ_ATTR:
 	case UPIU_QUERY_OPCODE_READ_FLAG:
+	case UPIU_QUERY_OPCODE_READ_DESC:
 		request->query_func = UPIU_QUERY_FUNC_STANDARD_READ_REQUEST;
 		break;
 	default:
@@ -1715,55 +1717,47 @@ out:
  * received on the response.
  */
 static int ufshcd_query_descriptor(struct ufs_hba *hba,
-			enum query_opcode opcode, enum desc_idn idn, u8 index,
-			u8 selector, u8 *desc_buf, int *buf_len)
+		enum query_opcode opcode, u8 idn, u8 index,
+		u8 selector, u8 *desc_buf, int *buf_len)
 {
-	struct ufs_query_req *request = NULL;
-	struct ufs_query_res *response = NULL;
+	struct ufs_query_req *request;
+	struct ufs_query_res *response;
 	int err;
 
 	BUG_ON(!hba);
 
-	ufshcd_hold(hba, false);
-	if (!desc_buf) {
-		dev_err(hba->dev, "%s: descriptor buffer required for opcode 0x%x\n",
-				__func__, opcode);
+	if (!desc_buf || !buf_len) {
+		dev_err(hba->dev,
+			"%s: descriptor buffer required for opcode 0x%x\n",
+			__func__, opcode);
 		err = -EINVAL;
 		goto out;
 	}
 
 	if (*buf_len <= QUERY_DESC_MIN_SIZE || *buf_len > QUERY_DESC_MAX_SIZE) {
-		dev_err(hba->dev, "%s: descriptor buffer size (%d) is out of range\n",
-				__func__, *buf_len);
-		err = -EINVAL;
+		dev_err(hba->dev,
+			"%s: descriptor buffer size (%d) is out of range\n",
+			__func__, *buf_len);
 		goto out;
 	}
 
 	mutex_lock(&hba->dev_cmd.lock);
-	ufshcd_prep_query(hba, opcode, idn, index, selector, NULL);
+
+	err = ufshcd_prep_query(hba, opcode, idn, index, selector, NULL);
+	if (err)
+		goto out_unlock;
+
+	request = &hba->dev_cmd.query.request;
+	response = &hba->dev_cmd.query.response;
+
 	hba->dev_cmd.query.descriptor = desc_buf;
 	request->upiu_req.length = cpu_to_be16(*buf_len);
 
-	switch (opcode) {
-	case UPIU_QUERY_OPCODE_WRITE_DESC:
-		request->query_func = UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST;
-		break;
-	case UPIU_QUERY_OPCODE_READ_DESC:
-		request->query_func = UPIU_QUERY_FUNC_STANDARD_READ_REQUEST;
-		break;
-	default:
-		dev_err(hba->dev,
-				"%s: Expected query descriptor opcode but got = 0x%.2x\n",
-				__func__, opcode);
-		err = -EINVAL;
-		goto out_unlock;
-	}
-
 	err = ufshcd_exec_dev_cmd(hba, DEV_CMD_TYPE_QUERY, QUERY_REQ_TIMEOUT);
-
 	if (err) {
-		dev_err(hba->dev, "%s: opcode 0x%.2x for idn %d failed, err = %d\n",
-				__func__, opcode, idn, err);
+		dev_err(hba->dev,
+			"%s: opcode 0x%.2x for idn %d failed, err = %d\n",
+			__func__, opcode, idn, err);
 		goto out_unlock;
 	}
 
@@ -1773,7 +1767,6 @@ static int ufshcd_query_descriptor(struct ufs_hba *hba,
 out_unlock:
 	mutex_unlock(&hba->dev_cmd.lock);
 out:
-	ufshcd_release(hba);
 	return err;
 }
 
