@@ -54,6 +54,8 @@
 #define NOP_OUT_RETRIES    10
 /* Timeout after 30 msecs if NOP OUT hangs without response */
 #define NOP_OUT_TIMEOUT    30 /* msecs */
+/* Device initialization completion timeout, unit: ms */
+#define DEV_INIT_COMPL_TIMEOUT  500
 
 /* Query request retries */
 #define QUERY_REQ_RETRIES 10
@@ -2413,8 +2415,9 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
  */
 static int ufshcd_complete_dev_init(struct ufs_hba *hba)
 {
-	int i, retries, err = 0;
+	int retries, err = 0;
 	bool flag_res = 1;
+	unsigned long timeout;
 
 	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
 		/* Set the fDeviceInit flag */
@@ -2431,26 +2434,30 @@ static int ufshcd_complete_dev_init(struct ufs_hba *hba)
 		goto out;
 	}
 
-	/* poll for max. 100 iterations for fDeviceInit flag to clear */
-	for (i = 0; i < 100 && !err && flag_res; i++) {
-		for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
-			err = ufshcd_query_flag(hba,
-					UPIU_QUERY_OPCODE_READ_FLAG,
+	/* Poll fDeviceInit flag to be cleared */
+	timeout = jiffies + msecs_to_jiffies(DEV_INIT_COMPL_TIMEOUT);
+
+	do {
+		err = ufshcd_query_flag(hba, UPIU_QUERY_OPCODE_READ_FLAG,
 					QUERY_FLAG_IDN_FDEVICEINIT, &flag_res);
-			if (!err || err == -ETIMEDOUT)
-				break;
-			dev_dbg(hba->dev, "%s: error %d retrying\n", __func__,
-					err);
-		}
-	}
-	if (err)
+		if (!flag_res)
+			break;
+		usleep_range(1000, 1000);
+	} while (time_before(jiffies, timeout));
+
+	if (err) {
 		dev_err(hba->dev,
 			"%s reading fDeviceInit flag failed with error %d\n",
 			__func__, err);
-	else if (flag_res)
+		goto out;
+	}
+
+	if (flag_res) {
 		dev_err(hba->dev,
 			"%s fDeviceInit was not cleared by the device\n",
 			__func__);
+		err = -EBUSY;
+	}
 
 out:
 	return err;
