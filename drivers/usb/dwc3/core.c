@@ -525,7 +525,8 @@ int dwc3_core_init(struct dwc3 *dwc)
 	if (ret)
 		goto err0;
 
-	usb_phy_tune(dwc->usb3_phy);
+	phy_tune(dwc->usb2_generic_phy);
+	phy_tune(dwc->usb3_generic_phy);
 
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
