@@ -64,7 +64,7 @@ static inline int dwc3_ext_otg_setup(struct dwc3_otg *dotg)
 	struct device *dev = dotg->dwc->dev->parent;
 
 	if (!dotg->ext_otg_ops->setup)
-		return -eopnotsupp;
+		return -EOPNOTSUPP;
 	return dotg->ext_otg_ops->setup(dev, &dotg->fsm);
 }
 
@@ -73,7 +73,7 @@ static inline int dwc3_ext_otg_exit(struct dwc3_otg *dotg)
 	struct device *dev = dotg->dwc->dev->parent;
 
 	if (!dotg->ext_otg_ops->exit)
-		return -eopnotsupp;
+		return -EOPNOTSUPP;
 	dotg->ext_otg_ops->exit(dev);
 	return 0;
 }
