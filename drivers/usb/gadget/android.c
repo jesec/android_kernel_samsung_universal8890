@@ -30,17 +30,16 @@
 
 #include "gadget_chips.h"
 
-#include "f_fs.c"
-#include "f_audio_source.c"
-#include "f_mass_storage.c"
-#include "f_mass_storage.c"
-#include "f_adb.c"
-#include "f_mtp.c"
-#include "f_accessory.c"
+#include "../function/f_fs.c"
+#include "../function/f_audio_source.c"
+#include "../function/f_mass_storage.c"
+#include "../function/f_adb.c"
+#include "../function/f_mtp.c"
+#include "../function/f_accessory.c"
 #define USB_ETH_RNDIS y
-#include "f_rndis.c"
-#include "rndis.c"
-#include "u_ether.c"
+#include "../function/f_rndis.c"
+#include "../function/rndis.c"
+#include "../function/u_ether.c"
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -207,7 +206,7 @@ static void android_disable(struct android_dev *dev)
 		usb_remove_config(cdev, &android_config_driver);
 	}
 }
-
+#if 0
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
 
@@ -365,6 +364,7 @@ static void *functionfs_acquire_dev_callback(const char *dev_name)
 static void functionfs_release_dev_callback(struct ffs_data *ffs_data)
 {
 }
+#endif
 
 struct adb_data {
 	bool opened;
@@ -684,6 +684,11 @@ rndis_function_bind_config(struct android_usb_function *f,
 	struct eth_dev *dev;
 	struct rndis_function_config *rndis = f->config;
 
+	/* To-Do */
+	char *dev_addr = NULL;
+	char *host_addr = NULL;
+	unsigned int	qmult = 0;
+
 	if (!rndis) {
 		pr_err("%s: rndis_pdata\n", __func__);
 		return -1;
@@ -693,7 +698,8 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-	dev = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
+	dev = gether_setup_name(c->cdev->gadget, dev_addr, host_addr,
+			rndis->ethaddr, qmult, "rndis");
 	if (IS_ERR(dev)) {
 		ret = PTR_ERR(dev);
 		pr_err("%s: gether_setup failed\n", __func__);
@@ -1028,7 +1034,7 @@ static struct android_usb_function audio_source_function = {
 };
 
 static struct android_usb_function *supported_functions[] = {
-	&ffs_function,
+//	&ffs_function,
 	&adb_function,
 	&acm_function,
 	&mtp_function,
