@@ -38,6 +38,7 @@
 #include <linux/of.h>
 
 #include "ufshcd.h"
+#include "ufshcd-pltfrm.h"
 
 static const struct of_device_id ufs_of_match[];
 static struct ufs_hba_variant_ops *get_variant_ops(struct device *dev)
@@ -291,12 +292,13 @@ static void ufshcd_pltfrm_shutdown(struct platform_device *pdev)
 }
 
 /**
- * ufshcd_pltfrm_probe - probe routine of the driver
+ * ufshcd_pltfrm_init - initialize common routine of the driver
  * @pdev: pointer to Platform device handle
  *
  * Returns 0 on success, non-zero value on failure
  */
-static int ufshcd_pltfrm_probe(struct platform_device *pdev)
+int ufshcd_pltfrm_init(struct platform_device *pdev,
+		       const struct ufs_hba_variant *var)
 {
 	struct ufs_hba *hba;
 	void __iomem *mmio_base;
@@ -357,6 +359,30 @@ out_disable_rpm:
 	pm_runtime_set_suspended(&pdev->dev);
 out:
 	return err;
+}
+EXPORT_SYMBOL_GPL(ufshcd_pltfrm_init);
+
+/**
+ * ufshcd_pltfrm_exit - exit common routine for platform driver
+ * @pdev: pointer to platform device handle
+ */
+void ufshcd_pltfrm_exit(struct platform_device *pdev)
+{
+	struct ufs_hba *hba =  platform_get_drvdata(pdev);
+
+	ufshcd_remove(hba);
+}
+EXPORT_SYMBOL_GPL(ufshcd_pltfrm_exit);
+
+/**
+ * ufshcd_pltfrm_probe - probe routine of the platform driver
+ * @pdev: pointer to Platform device handle
+ *
+ * Returns 0 on success, non-zero value on failure
+ */
+static int ufshcd_pltfrm_probe(struct platform_device *pdev)
+{
+	return ufshcd_pltfrm_init(pdev, NULL);
 }
 
 /**

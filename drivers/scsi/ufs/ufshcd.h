@@ -204,6 +204,15 @@ struct ufs_dev_cmd {
 };
 
 /**
+ * ufs_hba_variant: host specific data
+ */
+struct ufs_hba_variant {
+	const struct ufs_hba_variant_ops *ops;
+	u32 quirks;
+	const void *vs_data;
+};
+
+/**
  * struct ufs_clk_info - UFS clock related info
  * @list: list headed by hba->clk_list_head
  * @clk: clock node
@@ -476,6 +485,8 @@ struct ufs_hba {
 
 	int			latency_hist_enabled;
 	struct io_latency_state io_lat_s;
+
+	u32 quirks;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
