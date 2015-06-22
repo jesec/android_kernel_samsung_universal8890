@@ -17,7 +17,6 @@
 #define S5P_MFC_COMMON_H_
 
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_media.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
@@ -27,7 +26,8 @@
 
 #include <media/videobuf2-core.h>
 
-#include <mach/exynos-mfc.h>
+#include "exynos_mfc_media.h"
+#include "exynos-mfc.h"
 
 /*
  * CONFIG_MFC_USE_BUS_DEVFREQ might be defined in exynos-mfc.h.

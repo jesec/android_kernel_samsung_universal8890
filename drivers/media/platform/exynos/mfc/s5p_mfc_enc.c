@@ -24,6 +24,7 @@
 #include <linux/v4l2-controls.h>
 
 #include "s5p_mfc_common.h"
+#include "exynos_mfc_media.h"
 
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_mem.h"
