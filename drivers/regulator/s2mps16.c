@@ -575,6 +575,18 @@ static int s2mps16_pmic_dt_parse_pdata(struct sec_pmic_dev *iodev,
 		return -EINVAL;
 	pdata->smpl_warn_hys = val;
 
+	ret = of_property_read_u32(pmic_np, "ldo8_7_seq", &val);
+	if (ret)
+		pdata->ldo8_7_seq = 0x05;
+	else
+		pdata->ldo8_7_seq = val;
+
+	ret = of_property_read_u32(pmic_np, "ldo10_9_seq", &val);
+	if (ret)
+		pdata->ldo10_9_seq = 0x61;
+	else
+		pdata->ldo10_9_seq = val;
+
 	pdata->adc_en = false;
 	if (of_find_property(pmic_np, "adc-on", NULL))
 		pdata->adc_en = true;
@@ -781,7 +793,7 @@ static int s2mps16_pmic_probe(struct platform_device *pdev)
 	}
 
 	/* On sequence Config for PWREN_MIF */
-	sec_reg_write(iodev, 0x70, 0xB3);	/* seq. Buck2, Buck1 */
+	sec_reg_write(iodev, 0x70, 0xB4);	/* seq. Buck2, Buck1 */
 	sec_reg_write(iodev, 0x71, 0x2C);	/* seq. Buck4, Buck3 */
 	sec_reg_write(iodev, 0x72, 0xD4);	/* seq. Buck6, Buck5 */
 	sec_reg_write(iodev, 0x73, 0x11);	/* seq. Buck8, Buck7 */
@@ -793,16 +805,8 @@ static int s2mps16_pmic_probe(struct platform_device *pdev)
 	sec_reg_write(iodev, 0x76, 0x93);	/* seq. LDO2, LDO1 */
 	sec_reg_write(iodev, 0x77, 0x60);	/* Seq. LDO4, LDO3 */
 	sec_reg_write(iodev, 0x78, 0x87);	/* seq. LDO6, LDO5 */
-#ifdef CONFIG_MACH_ESPRESSO8890
-	sec_reg_write(iodev, 0x79, 0x25);	/* Seq. LDO8, LDO7 */
-	sec_reg_write(iodev, 0x7A, 0x61);	/* Seq. LDO10, LDO9 */
-#elif CONFIG_MACH_UNIVERSAL8890
-	sec_reg_write(iodev, 0x79, 0x05);	/* Seq. LDO8, LDO7 */
-	sec_reg_write(iodev, 0x7A, 0x62);	/* Seq. LDO10, LDO9 */
-#else
-	sec_reg_write(iodev, 0x79, 0x05);	/* Seq. LDO8, LDO7 */
-	sec_reg_write(iodev, 0x7A, 0x61);	/* Seq. LDO10, LDO9 */
-#endif
+	sec_reg_write(iodev, 0x79, pdata->ldo8_7_seq);	/* Seq. LDO8, LDO7 */
+	sec_reg_write(iodev, 0x7A, pdata->ldo10_9_seq);	/* Seq. LDO10, LDO9 */
 	if (s2mps16->buck11_en)
 		sec_reg_write(iodev, 0x7B, 0x50);	/* Seq. LDO12, LDO11 */
 	else

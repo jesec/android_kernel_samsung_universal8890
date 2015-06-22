@@ -158,6 +158,8 @@ struct sec_platform_data {
 	bool				sub_buck_avp_en;
 	unsigned int                    smpl_warn_vth;
 	unsigned int                    smpl_warn_hys;
+	unsigned int			ldo8_7_seq;
+	unsigned int			ldo10_9_seq;
 
 	bool				ten_bit_address;
 
