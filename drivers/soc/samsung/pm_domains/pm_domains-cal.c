@@ -13,7 +13,6 @@
  */
 
 #include <soc/samsung/pm_domains-cal.h>
-//#include <mach/exynos-powermode.h>
 
 static int exynos_pd_status(struct exynos_pm_domain *pd)
 {
@@ -34,12 +33,10 @@ static int exynos_pd_status(struct exynos_pm_domain *pd)
  */
 static void exynos_genpd_power_on_pre(struct exynos_pm_domain *pd)
 {
-#if 0 // HACK_IDLE
 	exynos_update_pd_idle_status(pd->idle_ip_index, 0);
 
 	if (!strcmp("pd-cam0", pd->name))
 		exynos_devfreq_sync_voltage(DEVFREQ_CAM, true);
-#endif
 }
 
 static void exynos_genpd_power_on_post(struct exynos_pm_domain *pd)
@@ -48,7 +45,7 @@ static void exynos_genpd_power_on_post(struct exynos_pm_domain *pd)
 
 static void exynos_genpd_power_off_pre(struct exynos_pm_domain *pd)
 {
-#if 0 // HACK_IDLE
+#if 0 // HACK_APM
 	if (!strcmp(pd->name, "pd-g3d")) {
 		exynos_g3d_power_down_noti_apm();
 	}
@@ -57,12 +54,10 @@ static void exynos_genpd_power_off_pre(struct exynos_pm_domain *pd)
 
 static void exynos_genpd_power_off_post(struct exynos_pm_domain *pd)
 {
-#if 0 // HACK_IDLE
 	exynos_update_pd_idle_status(pd->idle_ip_index, 1);
 
 	if (!strcmp("pd-cam0", pd->name))
 		exynos_devfreq_sync_voltage(DEVFREQ_CAM, false);
-#endif
 }
 
 static void prepare_forced_off(struct exynos_pm_domain *pd)
@@ -225,9 +220,7 @@ static __init int exynos_pm_dt_parse_domains(void)
 			return -EINVAL;
 		}
 
-#if 0 // HACK_IDLE
 		pd->idle_ip_index = exynos_get_idle_ip_index(pd->name);
-#endif
 
 		mutex_init(&pd->access_lock);
 		platform_set_drvdata(pdev, pd);

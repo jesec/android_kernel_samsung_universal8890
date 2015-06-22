@@ -31,9 +31,8 @@
 
 #include "../../../drivers/soc/samsung/pwrcal/pwrcal.h"
 
-#ifdef CONFIG_ARM_EXYNOS_DEVFREQ
-#include <mach/exynos-devfreq.h>
-#endif
+#include <soc/samsung/exynos-powermode.h>
+#include <soc/samsung/exynos-devfreq.h>
 
 #define PM_DOMAIN_PREFIX	"PM DOMAIN: "
 
