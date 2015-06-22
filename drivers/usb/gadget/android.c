@@ -30,16 +30,16 @@
 
 #include "gadget_chips.h"
 
-#include "../function/f_fs.c"
-#include "../function/f_audio_source.c"
-#include "../function/f_mass_storage.c"
+//#include "../function/f_fs.c"
+//#include "../function/f_audio_source.c"
+//#include "../function/f_mass_storage.c"
 #include "../function/f_adb.c"
 #include "../function/f_mtp.c"
 #include "../function/f_accessory.c"
 #define USB_ETH_RNDIS y
-#include "../function/f_rndis.c"
-#include "../function/rndis.c"
-#include "../function/u_ether.c"
+//#include "../function/f_rndis.c"
+//#include "../function/rndis.c"
+//#include "../function/u_ether.c"
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -457,7 +457,7 @@ static void adb_closed_callback(void)
 
 	mutex_unlock(&dev->mutex);
 }
-
+#if 0
 #define MAX_ACM_INSTANCES 4
 struct acm_function_config {
 	int instances;
@@ -586,7 +586,7 @@ static struct android_usb_function acm_function = {
 	.unbind_config	= acm_function_unbind_config,
 	.attributes	= acm_function_attributes,
 };
-
+#endif
 
 static int
 mtp_function_init(struct android_usb_function *f,
@@ -650,7 +650,7 @@ static struct android_usb_function ptp_function = {
 	.bind_config	= ptp_function_bind_config,
 };
 
-
+#if 0
 struct rndis_function_config {
 	u8      ethaddr[ETH_ALEN];
 	u32     vendorID;
@@ -847,8 +847,9 @@ static struct android_usb_function rndis_function = {
 	.unbind_config	= rndis_function_unbind_config,
 	.attributes	= rndis_function_attributes,
 };
+#endif
 
-
+#if 0
 struct mass_storage_function_config {
 	struct fsg_config fsg;
 	struct fsg_common *common;
@@ -858,7 +859,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
 	struct mass_storage_function_config *config;
-	struct fsg_common *common;
+	struct fsg_common *common = NULL;
 	int err;
 
 	config = kzalloc(sizeof(struct mass_storage_function_config),
@@ -868,15 +869,15 @@ static int mass_storage_function_init(struct android_usb_function *f,
 
 	config->fsg.nluns = 1;
 	config->fsg.luns[0].removable = 1;
-
+#if 0
 	common = fsg_common_init(NULL, cdev, &config->fsg);
+#endif
 	if (IS_ERR(common)) {
 		kfree(config);
 		return PTR_ERR(common);
 	}
-
 	err = sysfs_create_link(&f->dev->kobj,
-				&common->luns[0].dev.kobj,
+				&common->luns[0]->dev.kobj,
 				"lun");
 	if (err) {
 		kfree(config);
@@ -937,8 +938,8 @@ static struct android_usb_function mass_storage_function = {
 	.bind_config	= mass_storage_function_bind_config,
 	.attributes	= mass_storage_function_attributes,
 };
-
-
+#endif
+#if 0
 static int accessory_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
@@ -970,7 +971,9 @@ static struct android_usb_function accessory_function = {
 	.bind_config	= accessory_function_bind_config,
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
+#endif
 
+#if 0
 static int audio_source_function_init(struct android_usb_function *f,
 			struct usb_composite_dev *cdev)
 {
@@ -1007,7 +1010,7 @@ static void audio_source_function_unbind_config(struct android_usb_function *f,
 	config->device = -1;
 }
 
-static ssize_t audio_source_pcm_show(struct device *dev,
+ssize_t audio_source_pcm_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
@@ -1017,14 +1020,14 @@ static ssize_t audio_source_pcm_show(struct device *dev,
 	return sprintf(buf, "%d %d\n", config->card, config->device);
 }
 
-static DEVICE_ATTR(pcm, S_IRUGO, audio_source_pcm_show, NULL);
+DEVICE_ATTR(pcm, S_IRUGO, audio_source_pcm_show, NULL);
 
-static struct device_attribute *audio_source_function_attributes[] = {
+struct device_attribute *audio_source_function_attributes[] = {
 	&dev_attr_pcm,
 	NULL
 };
 
-static struct android_usb_function audio_source_function = {
+struct android_usb_function audio_source_function = {
 	.name		= "audio_source",
 	.init		= audio_source_function_init,
 	.cleanup	= audio_source_function_cleanup,
@@ -1032,17 +1035,18 @@ static struct android_usb_function audio_source_function = {
 	.unbind_config	= audio_source_function_unbind_config,
 	.attributes	= audio_source_function_attributes,
 };
+#endif
 
 static struct android_usb_function *supported_functions[] = {
 //	&ffs_function,
 	&adb_function,
-	&acm_function,
+//	&acm_function,
 	&mtp_function,
-	&ptp_function,
-	&rndis_function,
-	&mass_storage_function,
-	&accessory_function,
-	&audio_source_function,
+//	&ptp_function,
+//	&rndis_function,
+//	&mass_storage_function,
+//	&accessory_function,
+//	&audio_source_function,
 	NULL
 };
 

@@ -3093,6 +3093,214 @@ static void fsg_common_release(struct kref *ref)
 		kfree(common);
 }
 
+static struct fsg_common *fsg_common_init(struct fsg_common *common,
+					  struct usb_composite_dev *cdev,
+					  struct fsg_config *cfg)
+{
+	struct usb_gadget *gadget = cdev->gadget;
+	struct fsg_buffhd *bh;
+	struct fsg_lun *curlun;
+	struct fsg_lun_config *lcfg;
+	int nluns, i, rc;
+	char *pathbuf;
+	u8 n;
+
+	n = common->fsg_num_buffers;
+	rc = fsg_num_buffers_validate(n);
+	if (rc != 0)
+		return ERR_PTR(rc);
+
+	/* Find out how many LUNs there should be */
+	nluns = cfg->nluns;
+	if (nluns < 1 || nluns > FSG_MAX_LUNS) {
+		dev_err(&gadget->dev, "invalid number of LUNs: %u\n", nluns);
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* Allocate? */
+	if (!common) {
+		common = kzalloc(sizeof *common, GFP_KERNEL);
+		if (!common)
+			return ERR_PTR(-ENOMEM);
+		common->free_storage_on_release = 1;
+	} else {
+		memset(common, 0, sizeof *common);
+		common->free_storage_on_release = 0;
+	}
+
+	common->buffhds = kcalloc(common->fsg_num_buffers,
+				  sizeof *(common->buffhds), GFP_KERNEL);
+	if (!common->buffhds) {
+		if (common->free_storage_on_release)
+			kfree(common);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	common->ops = cfg->ops;
+	common->private_data = cfg->private_data;
+
+	common->gadget = gadget;
+	common->ep0 = gadget->ep0;
+	common->ep0req = cdev->req;
+	common->cdev = cdev;
+
+	/* Maybe allocate device-global string IDs, and patch descriptors */
+	if (fsg_strings[FSG_STRING_INTERFACE].id == 0) {
+		rc = usb_string_id(cdev);
+		if (unlikely(rc < 0))
+			goto error_release;
+		fsg_strings[FSG_STRING_INTERFACE].id = rc;
+		fsg_intf_desc.iInterface = rc;
+	}
+
+	/*
+	 * Create the LUNs, open their backing files, and register the
+	 * LUN devices in sysfs.
+	 */
+	curlun = kcalloc(nluns, sizeof(*curlun), GFP_KERNEL);
+	if (unlikely(!curlun)) {
+		rc = -ENOMEM;
+		goto error_release;
+	}
+	common->luns = curlun;
+
+	init_rwsem(&common->filesem);
+
+	for (i = 0, lcfg = cfg->luns; i < nluns; ++i, ++curlun, ++lcfg) {
+		curlun->cdrom = !!lcfg->cdrom;
+		curlun->ro = lcfg->cdrom || lcfg->ro;
+		curlun->initially_ro = curlun->ro;
+		curlun->removable = lcfg->removable;
+		curlun->dev.release = fsg_lun_release;
+		curlun->dev.parent = &gadget->dev;
+		/* curlun->dev.driver = &fsg_driver.driver; XXX */
+		dev_set_drvdata(&curlun->dev, &common->filesem);
+		dev_set_name(&curlun->dev, "lun%d", i);
+
+		rc = device_register(&curlun->dev);
+		if (rc) {
+			INFO(common, "failed to register LUN%d: %d\n", i, rc);
+			common->nluns = i;
+			put_device(&curlun->dev);
+			goto error_release;
+		}
+
+		rc = device_create_file(&curlun->dev,
+					curlun->cdrom
+				      ? &dev_attr_ro_cdrom
+				      : &dev_attr_ro);
+		if (rc)
+			goto error_luns;
+		rc = device_create_file(&curlun->dev,
+					curlun->removable
+				      ? &dev_attr_file
+				      : &dev_attr_file_nonremovable);
+		if (rc)
+			goto error_luns;
+		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
+		if (rc)
+			goto error_luns;
+
+		if (lcfg->filename) {
+			rc = fsg_lun_open(curlun, lcfg->filename);
+			if (rc)
+				goto error_luns;
+		} else if (!curlun->removable) {
+			ERROR(common, "no file given for LUN%d\n", i);
+			rc = -EINVAL;
+			goto error_luns;
+		}
+	}
+	common->nluns = nluns;
+
+	/* Data buffers cyclic list */
+	bh = common->buffhds;
+	i = common->fsg_num_buffers;
+	goto buffhds_first_it;
+	do {
+		bh->next = bh + 1;
+		++bh;
+buffhds_first_it:
+		bh->buf = kmalloc(FSG_BUFLEN, GFP_KERNEL);
+		if (unlikely(!bh->buf)) {
+			rc = -ENOMEM;
+			goto error_release;
+		}
+	} while (--i);
+	bh->next = common->buffhds;
+
+	/* Prepare inquiryString */
+	i = get_default_bcdDevice();
+	snprintf(common->inquiry_string, sizeof common->inquiry_string,
+		 "%-8s%-16s%04x", cfg->vendor_name ?: "Linux",
+		 /* Assume product name dependent on the first LUN */
+		 cfg->product_name ?: (common->luns[common->lun]->cdrom
+				     ? "File-Stor Gadget"
+				     : "File-CD Gadget"),
+		 i);
+
+	/*
+	 * Some peripheral controllers are known not to be able to
+	 * halt bulk endpoints correctly.  If one of them is present,
+	 * disable stalls.
+	 */
+	common->can_stall = cfg->can_stall &&
+		!(gadget_is_at91(common->gadget));
+
+	spin_lock_init(&common->lock);
+	kref_init(&common->ref);
+
+	/* Tell the thread to start working */
+	common->thread_task =
+		kthread_create(fsg_main_thread, common, "file-storage");
+	if (IS_ERR(common->thread_task)) {
+		rc = PTR_ERR(common->thread_task);
+		goto error_release;
+	}
+	init_completion(&common->thread_notifier);
+	init_waitqueue_head(&common->fsg_wait);
+
+	/* Information */
+	INFO(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
+	INFO(common, "Number of LUNs=%d\n", common->nluns);
+
+	pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
+	for (i = 0, nluns = common->nluns, curlun = common->luns;
+	     i < nluns;
+	     ++curlun, ++i) {
+		char *p = "(no medium)";
+		if (fsg_lun_is_open(curlun)) {
+			p = "(error)";
+			if (pathbuf) {
+				p = d_path(&curlun->filp->f_path,
+					   pathbuf, PATH_MAX);
+				if (IS_ERR(p))
+					p = "(error)";
+			}
+		}
+		LINFO(curlun, "LUN: %s%s%sfile: %s\n",
+		      curlun->removable ? "removable " : "",
+		      curlun->ro ? "read only " : "",
+		      curlun->cdrom ? "CD-ROM " : "",
+		      p);
+	}
+	kfree(pathbuf);
+
+	DBG(common, "I/O thread pid: %d\n", task_pid_nr(common->thread_task));
+
+	wake_up_process(common->thread_task);
+
+	return common;
+
+error_luns:
+	common->nluns = i + 1;
+error_release:
+	common->state = FSG_STATE_TERMINATED;	/* The thread is dead */
+	/* Call fsg_common_release() directly, ref might be not initialised. */
+	fsg_common_release(&common->ref);
+	return ERR_PTR(rc);
+}
+
 
 /*-------------------------------------------------------------------------*/
 
@@ -3597,6 +3805,42 @@ static void fsg_free(struct usb_function *f)
 	mutex_unlock(&opts->lock);
 
 	kfree(fsg);
+}
+
+static int fsg_bind_config(struct usb_composite_dev *cdev,
+			   struct usb_configuration *c,
+			   struct fsg_common *common)
+{
+	struct fsg_dev *fsg;
+	int rc;
+
+	fsg = kzalloc(sizeof *fsg, GFP_KERNEL);
+	if (unlikely(!fsg))
+		return -ENOMEM;
+
+	fsg->function.name        = FSG_DRIVER_DESC;
+	fsg->function.strings     = fsg_strings_array;
+	fsg->function.bind        = fsg_bind;
+	fsg->function.unbind      = fsg_unbind;
+	fsg->function.setup       = fsg_setup;
+	fsg->function.set_alt     = fsg_set_alt;
+	fsg->function.disable     = fsg_disable;
+
+	fsg->common               = common;
+	/*
+	 * Our caller holds a reference to common structure so we
+	 * don't have to be worry about it being freed until we return
+	 * from this function.  So instead of incrementing counter now
+	 * and decrement in error recovery we increment it only when
+	 * call to usb_add_function() was successful.
+	 */
+
+	rc = usb_add_function(c, &fsg->function);
+	if (unlikely(rc))
+		kfree(fsg);
+	else
+		fsg_common_get(fsg->common);
+	return rc;
 }
 
 static struct usb_function *fsg_alloc(struct usb_function_instance *fi)
