@@ -589,8 +589,6 @@ static int exynos_usbdrd_phy_resume(struct device *dev)
 		__exynos_usbdrd_phy_shutdown(&phy_drd->phys[i]);
 	}
 
-	exynos_usbdrd_clk_disable(phy_drd);
-
 	return 0;
 }
 
