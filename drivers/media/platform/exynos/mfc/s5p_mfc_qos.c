@@ -16,8 +16,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
 
-#include <plat/cpu.h>
-
 #include "s5p_mfc_common.h"
 #include "s5p_mfc_debug.h"
 #include "s5p_mfc_pm.h"

@@ -21,17 +21,16 @@
 #include <linux/version.h>
 #include <linux/workqueue.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_media.h>
 #include <linux/proc_fs.h>
-#include <mach/videonode.h>
+#include <video/videonode.h>
 #include <media/videobuf2-core.h>
 #include <linux/of.h>
 #include <linux/exynos_iovmm.h>
 #include <linux/exynos_ion.h>
 #include <linux/delay.h>
 #include <linux/smc.h>
-#include <mach/bts.h>
-#include <mach/devfreq.h>
+#include <soc/samsung/bts.h>
+#include <soc/samsung/devfreq.h>
 #include <asm/cacheflush.h>
 
 #if defined(CONFIG_SOC_EXYNOS5422)
@@ -42,6 +41,7 @@
 #include <mach/regs-pmu.h>
 #endif
 
+#include "exynos_mfc_media.h"
 #include "s5p_mfc_common.h"
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_inst.h"

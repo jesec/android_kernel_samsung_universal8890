@@ -28,8 +28,8 @@
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 #include <linux/exynos_iovmm.h>
 #endif
-#include <mach/bts.h>
-#include <mach/devfreq.h>
+#include <soc/samsung/bts.h>
+#include <soc/samsung/devfreq.h>
 
 #include "s5p_mfc_common.h"
 #include "s5p_mfc_cmd.h"

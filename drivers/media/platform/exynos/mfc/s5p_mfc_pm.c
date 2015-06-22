@@ -17,10 +17,9 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/clk-private.h>
+#include <linux/smc.h>
 
-#include <plat/cpu.h>
-#include <mach/smc.h>
-#include <mach/bts.h>
+#include <soc/samsung/bts.h>
 
 #include "s5p_mfc_common.h"
 #include "s5p_mfc_debug.h"
