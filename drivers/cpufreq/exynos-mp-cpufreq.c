@@ -31,41 +31,22 @@
 #include <linux/sysfs.h>
 #include <linux/cpumask.h>
 #include <linux/exynos-ss.h>
-
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/apm-exynos.h>
 
 #include <asm/smp_plat.h>
 #include <asm/cputype.h>
 
 #include <mach/cpufreq.h>
 #include <mach/asv-exynos.h>
-#ifdef CONFIG_SOC_EXYNOS7420
-#include <mach/apm-exynos.h>
-#elif defined(CONFIG_SOC_EXYNOS8890)
-#include <linux/apm-exynos.h>
-#endif
 #include <mach/exynos-powermode.h>
 #include <mach/regs-pmu.h>
 #include <mach/pmu.h>
-#ifdef CONFIG_CPU_THERMAL
 #include <mach/tmu.h>
-#endif
-#include <plat/cpu.h>
 
-#ifdef CONFIG_SOC_EXYNOS5422_REV_0
-#define POWER_COEFF_15P		57 /* percore param */
-#define POWER_COEFF_7P		11 /* percore  param */
-#elif defined(CONFIG_SOC_EXYNOS7420)
-#define POWER_COEFF_15P		46 /* percore param */
-#define POWER_COEFF_7P		13 /* percore  param */
-#elif defined(CONFIG_SOC_EXYNOS8890)
 #define POWER_COEFF_15P		68 /* percore param */
 #define POWER_COEFF_7P		10 /* percore  param */
-#else
-#define POWER_COEFF_15P		48 /* percore param */
-#define POWER_COEFF_7P		9 /* percore  param */
-#endif
 
 #define VOLT_RANGE_STEP		25000
 #define CLUSTER_ID(cl)		(cl ? ID_CL1 : ID_CL0)
@@ -562,11 +543,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
 	if (!volt_offset)
-#ifdef CONFIG_SOC_EXYNOS7420
-		exynos7420_cl_dvfs_stop(CLUSTER_ID(cur), new_index);
-#elif defined(CONFIG_SOC_EXYNOS8890)
 		exynos_cl_dvfs_stop(CLUSTER_ID(cur), new_index);
-#endif
 #endif
 
 	/* When the new frequency is higher than current frequency */
@@ -639,11 +616,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
 	if (!volt_offset)
-#ifdef CONFIG_SOC_EXYNOS7420
-		exynos7420_cl_dvfs_start(CLUSTER_ID(cur));
-#elif defined(CONFIG_SOC_EXYNOS8890)
 		exynos_cl_dvfs_start(CLUSTER_ID(cur));
-#endif
 #endif
 
 out:
@@ -994,11 +967,7 @@ static int exynos_cpufreq_pm_notifier(struct notifier_block *notifier,
 			if (exynos_info[cl]->abb_table)
 				set_abb_first_than_volt = is_set_abb_first(CLUSTER_ID(cl), freqs[cl]->old, bootfreq);
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
-#ifdef CONFIG_SOC_EXYNOS7420
-			exynos7420_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#elif defined(CONFIG_SOC_EXYNOS8890)
 			exynos_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#endif
 #endif
 			if (!set_abb_first_than_volt)
 				if (regulator_set_voltage(exynos_info[cl]->regulator, volt, volt + VOLT_RANGE_STEP))
@@ -1028,11 +997,7 @@ static int exynos_cpufreq_pm_notifier(struct notifier_block *notifier,
 			if (exynos_info[cl]->set_ema)
 				exynos_info[cl]->set_ema(volt);
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
-#ifdef CONFIG_SOC_EXYNOS7420
-			exynos7420_cl_dvfs_start(CLUSTER_ID(cl));
-#elif defined(CONFIG_SOC_EXYNOS8890)
 			exynos_cl_dvfs_start(CLUSTER_ID(cl));
-#endif
 #endif
 			set_abb_first_than_volt = false;
 		}
@@ -1092,11 +1057,7 @@ static int exynos_cpufreq_tmu_notifier(struct notifier_block *notifier,
 		for (cl = 0; cl < CL_END; cl++) {
 			volt = exynos_info[cl]->cur_volt;
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
-#ifdef CONFIG_SOC_EXYNOS7420
-			exynos7420_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#elif defined(CONFIG_SOC_EXYNOS8890)
 			exynos_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#endif
 #endif
 			volt = get_limit_voltage(volt);
 			ret = regulator_set_voltage(exynos_info[cl]->regulator, volt, volt + VOLT_RANGE_STEP);
@@ -1120,11 +1081,7 @@ static int exynos_cpufreq_tmu_notifier(struct notifier_block *notifier,
 		for (cl = 0; cl < CL_END; cl++) {
 			volt = get_limit_voltage(exynos_info[cl]->cur_volt - cold_offset);
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
-#ifdef CONFIG_SOC_EXYNOS7420
-			exynos7420_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#elif defined(CONFIG_SOC_EXYNOS8890)
 			exynos_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#endif
 #endif
 			if (exynos_info[cl]->set_ema)
 				exynos_info[cl]->set_ema(volt);
@@ -1138,11 +1095,7 @@ static int exynos_cpufreq_tmu_notifier(struct notifier_block *notifier,
 			exynos_info[cl]->cur_volt = volt;
 
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
-#ifdef CONFIG_SOC_EXYNOS7420
-			exynos7420_cl_dvfs_start(CLUSTER_ID(cl));
-#elif defined(CONFIG_SOC_EXYNOS8890)
 			exynos_cl_dvfs_start(CLUSTER_ID(cl));
-#endif
 #endif
 		}
 	}
@@ -1587,11 +1540,7 @@ static int exynos_cpufreq_reboot_notifier_call(struct notifier_block *this,
 			set_abb_first_than_volt = is_set_abb_first(CLUSTER_ID(cl), freqs[cl]->old, max(bootfreq, freqs[cl]->old));
 
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
-#ifdef CONFIG_SOC_EXYNOS7420
-			exynos7420_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#elif defined(CONFIG_SOC_EXYNOS8890)
-			exynos_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
-#endif
+		exynos_cl_dvfs_stop(CLUSTER_ID(cl), cl_index);
 #endif
 		if (!set_abb_first_than_volt)
 			if (regulator_set_voltage(exynos_info[cl]->regulator, volt, volt + VOLT_RANGE_STEP))

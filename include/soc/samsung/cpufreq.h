@@ -140,28 +140,7 @@ extern int exynos_cpufreq_smpl_warn_notify_call_chain(void);
 static inline int exynos_cpufreq_smpl_warn_notify_call_chain(void){return 0;}
 #endif
 
-/*
- * Soc specific definitions
- */
-#if defined(CONFIG_SOC_EXYNOS5422)
-#define EMA_VAL_0 0x4
-#define EMA_VAL_1 0x3
-#define EMA_VAL_2 0x1
-#define EMA_VAL_3 0x1
-#define EMA_VOLT_LEV_0 900000
-#define EMA_VOLT_LEV_1 950000
-#define EMA_VOLT_LEV_2 1045000
-#define EMA_VOLT_LEV_3 1155000
-#define EMA_ON_CHANGE 0x11
-#endif
-
 #if defined(CONFIG_CPU_FREQ)
-#if defined(CONFIG_ARM_EXYNOS_CPUFREQ)
-extern int exynos4210_cpufreq_init(struct exynos_dvfs_info *);
-extern int exynos4x12_cpufreq_init(struct exynos_dvfs_info *);
-static inline int exynos5250_cpufreq_init(struct exynos_dvfs_info *info)
-{return 0;}
-#elif defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
 extern int exynos_cpufreq_cluster0_init(struct exynos_dvfs_info *);
 extern int exynos_cpufreq_cluster1_init(struct exynos_dvfs_info *);
 typedef enum {
@@ -176,11 +155,7 @@ typedef enum {
 #define NR_CLUST0_CPUS		4
 #define NR_CLUST1_CPUS		4
 
-#if defined(CONFIG_ARM_EXYNOS5422_CPUFREQ)
-#define ENABLE_MIN_COLD		1
-#else
 #define ENABLE_MIN_COLD		0
-#endif
 
 enum op_state {
 	NORMAL,		/* Operation : Normal */
@@ -216,10 +191,6 @@ static inline int cluster1_cores_hotplug(bool out_flag) {return 0;}
 static inline int cluster0_core1_hotplug_in(bool in_flag) {return 0;}
 static inline void event_hotplug_in(void) {}
 static inline bool is_cluster1_hotplugged(void) {return 0;}
-#endif
-#elif defined(CONFIG_SOC_EXYNOS7580) && defined(CONFIG_SOC_EXYNOS8890)
-#else
-	#warning "Should define CONFIG_ARM_EXYNOS_(MP_)CPUFREQ\n"
 #endif
 #endif
 #endif /* __ARCH_CPUFREQ_H */
