@@ -38,12 +38,10 @@
 #include <asm/smp_plat.h>
 #include <asm/cputype.h>
 
-#include <mach/cpufreq.h>
-#include <mach/asv-exynos.h>
-#include <mach/exynos-powermode.h>
-#include <mach/regs-pmu.h>
-#include <mach/pmu.h>
-#include <mach/tmu.h>
+#include <soc/samsung/cpufreq.h>
+#include <soc/samsung/exynos-powermode.h>
+#include <soc/samsung/asv-exynos.h>
+#include <soc/samsung/tmu.h>
 
 #define POWER_COEFF_15P		68 /* percore param */
 #define POWER_COEFF_7P		10 /* percore  param */
@@ -384,7 +382,7 @@ unsigned int exynos_getspeed(unsigned int cpu)
 {
 	unsigned int cur = get_cur_cluster(cpu);
 
-	if (get_cluster_idle_state(cpu))
+	if (check_cluster_idle_state(cpu))
 		return freqs[cur]->old;
 	else
 		return exynos_getspeed_cluster(cur);
@@ -499,10 +497,8 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 	unsigned int volt, safe_volt = 0;
 	int ret = 0;
 
-	if (!policy) {
-		ret = -EINVAL;
-		goto no_policy;
-	}
+	if (!policy)
+		return -EINVAL;
 
 	freqs[cur]->cpu = cpu;
 	freqs[cur]->new = target_freq;
@@ -510,17 +506,17 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 	if (exynos5_frequency_table_target(policy, freq_table,
 				curr_freq, CPUFREQ_RELATION_L, &old_index)) {
 		ret = -EINVAL;
-		goto out;
+		goto put_policy;
 	}
 
 	if (exynos5_frequency_table_target(policy, freq_table,
 				freqs[cur]->new, CPUFREQ_RELATION_L, &new_index)) {
 		ret = -EINVAL;
-		goto out;
+		goto put_policy;
 	}
 
 	if (old_index == new_index)
-		goto out;
+		goto put_policy;
 
 	/*
 	 * ARM clock source will be changed APLL to MPLL temporary
@@ -534,7 +530,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 	volt = get_limit_voltage(volt_table[new_index]);
 
 	/* Update policy current frequency */
-	cpufreq_notify_transition(policy, freqs[cur], CPUFREQ_PRECHANGE);
+	cpufreq_freq_transition_begin(policy, freqs[cur]);
 
 	if (freqs[cur]->new > freqs[cur]->old) {
 		if (exynos_info[cur]->set_int_skew)
@@ -551,16 +547,15 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 		/* Firstly, voltage up to increase frequency */
 		ret = exynos_set_voltage(old_index, new_index, volt, cur);
 		if (ret)
-			goto out;
+			goto fail_dvfs;
 
 		if (exynos_info[cur]->set_ema)
-			exynos_info[cur]->set_ema(volt);
-	}
+			exynos_info[cur]->set_ema(volt); }
 
 	if (safe_volt) {
 		ret = exynos_set_voltage(old_index, new_index, safe_volt, cur);
 		if (ret)
-			goto out;
+			goto fail_dvfs;
 
 		if (exynos_info[cur]->set_ema)
 			exynos_info[cur]->set_ema(safe_volt);
@@ -592,7 +587,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 #endif
 #endif
 
-	cpufreq_notify_transition(policy, freqs[cur], CPUFREQ_POSTCHANGE);
+	cpufreq_freq_transition_end(policy, freqs[cur], 0);
 
 	/* When the new frequency is lower than current frequency */
 	if ((freqs[cur]->new < freqs[cur]->old) ||
@@ -605,7 +600,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 		if (ret) {
 			/* save current frequency as frequency is changed*/
 			freqs[cur]->old = target_freq;
-			goto out;
+			goto put_policy;
 		}
 	}
 
@@ -619,9 +614,15 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 		exynos_cl_dvfs_start(CLUSTER_ID(cur));
 #endif
 
-out:
 	cpufreq_cpu_put(policy);
-no_policy:
+
+	return 0;
+
+fail_dvfs:
+	cpufreq_freq_transition_end(policy, freqs[cur], ret);
+put_policy:
+	cpufreq_cpu_put(policy);
+
 	return ret;
 }
 
@@ -809,15 +810,15 @@ static void exynos_change_freq_nocpd(struct cpufreq_policy *policy, int cpu,
 					unsigned int freq)
 {
 	if (cpu >= NR_CLUST0_CPUS)
-		block_cpd(true);
+		block_cpd();
 
-	if (get_cluster_idle_state(cpu))
+	if (check_cluster_idle_state(cpu))
 		smp_call_function_single(cpu, exynos_qos_nop, NULL, 0);
 
 	__cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_H);
 
 	if (cpu >= NR_CLUST0_CPUS)
-		block_cpd(false);
+		release_cpd();
 }
 
 void ipa_set_clamp(int cpu, unsigned int clamp_freq, unsigned int gov_target)
@@ -1119,7 +1120,7 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 
 	policy->cur = policy->min = policy->max = exynos_getspeed(policy->cpu);
 
-	cpufreq_frequency_table_get_attr(exynos_info[cur]->freq_table, policy->cpu);
+	cpufreq_table_validate_and_show(policy, exynos_info[cur]->freq_table);
 
 	/* set the transition latency value */
 	policy->cpuinfo.transition_latency = 100000;
@@ -1136,7 +1137,7 @@ static int exynos_cpufreq_cpu_init(struct cpufreq_policy *policy)
 }
 
 static struct cpufreq_driver exynos_driver = {
-	.flags		= CPUFREQ_STICKY,
+	.flags		= CPUFREQ_STICKY | CPUFREQ_HAVE_GOVERNOR_PER_POLICY,
 	.verify		= exynos_verify_speed,
 	.target		= exynos_target,
 	.get		= exynos_getspeed,
@@ -1146,7 +1147,6 @@ static struct cpufreq_driver exynos_driver = {
 	.suspend	= exynos_cpufreq_suspend,
 	.resume		= exynos_cpufreq_resume,
 #endif
-	.have_governor_per_policy = true,
 };
 
 /************************** sysfs interface ************************/
@@ -1951,9 +1951,9 @@ static int exynos_cpufreq_init(void)
 	exynos_change_freq_nocpd(policy, NR_CLUST0_CPUS, policy->min);
 	cpufreq_cpu_put(policy);
 
-	ret = sysfs_create_group(cpufreq_global_kobject, &mp_attr_group);
+	ret = cpufreq_sysfs_create_group(&mp_attr_group);
 	if (ret) {
-		pr_err("%s: failed to create iks-cpufreq sysfs interface\n", __func__);
+		pr_err("%s: failed to create mp-cpufreq sysfs interface\n", __func__);
 		goto err_mp_attr;
 	}
 
@@ -2003,7 +2003,7 @@ err_cpufreq_max_limit:
 err_cpufreq_min_limit:
 	sysfs_remove_file(power_kobj, &cpufreq_table.attr);
 err_cpu_table:
-	sysfs_remove_group(cpufreq_global_kobject, &mp_attr_group);
+	cpufreq_sysfs_remove_group(&mp_attr_group);
 #endif
 err_policy:
 err_mp_attr:
@@ -2155,12 +2155,12 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 
 	/* freq/volt/bus table is initailized by DT */
 	for (i = 0; i < ptr->max_idx_num; i++) {
-		ptr->freq_table[i].index = table_ptr[i].index;
+		ptr->freq_table[i].driver_data = table_ptr[i].index;
 		ptr->freq_table[i].frequency = table_ptr[i].frequency;
 		ptr->bus_table[i] = table_ptr[i].bus_qos_lock;
 		ptr->volt_table[i] = table_ptr[i].voltage;
 	}
-	ptr->freq_table[ptr->max_idx_num].index = ptr->max_idx_num;
+	ptr->freq_table[ptr->max_idx_num].driver_data = ptr->max_idx_num;
 	ptr->freq_table[ptr->max_idx_num].frequency = CPUFREQ_TABLE_END;
 
 	kfree(table_ptr);
@@ -2300,7 +2300,7 @@ static int exynos_mp_cpufreq_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 	sysfs_remove_file(power_kobj, &cpufreq_min_limit.attr);
 	sysfs_remove_file(power_kobj, &cpufreq_table.attr);
-	sysfs_remove_group(cpufreq_global_kobject, &mp_attr_group);
+	cpufreq_sysfs_remove_group(&mp_attr_group);
 #endif
 
 	cpufreq_unregister_driver(&exynos_driver);

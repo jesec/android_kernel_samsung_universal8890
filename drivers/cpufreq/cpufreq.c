@@ -887,14 +887,14 @@ int cpufreq_sysfs_create_group(const struct attribute_group *attr_grp)
 
 	return ret;
 }
-EXPORT_SYMBOL(cpufreq_sysfs_create_file);
+EXPORT_SYMBOL(cpufreq_sysfs_create_group);
 
 void cpufreq_sysfs_remove_group(const struct attribute_group *attr_grp)
 {
 	sysfs_remove_group(cpufreq_global_kobject, attr_grp);
 	cpufreq_put_global_kobject();
 }
-EXPORT_SYMBOL(cpufreq_sysfs_remove_file);
+EXPORT_SYMBOL(cpufreq_sysfs_remove_group);
 
 /* symlink affected CPUs */
 static int cpufreq_add_dev_symlink(struct cpufreq_policy *policy)

@@ -21,11 +21,11 @@
 #include <linux/cpufreq.h>
 #include <linux/of.h>
 
-#include <mach/cpufreq.h>
-#include <mach/pmu.h>
+#include <soc/samsung/cpufreq.h>
+#include <soc/samsung/exynos-pmu.h>
 
-#include "../../arch/arm64/mach-exynos/pwrcal/pwrcal.h"
-#include "../../arch/arm64/mach-exynos/pwrcal/S5E8890/S5E8890-vclk.h"
+#include "../../drivers/soc/samsung/pwrcal/pwrcal.h"
+#include "../../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 
 static struct exynos_dvfs_info *exynos_info[CL_END];
 
@@ -120,13 +120,13 @@ static void exynos_mp_cpufreq_clear_smpl(void)
 static bool exynos_mp_cpufreq_cl0_state(void)
 {
 	/* in pmu driver, 1 is cluster 0 (little) */
-	return exynos_cluster_state(CL_ONE);
+	return exynos_cpu.cluster_state(CL_ONE);
 }
 
 static bool exynos_mp_cpufreq_cl1_state(void)
 {
 	/* in pmu driver, 0 is cluster 1 (big) */
-	return exynos_cluster_state(CL_ZERO);
+	return exynos_cpu.cluster_state(CL_ZERO);
 }
 
 static void exynos_mp_cpufreq_set_cal_ops(cluster_type cluster)
@@ -229,7 +229,7 @@ static void exynos_mp_cpufreq_print_info(cluster_type cluster)
 	for (i = 0; i < exynos_info[cluster]->max_idx_num; i ++) {
 		pr_info("CPUFREQ of %s : %2dL  %8d KHz  %7d uV (mif%8d KHz)\n",
 			cluster? "CL1" : "CL0",
-			exynos_info[cluster]->freq_table[i].index,
+			exynos_info[cluster]->freq_table[i].driver_data,
 			exynos_info[cluster]->freq_table[i].frequency,
 			exynos_info[cluster]->volt_table[i],
 			exynos_info[cluster]->bus_table[i]);
