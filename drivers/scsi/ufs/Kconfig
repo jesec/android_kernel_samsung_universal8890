@@ -49,6 +49,10 @@ config SCSI_UFSHCD
 	  However, do not compile this as a module if your root file system
 	  (the one containing the directory /) is located on a UFS device.
 
+config UFS_DYNAMIC_H8
+	bool "UFS Dynamic Hibernation (EXPERIMENTAL)"
+	depends on SCSI_UFSHCD
+
 config SCSI_UFSHCD_PCI
 	tristate "PCI bus based UFS Controller support"
 	depends on SCSI_UFSHCD && PCI
