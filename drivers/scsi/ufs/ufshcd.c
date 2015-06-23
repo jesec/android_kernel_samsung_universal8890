@@ -1499,9 +1499,14 @@ static int ufshcd_wait_for_dev_cmd(struct ufs_hba *hba,
 
 	if (!time_left) {
 		err = -ETIMEDOUT;
-		if (!ufshcd_clear_cmd(hba, lrbp->task_tag))
+		if (!ufshcd_clear_cmd(hba, lrbp->task_tag)) {
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			__clear_bit(lrbp->task_tag, &hba->outstanding_reqs);
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 			/* sucessfully cleared the command, retry if needed */
 			err = -EAGAIN;
+		}
 	}
 
 	return err;
@@ -3129,10 +3134,10 @@ static void ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 }
 
 /**
- * ufshcd_transfer_req_compl - handle SCSI and query command completion
+ * __ufshcd_transfer_req_compl - handle SCSI and query command completion
  * @hba: per adapter instance
  */
-static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
+static void __ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason)
 {
 	struct ufshcd_lrb *lrbp;
 	struct scsi_cmnd *cmd;
@@ -3161,6 +3166,8 @@ static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
+				if (reason)
+					set_host_byte(cmd, reason);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
 			clear_bit_unlock(index, &hba->lrb_in_use);
@@ -3196,6 +3203,11 @@ static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
 
 	/* we might have free'd some tags above */
 	wake_up(&hba->dev_cmd.tag_wq);
+}
+
+static inline void ufshcd_transfer_req_compl(struct ufs_hba *hba)
+{
+	__ufshcd_transfer_req_compl(hba, 0);
 }
 
 /**
@@ -3505,6 +3517,10 @@ static void ufshcd_err_handler(struct work_struct *work)
 	if (err_xfer || err_tm || (hba->saved_err & INT_FATAL_ERRORS) ||
 			((hba->saved_err & UIC_ERROR) &&
 			 (hba->saved_uic_err & UFSHCD_UIC_DL_PA_INIT_ERROR))) {
+		dev_err(hba->dev,
+			"%s: saved_err:0x%x, saved_uic_err:0x%x\n",
+			__func__, hba->saved_err, hba->saved_uic_err);
+
 		err = ufshcd_reset_and_restore(hba);
 		if (err) {
 			dev_err(hba->dev, "%s: reset and restore failed\n",
@@ -3802,7 +3818,7 @@ static int ufshcd_eh_device_reset_handler(struct scsi_cmnd *cmd)
 		}
 	}
 	spin_lock_irqsave(host->host_lock, flags);
-	ufshcd_transfer_req_compl(hba);
+	__ufshcd_transfer_req_compl(hba, DID_RESET);
 	spin_unlock_irqrestore(host->host_lock, flags);
 out:
 	if (!err) {
@@ -3841,6 +3857,8 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	host = cmd->device->host;
 	hba = shost_priv(host);
 	tag = cmd->request->tag;
+
+	dev_err(hba->dev, "%s: tag:%d, cmd:0x%x\n", __func__, tag, cmd->cmnd[0]);
 
 	ufshcd_hold(hba, false);
 	/* If command is already aborted/completed, return SUCCESS */
@@ -3975,6 +3993,15 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	unsigned long flags;
 	int retries = MAX_HOST_RESET_RETRIES;
 
+	int tag;
+
+	for_each_set_bit(tag, &hba->outstanding_reqs, hba->nutrs)
+		ufshcd_clear_cmd(hba, tag);
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	__ufshcd_transfer_req_compl(hba, DID_RESET);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 	do {
 		err = ufshcd_host_reset_and_restore(hba);
 	} while (err && --retries);
@@ -3984,7 +4011,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	 * outstanding requests in s/w here.
 	 */
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	ufshcd_transfer_req_compl(hba);
+	__ufshcd_transfer_req_compl(hba, DID_RESET);
 	ufshcd_tmc_handler(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
