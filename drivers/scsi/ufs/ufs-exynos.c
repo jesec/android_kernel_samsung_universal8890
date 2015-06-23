@@ -556,22 +556,22 @@ static void exynos_ufs_config_unipro(struct exynos_ufs *ufs)
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTRAILINGCLOCKS), TXTRAILINGCLOCKS);
 }
 
-static void exynos_ufs_config_intr(struct exynos_ufs *ufs, u8 index, u32 errs)
+static void exynos_ufs_config_intr(struct exynos_ufs *ufs, u32 errs, u8 index)
 {
 	switch(index) {
-	case DFES_ERR_PA:
+	case UNIP_PA_LYR:
 		hci_writel(ufs, DFES_ERR_EN | errs, HCI_ERROR_EN_PA_LAYER);
 		break;
-	case DEFS_ERR_DL:
+	case UNIP_DL_LYR:
 		hci_writel(ufs, DFES_ERR_EN | errs, HCI_ERROR_EN_DL_LAYER);
 		break;
-	case DEFS_ERR_N:
+	case UNIP_N_LYR:
 		hci_writel(ufs, DFES_ERR_EN | errs, HCI_ERROR_EN_N_LAYER);
 		break;
-	case DEFS_ERR_T:
+	case UNIP_T_LYR:
 		hci_writel(ufs, DFES_ERR_EN | errs, HCI_ERROR_EN_T_LAYER);
 		break;
-	case DEFS_ERR_DME:
+	case UNIP_DME_LYR:
 		hci_writel(ufs, DFES_ERR_EN | errs, HCI_ERROR_EN_DME_LAYER);
 		break;
 	}
@@ -585,7 +585,9 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 	ufs->hba = hba;
 
 	/* hci */
-	exynos_ufs_config_intr(ufs, DEFS_ERR_DL, DFES_DEF_DL_ERRS);
+	exynos_ufs_config_intr(ufs, DFES_DEF_DL_ERRS, UNIP_DL_LYR);
+	exynos_ufs_config_intr(ufs, DFES_DEF_N_ERRS, UNIP_N_LYR);
+	exynos_ufs_config_intr(ufs, DFES_DEF_T_ERRS, UNIP_T_LYR);
 	exynos_ufs_set_pclk(ufs, 1U);
 	exynos_ufs_set_mclk(ufs);
 	exynos_ufs_ctrl_clk(ufs, true);
