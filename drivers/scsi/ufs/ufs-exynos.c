@@ -132,21 +132,42 @@ static void exynos_ufs_gate_clk(struct exynos_ufs *ufs, bool en)
 		hci_writel(ufs, reg & ~CLK_STOP_ALL, HCI_CLKSTOP_CTRL);
 }
 
-static void exynos_ufs_set_pclk(struct exynos_ufs *ufs, u32 div)
+static void exynos_ufs_set_unipro_pclk(struct exynos_ufs *ufs)
 {
-	u32 pclk_ctrl;
+	u32 pclk_ctrl, pclk_rate;
+	u32 f_min, f_max;
+	u8 div = 0;
 
-	ufs->pclk_rate = clk_get_rate(ufs->clk_hci);
-	ufs->pclk_rate /= (div + 1);
+	f_min = ufs->pclk_avail_min;
+	f_max = ufs->pclk_avail_max;
+	pclk_rate = clk_get_rate(ufs->clk_hci);
+
+	do {
+		pclk_rate /= (div + 1);
+
+		if (pclk_rate <= f_max)
+			break;
+		else
+			div++;
+	} while (pclk_rate >= f_min);
+
+	WARN(pclk_rate < f_min, "not available pclk range %d\n", pclk_rate);
 
 	pclk_ctrl = hci_readl(ufs, HCI_UNIPRO_APB_CLK_CTRL);
 	pclk_ctrl = (pclk_ctrl & ~0xf) | (div & 0xf);
 	hci_writel(ufs, pclk_ctrl, HCI_UNIPRO_APB_CLK_CTRL);
+	ufs->pclk_rate = pclk_rate;
 }
 
-static void exynos_ufs_set_mclk(struct exynos_ufs *ufs)
+static void exynos_ufs_set_unipro_mclk(struct exynos_ufs *ufs)
 {
 	ufs->mclk_rate = clk_get_rate(ufs->clk_unipro);
+}
+
+static void exynos_ufs_set_unipro_clk(struct exynos_ufs *ufs)
+{
+	exynos_ufs_set_unipro_pclk(ufs);
+	exynos_ufs_set_unipro_mclk(ufs);
 }
 
 static void exynos_ufs_set_pwm_clk_div(struct exynos_ufs *ufs)
@@ -630,8 +651,8 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 	exynos_ufs_config_intr(ufs, DFES_DEF_DL_ERRS, UNIP_DL_LYR);
 	exynos_ufs_config_intr(ufs, DFES_DEF_N_ERRS, UNIP_N_LYR);
 	exynos_ufs_config_intr(ufs, DFES_DEF_T_ERRS, UNIP_T_LYR);
-	exynos_ufs_set_pclk(ufs, 0U);
-	exynos_ufs_set_mclk(ufs);
+
+	exynos_ufs_set_unipro_clk(ufs);
 	exynos_ufs_ctrl_clk(ufs, true);
 
 	/* mphy */
@@ -960,10 +981,26 @@ err_0:
 
 static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 {
+	struct device_node *np = dev->of_node;
+	u32 freq[2];
 	int ret;
 
 	ret = exynos_ufs_populate_dt_phy(dev, ufs);
+	if (ret) {
+		dev_err(dev, "failed to populate dt-phy\n");
+		goto out;
+	}
 
+	ret = of_property_read_u32_array(np,
+			"pclk-freq-avail-range",freq, ARRAY_SIZE(freq));
+	if (!ret) {
+		ufs->pclk_avail_min = freq[0];
+		ufs->pclk_avail_max = freq[1];
+	} else {
+		dev_err(dev, "faild to get available pclk range\n");
+		goto out;
+	}
+out:
 	return ret;
 }
 

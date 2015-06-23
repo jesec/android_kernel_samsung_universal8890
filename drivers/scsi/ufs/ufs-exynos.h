@@ -390,8 +390,10 @@ struct exynos_ufs {
 	struct clk *clk_refclk_1;
 	struct clk *clk_refclk_2;
 	struct clk *clk_phy_symb[4];
-	long pclk_rate;
-	long mclk_rate;
+	u32 pclk_rate;
+	u32 pclk_avail_min;
+	u32 pclk_avail_max;
+	u32 mclk_rate;
 
 	int avail_ln_rx;
 	int avail_ln_tx;
