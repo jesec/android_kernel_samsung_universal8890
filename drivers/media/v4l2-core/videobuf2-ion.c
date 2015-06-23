@@ -240,7 +240,7 @@ void *vb2_ion_private_alloc(void *alloc_ctx, size_t size)
 	mutex_lock(&ctx->lock);
 	if (ctx_iommu(ctx) && !ctx->protected) {
 		buf->cookie.ioaddr = ion_iovmm_map(buf->attachment, 0,
-					       buf->size, 0, 0);
+						   buf->size, 0);
 		if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
 			ret = (int)buf->cookie.ioaddr;
 			mutex_unlock(&ctx->lock);
@@ -465,7 +465,7 @@ static int vb2_ion_map_dmabuf(void *mem_priv)
 	mutex_lock(&ctx->lock);
 	if (ctx_iommu(ctx) && !ctx->protected && buf->cookie.ioaddr == 0) {
 		buf->cookie.ioaddr = ion_iovmm_map(buf->attachment, 0,
-					buf->size, buf->direction, 0);
+					buf->size, buf->direction);
 		if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
 			pr_err("buf->cookie.ioaddr is error: %pa\n",
 					&buf->cookie.ioaddr);
@@ -987,7 +987,7 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 
 	if (ctx_iommu(ctx))
 		buf->cookie.ioaddr = iovmm_map(ctx->dev, buf->cookie.sgt->sgl,
-				buf->cookie.offset, size, buf->direction, 0);
+				buf->cookie.offset, size, buf->direction);
 
 	if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
 		dev_err(ctx->dev,

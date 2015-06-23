@@ -1267,7 +1267,7 @@ static unsigned int decon_map_ion_handle(struct decon_device *decon,
 	}
 
 	dma->dma_addr = ion_iovmm_map(dma->attachment, 0,
-			dma->dma_buf->size, DMA_TO_DEVICE, win_no);
+			dma->dma_buf->size, DMA_TO_DEVICE);
 	if (!dma->dma_addr || IS_ERR_VALUE(dma->dma_addr)) {
 		decon_err("iovmm_map() failed: %pa\n", &dma->dma_addr);
 		goto err_iovmm_map;

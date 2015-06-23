@@ -34,7 +34,6 @@ struct iommu_domain *get_domain_from_dev(struct device *dev);
  * @size: how much memory to map in bytes. @offset + @size must not exceed
  *        total size of @sg
  * @direction: dma data direction for iova
- * @id: From where iovmm allocates iova
  *
  * This function returns mapped IO address in the address space of @dev.
  * Returns minus error number if mapping fails.
@@ -46,7 +45,7 @@ struct iommu_domain *get_domain_from_dev(struct device *dev);
  *
  */
 dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
-		size_t size, enum dma_data_direction direction, int id);
+		size_t size, enum dma_data_direction direction);
 
 /* iovmm_unmap() - unmaps the given IO address
  * @dev: the owner of the IO address space where @iova belongs
@@ -224,7 +223,7 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
-#define iovmm_map(dev, sg, offset, size, direction, id) (-ENOSYS)
+#define iovmm_map(dev, sg, offset, size, direction) (-ENOSYS)
 #define iovmm_unmap(dev, iova)		do { } while (0)
 #define iovmm_map_oto(dev, phys, size)	(-ENOSYS)
 #define iovmm_unmap_oto(dev, phys)	do { } while (0)

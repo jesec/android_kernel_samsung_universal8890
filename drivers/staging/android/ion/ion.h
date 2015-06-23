@@ -205,7 +205,7 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 
 dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 			 off_t offset, size_t size,
-			 enum dma_data_direction direction, int id);
+			 enum dma_data_direction direction);
 void ion_iovmm_unmap(struct dma_buf_attachment *attachment, dma_addr_t iova);
 int ion_secure_protect(struct ion_heap *heap);
 int ion_secure_unprotect(struct ion_heap *heap);

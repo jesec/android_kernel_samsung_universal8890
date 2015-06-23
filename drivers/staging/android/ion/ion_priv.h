@@ -45,7 +45,6 @@ struct ion_iovm_map {
 	struct device *dev;
 	struct iommu_domain *domain;
 	dma_addr_t iova;
-	int region_id;
 };
 
 /**

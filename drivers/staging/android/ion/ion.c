@@ -2574,7 +2574,7 @@ void __init ion_reserve(struct ion_platform_data *data)
 }
 
 static struct ion_iovm_map *ion_buffer_iova_create(struct ion_buffer *buffer,
-			struct device *dev, enum dma_data_direction dir, int id)
+				struct device *dev, enum dma_data_direction dir)
 {
 	/* Must be called under buffer->lock held */
 	struct ion_iovm_map *iovm_map;
@@ -2588,7 +2588,7 @@ static struct ion_iovm_map *ion_buffer_iova_create(struct ion_buffer *buffer,
 	}
 
 	iovm_map->iova = iovmm_map(dev, buffer->sg_table->sgl,
-					0, buffer->size, dir, id);
+					0, buffer->size, dir);
 
 	if (iovm_map->iova == (dma_addr_t)-ENOSYS) {
 		size_t len;
@@ -2611,20 +2611,19 @@ static struct ion_iovm_map *ion_buffer_iova_create(struct ion_buffer *buffer,
 		return ERR_PTR(ret);
 	}
 
-	iovm_map->region_id = id;
 	iovm_map->dev = dev;
 	iovm_map->domain = get_domain_from_dev(dev);
 	iovm_map->map_cnt = 1;
 
-	pr_debug("%s: new map added for dev %s, iova %pa, id %d\n", __func__,
-			dev_name(dev), &iovm_map->iova, id);
+	pr_debug("%s: new map added for dev %s, iova %pa\n", __func__,
+			dev_name(dev), &iovm_map->iova);
 
 	return iovm_map;
 }
 
 dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 			 off_t offset, size_t size,
-			 enum dma_data_direction direction, int id)
+			 enum dma_data_direction direction)
 {
 	struct dma_buf *dmabuf = attachment->dmabuf;
 	struct ion_buffer *buffer = dmabuf->priv;
@@ -2641,19 +2640,17 @@ dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(iovm_map, &buffer->iovas, list) {
-		if ((domain == iovm_map->domain) &&
-				(id == iovm_map->region_id)) {
-			pr_debug("%s: reusable map found for dev %s, "
-					"domain %p, id %d\n", __func__,
-					dev_name(iovm_map->dev),
-					iovm_map->domain, id);
+		if (domain == iovm_map->domain) {
+			pr_debug("%s: reusable map found: dev %s, domain %p\n",
+				__func__, dev_name(iovm_map->dev),
+				iovm_map->domain);
 			iovm_map->map_cnt++;
 			mutex_unlock(&buffer->lock);
 			return iovm_map->iova;
 		}
 	}
 
-	iovm_map = ion_buffer_iova_create(buffer, attachment->dev, direction, id);
+	iovm_map = ion_buffer_iova_create(buffer, attachment->dev, direction);
 	if (IS_ERR(iovm_map)) {
 		mutex_unlock(&buffer->lock);
 		return PTR_ERR(iovm_map);
@@ -2692,11 +2689,9 @@ void ion_iovmm_unmap(struct dma_buf_attachment *attachment, dma_addr_t iova)
 				this_map = iovm_map;
 			} else {
 				found = true;
-				pr_debug("%s: found new map %pa for dev %s "
-						"in region %d\n", __func__,
-						&iovm_map->iova,
-						dev_name(iovm_map->dev),
-						iovm_map->region_id);
+				pr_debug("%s: found new map %pa for dev %s.\n",
+					__func__, &iovm_map->iova,
+					dev_name(iovm_map->dev));
 			}
 		}
 	}
@@ -2705,9 +2700,8 @@ void ion_iovmm_unmap(struct dma_buf_attachment *attachment, dma_addr_t iova)
 		pr_warn("%s: IOVA %pa is not found for %s\n",
 			__func__, &iova, dev_name(dev));
 	} else if (found && !this_map->map_cnt) {
-		pr_debug("%s: unmap previous %pa for dev %s in region %d\n",
-			__func__, &this_map->iova, dev_name(this_map->dev),
-			this_map->region_id);
+		pr_debug("%s: unmap previous %pa for dev %s\n",
+			__func__, &this_map->iova, dev_name(this_map->dev));
 		iovmm_unmap(this_map->dev, this_map->iova);
 		list_del(&this_map->list);
 		kfree(this_map);
