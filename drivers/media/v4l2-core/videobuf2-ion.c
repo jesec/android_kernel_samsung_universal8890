@@ -1129,7 +1129,7 @@ int vb2_ion_buf_prepare(struct vb2_buffer *vb)
 }
 EXPORT_SYMBOL_GPL(vb2_ion_buf_prepare);
 
-int vb2_ion_buf_finish(struct vb2_buffer *vb)
+void vb2_ion_buf_finish(struct vb2_buffer *vb)
 {
 	int i;
 	enum dma_data_direction dir;
@@ -1139,13 +1139,10 @@ int vb2_ion_buf_finish(struct vb2_buffer *vb)
 
 	for (i = 0; i < vb->num_planes; i++) {
 		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
-		if (!buf->vma)
-			return 0;
-		vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
+		if (buf->vma)
+			vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
 						buf->size, dir);
 	}
-
-	return 0;
 }
 EXPORT_SYMBOL_GPL(vb2_ion_buf_finish);
 

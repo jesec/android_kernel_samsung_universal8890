@@ -225,7 +225,7 @@ void vb2_ion_sync_for_device(void *cookie, off_t offset, size_t size,
 void vb2_ion_sync_for_cpu(void *cookie, off_t offset, size_t size,
 						enum dma_data_direction dir);
 int vb2_ion_buf_prepare(struct vb2_buffer *vb);
-int vb2_ion_buf_finish(struct vb2_buffer *vb);
+void vb2_ion_buf_finish(struct vb2_buffer *vb);
 
 /* IOMMU support */
 
