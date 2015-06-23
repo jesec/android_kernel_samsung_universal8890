@@ -107,13 +107,6 @@ void *vb2_ion_create_context(struct device *dev, size_t alignment, long flags);
 void vb2_ion_destroy_context(void *ctx);
 
 void vb2_ion_set_cached(void *ctx, bool cached);
-#ifndef CONFIG_EXYNOS_IOVMM_V6
-void __vb2_ion_set_protected_unlocked(void *ctx, bool ctx_protected);
-void vb2_ion_set_protected(void *ctx, bool ctx_protected);
-#else
-#define __vb2_ion_set_protected_unlocked(ctx, en) do { } while (0)
-#define vb2_ion_set_protected(ctx, en) do { } while (0)
-#endif
 int vb2_ion_set_alignment(void *ctx, size_t alignment);
 
 /* Data type of the cookie returned by vb2_plane_cookie() function call.

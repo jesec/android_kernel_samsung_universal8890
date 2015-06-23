@@ -76,57 +76,6 @@ void vb2_ion_set_cached(void *ctx, bool cached)
 }
 EXPORT_SYMBOL(vb2_ion_set_cached);
 
-
-#ifndef CONFIG_EXYNOS_IOVMM_V6
-/*
- * vb2ctx->protected, vb2ctx->iommu_active_cnt and iommu state are not
- * guaranteed to be atomically changed with this function. Thus it should
- * be care if this function is directly called by the drivers.
- * The atomicity must be guaranteed by the caller.
- */
-void __vb2_ion_set_protected_unlocked(void *ctx, bool ctx_protected)
-{
-	struct vb2_ion_context *vb2ctx = ctx;
-
-	if (vb2ctx->protected == ctx_protected)
-		return;
-	vb2ctx->protected = ctx_protected;
-
-	if (ctx_protected) {
-		if (vb2ctx->iommu_active_cnt) {
-			dev_dbg(vb2ctx->dev, "detaching active MMU\n");
-			iovmm_deactivate(vb2ctx->dev);
-		}
-	} else {
-		if (vb2ctx->iommu_active_cnt) {
-			int ret;
-			dev_dbg(vb2ctx->dev, "re-attaching active MMU\n");
-			ret = iovmm_activate(vb2ctx->dev);
-			if (ret) {
-				dev_err(vb2ctx->dev,
-				"Failed to activate IOMMU with err %d\n", ret);
-				BUG();
-			}
-		}
-	}
-}
-/*
- * when a context is protected, we cannot use the IOMMU since
- * secure world is in charge.
- */
-void vb2_ion_set_protected(void *ctx, bool ctx_protected)
-{
-	struct vb2_ion_context *vb2ctx = ctx;
-
-	mutex_lock(&vb2ctx->lock);
-
-	__vb2_ion_set_protected_unlocked(ctx, ctx_protected);
-
-	mutex_unlock(&vb2ctx->lock);
-}
-EXPORT_SYMBOL(vb2_ion_set_protected);
-#endif
-
 int vb2_ion_set_alignment(void *ctx, size_t alignment)
 {
 	struct vb2_ion_context *vb2ctx = ctx;
