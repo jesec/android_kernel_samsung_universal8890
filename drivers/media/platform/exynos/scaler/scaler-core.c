@@ -26,8 +26,7 @@
 #include <media/m2m1shot.h>
 #include <media/m2m1shot-helper.h>
 
-#include <mach/videonode.h>
-#include <plat/cpu.h>
+#include <video/videonode.h>
 
 #include "scaler.h"
 #include "scaler-regs.h"
@@ -657,7 +656,7 @@ static int sc_v4l2_s_fmt_mplane(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
-	if (pixm->reserved[SC_FMT_PREMULTI_FLAG] != 0 &&
+	if (pixm->flags == V4L2_PIX_FMT_FLAG_PREMUL_ALPHA &&
 			ctx->sc_dev->version != SCALER_VERSION(4, 0, 0))
 		frame->pre_multi = true;
 	else
@@ -753,26 +752,26 @@ static int sc_v4l2_g_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	return 0;
 }
 
-static int sc_get_fract_val(struct v4l2_crop *cr, struct sc_ctx *ctx)
+static int sc_get_fract_val(struct v4l2_rect *rect, struct sc_ctx *ctx)
 {
-	ctx->init_phase.yh = SC_CROP_GET_FR_VAL(cr->c.left);
+	ctx->init_phase.yh = SC_CROP_GET_FR_VAL(rect->left);
 	if (ctx->init_phase.yh)
-		cr->c.left &= SC_CROP_INT_MASK;
+		rect->left &= SC_CROP_INT_MASK;
 
-	ctx->init_phase.yv = SC_CROP_GET_FR_VAL(cr->c.top);
+	ctx->init_phase.yv = SC_CROP_GET_FR_VAL(rect->top);
 	if (ctx->init_phase.yv)
-		cr->c.top &= SC_CROP_INT_MASK;
+		rect->top &= SC_CROP_INT_MASK;
 
-	ctx->init_phase.w = SC_CROP_GET_FR_VAL(cr->c.width);
+	ctx->init_phase.w = SC_CROP_GET_FR_VAL(rect->width);
 	if (ctx->init_phase.w) {
-		cr->c.width &= SC_CROP_INT_MASK;
-		cr->c.width += 1;
+		rect->width &= SC_CROP_INT_MASK;
+		rect->width += 1;
 	}
 
-	ctx->init_phase.h = SC_CROP_GET_FR_VAL(cr->c.height);
+	ctx->init_phase.h = SC_CROP_GET_FR_VAL(rect->height);
 	if (ctx->init_phase.h) {
-		cr->c.height &= SC_CROP_INT_MASK;
-		cr->c.height += 1;
+		rect->height &= SC_CROP_INT_MASK;
+		rect->height += 1;
 	}
 
 	if (sc_fmt_is_yuv420(ctx->s_frame.sc_fmt->pixelformat)) {
@@ -796,19 +795,21 @@ static int sc_get_fract_val(struct v4l2_crop *cr, struct sc_ctx *ctx)
 	v4l2_dbg(1, sc_log_level, &ctx->sc_dev->m2m.v4l2_dev,
 				"src crop position (x,y,w,h) =	\
 				(%d.%d, %d.%d, %d.%d, %d.%d) %d, %d\n",
-				cr->c.left, ctx->init_phase.yh,
-				cr->c.top, ctx->init_phase.yv,
-				cr->c.width, ctx->init_phase.w,
-				cr->c.height, ctx->init_phase.h,
+				rect->left, ctx->init_phase.yh,
+				rect->top, ctx->init_phase.yv,
+				rect->width, ctx->init_phase.w,
+				rect->height, ctx->init_phase.h,
 				ctx->init_phase.ch, ctx->init_phase.cv);
 	return 0;
 }
 
-static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
+static int sc_v4l2_s_crop(struct file *file, void *fh,
+		const struct v4l2_crop *cr)
 {
 	struct sc_ctx *ctx = fh_to_sc_ctx(fh);
 	struct sc_dev *sc = ctx->sc_dev;
 	struct sc_frame *frame;
+	struct v4l2_rect rect = cr->c;
 	const struct sc_size_limit *limit = NULL;
 	int x_align = 0, y_align = 0;
 	int w_align = 0;
@@ -833,7 +834,7 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	}
 
 	if (V4L2_TYPE_IS_OUTPUT(cr->type)) {
-		ret = sc_get_fract_val(cr, ctx);
+		ret = sc_get_fract_val(&rect, ctx);
 		if (ret < 0)
 			return ret;
 		limit = &sc->variant->limit_input;
@@ -851,8 +852,8 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	}
 
 	/* Bound an image to have crop width and height in limit */
-	v4l_bound_align_image(&cr->c.width, limit->min_w, limit->max_w,
-			w_align, &cr->c.height, limit->min_h,
+	v4l_bound_align_image(&rect.width, limit->min_w, limit->max_w,
+			w_align, &rect.height, limit->min_h,
 			limit->max_h, h_align, 0);
 
 	if (V4L2_TYPE_IS_OUTPUT(cr->type)) {
@@ -868,23 +869,23 @@ static int sc_v4l2_s_crop(struct file *file, void *fh, struct v4l2_crop *cr)
 	}
 
 	/* Bound an image to have crop position in limit */
-	v4l_bound_align_image(&cr->c.left, 0, frame->width - cr->c.width,
-			x_align, &cr->c.top, 0, frame->height - cr->c.height,
+	v4l_bound_align_image(&rect.left, 0, frame->width - rect.width,
+			x_align, &rect.top, 0, frame->height - rect.height,
 			y_align, 0);
 
-	if ((cr->c.height > frame->height) || (cr->c.top > frame->height) ||
-		(cr->c.width > frame->width) || (cr->c.left > frame->width)) {
+	if ((rect.height > frame->height) || (rect.top > frame->height) ||
+		(rect.width > frame->width) || (rect.left > frame->width)) {
 		v4l2_err(&ctx->sc_dev->m2m.v4l2_dev,
 			"Out of crop range: (%d,%d,%d,%d) from %dx%d\n",
-			cr->c.left, cr->c.top, cr->c.width, cr->c.height,
+			rect.left, rect.top, rect.width, rect.height,
 			frame->width, frame->height);
 		return -EINVAL;
 	}
 
-	frame->crop.top = cr->c.top;
-	frame->crop.left = cr->c.left;
-	frame->crop.height = cr->c.height;
-	frame->crop.width = cr->c.width;
+	frame->crop.top = rect.top;
+	frame->crop.left = rect.left;
+	frame->crop.height = rect.height;
+	frame->crop.width = rect.width;
 
 	return 0;
 }
@@ -1090,7 +1091,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->src_addr.y = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.ysize, DMA_TO_DEVICE, 0);
+					frame->addr.ysize, DMA_TO_DEVICE);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.y)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of y (err %pa)",
@@ -1100,7 +1101,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->dst_addr.y = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.ysize, DMA_FROM_DEVICE, 0);
+					frame->addr.ysize, DMA_FROM_DEVICE);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.y)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of y (err %pa)",
@@ -1133,7 +1134,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->src_addr.cb = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.cbsize, DMA_TO_DEVICE, 1);
+					frame->addr.cbsize, DMA_TO_DEVICE);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.cb)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cb (err %pa)",
@@ -1143,7 +1144,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->dst_addr.cb = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.cbsize, DMA_FROM_DEVICE, 1);
+					frame->addr.cbsize, DMA_FROM_DEVICE);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.cb)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cb (err %pa)",
@@ -1176,7 +1177,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->src_addr.cr = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.crsize, DMA_TO_DEVICE, 2);
+					frame->addr.crsize, DMA_TO_DEVICE);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.cr)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cr (err %pa)",
@@ -1186,7 +1187,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->dst_addr.cr = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.crsize, DMA_FROM_DEVICE, 2);
+					frame->addr.crsize, DMA_FROM_DEVICE);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.cr)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cr (err %pa)",
@@ -1649,9 +1650,9 @@ static int sc_vb2_buf_prepare(struct vb2_buffer *vb)
 	return sc_buf_sync_prepare(vb);
 }
 
-static int sc_vb2_buf_finish(struct vb2_buffer *vb)
+static void sc_vb2_buf_finish(struct vb2_buffer *vb)
 {
-	return sc_buf_sync_finish(vb);
+	sc_buf_sync_finish(vb);
 }
 
 static void sc_vb2_buf_queue(struct vb2_buffer *vb)
@@ -1696,7 +1697,7 @@ static int sc_vb2_start_streaming(struct vb2_queue *vq, unsigned int count)
 	return 0;
 }
 
-static int sc_vb2_stop_streaming(struct vb2_queue *vq)
+static void sc_vb2_stop_streaming(struct vb2_queue *vq)
 {
 	struct sc_ctx *ctx = vb2_get_drv_priv(vq);
 	int ret;
@@ -1706,8 +1707,6 @@ static int sc_vb2_stop_streaming(struct vb2_queue *vq)
 		dev_err(ctx->sc_dev->dev, "wait timeout\n");
 
 	clear_bit(CTX_STREAMING, &ctx->flags);
-
-	return ret;
 }
 
 static struct vb2_ops sc_vb2_ops = {
@@ -1736,7 +1735,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->mem_ops = &vb2_ion_memops;
 	src_vq->drv_priv = ctx;
 	src_vq->buf_struct_size = sizeof(struct vb2_sc_buffer);
-	src_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	ret = vb2_queue_init(src_vq);
 	if (ret)
@@ -1749,7 +1748,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->mem_ops = &vb2_ion_memops;
 	dst_vq->drv_priv = ctx;
 	dst_vq->buf_struct_size = sizeof(struct vb2_sc_buffer);
-	dst_vq->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	return vb2_queue_init(dst_vq);
 }
@@ -2862,6 +2861,7 @@ static int sc_register_m2m_device(struct sc_dev *sc, int dev_id)
 	vfd->release	= video_device_release;
 	vfd->lock	= &sc->lock;
 	vfd->vfl_dir	= VFL_DIR_M2M;
+	vfd->v4l2_dev	= v4l2_dev;
 	scnprintf(vfd->name, sizeof(vfd->name), "%s:m2m", MODULE_NAME);
 
 	video_set_drvdata(vfd, sc);
@@ -3452,9 +3452,9 @@ static int sc_probe(struct platform_device *pdev)
 	init_waitqueue_head(&sc->wait);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	sc->regs = devm_request_and_ioremap(&pdev->dev, res);
-	if (sc->regs == NULL)
-		return -ENOENT;
+	sc->regs = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(sc->regs))
+		return PTR_ERR(sc->regs);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
@@ -3514,6 +3514,7 @@ static int sc_probe(struct platform_device *pdev)
 		goto err_m2m;
 	}
 
+#if defined(CONFIG_PM_DEVFREQ)
 	if (!of_property_read_u32(pdev->dev.of_node, "mscl,int_qos_minlock",
 				(u32 *)&sc->qosreq_int_level)) {
 		if (sc->qosreq_int_level > 0) {
@@ -3523,7 +3524,7 @@ static int sc_probe(struct platform_device *pdev)
 						sc->qosreq_int_level);
 		}
 	}
-
+#endif
 	if (of_property_read_string(pdev->dev.of_node, "busmon,master",
 					(const char **)&sc->busmon_m))
 		sc->busmon_m = NULL;

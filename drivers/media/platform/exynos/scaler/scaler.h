@@ -102,6 +102,13 @@ extern int sc_log_level;
 
 #define SC_FMT_PREMULTI_FLAG	10
 
+/* for blend operation */
+#define V4L2_CID_GLOBAL_ALPHA		(V4L2_CID_EXYNOS_BASE + 1)
+#define V4L2_CID_2D_BLEND_OP		(V4L2_CID_EXYNOS_BASE + 103)
+#define V4L2_CID_2D_COLOR_FILL		(V4L2_CID_EXYNOS_BASE + 104)
+#define V4L2_CID_2D_DITH		(V4L2_CID_EXYNOS_BASE + 105)
+#define V4L2_CID_2D_FMT_PREMULTI	(V4L2_CID_EXYNOS_BASE + 106)
+
 /* for denoising filter */
 #define SC_CID_DNOISE_FT		(V4L2_CID_EXYNOS_BASE + 150)
 #define SC_M2M1SHOT_OP_FILTER_SHIFT	(28)
@@ -111,7 +118,7 @@ extern int sc_log_level;
 #define sc_buf_sync_prepare vb2_ion_buf_prepare
 #define sc_buf_sync_finish vb2_ion_buf_finish
 #else
-int sc_buf_sync_finish(struct vb2_buffer *vb);
+void sc_buf_sync_finish(struct vb2_buffer *vb);
 int sc_buf_sync_prepare(struct vb2_buffer *vb);
 #endif
 
