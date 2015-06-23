@@ -1049,6 +1049,7 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 				cpu_to_le32(lower_32_bits(sg->dma_address));
 			prd_table[i].upper_addr =
 				cpu_to_le32(upper_32_bits(sg->dma_address));
+			hba->transferred_sector += prd_table[i].size;
 		}
 	} else {
 		lrbp->utr_descriptor_ptr->prd_table_length = 0;
