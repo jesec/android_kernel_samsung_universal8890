@@ -184,7 +184,7 @@ void vb2_ion_destroy_context(void *ctx)
 }
 EXPORT_SYMBOL(vb2_ion_destroy_context);
 
-void *vb2_ion_private_alloc(void *alloc_ctx, size_t size, int write, int plane)
+void *vb2_ion_private_alloc(void *alloc_ctx, size_t size)
 {
 	struct vb2_ion_context *ctx = alloc_ctx;
 	struct vb2_ion_buf *buf;
@@ -234,13 +234,13 @@ void *vb2_ion_private_alloc(void *alloc_ctx, size_t size, int write, int plane)
 	buf->ctx = ctx;
 	buf->size = size;
 	buf->cached = ctx_cached(ctx);
-	buf->direction = write ? DMA_FROM_DEVICE: DMA_TO_DEVICE;
+	buf->direction = DMA_BIDIRECTIONAL;
 	buf->ion = true;
 
 	mutex_lock(&ctx->lock);
 	if (ctx_iommu(ctx) && !ctx->protected) {
 		buf->cookie.ioaddr = ion_iovmm_map(buf->attachment, 0,
-					       buf->size, buf->direction, plane);
+					       buf->size, 0, 0);
 		if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
 			ret = (int)buf->cookie.ioaddr;
 			mutex_unlock(&ctx->lock);
@@ -304,13 +304,12 @@ static void vb2_ion_put(void *buf_priv)
 		vb2_ion_private_free(&buf->cookie);
 }
 
-static void *vb2_ion_alloc(void *alloc_ctx, unsigned long size, int write,
-			   int plane, gfp_t gfp_flags)
+static void *vb2_ion_alloc(void *alloc_ctx, unsigned long size, gfp_t gfp_flags)
 {
 	struct vb2_ion_buf *buf;
 	void *cookie;
 
-	cookie = vb2_ion_private_alloc(alloc_ctx, size, write, plane);
+	cookie = vb2_ion_private_alloc(alloc_ctx, size);
 	if (IS_ERR(cookie))
 		return cookie;
 
@@ -434,7 +433,7 @@ static int vb2_ion_mmap(void *buf_priv, struct vm_area_struct *vma)
 	return ret;
 }
 
-static int vb2_ion_map_dmabuf(void *mem_priv, int plane)
+static int vb2_ion_map_dmabuf(void *mem_priv)
 {
 	struct vb2_ion_buf *buf = mem_priv;
 	struct vb2_ion_context *ctx = buf->ctx;
@@ -466,7 +465,7 @@ static int vb2_ion_map_dmabuf(void *mem_priv, int plane)
 	mutex_lock(&ctx->lock);
 	if (ctx_iommu(ctx) && !ctx->protected && buf->cookie.ioaddr == 0) {
 		buf->cookie.ioaddr = ion_iovmm_map(buf->attachment, 0,
-					buf->size, buf->direction, plane);
+					buf->size, buf->direction, 0);
 		if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
 			pr_err("buf->cookie.ioaddr is error: %pa\n",
 					&buf->cookie.ioaddr);
@@ -924,7 +923,7 @@ static struct vm_area_struct *vb2_ion_get_vma(struct device *dev,
 }
 
 static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
-				unsigned long size, int write, int plane)
+				unsigned long size, int write)
 {
 	struct vb2_ion_context *ctx = alloc_ctx;
 	struct vb2_ion_buf *buf = NULL;
@@ -988,8 +987,7 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 
 	if (ctx_iommu(ctx))
 		buf->cookie.ioaddr = iovmm_map(ctx->dev, buf->cookie.sgt->sgl,
-					buf->cookie.offset, size, buf->direction,
-					plane);
+				buf->cookie.offset, size, buf->direction, 0);
 
 	if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
 		dev_err(ctx->dev,
