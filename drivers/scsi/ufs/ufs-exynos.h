@@ -415,6 +415,10 @@ struct exynos_ufs {
 	u32 rx_adv_min_actv_time_cap;
 	u32 rx_adv_hibern8_time_cap;
 
+	u32 pa_granularity;
+	u32 pa_tactivate;
+	u32 pa_hibern8time;
+
 	u32 opts;
 #define EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB	BIT(0)
 

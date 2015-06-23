@@ -737,6 +737,21 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 		ufshcd_dme_set(hba,
 			UIC_ARG_MIB(T_DBG_SKIP_INIT_HIBERN8_EXIT), TRUE);
 
+	if (ufs->pa_granularity) {
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_MODE), TRUE);
+		ufshcd_dme_set(hba,
+			UIC_ARG_MIB(PA_GRANULARITY), ufs->pa_granularity);
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_MODE), FALSE);
+
+		if (ufs->pa_tactivate)
+			ufshcd_dme_set(hba,
+				UIC_ARG_MIB(PA_TACTIVATE), ufs->pa_tactivate);
+
+		if (ufs->pa_hibern8time)
+			ufshcd_dme_set(hba,
+				UIC_ARG_MIB(PA_HIBERN8TIME), ufs->pa_hibern8time);
+	}
+
 	return 0;
 }
 
@@ -1091,6 +1106,17 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 		}
 	} else {
 		ufs->rx_adv_fine_gran_sup_en = 0xf;
+	}
+
+	if (!of_property_read_u32(np,
+				"ufs-pa-granularity", &ufs->pa_granularity)) {
+		if (of_property_read_u32(np,
+				"ufs-pa-tacctivate", &ufs->pa_tactivate))
+			dev_warn(dev, "ufs-pa-tacctivate is empty\n");
+
+		if (of_property_read_u32(np,
+				"ufs-pa-hibern8time", &ufs->pa_hibern8time))
+			dev_warn(dev, "ufs-pa-hibern8time is empty\n");
 	}
 
 out:
