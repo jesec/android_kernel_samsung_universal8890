@@ -1347,6 +1347,7 @@ static void __fill_vb2_buffer(struct vb2_buffer *vb, const struct v4l2_buffer *b
 		 */
 		vb->v4l2_buf.flags &= ~V4L2_BUF_FLAG_TIMECODE;
 		vb->v4l2_buf.field = b->field;
+		vb->v4l2_buf.reserved2 = b->reserved2;
 	} else {
 		/* Zero any output buffer flags as this is a capture buffer */
 		vb->v4l2_buf.flags &= ~V4L2_BUFFER_OUT_FLAGS;
