@@ -3812,7 +3812,17 @@ static int decon_remove(struct platform_device *pdev)
 
 static void decon_shutdown(struct platform_device *pdev)
 {
-	/* TODO: Force stop the Decon If it is running */
+	struct decon_device *decon = platform_get_drvdata(pdev);
+
+	dev_info(decon->dev, "%s + state:%d\n", __func__, decon->state);
+	DISP_SS_EVENT_LOG(DISP_EVT_DECON_SHUTDOWN, &decon->sd, ktime_set(0, 0));
+
+	decon_lpd_block_exit(decon);
+	/* Unused DECON state is DECON_STATE_INIT */
+	if (decon->state == DECON_STATE_ON)
+		decon_disable(decon);
+
+	dev_info(decon->dev, "%s -\n", __func__);
 	return;
 }
 

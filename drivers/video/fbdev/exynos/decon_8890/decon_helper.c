@@ -281,11 +281,13 @@ void DISP_SS_EVENT_LOG(disp_ss_event_t type, struct v4l2_subdev *sd, ktime_t tim
 	case DISP_EVT_DECON_FRAMEDONE_WAIT:
 	case DISP_EVT_WB_SET_BUFFER:
 	case DISP_EVT_WB_SW_TRIGGER:
+	case DISP_EVT_DECON_SHUTDOWN:
 		disp_ss_event_log_decon(type, sd, time);
 		break;
 	case DISP_EVT_DSIM_FRAMEDONE:
 	case DISP_EVT_ENTER_ULPS:
 	case DISP_EVT_EXIT_ULPS:
+	case DISP_EVT_DSIM_SHUTDOWN:
 		disp_ss_event_log_dsim(type, sd, time);
 		break;
 	case DISP_EVT_VPP_FRAMEDONE:

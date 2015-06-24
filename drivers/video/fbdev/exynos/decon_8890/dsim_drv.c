@@ -1411,10 +1411,11 @@ static void dsim_shutdown(struct platform_device *pdev)
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct dsim_device *dsim = sd_to_dsim(sd);
 
-	dev_info(dev, "%s +\n", __func__);
-	dsim_set_panel_power(dsim, 0);
+	DISP_SS_EVENT_LOG(DISP_EVT_DSIM_SHUTDOWN, sd, ktime_set(0, 0));
+	dev_info(dev, "%s + state:%d\n", __func__, dsim->state);
 
-	dev_info(dev, "mipi-dsi driver shutdown\n");
+	dsim_disable(dsim);
+
 	dev_info(dev, "%s -\n", __func__);
 }
 
