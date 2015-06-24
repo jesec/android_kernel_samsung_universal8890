@@ -446,6 +446,9 @@ extern void __init samsung_register_usermux(
 		struct samsung_usermux *list,
 		unsigned int nr_usermux);
 
+#define VCLK_DFS		BIT(1)
+#define VCLK_DFS_SWITCH		BIT(2)
+
 /*
  * struct init_vclk: initial information for virtual clocks
  * @id: id of the clock for binding with device tree.

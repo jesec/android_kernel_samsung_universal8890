@@ -16,6 +16,7 @@
 #include <linux/exynos-ss.h>
 #include <linux/delay.h>
 #include "composite.h"
+#include "../../soc/samsung/pwrcal/pwrcal.h"
 
 #define PLL_STAT_OSC	(0x0)
 #define PLL_STAT_PLL	(0x1)
@@ -1461,6 +1462,65 @@ int cal_vclk_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long prate
 	return ret;
 }
 
+unsigned long cal_vclk_dfs_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long ret = 0;
+
+	/* Call cal api to recalculate rate */
+	ret = cal_dfs_get_rate(vclk->id);
+
+	return ret;
+}
+
+int cal_vclk_dfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long prate)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long flags = 0;
+	int ret = 0;
+
+	if (vclk->lock)
+		spin_lock_irqsave(vclk->lock, flags);
+
+	/* Call cal api to set rate of clock */
+	ret = cal_dfs_set_rate(vclk->id, rate);
+	if (ret) {
+		pr_err("[CAL]%s failed.\n", __func__);
+		if (vclk->lock)
+			spin_unlock_irqrestore(vclk->lock, flags);
+		return -EAGAIN;
+	}
+
+	if (vclk->lock)
+		spin_unlock_irqrestore(vclk->lock, flags);
+
+	return ret;
+}
+
+int cal_vclk_dfs_set_rate_switch(struct clk_hw *hw, unsigned long rate, unsigned long prate)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long flags = 0;
+	int ret = 0;
+
+	if (vclk->lock)
+		spin_lock_irqsave(vclk->lock, flags);
+
+	/* Call cal api to set rate of clock */
+	ret = cal_dfs_set_rate_switch(vclk->id, rate);
+	if (ret) {
+		pr_err("[CAL]%s failed.\n", __func__);
+		if (vclk->lock)
+			spin_unlock_irqrestore(vclk->lock, flags);
+		return -EAGAIN;
+	}
+
+	if (vclk->lock)
+		spin_unlock_irqrestore(vclk->lock, flags);
+
+	return ret;
+}
+
 static const struct clk_ops samsung_vclk_ops = {
 	.enable = cal_vclk_enable,
 	.disable = cal_vclk_disable,
@@ -1468,6 +1528,18 @@ static const struct clk_ops samsung_vclk_ops = {
 	.recalc_rate = cal_vclk_recalc_rate,
 	.round_rate = cal_vclk_round_rate,
 	.set_rate = cal_vclk_set_rate,
+};
+
+static const struct clk_ops samsung_vclk_dfs_ops = {
+	.recalc_rate = cal_vclk_dfs_recalc_rate,
+	.round_rate = cal_vclk_round_rate,
+	.set_rate = cal_vclk_dfs_set_rate,
+};
+
+static const struct clk_ops samsung_vclk_dfs_sw_ops = {
+	.recalc_rate = cal_vclk_dfs_recalc_rate,
+	.round_rate = cal_vclk_round_rate,
+	.set_rate = cal_vclk_dfs_set_rate_switch,
 };
 
 static struct clk * __init _samsung_register_vclk(struct init_vclk *list)
@@ -1483,7 +1555,12 @@ static struct clk * __init _samsung_register_vclk(struct init_vclk *list)
 	}
 
 	init.name = list->name;
-	init.ops = &samsung_vclk_ops;
+	if (list->vclk_flags & VCLK_DFS)
+		init.ops = &samsung_vclk_dfs_ops;
+	else if (list->vclk_flags & VCLK_DFS_SWITCH)
+		init.ops = &samsung_vclk_dfs_sw_ops;
+	else
+		init.ops = &samsung_vclk_ops;
 	init.flags = list->flags | (CLK_IS_BASIC | CLK_IS_ROOT | CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED);
 	init.parent_names = NULL;
 	init.num_parents = 0;
