@@ -19,6 +19,7 @@
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
+#include <linux/ipa.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/rwsem.h>
@@ -584,6 +585,10 @@ static int cpufreq_interactive_speedchange_task(void *data)
 					pjcpu->pol_hispeed_val_time = hvt;
 				}
 			}
+
+#if defined(CONFIG_CPU_THERMAL_IPA)
+			ipa_cpufreq_requested(pcpu->policy, max_freq);
+#endif
 			trace_cpufreq_interactive_setspeed(cpu,
 						     pcpu->target_freq,
 						     pcpu->policy->cur);
