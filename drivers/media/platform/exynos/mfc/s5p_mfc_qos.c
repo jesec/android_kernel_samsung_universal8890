@@ -68,16 +68,16 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 				qos_table[idx].freq_mif);
 
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-		pm_qos_add_request(&dev->qos_req_big,
-				PM_QOS_BIG_FREQ_MIN,
+		pm_qos_add_request(&dev->qos_req_cluster1,
+				PM_QOS_CLUSTER1_FREQ_MIN
 				qos_table[idx].freq_cpu);
 #endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-		pm_qos_add_request(&dev->qos_req_big,
-				PM_QOS_BIG_FREQ_MIN,
+		pm_qos_add_request(&dev->qos_req_cluster1,
+				PM_QOS_CLUSTER1_FREQ_MIN,
 				qos_table[idx].freq_cpu);
-		pm_qos_add_request(&dev->qos_req_little,
-				PM_QOS_LITTLE_FREQ_MIN,
+		pm_qos_add_request(&dev->qos_req_cluster0,
+				PM_QOS_CLUSTER0_FREQ_MIN,
 				qos_table[idx].freq_kfc);
 #endif
 		atomic_set(&dev->qos_req_cur, idx + 1);
@@ -117,13 +117,13 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		}
 
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-		pm_qos_update_request(&dev->qos_req_big,
+		pm_qos_update_request(&dev->qos_req_cluster1,
 				qos_table[idx].freq_cpu);
 #endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-		pm_qos_update_request(&dev->qos_req_big,
+		pm_qos_update_request(&dev->qos_req_cluster1,
 				qos_table[idx].freq_cpu);
-		pm_qos_update_request(&dev->qos_req_little,
+		pm_qos_update_request(&dev->qos_req_cluster0,
 				qos_table[idx].freq_kfc);
 #endif
 		atomic_set(&dev->qos_req_cur, idx + 1);
@@ -143,11 +143,11 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		pm_qos_remove_request(&dev->qos_req_mif);
 
 #ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-		pm_qos_remove_request(&dev->qos_req_big);
+		pm_qos_remove_request(&dev->qos_req_cluster1);
 #endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-		pm_qos_remove_request(&dev->qos_req_big);
-		pm_qos_remove_request(&dev->qos_req_little);
+		pm_qos_remove_request(&dev->qos_req_cluster1);
+		pm_qos_remove_request(&dev->qos_req_cluster0);
 #endif
 		atomic_set(&dev->qos_req_cur, 0);
 		mfc_info_ctx("QoS remove\n");

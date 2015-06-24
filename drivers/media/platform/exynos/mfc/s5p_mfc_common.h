@@ -396,8 +396,8 @@ struct s5p_mfc_dev {
 	atomic_t *qos_req_cnt;
 	struct pm_qos_request qos_req_int;
 	struct pm_qos_request qos_req_mif;
-	struct pm_qos_request qos_req_big;
-	struct pm_qos_request qos_req_little;
+	struct pm_qos_request qos_req_cluster1;
+	struct pm_qos_request qos_req_cluster0;
 
 	/* for direct clock control */
 	int min_rate;
