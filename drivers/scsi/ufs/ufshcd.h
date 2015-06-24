@@ -71,6 +71,9 @@
 
 struct ufs_hba;
 
+
+#define UFS_UNIQUE_NUMBER_LEN 17 /* manufacturer date 4 bytes + serial number 12 bytes + null */
+
 enum dev_cmd_type {
 	DEV_CMD_TYPE_NOP		= 0x0,
 	DEV_CMD_TYPE_QUERY		= 0x1,
@@ -495,6 +498,15 @@ struct ufs_hba {
 #define UFSHCI_QUIRK_BROKEN_DWORD_UTRD		BIT(0)
 #define UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR	BIT(1)
 #define UFSHCI_QUIRK_USE_OF_HCE			BIT(2)
+
+	/* Device deviations from standard UFS device spec. */
+	unsigned int dev_quirks;
+
+	struct device_attribute unique_number_attr;
+	struct device_attribute manufacturer_id_attr;
+	char unique_number[UFS_UNIQUE_NUMBER_LEN];
+	u16 manufacturer_id;
+	u8 lifetime;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
@@ -617,4 +629,12 @@ static inline int ufshcd_dme_peer_get(struct ufs_hba *hba,
 
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
+
+int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size);
+int ufshcd_read_health_desc(struct ufs_hba *hba, u8 *buf, u32 size);
+
+#define ASCII_STD true
+#define UTF16_STD false
+int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
+				u32 size, bool ascii);
 #endif /* End of Header */

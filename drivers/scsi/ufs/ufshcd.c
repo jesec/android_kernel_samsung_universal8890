@@ -40,9 +40,12 @@
 #include <linux/async.h>
 #include <linux/devfreq.h>
 #include <linux/blkdev.h>
+#include <linux/nls.h>
 
 #include "ufshcd.h"
 #include "unipro.h"
+#include "ufs-exynos.h"
+#include "ufs_quirks.h"
 
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
@@ -100,6 +103,7 @@ static u32 ufs_query_desc_max_size[] = {
 	QUERY_DESC_RFU_MAX_SIZE,
 	QUERY_DESC_GEOMETRY_MAZ_SIZE,
 	QUERY_DESC_POWER_MAX_SIZE,
+	QUERY_DESC_HEALTH_MAX_SIZE,
 	QUERY_DESC_RFU_MAX_SIZE,
 };
 
@@ -176,6 +180,16 @@ static inline enum uic_link_state
 ufs_get_pm_lvl_to_link_pwr_state(enum ufs_pm_level lvl)
 {
 	return ufs_pm_lvl_states[lvl].link_state;
+}
+
+/* replace non-printable or non-ASCII characters with spaces */
+static inline void ufshcd_remove_non_printable(char *val)
+{
+	if (!val)
+		return;
+
+	if (*val < 0x20 || *val > 0x7e)
+		*val = ' ';
 }
 
 static void ufshcd_tmc_handler(struct ufs_hba *hba);
@@ -1854,15 +1868,38 @@ static int ufshcd_read_desc_param(struct ufs_hba *hba,
 				      desc_id, desc_index, 0, desc_buf,
 				      &buff_len);
 
-	if (ret || (buff_len < ufs_query_desc_max_size[desc_id]) ||
-	    (desc_buf[QUERY_DESC_LENGTH_OFFSET] !=
-	     ufs_query_desc_max_size[desc_id])
-	    || (desc_buf[QUERY_DESC_DESC_TYPE_OFFSET] != desc_id)) {
-		dev_err(hba->dev, "%s: Failed reading descriptor. desc_id %d param_offset %d buff_len %d ret %d",
-			__func__, desc_id, param_offset, buff_len, ret);
-		if (!ret)
-			ret = -EINVAL;
+	if (ret) {
+		dev_err(hba->dev, "%s: Failed reading descriptor. desc_id %d, desc_index %d, param_offset %d, ret %d",
+			__func__, desc_id, desc_index, param_offset, ret);
 
+		goto out;
+	}
+
+	/* Sanity check */
+	if (desc_buf[QUERY_DESC_DESC_TYPE_OFFSET] != desc_id) {
+		dev_err(hba->dev, "%s: invalid desc_id %d in descriptor header",
+			__func__, desc_buf[QUERY_DESC_DESC_TYPE_OFFSET]);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/*
+	 * While reading variable size descriptors (like string descriptor),
+	 * some UFS devices may report the "LENGTH" (field in "Transaction
+	 * Specific fields" of Query Response UPIU) same as what was requested
+	 * in Query Request UPIU instead of reporting the actual size of the
+	 * variable size descriptor.
+	 * Although it's safe to ignore the "LENGTH" field for variable size
+	 * descriptors as we can always derive the length of the descriptor from
+	 * the descriptor header fields. Hence this change impose the length
+	 * match check only for fixed size descriptors (for which we always
+	 * request the correct size as part of Query Request UPIU).
+	 */
+	if ((desc_id != QUERY_DESC_IDN_STRING) &&
+			(buff_len != desc_buf[QUERY_DESC_LENGTH_OFFSET])) {
+		dev_err(hba->dev, "%s: desc_buf length mismatch: buff_len %d, buff_len(desc_header) %d",
+				__func__, buff_len, desc_buf[QUERY_DESC_LENGTH_OFFSET]);
+		ret = -EINVAL;
 		goto out;
 	}
 
@@ -1915,6 +1952,126 @@ static inline int ufshcd_read_unit_desc_param(struct ufs_hba *hba,
 
 	return ufshcd_read_desc_param(hba, QUERY_DESC_IDN_UNIT, lun,
 				      param_offset, param_read_buf, param_size);
+}
+
+int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	int err = 0;
+	int retries;
+
+	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
+		/* Read descriptor*/
+		err = ufshcd_read_desc(hba,
+				       QUERY_DESC_IDN_DEVICE, 0, buf, size);
+		if (!err)
+			break;
+		dev_dbg(hba->dev, "%s: error %d retrying\n", __func__, err);
+	}
+
+	if (err)
+		dev_err(hba->dev, "%s: reading Device Desc failed. err = %d\n",
+			__func__, err);
+
+	return err;
+}
+
+int ufshcd_read_health_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+{
+	int err = 0;
+	int retries;
+
+	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
+		/* Read descriptor*/
+		err = ufshcd_read_desc(hba,
+				       QUERY_DESC_IDN_HEALTH, 0, buf, size);
+		if (!err)
+			break;
+		dev_dbg(hba->dev, "%s: error %d retrying\n", __func__, err);
+	}
+
+	if (err)
+		dev_err(hba->dev, "%s: reading Device Health Desc failed. err = %d\n",
+			__func__, err);
+
+	return err;
+}
+
+/**
+ * ufshcd_read_string_desc - read string descriptor
+ * @hba: pointer to adapter instance
+ * @desc_index: descriptor index
+ * @buf: pointer to buffer where descriptor would be read
+ * @size: size of buf
+ * @ascii: if true convert from unicode to ascii characters
+ *
+ * Return 0 in case of success, non-zero otherwise
+ */
+int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
+				u32 size, bool ascii)
+{
+	int err = 0;
+	int retries;
+
+	for (retries = 0; retries < QUERY_REQ_RETRIES; retries++) {
+		err = ufshcd_read_desc(hba,
+				QUERY_DESC_IDN_STRING, desc_index, buf, size);
+		if (!err)
+			break;
+		dev_dbg(hba->dev, "%s: error %d retrying %d\n", __func__, err,
+			retries);
+	}
+
+	if (err) {
+		dev_err(hba->dev, "%s: reading String Desc failed after %d retries. err = %d\n",
+			__func__, QUERY_REQ_RETRIES, err);
+		goto out;
+	}
+
+	if (ascii) {
+		int desc_len;
+		int ascii_len;
+		int i;
+		char *buff_ascii;
+
+		desc_len = buf[0];
+		/* remove header and divide by 2 to move from UTF16 to UTF8 */
+		ascii_len = (desc_len - QUERY_DESC_HDR_SIZE) / 2 + 1;
+		if (size < ascii_len + QUERY_DESC_HDR_SIZE) {
+			dev_err(hba->dev, "%s: buffer allocated size is too small\n",
+					__func__);
+			err = -ENOMEM;
+			goto out;
+		}
+
+		buff_ascii = kmalloc(ascii_len, GFP_KERNEL);
+		if (!buff_ascii) {
+			dev_err(hba->dev, "%s: Failed allocating %d bytes\n",
+					__func__, ascii_len);
+			err = -ENOMEM;
+			goto out_free_buff;
+		}
+
+		/*
+		 * the descriptor contains string in UTF16 format
+		 * we need to convert to utf-8 so it can be displayed
+		 */
+		utf16s_to_utf8s((wchar_t *)&buf[QUERY_DESC_HDR_SIZE],
+				desc_len - QUERY_DESC_HDR_SIZE,
+				UTF16_BIG_ENDIAN, buff_ascii, ascii_len);
+
+		/* replace non-printable or non-ASCII characters with spaces */
+		for (i = 0; i < ascii_len; i++)
+			ufshcd_remove_non_printable(&buff_ascii[i]);
+
+		memset(buf + QUERY_DESC_HDR_SIZE, 0,
+				size - QUERY_DESC_HDR_SIZE);
+		memcpy(buf + QUERY_DESC_HDR_SIZE, buff_ascii, ascii_len);
+		buf[QUERY_DESC_LENGTH_OFFSET] = ascii_len + QUERY_DESC_HDR_SIZE;
+out_free_buff:
+		kfree(buff_ascii);
+	}
+out:
+	return err;
 }
 
 /**
@@ -4283,6 +4440,8 @@ retry:
 	ret = ufshcd_complete_dev_init(hba);
 	if (ret)
 		goto out;
+
+	ufs_advertise_fixup_device(hba);
 
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
