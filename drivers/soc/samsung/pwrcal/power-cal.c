@@ -363,8 +363,10 @@ unsigned long cal_dfs_get_rate(unsigned int id)
 	dfs = to_dfs(vclk);
 
 	spin_lock_irqsave(dfs->lock, flag);
-	if (!vclk->ref_count)
+	if (!vclk->ref_count) {
+		pr_err("%s : %s reference count is zero \n", __func__, vclk->name);
 		goto out;
+	}
 
 	ret = vclk->ops->get_rate(vclk);
 

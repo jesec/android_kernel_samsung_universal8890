@@ -442,12 +442,12 @@ static unsigned int get_rate(struct dfs_table *table)
 				return get_value(table, l, 0);
 	}
 
-/*
+
 	for (m = 1; m < table->num_of_members; m++) {
 		clk = table->members[m];
 		pr_err("dfs_get_rate mid : %s : %d\n", clk->name, cur[m]);
 	}
-*/
+
 	return 0;
 }
 
