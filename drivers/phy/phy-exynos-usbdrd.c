@@ -530,6 +530,9 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 	phy_drd->usbphy_info.refclk = phy_drd->extrefclk;
 	phy_drd->usbphy_info.regs_base = phy_drd->reg_phy;
 
+	dev_info(dev, "usbphy info: version:0x%x, refclk:0x%x\n",
+		phy_drd->usbphy_info.version, phy_drd->usbphy_info.refclk);
+
 	for (i = 0; i < EXYNOS_DRDPHYS_NUM; i++) {
 		struct phy *phy = devm_phy_create(dev, NULL,
 						  &exynos_usbdrd_phy_ops,
