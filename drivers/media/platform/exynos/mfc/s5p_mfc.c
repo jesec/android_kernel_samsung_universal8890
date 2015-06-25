@@ -1715,7 +1715,11 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	case S5P_FIMV_R2H_CMD_COMPLETE_SEQ_RET:
 	case S5P_FIMV_R2H_CMD_ENC_BUFFER_FULL_RET:
 		if (ctx->type == MFCINST_DECODER) {
-			s5p_mfc_handle_frame(ctx, reason, err);
+			if (ctx->codec_mode == S5P_FIMV_CODEC_VC1RCV_DEC
+				&& s5p_mfc_err_dec(err) == S5P_FIMV_ERR_SYNC_POINT_NOT_RECEIVED)
+				s5p_mfc_handle_frame_error(ctx, reason, err);
+			else
+				s5p_mfc_handle_frame(ctx, reason, err);
 		} else if (ctx->type == MFCINST_ENCODER) {
 			if (reason == S5P_FIMV_R2H_CMD_SLICE_DONE_RET) {
 				dev->preempt_ctx = ctx->num;
