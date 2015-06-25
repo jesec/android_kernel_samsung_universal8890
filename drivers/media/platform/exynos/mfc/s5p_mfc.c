@@ -1835,9 +1835,11 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		goto irq_cleanup_hw;
 		break;
 	case S5P_FIMV_R2H_CMD_NAL_ABORT_RET:
-		if (ctx->type == MFCINST_ENCODER && enc->buf_full) {
+		if (ctx->type == MFCINST_ENCODER) {
 			ctx->state = MFCINST_RUNNING_BUF_FULL;
 			enc->buf_full = 0;
+			if (ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)
+				mfc_err_ctx("stream buffer size isn't enough\n");
 			if (ctx->c_ops->post_frame_start)
 				if (ctx->c_ops->post_frame_start(ctx))
 					mfc_err_ctx("post_frame_start() failed\n");
