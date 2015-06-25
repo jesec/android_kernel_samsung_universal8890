@@ -309,9 +309,14 @@ static int exynos_usbdrd_phy_init(struct phy *phy)
 	return 0;
 }
 
-static void exynos_usbdrd_pipe3_exit(struct exynos_usbdrd_phy *phy_drd)
+static void __exynos_usbdrd_phy_shutdown(struct exynos_usbdrd_phy *phy_drd)
 {
 	samsung_exynos_cal_usb3phy_disable(&phy_drd->usbphy_info);
+}
+
+static void exynos_usbdrd_pipe3_exit(struct exynos_usbdrd_phy *phy_drd)
+{
+	__exynos_usbdrd_phy_shutdown(phy_drd);
 
 	exynos_usbdrd_clk_disable(phy_drd);
 }
@@ -321,20 +326,13 @@ static void exynos_usbdrd_utmi_exit(struct exynos_usbdrd_phy *phy_drd)
 	return;
 }
 
-
-static void __exynos_usbdrd_phy_shutdown(struct phy_usb_instance *inst)
+static int exynos_usbdrd_phy_exit(struct phy *phy)
 {
+	struct phy_usb_instance *inst = phy_get_drvdata(phy);
 	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
 
 	/* UTMI or PIPE3 specific exit */
 	inst->phy_cfg->phy_exit(phy_drd);
-}
-
-static int exynos_usbdrd_phy_exit(struct phy *phy)
-{
-	struct phy_usb_instance *inst = phy_get_drvdata(phy);
-
-	__exynos_usbdrd_phy_shutdown(inst);
 
 	return 0;
 }
@@ -567,7 +565,7 @@ err1:
 #ifdef CONFIG_PM_SLEEP
 static int exynos_usbdrd_phy_resume(struct device *dev)
 {
-	int ret, i;
+	int ret;
 	struct exynos_usbdrd_phy *phy_drd = dev_get_drvdata(dev);
 
 	/*
@@ -588,9 +586,9 @@ static int exynos_usbdrd_phy_resume(struct device *dev)
 		return ret;
 	}
 
-	for (i = 0; i < EXYNOS_DRDPHYS_NUM; i++) {
-		__exynos_usbdrd_phy_shutdown(&phy_drd->phys[i]);
-	}
+	__exynos_usbdrd_phy_shutdown(phy_drd);
+
+	exynos_usbdrd_clk_disable(phy_drd);
 
 	return 0;
 }
