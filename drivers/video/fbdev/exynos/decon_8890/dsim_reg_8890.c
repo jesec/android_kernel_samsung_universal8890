@@ -987,14 +987,18 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	unsigned int time_vsync_tout;
 	unsigned int time_te_protect_on;
 	unsigned int time_te_tout;
+	int ret = 0;
 
 	/*
 	 * DSIM does not need to init, if DSIM is already
-	 * becomes HS status because of  LCD_ON_UBOOT
+	 * becomes txrequest_hsclk = 1'b1 because of LCD_ON_UBOOT
 	 */
-	if (dsim_reg_is_hs_clk_ready(id)) {
+	if (dsim_read_mask(id, DSIM_CLKCTRL, DSIM_CLKCTRL_TX_REQUEST_HSCLK)) {
+		dsim_info("dsim%d is probed with LCD ON UBOOT\n", id);
 		dsim_reg_init_probe(id, lcd_info, data_lane_cnt, clks);
-		return -EBUSY;
+		/* If reg_init_probe() sequence is not equal to reg_init()
+		   then just return. */
+		ret = -EBUSY;
 	}
 
 	/* get byte clock */
@@ -1047,20 +1051,13 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	dsim_reg_set_lpdr_timeout(id);
 	dsim_reg_set_hsync_timeout(id, 3);
 	/*should be adding dsc code*/
-	return 0;
+	return ret;
 }
 
 void dsim_reg_init_probe(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct dsim_clks *clks)
 {
-	/* set counter */
-	dsim_reg_set_stop_state_cnt(id);
-	dsim_reg_set_bta_timeout(id);
-	dsim_reg_set_lpdr_timeout(id);
-	dsim_reg_set_packet_ctrl(id);
-
-	/* set DSIM configuration */
-	dsim_reg_set_porch(id, lcd_info);
-	dsim_reg_set_config(id, lcd_info, data_lane_cnt);
+	dsim_reg_set_standby(id, 0);
+	return;
 }
 
 /*
@@ -1089,6 +1086,16 @@ int dsim_reg_set_clocks(u32 id, struct dsim_clks *clks, struct stdphy_pms *dphy_
 	u32 fin = 26;
 
 	if (en) {
+		/*
+		 * Do not need to set clocks related with PLL,
+		 * if DPHY_PLL is already stabled because of LCD_ON_UBOOT.
+		 */
+		if (dsim_reg_is_pll_stable(id)) {
+			dsim_info("dsim%d DPHY PLL is already stabled\n", id);
+			dsim_reg_set_standby(id, 0);
+			return -EBUSY;
+		}
+
 		/* set p, m, s to DPHY PLL */
 		/* PMS value has to be optained by PMS calculation tool released to customer*/
 		pll.p = dphy_pms->p;
