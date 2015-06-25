@@ -2616,16 +2616,15 @@ static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
 	return 0;
 }
 
-static int s5p_mfc_buf_finish(struct vb2_buffer *vb)
+static void s5p_mfc_buf_finish(struct vb2_buffer *vb)
 {
 	struct vb2_queue *vq = vb->vb2_queue;
 	struct s5p_mfc_ctx *ctx = vq->drv_priv;
 	unsigned int index = vb->v4l2_buf.index;
 
-	if (!ctx) {
+	if (!ctx)
 		mfc_err("no mfc context to run\n");
-		return -EINVAL;
-	}
+
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (call_cop(ctx, to_ctx_ctrls, ctx, &ctx->dst_ctrls[index]) < 0)
 			mfc_err_ctx("failed in to_ctx_ctrls\n");
@@ -2635,8 +2634,6 @@ static int s5p_mfc_buf_finish(struct vb2_buffer *vb)
 	}
 
 	s5p_mfc_mem_finish(vb);
-
-	return 0;
 }
 
 static void s5p_mfc_buf_cleanup(struct vb2_buffer *vb)
@@ -2741,7 +2738,7 @@ static void cleanup_assigned_fd(struct s5p_mfc_ctx *ctx)
 #define need_to_dpb_flush(ctx)		\
 	((ctx->state == MFCINST_FINISHING) ||	\
 	  (ctx->state == MFCINST_RUNNING))
-static int s5p_mfc_stop_streaming(struct vb2_queue *q)
+static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 {
 	unsigned long flags;
 	struct s5p_mfc_ctx *ctx = q->drv_priv;
@@ -2751,20 +2748,16 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 	int index = 0;
 	int prev_state;
 
-	if (!ctx) {
+	if (!ctx)
 		mfc_err("no mfc context to run\n");
-		return -EINVAL;
-	}
+
 	dev = ctx->dev;
-	if (!dev) {
+	if (!dev)
 		mfc_err("no mfc device to run\n");
-		return -EINVAL;
-	}
+
 	dec = ctx->dec_priv;
-	if (!dec) {
+	if (!dec)
 		mfc_err("no mfc decoder to run\n");
-		return -EINVAL;
-	}
 
 	if (need_to_wait_frame_start(ctx)) {
 		ctx->state = MFCINST_ABORT;
@@ -2844,7 +2837,6 @@ static int s5p_mfc_stop_streaming(struct vb2_queue *q)
 			s5p_mfc_cleanup_timeout(ctx);
 		ctx->state = prev_state;
 	}
-	return 0;
 }
 
 #define mfc_need_to_fill_dpb(ctx, dec, index)						\
@@ -3091,7 +3083,7 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	ctx->vq_src.io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 	ctx->vq_src.ops = &s5p_mfc_dec_qops;
 	ctx->vq_src.mem_ops = s5p_mfc_mem_ops();
-	ctx->vq_src.timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	ctx->vq_src.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	ret = vb2_queue_init(&ctx->vq_src);
 	if (ret) {
 		mfc_err("Failed to initialize videobuf2 queue(output)\n");
@@ -3104,7 +3096,7 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	ctx->vq_dst.io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 	ctx->vq_dst.ops = &s5p_mfc_dec_qops;
 	ctx->vq_dst.mem_ops = s5p_mfc_mem_ops();
-	ctx->vq_dst.timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	ctx->vq_dst.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	ret = vb2_queue_init(&ctx->vq_dst);
 	if (ret) {
 		mfc_err("Failed to initialize videobuf2 queue(capture)\n");

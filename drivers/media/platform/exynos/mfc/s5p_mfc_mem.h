@@ -46,7 +46,7 @@ static inline dma_addr_t s5p_mfc_mem_plane_addr(
 
 static inline void *s5p_mfc_mem_alloc_priv(void *alloc_ctx, size_t size)
 {
-	return vb2_ion_private_alloc(alloc_ctx, size, 0, 0);
+	return vb2_ion_private_alloc(alloc_ctx, size);
 }
 
 static inline void s5p_mfc_mem_free_priv(void *cookie)
@@ -73,9 +73,9 @@ static inline int s5p_mfc_mem_prepare(struct vb2_buffer *vb)
 	return vb2_ion_buf_prepare(vb);
 }
 
-static inline int s5p_mfc_mem_finish(struct vb2_buffer *vb)
+static inline void s5p_mfc_mem_finish(struct vb2_buffer *vb)
 {
-	return vb2_ion_buf_finish(vb);
+	vb2_ion_buf_finish(vb);
 }
 
 struct vb2_mem_ops *s5p_mfc_mem_ops(void);
