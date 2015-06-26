@@ -809,6 +809,9 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 	struct exynos_tmu_platform_data *pdata;
 	struct resource res;
 	int ret;
+	unsigned int i;
+	u32 value;
+	char node_name[20];
 
 	if (!data || !pdev->dev.of_node)
 		return -ENODEV;
@@ -855,6 +858,64 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No platform init data supplied.\n");
 		return -ENODEV;
 	}
+	/* Parsing throttling data */
+	of_property_read_u32(pdev->dev.of_node, "max_trigger_level", &value);
+	if (!value)
+		dev_err(&pdev->dev, "No max_trigger_level data\n");
+	pdata->max_trigger_level = value;
+
+	of_property_read_u32(pdev->dev.of_node, "non_hw_trigger_levels", &value);
+	if (!value)
+		dev_err(&pdev->dev, "No non_hw_trigger_levels data\n");
+	pdata->non_hw_trigger_levels = value;
+
+	for (i = 0; i < pdata->max_trigger_level; i++) {
+		snprintf(node_name, sizeof(node_name), "trigger_levels_%d", i);
+		of_property_read_u32(pdev->dev.of_node, node_name, &value);
+		if (!value)
+			dev_err(&pdev->dev, "No trigger_level data\n");
+		pdata->trigger_levels[i] = value;
+
+		snprintf(node_name, sizeof(node_name), "trigger_enable_%d", i);
+		of_property_read_u32(pdev->dev.of_node, node_name, &value);
+		if (!value)
+			dev_err(&pdev->dev, "No trigger_enable data\n");
+		pdata->trigger_enable[i] = value;
+
+		snprintf(node_name, sizeof(node_name), "trigger_type_%d", i);
+		of_property_read_u32(pdev->dev.of_node, node_name, &value);
+		if (!value)
+			dev_err(&pdev->dev, "No trigger_type data\n");
+		pdata->trigger_type[i] = value;
+	}
+
+	/* Parsing cooling data */
+	of_property_read_u32(pdev->dev.of_node, "freq_tab_count", &pdata->freq_tab_count);
+	for (i =0; i < pdata->freq_tab_count; i++) {
+		snprintf(node_name, sizeof(node_name), "freq_clip_max_%d", i);
+		of_property_read_u32(pdev->dev.of_node, node_name,
+						&pdata->freq_tab[i].freq_clip_max);
+		if (!pdata->freq_tab[i].freq_clip_max)
+			dev_err(&pdev->dev, "No cooling max freq\n");
+
+		snprintf(node_name, sizeof(node_name), "cooling_level_%d", i);
+		of_property_read_u32(pdev->dev.of_node, node_name,
+						&pdata->freq_tab[i].temp_level);
+		if (!pdata->freq_tab[i].temp_level)
+			dev_err(&pdev->dev, "No cooling temp level data\n");
+	}
+
+	pdata->hotplug_enable = of_property_read_bool(pdev->dev.of_node, "hotplug_enable");
+	if (pdata->hotplug_enable) {
+		dev_info(&pdev->dev, "thermal zone use hotplug function \n");
+		of_property_read_u32(pdev->dev.of_node, "hotplug_in_threshold", &pdata->hotplug_in_threshold);
+		if (!pdata->hotplug_in_threshold)
+			dev_err(&pdev->dev, "No input hotplug_in_threshold data\n");
+		of_property_read_u32(pdev->dev.of_node, "hotplug_out_threshold", &pdata->hotplug_out_threshold);
+		if (!pdata->hotplug_out_threshold)
+			dev_err(&pdev->dev, "No input hotplug_out_threshold data\n");
+	}
+
 	data->pdata = pdata;
 	/*
 	 * Check if the TMU shares some registers and then try to map the
