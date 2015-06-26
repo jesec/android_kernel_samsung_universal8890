@@ -30,6 +30,8 @@
 #include <linux/spinlock.h>
 #include <linux/syscore_ops.h>
 
+#include <soc/samsung/exynos-pm.h>
+
 #include "../core.h"
 #include "pinctrl-samsung.h"
 
@@ -1177,22 +1179,14 @@ static int samsung_pinctrl_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-
-/**
- * samsung_pinctrl_suspend_dev - save pinctrl state for suspend for a device
- *
- * Save data for all banks handled by this device.
- */
-static void samsung_pinctrl_suspend_dev(
-	struct samsung_pinctrl_drv_data *drvdata)
+#if defined(CONFIG_PM) || defined(CONFIG_CPU_IDLE)
+/* save gpio registers */
+static void samsung_pinctrl_save_regs(
+				struct samsung_pinctrl_drv_data *drvdata)
 {
 	struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
 	void __iomem *virt_base = drvdata->virt_base;
 	int i;
-
-	if (!ctrl->suspend)
-		return;
 
 	for (i = 0; i < ctrl->nr_banks; i++) {
 		struct samsung_pin_bank *bank = &ctrl->pin_banks[i];
@@ -1223,28 +1217,15 @@ static void samsung_pinctrl_suspend_dev(
 				 reg, bank->pm_save[PINCFG_TYPE_FUNC]);
 		}
 	}
-
-	ctrl->suspend(drvdata);
 }
 
-/**
- * samsung_pinctrl_resume_dev - restore pinctrl state from suspend for a device
- *
- * Restore one of the banks that was saved during suspend.
- *
- * We don't bother doing anything complicated to avoid glitching lines since
- * we're called before pad retention is turned off.
- */
-static void samsung_pinctrl_resume_dev(struct samsung_pinctrl_drv_data *drvdata)
+/* restore gpio registers */
+static void samsung_pinctrl_restore_regs(
+				struct samsung_pinctrl_drv_data *drvdata)
 {
 	struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
 	void __iomem *virt_base = drvdata->virt_base;
 	int i;
-
-	if (!ctrl->resume)
-		return;
-
-	ctrl->resume(drvdata);
 
 	for (i = 0; i < ctrl->nr_banks; i++) {
 		struct samsung_pin_bank *bank = &ctrl->pin_banks[i];
@@ -1277,6 +1258,108 @@ static void samsung_pinctrl_resume_dev(struct samsung_pinctrl_drv_data *drvdata)
 			if (widths[type])
 				writel(bank->pm_save[type], reg + offs[type]);
 	}
+}
+
+#endif /* defined(CONFIG_PM) || defined(CONFIG_CPU_IDLE) */
+
+#ifdef CONFIG_CPU_IDLE
+
+/* set PDN registers */
+static void samsung_pinctrl_set_pdn_previos_state(
+			struct samsung_pinctrl_drv_data *drvdata)
+{
+	struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
+	void __iomem *virt_base = drvdata->virt_base;
+	int i;
+
+	for (i = 0; i < ctrl->nr_banks; i++) {
+		struct samsung_pin_bank *bank = &ctrl->pin_banks[i];
+		void __iomem *reg = virt_base + bank->pctl_offset;
+
+		u8 *offs = bank->type->reg_offset;
+		u8 *widths = bank->type->fld_width;
+
+		if (!widths[PINCFG_TYPE_CON_PDN])
+			continue;
+
+		/* set previous state */
+		writel(0xffffffff, reg + offs[PINCFG_TYPE_CON_PDN]);
+		writel(bank->pm_save[PINCFG_TYPE_PUD],
+				reg + offs[PINCFG_TYPE_PUD_PDN]);
+	}
+}
+
+/* notifier function for LPA mode */
+static int samsung_pinctrl_notifier(struct notifier_block *self,
+				unsigned long cmd, void *v)
+{
+	struct samsung_pinctrl_drv_data *drvdata;
+
+	switch (cmd) {
+	case LPA_ENTER:
+		list_for_each_entry(drvdata, &drvdata_list, node) {
+			struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
+
+			if (!ctrl->suspend)
+				continue;
+
+			samsung_pinctrl_save_regs(drvdata);
+			samsung_pinctrl_set_pdn_previos_state(drvdata);
+		}
+		break;
+	case LPA_EXIT:
+		list_for_each_entry(drvdata, &drvdata_list, node) {
+			struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
+
+			if (!ctrl->resume)
+				continue;
+
+			samsung_pinctrl_restore_regs(drvdata);
+		}
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+#endif /* CONFIG_CPU_IDLE */
+
+#ifdef CONFIG_PM
+
+/**
+ * samsung_pinctrl_suspend_dev - save pinctrl state for suspend for a device
+ *
+ * Save data for all banks handled by this device.
+ */
+static void samsung_pinctrl_suspend_dev(
+	struct samsung_pinctrl_drv_data *drvdata)
+{
+	struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
+
+	if (!ctrl->suspend)
+		return;
+
+	samsung_pinctrl_save_regs(drvdata);
+	ctrl->suspend(drvdata);
+}
+
+/**
+ * samsung_pinctrl_resume_dev - restore pinctrl state from suspend for a device
+ *
+ * Restore one of the banks that was saved during suspend.
+ *
+ * We don't bother doing anything complicated to avoid glitching lines since
+ * we're called before pad retention is turned off.
+ */
+static void samsung_pinctrl_resume_dev(struct samsung_pinctrl_drv_data *drvdata)
+{
+	struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
+
+	if (!ctrl->resume)
+		return;
+
+	ctrl->resume(drvdata);
+	samsung_pinctrl_restore_regs(drvdata);
 }
 
 /**
@@ -1363,6 +1446,13 @@ static struct platform_driver samsung_pinctrl_driver = {
 	},
 };
 
+#ifdef CONFIG_CPU_IDLE
+static struct notifier_block samsung_pinctrl_notifier_block = {
+	.notifier_call = samsung_pinctrl_notifier,
+	.priority = 1,
+};
+#endif /*CONFIG_CPU_IDLE */
+
 static int __init samsung_pinctrl_drv_register(void)
 {
 	/*
@@ -1372,6 +1462,9 @@ static int __init samsung_pinctrl_drv_register(void)
 	 * ops that turn off pad retention (like exynos_pm_resume).
 	 */
 	register_syscore_ops(&samsung_pinctrl_syscore_ops);
+#ifdef CONFIG_CPU_IDLE
+	exynos_pm_register_notifier(&samsung_pinctrl_notifier_block);
+#endif
 
 	return platform_driver_register(&samsung_pinctrl_driver);
 }
