@@ -159,9 +159,14 @@ void exynos_update_pd_idle_status(int index, int idle)
  * - CPD (Cluster Power Down)
  * All cpus in a cluster are set c2_state_mask, and these cpus have enough
  * idle time which is longer than cpd_residency, cluster can be powered off.
+ *
+ * SICD (System Idle Clock Down) : All cpus are set c2_state_mask,
+ * and these cpus have enough idle time which is longer than sicd_residency,
+ * AP can be put into SICD. During SICD, no one access to DRAM.
  */
 
 static unsigned int cpd_residency = UINT_MAX;
+static unsigned int sicd_residency = UINT_MAX;
 
 static DEFINE_SPINLOCK(c2_lock);
 static struct cpumask c2_state_mask;
@@ -260,6 +265,33 @@ static void update_cluster_idle_state(int idle, int cpu)
 }
 
 /**
+ * If AP put into SICD, console cannot work normally. For development,
+ * support sysfs to enable or disable SICD. Refer below :
+ *
+ * echo 0/1 > /sys/power/sicd (0:disable, 1:enable)
+ */
+static int sicd_enabled = 1;
+
+static int is_sicd_available(void)
+{
+	int index;
+
+	if (!sicd_enabled)
+		return false;
+
+	if (is_cpus_busy(sicd_residency, cpu_possible_mask))
+		return false;
+
+	for_each_idle_ip(index)
+		if (exynos_check_idle_ip_stat(SYS_SICD, index))
+			return false;
+
+	return true;
+}
+
+static int sicd_entered;
+
+/**
  * Exynos cpuidle driver call enter_c2() and wakeup_from_c2() to handle platform
  * specific configuration to power off the cpu power domain. It handles not only
  * cpu power control, but also power mode subordinate to C2.
@@ -272,10 +304,10 @@ int enter_c2(unsigned int cpu, int index)
 	update_c2_state(true, cpu);
 
 	/*
-	 * Below sequence determines whether to power down the cluster or not.
-	 * If idle time of cpu is not enough, go out of this function.
+	 * Below sequence determines whether to power down the cluster/enter SICD
+	 * or not. If idle time of cpu is not enough, go out of this function.
 	 */
-	if (get_next_event_time_us(cpu) < cpd_residency)
+	if (get_next_event_time_us(cpu) < min(cpd_residency, sicd_residency))
 		goto out;
 
 	/*
@@ -283,7 +315,7 @@ int enter_c2(unsigned int cpu, int index)
 	 * so it is not supported. For you reference, cluster id "1" indicates LITTLE.
 	 */
 	if (get_cluster_id(cpu))
-		goto out;
+		goto system_idle_clock_down;
 
 	if (is_cpd_available(cpu)) {
 		exynos_cpu_sequencer_ctrl(true);
@@ -292,6 +324,19 @@ int enter_c2(unsigned int cpu, int index)
 		index = PSCI_CLUSTER_SLEEP;
 	}
 
+system_idle_clock_down:
+	if (is_sicd_available()) {
+		if (check_cluster_idle_state(cpu)) {
+			exynos_prepare_sys_powerdown(SYS_SICD_CPD);
+			index = PSCI_SYSTEM_IDLE_CLUSTER_SLEEP;
+		} else {
+			exynos_prepare_sys_powerdown(SYS_SICD);
+			index = PSCI_SYSTEM_IDLE;
+		}
+
+		s3c24xx_serial_fifo_wait();
+		sicd_entered = true;
+	}
 out:
 	spin_unlock(&c2_lock);
 
@@ -308,6 +353,11 @@ void wakeup_from_c2(unsigned int cpu, int early_wakeup)
 	if (check_cluster_idle_state(cpu)) {
 		exynos_cpu_sequencer_ctrl(false);
 		update_cluster_idle_state(false, cpu);
+	}
+
+	if (sicd_entered) {
+		exynos_wakeup_sys_powerdown(SYS_SICD, early_wakeup);
+		sicd_entered = false;
 	}
 
 	update_c2_state(false, cpu);
@@ -350,9 +400,12 @@ __ATTR(_name, 0644, show_##_name, store_##_name)
 
 
 show_one(blocking_cpd, cpd_blocked);
+show_one(sicd, sicd_enabled);
 store_one(blocking_cpd, cpd_blocked);
+store_one(sicd, sicd_enabled);
 
 attr_rw(blocking_cpd);
+attr_rw(sicd);
 
 /******************************************************************************
  *                          Wakeup mask configuration                         *
@@ -486,14 +539,25 @@ static int __init dt_init_exynos_powermode(void)
 	if (of_property_read_u32(np, "cpd_residency", &cpd_residency))
 		pr_warn("No matching property: cpd_residency\n");
 
+	if (of_property_read_u32(np, "sicd_residency", &sicd_residency))
+		pr_warn("No matching property: sicd_residency\n");
+
 	return 0;
 }
 
 int __init exynos_powermode_init(void)
 {
+	int mode, index;
 	dt_init_exynos_powermode();
 
+	for (mode = 0; mode < NUM_SYS_POWERDOWN; mode++)
+		for_each_idle_ip(index)
+			exynos_idle_ip_mask[mode][index] = 0xFFFFFFFF;
+
 	if (sysfs_create_file(power_kobj, &blocking_cpd.attr))
+		pr_err("%s: failed to create sysfs to control CPD\n", __func__);
+
+	if (sysfs_create_file(power_kobj, &sicd.attr))
 		pr_err("%s: failed to create sysfs to control CPD\n", __func__);
 
 	return 0;

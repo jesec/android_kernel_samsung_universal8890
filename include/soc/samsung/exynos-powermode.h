@@ -63,4 +63,13 @@ enum exynos_idle_ip {
 	NUM_IDLE_IP,
 };
 
+/**
+ * external driver APIs
+ */
+#ifdef CONFIG_SERIAL_SAMSUNG
+extern void s3c24xx_serial_fifo_wait(void);
+#else
+static inline void s3c24xx_serial_fifo_wait(void) { }
+#endif
+
 #endif /* __EXYNOS_POWERMODE_H */
