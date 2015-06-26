@@ -30,7 +30,7 @@
 #include <linux/mfd/samsung/s2mps15.h>
 #include <linux/mfd/samsung/s2mps16.h>
 #include <linux/mfd/samsung/s2mpu03.h>
-#include <mach/cpufreq.h>
+#include <soc/samsung/cpufreq.h>
 
 #ifdef CONFIG_EXYNOS_MBOX
 #include <mach/apm-exynos.h>
