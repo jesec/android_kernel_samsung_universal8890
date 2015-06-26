@@ -1166,6 +1166,22 @@ static int samsung_pinctrl_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ctrl->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(ctrl->pinctrl)) {
+		dev_err(dev, "could not get pinctrl\n");
+		return PTR_ERR(ctrl->pinctrl);
+	}
+
+	ctrl->pins_default = pinctrl_lookup_state(ctrl->pinctrl,
+						 PINCTRL_STATE_DEFAULT);
+	if (IS_ERR(ctrl->pins_default))
+		dev_dbg(dev, "could not get default pinstate\n");
+
+	ctrl->pins_sleep = pinctrl_lookup_state(ctrl->pinctrl,
+					      PINCTRL_STATE_SLEEP);
+	if (IS_ERR(ctrl->pins_sleep))
+		dev_dbg(dev, "could not get sleep pinstate\n");
+
 	if (ctrl->eint_gpio_init)
 		ctrl->eint_gpio_init(drvdata);
 	if (ctrl->eint_wkup_init)
@@ -1335,12 +1351,23 @@ static void samsung_pinctrl_suspend_dev(
 	struct samsung_pinctrl_drv_data *drvdata)
 {
 	struct samsung_pin_ctrl *ctrl = drvdata->ctrl;
+	int ret;
 
 	if (!ctrl->suspend)
 		return;
 
 	samsung_pinctrl_save_regs(drvdata);
 	ctrl->suspend(drvdata);
+
+	if (!IS_ERR(ctrl->pins_sleep)) {
+		/* This is ignore to disable mux configuration. */
+		ctrl->pinctrl->state = NULL;
+
+		ret = pinctrl_select_state(ctrl->pinctrl, ctrl->pins_sleep);
+		if (ret)
+			dev_err(drvdata->dev, "could not set default pinstate\n");
+	}
+
 }
 
 /**
@@ -1360,6 +1387,9 @@ static void samsung_pinctrl_resume_dev(struct samsung_pinctrl_drv_data *drvdata)
 
 	ctrl->resume(drvdata);
 	samsung_pinctrl_restore_regs(drvdata);
+
+	/* For changing state without writing register. */
+	ctrl->pinctrl->state = ctrl->pins_default;
 }
 
 /**
