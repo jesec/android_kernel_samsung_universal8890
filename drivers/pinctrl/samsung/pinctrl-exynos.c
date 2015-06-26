@@ -46,12 +46,14 @@ static inline struct exynos_irq_chip *to_exynos_irq_chip(struct irq_chip *chip)
 	return container_of(chip, struct exynos_irq_chip, chip);
 }
 
-static struct samsung_pin_bank_type bank_type_off = {
+/* bank type for non-alive type (DRV bit field: 2) */
+static struct samsung_pin_bank_type bank_type_0  = {
 	.fld_width = { 4, 1, 2, 2, 2, 2, },
 	.reg_offset = { 0x00, 0x04, 0x08, 0x0c, 0x10, 0x14, },
 };
 
-static struct samsung_pin_bank_type bank_type_alive = {
+/* bank type for alive type (DRV bit field: 2) */
+static struct samsung_pin_bank_type bank_type_1 = {
 	.fld_width = { 4, 1, 2, 2, },
 	.reg_offset = { 0x00, 0x04, 0x08, 0x0c, },
 };
@@ -637,40 +639,40 @@ static void exynos_pinctrl_resume(struct samsung_pinctrl_drv_data *drvdata)
 
 /* pin banks of s5pv210 pin-controller */
 static struct samsung_pin_bank s5pv210_pin_bank[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpa0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(4, 0x020, "gpa1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpb", 0x08),
-	EXYNOS_PIN_BANK_EINTG(5, 0x060, "gpc0", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(5, 0x080, "gpc1", 0x10),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0a0, "gpd0", 0x14),
-	EXYNOS_PIN_BANK_EINTG(6, 0x0c0, "gpd1", 0x18),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0e0, "gpe0", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(5, 0x100, "gpe1", 0x20),
-	EXYNOS_PIN_BANK_EINTG(8, 0x120, "gpf0", 0x24),
-	EXYNOS_PIN_BANK_EINTG(8, 0x140, "gpf1", 0x28),
-	EXYNOS_PIN_BANK_EINTG(8, 0x160, "gpf2", 0x2c),
-	EXYNOS_PIN_BANK_EINTG(6, 0x180, "gpf3", 0x30),
-	EXYNOS_PIN_BANK_EINTG(7, 0x1a0, "gpg0", 0x34),
-	EXYNOS_PIN_BANK_EINTG(7, 0x1c0, "gpg1", 0x38),
-	EXYNOS_PIN_BANK_EINTG(7, 0x1e0, "gpg2", 0x3c),
-	EXYNOS_PIN_BANK_EINTG(7, 0x200, "gpg3", 0x40),
-	EXYNOS_PIN_BANK_EINTN(7, 0x220, "gpi"),
-	EXYNOS_PIN_BANK_EINTG(8, 0x240, "gpj0", 0x44),
-	EXYNOS_PIN_BANK_EINTG(6, 0x260, "gpj1", 0x48),
-	EXYNOS_PIN_BANK_EINTG(8, 0x280, "gpj2", 0x4c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x2a0, "gpj3", 0x50),
-	EXYNOS_PIN_BANK_EINTG(5, 0x2c0, "gpj4", 0x54),
-	EXYNOS_PIN_BANK_EINTN(8, 0x2e0, "mp01"),
-	EXYNOS_PIN_BANK_EINTN(4, 0x300, "mp02"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x320, "mp03"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x340, "mp04"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x360, "mp05"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x380, "mp06"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x3a0, "mp07"),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc00, "gph0", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc20, "gph1", 0x04),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc40, "gph2", 0x08),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc60, "gph3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpa0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x020, "gpa1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpb", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x060, "gpc0", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x080, "gpc1", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0a0, "gpd0", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x0c0, "gpd1", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0e0, "gpe0", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x100, "gpe1", 0x20),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x120, "gpf0", 0x24),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x140, "gpf1", 0x28),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x160, "gpf2", 0x2c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x180, "gpf3", 0x30),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x1a0, "gpg0", 0x34),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x1c0, "gpg1", 0x38),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x1e0, "gpg2", 0x3c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x200, "gpg3", 0x40),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 7, 0x220, "gpi"),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x240, "gpj0", 0x44),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x260, "gpj1", 0x48),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x280, "gpj2", 0x4c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x2a0, "gpj3", 0x50),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x2c0, "gpj4", 0x54),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x2e0, "mp01"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 4, 0x300, "mp02"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x320, "mp03"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x340, "mp04"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x360, "mp05"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x380, "mp06"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x3a0, "mp07"),
+	EXYNOS_PIN_BANK_EINTW(bank_type_0, 8, 0xc00, "gph0", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_0, 8, 0xc20, "gph1", 0x04),
+	EXYNOS_PIN_BANK_EINTW(bank_type_0, 8, 0xc40, "gph2", 0x08),
+	EXYNOS_PIN_BANK_EINTW(bank_type_0, 8, 0xc60, "gph3", 0x0c),
 };
 
 struct samsung_pin_ctrl s5pv210_pin_ctrl[] = {
@@ -688,33 +690,33 @@ struct samsung_pin_ctrl s5pv210_pin_ctrl[] = {
 
 /* pin banks of exynos3250 pin-controller 0 */
 static struct samsung_pin_bank exynos3250_pin_banks0[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpa0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(6, 0x020, "gpa1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpb",  0x08),
-	EXYNOS_PIN_BANK_EINTG(5, 0x060, "gpc0", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(5, 0x080, "gpc1", 0x10),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0a0, "gpd0", 0x14),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0c0, "gpd1", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpa0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x020, "gpa1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpb",  0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x060, "gpc0", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x080, "gpc1", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0a0, "gpd0", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0c0, "gpd1", 0x18),
 };
 
 /* pin banks of exynos3250 pin-controller 1 */
 static struct samsung_pin_bank exynos3250_pin_banks1[] = {
-	EXYNOS_PIN_BANK_EINTN(8, 0x120, "gpe0"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x140, "gpe1"),
-	EXYNOS_PIN_BANK_EINTN(3, 0x180, "gpe2"),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpk0", 0x08),
-	EXYNOS_PIN_BANK_EINTG(7, 0x060, "gpk1", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(7, 0x080, "gpk2", 0x10),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0c0, "gpl0", 0x18),
-	EXYNOS_PIN_BANK_EINTG(8, 0x260, "gpm0", 0x24),
-	EXYNOS_PIN_BANK_EINTG(7, 0x280, "gpm1", 0x28),
-	EXYNOS_PIN_BANK_EINTG(5, 0x2a0, "gpm2", 0x2c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x2c0, "gpm3", 0x30),
-	EXYNOS_PIN_BANK_EINTG(8, 0x2e0, "gpm4", 0x34),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc00, "gpx0", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc20, "gpx1", 0x04),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc40, "gpx2", 0x08),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc60, "gpx3", 0x0c),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x120, "gpe0"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x140, "gpe1"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 3, 0x180, "gpe2"),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpk0", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x060, "gpk1", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x080, "gpk2", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0c0, "gpl0", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x260, "gpm0", 0x24),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x280, "gpm1", 0x28),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x2a0, "gpm2", 0x2c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x2c0, "gpm3", 0x30),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x2e0, "gpm4", 0x34),
+	EXYNOS_PIN_BANK_EINTW(bank_type_0, 8, 0xc00, "gpx0", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xc20, "gpx1", 0x04),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xc40, "gpx2", 0x08),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xc60, "gpx3", 0x0c),
 };
 
 /*
@@ -744,51 +746,51 @@ struct samsung_pin_ctrl exynos3250_pin_ctrl[] = {
 
 /* pin banks of exynos4210 pin-controller 0 */
 static struct samsung_pin_bank exynos4210_pin_banks0[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpa0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(6, 0x020, "gpa1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpb", 0x08),
-	EXYNOS_PIN_BANK_EINTG(5, 0x060, "gpc0", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(5, 0x080, "gpc1", 0x10),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0A0, "gpd0", 0x14),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0C0, "gpd1", 0x18),
-	EXYNOS_PIN_BANK_EINTG(5, 0x0E0, "gpe0", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x100, "gpe1", 0x20),
-	EXYNOS_PIN_BANK_EINTG(6, 0x120, "gpe2", 0x24),
-	EXYNOS_PIN_BANK_EINTG(8, 0x140, "gpe3", 0x28),
-	EXYNOS_PIN_BANK_EINTG(8, 0x160, "gpe4", 0x2c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x180, "gpf0", 0x30),
-	EXYNOS_PIN_BANK_EINTG(8, 0x1A0, "gpf1", 0x34),
-	EXYNOS_PIN_BANK_EINTG(8, 0x1C0, "gpf2", 0x38),
-	EXYNOS_PIN_BANK_EINTG(6, 0x1E0, "gpf3", 0x3c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpa0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x020, "gpa1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpb", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x060, "gpc0", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x080, "gpc1", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0A0, "gpd0", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0C0, "gpd1", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x0E0, "gpe0", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x100, "gpe1", 0x20),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x120, "gpe2", 0x24),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x140, "gpe3", 0x28),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x160, "gpe4", 0x2c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x180, "gpf0", 0x30),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x1A0, "gpf1", 0x34),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x1C0, "gpf2", 0x38),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x1E0, "gpf3", 0x3c),
 };
 
 /* pin banks of exynos4210 pin-controller 1 */
 static struct samsung_pin_bank exynos4210_pin_banks1[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpj0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(5, 0x020, "gpj1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(7, 0x040, "gpk0", 0x08),
-	EXYNOS_PIN_BANK_EINTG(7, 0x060, "gpk1", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(7, 0x080, "gpk2", 0x10),
-	EXYNOS_PIN_BANK_EINTG(7, 0x0A0, "gpk3", 0x14),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0C0, "gpl0", 0x18),
-	EXYNOS_PIN_BANK_EINTG(3, 0x0E0, "gpl1", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x100, "gpl2", 0x20),
-	EXYNOS_PIN_BANK_EINTN(6, 0x120, "gpy0"),
-	EXYNOS_PIN_BANK_EINTN(4, 0x140, "gpy1"),
-	EXYNOS_PIN_BANK_EINTN(6, 0x160, "gpy2"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x180, "gpy3"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x1A0, "gpy4"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x1C0, "gpy5"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x1E0, "gpy6"),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC00, "gpx0", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC20, "gpx1", 0x04),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC40, "gpx2", 0x08),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC60, "gpx3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpj0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x020, "gpj1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x040, "gpk0", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x060, "gpk1", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x080, "gpk2", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x0A0, "gpk3", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0C0, "gpl0", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 3, 0x0E0, "gpl1", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x100, "gpl2", 0x20),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x120, "gpy0"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 4, 0x140, "gpy1"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x160, "gpy2"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x180, "gpy3"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x1A0, "gpy4"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x1C0, "gpy5"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x1E0, "gpy6"),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC00, "gpx0", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC20, "gpx1", 0x04),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC40, "gpx2", 0x08),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC60, "gpx3", 0x0c),
 };
 
 /* pin banks of exynos4210 pin-controller 2 */
 static struct samsung_pin_bank exynos4210_pin_banks2[] = {
-	EXYNOS_PIN_BANK_EINTN(7, 0x000, "gpz"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 7, 0x000, "gpz"),
 };
 
 /*
@@ -823,60 +825,60 @@ struct samsung_pin_ctrl exynos4210_pin_ctrl[] = {
 
 /* pin banks of exynos4x12 pin-controller 0 */
 static struct samsung_pin_bank exynos4x12_pin_banks0[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpa0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(6, 0x020, "gpa1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpb", 0x08),
-	EXYNOS_PIN_BANK_EINTG(5, 0x060, "gpc0", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(5, 0x080, "gpc1", 0x10),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0A0, "gpd0", 0x14),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0C0, "gpd1", 0x18),
-	EXYNOS_PIN_BANK_EINTG(8, 0x180, "gpf0", 0x30),
-	EXYNOS_PIN_BANK_EINTG(8, 0x1A0, "gpf1", 0x34),
-	EXYNOS_PIN_BANK_EINTG(8, 0x1C0, "gpf2", 0x38),
-	EXYNOS_PIN_BANK_EINTG(6, 0x1E0, "gpf3", 0x3c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x240, "gpj0", 0x40),
-	EXYNOS_PIN_BANK_EINTG(5, 0x260, "gpj1", 0x44),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpa0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x020, "gpa1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpb", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x060, "gpc0", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x080, "gpc1", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0A0, "gpd0", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0C0, "gpd1", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x180, "gpf0", 0x30),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x1A0, "gpf1", 0x34),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x1C0, "gpf2", 0x38),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x1E0, "gpf3", 0x3c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x240, "gpj0", 0x40),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x260, "gpj1", 0x44),
 };
 
 /* pin banks of exynos4x12 pin-controller 1 */
 static struct samsung_pin_bank exynos4x12_pin_banks1[] = {
-	EXYNOS_PIN_BANK_EINTG(7, 0x040, "gpk0", 0x08),
-	EXYNOS_PIN_BANK_EINTG(7, 0x060, "gpk1", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(7, 0x080, "gpk2", 0x10),
-	EXYNOS_PIN_BANK_EINTG(7, 0x0A0, "gpk3", 0x14),
-	EXYNOS_PIN_BANK_EINTG(7, 0x0C0, "gpl0", 0x18),
-	EXYNOS_PIN_BANK_EINTG(2, 0x0E0, "gpl1", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x100, "gpl2", 0x20),
-	EXYNOS_PIN_BANK_EINTG(8, 0x260, "gpm0", 0x24),
-	EXYNOS_PIN_BANK_EINTG(7, 0x280, "gpm1", 0x28),
-	EXYNOS_PIN_BANK_EINTG(5, 0x2A0, "gpm2", 0x2c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x2C0, "gpm3", 0x30),
-	EXYNOS_PIN_BANK_EINTG(8, 0x2E0, "gpm4", 0x34),
-	EXYNOS_PIN_BANK_EINTN(6, 0x120, "gpy0"),
-	EXYNOS_PIN_BANK_EINTN(4, 0x140, "gpy1"),
-	EXYNOS_PIN_BANK_EINTN(6, 0x160, "gpy2"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x180, "gpy3"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x1A0, "gpy4"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x1C0, "gpy5"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x1E0, "gpy6"),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC00, "gpx0", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC20, "gpx1", 0x04),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC40, "gpx2", 0x08),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC60, "gpx3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x040, "gpk0", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x060, "gpk1", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x080, "gpk2", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x0A0, "gpk3", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x0C0, "gpl0", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x0E0, "gpl1", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x100, "gpl2", 0x20),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x260, "gpm0", 0x24),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x280, "gpm1", 0x28),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x2A0, "gpm2", 0x2c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x2C0, "gpm3", 0x30),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x2E0, "gpm4", 0x34),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x120, "gpy0"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 4, 0x140, "gpy1"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x160, "gpy2"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x180, "gpy3"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x1A0, "gpy4"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x1C0, "gpy5"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x1E0, "gpy6"),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC00, "gpx0", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC20, "gpx1", 0x04),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC40, "gpx2", 0x08),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC60, "gpx3", 0x0c),
 };
 
 /* pin banks of exynos4x12 pin-controller 2 */
 static struct samsung_pin_bank exynos4x12_pin_banks2[] = {
-	EXYNOS_PIN_BANK_EINTG(7, 0x000, "gpz", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x000, "gpz", 0x00),
 };
 
 /* pin banks of exynos4x12 pin-controller 3 */
 static struct samsung_pin_bank exynos4x12_pin_banks3[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpv0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(8, 0x020, "gpv1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpv2", 0x08),
-	EXYNOS_PIN_BANK_EINTG(8, 0x060, "gpv3", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(2, 0x080, "gpv4", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpv0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x020, "gpv1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpv2", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x060, "gpv3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x080, "gpv4", 0x10),
 };
 
 /*
@@ -922,58 +924,58 @@ struct samsung_pin_ctrl exynos4x12_pin_ctrl[] = {
 
 /* pin banks of exynos5250 pin-controller 0 */
 static struct samsung_pin_bank exynos5250_pin_banks0[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpa0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(6, 0x020, "gpa1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpa2", 0x08),
-	EXYNOS_PIN_BANK_EINTG(5, 0x060, "gpb0", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(5, 0x080, "gpb1", 0x10),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0A0, "gpb2", 0x14),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0C0, "gpb3", 0x18),
-	EXYNOS_PIN_BANK_EINTG(7, 0x0E0, "gpc0", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(4, 0x100, "gpc1", 0x20),
-	EXYNOS_PIN_BANK_EINTG(7, 0x120, "gpc2", 0x24),
-	EXYNOS_PIN_BANK_EINTG(7, 0x140, "gpc3", 0x28),
-	EXYNOS_PIN_BANK_EINTG(4, 0x160, "gpd0", 0x2c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x180, "gpd1", 0x30),
-	EXYNOS_PIN_BANK_EINTG(7, 0x2E0, "gpc4", 0x34),
-	EXYNOS_PIN_BANK_EINTN(6, 0x1A0, "gpy0"),
-	EXYNOS_PIN_BANK_EINTN(4, 0x1C0, "gpy1"),
-	EXYNOS_PIN_BANK_EINTN(6, 0x1E0, "gpy2"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x200, "gpy3"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x220, "gpy4"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x240, "gpy5"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x260, "gpy6"),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC00, "gpx0", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC20, "gpx1", 0x04),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC40, "gpx2", 0x08),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC60, "gpx3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpa0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x020, "gpa1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpa2", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x060, "gpb0", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x080, "gpb1", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0A0, "gpb2", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0C0, "gpb3", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x0E0, "gpc0", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x100, "gpc1", 0x20),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x120, "gpc2", 0x24),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x140, "gpc3", 0x28),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x160, "gpd0", 0x2c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x180, "gpd1", 0x30),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x2E0, "gpc4", 0x34),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x1A0, "gpy0"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 4, 0x1C0, "gpy1"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x1E0, "gpy2"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x200, "gpy3"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x220, "gpy4"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x240, "gpy5"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x260, "gpy6"),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC00, "gpx0", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC20, "gpx1", 0x04),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC40, "gpx2", 0x08),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC60, "gpx3", 0x0c),
 };
 
 /* pin banks of exynos5250 pin-controller 1 */
 static struct samsung_pin_bank exynos5250_pin_banks1[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpe0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(2, 0x020, "gpe1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(4, 0x040, "gpf0", 0x08),
-	EXYNOS_PIN_BANK_EINTG(4, 0x060, "gpf1", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x080, "gpg0", 0x10),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0A0, "gpg1", 0x14),
-	EXYNOS_PIN_BANK_EINTG(2, 0x0C0, "gpg2", 0x18),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0E0, "gph0", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x100, "gph1", 0x20),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpe0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x020, "gpe1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x040, "gpf0", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x060, "gpf1", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x080, "gpg0", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0A0, "gpg1", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x0C0, "gpg2", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0E0, "gph0", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x100, "gph1", 0x20),
 };
 
 /* pin banks of exynos5250 pin-controller 2 */
 static struct samsung_pin_bank exynos5250_pin_banks2[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpv0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(8, 0x020, "gpv1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x060, "gpv2", 0x08),
-	EXYNOS_PIN_BANK_EINTG(8, 0x080, "gpv3", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(2, 0x0C0, "gpv4", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpv0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x020, "gpv1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x060, "gpv2", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x080, "gpv3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x0C0, "gpv4", 0x10),
 };
 
 /* pin banks of exynos5250 pin-controller 3 */
 static struct samsung_pin_bank exynos5250_pin_banks3[] = {
-	EXYNOS_PIN_BANK_EINTG(7, 0x000, "gpz", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x000, "gpz", 0x00),
 };
 
 /*
@@ -1019,42 +1021,42 @@ struct samsung_pin_ctrl exynos5250_pin_ctrl[] = {
 
 /* pin banks of exynos5260 pin-controller 0 */
 static struct samsung_pin_bank exynos5260_pin_banks0[] = {
-	EXYNOS_PIN_BANK_EINTG(4, 0x000, "gpa0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(7, 0x020, "gpa1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpa2", 0x08),
-	EXYNOS_PIN_BANK_EINTG(5, 0x060, "gpb0", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(4, 0x080, "gpb1", 0x10),
-	EXYNOS_PIN_BANK_EINTG(5, 0x0a0, "gpb2", 0x14),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0c0, "gpb3", 0x18),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0e0, "gpb4", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x100, "gpb5", 0x20),
-	EXYNOS_PIN_BANK_EINTG(8, 0x120, "gpd0", 0x24),
-	EXYNOS_PIN_BANK_EINTG(7, 0x140, "gpd1", 0x28),
-	EXYNOS_PIN_BANK_EINTG(5, 0x160, "gpd2", 0x2c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x180, "gpe0", 0x30),
-	EXYNOS_PIN_BANK_EINTG(5, 0x1a0, "gpe1", 0x34),
-	EXYNOS_PIN_BANK_EINTG(4, 0x1c0, "gpf0", 0x38),
-	EXYNOS_PIN_BANK_EINTG(8, 0x1e0, "gpf1", 0x3c),
-	EXYNOS_PIN_BANK_EINTG(2, 0x200, "gpk0", 0x40),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc00, "gpx0", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc20, "gpx1", 0x04),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc40, "gpx2", 0x08),
-	EXYNOS_PIN_BANK_EINTW(8, 0xc60, "gpx3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x000, "gpa0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x020, "gpa1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpa2", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x060, "gpb0", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x080, "gpb1", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x0a0, "gpb2", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0c0, "gpb3", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0e0, "gpb4", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x100, "gpb5", 0x20),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x120, "gpd0", 0x24),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x140, "gpd1", 0x28),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x160, "gpd2", 0x2c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x180, "gpe0", 0x30),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x1a0, "gpe1", 0x34),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x1c0, "gpf0", 0x38),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x1e0, "gpf1", 0x3c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x200, "gpk0", 0x40),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xc00, "gpx0", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xc20, "gpx1", 0x04),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xc40, "gpx2", 0x08),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xc60, "gpx3", 0x0c),
 };
 
 /* pin banks of exynos5260 pin-controller 1 */
 static struct samsung_pin_bank exynos5260_pin_banks1[] = {
-	EXYNOS_PIN_BANK_EINTG(7, 0x000, "gpc0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(6, 0x020, "gpc1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(7, 0x040, "gpc2", 0x08),
-	EXYNOS_PIN_BANK_EINTG(4, 0x060, "gpc3", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(4, 0x080, "gpc4", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x000, "gpc0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x020, "gpc1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x040, "gpc2", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x060, "gpc3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x080, "gpc4", 0x10),
 };
 
 /* pin banks of exynos5260 pin-controller 2 */
 static struct samsung_pin_bank exynos5260_pin_banks2[] = {
-	EXYNOS_PIN_BANK_EINTG(7, 0x000, "gpz0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(4, 0x020, "gpz1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x000, "gpz0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x020, "gpz1", 0x04),
 };
 
 /*
@@ -1086,58 +1088,58 @@ struct samsung_pin_ctrl exynos5260_pin_ctrl[] = {
 
 /* pin banks of exynos5420 pin-controller 0 */
 static struct samsung_pin_bank exynos5420_pin_banks0[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpy7", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC00, "gpx0", 0x00),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC20, "gpx1", 0x04),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC40, "gpx2", 0x08),
-	EXYNOS_PIN_BANK_EINTW(8, 0xC60, "gpx3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_1, 8, 0x000, "gpy7", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC00, "gpx0", 0x00),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC20, "gpx1", 0x04),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC40, "gpx2", 0x08),
+	EXYNOS_PIN_BANK_EINTW(bank_type_1, 8, 0xC60, "gpx3", 0x0c),
 };
 
 /* pin banks of exynos5420 pin-controller 1 */
 static struct samsung_pin_bank exynos5420_pin_banks1[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpc0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(8, 0x020, "gpc1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(7, 0x040, "gpc2", 0x08),
-	EXYNOS_PIN_BANK_EINTG(4, 0x060, "gpc3", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(2, 0x080, "gpc4", 0x10),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0A0, "gpd1", 0x14),
-	EXYNOS_PIN_BANK_EINTN(6, 0x0C0, "gpy0"),
-	EXYNOS_PIN_BANK_EINTN(4, 0x0E0, "gpy1"),
-	EXYNOS_PIN_BANK_EINTN(6, 0x100, "gpy2"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x120, "gpy3"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x140, "gpy4"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x160, "gpy5"),
-	EXYNOS_PIN_BANK_EINTN(8, 0x180, "gpy6"),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpc0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x020, "gpc1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x040, "gpc2", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x060, "gpc3", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x080, "gpc4", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0A0, "gpd1", 0x14),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x0C0, "gpy0"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 4, 0x0E0, "gpy1"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 6, 0x100, "gpy2"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x120, "gpy3"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x140, "gpy4"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x160, "gpy5"),
+	EXYNOS_PIN_BANK_EINTN(bank_type_0, 8, 0x180, "gpy6"),
 };
 
 /* pin banks of exynos5420 pin-controller 2 */
 static struct samsung_pin_bank exynos5420_pin_banks2[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpe0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(2, 0x020, "gpe1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(6, 0x040, "gpf0", 0x08),
-	EXYNOS_PIN_BANK_EINTG(8, 0x060, "gpf1", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x080, "gpg0", 0x10),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0A0, "gpg1", 0x14),
-	EXYNOS_PIN_BANK_EINTG(2, 0x0C0, "gpg2", 0x18),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0E0, "gpj4", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpe0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x020, "gpe1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x040, "gpf0", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x060, "gpf1", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x080, "gpg0", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0A0, "gpg1", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x0C0, "gpg2", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0E0, "gpj4", 0x1c),
 };
 
 /* pin banks of exynos5420 pin-controller 3 */
 static struct samsung_pin_bank exynos5420_pin_banks3[] = {
-	EXYNOS_PIN_BANK_EINTG(8, 0x000, "gpa0", 0x00),
-	EXYNOS_PIN_BANK_EINTG(6, 0x020, "gpa1", 0x04),
-	EXYNOS_PIN_BANK_EINTG(8, 0x040, "gpa2", 0x08),
-	EXYNOS_PIN_BANK_EINTG(5, 0x060, "gpb0", 0x0c),
-	EXYNOS_PIN_BANK_EINTG(5, 0x080, "gpb1", 0x10),
-	EXYNOS_PIN_BANK_EINTG(4, 0x0A0, "gpb2", 0x14),
-	EXYNOS_PIN_BANK_EINTG(8, 0x0C0, "gpb3", 0x18),
-	EXYNOS_PIN_BANK_EINTG(2, 0x0E0, "gpb4", 0x1c),
-	EXYNOS_PIN_BANK_EINTG(8, 0x100, "gph0", 0x20),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x000, "gpa0", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 6, 0x020, "gpa1", 0x04),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x040, "gpa2", 0x08),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x060, "gpb0", 0x0c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 5, 0x080, "gpb1", 0x10),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 4, 0x0A0, "gpb2", 0x14),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x0C0, "gpb3", 0x18),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 2, 0x0E0, "gpb4", 0x1c),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 8, 0x100, "gph0", 0x20),
 };
 
 /* pin banks of exynos5420 pin-controller 4 */
 static struct samsung_pin_bank exynos5420_pin_banks4[] = {
-	EXYNOS_PIN_BANK_EINTG(7, 0x000, "gpz", 0x00),
+	EXYNOS_PIN_BANK_EINTG(bank_type_0, 7, 0x000, "gpz", 0x00),
 };
 
 /*
