@@ -1470,7 +1470,7 @@ static void exynos_ufs_set_nexus_t_task_mgmt(struct ufs_hba *hba, int tag, u8 tm
 
 	type =  hci_readl(ufs, HCI_UTMRL_NEXUS_TYPE);
 
-	switch (type) {
+	switch (tm_func) {
 	case UFS_ABORT_TASK:
 	case UFS_QUERY_TASK:
 		type |= (1 << tag);
