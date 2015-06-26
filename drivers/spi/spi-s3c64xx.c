@@ -44,7 +44,7 @@
 #include <linux/dma/dma-pl330.h>
 
 #ifdef CONFIG_CPU_IDLE
-#include <mach/exynos-pm.h>
+#include <soc/samsung/exynos-pm.h>
 #endif
 
 #include "../pinctrl/core.h"

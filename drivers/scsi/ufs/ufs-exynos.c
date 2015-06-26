@@ -14,6 +14,9 @@
 #include <linux/of_address.h>
 #include <linux/clk.h>
 
+#include <soc/samsung/exynos-pm.h>
+#include <soc/samsung/exynos-powermode.h>
+
 #include "ufshcd.h"
 #include "unipro.h"
 #include "mphy.h"
@@ -2177,11 +2180,6 @@ static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, v
 	int ret = NOTIFY_DONE;
 
 	switch (event) {
-	case LPA_PREPARE:
-	case LPC_PREPARE:
-		if (!ufshcd_is_link_hibern8(hba))
-			ret = notifier_from_errno(-EBUSY);
-		break;
 	case LPA_ENTER:
 		WARN_ON(!ufshcd_is_link_hibern8(hba));
 		if (ufshcd_is_clkgating_allowed(hba))

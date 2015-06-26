@@ -54,7 +54,7 @@
 #include "../../pinctrl/core.h"
 
 #ifdef CONFIG_CPU_IDLE
-#include <mach/exynos-pm.h>
+#include <soc/samsung/exynos-pm.h>
 #endif
 
 #ifdef CONFIG_PM_DEVFREQ
