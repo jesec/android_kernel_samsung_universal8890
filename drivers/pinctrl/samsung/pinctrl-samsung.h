@@ -26,6 +26,7 @@
 #include <linux/gpio.h>
 
 /* pinmux function number for pin as gpio output line */
+#define FUNC_INPUT	0x0
 #define FUNC_OUTPUT	0x1
 
 /**
@@ -46,15 +47,6 @@ enum pincfg_type {
 	PINCFG_TYPE_PUD_PDN,
 
 	PINCFG_TYPE_NUM
-};
-
-enum exynos_gpio_type {
-	EXYNOS_GPIO_TYPE_NORMAL = 0,
-	EXYNOS_GPIO_TYPE_DAT_CLEAR,
-	EXYNOS_GPIO_TYPE_DRV_SEPARATE,
-	EXYNOS_GPIO_TYPE_DRV_SEPARATE_3BIT,
-
-	EXYNOS_GPIO_TYPE_NUM
 };
 
 /*
@@ -129,7 +121,6 @@ struct samsung_pin_bank_type {
  * @eint_func: function to set in CON register to configure pin as EINT.
  * @eint_type: type of the external interrupt supported by the bank.
  * @eint_mask: bit mask of pins which support EINT function.
- * @dat_mask: bit mask of data register for GPIO Function mode.
  * @name: name to be prefixed for each pin in this pin bank.
  * @of_node: OF node of the bank.
  * @drvdata: link to controller driver data
@@ -148,12 +139,6 @@ struct samsung_pin_bank {
 	enum eint_type	eint_type;
 	u32		eint_mask;
 	u32		eint_offset;
-	u32		eint_ext_offset;
-	u32		eint_fltcon0_offset;
-	u32		eint_fltcon1_offset;
-	u32		eint_fltcon_type;
-	u32		eint_num_base;
-	u32		dat_mask;
 	char		*name;
 	void		*soc_priv;
 	struct device_node *of_node;
@@ -172,14 +157,6 @@ struct samsung_pin_bank {
  * @nr_banks: number of pin banks.
  * @base: starting system wide pin number.
  * @nr_pins: number of pins supported by the controller.
- * @geint_con: offset of the ext-gpio controller registers.
- * @geint_mask: offset of the ext-gpio interrupt mask registers.
- * @geint_pend: offset of the ext-gpio interrupt pending registers.
- * @weint_con: offset of the ext-wakeup controller registers.
- * @weint_fltcon: offset of the ext-wakeup filter controller registers.
- * @weint_mask: offset of the ext-wakeup interrupt mask registers.
- * @weint_pend: offset of the ext-wakeup interrupt pending registers.
- * @svc: offset of the interrupt service register.
  * @eint_gpio_init: platform specific callback to setup the external gpio
  *	interrupts for the controller.
  * @eint_wkup_init: platform specific callback to setup the external wakeup
@@ -193,28 +170,12 @@ struct samsung_pin_ctrl {
 	u32		base;
 	u32		nr_pins;
 
-	u32		geint_con;
-	u32		geint_mask;
-	u32		geint_pend;
-
-	u32		weint_con;
-	u32		weint_fltcon;
-	u32		weint_mask;
-	u32		weint_pend;
-
-	u32		svc;
-	u32		gpio_type;
-
 	int		(*eint_gpio_init)(struct samsung_pinctrl_drv_data *);
 	int		(*eint_wkup_init)(struct samsung_pinctrl_drv_data *);
 	void		(*suspend)(struct samsung_pinctrl_drv_data *);
 	void		(*resume)(struct samsung_pinctrl_drv_data *);
 
 	char		*label;
-
-	struct pinctrl		*pinctrl;
-	struct pinctrl_state	*pins_default;
-	struct pinctrl_state	*pins_sleep;
 };
 
 /**
@@ -230,12 +191,10 @@ struct samsung_pin_ctrl {
  * @nr_groups: number of such pin groups.
  * @pmx_functions: list of pin functions available to the driver.
  * @nr_function: number of such pin functions.
- * @eint_flt_config: flags to configure external interrupt filter.
  */
 struct samsung_pinctrl_drv_data {
 	struct list_head		node;
 	void __iomem			*virt_base;
-	void __iomem			*virt_ext_base;
 	struct device			*dev;
 	int				irq;
 
@@ -247,7 +206,6 @@ struct samsung_pinctrl_drv_data {
 	unsigned int			nr_groups;
 	const struct samsung_pmx_func	*pmx_functions;
 	unsigned int			nr_functions;
-	bool				eint_flt_config;
 };
 
 /**
@@ -278,15 +236,17 @@ struct samsung_pmx_func {
 };
 
 /* list of all exported SoC specific data */
+extern struct samsung_pin_ctrl exynos3250_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos4210_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos4x12_pin_ctrl[];
 extern struct samsung_pin_ctrl exynos5250_pin_ctrl[];
-extern struct samsung_pin_ctrl exynos5422_pin_ctrl[];
-extern struct samsung_pin_ctrl exynos5430_pin_ctrl[];
-extern struct samsung_pin_ctrl exynos5433_pin_ctrl[];
-extern struct samsung_pin_ctrl exynos7420_pin_ctrl[];
-extern struct samsung_pin_ctrl exynos7580_pin_ctrl[];
-extern struct samsung_pin_ctrl exynos8890_pin_ctrl[];
+extern struct samsung_pin_ctrl exynos5260_pin_ctrl[];
+extern struct samsung_pin_ctrl exynos5420_pin_ctrl[];
 extern struct samsung_pin_ctrl s3c64xx_pin_ctrl[];
+extern struct samsung_pin_ctrl s3c2412_pin_ctrl[];
+extern struct samsung_pin_ctrl s3c2416_pin_ctrl[];
+extern struct samsung_pin_ctrl s3c2440_pin_ctrl[];
+extern struct samsung_pin_ctrl s3c2450_pin_ctrl[];
+extern struct samsung_pin_ctrl s5pv210_pin_ctrl[];
 
 #endif /* __PINCTRL_SAMSUNG_H */
