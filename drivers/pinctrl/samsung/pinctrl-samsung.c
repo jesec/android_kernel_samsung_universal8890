@@ -968,7 +968,8 @@ static int samsung_pinctrl_register(struct platform_device *pdev,
 	for (bank = 0; bank < drvdata->ctrl->nr_banks; bank++) {
 		pin_bank = &drvdata->ctrl->pin_banks[bank];
 		for (pin = 0; pin < pin_bank->nr_pins; pin++) {
-			sprintf(pin_names, "%s-%d", pin_bank->name, pin);
+			snprintf(pin_names, PIN_NAME_LENGTH,
+				"%s-%d", pin_bank->name, pin);
 			pdesc = pindesc + pin_bank->pin_base + pin;
 			pdesc->name = pin_names;
 			pin_names += PIN_NAME_LENGTH;
