@@ -54,4 +54,12 @@ extern void exynos_update_pd_idle_status(int index, int idle);
 extern void exynos_update_ip_idle_status(int index, int idle);
 extern int exynos_get_idle_ip_index(const char *name);
 
+enum exynos_idle_ip {
+	IDLE_IP0,
+	IDLE_IP1,
+	IDLE_IP2,
+	IDLE_IP3,
+	NUM_IDLE_IP,
+};
+
 #endif /* __EXYNOS_POWERMODE_H */

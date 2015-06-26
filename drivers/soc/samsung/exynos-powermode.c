@@ -27,20 +27,124 @@
 /******************************************************************************
  *                                  IDLE_IP                                   *
  ******************************************************************************/
-int exynos_get_idle_ip_index(const char *name)
+#define for_each_idle_ip(num)					\
+        for ((num) = 0; (num) < NUM_IDLE_IP; num++)
+
+#define PMU_IDLE_IP_BASE		0x03E0
+#define PMU_IDLE_IP_MASK_BASE		0x03F0
+#define PMU_IDLE_IP(x)			(PMU_IDLE_IP_BASE + (x * 0x4))
+#define PMU_IDLE_IP_MASK(x)		(PMU_IDLE_IP_MASK_BASE + (x * 0x4))
+
+static int exynos_idle_ip_mask[NUM_SYS_POWERDOWN][NUM_IDLE_IP];
+static int exynos_check_idle_ip_stat(int mode, int index)
 {
-	/* To do */
-	return 0;
+	unsigned int val, mask;
+
+	exynos_pmu_read(PMU_IDLE_IP(index), &val);
+	mask = exynos_idle_ip_mask[mode][index];
+
+	return (val & ~mask) == ~mask ? 0 : -EBUSY;
 }
 
-void exynos_update_pd_idle_status(int index, int idle)
+static DEFINE_SPINLOCK(idle_ip_mask_lock);
+static void exynos_set_idle_ip_mask(enum sys_powerdown mode)
 {
-	/* To do */
+	int i;
+	unsigned long flags;
+
+	spin_lock_irqsave(&idle_ip_mask_lock, flags);
+	for_each_idle_ip(i)
+		exynos_pmu_write(PMU_IDLE_IP_MASK(i), exynos_idle_ip_mask[mode][i]);
+	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
 }
 
+static void idle_ip_unmask(int mode, int idle_ip, int index)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&idle_ip_mask_lock, flags);
+	exynos_idle_ip_mask[mode][idle_ip] &= ~(0x1 << index);
+	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
+}
+
+static void exynos_create_idle_ip_mask(int idle_ip, int ip_index)
+{
+	struct device_node *root = of_find_node_by_path("/exynos-powermode/idle_ip_mask");
+	struct device_node *node;
+	char prop_ref_mask[20] = "ref-mask-idle-ip";
+	char buf[2];
+
+	snprintf(buf, 2, "%d", idle_ip);
+	strcat(prop_ref_mask, buf);
+
+	for_each_child_of_node(root, node) {
+		int mode, ref_mask;
+		const __be32 *val;
+
+		if (of_property_read_u32(node, "mode-index", &mode))
+			continue;
+
+		val = of_get_property(node, prop_ref_mask, NULL);
+		if (val) {
+			ref_mask = be32_to_cpup(val);
+			if (ref_mask & (0x1 << ip_index))
+				idle_ip_unmask(mode, idle_ip, ip_index);
+		}
+	}
+}
+
+int exynos_get_idle_ip_index(const char *ip_name)
+{
+	struct device_node *np = of_find_node_by_name(NULL, "exynos-powermode");
+	int ip_index, i;
+
+	for_each_idle_ip(i) {
+		char prop_idle_ip[10] = "idle-ip";
+		char buf[2];
+
+		snprintf(buf, 2, "%d", i);
+		strcat(prop_idle_ip, buf);
+
+		ip_index = of_property_match_string(np, prop_idle_ip, ip_name);
+		if (ip_index >= 0) {
+			/**
+			 * If it successes to find IP in idle_ip list, we set
+			 * corresponding bit in idle_ip mask.
+			 */
+			exynos_create_idle_ip_mask(i, ip_index);
+			goto out;
+		}
+	}
+
+	pr_err("%s: Fail to find %s in idle-ip list with err %d\n",
+					__func__, ip_name, ip_index);
+
+out:
+	return ip_index;
+}
+
+static DEFINE_SPINLOCK(ip_idle_lock);
 void exynos_update_ip_idle_status(int index, int idle)
 {
-	/* To do */
+	unsigned long flags;
+
+	spin_lock_irqsave(&ip_idle_lock, flags);
+	exynos_pmu_update(PMU_IDLE_IP(0), 1 << index, idle << index);
+	spin_unlock_irqrestore(&ip_idle_lock, flags);
+
+	return;
+}
+
+static DEFINE_SPINLOCK(pd_idle_lock);
+void exynos_update_pd_idle_status(int index, int idle)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&pd_idle_lock, flags);
+	exynos_pmu_update(PMU_IDLE_IP(1), 1 << index, idle << index);
+	spin_unlock_irqrestore(&pd_idle_lock, flags);
+
+	return;
 }
 
 /******************************************************************************
@@ -310,6 +414,7 @@ void exynos_prepare_sys_powerdown(enum sys_powerdown mode)
 	 */
 	unsigned int cpu = 0;
 
+	exynos_set_idle_ip_mask(mode);
 	exynos_set_wakeupmask(mode);
 
 	cal_pm_enter(mode);
