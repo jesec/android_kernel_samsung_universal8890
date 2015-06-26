@@ -455,6 +455,22 @@ void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
 	}
 }
 
+/**
+ * To determine which power mode system enter, check clock or power
+ * registers and other devices by notifier.
+ */
+int determine_lpm(void)
+{
+	int index;
+
+	for_each_idle_ip(index) {
+		if (exynos_check_idle_ip_stat(SYS_ALPA, index))
+			return SYS_AFTR;
+	}
+
+	return SYS_ALPA;
+}
+
 /******************************************************************************
  *                              Driver initialized                            *
  ******************************************************************************/
