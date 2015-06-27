@@ -41,14 +41,14 @@
 #include "ufshcd-pltfrm.h"
 
 static const struct of_device_id ufs_of_match[];
-static struct ufs_hba_variant_ops *get_variant_ops(struct device *dev)
+static struct ufs_hba_variant *get_variant(struct device *dev)
 {
 	if (dev->of_node) {
 		const struct of_device_id *match;
 
 		match = of_match_node(ufs_of_match, dev->of_node);
 		if (match)
-			return (struct ufs_hba_variant_ops *)match->data;
+			return (struct ufs_hba_variant *)match->data;
 	}
 
 	return NULL;
@@ -298,13 +298,14 @@ static void ufshcd_pltfrm_shutdown(struct platform_device *pdev)
  * Returns 0 on success, non-zero value on failure
  */
 int ufshcd_pltfrm_init(struct platform_device *pdev,
-		       const struct ufs_hba_variant *var)
+			const struct ufs_hba_variant *var)
 {
 	struct ufs_hba *hba;
 	void __iomem *mmio_base;
 	struct resource *mem_res;
 	int irq, err;
 	struct device *dev = &pdev->dev;
+	const struct ufs_hba_variant *_var;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	mmio_base = devm_ioremap_resource(dev, mem_res);
@@ -325,8 +326,11 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Allocation failed\n");
 		goto out;
 	}
-
-	hba->vops = get_variant_ops(&pdev->dev);
+	_var = (var != NULL) ? var : get_variant(&pdev->dev);
+	if (_var) {
+		hba->vops = _var->ops;
+		hba->quirks= _var->quirks;
+	}
 
 	err = ufshcd_parse_clock_info(hba);
 	if (err) {
@@ -396,6 +400,8 @@ static int ufshcd_pltfrm_remove(struct platform_device *pdev)
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
 
 	pm_runtime_get_sync(&(pdev)->dev);
+
+	disable_irq(hba->irq);
 	ufshcd_remove(hba);
 	return 0;
 }

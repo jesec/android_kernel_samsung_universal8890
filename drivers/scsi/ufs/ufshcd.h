@@ -74,6 +74,8 @@ struct ufs_hba;
 
 #define UFS_UNIQUE_NUMBER_LEN 17 /* manufacturer date 4 bytes + serial number 12 bytes + null */
 
+struct ufs_hba;
+
 enum dev_cmd_type {
 	DEV_CMD_TYPE_NOP		= 0x0,
 	DEV_CMD_TYPE_QUERY		= 0x1,
@@ -284,6 +286,9 @@ struct ufs_hba_variant_ops {
 	int	(*pwr_change_notify)(struct ufs_hba *,
 					bool, struct ufs_pa_layer_attr *,
 					struct ufs_pa_layer_attr *);
+	void	(*set_nexus_t_xfer_req)(struct ufs_hba *,
+					int, struct scsi_cmnd *);
+	void	(*set_nexus_t_task_mgmt)(struct ufs_hba *, int, u8);
 	void    (*hibern8_notify)(struct ufs_hba *, u8, bool);
 	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
@@ -425,7 +430,7 @@ struct ufs_hba {
 	int nutrs;
 	int nutmrs;
 	u32 ufs_version;
-	struct ufs_hba_variant_ops *vops;
+	const struct ufs_hba_variant_ops *vops;
 	void *priv;
 	unsigned int irq;
 	bool is_irq_enabled;
@@ -498,6 +503,7 @@ struct ufs_hba {
 #define UFSHCI_QUIRK_BROKEN_DWORD_UTRD		BIT(0)
 #define UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR	BIT(1)
 #define UFSHCI_QUIRK_USE_OF_HCE			BIT(2)
+#define UFSHCI_QUIRK_SKIP_INTR_AGGR		BIT(3)
 
 	/* Device deviations from standard UFS device spec. */
 	unsigned int dev_quirks;

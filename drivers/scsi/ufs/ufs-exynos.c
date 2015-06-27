@@ -607,7 +607,6 @@ static int exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 
 out:
 	return 0;
-
 }
 
 static int exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
@@ -646,6 +645,45 @@ static int exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
 	}
 out:
 	return 0;
+}
+
+static void exynos_ufs_set_nexus_t_xfer_req(struct ufs_hba *hba,
+				int tag, struct scsi_cmnd *cmd)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	u32 type;
+
+	type =  hci_readl(ufs, HCI_UTRL_NEXUS_TYPE);
+
+	if (cmd)
+		type |= (1 << tag);
+	else
+		type &= ~(1 << tag);
+
+	hci_writel(ufs, type, HCI_UTRL_NEXUS_TYPE);
+}
+
+static void exynos_ufs_set_nexus_t_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_func)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	u32 type;
+
+	type =  hci_readl(ufs, HCI_UTMRL_NEXUS_TYPE);
+
+	switch (type) {
+	case UFS_ABORT_TASK:
+	case UFS_QUERY_TASK:
+		type |= (1 << tag);
+		break;
+	case UFS_ABORT_TASK_SET:
+	case UFS_CLEAR_TASK_SET:
+	case UFS_LOGICAL_RESET:
+	case UFS_QUERY_TASK_SET:
+		type &= ~(1 << tag);
+		break;
+	}
+
+	hci_writel(ufs, type, HCI_UTMRL_NEXUS_TYPE);
 }
 
 static void exynos_ufs_phy_init(struct exynos_ufs *ufs)
@@ -1329,6 +1367,8 @@ static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 	.host_reset = exynos_ufs_host_reset,
 	.link_startup_notify = exynos_ufs_link_startup_notify,
 	.pwr_change_notify = exynos_ufs_pwr_mode_change_notify,
+	.set_nexus_t_xfer_req = exynos_ufs_set_nexus_t_xfer_req,
+	.set_nexus_t_task_mgmt = exynos_ufs_set_nexus_t_task_mgmt,
 	.hibern8_notify = exynos_ufs_hibern8_notify,
 };
 
@@ -1477,7 +1517,8 @@ static const struct ufs_hba_variant exynos_ufs_drv_data = {
 	.ops		= &exynos_ufs_ops,
 	.quirks		= UFSHCI_QUIRK_BROKEN_DWORD_UTRD |
 			  UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR |
-			  UFSHCI_QUIRK_USE_OF_HCE,
+			  UFSHCI_QUIRK_USE_OF_HCE |
+			  UFSHCI_QUIRK_SKIP_INTR_AGGR,
 	.vs_data	= &exynos_ufs_soc_data,
 };
 

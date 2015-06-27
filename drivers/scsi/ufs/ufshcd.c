@@ -1395,6 +1395,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 
 	/* issue command to the controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->vops && hba->vops->set_nexus_t_xfer_req)
+		hba->vops->set_nexus_t_xfer_req(hba, tag, lrbp->cmd);
 	ufshcd_send_command(hba, tag);
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -1600,6 +1602,8 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 	hba->dev_cmd.complete = &wait;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->vops && hba->vops->set_nexus_t_xfer_req)
+		hba->vops->set_nexus_t_xfer_req(hba, tag, lrbp->cmd);
 	ufshcd_send_command(hba, tag);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
@@ -2834,9 +2838,16 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 		/* enable UIC related interrupts */
 		ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
 
+		if (hba->vops && hba->vops->hce_enable_notify)
+			hba->vops->hce_enable_notify(hba, PRE_CHANGE);
+
 		ret = ufshcd_dme_reset(hba);
-		if (!ret)
+		if (!ret) {
 			ret = ufshcd_dme_enable(hba);
+
+			if (hba->vops && hba->vops->hce_enable_notify)
+				hba->vops->hce_enable_notify(hba, POST_CHANGE);
+		}
 	} else {
 		ret = __ufshcd_hba_enable(hba);
 	}
@@ -3309,7 +3320,8 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason)
 	 * false interrupt if device completes another request after resetting
 	 * aggregation and before reading the DB.
 	 */
-	ufshcd_reset_intr_aggr(hba);
+	if (!(hba->quirks & UFSHCI_QUIRK_SKIP_INTR_AGGR))
+		ufshcd_reset_intr_aggr(hba);
 
 	tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	completed_reqs = tr_doorbell ^ hba->outstanding_reqs;
@@ -3903,6 +3915,8 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	task_req_upiup->input_param2 = cpu_to_be32(task_id);
 
 	/* send command to the controller */
+	if (hba->vops && hba->vops->set_nexus_t_task_mgmt)
+		hba->vops->set_nexus_t_task_mgmt(hba, free_slot, tm_function);
 	__set_bit(free_slot, &hba->outstanding_tasks);
 	ufshcd_writel(hba, 1 << free_slot, REG_UTP_TASK_REQ_DOOR_BELL);
 
