@@ -482,17 +482,21 @@ static void exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 	if (!soc)
 		return;
 
-	switch (act_pmd->hs_series) {
-	case PA_HS_MODE_A:
-		exynos_ufs_config_phy(ufs,
-			soc->tbl_calib_of_hs_rate_a, act_pmd);
-		break;
-	case PA_HS_MODE_B:
-		exynos_ufs_config_phy(ufs,
-			soc->tbl_calib_of_hs_rate_b, act_pmd);
-		break;
-	default:
-		break;
+	if (IS_PWR_MODE_HS(act_pmd->mode)) {
+		switch (act_pmd->hs_series) {
+		case PA_HS_MODE_A:
+			exynos_ufs_config_phy(ufs,
+				soc->tbl_calib_of_hs_rate_a, act_pmd);
+			break;
+		case PA_HS_MODE_B:
+			exynos_ufs_config_phy(ufs,
+				soc->tbl_calib_of_hs_rate_b, act_pmd);
+			break;
+		default:
+			break;
+		}
+	} else if (IS_PWR_MODE_PWM(act_pmd->mode)) {
+		exynos_ufs_config_phy(ufs, soc->tbl_calib_of_pwm, act_pmd);
 	}
 }
 
@@ -507,17 +511,21 @@ static void exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
 	if (!soc)
 		return;
 
-	switch (act_pmd->hs_series) {
-	case PA_HS_MODE_A:
-		exynos_ufs_config_phy(ufs,
-			soc->tbl_post_calib_of_hs_rate_a, act_pmd);
-		break;
-	case PA_HS_MODE_B:
-		exynos_ufs_config_phy(ufs,
-			soc->tbl_post_calib_of_hs_rate_b, act_pmd);
-		break;
-	default:
-		break;
+	if (IS_PWR_MODE_HS(act_pmd->mode)) {
+		switch (act_pmd->hs_series) {
+		case PA_HS_MODE_A:
+			exynos_ufs_config_phy(ufs,
+				soc->tbl_post_calib_of_hs_rate_a, act_pmd);
+			break;
+		case PA_HS_MODE_B:
+			exynos_ufs_config_phy(ufs,
+				soc->tbl_post_calib_of_hs_rate_b, act_pmd);
+			break;
+		default:
+			break;
+		}
+	} else if (IS_PWR_MODE_PWM(act_pmd->mode)) {
+		exynos_ufs_config_phy(ufs, soc->tbl_post_calib_of_pwm, act_pmd);
 	}
 
 	exynos_ufs_wait_pll_lock(ufs);
