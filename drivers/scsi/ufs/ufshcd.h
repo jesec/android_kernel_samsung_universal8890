@@ -275,6 +275,7 @@ struct ufs_hba_variant_ops {
 	void    (*clk_scale_notify)(struct ufs_hba *);
 	int     (*setup_clocks)(struct ufs_hba *, bool);
 	int     (*setup_regulators)(struct ufs_hba *, bool);
+	void    (*host_reset)(struct ufs_hba *);
 	int     (*hce_enable_notify)(struct ufs_hba *, bool);
 	int     (*link_startup_notify)(struct ufs_hba *, bool);
 	int	(*pwr_change_notify)(struct ufs_hba *,
@@ -487,6 +488,10 @@ struct ufs_hba {
 	struct io_latency_state io_lat_s;
 
 	u32 quirks;
+
+/* UFSHCI doesn't support DWORD size in UTRD */
+#define UFSHCI_QUIRK_BROKEN_DWORD_UTRD		BIT(0)
+#define UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR	BIT(1)
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
