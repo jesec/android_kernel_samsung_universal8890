@@ -103,6 +103,12 @@ static inline struct exynos_ufs *to_exynos_ufs(struct ufs_hba *hba)
 	return dev_get_platdata(hba->dev);
 }
 
+static inline void exynos_ufs_ctrl_phy_pwr(struct exynos_ufs *ufs, bool en)
+{
+	/* TODO: offset, mask */
+	writel(!!en, ufs->phy.reg_pmu);
+}
+
 static inline const
 struct exynos_ufs_soc *exynos_ufs_get_drv_data(struct device *dev)
 {
@@ -1005,12 +1011,6 @@ out:
 	return ret;
 }
 
-static void exynos_ufs_ctrl_phy_pwr(struct exynos_ufs *ufs, bool en)
-{
-	/* TODO: offset, mask */
-	writel(!!en, ufs->phy.reg_pmu);
-}
-
 #ifdef CONFIG_CPU_IDLE
 static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, void *data)
 {
@@ -1020,7 +1020,10 @@ static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, v
 
 	switch (event) {
 	case LPA_ENTER:
+		exynos_ufs_ctrl_phy_pwr(ufs, false);
+		break;
 	case LPA_EXIT:
+		exynos_ufs_ctrl_phy_pwr(ufs, true);
 		break;
 	default:
 		ret = NOTIFY_DONE;
@@ -1137,6 +1140,8 @@ static int exynos_ufs_remove(struct platform_device *pdev)
 	if (!IS_ERR(ufs->clk_hci))
 		clk_disable_unprepare(ufs->clk_hci);
 
+	exynos_ufs_ctrl_phy_pwr(ufs, false);
+
 	return 0;
 }
 
@@ -1144,6 +1149,7 @@ static int exynos_ufs_remove(struct platform_device *pdev)
 static int exynos_ufs_suspend(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	int ret;
 
 	ret = ufshcd_system_suspend(hba);
@@ -1152,6 +1158,8 @@ static int exynos_ufs_suspend(struct device *dev)
 
 	disable_irq(hba->irq);
 
+	exynos_ufs_ctrl_phy_pwr(ufs, false);
+
 	return 0;
 }
 
@@ -1159,6 +1167,8 @@ static int exynos_ufs_resume(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+
+	exynos_ufs_ctrl_phy_pwr(ufs, true);
 
 	exynos_ufs_config_smu(ufs);
 
