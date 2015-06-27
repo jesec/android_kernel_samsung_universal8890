@@ -399,6 +399,7 @@ struct exynos_ufs {
 	int avail_ln_tx;
 
 	struct exynos_ufs_phy phy;
+	struct notifier_block lpa_nb;
 	struct uic_pwr_mode req_pmd_parm;
 	struct uic_pwr_mode act_pmd_parm;
 

@@ -8,12 +8,13 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/clk.h>
+
+#include <soc/samsung/exynos-pm.h>
 
 #include "ufshcd.h"
 #include "unipro.h"
@@ -1010,6 +1011,25 @@ static void exynos_ufs_ctrl_phy_pwr(struct exynos_ufs *ufs, bool en)
 	writel(!!en, ufs->phy.reg_pmu);
 }
 
+#ifdef CONFIG_CPU_IDLE
+static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, void *data)
+{
+	struct exynos_ufs *ufs =
+		container_of(nb, struct exynos_ufs, lpa_nb);
+	int ret = NOTIFY_OK;
+
+	switch (event) {
+	case LPA_ENTER:
+	case LPA_EXIT:
+		break;
+	default:
+		ret = NOTIFY_DONE;
+	}
+
+	return notifier_from_errno(ret);
+}
+#endif
+
 static u64 exynos_ufs_dma_mask = DMA_BIT_MASK(32);
 
 static int exynos_ufs_probe(struct platform_device *pdev)
@@ -1069,6 +1089,18 @@ static int exynos_ufs_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+#ifdef CONFIG_CPU_IDLE
+	ufs->lpa_nb.notifier_call = exynos_ufs_lp_event;
+	ufs->lpa_nb.next = NULL;
+	ufs->lpa_nb.priority = 0;
+
+	ret = exynos_pm_register_notifier(&ufs->lpa_nb);
+	if (ret) {
+		dev_err(dev, "failed to register low power mode notifier\n");
+		return ret;
+	}
+#endif
+
 	ufs->dev = dev;
 	dev->platform_data = ufs;
 	dev->dma_mask = &exynos_ufs_dma_mask;
@@ -1085,6 +1117,10 @@ static int exynos_ufs_remove(struct platform_device *pdev)
 	int i;
 
 	ufshcd_pltfrm_exit(pdev);
+
+#ifdef CONFIG_CPU_IDLE
+	exynos_pm_unregister_notifier(&ufs->lpa_nb);
+#endif
 
 	if (!IS_ERR(ufs->clk_refclk_1))
 		clk_disable_unprepare(ufs->clk_refclk_1);
