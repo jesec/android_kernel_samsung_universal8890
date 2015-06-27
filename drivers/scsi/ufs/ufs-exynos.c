@@ -699,6 +699,10 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 	hci_writel(ufs, 0xFFFFFFFF, HCI_UTMRL_NEXUS_TYPE);
 	hci_writel(ufs, 0x15, HCI_AXIDMA_RWDATA_BURST_LEN);
 
+	if (ufs->opts & EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB)
+		ufshcd_dme_set(hba,
+			UIC_ARG_MIB(T_DBG_SKIP_INIT_HIBERN8_EXIT), TRUE);
+
 	return 0;
 }
 
@@ -749,7 +753,8 @@ static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
 			ufshcd_config_pwr_mode(hba, &hba->max_pwr_info.info);
 		}
 
-		exynos_ufs_establish_connt(ufs);
+		if (!(ufs->opts & EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB))
+			exynos_ufs_establish_connt(ufs);
 	} else {
 		exynos_ufs_gate_clk(ufs, true);
 	}
@@ -1007,6 +1012,10 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 		dev_err(dev, "faild to get available pclk range\n");
 		goto out;
 	}
+
+	if (of_find_property(np, "ufs-opts-skip-connection-estab", NULL))
+		ufs->opts |= EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB;
+
 out:
 	return ret;
 }

@@ -239,6 +239,11 @@ enum {
 #define PA_DBG_OPTION_SUITE		0x9564
 
 /*
+ * MIBs for Transport Layer debug registers
+ */
+#define T_DBG_SKIP_INIT_HIBERN8_EXIT	0xc001
+
+/*
  * Exynos MPHY attributes
  */
 #define TX_LINERESET_N_VAL		0x0277
@@ -402,6 +407,9 @@ struct exynos_ufs {
 	struct notifier_block lpa_nb;
 	struct uic_pwr_mode req_pmd_parm;
 	struct uic_pwr_mode act_pmd_parm;
+
+	u32 opts;
+#define EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB	BIT(0)
 
 };
 
