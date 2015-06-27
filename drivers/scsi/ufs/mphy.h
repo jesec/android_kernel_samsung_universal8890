@@ -24,6 +24,12 @@
  #define SYNC_RANGE_COARSE	(1 << 6)
  #define SYNC_LEN(x)		((x) & 0x3f)
  #define PREP_LEN(x)		((x) & 0xf)
+#define RX_ADV_GRANULARITY_CAP		0x98
+ #define RX_ADV_FINE_GRAN_STEP(x)	((((x) & 0x3) << 1) | 0x1)
+#define RX_MIN_ACTIVATETIME_CAP		0x8f
+#define RX_HIBERN8TIME_CAP		0x92
+#define RX_ADV_HIBERN8TIME_CAP		0x99
+#define RX_ADV_MIN_ACTIVATETIME_CAP	0x9a
 
 #endif /* _MPHY_H_ */
 

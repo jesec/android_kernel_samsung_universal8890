@@ -327,6 +327,40 @@ static void exynos_ufs_config_phy_cap_attr(struct exynos_ufs *ufs)
 				PREP_LEN(0xf));
 	}
 
+	if (ufs->rx_adv_fine_gran_sup_en == 0) {
+		for_each_ufs_lane(ufs, i) {
+			ufshcd_dme_set(hba,
+				UIC_ARG_MIB_SEL(RX_ADV_GRANULARITY_CAP, i), 0);
+
+			if (ufs->rx_min_actv_time_cap)
+				ufshcd_dme_set(hba,
+					UIC_ARG_MIB_SEL(RX_MIN_ACTIVATETIME_CAP, i),
+					ufs->rx_min_actv_time_cap);
+
+			if (ufs->rx_hibern8_time_cap)
+				ufshcd_dme_set(hba,
+					UIC_ARG_MIB_SEL(RX_HIBERN8TIME_CAP, i),
+					ufs->rx_hibern8_time_cap);
+		}
+	} else if (ufs->rx_adv_fine_gran_sup_en == 1) {
+		for_each_ufs_lane(ufs, i) {
+			if (ufs->rx_adv_fine_gran_step)
+				ufshcd_dme_set(hba,
+					UIC_ARG_MIB_SEL(RX_ADV_GRANULARITY_CAP, i),
+					RX_ADV_FINE_GRAN_STEP(ufs->rx_adv_fine_gran_step));
+
+			if (ufs->rx_adv_min_actv_time_cap)
+				ufshcd_dme_set(hba,
+					UIC_ARG_MIB_SEL(RX_ADV_MIN_ACTIVATETIME_CAP, i),
+					ufs->rx_adv_min_actv_time_cap);
+
+			if (ufs->rx_adv_hibern8_time_cap)
+				ufshcd_dme_set(hba,
+					UIC_ARG_MIB_SEL(RX_ADV_HIBERN8TIME_CAP, i),
+					ufs->rx_adv_hibern8_time_cap);
+		}
+	}
+
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), FALSE);
 }
 
@@ -1015,6 +1049,49 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 
 	if (of_find_property(np, "ufs-opts-skip-connection-estab", NULL))
 		ufs->opts |= EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB;
+
+	if (!of_property_read_u32(np, "ufs-rx-adv-fine-gran-sup_en",
+				&ufs->rx_adv_fine_gran_sup_en)) {
+		if (ufs->rx_adv_fine_gran_sup_en == 0) {
+			/* 100us step */
+			if (of_property_read_u32(np,
+					"ufs-rx-min-activate-time-cap",
+					&ufs->rx_min_actv_time_cap))
+				dev_warn(dev,
+					"ufs-rx-min-activate-time-cap is empty\n");
+
+			if (of_property_read_u32(np,
+					"ufs-rx-hibern8-time-cap",
+					&ufs->rx_hibern8_time_cap))
+				dev_warn(dev,
+					"ufs-rx-hibern8-time-cap is empty\n");
+		} else if (ufs->rx_adv_fine_gran_sup_en == 1) {
+			/* fine granularity step */
+			if (of_property_read_u32(np,
+					"ufs-rx-adv-fine-gran-step",
+					&ufs->rx_adv_fine_gran_step))
+				dev_warn(dev,
+					"ufs-rx-adv-fine-gran-step is empty\n");
+
+			if (of_property_read_u32(np,
+					"ufs-rx-adv-min-activate-time-cap",
+					&ufs->rx_adv_min_actv_time_cap))
+				dev_warn(dev,
+					"ufs-rx-adv-min-activate-time-cap is empty\n");
+
+			if (of_property_read_u32(np,
+					"ufs-rx-adv-hibern8-time-cap",
+					&ufs->rx_adv_hibern8_time_cap))
+				dev_warn(dev,
+					"ufs-rx-adv-hibern8-time-cap is empty\n");
+		} else {
+			dev_warn(dev,
+				"not supported val for ufs-rx-adv-fine-gran-sup_en %d\n",
+				ufs->rx_adv_fine_gran_sup_en);
+		}
+	} else {
+		ufs->rx_adv_fine_gran_sup_en = 0xf;
+	}
 
 out:
 	return ret;

@@ -408,6 +408,13 @@ struct exynos_ufs {
 	struct uic_pwr_mode req_pmd_parm;
 	struct uic_pwr_mode act_pmd_parm;
 
+	u32 rx_adv_fine_gran_sup_en;
+	u32 rx_adv_fine_gran_step;
+	u32 rx_min_actv_time_cap;
+	u32 rx_hibern8_time_cap;
+	u32 rx_adv_min_actv_time_cap;
+	u32 rx_adv_hibern8_time_cap;
+
 	u32 opts;
 #define EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB	BIT(0)
 
