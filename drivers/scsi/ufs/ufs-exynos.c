@@ -471,6 +471,38 @@ static void exynos_ufs_config_phy(struct exynos_ufs *ufs,
 	}
 }
 
+static void exynos_ufs_config_sync_pattern_mask(struct exynos_ufs *ufs,
+					struct uic_pwr_mode *pmd)
+{
+	struct ufs_hba *hba = ufs->hba;
+	u8 g = pmd->gear;
+	u32 mask, sync_len;
+	int i;
+#define SYNC_LEN_G1	(80 * 1000) /* 80 us */
+#define SYNC_LEN_G2	(40 * 1000) /* 40 us */
+#define SYNC_LEN_G3	(20 * 1000) /* 20 us */
+
+	if (g == 1)
+		sync_len = SYNC_LEN_G1;
+	else if (g == 2)
+		sync_len = SYNC_LEN_G2;
+	else if (g == 3)
+		sync_len = SYNC_LEN_G3;
+	else
+		return;
+
+	mask = exynos_ufs_calc_time_cntr(ufs, sync_len);
+	mask = (mask >> 8) & 0xff;
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), TRUE);
+
+	for_each_ufs_lane(ufs, i)
+		ufshcd_dme_set(hba,
+			UIC_ARG_MIB_SEL(RX_SYNC_MASK_LENGTH, i), mask);
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), FALSE);
+}
+
 static void exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *pwr_max,
 		struct ufs_pa_layer_attr *pwr_req)
@@ -483,6 +515,8 @@ static void exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 		return;
 
 	if (IS_PWR_MODE_HS(act_pmd->mode)) {
+		exynos_ufs_config_sync_pattern_mask(ufs, act_pmd);
+
 		switch (act_pmd->hs_series) {
 		case PA_HS_MODE_A:
 			exynos_ufs_config_phy(ufs,
@@ -596,7 +630,7 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 	exynos_ufs_config_intr(ufs, DFES_DEF_DL_ERRS, UNIP_DL_LYR);
 	exynos_ufs_config_intr(ufs, DFES_DEF_N_ERRS, UNIP_N_LYR);
 	exynos_ufs_config_intr(ufs, DFES_DEF_T_ERRS, UNIP_T_LYR);
-	exynos_ufs_set_pclk(ufs, 1U);
+	exynos_ufs_set_pclk(ufs, 0U);
 	exynos_ufs_set_mclk(ufs);
 	exynos_ufs_ctrl_clk(ufs, true);
 
