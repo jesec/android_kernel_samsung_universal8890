@@ -4583,6 +4583,8 @@ retry:
 	if (ret)
 		goto out;
 
+	dev_info(hba->dev, "UFS link established\n");
+
 	ufshcd_init_pwr_info(hba);
 
 	/* UniPro link is active now */
@@ -4595,6 +4597,8 @@ retry:
 	ret = ufshcd_complete_dev_init(hba);
 	if (ret)
 		goto out;
+
+	dev_info(hba->dev, "UFS device initialized\n");
 
 	ufs_advertise_fixup_device(hba);
 
@@ -4614,6 +4618,12 @@ retry:
 					__func__, ret);
 			goto out;
 		}
+
+		if (hba->max_pwr_info.info.pwr_rx == FAST_MODE ||
+			hba->max_pwr_info.info.pwr_tx == FASTAUTO_MODE ||
+			hba->max_pwr_info.info.pwr_rx == FAST_MODE ||
+			hba->max_pwr_info.info.pwr_tx == FASTAUTO_MODE)
+			dev_info(hba->dev, "HS mode configured\n");
 	}
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -6107,6 +6117,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	 * Set the device to power-off state
 	 */
 	ufshcd_set_ufs_dev_poweroff(hba);
+
+	dev_info(hba->dev, "UFS host initialized\n");
 
 	async_schedule(ufshcd_async_scan, hba);
 
