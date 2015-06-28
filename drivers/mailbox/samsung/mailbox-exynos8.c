@@ -48,7 +48,7 @@
 
 /* firmware file information */
 #define fw_checksum	61921
-char *firmware_file = "apm_8890.h";
+char *firmware_file = "apm_8890_v6.h";
 
 extern char* protocol_name;
 
