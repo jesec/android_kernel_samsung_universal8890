@@ -58,13 +58,6 @@
 #define PHY_PMA_COMN_ADDR(reg)		((reg) << 2)
 #define PHY_PMA_TRSV_ADDR(reg, lane)	(((reg) + (0x30 * (lane))) << 2)
 
-const char *const phy_symb_clks[] = {
-	"phyclk_ufs_tx0_symbol",
-	"phyclk_ufs_tx1_symbol",
-	"phyclk_ufs_rx0_symbol",
-	"phyclk_ufs_rx1_symbol"
-};
-
 #define phy_pma_writel(ufs, val, reg)	\
 	writel((val), (ufs)->phy.reg_pma + (reg))
 #define phy_pma_readl(ufs, reg)	\
@@ -813,6 +806,33 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 	return 0;
 }
 
+static int exynos_ufs_init(struct ufs_hba *hba)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	struct list_head *head = &hba->clk_list_head;
+	struct ufs_clk_info *clki;
+
+	exynos_ufs_ctrl_hci_core_clk(ufs, false);
+	exynos_ufs_config_smu(ufs);
+
+	if (!head || list_empty(head))
+		goto out;
+
+	list_for_each_entry(clki, head, list) {
+		if (!IS_ERR_OR_NULL(clki->clk)) {
+			if (!strcmp(clki->name, "aclk_ufs"))
+				ufs->clk_hci = clki->clk;
+			else if (!strcmp(clki->name, "sclk_ufsunipro"))
+				ufs->clk_unipro = clki->clk;
+		}
+	}
+out:
+	if (!ufs->clk_hci || !ufs->clk_unipro)
+		return -EINVAL;
+
+	return 0;
+}
+
 static void exynos_ufs_host_reset(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
@@ -945,105 +965,16 @@ static int __exynos_ufs_clk_set_parent(struct device *dev, const char *c, const 
 
 static int exynos_ufs_clk_init(struct device *dev, struct exynos_ufs *ufs)
 {
-	int i, ret = 0;
+	int ret = 0;
 
 	const char *const clks[] = {
 		"mout_sclk_combo_phy_embedded", "top_sclk_phy_fsys1_26m",
 	};
 
 	ret = __exynos_ufs_clk_set_parent(dev, clks[0], clks[1]);
-	if (ret) {
+	if (ret)
 		dev_err(dev, "failed to set parent %s of clock %s\n",
 				clks[1], clks[0]);
-		return ret;
-	}
-
-	ufs->clk_hci = devm_clk_get(dev, "aclk_ufs");
-	if (IS_ERR(ufs->clk_hci)) {
-		dev_err(dev, "failed to get ufs clock\n");
-	} else {
-		ret = clk_prepare_enable(ufs->clk_hci);
-		if (ret) {
-			dev_err(dev, "failed to enable ufs clock\n");
-			return ret;
-		}
-
-		dev_info(dev, "ufshci clock: %ld Hz \n", clk_get_rate(ufs->clk_hci));
-	}
-
-	ufs->clk_unipro = devm_clk_get(dev, "sclk_ufsunipro");
-	if (IS_ERR(ufs->clk_unipro)) {
-		dev_err(dev, "failed to get sclk_unipro clock\n");
-	} else {
-		ret = clk_prepare_enable(ufs->clk_unipro);
-		if (ret) {
-			dev_err(dev, "failed to enable unipro clock\n");
-			goto err_aclk_ufs;
-		}
-
-		dev_info(dev, "unipro clock: %ld Hz \n", clk_get_rate(ufs->clk_unipro));
-	}
-
-	ufs->clk_refclk_1 = devm_clk_get(dev, "sclk_refclk_1");
-	if (IS_ERR(ufs->clk_refclk_1)) {
-		dev_err(dev, "failed to get sclk_refclk_1 clock\n");
-	} else {
-		ret = clk_prepare_enable(ufs->clk_refclk_1);
-		if (ret) {
-			dev_err(dev, "failed to enable refclk_1 clock\n");
-			goto err_clk_unipro;
-		}
-
-		dev_info(dev, "refclk_1 clock: %ld Hz \n", clk_get_rate(ufs->clk_refclk_1));
-	}
-
-	ufs->clk_refclk_2 = devm_clk_get(dev, "sclk_refclk_2");
-	if (IS_ERR(ufs->clk_refclk_2)) {
-		dev_err(dev, "failed to get sclk_refclk_2 clock\n");
-	} else {
-		ret = clk_prepare_enable(ufs->clk_refclk_2);
-		if (ret) {
-			dev_err(dev, "failed to enable refclk_2 clock\n");
-			goto err_clk_unipro;
-		}
-
-		dev_info(dev, "refclk_2 clock: %ld Hz \n", clk_get_rate(ufs->clk_refclk_2));
-	}
-
-
-	for (i = 0; i < ARRAY_SIZE(phy_symb_clks); i++) {
-		ufs->clk_phy_symb[i] = devm_clk_get(dev, phy_symb_clks[i]);
-		if (IS_ERR(ufs->clk_phy_symb[i])) {
-			dev_err(dev, "failed to get %s clock\n",
-				phy_symb_clks[i]);
-		} else {
-			ret = clk_prepare_enable(ufs->clk_phy_symb[i]);
-			if (ret) {
-				dev_err(dev, "failed to enable %s clock\n",
-					phy_symb_clks[i]);
-				goto err_clk_refclk;
-			}
-		}
-	}
-
-	return 0;
-
-err_clk_refclk:
-	for (i = 0; i < ARRAY_SIZE(phy_symb_clks); i++) {
-		if (!IS_ERR_OR_NULL(ufs->clk_phy_symb[i]))
-			clk_disable_unprepare(ufs->clk_phy_symb[i]);
-	}
-
-	if (!IS_ERR(ufs->clk_refclk_1))
-		clk_disable_unprepare(ufs->clk_refclk_1);
-
-err_clk_unipro:
-	if (!IS_ERR(ufs->clk_unipro))
-		clk_disable_unprepare(ufs->clk_unipro);
-
-err_aclk_ufs:
-	if (!IS_ERR(ufs->clk_hci))
-		clk_disable_unprepare(ufs->clk_hci);
 
 	return ret;
 }
@@ -1283,37 +1214,18 @@ static int exynos_ufs_probe(struct platform_device *pdev)
 	dev->platform_data = ufs;
 	dev->dma_mask = &exynos_ufs_dma_mask;
 
-	/* ufsp */
-	exynos_ufs_config_smu(ufs);
-
 	return ufshcd_pltfrm_init(pdev, match->data);
 }
 
 static int exynos_ufs_remove(struct platform_device *pdev)
 {
 	struct exynos_ufs *ufs = dev_get_platdata(&pdev->dev);
-	int i;
 
 	ufshcd_pltfrm_exit(pdev);
 
 #ifdef CONFIG_CPU_IDLE
 	exynos_pm_unregister_notifier(&ufs->lpa_nb);
 #endif
-
-	if (!IS_ERR(ufs->clk_refclk_1))
-		clk_disable_unprepare(ufs->clk_refclk_1);
-
-
-	for (i = 0; i < ARRAY_SIZE(phy_symb_clks); i++) {
-		if (!IS_ERR(ufs->clk_phy_symb[i]))
-			clk_disable_unprepare(ufs->clk_phy_symb[i]);
-	}
-
-	if (!IS_ERR(ufs->clk_unipro))
-		clk_disable_unprepare(ufs->clk_unipro);
-
-	if (!IS_ERR(ufs->clk_hci))
-		clk_disable_unprepare(ufs->clk_hci);
 
 	exynos_ufs_ctrl_phy_pwr(ufs, false);
 
@@ -1364,6 +1276,7 @@ static const struct dev_pm_ops exynos_ufs_pmops = {
 #endif
 
 static const struct ufs_hba_variant_ops exynos_ufs_ops = {
+	.init = exynos_ufs_init,
 	.host_reset = exynos_ufs_host_reset,
 	.link_startup_notify = exynos_ufs_link_startup_notify,
 	.pwr_change_notify = exynos_ufs_pwr_mode_change_notify,
