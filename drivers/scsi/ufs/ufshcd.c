@@ -2698,11 +2698,10 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr final_params = { 0 };
 	int ret;
 
+	ufshcd_hold(hba, false);
 	if (hba->vops && hba->vops->pwr_change_notify) {
-		ufshcd_hold(hba, false);
 		ret = hba->vops->pwr_change_notify(hba,
 			PRE_CHANGE, desired_pwr_mode, &final_params);
-		ufshcd_release(hba);
 		if (ret)
 			goto out;
 	} else {
@@ -2711,6 +2710,7 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	ret = ufshcd_change_power_mode(hba, &final_params);
 
 out:
+	ufshcd_release(hba);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ufshcd_config_pwr_mode);
@@ -2904,9 +2904,13 @@ static int __ufshcd_hba_enable(struct ufs_hba *hba)
 static int ufshcd_hba_enable(struct ufs_hba *hba)
 {
 	int ret;
+	unsigned long flags;
 
 	ufshcd_hold(hba, false);
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->ufshcd_state = UFSHCD_STATE_RESET;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (hba->vops && hba->vops->host_reset)
 		hba->vops->host_reset(hba);
@@ -3783,9 +3787,12 @@ static void ufshcd_err_handler(struct work_struct *work)
 
 		err = ufshcd_reset_and_restore(hba);
 		if (err) {
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			hba->ufshcd_state = UFSHCD_STATE_ERROR;
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 			dev_err(hba->dev, "%s: reset and restore failed\n",
 					__func__);
-			hba->ufshcd_state = UFSHCD_STATE_ERROR;
 		}
 		/*
 		 * Inform scsi mid-layer that we did reset and allow to handle
@@ -4233,9 +4240,9 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 
 	/* Reset the host controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	ufshcd_hba_stop(hba);
 	hba->ufshcd_state = UFSHCD_STATE_RESET;
 	ufshcd_set_eh_in_progress(hba);
+	ufshcd_hba_stop(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	/* Establish the link again and restore the device */
@@ -4563,8 +4570,9 @@ out:
  */
 static int ufshcd_probe_hba(struct ufs_hba *hba)
 {
+	int re_cnt = 0;
 	int ret;
-	int re_cnt = 3;
+	unsigned long flags;
 
 retry:
 	ret = ufshcd_hba_enable(hba);
@@ -4593,7 +4601,6 @@ retry:
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
 	ufshcd_force_reset_auto_bkops(hba);
-	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
 	hba->wlun_dev_clr_ua = true;
 
 	if (ufshcd_get_max_pwr_mode(hba)) {
@@ -4608,6 +4615,10 @@ retry:
 			goto out;
 		}
 	}
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	/*
 	 * If we are in error handling context or in power management callbacks
@@ -5238,11 +5249,17 @@ static int ufshcd_link_state_transition(struct ufs_hba *hba,
 	else if ((req_link_state == UIC_LINK_OFF_STATE) &&
 		   (!check_for_bkops || (check_for_bkops &&
 		    !hba->auto_bkops_enabled))) {
+		unsigned long flags;
+
 		/*
 		 * Change controller state to "reset state" which
 		 * should also put the link in off/reset state
 		 */
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		hba->ufshcd_state = UFSHCD_STATE_RESET;
 		ufshcd_hba_stop(hba);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 		/*
 		 * TODO: Check if we need any delay to make sure that
 		 * controller is reset
