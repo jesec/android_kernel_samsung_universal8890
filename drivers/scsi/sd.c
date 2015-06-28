@@ -3170,6 +3170,9 @@ static int sd_start_stop_device(struct scsi_disk *sdkp, int start)
 static void sd_shutdown(struct device *dev)
 {
 	struct scsi_disk *sdkp = scsi_disk_get_from_dev(dev);
+	struct scsi_device *sdp = to_scsi_device(dev);
+	struct request_queue *q = sdp->request_queue;
+	unsigned long flags;
 
 	if (!sdkp)
 		return;         /* this can happen */
@@ -3188,6 +3191,10 @@ static void sd_shutdown(struct device *dev)
 	}
 
 exit:
+	spin_lock_irqsave(q->queue_lock, flags);
+	blk_stop_queue(q);
+	spin_unlock_irqrestore(q->queue_lock, flags);
+
 	scsi_disk_put(sdkp);
 }
 
