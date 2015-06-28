@@ -577,10 +577,13 @@ static void ufshcd_ungate_work(struct work_struct *work)
 	}
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	if (gating_allowed)
+	if (gating_allowed) {
 		ufshcd_setup_clocks(hba, true);
-	else
+	} else {
+		spin_lock_irqsave(hba->host->host_lock, flags);
 		hba->clk_gating.state = CLKS_ON;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+	}
 
 	/* Exit from hibern8 */
 	if (ufshcd_can_hibern8_during_gating(hba)) {
@@ -691,8 +694,13 @@ static void ufshcd_gate_work(struct work_struct *work)
 	if (ufshcd_can_hibern8_during_gating(hba)) {
 		ufshcd_set_link_trans_hibern8(hba);
 		if (ufshcd_link_hibern8_ctrl(hba, true)) {
+			spin_lock_irqsave(hba->host->host_lock, flags);
 			hba->clk_gating.state = CLKS_ON;
-			ufshcd_set_link_active(hba);
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+			hba->clk_gating.is_suspended = true;
+			ufshcd_host_reset_and_restore(hba);
+			hba->clk_gating.is_suspended = false;
 			goto out;
 		}
 		ufshcd_set_link_hibern8(hba);
@@ -5198,7 +5206,7 @@ static int ufshcd_link_state_transition(struct ufs_hba *hba,
 		if (!ret)
 			ufshcd_set_link_hibern8(hba);
 		else {
-			ufshcd_set_link_active(hba);
+			ufshcd_host_reset_and_restore(hba);
 			goto out;
 		}
 	}
