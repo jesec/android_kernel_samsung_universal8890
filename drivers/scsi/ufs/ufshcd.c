@@ -83,6 +83,9 @@
 /* Link Hibernation delay, msecs */
 #define LINK_H8_DELAY  20
 
+/* UFS link setup retries */
+#define UFS_LINK_SETUP_RETRIES 5
+
 #define ufshcd_toggle_vreg(_dev, _vreg, _on)				\
 	({                                                              \
 		int _ret;                                               \
@@ -2852,6 +2855,9 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 		ret = __ufshcd_hba_enable(hba);
 	}
 
+	if (ret)
+		dev_err(hba->dev, "Host controller enable failed\n");
+
 	return ret;
 }
 
@@ -4133,18 +4139,13 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	ufshcd_hba_stop(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	err = ufshcd_hba_enable(hba);
-	if (err)
-		goto out;
-
 	/* Establish the link again and restore the device */
 	err = ufshcd_probe_hba(hba);
 
-	if (!err && (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL))
+	if (!err && (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)) {
+		dev_err(hba->dev, "%s: failed\n", __func__);
 		err = -EIO;
-out:
-	if (err)
-		dev_err(hba->dev, "%s: Host init failed %d\n", __func__, err);
+	}
 
 	return err;
 }
@@ -4438,6 +4439,10 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	int re_cnt = 3;
 
 retry:
+	ret = ufshcd_hba_enable(hba);
+	if (ret)
+		goto out;
+
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -4490,11 +4495,16 @@ retry:
 		if (!hba->is_init_prefetch)
 			ufshcd_init_icc_levels(hba);
 
-		/* Add required well known logical units to scsi mid layer */
-		if (ufshcd_scsi_add_wlus(hba))
-			goto out;
-
 		scsi_scan_host(hba->host);
+
+		/* Add required well known logical units to scsi mid layer */
+		ret = ufshcd_scsi_add_wlus(hba);
+		if (ret) {
+			dev_warn(hba->dev, "%s failed to add w-lus %d\n",
+				__func__, ret);
+			ret = 0;
+		}
+
 		pm_runtime_put_sync(hba->dev);
 	}
 
@@ -4506,16 +4516,16 @@ retry:
 		devfreq_resume_device(hba->devfreq);
 
 out:
+	if (ret && re_cnt++ < UFS_LINK_SETUP_RETRIES) {
+		dev_err(hba->dev, "%s failed with err %d, retrying:%d\n",
+			__func__, ret, re_cnt);
+		goto retry;
+	}
+
 	/*
 	 * If we failed to initialize the device or the device is not
 	 * present, turn off the power/clocks etc.
 	 */
-
-	if (ret) {
-		if (re_cnt-- > 0)
-			goto retry;
-	}
-
 	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
 		pm_runtime_put_sync(hba->dev);
 		ufshcd_hba_exit(hba);
@@ -5890,13 +5900,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	if (err) {
 		dev_err(hba->dev, "scsi_add_host failed\n");
 		goto exit_gating;
-	}
-
-	/* Host controller enable */
-	err = ufshcd_hba_enable(hba);
-	if (err) {
-		dev_err(hba->dev, "Host controller enable failed\n");
-		goto out_remove_scsi_host;
 	}
 
 	if (ufshcd_is_clkscaling_enabled(hba)) {
