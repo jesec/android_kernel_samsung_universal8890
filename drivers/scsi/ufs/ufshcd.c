@@ -131,10 +131,11 @@ enum {
 
 /* UFSHCD UIC layer error flags */
 enum {
-	UFSHCD_UIC_DL_PA_INIT_ERROR = (1 << 0), /* Data link layer error */
+	UFSHCD_UIC_DL_PA_INIT_ERROR = (1 << 0), /* Data link layer error, PA_INIT_ERROR */
 	UFSHCD_UIC_NL_ERROR = (1 << 1), /* Network layer error */
 	UFSHCD_UIC_TL_ERROR = (1 << 2), /* Transport Layer error */
 	UFSHCD_UIC_DME_ERROR = (1 << 3), /* DME error */
+	UFSHCD_UIC_DL_ERROR = (1 << 4), /* Data link layer error */
 };
 
 /* Interrupt configuration options */
@@ -2771,6 +2772,9 @@ static int ufshcd_make_hba_operational(struct ufs_hba *hba)
 	ufshcd_writel(hba, upper_32_bits(hba->utmrdl_dma_addr),
 			REG_UTP_TASK_REQ_LIST_BASE_H);
 
+	hba->tcx_replay_timer_expired_cnt = 0;
+	hba->fcx_protection_timer_expired_cnt = 0;
+
 	/*
 	 * UCRDY, UTMRLDY and UTRLRDY bits must be 1
 	 * DEI, HEI bits must be 0
@@ -3408,6 +3412,11 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason)
 	/* clear corresponding bits of completed commands */
 	hba->outstanding_reqs ^= completed_reqs;
 
+	if (!tr_doorbell) {
+		hba->tcx_replay_timer_expired_cnt = 0;
+		hba->fcx_protection_timer_expired_cnt = 0;
+	}
+
 	ufshcd_clk_scaling_update_busy(hba);
 
 	/* we might have free'd some tags above */
@@ -3725,7 +3734,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 	/* Fatal errors need reset */
 	if (err_xfer || err_tm || (hba->saved_err & INT_FATAL_ERRORS) ||
 			((hba->saved_err & UIC_ERROR) &&
-			 (hba->saved_uic_err & UFSHCD_UIC_DL_PA_INIT_ERROR))) {
+			((hba->saved_uic_err & UFSHCD_UIC_DL_PA_INIT_ERROR) ||
+			 (hba->saved_uic_err & UFSHCD_UIC_DL_ERROR)))) {
 		dev_err(hba->dev,
 			"%s: saved_err:0x%x, saved_uic_err:0x%x\n",
 			__func__, hba->saved_err, hba->saved_uic_err);
@@ -3764,6 +3774,16 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_DATA_LINK_LAYER);
 	if (reg & UIC_DATA_LINK_LAYER_ERROR_PA_INIT)
 		hba->uic_error |= UFSHCD_UIC_DL_PA_INIT_ERROR;
+
+	if (reg & UIC_DATA_LINK_LAYER_ERROR_TCX_REP_TIMER_EXP)
+		hba->tcx_replay_timer_expired_cnt++;
+
+	if (reg & UIC_DATA_LINK_LAYER_ERROR_FCX_PRO_TIMER_EXP)
+		hba->fcx_protection_timer_expired_cnt++;
+
+	if (hba->tcx_replay_timer_expired_cnt >= 2 ||
+	    hba->fcx_protection_timer_expired_cnt >= 2)
+		hba->uic_error |= UFSHCD_UIC_DL_ERROR;
 
 	/* UIC NL/TL/DME errors needs software retry */
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_NETWORK_LAYER);
