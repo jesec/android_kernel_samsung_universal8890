@@ -14,9 +14,13 @@
 #include "ufshcd.h"
 #include "ufs_quirks.h"
 
+#ifndef UFS_VENDOR_ID_SAMSUNG
+#define UFS_VENDOR_ID_SAMSUNG	0x1ce
+#endif
 
 static struct ufs_card_fix ufs_fixups[] = {
 	/* UFS cards deviations table */
+	UFS_FIX(UFS_VENDOR_ID_SAMSUNG, UFS_ANY_MODEL, UFS_DEVICE_QUIRK_BROKEN_LINEREST),
 	END_FIX
 };
 

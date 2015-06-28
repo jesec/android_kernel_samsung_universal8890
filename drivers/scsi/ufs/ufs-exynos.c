@@ -796,6 +796,7 @@ static void exynos_ufs_fit_aggr_timeout(struct exynos_ufs *ufs)
 static int exynos_ufs_post_link(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	const struct exynos_ufs_soc *soc = to_phy_soc(ufs);
 
 	exynos_ufs_establish_connt(ufs);
 	exynos_ufs_fit_aggr_timeout(ufs);
@@ -806,7 +807,7 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 	hci_writel(ufs, PRDT_SET_SIZE(12), HCI_RXPRDT_ENTRY_SIZE);
 	hci_writel(ufs, 0xFFFFFFFF, HCI_UTRL_NEXUS_TYPE);
 	hci_writel(ufs, 0xFFFFFFFF, HCI_UTMRL_NEXUS_TYPE);
-	hci_writel(ufs, 0x15, HCI_AXIDMA_RWDATA_BURST_LEN);
+	hci_writel(ufs, 0xf, HCI_AXIDMA_RWDATA_BURST_LEN);
 
 	if (ufs->opts & EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB)
 		ufshcd_dme_set(hba,
@@ -826,6 +827,9 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 			ufshcd_dme_set(hba,
 				UIC_ARG_MIB(PA_HIBERN8TIME), ufs->pa_hibern8time);
 	}
+
+	if (soc)
+		exynos_ufs_config_phy(ufs, soc->tbl_post_phy_init, NULL);
 
 	return 0;
 }
@@ -1419,7 +1423,7 @@ static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 };
 
 static const struct ufs_phy_cfg init_cfg[] = {
-	{PA_DBG_OPTION_SUITE, 0x20103, PMD_ALL, UNIPRO_DBG_MIB},
+	{PA_DBG_OPTION_SUITE, 0x30103, PMD_ALL, UNIPRO_DBG_MIB},
 	{PA_DBG_AUTOMODE_THLD, 0x222E, PMD_ALL, UNIPRO_DBG_MIB},
 	{0x00f, 0xfa, PMD_ALL, PHY_PMA_COMN},
 	{0x010, 0x82, PMD_ALL, PHY_PMA_COMN},
@@ -1435,6 +1439,18 @@ static const struct ufs_phy_cfg init_cfg[] = {
 	{0x04c, 0x5b, PMD_ALL, PHY_PMA_TRSV},
 	{0x04d, 0x83, PMD_ALL, PHY_PMA_TRSV},
 	{0x05c, 0x14, PMD_ALL, PHY_PMA_TRSV},
+	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
+	{0x28b, 0x83, PMD_ALL, PHY_PCS_RXTX},
+	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
+	{},
+};
+
+
+static const struct ufs_phy_cfg post_init_cfg[] = {
+	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
+	{0x29a, 0x7, PMD_ALL, PHY_PCS_RXTX},
+	{0x277, (200000 / 10) >> 10, PMD_ALL, PHY_PCS_RXTX},
+	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
 	{},
 };
 
@@ -1456,7 +1472,6 @@ static const struct ufs_phy_cfg calib_of_hs_rate_a[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
 	{0x362, 0xff, PMD_HS, PHY_PCS_RXTX},
 	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
-	{0x321, 0x40, PMD_HS, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
 	{0x00f, 0xfa, PMD_HS, PHY_PMA_COMN},
 	{0x010, 0x82, PMD_HS, PHY_PMA_COMN},
@@ -1464,9 +1479,9 @@ static const struct ufs_phy_cfg calib_of_hs_rate_a[] = {
 	/* Setting order: 1st(0x16), 2nd(0x15) */
 	{0x016, 0xff, PMD_HS, PHY_PMA_COMN},
 	{0x015, 0x80, PMD_HS, PHY_PMA_COMN},
-	{0x017, 0x84, PMD_HS, PHY_PMA_COMN},
+	{0x017, 0x94, PMD_HS, PHY_PMA_COMN},
 	{0x036, 0x32, PMD_HS, PHY_PMA_TRSV},
-	{0x037, 0x40, PMD_HS, PHY_PMA_TRSV},
+	{0x037, 0x43, PMD_HS, PHY_PMA_TRSV},
 	{0x038, 0x3f, PMD_HS, PHY_PMA_TRSV},
 	{0x042, 0x88, PMD_HS, PHY_PMA_TRSV},
 	{0x043, 0xa6, PMD_HS, PHY_PMA_TRSV},
@@ -1485,7 +1500,6 @@ static const struct ufs_phy_cfg calib_of_hs_rate_b[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
 	{0x362, 0xff, PMD_HS, PHY_PCS_RXTX},
 	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
-	{0x321, 0x35, PMD_HS, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
 	{0x00f, 0xfa, PMD_HS, PHY_PMA_COMN},
 	{0x010, 0x82, PMD_HS, PHY_PMA_COMN},
@@ -1493,9 +1507,9 @@ static const struct ufs_phy_cfg calib_of_hs_rate_b[] = {
 	/* Setting order: 1st(0x16), 2nd(0x15) */
 	{0x016, 0xff, PMD_HS, PHY_PMA_COMN},
 	{0x015, 0x80, PMD_HS, PHY_PMA_COMN},
-	{0x017, 0x84, PMD_HS, PHY_PMA_COMN},
+	{0x017, 0x94, PMD_HS, PHY_PMA_COMN},
 	{0x036, 0x32, PMD_HS, PHY_PMA_TRSV},
-	{0x037, 0x40, PMD_HS, PHY_PMA_TRSV},
+	{0x037, 0x43, PMD_HS, PHY_PMA_TRSV},
 	{0x038, 0x3f, PMD_HS, PHY_PMA_TRSV},
 	{0x042, 0xbb, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
 	{0x043, 0xa6, PMD_HS, PHY_PMA_TRSV},
@@ -1551,6 +1565,7 @@ static const struct ufs_phy_cfg post_calib_of_hs_rate_b[] = {
 
 static const struct exynos_ufs_soc exynos_ufs_soc_data = {
 	.tbl_phy_init			= init_cfg,
+	.tbl_post_phy_init		= post_init_cfg,
 	.tbl_calib_of_pwm		= calib_of_pwm,
 	.tbl_calib_of_hs_rate_a		= calib_of_hs_rate_a,
 	.tbl_calib_of_hs_rate_b		= calib_of_hs_rate_b,

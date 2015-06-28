@@ -66,6 +66,7 @@ struct ufs_card_fix {
  * TX_LCC_ENABLE attribute of host to 0).
  */
 #define UFS_DEVICE_QUIRK_BROKEN_LCC		UFS_BIT(0)
+#define UFS_DEVICE_QUIRK_BROKEN_LINEREST	UFS_BIT(1)
 
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);

@@ -361,6 +361,7 @@ struct ufs_phy_cfg {
 
 struct exynos_ufs_soc {
 	const struct ufs_phy_cfg *tbl_phy_init;
+	const struct ufs_phy_cfg *tbl_post_phy_init;
 	const struct ufs_phy_cfg *tbl_calib_of_pwm;
 	const struct ufs_phy_cfg *tbl_calib_of_hs_rate_a;
 	const struct ufs_phy_cfg *tbl_calib_of_hs_rate_b;
