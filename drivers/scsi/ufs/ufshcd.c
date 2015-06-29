@@ -3870,11 +3870,6 @@ static void ufshcd_err_handler(struct work_struct *work)
 			dev_err(hba->dev, "%s: reset and restore failed\n",
 					__func__);
 		}
-		/*
-		 * Inform scsi mid-layer that we did reset and allow to handle
-		 * Unit Attention properly.
-		 */
-		scsi_report_bus_reset(hba->host, 0);
 		hba->saved_err = 0;
 		hba->saved_uic_err = 0;
 	}
@@ -4332,6 +4327,14 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	if (!err && (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)) {
 		dev_err(hba->dev, "%s: failed\n", __func__);
 		err = -EIO;
+	} else {
+		/*
+		 * Inform scsi mid-layer that we did reset and allow to handle
+		 * Unit Attention properly.
+		 */
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		scsi_report_bus_reset(hba->host, 0);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
