@@ -370,6 +370,7 @@ struct exynos_ufs_soc {
 	struct ufs_phy_cfg *tbl_post_calib_of_pwm;
 	struct ufs_phy_cfg *tbl_post_calib_of_hs_rate_a;
 	struct ufs_phy_cfg *tbl_post_calib_of_hs_rate_b;
+	struct ufs_phy_cfg *tbl_pma_restore;
 };
 
 struct exynos_ufs_phy {
@@ -406,6 +407,7 @@ struct exynos_ufs {
 	void __iomem *reg_ufsp;
 
 	struct clk *clk_hci;
+	struct clk *pclk;
 	struct clk *clk_unipro;
 	struct clk *clk_refclk_1;
 	struct clk *clk_refclk_2;

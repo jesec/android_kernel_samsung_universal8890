@@ -118,7 +118,7 @@ struct exynos_ufs_soc *exynos_ufs_get_drv_data(struct device *dev)
 	return ((struct ufs_hba_variant *)match->data)->vs_data;
 }
 
-#define NUM_OF_PHY_CONFIGS	8
+#define NUM_OF_PHY_CONFIGS	9
 static int exynos_ufs_populate_dt_phy_cfg(struct device *dev,
 		struct exynos_ufs_soc **org_soc)
 {
@@ -137,6 +137,7 @@ static int exynos_ufs_populate_dt_phy_cfg(struct device *dev,
 		"post-calib-of-pwm",
 		"post-calib-of-hs-rate-a",
 		"post-calib-of-hs-rate-b",
+		"pma-restore",
 	};
 
 	soc = devm_kzalloc(dev, sizeof(*soc), GFP_KERNEL);
@@ -1122,6 +1123,10 @@ static void exynos_ufs_clock_control_notify(struct ufs_hba *hba, bool on, bool n
 
 static int __exynos_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+
+	exynos_ufs_ctrl_phy_pwr(ufs, false);
+
 	return 0;
 }
 
@@ -1131,7 +1136,11 @@ static int __exynos_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 #if defined(CONFIG_UFS_FMP_DM_CRYPT)
 	int ret = 0;
 #endif
+	exynos_ufs_ctrl_phy_pwr(ufs, true);
 
+	if (ufshcd_is_clkgating_allowed(hba))
+		clk_prepare_enable(ufs->clk_hci);
+	exynos_ufs_ctrl_hci_core_clk(ufs, false);
 	exynos_ufs_config_smu(ufs);
 #if defined(CONFIG_UFS_FMP_DM_CRYPT)
 	ret = exynos_smc(SMC_CMD_FMP, FMP_KEY_RESUME, 0, 0);
@@ -1514,6 +1523,7 @@ static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, v
 {
 	struct exynos_ufs *ufs =
 		container_of(nb, struct exynos_ufs, lpa_nb);
+	const struct exynos_ufs_soc *soc = to_phy_soc(ufs);
 	struct ufs_hba *hba = dev_get_drvdata(ufs->dev);
 	int ret = NOTIFY_DONE;
 
@@ -1533,6 +1543,22 @@ static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, v
 		exynos_ufs_ctrl_hci_core_clk(ufs, true);
 		if (ufshcd_is_clkgating_allowed(hba))
 			clk_disable_unprepare(ufs->clk_hci);
+
+		/*
+		 * This condition means that PMA is reset.
+		 * So, PMA SFRs should be restored as expected values
+		 */
+		if (ufshcd_is_clkgating_allowed(hba)) {
+			clk_prepare_enable(ufs->clk_hci);
+			clk_prepare_enable(ufs->pclk);
+		}
+
+		exynos_ufs_gate_clk(ufs, false);
+		exynos_ufs_config_phy(ufs, soc->tbl_pma_restore, NULL);
+		if (ufshcd_is_clkgating_allowed(hba)) {
+			clk_disable_unprepare(ufs->clk_hci);
+			clk_disable_unprepare(ufs->pclk);
+		}
 
 		if (hba->debug.flag & UFSHCD_DEBUG_LEVEL1)
 			dev_info(hba->dev, "LPA-\n");
@@ -1856,6 +1882,10 @@ static struct ufs_phy_cfg post_calib_of_hs_rate_b[] = {
 	{},
 };
 
+static struct ufs_phy_cfg pma_restore[] = {
+	{},
+};
+
 static struct exynos_ufs_soc exynos_ufs_soc_data = {
 	.tbl_phy_init			= init_cfg,
 	.tbl_post_phy_init		= post_init_cfg,
@@ -1865,6 +1895,7 @@ static struct exynos_ufs_soc exynos_ufs_soc_data = {
 	.tbl_post_calib_of_pwm		= post_calib_of_pwm,
 	.tbl_post_calib_of_hs_rate_a	= post_calib_of_hs_rate_a,
 	.tbl_post_calib_of_hs_rate_b	= post_calib_of_hs_rate_b,
+	.tbl_pma_restore		= pma_restore,
 };
 
 static const struct ufs_hba_variant exynos_ufs_drv_data = {
