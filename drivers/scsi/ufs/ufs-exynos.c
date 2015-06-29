@@ -565,7 +565,7 @@ static void exynos_ufs_config_sync_pattern_mask(struct exynos_ufs *ufs,
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), FALSE);
 }
 
-static void exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
+static int exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *pwr_max,
 		struct ufs_pa_layer_attr *pwr_req)
 {
@@ -574,7 +574,7 @@ static void exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 	struct uic_pwr_mode *act_pmd = &ufs->act_pmd_parm;
 
 	if (!soc)
-		return;
+		goto out;
 
 	if (IS_PWR_MODE_HS(act_pmd->mode)) {
 		exynos_ufs_config_sync_pattern_mask(ufs, act_pmd);
@@ -594,9 +594,13 @@ static void exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 	} else if (IS_PWR_MODE_PWM(act_pmd->mode)) {
 		exynos_ufs_config_phy(ufs, soc->tbl_calib_of_pwm, act_pmd);
 	}
+
+out:
+	return 0;
+
 }
 
-static void exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
+static int exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *pwr_max,
 		struct ufs_pa_layer_attr *pwr_req)
 {
@@ -605,7 +609,7 @@ static void exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
 	struct uic_pwr_mode *act_pmd = &ufs->act_pmd_parm;
 
 	if (!soc)
-		return;
+		goto out;
 
 	if (IS_PWR_MODE_HS(act_pmd->mode)) {
 		switch (act_pmd->hs_series) {
@@ -620,12 +624,18 @@ static void exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
 		default:
 			break;
 		}
+
+		if (exynos_ufs_wait_pll_lock(ufs) &&
+				exynos_ufs_wait_cdr_lock(ufs))
+			goto out;
+
+		return -EPERM;
+
 	} else if (IS_PWR_MODE_PWM(act_pmd->mode)) {
 		exynos_ufs_config_phy(ufs, soc->tbl_post_calib_of_pwm, act_pmd);
 	}
-
-	exynos_ufs_wait_pll_lock(ufs);
-	exynos_ufs_wait_cdr_lock(ufs);
+out:
+	return 0;
 }
 
 static void exynos_ufs_phy_init(struct exynos_ufs *ufs)
