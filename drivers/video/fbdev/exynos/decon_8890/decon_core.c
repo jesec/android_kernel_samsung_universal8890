@@ -3547,8 +3547,7 @@ static int decon_probe(struct platform_device *pdev)
 
 	decon->bts_init_ops = &decon_init_bts_control;
 
-	if (!decon->id)
-		call_init_ops(decon, bts_add, decon);
+	call_init_ops(decon, bts_add, decon);
 
 	if (!decon->id && decon->pdata->out_type == DECON_OUT_DSI) {
 		/* Enable only Decon_F during probe */
