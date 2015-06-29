@@ -109,6 +109,8 @@ static inline void exynos_ufs_ctrl_phy_pwr(struct exynos_ufs *ufs, bool en)
 	writel(!!en, ufs->phy.reg_pmu);
 }
 
+static struct exynos_ufs *ufs_host_backup;
+
 static struct ufs_sfr_log ufs_cfg_log_sfr[] = {
 	{"STD HCI SFR"			,	LOG_STD_HCI_SFR,		0},
 
@@ -2299,6 +2301,8 @@ static int exynos_ufs_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&ufs->tp_mon, exynos_ufs_tp_mon);
 	exynos_ufs_pm_qos_add(ufs);
+
+	ufs_host_backup = ufs;
 
 	return ufshcd_pltfrm_init(pdev, match->data);
 }
