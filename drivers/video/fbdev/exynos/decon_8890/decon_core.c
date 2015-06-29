@@ -2054,7 +2054,9 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	int win_bitmap = 0;
 
 	decon_to_psr_info(decon, &psr);
-	decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
+	decon_reg_wait_for_update_timeout(decon->id, SHADOW_UPDATE_TIMEOUT);
+	if (psr.trig_mode == DECON_HW_TRIG)
+		decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
 
 	/* TODO: check and wait until the required IDMA is free */
 	decon_reg_chmap_validate(decon, regs);
@@ -2255,9 +2257,10 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	}
 #endif /* CONFIG_USE_VSYNC_SKIP */
 
+	decon_to_psr_info(decon, &psr);
 	__decon_update_regs(decon, regs);
 	if (decon->out_type == DECON_OUT_WB) {
-		decon_vpp_wait_for_update(decon, regs);
+		decon_reg_release_resource(decon->id, &psr);
 		decon_vpp_wait_wb_framedone(decon);
 		/* Stop to prevent resource conflict */
 		decon->vpp_usage_bitmask = 0;
@@ -2283,12 +2286,9 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 			decon->frame_done_cnt_target = decon->frame_done_cnt_cur + 1;
 		}
 
-		/*decon_vpp_wait_for_update(decon, regs);*/
+		if (!decon->sw_te_wa)
+			decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
 	}
-
-	decon_to_psr_info(decon, &psr);
-	if (!decon->sw_te_wa)
-		decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
 
 	DISP_SS_EVENT_LOG(DISP_EVT_TRIG_MASK, &decon->sd, ktime_set(0, 0));
 	decon->trig_mask_timestamp =  ktime_get();
