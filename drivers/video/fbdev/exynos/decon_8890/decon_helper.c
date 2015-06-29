@@ -187,11 +187,20 @@ static inline void disp_ss_event_log_dsim
 /* get decon's id used by vpp */
 static int __get_decon_id_for_vpp(struct v4l2_subdev *sd)
 {
-	struct decon_device *decon = get_decon_drvdata(0);
+	struct decon_device *decon;
 	struct vpp_dev *vpp = v4l2_get_subdevdata(sd);
+	int idx;
+	int ret = 0;
 
-	/* FIXME: return proper decon's ID */
-	return decon->vpp_used[vpp->id] ? 0 : 0;
+	for (idx = 0; idx < NUM_DECON_IPS; idx++) {
+		decon = get_decon_drvdata(idx);
+		if (!decon || IS_ERR_OR_NULL(decon->debug_event))
+			continue;
+		if (decon->vpp_used[vpp->id] == true)
+			ret = decon->id;
+	}
+
+	return ret;
 }
 
 /* logging a event related with VPP */
