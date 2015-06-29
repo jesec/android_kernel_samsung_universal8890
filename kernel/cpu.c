@@ -576,13 +576,15 @@ int disable_nonboot_cpus(void)
 		}
 	}
 
-#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-	error = _cpu_down(nonboot_cluster_first_cpu, 1);
-	if (!error)
-		cpumask_set_cpu(nonboot_cluster_first_cpu, frozen_cpus);
-	else
-		printk(KERN_ERR "Error taking CPU%d down: %d\n",
-			nonboot_cluster_first_cpu, error);
+#ifdef CONFIG_EXYNOS_DYNAMIC_CPU_HOTPLUG
+	if (num_online_cpus() > 1) {
+		error = _cpu_down(nonboot_cluster_first_cpu, 1);
+		if (!error)
+			cpumask_set_cpu(nonboot_cluster_first_cpu, frozen_cpus);
+		else
+			printk(KERN_ERR "Error taking CPU%d down: %d\n",
+					nonboot_cluster_first_cpu, error);
+	}
 #endif
 
 	if (!error) {
