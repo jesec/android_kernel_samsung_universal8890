@@ -4222,14 +4222,18 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		hba->vops->get_debug_info(hba);
 
 	/* If command is already aborted/completed, return SUCCESS */
-	if (!(test_bit(tag, &hba->outstanding_reqs)))
+	if (!(test_bit(tag, &hba->outstanding_reqs))) {
+		dev_err(hba->dev,
+			"%s: cmd was already completed\n", __func__);
 		goto out;
+	}
 
 	reg = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	if (!(reg & (1 << tag))) {
 		dev_err(hba->dev,
 		"%s: cmd was completed, but without a notifying intr, tag = %d",
 		__func__, tag);
+		goto clean;
 	}
 
 	lrbp = &hba->lrb[tag];
@@ -4251,16 +4255,25 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 				continue;
 			}
 			/* command completed already */
+			dev_err(hba->dev,
+				"%s: cmd was completed during err handling\n",
+				__func__);
 			goto out;
 		} else {
 			if (!err)
 				err = resp; /* service response error */
+			dev_err(hba->dev,
+				"%s: query task failed with err %d\n",
+				__func__, err);
 			goto out;
 		}
 	}
 
 	if (!poll_cnt) {
 		err = -EBUSY;
+		dev_err(hba->dev,
+			"%s: cmd might be missed, not pending in device\n",
+			__func__);
 		goto out;
 	}
 
@@ -4269,6 +4282,9 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	if (err || resp != UPIU_TASK_MANAGEMENT_FUNC_COMPL) {
 		if (!err)
 			err = resp; /* service response error */
+		dev_err(hba->dev,
+			"%s: abort task failed with err %d\n",
+			__func__, err);
 		goto out;
 	}
 
@@ -4276,6 +4292,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	if (err)
 		goto out;
 
+clean:
 	scsi_dma_unmap(cmd);
 
 	spin_lock_irqsave(host->host_lock, flags);
@@ -4287,12 +4304,10 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	wake_up(&hba->dev_cmd.tag_wq);
 
 out:
-	if (!err) {
+	if (!err)
 		err = SUCCESS;
-	} else {
-		dev_err(hba->dev, "%s: failed with err %d\n", __func__, err);
+	else
 		err = FAILED;
-	}
 
 	/*
 	 * This ufshcd_release() corresponds to the original scsi cmd that got
