@@ -99,6 +99,12 @@ config ARM_EXYNOS_CPU_FREQ_BOOST_SW
 
 	  If in doubt, say N.
 
+config EXYNOS_DYNAMIC_CPU_HOTPLUG
+	bool "Dynamic CPU Hotplug support"
+	depends on ARCH_EXYNOS
+	help
+		Enable Dynamic CPU Hotplug
+
 config ARM_HIGHBANK_CPUFREQ
 	tristate "Calxeda Highbank-based"
 	depends on ARCH_HIGHBANK && CPUFREQ_DT && REGULATOR

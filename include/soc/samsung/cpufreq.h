@@ -178,10 +178,10 @@ struct cpu_info_alter {
 };
 
 extern cluster_type exynos_boot_cluster;
-#ifdef CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG
+#ifdef CONFIG_EXYNOS_DYNAMIC_CPU_HOTPLUG
 extern void force_dynamic_hotplug(bool out_flag, int delay_msec);
 #endif
-#if defined(CONFIG_SCHED_HMP) && defined(CONFIG_EXYNOS5_DYNAMIC_CPU_HOTPLUG)
+#if defined(CONFIG_SCHED_HMP) && defined(CONFIG_EXYNOS_DYNAMIC_CPU_HOTPLUG)
 int cluster1_cores_hotplug(bool out_flag);
 int cluster0_core1_hotplug_in(bool in_flag);
 void event_hotplug_in(void);
