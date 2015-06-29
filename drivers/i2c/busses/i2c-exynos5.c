@@ -96,6 +96,7 @@ static LIST_HEAD(drvdata_list);
 
 /* I2C_CTL Register bits */
 #define HSI2C_FUNC_MODE_I2C			(1u << 0)
+#define HSI2C_CS_ENB				(1u << 0)
 #define HSI2C_MASTER				(1u << 3)
 #define HSI2C_RXCHON				(1u << 6)
 #define HSI2C_TXCHON				(1u << 7)
@@ -1185,13 +1186,13 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 	set_batcher_enable(i2c);
 
 	/* Set HSI2C Timing Parameters */
-	write_batcher(i2c, 0x0F0F0F00, HSI2C_TIMING_HS1);
-	write_batcher(i2c, 0x080F0F04, HSI2C_TIMING_HS2);
-	write_batcher(i2c, 0x00000013, HSI2C_TIMING_HS3);
-	write_batcher(i2c, 0x78787800, HSI2C_TIMING_FS1);
-	write_batcher(i2c, 0x3C0F7878, HSI2C_TIMING_FS2);
-	write_batcher(i2c, 0x000000F0, HSI2C_TIMING_FS3);
-	write_batcher(i2c, 0x00000007, HSI2C_TIMING_SLA);
+	write_batcher(i2c, ((10 << 24)|(10 << 16)|(10 << 8)|(10)), HSI2C_TIMING_HS1);
+	write_batcher(i2c, ((0xF << 16)|(5 << 24)|(10 << 8)|(2)), HSI2C_TIMING_HS2);
+	write_batcher(i2c, ((0x0)|(0 << 16)|(12)), HSI2C_TIMING_HS3);
+	write_batcher(i2c, ((0x0)|(5)), HSI2C_TIMING_SLA);
+	write_batcher(i2c, ((0x0)|(38 << 24)|(38 << 16)|(38 << 8)), HSI2C_TIMING_FS1);
+	write_batcher(i2c, ((0xF << 16)|(19 << 24)|(38 << 8)|(38)), HSI2C_TIMING_FS2);
+	write_batcher(i2c, ((0x0)|(1 << 16)|(76)), HSI2C_TIMING_FS3);
 
 	/* Set HSI2C Trailing Register */
 	write_batcher(i2c, BATCHER_TRAILING_COUNT, HSI2C_TRAILIG_CTL);
@@ -1230,6 +1231,9 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 
 	/* Set HSI2C Control Register */
 	i2c_ctl |= HSI2C_MASTER;
+
+	/* Set HSI2C CTL[0] CS_ENB as 1 for 2.5Mhz SCL frequency */
+	i2c_ctl |= HSI2C_CS_ENB;
 
 	if (msgs->flags & I2C_M_RD) {
 		i2c_ctl &= ~HSI2C_TXCHON;
