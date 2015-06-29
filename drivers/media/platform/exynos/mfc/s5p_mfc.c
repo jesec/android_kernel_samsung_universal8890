@@ -1678,7 +1678,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	case S5P_FIMV_R2H_CMD_WAKEUP_RET:
 		s5p_mfc_clear_int_flags();
 		/* Initialize hw_lock */
-		atomic_clear_mask(HW_LOCK_CLEAR_MASK, &dev->hw_lock);
+		dev->hw_lock = 0;
 		wake_up_dev(dev, reason, err);
 		goto done;
 	}
