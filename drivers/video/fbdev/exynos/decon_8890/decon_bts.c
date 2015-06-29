@@ -143,6 +143,7 @@ void bts_send_release(struct decon_device *decon)
 	pm_qos_update_request(&decon->mif_qos, 0);
 	pm_qos_update_request(&decon->disp_qos, 0);
 	pm_qos_update_request(&decon->int_qos, 0);
+	decon->disp_cur = decon->disp_prev = 0;
 }
 
 void bts_remove_request(struct decon_device *decon)
