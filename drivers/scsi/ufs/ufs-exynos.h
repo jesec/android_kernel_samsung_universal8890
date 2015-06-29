@@ -12,6 +12,8 @@
 #ifndef _UFS_EXYNOS_H_
 #define _UFS_EXYNOS_H_
 
+#include <linux/pm_qos.h>
+
 /*
  * Exynos's Vendor specific registers for UFSHCI
  */
@@ -386,6 +388,15 @@ struct uic_pwr_mode {
 	u32 remote_l2_timer[3];
 };
 
+struct exynos_ufs_tp_mon_table {
+	u32	threshold;
+	s32     cluster1_value;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	s32     cluster0_value;
+#endif
+	s32     mif_value;
+};
+
 struct exynos_ufs {
 	struct device *dev;
 	struct ufs_hba *hba;
@@ -426,6 +437,13 @@ struct exynos_ufs {
 	u32 opts;
 #define EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB	BIT(0)
 
+	/* Performance */
+	struct exynos_ufs_tp_mon_table *tp_mon_tbl;
+	struct delayed_work	tp_mon;
+	struct pm_qos_request	pm_qos_cluster1;
+	struct pm_qos_request	pm_qos_cluster0;
+	struct pm_qos_request	pm_qos_mif;
+	u32 last_threshold;
 };
 
 struct phy_tm_parm {

@@ -53,6 +53,7 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/jiffies.h>
 
 #include <asm/irq.h>
 #include <asm/byteorder.h>
@@ -474,6 +475,9 @@ struct ufs_hba {
 	/* Work Queues */
 	struct work_struct eh_work;
 	struct work_struct eeh_work;
+
+	/* Performance */
+	u32 tp_per_period;
 
 	/* HBA Errors */
 	u32 errors;

@@ -58,6 +58,12 @@
 #define PHY_PMA_COMN_ADDR(reg)		((reg) << 2)
 #define PHY_PMA_TRSV_ADDR(reg, lane)	(((reg) + (0x30 * (lane))) << 2)
 
+/* Throughput Monitor Period */
+#define TP_MON_PERIOD	HZ
+
+/* PM QoS Expiration Time in TP mon */
+#define TP_MON_PM_QOS_LIFETIME	2000000
+
 #define phy_pma_writel(ufs, val, reg)	\
 	writel((val), (ufs)->phy.reg_pma + (reg))
 #define phy_pma_readl(ufs, reg)	\
@@ -1052,6 +1058,94 @@ static int __exynos_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	return 0;
 }
 
+static void exynos_ufs_pm_qos_add(struct exynos_ufs *ufs)
+{
+	if (!ufs->tp_mon_tbl)
+		return;
+
+	pm_qos_add_request(&ufs->pm_qos_cluster1, PM_QOS_CLUSTER1_FREQ_MIN, 0);
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	pm_qos_add_request(&ufs->pm_qos_cluster0, PM_QOS_CLUSTER0_FREQ_MIN, 0);
+#endif
+	pm_qos_add_request(&ufs->pm_qos_mif, PM_QOS_BUS_THROUGHPUT, 0);
+
+	schedule_delayed_work(&ufs->tp_mon, TP_MON_PERIOD);
+}
+
+static void exynos_ufs_pm_qos_remove(struct exynos_ufs *ufs)
+{
+	if (!ufs->tp_mon_tbl)
+		return;
+
+	cancel_delayed_work_sync(&ufs->tp_mon);
+	pm_qos_remove_request(&ufs->pm_qos_cluster1);
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	pm_qos_remove_request(&ufs->pm_qos_cluster0);
+#endif
+	pm_qos_remove_request(&ufs->pm_qos_mif);
+}
+
+static void exynos_ufs_pm_qos_control(struct ufs_hba *hba, u8 pm_enter)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+
+	if (!ufs->tp_mon_tbl)
+		return;
+
+	if (!pm_enter)
+		schedule_delayed_work(&ufs->tp_mon, TP_MON_PERIOD);
+	else {
+		if (delayed_work_pending(&ufs->tp_mon))
+			cancel_delayed_work_sync(&ufs->tp_mon);
+		hba->tp_per_period = 0;
+	}
+}
+
+static void exynos_ufs_tp_mon(struct work_struct *work)
+{
+	struct exynos_ufs *ufs = container_of(work, struct exynos_ufs,
+			tp_mon.work);
+	struct ufs_hba *hba = ufs->hba;
+	struct exynos_ufs_tp_mon_table *tp_tbl = ufs->tp_mon_tbl;
+	s32 cluster1_value = 0;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	s32 cluster0_value = 0;
+#endif
+	s32 mif_value = 0;
+
+	while (tp_tbl->threshold) {
+		if (hba->tp_per_period > tp_tbl->threshold)
+			break;
+		tp_tbl++;
+	}
+
+	if (tp_tbl->threshold) {
+		cluster1_value = tp_tbl->cluster1_value;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+		cluster0_value = tp_tbl->cluster0_value;
+#endif
+		mif_value = tp_tbl->mif_value;
+	} else {
+		cluster1_value = PM_QOS_DEFAULT_VALUE;
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+		cluster0_value = PM_QOS_DEFAULT_VALUE;
+#endif
+		mif_value = PM_QOS_DEFAULT_VALUE;
+	}
+
+	pm_qos_update_request_timeout(&ufs->pm_qos_cluster1,
+					cluster1_value, TP_MON_PM_QOS_LIFETIME);
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	pm_qos_update_request_timeout(&ufs->pm_qos_cluster0,
+					cluster0_value, TP_MON_PM_QOS_LIFETIME);
+#endif
+	pm_qos_update_request_timeout(&ufs->pm_qos_mif,
+					mif_value, TP_MON_PM_QOS_LIFETIME);
+
+	hba->tp_per_period = 0;
+	schedule_delayed_work(&ufs->tp_mon, TP_MON_PERIOD);
+}
+
 static int __exynos_ufs_clk_set_parent(struct device *dev, const char *c, const char *p)
 {
 	struct clk *_c, *_p;
@@ -1203,6 +1297,10 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 {
 	struct device_node *np = dev->of_node;
 	u32 freq[2];
+	u32 tp_mon_depth = 0;
+	u32 tp_table_size = 0;
+	u32 *tp_mon_tbl;
+	u32 i;
 	int ret;
 
 	ret = exynos_ufs_populate_dt_phy(dev, ufs);
@@ -1280,6 +1378,40 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 			dev_warn(dev, "ufs-pa-hibern8time is empty\n");
 	}
 
+	if (!of_property_read_u32(np,
+				"tp_mon_depth", &tp_mon_depth)) {
+		tp_mon_tbl = devm_kzalloc(dev,
+				(sizeof(struct exynos_ufs_tp_mon_table)
+					* tp_mon_depth), GFP_KERNEL);
+		if (!tp_mon_tbl) {
+			dev_err(dev, "could not allocate memory for tp_mon_tbl\n");
+			return -1;
+		}
+		tp_table_size = (sizeof(struct exynos_ufs_tp_mon_table) /
+						sizeof(u32));
+		ret = of_property_read_u32_array(np, "tp_mon_table", tp_mon_tbl,
+				tp_table_size * tp_mon_depth);
+		if (ret == 0) {
+			ufs->tp_mon_tbl =
+				(struct exynos_ufs_tp_mon_table *) tp_mon_tbl;
+			for (i = 0; i < tp_mon_depth; i++) {
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+				dev_info(dev, "TP table info LV %d\n", i);
+				dev_info(dev, "threshold : %d CLUSTER1 : %d CLUSTER0 : %d MIF : %d\n",
+				ufs->tp_mon_tbl[i].threshold,
+				ufs->tp_mon_tbl[i].cluster1_value,
+				ufs->tp_mon_tbl[i].cluster0_value,
+				ufs->tp_mon_tbl[i].mif_value);
+#else
+				dev_info(dev, "TP table info LV %d\n", i);
+				dev_info(dev, "threshold : %d CLUSTER1 : %d MIF : %d\n",
+				ufs->tp_mon_tbl[i].threshold,
+				ufs->tp_mon_tbl[i].cluster1_value,
+				ufs->tp_mon_tbl[i].mif_value);
+#endif
+			}
+		}
+	}
 out:
 	return ret;
 }
@@ -1393,12 +1525,17 @@ static int exynos_ufs_probe(struct platform_device *pdev)
 	dev->platform_data = ufs;
 	dev->dma_mask = &exynos_ufs_dma_mask;
 
+	INIT_DELAYED_WORK(&ufs->tp_mon, exynos_ufs_tp_mon);
+	exynos_ufs_pm_qos_add(ufs);
+
 	return ufshcd_pltfrm_init(pdev, match->data);
 }
 
 static int exynos_ufs_remove(struct platform_device *pdev)
 {
 	struct exynos_ufs *ufs = dev_get_platdata(&pdev->dev);
+
+	exynos_ufs_pm_qos_remove(ufs);
 
 	ufshcd_pltfrm_exit(pdev);
 
@@ -1416,12 +1553,16 @@ static int exynos_ufs_suspend(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 
+	exynos_ufs_pm_qos_control(hba, 1);
+
 	return ufshcd_system_suspend(hba);
 }
 
 static int exynos_ufs_resume(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	exynos_ufs_pm_qos_control(hba, 0);
 
 	return ufshcd_system_resume(hba);
 }
