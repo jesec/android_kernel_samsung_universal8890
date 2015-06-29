@@ -1666,8 +1666,11 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 	struct completion wait;
 	unsigned long flags;
 
-	if (!ufshcd_is_link_active(hba))
-		return -EPERM;
+	if (!ufshcd_is_link_active(hba)) {
+		flush_work(&hba->clk_gating.ungate_work);
+		if (!ufshcd_is_link_active(hba))
+			return -EPERM;
+	}
 
 	/*
 	 * Get free slot, sleep if slots are unavailable.
