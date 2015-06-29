@@ -31,6 +31,7 @@
 #include <linux/power_supply.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include <linux/wakelock.h>
 
 /* definitions */
 #define	SEC_SIZEOF_POWER_SUPPLY_TYPE	POWER_SUPPLY_TYPE_WIRELESS_REMOVE
