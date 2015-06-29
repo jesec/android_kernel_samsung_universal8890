@@ -2750,6 +2750,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP9_ENC))) {
+				/* claer NUM_T_LAYER_CHANGE */
 				value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
 				value &= ~(1 << 10);
 				s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
@@ -2766,8 +2767,10 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			/* enable RC_BIT_RATE_CHANGE */
 			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
 			if (temporal_LC.temporal_layer_bitrate[0] > 0)
+				/* set RC_BIT_RATE_CHANGE */
 				value |= (1 << 2);
 			else
+				/* claer RC_BIT_RATE_CHANGE */
 				value &= ~(1 << 2);
 			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
 
@@ -2950,8 +2953,16 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 			s5p_mfc_write_reg(dev, buf_ctrl->old_val, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
 			s5p_mfc_write_reg(dev, buf_ctrl->old_val2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
 		}
-		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH)
+		if (buf_ctrl->id
+			== V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH ||
+			buf_ctrl->id
+			== V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH) {
 			s5p_mfc_write_reg(dev, buf_ctrl->old_val2, S5P_FIMV_E_NUM_T_LAYER);
+			/* clear RC_BIT_RATE_CHANGE */
+			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+			value &= ~(1 << 2);
+			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+		}
 		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
 			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
 			value &= ~(0x1 << 7);
