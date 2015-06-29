@@ -211,6 +211,38 @@ static int ufshcd_link_hibern8_ctrl(struct ufs_hba *hba, bool en);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 static irqreturn_t ufshcd_intr(int irq, void *__hba);
 
+static ssize_t ufshcd_debug_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", hba->debug.flag);
+}
+
+static ssize_t ufshcd_debug_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned long value;
+
+	if (kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	hba->debug.flag = value;
+	return count;
+}
+
+static void ufshcd_init_debug(struct ufs_hba *hba)
+{
+	hba->debug.attrs.show = ufshcd_debug_show;
+	hba->debug.attrs.store = ufshcd_debug_store;
+	sysfs_attr_init(&hba->debug.attrs.attr);
+	hba->debug.attrs.attr.name = "debug";
+	hba->debug.attrs.attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(hba->dev, &hba->debug.attrs))
+		dev_err(hba->dev, "Failed to create sysfs for debug\n");
+}
+
 static inline int ufshcd_enable_irq(struct ufs_hba *hba)
 {
 	int ret = 0;
@@ -1430,7 +1462,11 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	if (hba->vops && hba->vops->set_nexus_t_xfer_req)
 		hba->vops->set_nexus_t_xfer_req(hba, tag, lrbp->cmd);
+
 	ufshcd_send_command(hba, tag);
+
+	if (hba->debug.flag & UFSHCD_DEBUG_LEVEL1)
+		dev_info(hba->dev, "IO issued(%d)\n", tag);
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 out:
@@ -2546,6 +2582,13 @@ static int ufshcd_link_hibern8_ctrl(struct ufs_hba *hba, bool en)
 	if (ret)
 		goto out;
 
+	if (hba->debug.flag & UFSHCD_DEBUG_LEVEL2) {
+		if (en)
+			dev_info(hba->dev, "H8+\n");
+		else
+			dev_info(hba->dev, "H8-\n");
+	}
+
 	if (hba->vops && hba->vops->hibern8_notify)
 		hba->vops->hibern8_notify(hba, en, POST_CHANGE);
 
@@ -3448,6 +3491,10 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason)
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 			__ufshcd_release(hba);
+
+			if (hba->debug.flag & UFSHCD_DEBUG_LEVEL1)
+				dev_info(hba->dev, "Transfer Done(%d)\n",
+						index);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
 			if (hba->dev_cmd.complete)
 				complete(hba->dev_cmd.complete);
@@ -5500,6 +5547,10 @@ enable_gating:
 	ufshcd_release(hba);
 out:
 	hba->pm_op_in_progress = 0;
+
+	if (hba->debug.flag & UFSHCD_DEBUG_LEVEL1)
+		dev_info(hba->dev, "UFS suspend done\n");
+
 	return ret;
 }
 
@@ -5611,6 +5662,10 @@ disable_irq_and_vops_clks:
 		ufshcd_setup_clocks(hba, false);
 out:
 	hba->pm_op_in_progress = 0;
+
+	if (hba->debug.flag & UFSHCD_DEBUG_LEVEL1)
+		dev_info(hba->dev, "UFS resume done\n");
+
 	return ret;
 }
 
@@ -6070,6 +6125,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	/* Initialize device management tag acquire wait queue */
 	init_waitqueue_head(&hba->dev_cmd.tag_wq);
+
+	/* Initialize debug */
+	ufshcd_init_debug(hba);
 
 	ufshcd_init_clk_gating(hba);
 	/* IRQ registration */

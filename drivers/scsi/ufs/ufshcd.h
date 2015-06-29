@@ -350,6 +350,16 @@ struct ufs_init_prefetch {
 };
 
 /**
+ * struct ufs_debug - monitors ufs driver's behaviors
+ */
+struct ufs_debug {
+	struct device_attribute attrs;
+	unsigned long flag;
+#define UFSHCD_DEBUG_LEVEL1	(1 << 0)
+#define UFSHCD_DEBUG_LEVEL2	(1 << 1)
+};
+
+/**
  * struct ufs_hba - per adapter private structure
  * @mmio_base: UFSHCI base register address
  * @ucdl_base_addr: UFS Command Descriptor base address
@@ -524,6 +534,8 @@ struct ufs_hba {
 	char unique_number[UFS_UNIQUE_NUMBER_LEN];
 	u16 manufacturer_id;
 	u8 lifetime;
+
+	struct ufs_debug debug;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
