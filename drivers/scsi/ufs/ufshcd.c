@@ -38,7 +38,9 @@
  */
 
 #include <linux/async.h>
+#if defined(CONFIG_PM_DEVFREQ)
 #include <linux/devfreq.h>
+#endif
 #include <linux/blkdev.h>
 #include <linux/nls.h>
 
@@ -636,8 +638,10 @@ static void ufshcd_ungate_work(struct work_struct *work)
 		hba->clk_gating.is_suspended = false;
 	}
 unblock_reqs:
+#if defined(CONFIG_PM_DEVFREQ)
 	if (ufshcd_is_clkscaling_enabled(hba))
 		devfreq_resume_device(hba->devfreq);
+#endif
 	scsi_unblock_requests(hba->host);
 }
 
@@ -747,10 +751,12 @@ static void ufshcd_gate_work(struct work_struct *work)
 		ufshcd_set_link_hibern8(hba);
 	}
 
+#if defined(CONFIG_PM_DEVFREQ)
 	if (ufshcd_is_clkscaling_enabled(hba)) {
 		devfreq_suspend_device(hba->devfreq);
 		hba->clk_scaling.window_start_t = 0;
 	}
+#endif
 
 	if (gating_allowed) {
 		if (!ufshcd_is_link_active(hba))
@@ -857,6 +863,7 @@ static void ufshcd_exit_clk_gating(struct ufs_hba *hba)
 	device_remove_file(hba->dev, &hba->clk_gating.delay_attr);
 }
 
+#if defined(CONFIG_PM_DEVFREQ)
 /* Must be called with host lock acquired */
 static void ufshcd_clk_scaling_start_busy(struct ufs_hba *hba)
 {
@@ -883,6 +890,7 @@ static void ufshcd_clk_scaling_update_busy(struct ufs_hba *hba)
 		scaling->is_busy_started = false;
 	}
 }
+#endif
 /**
  * ufshcd_send_command - Send SCSI or device management commands
  * @hba: per adapter instance
@@ -891,7 +899,9 @@ static void ufshcd_clk_scaling_update_busy(struct ufs_hba *hba)
 static inline
 void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
+#if defined(CONFIG_PM_DEVFREQ)
 	ufshcd_clk_scaling_start_busy(hba);
+#endif
 	__set_bit(task_tag, &hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 }
@@ -3513,7 +3523,9 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason)
 		hba->fcx_protection_timer_expired_cnt = 0;
 	}
 
+#if defined(CONFIG_PM_DEVFREQ)
 	ufshcd_clk_scaling_update_busy(hba);
+#endif
 
 	/* we might have free'd some tags above */
 	wake_up(&hba->dev_cmd.tag_wq);
@@ -4720,9 +4732,11 @@ retry:
 	if (!hba->is_init_prefetch)
 		hba->is_init_prefetch = true;
 
+#if defined(CONFIG_PM_DEVFREQ)
 	/* Resume devfreq after UFS device is detected */
 	if (ufshcd_is_clkscaling_enabled(hba))
 		devfreq_resume_device(hba->devfreq);
+#endif
 
 out:
 	if (ret && re_cnt++ < UFS_LINK_SETUP_RETRIES) {
@@ -5055,7 +5069,9 @@ static int ufshcd_init_clocks(struct ufs_hba *hba)
 					clki->max_freq, ret);
 				goto out;
 			}
+#if defined(CONFIG_PM_DEVFREQ)
 			clki->curr_freq = clki->max_freq;
+#endif
 		}
 		dev_dbg(dev, "%s: clk: %s, rate: %lu\n", __func__,
 				clki->name, clk_get_rate(clki->clk));
@@ -5493,6 +5509,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		goto set_dev_active;
 
 disable_clks:
+#if defined(CONFIG_PM_DEVFREQ)
 	/*
 	 * The clock scaling needs access to controller registers. Hence, Wait
 	 * for pending clock scaling work to be done before clocks are
@@ -5502,6 +5519,7 @@ disable_clks:
 		devfreq_suspend_device(hba->devfreq);
 		hba->clk_scaling.window_start_t = 0;
 	}
+#endif
 
 	/*
 	 * Disable the host irq as host controller as there won't be any
@@ -5653,8 +5671,10 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufshcd_urgent_bkops(hba);
 	hba->clk_gating.is_suspended = false;
 
+#if defined(CONFIG_PM_DEVFREQ)
 	if (ufshcd_is_clkscaling_enabled(hba))
 		devfreq_resume_device(hba->devfreq);
+#endif
 
 	/* Schedule clock gating in case of no access to UFS device yet */
 	ufshcd_release(hba);
@@ -5894,8 +5914,10 @@ void ufshcd_remove(struct ufs_hba *hba)
 
 	ufshcd_exit_clk_gating(hba);
 	ufshcd_exit_latency_hist(hba);
+#if defined(CONFIG_PM_DEVFREQ)
 	if (ufshcd_is_clkscaling_enabled(hba))
 		devfreq_remove_device(hba->devfreq);
+#endif
 	ufshcd_hba_exit(hba);
 }
 EXPORT_SYMBOL_GPL(ufshcd_remove);
@@ -5952,6 +5974,7 @@ out_error:
 }
 EXPORT_SYMBOL(ufshcd_alloc_host);
 
+#if defined(CONFIG_PM_DEVFREQ)
 static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
@@ -6057,6 +6080,7 @@ static struct devfreq_dev_profile ufs_devfreq_profile = {
 	.target		= ufshcd_devfreq_target,
 	.get_dev_status	= ufshcd_devfreq_get_dev_status,
 };
+#endif
 
 /**
  * ufshcd_init - Driver initialization routine
@@ -6168,6 +6192,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		goto exit_gating;
 	}
 
+#if defined(CONFIG_PM_DEVFREQ)
 	if (ufshcd_is_clkscaling_enabled(hba)) {
 		hba->devfreq = devfreq_add_device(dev, &ufs_devfreq_profile,
 						   "simple_ondemand", NULL);
@@ -6180,6 +6205,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		devfreq_suspend_device(hba->devfreq);
 		hba->clk_scaling.window_start_t = 0;
 	}
+#endif
 
 	/* Hold auto suspend until async scan completes */
 	pm_runtime_get_sync(dev);
@@ -6198,8 +6224,10 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	return 0;
 
+#if defined(CONFIG_PM_DEVFREQ)
 out_remove_scsi_host:
 	scsi_remove_host(hba->host);
+#endif
 exit_gating:
 	ufshcd_exit_clk_gating(hba);
 	ufshcd_exit_latency_hist(hba);
