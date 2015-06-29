@@ -2743,8 +2743,8 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			memcpy(&temporal_LC,
 				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
 
-			if((temporal_LC.temporal_layer_count < 1) ||
-				((temporal_LC.temporal_layer_count > 7) &&
+			if(((temporal_LC.temporal_layer_count & 0x7) < 1) ||
+				(((temporal_LC.temporal_layer_count & 0x7) > 7) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)) ||
@@ -2753,8 +2753,8 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
 				value &= ~(1 << 10);
 				s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
-				mfc_err_ctx("temporal layer count is invalid : %d\n"
-					, temporal_LC.temporal_layer_count);
+				mfc_err_ctx("temporal layer count is invalid : %d\n",
+						temporal_LC.temporal_layer_count);
 				goto invalid_layer_count;
 			}
 
@@ -2771,7 +2771,8 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				value &= ~(1 << 2);
 			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
 
-			mfc_debug(2, "temporal layer count : %d\n", temporal_LC.temporal_layer_count);
+			mfc_debug(2, "temporal layer count : %d\n",
+					temporal_LC.temporal_layer_count & 0x7);
 
 			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
 			buf_ctrl->old_val2 = value;
@@ -2786,7 +2787,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				value |= 0x7 << 4;
 			}
 			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
-			for(i = 0; i < temporal_LC.temporal_layer_count; i++) {
+			for(i = 0; i < (temporal_LC.temporal_layer_count & 0x7); i++) {
 				mfc_debug(2, "temporal layer bitrate[%d] : %d\n",
 					i, temporal_LC.temporal_layer_bitrate[i]);
 				s5p_mfc_write_reg(dev,
