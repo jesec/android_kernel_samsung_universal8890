@@ -438,6 +438,7 @@ typedef enum disp_ss_event_type {
 	DISP_EVT_UNDERRUN,
 	DISP_EVT_DECON_FRAMEDONE,
 	DISP_EVT_DSIM_FRAMEDONE,
+	DISP_EVT_RSC_CONFLICT,
 
 	/* Related with async event */
 	DISP_EVT_UPDATE_HANDLER,

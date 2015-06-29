@@ -63,7 +63,7 @@ irqreturn_t decon_t_irq_handler(int irq, void *dev_data)
 	irq_sts_reg = decon_reg_get_interrupt_and_clear(decon->id);
 
 	if (irq_sts_reg & INTERRUPT_FIFO_LEVEL_INT_EN) {
-		/* Need to debugging */
+		DISP_SS_EVENT_LOG(DISP_EVT_UNDERRUN, &decon->sd, ktime_set(0, 0));
 		decon_err("DECON_T FIFO underrun\n");
 	}
 	if (irq_sts_reg & INTERRUPT_FRAME_DONE_INT_EN) {
@@ -72,6 +72,8 @@ irqreturn_t decon_t_irq_handler(int irq, void *dev_data)
 		decon_dbg("%s Frame Done is occured. timeline:%d, %d\n",
 				__func__, decon->timeline->value, decon->timeline_max);
 	}
+	if (irq_sts_reg & INTERRUPT_RESOURCE_CONFLICT_INT_EN)
+		DISP_SS_EVENT_LOG(DISP_EVT_RSC_CONFLICT, &decon->sd, ktime_set(0, 0));
 irq_end:
 	spin_unlock(&decon->slock);
 	return IRQ_HANDLED;

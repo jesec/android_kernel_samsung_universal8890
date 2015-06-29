@@ -109,6 +109,9 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 		}
 	}
 
+	if (irq_sts_reg & INTERRUPT_RESOURCE_CONFLICT_INT_EN)
+		DISP_SS_EVENT_LOG(DISP_EVT_RSC_CONFLICT, &decon->sd, ktime_set(0, 0));
+
 irq_end:
 	spin_unlock(&decon->slock);
 

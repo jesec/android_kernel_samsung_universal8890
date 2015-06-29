@@ -33,14 +33,18 @@ irqreturn_t decon_s_irq_handler(int irq, void *dev_data)
 		wake_up_interruptible_all(&decon->vsync_info.wait);
 	}
 	if (irq_sts_reg & INTERRUPT_FIFO_LEVEL_INT_EN) {
+		DISP_SS_EVENT_LOG(DISP_EVT_UNDERRUN, &decon->sd, ktime_set(0, 0));
 		decon_err("DECON-ext FIFO underrun\n");
-		/* TODO: Event logging */
 	}
 	if (irq_sts_reg & INTERRUPT_FRAME_DONE_INT_EN) {
+		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
 		decon_warn("DECON-ext frame done interrupt shouldn't happen\n");
 		decon->frame_done_cnt_cur++;
 		decon_lpd_trig_reset(decon);
 	}
+	if (irq_sts_reg & INTERRUPT_RESOURCE_CONFLICT_INT_EN)
+		DISP_SS_EVENT_LOG(DISP_EVT_RSC_CONFLICT, &decon->sd,
+				ktime_set(0, 0));
 
 irq_end:
 	spin_unlock(&decon->slock);
