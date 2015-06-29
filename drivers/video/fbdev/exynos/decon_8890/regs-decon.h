@@ -134,6 +134,7 @@
 #define SHADOW_REG_UPDATE_REQ_FOR_DECON_T		(0xf)
 
 #define HW_SW_TRIG_CONTROL				0x0070
+#define HW_SW_TRIG_CONTROL_TRIG_AUTO_MASK_TRIG		(1 << 12)
 /* 1 : s/w trigger */
 #define HW_SW_TRIG_CONTROL_SW_TRIG			(1 << 8)
 /* 0 : unmask, 1 : mask */

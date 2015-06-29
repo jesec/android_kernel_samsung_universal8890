@@ -628,10 +628,13 @@ void decon_reg_configure_trigger(u32 id, enum decon_trig_mode mode)
 
 	mask = HW_SW_TRIG_CONTROL_HW_TRIG_EN;
 
-	if (mode == DECON_SW_TRIG)
+	if (mode == DECON_SW_TRIG) {
+		/* To support per-frameoff TRIG_AUTO_MASK disabled */
+		mask |= HW_SW_TRIG_CONTROL_TRIG_AUTO_MASK_TRIG;
 		val = 0;
-	else
+	} else {
 		val = ~0;
+	}
 
 	decon_write_mask(id, HW_SW_TRIG_CONTROL, val, mask);
 }
@@ -719,7 +722,8 @@ u32 decon_reg_get_run_status(u32 id)
 	return 0;
 }
 
-int decon_reg_wait_run_status_timeout(u32 id, unsigned long timeout)
+/* Determine that DECON is perfectly shuttled off through checking this * function */
+int decon_reg_wait_run_is_off_timeout(u32 id, unsigned long timeout)
 {
 	unsigned long delay_time = 10;
 	unsigned long cnt = timeout / delay_time;
@@ -730,6 +734,26 @@ int decon_reg_wait_run_status_timeout(u32 id, unsigned long timeout)
 		cnt--;
 		udelay(delay_time);
 	} while (status && cnt);
+
+	if (!cnt) {
+		decon_err("wait timeout decon run is shut-off(%u)\n", status);
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+int decon_reg_wait_run_status_timeout(u32 id, unsigned long timeout)
+{
+	unsigned long delay_time = 10;
+	unsigned long cnt = timeout / delay_time;
+	u32 status;
+
+	do {
+		status = decon_reg_get_run_status(id);
+		cnt--;
+		udelay(delay_time);
+	} while (!status && cnt);
 
 	if (!cnt) {
 		decon_err("wait timeout decon run status(%u)\n", status);
@@ -895,6 +919,9 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 	decon_reg_set_blender_bg_image_size(id, psr->dsi_mode, lcd_info);
 
 	if (id == 2) {
+		/* Set a TRIG mode */
+		decon_reg_configure_trigger(id, psr->trig_mode);
+
 		/*
 		 * Interrupt of DECON-T should be set to video mode,
 		 * because of malfunction of I80 frame done interrupt.
@@ -1003,14 +1030,20 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 }
 
 
-void decon_reg_start(u32 id, struct decon_mode_info *psr)
+int decon_reg_start(u32 id, struct decon_mode_info *psr)
 {
+	int ret = 0;
 	decon_reg_direct_on_off(id, 1);
 
 	decon_reg_update_req_global(id);
 
+	/* DECON goes to run-status as soon as request shadow update without HW_TE */
+	ret = decon_reg_wait_run_status_timeout(id, 20 * 1000);
+
+	/* wait until run-status, then trigger */
 	if (psr->psr_mode == DECON_MIPI_COMMAND_MODE)
 		decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
+	return ret;
 }
 
 void decon_reg_set_partial_update(u32 id, enum decon_dsi_mode dsi_mode,
@@ -1054,7 +1087,7 @@ int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
 	}
 
 	/* timeout : 20ms */
-	ret = decon_reg_wait_run_status_timeout(id, 20 * 1000);
+	ret = decon_reg_wait_run_is_off_timeout(id, 20 * 1000);
 	if (ret)
 		goto err;
 
@@ -1083,7 +1116,7 @@ int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr)
 	decon_reg_update_req_global(id);
 
 	/* timeout : 20ms */
-	ret = decon_reg_wait_run_status_timeout(id, 20 * 1000);
+	ret = decon_reg_wait_run_is_off_timeout(id, 20 * 1000);
 	if (ret)
 		goto err;
 #endif
@@ -1094,6 +1127,12 @@ err:
 	return ret;
 }
 
+void decon_reg_release_resource(u32 id, struct decon_mode_info *psr)
+{
+	decon_reg_per_frame_off(id);
+	decon_reg_update_req_global(id);
+	decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
+}
 
 void decon_reg_set_int(u32 id, struct decon_mode_info *psr, u32 en)
 {

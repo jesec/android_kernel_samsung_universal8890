@@ -2117,7 +2117,8 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 
 	decon_reg_all_win_shadow_update_req(decon->id);
 	decon_to_psr_info(decon, &psr);
-	decon_reg_start(decon->id, &psr);
+	if (decon_reg_start(decon->id, &psr) < 0)
+		BUG();
 	DISP_SS_EVENT_LOG(DISP_EVT_TRIG_UNMASK, &decon->sd, ktime_set(0, 0));
 #ifdef CONFIG_DECON_MIPI_DSI_PKTGO
 	if (!decon->id) {
