@@ -222,7 +222,7 @@ static void exynos_ufs_set_unipro_pclk(struct exynos_ufs *ufs)
 
 	f_min = ufs->pclk_avail_min;
 	f_max = ufs->pclk_avail_max;
-	pclk_rate = clk_get_rate(ufs->clk_hci);
+	pclk_rate = clk_get_rate(ufs->pclk);
 
 	do {
 		pclk_rate /= (div + 1);
@@ -969,15 +969,18 @@ static int exynos_ufs_init(struct ufs_hba *hba)
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
-			if (!(ufs->opts & EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK)) {
-				if (!strcmp(clki->name, "aclk_ufs"))
-					ufs->clk_hci = clki->clk;
-			} else {
-				if (!strcmp(clki->name, "sclk_ufsunipro20_cfg"))
-					ufs->clk_hci = clki->clk;
-			}
+			if (!strcmp(clki->name, "aclk_ufs"))
+				ufs->clk_hci = clki->clk;
 			if (!strcmp(clki->name, "sclk_ufsunipro"))
 				ufs->clk_unipro = clki->clk;
+
+			if (!(ufs->opts & EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK)) {
+				if (!strcmp(clki->name, "aclk_ufs"))
+					ufs->pclk = clki->clk;
+			} else {
+				if (!strcmp(clki->name, "sclk_ufsunipro20_cfg"))
+					ufs->pclk = clki->clk;
+			}
 		}
 	}
 out:
