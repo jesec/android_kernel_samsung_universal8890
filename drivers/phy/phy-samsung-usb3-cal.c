@@ -142,7 +142,7 @@ void samsung_exynos_cal_usb3phy_enable(struct exynos_usbphy_info *usbphy_info)
 	} else {
 		phyreg0 &= ~EXYNOS5_DRD_PHYREG0_SSC_RANGE_MASK;
 		phyreg0 |= EXYNOS5_DRD_PHYREG0_SSC_RAMGE(0x0);
-		writel(phyclkrst, regs_base + EXYNOS5_DRD_PHYCLKRST);
+		writel(phyreg0, regs_base + EXYNOS5_DRD_PHYREG0);
 	}
 	writel(phyclkrst, regs_base + EXYNOS5_DRD_PHYCLKRST);
 	udelay(10);
@@ -196,8 +196,12 @@ void samsung_exynos_cal_usb3phy_crport_handshake(
 {
 	u32 usec = 100;
 	u32 result;
+	u32 reg;
 
-	writel((val | cmd) & ~(0xfff00000), regs_base + EXYNOS5_DRD_PHYREG0);
+	reg = readl(regs_base + EXYNOS5_DRD_PHYREG0);
+
+	writel(reg | ((val | cmd) & ~(0xfff00000)),
+				regs_base + EXYNOS5_DRD_PHYREG0);
 
 	do {
 		result = readl(regs_base + EXYNOS5_DRD_PHYREG1);
@@ -212,7 +216,7 @@ void samsung_exynos_cal_usb3phy_crport_handshake(
 
 	usec = 100;
 
-	writel(val & ~(0xfff00000), regs_base + EXYNOS5_DRD_PHYREG0);
+	writel(reg | (val & ~(0xfff00000)), regs_base + EXYNOS5_DRD_PHYREG0);
 
 	do {
 		result = readl(regs_base + EXYNOS5_DRD_PHYREG1);
@@ -229,16 +233,19 @@ void samsung_exynos_cal_usb3phy_crport_handshake(
 void samsung_exynos_cal_usb3phy_crport_ctrl(void *regs_base,
 						u16 addr, u32 data)
 {
+	u32 reg;
+
+	reg = readl(regs_base + EXYNOS5_DRD_PHYREG0);
+	reg |= (EXYNOS5_DRD_PHYREG0_CR_DATA_IN(addr) & ~(0xfff00000));
+
 	/* Write Address */
-	writel(EXYNOS5_DRD_PHYREG0_CR_DATA_IN(addr) & ~(0xfff00000),
-			regs_base + EXYNOS5_DRD_PHYREG0);
+	writel(reg, regs_base + EXYNOS5_DRD_PHYREG0);
 	samsung_exynos_cal_usb3phy_crport_handshake(regs_base,
 			EXYNOS5_DRD_PHYREG0_CR_DATA_IN(addr),
 			EXYNOS5_DRD_PHYREG0_CR_CR_CAP_ADDR);
 
 	/* Write Data */
-	writel(EXYNOS5_DRD_PHYREG0_CR_DATA_IN(data) & ~(0xfff00000),
-			regs_base + EXYNOS5_DRD_PHYREG0);
+	writel(reg, regs_base + EXYNOS5_DRD_PHYREG0);
 	samsung_exynos_cal_usb3phy_crport_handshake(regs_base,
 			EXYNOS5_DRD_PHYREG0_CR_DATA_IN(data),
 			EXYNOS5_DRD_PHYREG0_CR_CR_CAP_DATA);
