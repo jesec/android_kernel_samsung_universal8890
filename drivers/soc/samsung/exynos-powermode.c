@@ -422,7 +422,6 @@ attr_rw(sicd);
 
 static unsigned int wakeup_mask[NUM_SYS_POWERDOWN][NUM_WAKEUP_MASK];
 
-extern u64 exynos_get_eint_wake_mask(void);
 static void exynos_set_wakeupmask(enum sys_powerdown mode)
 {
 	u64 eintmask = exynos_get_eint_wake_mask();
