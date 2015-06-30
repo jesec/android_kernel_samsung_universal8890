@@ -816,7 +816,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.hotplug_in_threshold = 75,	\
 	.hotplug_out_threshold = 81,	\
 	.type = SOC_ARCH_EXYNOS8890, \
-	.d_type = BIG_CPU, \
+	.d_type = CLUSTER1, \
 	.registers = &exynos8890_tmu_registers, \
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
 			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME),
@@ -876,7 +876,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	}, \
 	.freq_tab_count = 4, \
 	.type = SOC_ARCH_EXYNOS8890, \
-	.d_type = CPU, \
+	.d_type = CLUSTER0, \
 	.registers = &exynos8890_tmu_registers, \
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
 			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME),

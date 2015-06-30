@@ -54,8 +54,8 @@ enum trigger_type {
 };
 
 enum dev_type {
-	BIG_CPU,
-	CPU,
+	CLUSTER0,
+	CLUSTER1,
 	GPU,
 };
 
