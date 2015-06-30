@@ -1017,6 +1017,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 					pdata->freq_tab[i].temp_level;
 	}
 
+	sensor_conf->hotplug_enable = pdata->hotplug_enable;
 	sensor_conf->hotplug_in_threshold = pdata->hotplug_in_threshold;
 	sensor_conf->hotplug_out_threshold = pdata->hotplug_out_threshold;
 

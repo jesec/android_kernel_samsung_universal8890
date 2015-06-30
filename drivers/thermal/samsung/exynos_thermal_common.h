@@ -23,6 +23,8 @@
 #ifndef _EXYNOS_THERMAL_COMMON_H
 #define _EXYNOS_THERMAL_COMMON_H
 
+#include <linux/types.h>
+
 /* In-kernel thermal framework related macros & definations */
 #define SENSOR_NAME_LEN	16
 #define MAX_TRIP_COUNT	8
@@ -98,6 +100,7 @@ struct thermal_sensor_conf {
 	struct device *dev;
 	enum dev_type d_type;
 	int id;
+	bool hotplug_enable;
 	int hotplug_in_threshold;
 	int hotplug_out_threshold;
 };

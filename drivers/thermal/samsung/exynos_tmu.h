@@ -285,6 +285,7 @@ struct exynos_tmu_platform_data {
 	u8 default_temp_offset;
 	u8 test_mux;
 	u8 triminfo_reload[MAX_TRIMINFO_CTRL_REG];
+	bool hotplug_enable;
 	u32 hotplug_in_threshold;
 	u32 hotplug_out_threshold;
 

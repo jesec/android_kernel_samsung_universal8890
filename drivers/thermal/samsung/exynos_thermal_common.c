@@ -526,8 +526,8 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 		th_zone->cool_dev_size++;
 	}
 
-	/* Add hotplug function ops to BIG core */
-	if (sensor_conf->d_type == CLUSTER1)
+	/* Add hotplug function ops */
+	if (sensor_conf->hotplug_enable)
 		dev_ops = &exynos_dev_hotplug_ops;
 	else
 		dev_ops = &exynos_dev_ops;
