@@ -715,7 +715,6 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 
 	exynos_ufs_set_unipro_clk(ufs);
 	exynos_ufs_ctrl_clk(ufs, true);
-	exynos_ufs_ctrl_hci_core_clk(ufs, true);
 
 	/* mphy */
 	exynos_ufs_phy_init(ufs);
@@ -781,6 +780,8 @@ static void exynos_ufs_host_reset(struct ufs_hba *hba)
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	unsigned long timeout = jiffies + msecs_to_jiffies(1);
 
+	exynos_ufs_ctrl_hci_core_clk(ufs, false);
+
 	hci_writel(ufs, UFS_SW_RST_MASK, HCI_SW_RST);
 
 	do {
@@ -805,8 +806,10 @@ static void exynos_ufs_pre_hibern8(struct ufs_hba *hba, u8 enter)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 
-	if (!enter)
+	if (!enter) {
+		exynos_ufs_ctrl_hci_core_clk(ufs, false);
 		exynos_ufs_gate_clk(ufs, false);
+	}
 }
 
 static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
@@ -827,6 +830,7 @@ static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
 			exynos_ufs_establish_connt(ufs);
 	} else {
 		exynos_ufs_gate_clk(ufs, true);
+		exynos_ufs_ctrl_hci_core_clk(ufs, true);
 	}
 }
 
