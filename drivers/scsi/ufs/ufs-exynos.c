@@ -15,6 +15,7 @@
 #include <linux/clk.h>
 
 #include <soc/samsung/exynos-pm.h>
+#include <soc/samsung/exynos-powermode.h>
 
 #include "ufshcd.h"
 #include "unipro.h"
@@ -1019,6 +1020,9 @@ static void exynos_ufs_pre_hibern8(struct ufs_hba *hba, u8 enter)
 	if (!enter) {
 		exynos_ufs_ctrl_hci_core_clk(ufs, false);
 		exynos_ufs_gate_clk(ufs, false);
+#ifdef CONFIG_CPU_IDLE
+		exynos_update_ip_idle_status(ufs->idle_ip_index, 0);
+#endif
 	}
 }
 
@@ -1043,6 +1047,9 @@ static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
 	} else {
 		exynos_ufs_gate_clk(ufs, true);
 		exynos_ufs_ctrl_hci_core_clk(ufs, true);
+#ifdef CONFIG_CPU_IDLE
+		exynos_update_ip_idle_status(ufs->idle_ip_index, 1);
+#endif
 	}
 }
 
@@ -1599,6 +1606,8 @@ static int exynos_ufs_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to register low power mode notifier\n");
 		return ret;
 	}
+	ufs->idle_ip_index = exynos_get_idle_ip_index(dev_name(&pdev->dev));
+	exynos_update_ip_idle_status(ufs->idle_ip_index, 0);
 #endif
 
 	ufs->dev = dev;
