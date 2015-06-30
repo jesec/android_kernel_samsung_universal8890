@@ -697,7 +697,9 @@ static int snd_compress_wait_for_drain(struct snd_compr_stream *stream)
 	 * stream will be moved to SETUP state, even if draining resulted in an
 	 * error. We can trigger next track after this.
 	 */
+#ifndef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 	stream->runtime->state = SNDRV_PCM_STATE_DRAINING;
+#endif
 	mutex_unlock(&stream->device->lock);
 
 	/* we wait for drain to complete here, drain can return when
@@ -728,6 +730,9 @@ static int snd_compr_drain(struct snd_compr_stream *stream)
 			stream->runtime->state == SNDRV_PCM_STATE_SETUP)
 		return -EPERM;
 
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+	stream->runtime->state = SNDRV_PCM_STATE_DRAINING;
+#endif
 	retval = stream->ops->trigger(stream, SND_COMPR_TRIGGER_DRAIN);
 	if (retval) {
 		pr_debug("SND_COMPR_TRIGGER_DRAIN failed %d\n", retval);
@@ -766,6 +771,9 @@ static int snd_compr_partial_drain(struct snd_compr_stream *stream)
 	if (stream->runtime->state == SNDRV_PCM_STATE_PREPARED ||
 			stream->runtime->state == SNDRV_PCM_STATE_SETUP)
 		return -EPERM;
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+	stream->runtime->state = SNDRV_PCM_STATE_DRAINING;
+#endif
 	/* stream can be drained only when next track has been signalled */
 	if (stream->next_track == false)
 		return -EPERM;
