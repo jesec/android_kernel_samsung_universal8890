@@ -337,7 +337,7 @@ static void exynos_ufs_config_phy_time_v(struct exynos_ufs *ufs)
 
 	for_each_ufs_lane(ufs, i) {
 		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_FILLER_ENABLE, i),
-				RX_FILLER_ENABLE);
+				0x2);
 		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_LINERESET_VAL, i),
 				RX_LINERESET(tm_parm.rx_linereset));
 		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_BASE_NVAL_07_00, i),
@@ -1015,15 +1015,6 @@ static void exynos_ufs_dev_hw_reset(struct ufs_hba *hba)
 
 static void exynos_ufs_pre_hibern8(struct ufs_hba *hba, u8 enter)
 {
-	struct exynos_ufs *ufs = to_exynos_ufs(hba);
-
-	if (!enter) {
-		exynos_ufs_ctrl_hci_core_clk(ufs, false);
-		exynos_ufs_gate_clk(ufs, false);
-#ifdef CONFIG_CPU_IDLE
-		exynos_update_ip_idle_status(ufs->idle_ip_index, 0);
-#endif
-	}
 }
 
 static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
@@ -1044,12 +1035,6 @@ static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
 
 		if (!(ufs->opts & EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB))
 			exynos_ufs_establish_connt(ufs);
-	} else {
-		exynos_ufs_gate_clk(ufs, true);
-		exynos_ufs_ctrl_hci_core_clk(ufs, true);
-#ifdef CONFIG_CPU_IDLE
-		exynos_update_ip_idle_status(ufs->idle_ip_index, 1);
-#endif
 	}
 }
 
@@ -1107,12 +1092,36 @@ static void exynos_ufs_hibern8_notify(struct ufs_hba *hba,
 	}
 }
 
-static int __exynos_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
+static void exynos_ufs_clock_control_notify(struct ufs_hba *hba, bool on, bool notify)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 
-	exynos_ufs_ctrl_phy_pwr(ufs, false);
+	switch (notify) {
+	case PRE_CHANGE:
+		if (on) {
+#ifdef CONFIG_CPU_IDLE
+			exynos_update_ip_idle_status(ufs->idle_ip_index, 0);
+#endif
+			exynos_ufs_ctrl_hci_core_clk(ufs, false);
+			exynos_ufs_gate_clk(ufs, false);
+		}
+		break;
+	case POST_CHANGE:
+		if (!on) {
+			exynos_ufs_gate_clk(ufs, true);
+			exynos_ufs_ctrl_hci_core_clk(ufs, true);
+#ifdef CONFIG_CPU_IDLE
+			exynos_update_ip_idle_status(ufs->idle_ip_index, 1);
+#endif
+		}
+		break;
+	default:
+		break;
+	}
+}
 
+static int __exynos_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
+{
 	return 0;
 }
 
@@ -1123,9 +1132,6 @@ static int __exynos_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	int ret = 0;
 #endif
 
-	exynos_ufs_ctrl_phy_pwr(ufs, true);
-
-	exynos_ufs_ctrl_hci_core_clk(ufs, false);
 	exynos_ufs_config_smu(ufs);
 #if defined(CONFIG_UFS_FMP_DM_CRYPT)
 	ret = exynos_smc(SMC_CMD_FMP, FMP_KEY_RESUME, 0, 0);
@@ -1703,6 +1709,7 @@ static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 	.set_nexus_t_xfer_req = exynos_ufs_set_nexus_t_xfer_req,
 	.set_nexus_t_task_mgmt = exynos_ufs_set_nexus_t_task_mgmt,
 	.hibern8_notify = exynos_ufs_hibern8_notify,
+	.clock_control_notify = exynos_ufs_clock_control_notify,
 	.suspend = __exynos_ufs_suspend,
 	.resume = __exynos_ufs_resume,
 };
