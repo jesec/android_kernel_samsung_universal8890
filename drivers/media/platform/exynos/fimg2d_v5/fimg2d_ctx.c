@@ -67,22 +67,6 @@ static int fimg2d_check_address_range(unsigned long addr, size_t size)
 
 	up_read(&current->mm->mmap_sem);
 
-	if (!ret) {
-		/*
-		 * Invoking COW gainst the first and last page if they can be
-		 * accessed by CPU and G2D concurrently.
-		 * checking the return value of get_user_pages_fast() is not
-		 * required because the calls to get_user_pages_fast() are to
-		 * invoke COW so that COW is not invoked against the first and
-		 * the last pages while G2D is working.
-		 */
-		if (!IS_ALIGNED(addr, PAGE_SIZE))
-			get_user_pages_fast(addr, 1, 1, NULL);
-
-		if (!IS_ALIGNED(addr + size, PAGE_SIZE))
-			get_user_pages_fast(addr + size, 1, 1, NULL);
-	}
-
 	return ret;
 }
 
