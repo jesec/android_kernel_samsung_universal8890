@@ -566,29 +566,36 @@ static void ufshcd_ungate_work(struct work_struct *work)
 	unsigned long flags;
 	struct ufs_hba *hba = container_of(work, struct ufs_hba,
 			clk_gating.ungate_work);
+	bool gating_allowed = !ufshcd_can_fake_clkgating(hba);
 
 	cancel_delayed_work_sync(&hba->clk_gating.gate_work);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	if (hba->clk_gating.state == CLKS_ON) {
+	if (hba->clk_gating.state == CLKS_ON && gating_allowed) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		goto unblock_reqs;
 	}
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	ufshcd_setup_clocks(hba, true);
+	if (gating_allowed)
+		ufshcd_setup_clocks(hba, true);
+	else
+		hba->clk_gating.state = CLKS_ON;
 
 	/* Exit from hibern8 */
 	if (ufshcd_can_hibern8_during_gating(hba)) {
 		/* Prevent gating in this path */
 		hba->clk_gating.is_suspended = true;
 		if (ufshcd_is_link_hibern8(hba)) {
+			ufshcd_set_link_trans_active(hba);
 			ret = ufshcd_link_hibern8_ctrl(hba, false);
-			if (ret)
+			if (ret) {
+				ufshcd_set_link_off(hba);
 				dev_err(hba->dev, "%s: hibern8 exit failed %d\n",
 					__func__, ret);
-			else
+			} else {
 				ufshcd_set_link_active(hba);
+			}
 		}
 		hba->clk_gating.is_suspended = false;
 	}
@@ -662,6 +669,7 @@ static void ufshcd_gate_work(struct work_struct *work)
 {
 	struct ufs_hba *hba = container_of(work, struct ufs_hba,
 			clk_gating.gate_work.work);
+	bool gating_allowed = !ufshcd_can_fake_clkgating(hba);
 	unsigned long flags;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -681,8 +689,10 @@ static void ufshcd_gate_work(struct work_struct *work)
 
 	/* put the link into hibern8 mode before turning off clocks */
 	if (ufshcd_can_hibern8_during_gating(hba)) {
+		ufshcd_set_link_trans_hibern8(hba);
 		if (ufshcd_link_hibern8_ctrl(hba, true)) {
 			hba->clk_gating.state = CLKS_ON;
+			ufshcd_set_link_active(hba);
 			goto out;
 		}
 		ufshcd_set_link_hibern8(hba);
@@ -693,11 +703,13 @@ static void ufshcd_gate_work(struct work_struct *work)
 		hba->clk_scaling.window_start_t = 0;
 	}
 
-	if (!ufshcd_is_link_active(hba))
-		ufshcd_setup_clocks(hba, false);
-	else
-		/* If link is active, device ref_clk can't be switched off */
-		__ufshcd_setup_clocks(hba, false, true);
+	if (gating_allowed) {
+		if (!ufshcd_is_link_active(hba))
+			ufshcd_setup_clocks(hba, false);
+		else
+			/* If link is active, device ref_clk can't be switched off */
+			__ufshcd_setup_clocks(hba, false, true);
+	}
 
 	/*
 	 * In case you are here to cancel this work the gating state
@@ -2878,10 +2890,14 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 	int ret;
 
 	ufshcd_hold(hba, false);
+	hba->ufshcd_state = UFSHCD_STATE_RESET;
+
 	if (hba->vops && hba->vops->host_reset)
 		hba->vops->host_reset(hba);
 
 	if (hba->quirks & UFSHCI_QUIRK_USE_OF_HCE) {
+		ufshcd_set_link_off(hba);
+
 		/* enable UIC related interrupts */
 		ufshcd_enable_intr(hba, UFSHCD_UIC_MASK);
 
@@ -5151,11 +5167,14 @@ static int ufshcd_link_state_transition(struct ufs_hba *hba,
 		return 0;
 
 	if (req_link_state == UIC_LINK_HIBERN8_STATE) {
+		ufshcd_set_link_trans_hibern8(hba);
 		ret = ufshcd_link_hibern8_ctrl(hba, true);
 		if (!ret)
 			ufshcd_set_link_hibern8(hba);
-		else
+		else {
+			ufshcd_set_link_active(hba);
 			goto out;
+		}
 	}
 	/*
 	 * If autobkops is enabled, link can't be turned off because
@@ -5268,6 +5287,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	enum ufs_pm_level pm_lvl;
 	enum ufs_dev_pwr_mode req_dev_pwr_mode;
 	enum uic_link_state req_link_state;
+	bool gating_allowed = !ufshcd_can_fake_clkgating(hba);
 
 	hba->pm_op_in_progress = 1;
 	if (!ufshcd_is_shutdown_pm(pm_op)) {
@@ -5355,11 +5375,13 @@ disable_clks:
 	cancel_work_sync(&hba->eh_work);
 	cancel_work_sync(&hba->eeh_work);
 
-	if (!ufshcd_is_link_active(hba))
-		ufshcd_setup_clocks(hba, false);
-	else
-		/* If link is active, device ref_clk can't be switched off */
-		__ufshcd_setup_clocks(hba, false, true);
+	if (gating_allowed) {
+		if (!ufshcd_is_link_active(hba))
+			ufshcd_setup_clocks(hba, false);
+		else
+			/* If link is active, device ref_clk can't be switched off */
+			__ufshcd_setup_clocks(hba, false, true);
+	}
 
 	hba->clk_gating.state = CLKS_OFF;
 	/*
@@ -5380,10 +5402,13 @@ disable_clks:
 	goto out;
 
 set_link_active:
-	ufshcd_vreg_set_hpm(hba);
-	if (ufshcd_is_link_hibern8(hba) && !ufshcd_uic_hibern8_exit(hba))
-		ufshcd_set_link_active(hba);
-	else if (ufshcd_is_link_off(hba))
+	if (ufshcd_is_link_hibern8(hba)) {
+		ufshcd_set_link_trans_active(hba);
+		if (!ufshcd_link_hibern8_ctrl(hba, false))
+			ufshcd_set_link_active(hba);
+		else
+			ufshcd_set_link_off(hba);
+	} else if (ufshcd_is_link_off(hba))
 		ufshcd_host_reset_and_restore(hba);
 set_dev_active:
 	if (!ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE))
@@ -5410,24 +5435,12 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int ret;
 	enum uic_link_state old_link_state;
+	bool gating_allowed = !ufshcd_can_fake_clkgating(hba);
 
 	hba->pm_op_in_progress = 1;
 	old_link_state = hba->uic_link_state;
 
 	ufshcd_hba_vreg_set_hpm(hba);
-	/* Make sure clocks are enabled before accessing controller */
-	ret = ufshcd_setup_clocks(hba, true);
-	if (ret)
-		goto out;
-
-	/* enable the host irq as host controller would be active soon */
-	ret = ufshcd_enable_irq(hba);
-	if (ret)
-		goto disable_irq_and_vops_clks;
-
-	ret = ufshcd_vreg_set_hpm(hba);
-	if (ret)
-		goto disable_irq_and_vops_clks;
 
 	/*
 	 * Call vendor specific resume callback. As these callbacks may access
@@ -5440,12 +5453,31 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			goto disable_vreg;
 	}
 
+	if (gating_allowed) {
+		/* Make sure clocks are enabled before accessing controller */
+		ret = ufshcd_setup_clocks(hba, true);
+		if (ret)
+			goto out;
+	}
+
+	/* enable the host irq as host controller would be active soon */
+	ret = ufshcd_enable_irq(hba);
+	if (ret)
+		goto disable_irq_and_vops_clks;
+
+	ret = ufshcd_vreg_set_hpm(hba);
+	if (ret)
+		goto disable_irq_and_vops_clks;
+
 	if (ufshcd_is_link_hibern8(hba)) {
+		ufshcd_set_link_trans_active(hba);
 		ret = ufshcd_link_hibern8_ctrl(hba, false);
 		if (!ret)
 			ufshcd_set_link_active(hba);
-		else
+		else {
+			ufshcd_set_link_off(hba);
 			goto vendor_suspend;
+		}
 	} else if (ufshcd_is_link_off(hba)) {
 		ret = ufshcd_host_reset_and_restore(hba);
 		/*
@@ -5485,7 +5517,8 @@ disable_vreg:
 	ufshcd_vreg_set_lpm(hba);
 disable_irq_and_vops_clks:
 	ufshcd_disable_irq(hba);
-	ufshcd_setup_clocks(hba, false);
+	if (gating_allowed)
+		ufshcd_setup_clocks(hba, false);
 out:
 	hba->pm_op_in_progress = 0;
 	return ret;

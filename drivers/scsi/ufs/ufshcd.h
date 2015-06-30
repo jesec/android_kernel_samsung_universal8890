@@ -117,6 +117,8 @@ enum uic_link_state {
 	UIC_LINK_OFF_STATE	= 0, /* Link powered down or disabled */
 	UIC_LINK_ACTIVE_STATE	= 1, /* Link is in Fast/Slow/Sleep state */
 	UIC_LINK_HIBERN8_STATE	= 2, /* Link is in Hibernate state */
+	UIC_LINK_TRANS_ACTIVE_STATE	= 3,
+	UIC_LINK_TRANS_HIBERN8_STATE	= 4,
 };
 
 #define ufshcd_is_link_off(hba) ((hba)->uic_link_state == UIC_LINK_OFF_STATE)
@@ -129,6 +131,10 @@ enum uic_link_state {
 				    UIC_LINK_ACTIVE_STATE)
 #define ufshcd_set_link_hibern8(hba) ((hba)->uic_link_state = \
 				    UIC_LINK_HIBERN8_STATE)
+#define ufshcd_set_link_trans_active(hba) ((hba)->uic_link_state = \
+				    UIC_LINK_TRANS_ACTIVE_STATE)
+#define ufshcd_set_link_trans_hibern8(hba) ((hba)->uic_link_state = \
+				    UIC_LINK_TRANS_HIBERN8_STATE)
 
 /*
  * UFS Power management levels.
@@ -491,6 +497,8 @@ struct ufs_hba {
 #define UFSHCD_CAP_CLK_SCALING	(1 << 2)
 	/* Allow auto bkops to enabled during runtime suspend */
 #define UFSHCD_CAP_AUTO_BKOPS_SUSPEND (1 << 3)
+	/* Allow only hibern8 without clk gating */
+#define UFSHCD_CAP_FAKE_CLK_GATING (1 << 4)
 
 	struct devfreq *devfreq;
 	struct ufs_clk_scaling clk_scaling;
@@ -533,6 +541,11 @@ static inline int ufshcd_is_clkscaling_enabled(struct ufs_hba *hba)
 static inline bool ufshcd_can_autobkops_during_suspend(struct ufs_hba *hba)
 {
 	return hba->caps & UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+}
+
+static inline bool ufshcd_can_fake_clkgating(struct ufs_hba *hba)
+{
+	return hba->caps & UFSHCD_CAP_FAKE_CLK_GATING;
 }
 
 #define ufshcd_writel(hba, val, reg)	\

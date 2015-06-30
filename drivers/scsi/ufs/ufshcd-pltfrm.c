@@ -280,6 +280,8 @@ static int ufshcd_parse_caps_info(struct ufs_hba *hba)
 		hba->caps |= UFSHCD_CAP_CLK_SCALING;
 	if (of_find_property(np, "ufs-cap-auto-bkops-suspend", NULL))
 		hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+	if (of_find_property(np, "ufs-cap-fake-clk-gating", NULL))
+		hba->caps |= UFSHCD_CAP_FAKE_CLK_GATING;
 
 	return 0;
 }
