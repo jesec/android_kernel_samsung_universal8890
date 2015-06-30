@@ -210,6 +210,7 @@ static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
 static int ufshcd_link_hibern8_ctrl(struct ufs_hba *hba, bool en);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 static irqreturn_t ufshcd_intr(int irq, void *__hba);
+static void ufshcd_command_done(struct request *rq);
 
 static ssize_t ufshcd_debug_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -3195,6 +3196,9 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 
 	ufshcd_get_lu_power_on_wp_status(hba, sdev);
 
+	blk_queue_softirq_done(sdev->request_queue, ufshcd_command_done);
+
+
 	return 0;
 }
 
@@ -3465,7 +3469,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason)
 		cmd = lrbp->cmd;
 		if (cmd) {
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
-			scsi_dma_unmap(cmd);
 			cmd->result = result;
 				if (reason)
 					set_host_byte(cmd, reason);
@@ -3773,6 +3776,13 @@ static void ufshcd_exception_event_handler(struct work_struct *work)
 out:
 	pm_runtime_put_sync(hba->dev);
 	return;
+}
+
+static void ufshcd_command_done(struct request *rq)
+{
+	struct scsi_cmnd *cmd = rq->special;
+	scsi_dma_unmap(cmd);
+	scsi_softirq_done(rq);
 }
 
 /**
