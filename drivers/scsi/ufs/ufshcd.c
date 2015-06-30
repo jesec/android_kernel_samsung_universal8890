@@ -2644,8 +2644,10 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 			"%s: power mode change failed %d\n", __func__, ret);
 	} else {
 		if (hba->vops && hba->vops->pwr_change_notify) {
+			ufshcd_hold(hba, false);
 			ret = hba->vops->pwr_change_notify(hba,
 					POST_CHANGE, NULL, pwr_mode);
+			ufshcd_release(hba);
 			if (ret)
 				goto out;
 		}
@@ -2669,8 +2671,10 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	int ret;
 
 	if (hba->vops && hba->vops->pwr_change_notify) {
+		ufshcd_hold(hba, false);
 		ret = hba->vops->pwr_change_notify(hba,
 			PRE_CHANGE, desired_pwr_mode, &final_params);
+		ufshcd_release(hba);
 		if (ret)
 			goto out;
 	} else {
@@ -2873,6 +2877,7 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 {
 	int ret;
 
+	ufshcd_hold(hba, false);
 	if (hba->vops && hba->vops->host_reset)
 		hba->vops->host_reset(hba);
 
@@ -2893,6 +2898,7 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 	} else {
 		ret = __ufshcd_hba_enable(hba);
 	}
+	ufshcd_release(hba);
 
 	if (ret)
 		dev_err(hba->dev, "Host controller enable failed\n");
@@ -2911,6 +2917,7 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 	int ret;
 	int retries = DME_LINKSTARTUP_RETRIES;
 
+	ufshcd_hold(hba, false);
 	do {
 		if (hba->vops && hba->vops->link_startup_notify)
 			hba->vops->link_startup_notify(hba, PRE_CHANGE);
@@ -2946,6 +2953,8 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 
 	ret = ufshcd_make_hba_operational(hba);
 out:
+	ufshcd_release(hba);
+
 	if (ret)
 		dev_err(hba->dev, "link startup failed %d\n", ret);
 	return ret;
