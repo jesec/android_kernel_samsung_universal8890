@@ -765,8 +765,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_MNGS \
 	.tmu_name = "MNGS",	\
-	.temp_bit = 9,		\
-	.temp_mask = 0x1FF,	\
+	.temp_mask = TYPE_9BIT_MASK,	\
 	.trigger_levels[0] = 66, \
 	.trigger_levels[1] = 71, \
 	.trigger_levels[2] = 76, \
@@ -824,8 +823,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_APOLLO \
 	.tmu_name = "APOLLO",	\
-	.temp_bit = 9,		\
-	.temp_mask = 0x1FF,	\
+	.temp_mask = TYPE_9BIT_MASK,	\
 	.trigger_levels[0] = 66, \
 	.trigger_levels[1] = 76, \
 	.trigger_levels[2] = 81, \
@@ -885,8 +883,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_GPU \
 	.tmu_name = "GPU",	\
-	.temp_bit = 9,		\
-	.temp_mask = 0x1FF,	\
+	.temp_mask = TYPE_9BIT_MASK,	\
 	.trigger_levels[0] = 66, \
 	.trigger_levels[1] = 71, \
 	.trigger_levels[2] = 76, \
@@ -954,8 +951,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_ISP \
 	.tmu_name = "ISP",	\
-	.temp_bit = 9,		\
-	.temp_mask = 0x1FF,	\
+	.temp_mask = TYPE_9BIT_MASK,	\
 	.trigger_levels[0] = 86, \
 	.trigger_levels[1] = 91, \
 	.trigger_levels[2] = 96, \

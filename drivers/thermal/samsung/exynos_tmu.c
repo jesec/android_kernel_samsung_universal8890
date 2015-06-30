@@ -180,6 +180,7 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	unsigned int falling_threshold2 = 0, falling_threshold3 = 0;
 	int ret = 0, threshold_code, i;
 	int timeout, shift;
+	unsigned int temp_mask = TYPE_8BIT_MASK;
 
 	mutex_lock(&data->lock);
 
@@ -250,24 +251,19 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 		else
 			trim_info = readl(data->base + reg->triminfo_data);
 	}
-	/* 7420, 8890 temp bit is 9bits, But other chip is 8 bits */
-	if (!pdata->temp_bit)
-		pdata->temp_bit = 8;
+	/* If temp_mask variables exist, temp bit is 9 bit. */
+	if (pdata->temp_mask)
+		temp_mask = pdata->temp_mask;
 
-	if (!pdata->temp_mask)
-		pdata->temp_mask = 0xFF;
-
-	data->temp_error1 = trim_info & pdata->temp_mask;
-	data->temp_error2 = ((trim_info >> reg->triminfo_85_shift) &
-				pdata->temp_mask);
+	data->temp_error1 = trim_info & temp_mask;
+	data->temp_error2 = ((trim_info >> reg->triminfo_85_shift) & temp_mask);
 
 	if (!data->temp_error1)
-		data->temp_error1 = pdata->efuse_value & pdata->temp_mask;
+		data->temp_error1 = pdata->efuse_value & temp_mask;
 
 	if (!data->temp_error2)
 		data->temp_error2 =
-			(pdata->efuse_value >> reg->triminfo_85_shift) &
-			pdata->temp_mask;
+			(pdata->efuse_value >> reg->triminfo_85_shift) & temp_mask;
 
 	rising_threshold = readl(data->base + reg->threshold_th0);
 

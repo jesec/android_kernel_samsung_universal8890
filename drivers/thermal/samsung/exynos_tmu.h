@@ -265,7 +265,6 @@ struct exynos_tmu_registers {
  */
 struct exynos_tmu_platform_data {
 	char *tmu_name;
-	u32 temp_bit;
 	u32 temp_mask;
 	u8 threshold;
 	u8 threshold_falling;

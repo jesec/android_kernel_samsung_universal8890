@@ -42,6 +42,10 @@
 #define GET_ZONE(trip) (trip + 2)
 #define GET_TRIP(zone) (zone - 2)
 
+/* Bit type */
+#define TYPE_8BIT_MASK	(0xFF)
+#define TYPE_9BIT_MASK	(0x1FF)
+
 enum trigger_type {
 	THROTTLE_ACTIVE = 1,
 	THROTTLE_PASSIVE,
