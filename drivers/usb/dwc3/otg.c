@@ -270,7 +270,7 @@ err2:
 		dwc3_core_exit(dwc);
 err1:
 		pm_runtime_put_sync(dev);
-		wake_lock(&dotg->wakelock);
+		wake_unlock(&dotg->wakelock);
 	}
 
 	return ret;
