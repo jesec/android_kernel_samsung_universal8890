@@ -118,7 +118,17 @@ struct exynos_ufs_soc *exynos_ufs_get_drv_data(struct device *dev)
 	return ((struct ufs_hba_variant *)match->data)->vs_data;
 }
 
-static void exynos_ufs_ctrl_clk(struct exynos_ufs *ufs, bool en)
+static inline void exynos_ufs_ctrl_hci_core_clk(struct exynos_ufs *ufs, bool en)
+{
+	u32 reg = hci_readl(ufs, HCI_FORCE_HCS);
+
+	if (en)
+		hci_writel(ufs, reg | HCI_CORECLK_STOP_EN, HCI_FORCE_HCS);
+	else
+		hci_writel(ufs, reg & ~HCI_CORECLK_STOP_EN, HCI_FORCE_HCS);
+}
+
+static inline void exynos_ufs_ctrl_clk(struct exynos_ufs *ufs, bool en)
 {
 	u32 reg = hci_readl(ufs, HCI_FORCE_HCS);
 
@@ -128,7 +138,7 @@ static void exynos_ufs_ctrl_clk(struct exynos_ufs *ufs, bool en)
 		hci_writel(ufs, reg & ~CLK_STOP_CTRL_EN_ALL, HCI_FORCE_HCS);
 }
 
-static void exynos_ufs_gate_clk(struct exynos_ufs *ufs, bool en)
+static inline void exynos_ufs_gate_clk(struct exynos_ufs *ufs, bool en)
 {
 
 	u32 reg = hci_readl(ufs, HCI_CLKSTOP_CTRL);
@@ -705,6 +715,7 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 
 	exynos_ufs_set_unipro_clk(ufs);
 	exynos_ufs_ctrl_clk(ufs, true);
+	exynos_ufs_ctrl_hci_core_clk(ufs, true);
 
 	/* mphy */
 	exynos_ufs_phy_init(ufs);
@@ -1138,20 +1149,20 @@ static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, v
 {
 	struct exynos_ufs *ufs =
 		container_of(nb, struct exynos_ufs, lpa_nb);
-	int ret = NOTIFY_OK;
+	int ret = NOTIFY_DONE;
 
 	switch (event) {
 	case LPA_ENTER:
+		exynos_ufs_ctrl_hci_core_clk(ufs, false);
 		exynos_ufs_ctrl_phy_pwr(ufs, false);
 		break;
 	case LPA_EXIT:
 		exynos_ufs_ctrl_phy_pwr(ufs, true);
+		exynos_ufs_ctrl_hci_core_clk(ufs, true);
 		break;
-	default:
-		ret = NOTIFY_DONE;
 	}
 
-	return notifier_from_errno(ret);
+	return ret;
 }
 #endif
 
