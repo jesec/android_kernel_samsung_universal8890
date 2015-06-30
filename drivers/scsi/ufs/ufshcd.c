@@ -4371,6 +4371,8 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	__ufshcd_transfer_req_compl(hba, DID_RESET);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
+	ssleep(1);
+
 	do {
 		err = ufshcd_host_reset_and_restore(hba);
 	} while (err && --retries);
