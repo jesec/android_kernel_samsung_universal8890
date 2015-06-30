@@ -221,7 +221,7 @@ struct ufs_dev_cmd {
 struct ufs_hba_variant {
 	const struct ufs_hba_variant_ops *ops;
 	u32 quirks;
-	const void *vs_data;
+	void *vs_data;
 };
 
 /**

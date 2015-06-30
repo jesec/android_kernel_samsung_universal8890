@@ -108,13 +108,77 @@ static inline void exynos_ufs_ctrl_phy_pwr(struct exynos_ufs *ufs, bool en)
 	writel(!!en, ufs->phy.reg_pmu);
 }
 
-static inline const
+static inline
 struct exynos_ufs_soc *exynos_ufs_get_drv_data(struct device *dev)
 {
 	const struct of_device_id *match;
 
 	match = of_match_node(exynos_ufs_match, dev->of_node);
 	return ((struct ufs_hba_variant *)match->data)->vs_data;
+}
+
+#define NUM_OF_PHY_CONFIGS	8
+static int exynos_ufs_populate_dt_phy_cfg(struct device *dev,
+		struct exynos_ufs_soc **org_soc)
+{
+	int ret = 1;
+	int i, j;
+	u32* val;
+	int num_of_configs[NUM_OF_PHY_CONFIGS];
+	struct exynos_ufs_soc *soc;
+	struct ufs_phy_cfg *phy_cfg;
+	const char *const configs[NUM_OF_PHY_CONFIGS] = {
+		"phy-init",
+		"post-phy-init",
+		"calib-of-pwm",
+		"calib-of-hs-rate-a",
+		"calib-of-hs-rate-b",
+		"post-calib-of-pwm",
+		"post-calib-of-hs-rate-a",
+		"post-calib-of-hs-rate-b",
+	};
+
+	soc = devm_kzalloc(dev, sizeof(*soc), GFP_KERNEL);
+	if (!soc) {
+		dev_err(dev, "cannot allocate mem for phy configs\n");
+		return -ENOMEM;
+	}
+	phy_cfg = soc->tbl_phy_init;
+
+	dev_dbg(dev, "=== PHY config allocation complete ===\n");
+	for (i=0 ; i<NUM_OF_PHY_CONFIGS ; i++) {
+		/* Check if each config table exits */
+		if(!of_get_property(dev->of_node, configs[i], &num_of_configs[i]))
+			goto out;
+		num_of_configs[i] /= sizeof(int);
+		dev_dbg(dev, "%s: %d\n", configs[i], num_of_configs[i]);
+
+		/* Buffer allocation for each table */
+		phy_cfg = devm_kzalloc(dev,
+			(num_of_configs[i] * sizeof(*phy_cfg)/sizeof(int)), GFP_KERNEL);
+		if (!phy_cfg) {
+			dev_err(dev, "cannot allocate mem for a phy table\n");
+			return -ENOMEM;
+		}
+
+		/* Fetch config data from DT */
+		if(of_property_read_u32_array(dev->of_node, configs[i], (u32*)phy_cfg,
+					num_of_configs[i])) {
+			devm_kfree(dev, phy_cfg);
+			goto out;
+		}
+		val = (u32*)phy_cfg;
+		for (j=0 ; j<num_of_configs[i]; j+=sizeof(int))
+			dev_dbg(dev, "%08X %08X %08X %08X\n",
+					val[j],val[j+1],val[j+2],val[j+3]);
+
+		/* Move a pointer to indicate each table */
+		*(&soc->tbl_phy_init+i) = phy_cfg;
+	}
+	ret = 0;
+out:
+	*org_soc = soc;
+	return ret;
 }
 
 static inline void exynos_ufs_ctrl_hci_core_clk(struct exynos_ufs *ufs, bool en)
@@ -422,11 +486,13 @@ static bool exynos_ufs_wait_pll_lock(struct exynos_ufs *ufs)
 static bool exynos_ufs_wait_cdr_lock(struct exynos_ufs *ufs)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
-	u32 reg;
+	u32 reg, val;
+
+	val = ufs->wait_cdr_lock;
 
 	do {
 		/* Need to check for all lane? */
-		reg = phy_pma_readl(ufs, PHY_PMA_TRSV_ADDR(0x5E, 0));
+		reg = phy_pma_readl(ufs, PHY_PMA_TRSV_ADDR(val, 0));
 		if ((reg >> 4) & 0x1)
 			return true;
 	} while (time_before(jiffies, timeout));
@@ -901,9 +967,14 @@ static int exynos_ufs_init(struct ufs_hba *hba)
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
-			if (!strcmp(clki->name, "aclk_ufs"))
-				ufs->clk_hci = clki->clk;
-			else if (!strcmp(clki->name, "sclk_ufsunipro"))
+			if (!(ufs->opts & EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK)) {
+				if (!strcmp(clki->name, "aclk_ufs"))
+					ufs->clk_hci = clki->clk;
+			} else {
+				if (!strcmp(clki->name, "sclk_ufsunipro20_cfg"))
+					ufs->clk_hci = clki->clk;
+			}
+			if (!strcmp(clki->name, "sclk_ufsunipro"))
 				ufs->clk_unipro = clki->clk;
 		}
 	}
@@ -1173,7 +1244,9 @@ static int exynos_ufs_clk_init(struct device *dev, struct exynos_ufs *ufs)
 		"mout_sclk_combo_phy_embedded", "top_sclk_phy_fsys1_26m",
 	};
 
-	ret = __exynos_ufs_clk_set_parent(dev, clks[0], clks[1]);
+	if (!(ufs->opts & EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK))
+		ret = __exynos_ufs_clk_set_parent(dev, clks[0], clks[1]);
+
 	if (ret)
 		dev_err(dev, "failed to set parent %s of clock %s\n",
 				clks[1], clks[0]);
@@ -1226,7 +1299,8 @@ static int exynos_ufs_populate_dt_phy(struct device *dev, struct exynos_ufs *ufs
 		ret = -ENOMEM;
 	}
 
-	phy->soc = exynos_ufs_get_drv_data(dev);
+	if (exynos_ufs_populate_dt_phy_cfg(dev, &(phy->soc)))
+		phy->soc = exynos_ufs_get_drv_data(dev);
 
 err_1:
 	of_node_put(phy_sys);
@@ -1324,6 +1398,9 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 	if (of_find_property(np, "ufs-opts-skip-connection-estab", NULL))
 		ufs->opts |= EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB;
 
+	if (of_find_property(np, "ufs-opts-use-seperated-pclk", NULL))
+		ufs->opts |= EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK;
+
 	if (!of_property_read_u32(np, "ufs-rx-adv-fine-gran-sup_en",
 				&ufs->rx_adv_fine_gran_sup_en)) {
 		if (ufs->rx_adv_fine_gran_sup_en == 0) {
@@ -1377,6 +1454,9 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 				"ufs-pa-hibern8time", &ufs->pa_hibern8time))
 			dev_warn(dev, "ufs-pa-hibern8time is empty\n");
 	}
+
+	if (of_property_read_u32(np, "ufs-wait-cdr-lock", &ufs->wait_cdr_lock))
+		ufs->wait_cdr_lock = 0x5e;
 
 	if (!of_property_read_u32(np,
 				"tp_mon_depth", &tp_mon_depth)) {
@@ -1618,7 +1698,7 @@ static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 	.resume = __exynos_ufs_resume,
 };
 
-static const struct ufs_phy_cfg init_cfg[] = {
+static struct ufs_phy_cfg init_cfg[] = {
 	{PA_DBG_OPTION_SUITE, 0x30103, PMD_ALL, UNIPRO_DBG_MIB},
 	{PA_DBG_AUTOMODE_THLD, 0x222E, PMD_ALL, UNIPRO_DBG_MIB},
 	{0x00f, 0xfa, PMD_ALL, PHY_PMA_COMN},
@@ -1642,7 +1722,7 @@ static const struct ufs_phy_cfg init_cfg[] = {
 };
 
 
-static const struct ufs_phy_cfg post_init_cfg[] = {
+static struct ufs_phy_cfg post_init_cfg[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
 	{0x28b, 0x83, PMD_ALL, PHY_PCS_RXTX},
 	{0x29a, 0x7, PMD_ALL, PHY_PCS_RXTX},
@@ -1652,7 +1732,7 @@ static const struct ufs_phy_cfg post_init_cfg[] = {
 };
 
 /* Calibration for PWM mode */
-static const struct ufs_phy_cfg calib_of_pwm[] = {
+static struct ufs_phy_cfg calib_of_pwm[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
 	{0x376, 0x00, PMD_PWM, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
@@ -1665,7 +1745,7 @@ static const struct ufs_phy_cfg calib_of_pwm[] = {
 };
 
 /* Calibration for HS mode series A */
-static const struct ufs_phy_cfg calib_of_hs_rate_a[] = {
+static struct ufs_phy_cfg calib_of_hs_rate_a[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
 	{0x362, 0xff, PMD_HS, PHY_PCS_RXTX},
 	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
@@ -1693,7 +1773,7 @@ static const struct ufs_phy_cfg calib_of_hs_rate_a[] = {
 };
 
 /* Calibration for HS mode series B */
-static const struct ufs_phy_cfg calib_of_hs_rate_b[] = {
+static struct ufs_phy_cfg calib_of_hs_rate_b[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
 	{0x362, 0xff, PMD_HS, PHY_PCS_RXTX},
 	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
@@ -1721,7 +1801,7 @@ static const struct ufs_phy_cfg calib_of_hs_rate_b[] = {
 };
 
 /* Calibration for PWM mode atfer PMC */
-static const struct ufs_phy_cfg post_calib_of_pwm[] = {
+static struct ufs_phy_cfg post_calib_of_pwm[] = {
 	{PA_DBG_RXPHY_CFGUPDT, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
 	{0x363, 0x00, PMD_PWM, PHY_PCS_RXTX},
@@ -1730,7 +1810,7 @@ static const struct ufs_phy_cfg post_calib_of_pwm[] = {
 };
 
 /* Calibration for HS mode series A atfer PMC */
-static const struct ufs_phy_cfg post_calib_of_hs_rate_a[] = {
+static struct ufs_phy_cfg post_calib_of_hs_rate_a[] = {
 	{PA_DBG_RXPHY_CFGUPDT, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
 	{0x015, 0x00, PMD_HS, PHY_PMA_COMN},
 	{0x04d, 0x83, PMD_HS, PHY_PMA_TRSV},
@@ -1745,7 +1825,7 @@ static const struct ufs_phy_cfg post_calib_of_hs_rate_a[] = {
 };
 
 /* Calibration for HS mode series B after PMC*/
-static const struct ufs_phy_cfg post_calib_of_hs_rate_b[] = {
+static struct ufs_phy_cfg post_calib_of_hs_rate_b[] = {
 	{PA_DBG_RXPHY_CFGUPDT, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
 	{0x015, 0x00, PMD_HS, PHY_PMA_COMN},
 	{0x04d, 0x83, PMD_HS, PHY_PMA_TRSV},
@@ -1760,7 +1840,7 @@ static const struct ufs_phy_cfg post_calib_of_hs_rate_b[] = {
 	{},
 };
 
-static const struct exynos_ufs_soc exynos_ufs_soc_data = {
+static struct exynos_ufs_soc exynos_ufs_soc_data = {
 	.tbl_phy_init			= init_cfg,
 	.tbl_post_phy_init		= post_init_cfg,
 	.tbl_calib_of_pwm		= calib_of_pwm,

@@ -362,20 +362,20 @@ struct ufs_phy_cfg {
 };
 
 struct exynos_ufs_soc {
-	const struct ufs_phy_cfg *tbl_phy_init;
-	const struct ufs_phy_cfg *tbl_post_phy_init;
-	const struct ufs_phy_cfg *tbl_calib_of_pwm;
-	const struct ufs_phy_cfg *tbl_calib_of_hs_rate_a;
-	const struct ufs_phy_cfg *tbl_calib_of_hs_rate_b;
-	const struct ufs_phy_cfg *tbl_post_calib_of_pwm;
-	const struct ufs_phy_cfg *tbl_post_calib_of_hs_rate_a;
-	const struct ufs_phy_cfg *tbl_post_calib_of_hs_rate_b;
+	struct ufs_phy_cfg *tbl_phy_init;
+	struct ufs_phy_cfg *tbl_post_phy_init;
+	struct ufs_phy_cfg *tbl_calib_of_pwm;
+	struct ufs_phy_cfg *tbl_calib_of_hs_rate_a;
+	struct ufs_phy_cfg *tbl_calib_of_hs_rate_b;
+	struct ufs_phy_cfg *tbl_post_calib_of_pwm;
+	struct ufs_phy_cfg *tbl_post_calib_of_hs_rate_a;
+	struct ufs_phy_cfg *tbl_post_calib_of_hs_rate_b;
 };
 
 struct exynos_ufs_phy {
 	void __iomem *reg_pma;
 	void __iomem *reg_pmu;
-	const struct exynos_ufs_soc *soc;
+	struct exynos_ufs_soc *soc;
 };
 
 struct uic_pwr_mode {
@@ -433,9 +433,12 @@ struct exynos_ufs {
 	u32 pa_granularity;
 	u32 pa_tactivate;
 	u32 pa_hibern8time;
+	u32 wait_cdr_lock;
+
 
 	u32 opts;
 #define EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB	BIT(0)
+#define EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK	BIT(1)	/* for CAL */
 
 	/* Performance */
 	struct exynos_ufs_tp_mon_table *tp_mon_tbl;
