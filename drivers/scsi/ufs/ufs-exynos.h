@@ -19,6 +19,7 @@
  */
 #define HCI_TXPRDT_ENTRY_SIZE		0x00
 #define HCI_RXPRDT_ENTRY_SIZE		0x04
+#define HCI_TO_CNT_DIV_VAL              0x08
 #define HCI_1US_TO_CNT_VAL		0x0C
  #define CNT_VAL_1US_MASK	0x3ff
 #define HCI_INVALID_UPIU_CTRL		0x10
@@ -68,6 +69,12 @@
  #define CLK_STOP_CTRL_EN_ALL	(REFCLK_STOP_EN |\
 				UNIPRO_PCLK_STOP_EN |\
 				UNIPRO_MCLK_STOP_EN)
+#define HCI_FSM_MONITOR                  0xC0
+#define HCI_PRDT_HIT_RATIO               0xC4
+#define HCI_DMA0_MONITOR_STATE           0xC8
+#define HCI_DMA0_MONITOR_CNT             0xCC
+#define HCI_DMA1_MONITOR_STATE           0xD0
+#define HCI_DMA1_MONITOR_CNT             0xD4
 
 /* Device fatal error */
 #define DFES_ERR_EN	BIT(31)
@@ -146,6 +153,12 @@ enum {
 #define UNIP_DME_PEER_GETSET_CONTROL		0x12C
 #define UNIP_DME_PEER_GETSET_RESULT		0x130
 #define UNIP_DBG_FORCE_DME_CTRL_STATE		0x150
+#define UNIP_DBG_AUTO_DME_LINKSTARTUP		0x158
+#define UNIP_DBG_PA_CTRLSTATE			0x15C
+#define UNIP_DBG_PA_TX_STATE			0x160
+#define UNIP_DBG_BREAK_DME_CTRL_STATE		0x164
+#define UNIP_DBG_STEP_DME_CTRL_STATE		0x168
+#define UNIP_DBG_NEXT_DME_CTRL_STATE		0x16C
 
 /*
  * UFS Protector registers
@@ -452,6 +465,10 @@ struct exynos_ufs {
 
 	/* Support system power mode */
 	int idle_ip_index;
+
+	/* for miscellaneous control */
+	u32 misc_flags;
+#define EXYNOS_UFS_MISC_TOGGLE_LOG	BIT(0)
 };
 
 struct phy_tm_parm {
@@ -470,4 +487,21 @@ struct phy_tm_parm {
 	u32 rx_stall_cnt;
 };
 
+
+struct ufs_sfr_log {
+	const char* name;
+	const u32 offset;
+#define LOG_STD_HCI_SFR		0xFFFFFFF0
+#define LOG_VS_HCI_SFR		0xFFFFFFF1
+#define LOG_FMP_SFR		0xFFFFFFF2
+#define LOG_UNIPRO_SFR		0xFFFFFFF3
+#define LOG_PMA_SFR		0xFFFFFFF4
+	u32 val;
+};
+
+struct ufs_attr_log {
+	const u32 offset;
+	u32 res;
+	u32 val;
+};
 #endif /* _UFS_EXYNOS_H_ */

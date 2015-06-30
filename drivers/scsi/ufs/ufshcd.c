@@ -2508,6 +2508,12 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		ret = (status != PWR_OK) ? status : -1;
 	}
 out:
+	/* Dump debugging information to system memory */
+	if (ret) {
+		if (hba->vops && hba->vops->get_debug_info)
+			hba->vops->get_debug_info(hba);
+	}
+
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->uic_async_done = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -4212,6 +4218,11 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	dev_err(hba->dev, "%s: tag:%d, cmd:0x%x\n", __func__, tag, cmd->cmnd[0]);
 
 	ufshcd_hold(hba, false);
+
+	/* Dump debugging information to system memory */
+	if (hba->vops && hba->vops->get_debug_info)
+		hba->vops->get_debug_info(hba);
+
 	/* If command is already aborted/completed, return SUCCESS */
 	if (!(test_bit(tag, &hba->outstanding_reqs)))
 		goto out;
