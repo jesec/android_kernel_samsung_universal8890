@@ -26,7 +26,7 @@ void decon_reg_set_disp_ss_cfg(u32 id, void __iomem *disp_ss_regs,
 	u32 val;
 
 	if (!disp_ss_regs) {
-		decon_err("disp_ss_regs is not mapped\n");
+		decon_err("decon%d disp_ss_regs is not mapped\n", id);
 		return;
 	}
 
@@ -77,7 +77,7 @@ int decon_reg_reset(u32 id)
 	}
 
 	if (!tries) {
-		decon_err("failed to reset Decon\n");
+		decon_err("decon%d failed to reset Decon\n", id);
 		return -EBUSY;
 	}
 
@@ -673,7 +673,7 @@ int decon_reg_wait_linecnt_is_zero_timeout(u32 id, int dsi_idx, unsigned long ti
 	} while (cnt);
 
 	if (!cnt) {
-		decon_err("wait timeout linecount is zero(%u)\n", linecnt);
+		decon_err("decon%d wait timeout linecount is zero(%u)\n", id, linecnt);
 		return -EBUSY;
 	}
 
@@ -704,7 +704,7 @@ int decon_reg_wait_idle_status_timeout(u32 id, unsigned long timeout)
 	} while (!status && cnt);
 
 	if (!cnt) {
-		decon_err("wait timeout decon idle status(%u)\n", status);
+		decon_err("decon%d wait timeout decon idle status(%u)\n", id, status);
 		return -EBUSY;
 	}
 
@@ -736,7 +736,7 @@ int decon_reg_wait_run_is_off_timeout(u32 id, unsigned long timeout)
 	} while (status && cnt);
 
 	if (!cnt) {
-		decon_err("wait timeout decon run is shut-off(%u)\n", status);
+		decon_err("decon%d wait timeout decon run is shut-off(%u)\n", id, status);
 		return -EBUSY;
 	}
 
@@ -756,7 +756,7 @@ int decon_reg_wait_run_status_timeout(u32 id, unsigned long timeout)
 	} while (!status && cnt);
 
 	if (!cnt) {
-		decon_err("wait timeout decon run status(%u)\n", status);
+		decon_err("decon%d wait timeout decon run status(%u)\n", id, status);
 		return -EBUSY;
 	}
 
@@ -803,7 +803,7 @@ u32 decon_get_win_channel(u32 id, u32 win_idx, enum decon_idma_type type)
 		ch_id = 6;
 		break;
 	default:
-		decon_dbg("channel(0x%x) is not valid\n", type);
+		decon_dbg("decon%d channel(0x%x) is not valid\n", id, type);
 		return -EINVAL;
 	}
 
@@ -830,7 +830,7 @@ int decon_reg_wait_for_update_timeout(u32 id, unsigned long timeout)
 		udelay(delay_time);
 
 	if (!cnt) {
-		decon_err("timeout of updating decon registers\n");
+		decon_err("decon%d timeout of updating decon registers\n", id);
 		return -EBUSY;
 	}
 
@@ -848,7 +848,7 @@ int decon_reg_wait_for_window_update_timeout(u32 id, u32 win_idx, unsigned long 
 		udelay(delay_time);
 
 	if (!cnt) {
-		decon_err("timeout of updating decon window registers\n");
+		decon_err("decon%d timeout of updating decon window registers\n", id);
 		return -EBUSY;
 	}
 
@@ -1232,10 +1232,12 @@ int decon_reg_get_interrupt_and_clear(u32 id)
 
 	if (val & INTERRUPT_RESOURCE_CONFLICT_INT_EN) {
 		decon_write(id, INTERRUPT_PENDING, INTERRUPT_RESOURCE_CONFLICT_INT_EN);
-		decon_warn("RESOURCE_OCCUPANCY_INFO_0: 0x%x, INFO_1: 0x%x\n",
+		decon_warn("decon%d RESOURCE_OCCUPANCY_INFO_0: 0x%x, INFO_1: 0x%x\n",
+			id,
 			decon_read(id, RESOURCE_OCCUPANCY_INFO_0),
 			decon_read(id, RESOURCE_OCCUPANCY_INFO_1));
-		decon_warn("RESOURCE_SEL_0: 0x%x, SEL_1: 0x%x, INDUCER: 0x%x\n",
+		decon_warn("decon%d RESOURCE_SEL_0: 0x%x, SEL_1: 0x%x, INDUCER: 0x%x\n",
+			id,
 			decon_read(id, RESOURCE_SEL_0),
 			decon_read(id, RESOURCE_SEL_1),
 			decon_read(id, RESOURCE_CONFLICTION_INDUCER));
