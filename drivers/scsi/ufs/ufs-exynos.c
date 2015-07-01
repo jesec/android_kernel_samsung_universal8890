@@ -1236,16 +1236,22 @@ static int exynos_ufs_lp_event(struct notifier_block *nb, unsigned long event, v
 {
 	struct exynos_ufs *ufs =
 		container_of(nb, struct exynos_ufs, lpa_nb);
+	struct ufs_hba *hba = dev_get_drvdata(ufs->dev);
 	int ret = NOTIFY_DONE;
 
 	switch (event) {
 	case LPA_ENTER:
+		WARN_ON(!ufshcd_is_link_hibern8(hba));
+		if (ufshcd_is_clkgating_allowed(hba))
+			clk_prepare_enable(ufs->clk_hci);
 		exynos_ufs_ctrl_hci_core_clk(ufs, false);
 		exynos_ufs_ctrl_phy_pwr(ufs, false);
 		break;
 	case LPA_EXIT:
 		exynos_ufs_ctrl_phy_pwr(ufs, true);
 		exynos_ufs_ctrl_hci_core_clk(ufs, true);
+		if (ufshcd_is_clkgating_allowed(hba))
+			clk_disable_unprepare(ufs->clk_hci);
 		break;
 	}
 
