@@ -221,6 +221,9 @@ static struct cpuidle_driver exynos_idle_nonboot_cluster_driver = {
 	.name = "non-boot_cluster_idle",
 	.owner = THIS_MODULE,
 	.states[0] = EXYNOS_CPUIDLE_WFI_STATE,
+#ifdef CONFIG_CPU_IDLE_GOV_MENU
+	.skip_correction = 1,
+#endif
 };
 
 static const struct of_device_id exynos_idle_state_match[] __initconst = {
