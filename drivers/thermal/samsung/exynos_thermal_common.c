@@ -258,6 +258,11 @@ extern int gpufreq_set_cur_temp(bool suspended, unsigned long temp);
 #else
 static inline int gpufreq_set_cur_temp(bool suspended, unsigned long temp) { return 0; }
 #endif
+#ifdef CONFIG_ISP_THERMAL
+extern int isp_set_cur_temp(bool suspended, unsigned long temp);
+#else
+static inline int isp_set_cur_temp(bool suspended, unsigned long temp) { return 0; }
+#endif
 
 /* Get temperature callback functions for thermal zone */
 static int exynos_get_temp(struct thermal_zone_device *thermal,
@@ -282,6 +287,8 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 		cpufreq_set_cur_temp(suspended, *temp / 1000);
 	else if (th_zone->sensor_conf->d_type == GPU)
 		gpufreq_set_cur_temp(suspended, *temp / 1000);
+	else if (th_zone->sensor_conf->d_type == ISP)
+		isp_set_cur_temp(suspended, *temp / 1000);
 	mutex_unlock(&thermal_suspend_lock);
 
 	return 0;
@@ -459,6 +466,7 @@ static int exynos_pm_notifier(struct notifier_block *notifier,
 		suspended = true;
 		cpufreq_set_cur_temp(suspended, 0);
 		gpufreq_set_cur_temp(suspended, 0);
+		isp_set_cur_temp(suspended, 0);
 		mutex_unlock(&thermal_suspend_lock);
 		break;
 	case PM_POST_SUSPEND:
