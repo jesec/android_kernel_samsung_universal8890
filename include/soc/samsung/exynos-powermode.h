@@ -53,9 +53,12 @@ extern int check_cluster_idle_state(int cpu);
 /**
   IDLE_IP control
  */
+#define IDLE_IP_REG_SIZE	32
+
 extern void exynos_update_pd_idle_status(int index, int idle);
 extern void exynos_update_ip_idle_status(int index, int idle);
 extern int exynos_get_idle_ip_index(const char *name);
+extern void exynos_get_idle_ip_list(char *(*idle_ip_list)[IDLE_IP_REG_SIZE]);
 
 enum exynos_idle_ip {
 	IDLE_IP0,

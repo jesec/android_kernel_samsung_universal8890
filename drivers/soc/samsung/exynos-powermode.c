@@ -15,6 +15,7 @@
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/slab.h>
+#include <linux/cpuidle_profiler.h>
 
 #include <asm/smp_plat.h>
 #include <asm/psci.h>
@@ -70,11 +71,36 @@ static struct exynos_powermode_info *pm_info;
 static int exynos_check_idle_ip_stat(int mode, int index)
 {
 	unsigned int val, mask;
+	int ret;
 
 	exynos_pmu_read(PMU_IDLE_IP(index), &val);
 	mask = pm_info->idle_ip_mask[mode][index];
 
-	return (val & ~mask) == ~mask ? 0 : -EBUSY;
+	ret = (val & ~mask) == ~mask ? 0 : -EBUSY;
+
+	if (ret) {
+		/*
+		 * Profile non-idle IP using idle_ip.
+		 * A bit of idle-ip equals 0, it means non-idle. But then, if
+		 * same bit of idle-ip-mask is 1, PMU does not see this bit.
+		 * To know what IP blocks to enter system power mode, suppose
+		 * below example: (express only 8 bits)
+		 *
+		 * idle_ip : 0 0 1 1 0 0 1 0
+		 * mask    : 1 1 0 0 1 0 0 1
+		 *
+		 * In upper case, only idle-ip[2] is not in idle. Calculates
+		 * as follows, then we can get the non-idle IP easily.
+		 *
+		 * idle_ip : 0 0 1 1 0 0 1 0
+		 * ~mask   : 0 0 1 1 0 1 1 0
+		 *--------------------------- (XOR)
+		 *           0 0 0 0 0 1 0 0
+		 */
+		cpuidle_profile_collect_idle_ip(mode, index, (val ^ ~mask));
+	}
+
+	return ret;
 }
 
 static DEFINE_SPINLOCK(idle_ip_mask_lock);
@@ -176,6 +202,28 @@ void exynos_update_pd_idle_status(int index, int idle)
 	spin_unlock_irqrestore(&pd_idle_lock, flags);
 
 	return;
+}
+
+void exynos_get_idle_ip_list(char *(*idle_ip_list)[IDLE_IP_REG_SIZE])
+{
+	struct device_node *np = of_find_node_by_name(NULL, "exynos-powermode");
+	int i, size, bit;
+
+	for_each_idle_ip(i) {
+		char prop_idle_ip[10] = "idle-ip";
+		char buf[2];
+		const char *list[IDLE_IP_REG_SIZE];
+
+		snprintf(buf, 2, "%d", i);
+		strcat(prop_idle_ip, buf);
+
+		size = of_property_count_strings(np, prop_idle_ip);
+		if (of_property_read_string_array(np, prop_idle_ip, list, size) < 0)
+			continue;
+
+		for (bit = 0; bit < IDLE_IP_REG_SIZE; bit++)
+			idle_ip_list[i][bit] = (char *)list[bit];
+	}
 }
 
 /******************************************************************************

@@ -17,6 +17,7 @@
 #include <linux/cpu.h>
 #include <linux/reboot.h>
 #include <linux/of.h>
+#include <linux/cpuidle_profiler.h>
 
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
@@ -80,7 +81,11 @@ static int find_available_low_state(struct cpuidle_device *dev,
 static int exynos_enter_idle(struct cpuidle_device *dev,
 				struct cpuidle_driver *drv, int index)
 {
+	cpuidle_profile_start_no_substate(dev->cpu, index);
+
 	cpu_do_idle();
+
+	cpuidle_profile_finish_no_earlywakeup(dev->cpu);
 
 	return index;
 }
@@ -94,9 +99,13 @@ static int exynos_enter_c2(struct cpuidle_device *dev,
 
 	entry_index = enter_c2(dev->cpu, index);
 
+	cpuidle_profile_start(dev->cpu, index, entry_index);
+
 	ret = cpu_suspend(entry_index);
 	if (ret)
 		flush_tlb_all();
+
+	cpuidle_profile_finish(dev->cpu, ret);
 
 	wakeup_from_c2(dev->cpu, ret);
 
@@ -116,7 +125,11 @@ static int exynos_enter_lpm(struct cpuidle_device *dev,
 
 	exynos_prepare_sys_powerdown(mode);
 
+	cpuidle_profile_start(dev->cpu, index, mode);
+
 	ret = cpu_suspend(index);
+
+	cpuidle_profile_finish(dev->cpu, ret);
 
 	exynos_wakeup_sys_powerdown(mode, (bool)ret);
 
@@ -295,6 +308,8 @@ static int __init exynos_idle_init(void)
 
 	register_pm_notifier(&exynos_cpuidle_notifier);
 	register_reboot_notifier(&exynos_cpuidle_reboot_nb);
+
+	cpuidle_profile_register(&exynos_idle_boot_cluster_driver);
 
 	pr_info("Exynos cpuidle driver Initialized\n");
 
