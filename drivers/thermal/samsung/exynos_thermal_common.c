@@ -457,6 +457,8 @@ static int exynos_pm_notifier(struct notifier_block *notifier,
 	case PM_SUSPEND_PREPARE:
 		mutex_lock(&thermal_suspend_lock);
 		suspended = true;
+		cpufreq_set_cur_temp(suspended, 0);
+		gpufreq_set_cur_temp(suspended, 0);
 		mutex_unlock(&thermal_suspend_lock);
 		break;
 	case PM_POST_SUSPEND:
