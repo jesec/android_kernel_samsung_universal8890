@@ -75,7 +75,7 @@
 #define MASK_QUERY_UPIU_FLAG_LOC 0xFF
 
 /* Interrupt aggregation default timeout, unit: 40us */
-#define INT_AGGR_DEF_TO	0x02
+#define INT_AGGR_DEF_TO	0x01
 
 /* Link Hibernation delay, msecs */
 #define LINK_H8_DELAY  20
@@ -191,8 +191,6 @@ static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 static irqreturn_t ufshcd_intr(int irq, void *__hba);
-static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
-		struct ufs_pa_layer_attr *desired_pwr_mode);
 
 static inline int ufshcd_enable_irq(struct ufs_hba *hba)
 {
@@ -2090,6 +2088,37 @@ static int ufshcd_dme_link_startup(struct ufs_hba *hba)
 	return ret;
 }
 
+static int ufshcd_dme_reset(struct ufs_hba *hba)
+{
+	struct uic_command uic_cmd = {0};
+	int ret;
+
+	uic_cmd.command = UIC_CMD_DME_RESET;
+	uic_cmd.argument1 = 0x1;
+
+	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
+	if (ret)
+		dev_err(hba->dev,
+			"dme-reset: error code %d\n", ret);
+
+	return ret;
+}
+
+static int ufshcd_dme_enable(struct ufs_hba *hba)
+{
+	struct uic_command uic_cmd = {0};
+	int ret;
+
+	uic_cmd.command = UIC_CMD_DME_ENABLE;
+
+	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
+	if (ret)
+		dev_err(hba->dev,
+			"dme-reset: error code %d\n", ret);
+
+	return ret;
+}
+
 /**
  * ufshcd_dme_set_attr - UIC command for DME_SET, DME_PEER_SET
  * @hba: per adapter instance
@@ -2430,7 +2459,7 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
  * @hba: per-adapter instance
  * @desired_pwr_mode: desired power configuration
  */
-static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
+int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *desired_pwr_mode)
 {
 	struct ufs_pa_layer_attr final_params = { 0 };
@@ -2446,6 +2475,7 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(ufshcd_config_pwr_mode);
 
 /**
  * ufshcd_complete_dev_init() - checks device readiness
@@ -2555,7 +2585,7 @@ out:
 }
 
 /**
- * ufshcd_hba_enable - initialize the controller
+ * __ufshcd_hba_enable - initialize the controller
  * @hba: per adapter instance
  *
  * The controller resets itself and controller firmware initialization
@@ -2564,7 +2594,7 @@ out:
  *
  * Returns 0 on success, non-zero value on failure
  */
-static int ufshcd_hba_enable(struct ufs_hba *hba)
+static int __ufshcd_hba_enable(struct ufs_hba *hba)
 {
 	int retry;
 
@@ -2628,6 +2658,27 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 		hba->vops->hce_enable_notify(hba, POST_CHANGE);
 
 	return 0;
+}
+
+static int ufshcd_hba_enable(struct ufs_hba *hba)
+{
+	int ret;
+
+	if (hba->vops && hba->vops->host_reset)
+		hba->vops->host_reset(hba);
+
+	if (hba->quirks & UFSHCI_QUIRK_USE_OF_HCE) {
+		/* enable UIC related interrupts */
+		ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
+
+		ret = ufshcd_dme_reset(hba);
+		if (!ret)
+			ret = ufshcd_dme_enable(hba);
+	} else {
+		ret = __ufshcd_hba_enable(hba);
+	}
+
+	return ret;
 }
 
 /**
@@ -2884,6 +2935,7 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 
 	blk_queue_update_dma_pad(q, PRDT_DATA_BYTE_COUNT_PAD - 1);
 	blk_queue_max_segment_size(q, PRDT_DATA_BYTE_COUNT_MAX);
+	blk_queue_update_dma_alignment(q, PAGE_SIZE - 1);
 
 	return 0;
 }
@@ -4185,7 +4237,9 @@ out:
 static int ufshcd_probe_hba(struct ufs_hba *hba)
 {
 	int ret;
+	int re_cnt = 3;
 
+retry:
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -4256,6 +4310,12 @@ out:
 	 * If we failed to initialize the device or the device is not
 	 * present, turn off the power/clocks etc.
 	 */
+
+	if (ret) {
+		if (re_cnt-- > 0)
+			goto retry;
+	}
+
 	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
 		pm_runtime_put_sync(hba->dev);
 		ufshcd_hba_exit(hba);

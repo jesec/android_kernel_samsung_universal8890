@@ -17,8 +17,8 @@
  */
 #define HCI_TXPRDT_ENTRY_SIZE		0x00
 #define HCI_RXPRDT_ENTRY_SIZE		0x04
-#define HCI_TO_CNT_DIV_VAL		0x08
-#define HCI_40US_TO_CNT_VAL		0x0C
+#define HCI_1US_TO_CNT_VAL		0x0C
+ #define CNT_VAL_1US_MASK	0x3ff
 #define HCI_INVALID_UPIU_CTRL		0x10
 #define HCI_INVALID_UPIU_BADDR		0x14
 #define HCI_INVALID_UPIU_UBADDR		0x18
@@ -30,9 +30,12 @@
 #define HCI_VENDOR_SPECIFIC_IS		0x38
 #define HCI_VENDOR_SPECIFIC_IE		0x3C
 #define HCI_UTRL_NEXUS_TYPE		0x40
-#define HCI_UMTRL_NEXUS_TYPE		0x44
+#define HCI_UTMRL_NEXUS_TYPE		0x44
 #define HCI_E2EFC_CTRL			0x48
 #define HCI_SW_RST			0x50
+ #define UFS_LINK_SW_RST	(1 << 0)
+ #define UFS_UNIPRO_SW_RST	(1 << 1)
+ #define UFS_SW_RST_MASK	(UFS_UNIPRO_SW_RST | UFS_LINK_SW_RST)
 #define HCI_LINK_VERSION		0x54
 #define HCI_IDLE_TIMER_CONFIG		0x58
 #define HCI_RX_UPIU_MATCH_ERROR_CODE	0x5C
@@ -49,7 +52,21 @@
 #define HCI_ERROR_EN_DME_LAYER		0x88
 #define HCI_REQ_HOLD_EN			0xAC
 #define HCI_CLKSTOP_CTRL		0xB0
+ #define REFCLK_STOP		BIT(2)
+ #define UNIPRO_MCLK_STOP	BIT(1)
+ #define UNIPRO_PCLK_STOP	BIT(0)
+ #define CLK_STOP_ALL		(REFCLK_STOP |\
+				UNIPRO_MCLK_STOP |\
+				UNIPRO_PCLK_STOP)
 #define HCI_FORCE_HCS			0xB4
+ #define REFCLK_STOP_EN		BIT(7)
+ #define UNIPRO_PCLK_STOP_EN	BIT(6)
+ #define UNIPRO_MCLK_STOP_EN	BIT(5)
+ #define HCI_CORECLK_STOP_EN	BIT(4)
+ #define CLK_STOP_CTRL_EN_ALL	(REFCLK_STOP_EN |\
+				UNIPRO_PCLK_STOP_EN |\
+				UNIPRO_MCLK_STOP_EN |\
+				HCI_CORECLK_STOP_EN)
 
 /* Device fatal error */
 #define DFES_ERR_EN	BIT(31)
@@ -121,6 +138,7 @@ enum {
 #define UNIP_DME_PEER_GETSET_RDATA		0x128
 #define UNIP_DME_PEER_GETSET_CONTROL		0x12C
 #define UNIP_DME_PEER_GETSET_RESULT		0x130
+#define UNIP_DBG_FORCE_DME_CTRL_STATE		0x150
 
 /*
  * UFS Protector registers
@@ -128,6 +146,8 @@ enum {
 #define UFSPRCTRL	0x000
 #define UFSPRSTAT	0x008
 #define UFSPRSECURITY	0x010
+ #define NSSMU		BIT(14)
+#define UFSPVERSION	0x01C
 #define UFSPRENCKEY0	0x020
 #define UFSPRENCKEY1	0x024
 #define UFSPRENCKEY2	0x028
@@ -165,57 +185,102 @@ enum {
 #define UFSPWTWKEY7	0x15C
 #define UFSPSBEGIN0	0x200
 #define UFSPSEND0	0x204
+#define UFSPSLUN0	0x208
 #define UFSPSCTRL0	0x20C
 #define UFSPSBEGIN1	0x210
 #define UFSPSEND1	0x214
+#define UFSPSLUN1	0x218
 #define UFSPSCTRL1	0x21C
 #define UFSPSBEGIN2	0x220
 #define UFSPSEND2	0x224
+#define UFSPSLUN2	0x228
 #define UFSPSCTRL2	0x22C
 #define UFSPSBEGIN3	0x230
 #define UFSPSEND3	0x234
+#define UFSPSLUN3	0x238
 #define UFSPSCTRL3	0x23C
 #define UFSPSBEGIN4	0x240
 #define UFSPSEND4	0x244
+#define UFSPSLUN4	0x248
 #define UFSPSCTRL4	0x24C
 #define UFSPSBEGIN5	0x250
 #define UFSPSEND5	0x254
+#define UFSPSLUN5	0x258
 #define UFSPSCTRL5	0x25C
 #define UFSPSBEGIN6	0x260
 #define UFSPSEND6	0x264
+#define UFSPSLUN6	0x268
 #define UFSPSCTRL6	0x26C
 #define UFSPSBEGIN7	0x270
 #define UFSPSEND7	0x274
+#define UFSPSLUN7	0x278
 #define UFSPSCTRL7	0x27C
 
 /*
  * MIBs for PA debug registers
  */
-#define PA_DBG_CLK_PERIOD		0x1614
-#define PA_DBG_TXPHY_CFGUPDT		0x1618
-#define PA_DBG_RXPHY_CFGUPDT		0x1619
-#define PA_DBG_TX_PHY_LATENCY		0x162C
-#define PA_DBG_OV_TM			0x1640
-#define PA_DBG_MIB_CAP_SEL		0x1646
-#define PA_DBG_RESUME_HIBERN8		0x1650
-#define PA_DBG_TX_PHY_LATENCY_EN	0x1652
-#define PA_DBG_IGNORE_INCOMING		0x1659
-#define PA_DBG_LINE_RESET_THLD		0x1661
+#define PA_DBG_CLK_PERIOD		0x9514
+#define PA_DBG_TXPHY_CFGUPDT		0x9518
+#define PA_DBG_RXPHY_CFGUPDT		0x9519
+#define PA_DBG_MODE			0x9529
+#define PA_DBG_TX_PHY_LATENCY		0x952C
+#define PA_DBG_AUTOMODE_THLD		0x9536
+#define PA_DBG_OV_TM			0x9540
+#define PA_DBG_MIB_CAP_SEL		0x9546
+#define PA_DBG_RESUME_HIBERN8		0x9550
+#define PA_DBG_TX_PHY_LATENCY_EN	0x9552
+#define PA_DBG_IGNORE_INCOMING		0x9559
+#define PA_DBG_LINE_RESET_THLD		0x9561
+#define PA_DBG_OPTION_SUITE		0x9564
 
 /*
  * Exynos MPHY attributes
  */
-#define TX_LINERESETNVALUE		0x0277
-#define TX_LINERESETPVALUE		0x027D
+#define TX_LINERESET_N_VAL		0x0277
+ #define TX_LINERESET_N(v)	(((v) >> 10) & 0xff)
+#define TX_LINERESET_P_VAL		0x027D
+ #define TX_LINERESET_P(v)	(((v) >> 12) & 0xff)
 #define TX_OV_SLEEP_CNT_TIMER		0x028E
+ #define TX_OV_H8_ENTER_EN		(1 << 7)
+ #define TX_OV_SLEEP_CNT(v)	(((v) >> 5) & 0x7f)
+
+#define TX_HIGH_Z_CNT_11_08		0x028c
+ #define TX_HIGH_Z_CNT_H(v)	(((v) >> 8) & 0xf)
+#define TX_HIGH_Z_CNT_07_00		0x028d
+ #define TX_HIGH_Z_CNT_L(v)	((v) & 0xff)
+#define TX_BASE_NVAL_07_00		0x0293
+ #define TX_BASE_NVAL_L(v)	((v) & 0xff)
+#define TX_BASE_NVAL_15_08		0x0294
+ #define TX_BASE_NVAL_H(v)	(((v) >> 8) & 0xff)
+#define TX_GRAN_NVAL_07_00		0x0295
+ #define TX_GRAN_NVAL_L(v)	((v) & 0xff)
+#define TX_GRAN_NVAL_10_08		0x0296
+ #define TX_GRAN_NVAL_H(v)	(((v) >> 8) & 0x3)
 
 #define RX_FILLER_ENABLE		0x0316
+ #define RX_FILLER_EN		(1 << 1)
 #define RX_LCC_IGNORE			0x0318
-#define RX_LINERESETVALUE		0x0317
+#define RX_LINERESET_VAL		0x0317
+ #define RX_LINERESET(v)	(((v) >> 12) & 0xff)
 #define RX_HIBERN8_WAIT_VAL_BIT_20_16	0x0331
 #define RX_HIBERN8_WAIT_VAL_BIT_15_08	0x0332
 #define RX_HIBERN8_WAIT_VAL_BIT_07_00	0x0333
 
+#define RX_OV_SLEEP_CNT_TIMER		0x0340
+ #define RX_OV_SLEEP_CNT(v)	(((v) >> 6) & 0x1f)
+#define RX_OV_STALL_CNT_TIMER		0x0341
+ #define RX_OV_STALL_CNT(v)	(((v) >> 4) & 0xff)
+#define RX_BASE_NVAL_07_00		0x0355
+ #define RX_BASE_NVAL_L(v)	((v) & 0xff)
+#define RX_BASE_NVAL_15_08		0x0354
+ #define RX_BASE_NVAL_H(v)	(((v) >> 8) & 0xff)
+#define RX_GRAN_NVAL_07_00		0x0353
+ #define RX_GRAN_NVAL_L(v)	((v) & 0xff)
+#define RX_GRAN_NVAL_10_08		0x0352
+ #define RX_GRAN_NVAL_H(v)	(((v) >> 8) & 0x3)
+
+#define CMN_PWM_CMN_CTRL		0x0402
+ #define PWM_CMN_CTRL_MASK	0x3
 #define CMN_REFCLK_PLL_LOCK		0x0406
 #define CMN_REFCLK_STREN		0x044C
 #define CMN_REFCLK_OUT			0x044E
@@ -231,6 +296,9 @@ enum {
 	PHY_PCS_RXTX,
 	PHY_PMA_COMN,
 	PHY_PMA_TRSV,
+	UNIPRO_STD_MIB,
+	UNIPRO_DBG_MIB,
+	UNIPRO_DBG_APB,
 };
 
 enum {
@@ -313,9 +381,11 @@ struct exynos_ufs {
 
 	struct clk *clk_hci;
 	struct clk *clk_unipro;
-	struct clk *clk_refclk;
+	struct clk *clk_refclk_1;
+	struct clk *clk_refclk_2;
 	struct clk *clk_phy_symb[4];
 	long pclk_rate;
+	long mclk_rate;
 
 	int avail_ln_rx;
 	int avail_ln_tx;
@@ -329,8 +399,17 @@ struct exynos_ufs {
 struct phy_tm_parm {
 	u32 tx_linereset_p;
 	u32 tx_linereset_n;
+	u32 tx_high_z_cnt;
+	u32 tx_base_n_val;
+	u32 tx_gran_n_val;
+	u32 tx_sleep_cnt;
+
 	u32 rx_linereset;
 	u32 rx_hibern8_wait;
+	u32 rx_base_n_val;
+	u32 rx_gran_n_val;
+	u32 rx_sleep_cnt;
+	u32 rx_stall_cnt;
 };
 
 #endif /* _UFS_EXYNOS_H_ */

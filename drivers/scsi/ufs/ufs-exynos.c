@@ -17,6 +17,7 @@
 
 #include "ufshcd.h"
 #include "unipro.h"
+#include "mphy.h"
 #include "ufshcd-pltfrm.h"
 #include "ufs-exynos.h"
 
@@ -40,9 +41,19 @@
 #define RX_DIF_P_NSEC		1000000	/* unit: ns */
 #define RX_HIBERN8_WAIT_NSEC	4000000	/* unit: ns */
 #define HIBERN8_TIME		40	/* unit: 100us */
+#define RX_BASE_UNIT_NSEC	100000	/* unit: ns */
+#define RX_GRAN_UNIT_NSEC	4000	/* unit: ns */
+#define RX_SLEEP_CNT		1280	/* unit: ns */
+#define RX_STALL_CNT		320	/* unit: ns */
 
-#define IATOVAL_40US_NSEC	40000
+#define TX_HIGH_Z_CNT_NSEC	20000	/* unit: ns */
+#define TX_BASE_UNIT_NSEC	100000	/* unit: ns */
+#define TX_GRAN_UNIT_NSEC	4000	/* unit: ns */
+#define TX_SLEEP_CNT		1000	/* unit: ns */
+#define IATOVAL_NSEC		20000	/* unit: ns */
+
 #define UNIPRO_PCLK_PERIOD(ufs) (NSEC_PER_SEC / ufs->pclk_rate)
+#define UNIPRO_MCLK_PERIOD(ufs) (NSEC_PER_SEC / ufs->mclk_rate)
 #define PHY_PMA_COMN_ADDR(reg)		((reg) << 2)
 #define PHY_PMA_TRSV_ADDR(reg, lane)	(((reg) + (0x30 * (lane))) << 2)
 
@@ -53,7 +64,7 @@ const char *const phy_symb_clks[] = {
 	"phyclk_ufs_rx1_symbol"
 };
 
-#define phy_pma_writel(ufs, reg, val)	\
+#define phy_pma_writel(ufs, val, reg)	\
 	writel((val), (ufs)->phy.reg_pma + (reg))
 #define phy_pma_readl(ufs, reg)	\
 	readl((ufs)->phy.reg_pma + (reg))
@@ -100,6 +111,27 @@ struct exynos_ufs_soc *exynos_ufs_get_drv_data(struct device *dev)
 	return ((struct ufs_hba_variant *)match->data)->vs_data;
 }
 
+static void exynos_ufs_ctrl_clk(struct exynos_ufs *ufs, bool en)
+{
+	u32 reg = hci_readl(ufs, HCI_FORCE_HCS);
+
+	if (en)
+		hci_writel(ufs, reg | CLK_STOP_CTRL_EN_ALL, HCI_FORCE_HCS);
+	else
+		hci_writel(ufs, reg & ~CLK_STOP_CTRL_EN_ALL, HCI_FORCE_HCS);
+}
+
+static void exynos_ufs_gate_clk(struct exynos_ufs *ufs, bool en)
+{
+
+	u32 reg = hci_readl(ufs, HCI_CLKSTOP_CTRL);
+
+	if (en)
+		hci_writel(ufs, reg | CLK_STOP_ALL, HCI_CLKSTOP_CTRL);
+	else
+		hci_writel(ufs, reg & ~CLK_STOP_ALL, HCI_CLKSTOP_CTRL);
+}
+
 static void exynos_ufs_set_pclk(struct exynos_ufs *ufs, u32 div)
 {
 	u32 pclk_ctrl;
@@ -112,7 +144,42 @@ static void exynos_ufs_set_pclk(struct exynos_ufs *ufs, u32 div)
 	hci_writel(ufs, pclk_ctrl, HCI_UNIPRO_APB_CLK_CTRL);
 }
 
-static long exynos_ufs_calc_time_counter(struct exynos_ufs *ufs, long period)
+static void exynos_ufs_set_mclk(struct exynos_ufs *ufs)
+{
+	ufs->mclk_rate = clk_get_rate(ufs->clk_unipro);
+}
+
+static void exynos_ufs_set_pwm_clk_div(struct exynos_ufs *ufs)
+{
+	struct ufs_hba *hba = ufs->hba;
+	const int div = 30, mult = 20;
+	const unsigned long pwm_min = 3 * 1000 * 1000;
+	const unsigned long pwm_max = 9 * 1000 * 1000;
+	long clk_period;
+	const int divs[] = {32, 16, 8, 4};
+	unsigned long _clk, clk = 0;
+	int i = 0, clk_idx = -1;
+
+	clk_period = UNIPRO_PCLK_PERIOD(ufs);
+
+	for (i = 0; i < ARRAY_SIZE(divs); i++) {
+		_clk = NSEC_PER_SEC * mult / (clk_period * divs[i] * div);
+		if (_clk >= pwm_min && _clk <= pwm_max) {
+			if (_clk > clk) {
+				clk_idx = i;
+				clk = _clk;
+			}
+		}
+	}
+
+	if (clk_idx >= 0)
+		ufshcd_dme_set(hba, UIC_ARG_MIB(CMN_PWM_CMN_CTRL),
+				clk_idx & PWM_CMN_CTRL_MASK);
+	else
+		dev_err(ufs->dev, "not dicided pwm clock divider\n");
+}
+
+static long exynos_ufs_calc_time_cntr(struct exynos_ufs *ufs, long period)
 {
 	const int precise = 10;
 	long pclk_rate = ufs->pclk_rate;
@@ -128,13 +195,30 @@ static void exynos_ufs_compute_phy_time_v(struct exynos_ufs *ufs,
 					struct phy_tm_parm *tm_parm)
 {
 	tm_parm->tx_linereset_p =
-		exynos_ufs_calc_time_counter(ufs, TX_DIF_P_NSEC) / (1 << 12);
+		exynos_ufs_calc_time_cntr(ufs, TX_DIF_P_NSEC);
 	tm_parm->tx_linereset_n =
-		exynos_ufs_calc_time_counter(ufs, TX_DIF_N_NSEC) / (1 << 10);
+		exynos_ufs_calc_time_cntr(ufs, TX_DIF_N_NSEC);
+	tm_parm->tx_high_z_cnt =
+		exynos_ufs_calc_time_cntr(ufs, TX_HIGH_Z_CNT_NSEC);
+	tm_parm->tx_base_n_val =
+		exynos_ufs_calc_time_cntr(ufs, TX_BASE_UNIT_NSEC);
+	tm_parm->tx_gran_n_val =
+		exynos_ufs_calc_time_cntr(ufs, TX_GRAN_UNIT_NSEC);
+	tm_parm->tx_sleep_cnt =
+		exynos_ufs_calc_time_cntr(ufs, TX_SLEEP_CNT);
+
 	tm_parm->rx_linereset =
-		exynos_ufs_calc_time_counter(ufs, RX_DIF_P_NSEC) / (1 << 12);
+		exynos_ufs_calc_time_cntr(ufs, RX_DIF_P_NSEC);
 	tm_parm->rx_hibern8_wait =
-		exynos_ufs_calc_time_counter(ufs, RX_HIBERN8_WAIT_NSEC);
+		exynos_ufs_calc_time_cntr(ufs, RX_HIBERN8_WAIT_NSEC);
+	tm_parm->rx_base_n_val =
+		exynos_ufs_calc_time_cntr(ufs, RX_BASE_UNIT_NSEC);
+	tm_parm->rx_gran_n_val =
+		exynos_ufs_calc_time_cntr(ufs, RX_GRAN_UNIT_NSEC);
+	tm_parm->rx_sleep_cnt =
+		exynos_ufs_calc_time_cntr(ufs, RX_SLEEP_CNT);
+	tm_parm->rx_stall_cnt =
+		exynos_ufs_calc_time_cntr(ufs, RX_STALL_CNT);
 }
 
 static void exynos_ufs_config_phy_time_v(struct exynos_ufs *ufs)
@@ -145,30 +229,74 @@ static void exynos_ufs_config_phy_time_v(struct exynos_ufs *ufs)
 
 	exynos_ufs_compute_phy_time_v(ufs, &tm_parm);
 
+	exynos_ufs_set_pwm_clk_div(ufs);
+
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), TRUE);
 
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME), HIBERN8_TIME);
-
 	for_each_ufs_lane(ufs, i) {
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_FILLER_ENABLE, i), 0x2);
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_LINERESETVALUE, i),
-				tm_parm.rx_linereset);
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HIBERN8_WAIT_VAL_BIT_20_16, i),
-				(tm_parm.rx_hibern8_wait >> 16) & 0x1F);
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HIBERN8_WAIT_VAL_BIT_15_08, i),
-				(tm_parm.rx_hibern8_wait >> 8) & 0xFF);
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HIBERN8_WAIT_VAL_BIT_07_00, i),
-				(tm_parm.rx_hibern8_wait) & 0xFF);
-		/* Sync Pattern Masking Period [15:8] */
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x321, i), 0x40);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_FILLER_ENABLE, i),
+				RX_FILLER_ENABLE);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_LINERESET_VAL, i),
+				RX_LINERESET(tm_parm.rx_linereset));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_BASE_NVAL_07_00, i),
+				RX_BASE_NVAL_L(tm_parm.rx_base_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_BASE_NVAL_15_08, i),
+				RX_BASE_NVAL_H(tm_parm.rx_base_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_GRAN_NVAL_07_00, i),
+				RX_GRAN_NVAL_L(tm_parm.rx_gran_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_GRAN_NVAL_10_08, i),
+				RX_GRAN_NVAL_H(tm_parm.rx_gran_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_OV_SLEEP_CNT_TIMER, i),
+				RX_OV_SLEEP_CNT(tm_parm.rx_sleep_cnt));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_OV_STALL_CNT_TIMER, i),
+				RX_OV_STALL_CNT(tm_parm.rx_stall_cnt));
 	}
 
 	for_each_ufs_lane(ufs, i) {
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_LINERESETNVALUE, i),
-				tm_parm.tx_linereset_n);
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_LINERESETPVALUE, i),
-				tm_parm.tx_linereset_p);
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_OV_SLEEP_CNT_TIMER, i), 0x82);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_LINERESET_P_VAL, i),
+				TX_LINERESET_P(tm_parm.tx_linereset_p));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_HIGH_Z_CNT_07_00, i),
+				TX_HIGH_Z_CNT_L(tm_parm.tx_high_z_cnt));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_HIGH_Z_CNT_11_08, i),
+				TX_HIGH_Z_CNT_H(tm_parm.tx_high_z_cnt));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_BASE_NVAL_07_00, i),
+				TX_BASE_NVAL_L(tm_parm.tx_base_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_BASE_NVAL_15_08, i),
+				TX_BASE_NVAL_H(tm_parm.tx_base_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_GRAN_NVAL_07_00, i),
+				TX_GRAN_NVAL_L(tm_parm.tx_gran_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_GRAN_NVAL_10_08, i),
+				TX_GRAN_NVAL_H(tm_parm.tx_gran_n_val));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_OV_SLEEP_CNT_TIMER, i),
+				TX_OV_H8_ENTER_EN |
+				TX_OV_SLEEP_CNT(tm_parm.tx_sleep_cnt));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_MIN_ACTIVATE_TIME, i),
+				0xA);
+	}
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), FALSE);
+}
+
+static void exynos_ufs_config_phy_cap_attr(struct exynos_ufs *ufs)
+{
+	struct ufs_hba *hba = ufs->hba;
+	int i;
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), TRUE);
+
+	for_each_ufs_lane(ufs, i) {
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HS_G1_SYNC_LENGTH_CAP, i),
+				SYNC_RANGE_COARSE | SYNC_LEN(0xf));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HS_G2_SYNC_LENGTH_CAP, i),
+				SYNC_RANGE_COARSE | SYNC_LEN(0xf));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HS_G3_SYNC_LENGTH_CAP, i),
+				SYNC_RANGE_COARSE | SYNC_LEN(0xf));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HS_G1_PREP_LENGTH_CAP, i),
+				PREP_LEN(0xf));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HS_G2_PREP_LENGTH_CAP, i),
+				PREP_LEN(0xf));
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RX_HS_G3_PREP_LENGTH_CAP, i),
+				PREP_LEN(0xf));
 	}
 
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), FALSE);
@@ -180,7 +308,6 @@ static void exynos_ufs_establish_connt(struct exynos_ufs *ufs)
 
 	/* allow cport attributes to be set */
 	ufshcd_dme_set(hba, UIC_ARG_MIB(T_CONNECTIONSTATE), CPORT_IDLE);
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(T_CONNECTIONSTATE), CPORT_IDLE);
 
 	/* local */
 	ufshcd_dme_set(hba, UIC_ARG_MIB(N_DEVICEID), DEV_ID);
@@ -190,26 +317,19 @@ static void exynos_ufs_establish_connt(struct exynos_ufs *ufs)
 	ufshcd_dme_set(hba, UIC_ARG_MIB(T_CPORTFLAGS), CPORT_DEF_FLAGS);
 	ufshcd_dme_set(hba, UIC_ARG_MIB(T_TRAFFICCLASS), TRAFFIC_CLASS);
 	ufshcd_dme_set(hba, UIC_ARG_MIB(T_CONNECTIONSTATE), CPORT_CONNECTED);
-
-	/* peer */
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(N_DEVICEID), PEER_DEV_ID);
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(N_DEVICEID_VALID), TRUE);
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(T_PEERDEVICEID), DEV_ID);
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(T_PEERCPORTID), PEER_CPORT_ID);
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(T_CPORTFLAGS), CPORT_DEF_FLAGS);
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(T_TRAFFICCLASS), TRAFFIC_CLASS);
-	ufshcd_dme_peer_set(hba, UIC_ARG_MIB(T_CONNECTIONSTATE),
-			CPORT_CONNECTED);
 }
 
 static void exynos_ufs_config_smu(struct exynos_ufs *ufs)
 {
 	u32 reg;
 
+	reg = ufsp_readl(ufs, UFSPRSECURITY);
+	ufsp_writel(ufs, reg | NSSMU, UFSPRSECURITY);
+
 	ufsp_writel(ufs, 0x0, UFSPSBEGIN0);
 	ufsp_writel(ufs, 0xffffffff, UFSPSEND0);
-	reg = ufsp_readl(ufs, UFSPSCTRL0);
-	ufsp_writel(ufs,  reg | 0xf1, UFSPSCTRL0);
+	ufsp_writel(ufs, 0xff, UFSPSLUN0);
+	ufsp_writel(ufs, 0xf1, UFSPSCTRL0);
 }
 
 static bool exynos_ufs_wait_pll_lock(struct exynos_ufs *ufs)
@@ -254,61 +374,60 @@ static inline bool __match_mode_by_cfg(struct uic_pwr_mode *pmd, int mode)
 	_g = pmd->gear;
 	_l = pmd->lane;
 
-	if (mode == PMD_ALL) {
+	if (mode == PMD_ALL)
 		match = true;
-	} else if (mode == PMD_HS && IS_PWR_MODE_HS(_m)) {
+	else if (IS_PWR_MODE_HS(_m) && mode == PMD_HS)
 		match = true;
-	} else if (mode == PMD_PWM && IS_PWR_MODE_PWM(_m)) {
+	else if (IS_PWR_MODE_PWM(_m) && mode == PMD_PWM)
 		match = true;
-	} else if (mode & PMD_HS_G1_L1) {
-		if (IS_PWR_MODE_HS(_m) && _g == 1 && _l == 1)
+	else if (IS_PWR_MODE_HS(_m) && _g == 1 && _l == 1
+			&& mode & PMD_HS_G1_L1)
 			match = true;
-	} else if (mode & PMD_HS_G1_L2) {
-		if (IS_PWR_MODE_HS(_m) && _g == 1 && _l == 2)
+	else if (IS_PWR_MODE_HS(_m) && _g == 1 && _l == 2
+			&& mode & PMD_HS_G1_L2)
 			match = true;
-	} else if (mode & PMD_HS_G2_L1) {
-		if (IS_PWR_MODE_HS(_m) && _g == 2 && _l == 1)
+	else if (IS_PWR_MODE_HS(_m) && _g == 2 && _l == 1
+			&& mode & PMD_HS_G2_L1)
 			match = true;
-	} else if (mode & PMD_HS_G2_L2) {
-		if (IS_PWR_MODE_HS(_m) && _g == 2 && _l == 2)
+	else if (IS_PWR_MODE_HS(_m) && _g == 2 && _l == 2
+			&& mode & PMD_HS_G2_L2)
 			match = true;
-	} else if (mode & PMD_HS_G3_L1) {
-		if (IS_PWR_MODE_HS(_m) && _g == 3 && _l == 1)
+	else if (IS_PWR_MODE_HS(_m) && _g == 3 && _l == 1
+			&& mode & PMD_HS_G3_L1)
 			match = true;
-	} else if (mode & PMD_HS_G3_L2) {
-		if (IS_PWR_MODE_HS(_m) && _g == 3 && _l == 2)
+	else if (IS_PWR_MODE_HS(_m) && _g == 3 && _l == 2
+			&& mode & PMD_HS_G3_L2)
 			match = true;
-	} else if (mode & PMD_PWM_G1_L1) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 1 && _l == 1)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 1 && _l == 1
+			&& mode & PMD_PWM_G1_L1)
 			match = true;
-	} else if (mode & PMD_PWM_G1_L2) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 1 && _l == 2)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 1 && _l == 2
+			&& mode & PMD_PWM_G1_L2)
 			match = true;
-	} else if (mode & PMD_PWM_G2_L1) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 2 && _l == 1)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 2 && _l == 1
+			&& mode & PMD_PWM_G2_L1)
 			match = true;
-	} else if (mode & PMD_PWM_G2_L2) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 2 && _l == 2)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 2 && _l == 2
+			&& mode & PMD_PWM_G2_L2)
 			match = true;
-	} else if (mode & PMD_PWM_G3_L1) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 3 && _l == 1)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 3 && _l == 1
+			&& mode & PMD_PWM_G3_L1)
 			match = true;
-	} else if (mode & PMD_PWM_G3_L2) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 3 && _l == 2)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 3 && _l == 2
+			&& mode & PMD_PWM_G3_L2)
 			match = true;
-	} else if (mode & PMD_PWM_G4_L1) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 4 && _l == 1)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 4 && _l == 1
+			&& mode & PMD_PWM_G4_L1)
 			match = true;
-	} else if (mode & PMD_PWM_G4_L2) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 4 && _l == 2)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 4 && _l == 2
+			&& mode & PMD_PWM_G4_L2)
 			match = true;
-	} else if (mode & PMD_PWM_G5_L1) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 5 && _l == 1)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 5 && _l == 1
+			&& mode & PMD_PWM_G5_L1)
 			match = true;
-	} else if (mode & PMD_PWM_G5_L2) {
-		if (IS_PWR_MODE_PWM(_m) && _g == 5 && _l == 2)
+	else if (IS_PWR_MODE_PWM(_m) && _g == 5 && _l == 2
+			&& mode & PMD_PWM_G5_L2)
 			match = true;
-	}
 
 	return match;
 }
@@ -330,6 +449,8 @@ static void exynos_ufs_config_phy(struct exynos_ufs *ufs,
 
 			switch (cfg->lyr) {
 			case PHY_PCS_COMN:
+			case UNIPRO_STD_MIB:
+			case UNIPRO_DBG_MIB:
 				if (i == 0)
 					ufshcd_dme_set(hba, UIC_ARG_MIB(cfg->addr), cfg->val);
 				break;
@@ -338,11 +459,13 @@ static void exynos_ufs_config_phy(struct exynos_ufs *ufs,
 				break;
 			case PHY_PMA_COMN:
 				if (i == 0)
-					phy_pma_writel(ufs, PHY_PMA_COMN_ADDR(cfg->addr), cfg->val);
+					phy_pma_writel(ufs, cfg->val, PHY_PMA_COMN_ADDR(cfg->addr));
 				break;
 			case PHY_PMA_TRSV:
-				phy_pma_writel(ufs, PHY_PMA_TRSV_ADDR(cfg->addr, i), cfg->val);
+				phy_pma_writel(ufs, cfg->val, PHY_PMA_TRSV_ADDR(cfg->addr, i));
 				break;
+			case UNIPRO_DBG_APB:
+				unipro_writel(ufs, cfg->val, cfg->addr);
 			}
 		}
 	}
@@ -429,9 +552,8 @@ static void exynos_ufs_config_unipro(struct exynos_ufs *ufs)
 	unipro_writel(ufs, 0x1, UNIP_DME_PACP_CNFBIT);
 
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_CLK_PERIOD),
-		UNIPRO_PCLK_PERIOD(ufs));
+		UNIPRO_MCLK_PERIOD(ufs));
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTRAILINGCLOCKS), TXTRAILINGCLOCKS);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), TACTIVATE_10_USEC);
 }
 
 static void exynos_ufs_config_intr(struct exynos_ufs *ufs, u8 index, u32 errs)
@@ -464,7 +586,9 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 
 	/* hci */
 	exynos_ufs_config_intr(ufs, DEFS_ERR_DL, DFES_DEF_DL_ERRS);
-	exynos_ufs_set_pclk(ufs, 0U);
+	exynos_ufs_set_pclk(ufs, 1U);
+	exynos_ufs_set_mclk(ufs);
+	exynos_ufs_ctrl_clk(ufs, true);
 
 	/* mphy */
 	exynos_ufs_phy_init(ufs);
@@ -474,28 +598,24 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 
 	/* mphy */
 	exynos_ufs_config_phy_time_v(ufs);
+	exynos_ufs_config_phy_cap_attr(ufs);
 
 	return 0;
 }
 
 static void exynos_ufs_fit_aggr_timeout(struct exynos_ufs *ufs)
 {
-	const u8 cnt_div_val = 0;
-	u32 cnt_val_40us;
+	const u8 cnt_div_val = 40;
+	u32 cnt_val;
 
-	hci_writel(ufs, cnt_div_val, HCI_TO_CNT_DIV_VAL);
-	cnt_val_40us =
-		exynos_ufs_calc_time_counter(ufs, IATOVAL_40US_NSEC >> cnt_div_val);
-	hci_writel(ufs, cnt_val_40us & 0xFFFF, HCI_40US_TO_CNT_VAL);
+	cnt_val = exynos_ufs_calc_time_cntr(ufs, IATOVAL_NSEC / cnt_div_val);
+	hci_writel(ufs, cnt_val & CNT_VAL_1US_MASK, HCI_1US_TO_CNT_VAL);
 }
 
 static int exynos_ufs_post_link(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 
-	exynos_ufs_config_intr(ufs, DEFS_ERR_DL,
-			DFES_DEF_DL_ERRS |
-			UIC_DATA_LINK_LAYER_ERROR_FCX_PRO_TIMER_EXP);
 	exynos_ufs_establish_connt(ufs);
 	exynos_ufs_fit_aggr_timeout(ufs);
 
@@ -504,7 +624,7 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 			HCI_TXPRDT_ENTRY_SIZE);
 	hci_writel(ufs, PRDT_SET_SIZE(12), HCI_RXPRDT_ENTRY_SIZE);
 	hci_writel(ufs, 0xFFFFFFFF, HCI_UTRL_NEXUS_TYPE);
-	hci_writel(ufs, 0xFFFFFFFF, HCI_UMTRL_NEXUS_TYPE);
+	hci_writel(ufs, 0xFFFFFFFF, HCI_UTMRL_NEXUS_TYPE);
 	hci_writel(ufs, 0x15, HCI_AXIDMA_RWDATA_BURST_LEN);
 
 	return 0;
@@ -515,10 +635,10 @@ static void exynos_ufs_host_reset(struct ufs_hba *hba)
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	unsigned long timeout = jiffies + msecs_to_jiffies(1);
 
-	hci_writel(ufs, 0x1, HCI_SW_RST);
+	hci_writel(ufs, UFS_SW_RST_MASK, HCI_SW_RST);
 
 	do {
-		if (!(hci_readl(ufs, HCI_SW_RST) & 0x1))
+		if (!(hci_readl(ufs, HCI_SW_RST) & UFS_SW_RST_MASK))
 			return;
 	} while (time_before(jiffies, timeout));
 
@@ -533,6 +653,34 @@ static void exynos_ufs_dev_hw_reset(struct ufs_hba *hba)
 	hci_writel(ufs, 0 << 0, HCI_GPIO_OUT);
 	udelay(5);
 	hci_writel(ufs, 1 << 0, HCI_GPIO_OUT);
+}
+
+static void exynos_ufs_pre_hibern8(struct ufs_hba *hba, u8 enter)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+
+	if (!enter)
+		exynos_ufs_gate_clk(ufs, false);
+}
+
+static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+
+	if (!enter) {
+		struct uic_pwr_mode *act_pmd = &ufs->act_pmd_parm;
+		u32 mode;
+
+		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_PWRMODE), &mode);
+		if (mode != (act_pmd->mode << 4 | act_pmd->mode)) {
+			dev_warn(hba->dev, "%s: power mode change\n", __func__);
+			ufshcd_config_pwr_mode(hba, &hba->max_pwr_info.info);
+		}
+
+		exynos_ufs_establish_connt(ufs);
+	} else {
+		exynos_ufs_gate_clk(ufs, true);
+	}
 }
 
 static int exynos_ufs_link_startup_notify(struct ufs_hba *hba, bool notify)
@@ -570,6 +718,21 @@ static int exynos_ufs_pwr_mode_change_notify(struct ufs_hba *hba, bool notify,
 	}
 
 	return 0;
+}
+
+static void exynos_ufs_hibern8_notify(struct ufs_hba *hba,
+				u8 enter, bool notify)
+{
+	switch (notify) {
+	case PRE_CHANGE:
+		exynos_ufs_pre_hibern8(hba, enter);
+		break;
+	case POST_CHANGE:
+		exynos_ufs_post_hibern8(hba, enter);
+		break;
+	default:
+		break;
+	}
 }
 
 static int __exynos_ufs_clk_set_parent(struct device *dev, const char *c, const char *p)
@@ -632,18 +795,32 @@ static int exynos_ufs_clk_init(struct device *dev, struct exynos_ufs *ufs)
 		dev_info(dev, "unipro clock: %ld Hz \n", clk_get_rate(ufs->clk_unipro));
 	}
 
-	ufs->clk_refclk = devm_clk_get(dev, "sclk_refclk");
-	if (IS_ERR(ufs->clk_refclk)) {
-		dev_err(dev, "failed to get sclk_refclk clock\n");
+	ufs->clk_refclk_1 = devm_clk_get(dev, "sclk_refclk_1");
+	if (IS_ERR(ufs->clk_refclk_1)) {
+		dev_err(dev, "failed to get sclk_refclk_1 clock\n");
 	} else {
-		ret = clk_prepare_enable(ufs->clk_refclk);
+		ret = clk_prepare_enable(ufs->clk_refclk_1);
 		if (ret) {
-			dev_err(dev, "failed to enable refclk clock\n");
+			dev_err(dev, "failed to enable refclk_1 clock\n");
 			goto err_clk_unipro;
 		}
 
-		dev_info(dev, "refclk clock: %ld Hz \n", clk_get_rate(ufs->clk_refclk));
+		dev_info(dev, "refclk_1 clock: %ld Hz \n", clk_get_rate(ufs->clk_refclk_1));
 	}
+
+	ufs->clk_refclk_2 = devm_clk_get(dev, "sclk_refclk_2");
+	if (IS_ERR(ufs->clk_refclk_2)) {
+		dev_err(dev, "failed to get sclk_refclk_2 clock\n");
+	} else {
+		ret = clk_prepare_enable(ufs->clk_refclk_2);
+		if (ret) {
+			dev_err(dev, "failed to enable refclk_2 clock\n");
+			goto err_clk_unipro;
+		}
+
+		dev_info(dev, "refclk_2 clock: %ld Hz \n", clk_get_rate(ufs->clk_refclk_2));
+	}
+
 
 	for (i = 0; i < ARRAY_SIZE(phy_symb_clks); i++) {
 		ufs->clk_phy_symb[i] = devm_clk_get(dev, phy_symb_clks[i]);
@@ -668,8 +845,8 @@ err_clk_refclk:
 			clk_disable_unprepare(ufs->clk_phy_symb[i]);
 	}
 
-	if (!IS_ERR(ufs->clk_refclk))
-		clk_disable_unprepare(ufs->clk_refclk);
+	if (!IS_ERR(ufs->clk_refclk_1))
+		clk_disable_unprepare(ufs->clk_refclk_1);
 
 err_clk_unipro:
 	if (!IS_ERR(ufs->clk_unipro))
@@ -811,12 +988,12 @@ static int exynos_ufs_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* ufsp */
-	exynos_ufs_config_smu(ufs);
-
 	ufs->dev = dev;
 	dev->platform_data = ufs;
 	dev->dma_mask = &exynos_ufs_dma_mask;
+
+	/* ufsp */
+	exynos_ufs_config_smu(ufs);
 
 	return ufshcd_pltfrm_init(pdev, match->data);
 }
@@ -828,8 +1005,8 @@ static int exynos_ufs_remove(struct platform_device *pdev)
 
 	ufshcd_pltfrm_exit(pdev);
 
-	if (!IS_ERR(ufs->clk_refclk))
-		clk_disable_unprepare(ufs->clk_refclk);
+	if (!IS_ERR(ufs->clk_refclk_1))
+		clk_disable_unprepare(ufs->clk_refclk_1);
 
 
 	for (i = 0; i < ARRAY_SIZE(phy_symb_clks); i++) {
@@ -888,10 +1065,12 @@ static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 	.host_reset = exynos_ufs_host_reset,
 	.link_startup_notify = exynos_ufs_link_startup_notify,
 	.pwr_change_notify = exynos_ufs_pwr_mode_change_notify,
+	.hibern8_notify = exynos_ufs_hibern8_notify,
 };
 
 static const struct ufs_phy_cfg init_cfg[] = {
-	{0x402, 0x01, PMD_ALL, PHY_PCS_COMN},
+	{PA_DBG_OPTION_SUITE, 0x20103, PMD_ALL, UNIPRO_DBG_MIB},
+	{PA_DBG_AUTOMODE_THLD, 0x222E, PMD_ALL, UNIPRO_DBG_MIB},
 	{0x00f, 0xfa, PMD_ALL, PHY_PMA_COMN},
 	{0x010, 0x82, PMD_ALL, PHY_PMA_COMN},
 	{0x011, 0x1e, PMD_ALL, PHY_PMA_COMN},
@@ -901,87 +1080,122 @@ static const struct ufs_phy_cfg init_cfg[] = {
 	{0x037, 0x40, PMD_ALL, PHY_PMA_TRSV},
 	{0x03b, 0x83, PMD_ALL, PHY_PMA_TRSV},
 	{0x042, 0x88, PMD_ALL, PHY_PMA_TRSV},
-	{0x043, 0x94, PMD_ALL, PHY_PMA_TRSV},
+	{0x043, 0xa6, PMD_ALL, PHY_PMA_TRSV},
 	{0x048, 0x74, PMD_ALL, PHY_PMA_TRSV},
-	{0x04d, 0x81, PMD_ALL, PHY_PMA_TRSV},
 	{0x04c, 0x5b, PMD_ALL, PHY_PMA_TRSV},
+	{0x04d, 0x83, PMD_ALL, PHY_PMA_TRSV},
+	{0x05c, 0x14, PMD_ALL, PHY_PMA_TRSV},
 	{},
 };
 
 /* Calibration for PWM mode */
 static const struct ufs_phy_cfg calib_of_pwm[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
-	{0x376, 0x00, PMD_ALL, PHY_PCS_RXTX},
+	{0x376, 0x00, PMD_PWM, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
-	{0x04d, 0x03, PMD_ALL, PHY_PMA_COMN},
+	{0x04d, 0x03, PMD_PWM, PHY_PMA_COMN},
+	{PA_DBG_MODE, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
+	{PA_SAVECONFIGTIME, 0xbb8, PMD_ALL, UNIPRO_STD_MIB},
+	{PA_DBG_MODE, 0x0, PMD_ALL, UNIPRO_DBG_MIB},
+	{UNIP_DBG_FORCE_DME_CTRL_STATE, 0x22, PMD_ALL, UNIPRO_DBG_APB},
 	{},
 };
 
 /* Calibration for HS mode series A */
 static const struct ufs_phy_cfg calib_of_hs_rate_a[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
-	{0x337, 0x31, PMD_ALL, PHY_PCS_RXTX},
-	{0x363, 0x00, PMD_ALL, PHY_PCS_RXTX},
+	{0x362, 0xff, PMD_HS, PHY_PCS_RXTX},
+	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
+	{0x321, 0x40, PMD_HS, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
-	{0x00f, 0xfa, PMD_ALL, PHY_PMA_COMN},
-	{0x010, 0x82, PMD_ALL, PHY_PMA_COMN},
-	{0x011, 0x1e, PMD_ALL, PHY_PMA_COMN},
-	{0x017, 0x84, PMD_ALL, PHY_PMA_COMN},
-	{0x036, 0x32, PMD_ALL, PHY_PMA_TRSV},
-	{0x037, 0x40, PMD_ALL, PHY_PMA_TRSV},
-	{0x042, 0x88, PMD_ALL, PHY_PMA_TRSV},
-	{0x043, 0xa6, PMD_ALL, PHY_PMA_TRSV},
-	{0x048, 0x74, PMD_ALL, PHY_PMA_TRSV},
+	{0x00f, 0xfa, PMD_HS, PHY_PMA_COMN},
+	{0x010, 0x82, PMD_HS, PHY_PMA_COMN},
+	{0x011, 0x1e, PMD_HS, PHY_PMA_COMN},
+	/* Setting order: 1st(0x16), 2nd(0x15) */
+	{0x016, 0xff, PMD_HS, PHY_PMA_COMN},
+	{0x015, 0x80, PMD_HS, PHY_PMA_COMN},
+	{0x017, 0x84, PMD_HS, PHY_PMA_COMN},
+	{0x036, 0x32, PMD_HS, PHY_PMA_TRSV},
+	{0x037, 0x40, PMD_HS, PHY_PMA_TRSV},
+	{0x038, 0x3f, PMD_HS, PHY_PMA_TRSV},
+	{0x042, 0x88, PMD_HS, PHY_PMA_TRSV},
+	{0x043, 0xa6, PMD_HS, PHY_PMA_TRSV},
+	{0x048, 0x74, PMD_HS, PHY_PMA_TRSV},
 	{0x034, 0x35, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
 	{0x035, 0x5b, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
+	{PA_DBG_MODE, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
+	{PA_SAVECONFIGTIME, 0xbb8, PMD_ALL, UNIPRO_STD_MIB},
+	{PA_DBG_MODE, 0x0, PMD_ALL, UNIPRO_DBG_MIB},
+	{UNIP_DBG_FORCE_DME_CTRL_STATE, 0x22, PMD_ALL, UNIPRO_DBG_APB},
 	{},
 };
 
 /* Calibration for HS mode series B */
 static const struct ufs_phy_cfg calib_of_hs_rate_b[] = {
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
-	{0x337, 0x31, PMD_ALL, PHY_PCS_RXTX},
-	{0x363, 0x00, PMD_ALL, PHY_PCS_RXTX},
+	{0x362, 0xff, PMD_HS, PHY_PCS_RXTX},
+	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
+	{0x321, 0x35, PMD_HS, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
-	{0x00f, 0xfa, PMD_ALL, PHY_PMA_COMN},
-	{0x010, 0x82, PMD_ALL, PHY_PMA_COMN},
-	{0x011, 0x1e, PMD_ALL, PHY_PMA_COMN},
-	{0x017, 0x84, PMD_ALL, PHY_PMA_COMN},
-	{0x036, 0x32, PMD_ALL, PHY_PMA_TRSV},
-	{0x037, 0x40, PMD_ALL, PHY_PMA_TRSV},
-	{0x042, 0x88, PMD_ALL, PHY_PMA_TRSV},
-	{0x043, 0xa6, PMD_ALL, PHY_PMA_TRSV},
-	{0x048, 0x74, PMD_ALL, PHY_PMA_TRSV},
-	{0x034, 0x35, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
-	{0x035, 0x5b, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
+	{0x00f, 0xfa, PMD_HS, PHY_PMA_COMN},
+	{0x010, 0x82, PMD_HS, PHY_PMA_COMN},
+	{0x011, 0x1e, PMD_HS, PHY_PMA_COMN},
+	/* Setting order: 1st(0x16), 2nd(0x15) */
+	{0x016, 0xff, PMD_HS, PHY_PMA_COMN},
+	{0x015, 0x80, PMD_HS, PHY_PMA_COMN},
+	{0x017, 0x84, PMD_HS, PHY_PMA_COMN},
+	{0x036, 0x32, PMD_HS, PHY_PMA_TRSV},
+	{0x037, 0x40, PMD_HS, PHY_PMA_TRSV},
+	{0x038, 0x3f, PMD_HS, PHY_PMA_TRSV},
+	{0x042, 0xbb, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
+	{0x043, 0xa6, PMD_HS, PHY_PMA_TRSV},
+	{0x048, 0x74, PMD_HS, PHY_PMA_TRSV},
+	{0x034, 0x36, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
+	{0x035, 0x5c, PMD_HS_G2_L1 | PMD_HS_G2_L2, PHY_PMA_TRSV},
+	{PA_DBG_MODE, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
+	{PA_SAVECONFIGTIME, 0xbb8, PMD_ALL, UNIPRO_STD_MIB},
+	{PA_DBG_MODE, 0x0, PMD_ALL, UNIPRO_DBG_MIB},
+	{UNIP_DBG_FORCE_DME_CTRL_STATE, 0x22, PMD_ALL, UNIPRO_DBG_APB},
 	{},
 };
 
 /* Calibration for PWM mode atfer PMC */
 static const struct ufs_phy_cfg post_calib_of_pwm[] = {
+	{PA_DBG_RXPHY_CFGUPDT, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
-	{0x363, 0x00, PMD_ALL, PHY_PCS_RXTX},
+	{0x363, 0x00, PMD_PWM, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
 	{},
 };
 
 /* Calibration for HS mode series A atfer PMC */
 static const struct ufs_phy_cfg post_calib_of_hs_rate_a[] = {
-	{0x04d, 0x83, PMD_ALL, PHY_PMA_TRSV},
+	{PA_DBG_RXPHY_CFGUPDT, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
+	{0x015, 0x00, PMD_HS, PHY_PMA_COMN},
+	{0x04d, 0x83, PMD_HS, PHY_PMA_TRSV},
 	{0x41a, 0x00, PMD_HS_G3_L1 | PMD_HS_G3_L2, PHY_PCS_COMN},
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
-	{0x363, 0x00, PMD_ALL, PHY_PCS_RXTX},
+	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
+	{PA_DBG_MODE, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
+	{PA_CONNECTEDTXDATALANES, 1, PMD_HS_G1_L1 | PMD_HS_G2_L1 | PMD_HS_G3_L1, UNIPRO_STD_MIB},
+	{PA_DBG_MODE, 0x0, PMD_ALL, UNIPRO_DBG_MIB},
 	{},
 };
 
 /* Calibration for HS mode series B after PMC*/
 static const struct ufs_phy_cfg post_calib_of_hs_rate_b[] = {
-	{0x04d, 0x83, PMD_ALL, PHY_PMA_TRSV},
+	{PA_DBG_RXPHY_CFGUPDT, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
+	{0x015, 0x00, PMD_HS, PHY_PMA_COMN},
+	{0x04d, 0x83, PMD_HS, PHY_PMA_TRSV},
 	{0x41a, 0x00, PMD_HS_G3_L1 | PMD_HS_G3_L2, PHY_PCS_COMN},
 	{PA_DBG_OV_TM, true, PMD_ALL, PHY_PCS_COMN},
-	{0x363, 0x00, PMD_ALL, PHY_PCS_RXTX},
+	{0x363, 0x00, PMD_HS, PHY_PCS_RXTX},
 	{PA_DBG_OV_TM, false, PMD_ALL, PHY_PCS_COMN},
+	{PA_DBG_MODE, 0x1, PMD_ALL, UNIPRO_DBG_MIB},
+	{PA_CONNECTEDTXDATALANES, 1, PMD_HS_G1_L1 | PMD_HS_G2_L1 | PMD_HS_G3_L1, UNIPRO_STD_MIB},
+	{PA_DBG_MODE, 0x0, PMD_ALL, UNIPRO_DBG_MIB},
+
 	{},
 };
 
@@ -998,7 +1212,8 @@ static const struct exynos_ufs_soc exynos_ufs_soc_data = {
 static const struct ufs_hba_variant exynos_ufs_drv_data = {
 	.ops		= &exynos_ufs_ops,
 	.quirks		= UFSHCI_QUIRK_BROKEN_DWORD_UTRD |
-			  UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR,
+			  UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR |
+			  UFSHCI_QUIRK_USE_OF_HCE,
 	.vs_data	= &exynos_ufs_soc_data,
 };
 

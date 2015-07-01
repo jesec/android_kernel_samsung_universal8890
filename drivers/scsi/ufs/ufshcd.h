@@ -281,6 +281,7 @@ struct ufs_hba_variant_ops {
 	int	(*pwr_change_notify)(struct ufs_hba *,
 					bool, struct ufs_pa_layer_attr *,
 					struct ufs_pa_layer_attr *);
+	void    (*hibern8_notify)(struct ufs_hba *, u8, bool);
 	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 };
@@ -412,7 +413,7 @@ struct ufs_hba {
 	int pm_op_in_progress;
 
 	struct ufshcd_lrb *lrb;
-	unsigned long lrb_in_use;
+	volatile unsigned long lrb_in_use;
 
 	unsigned long outstanding_tasks;
 	unsigned long outstanding_reqs;
@@ -492,6 +493,7 @@ struct ufs_hba {
 /* UFSHCI doesn't support DWORD size in UTRD */
 #define UFSHCI_QUIRK_BROKEN_DWORD_UTRD		BIT(0)
 #define UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR	BIT(1)
+#define UFSHCI_QUIRK_USE_OF_HCE			BIT(2)
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
@@ -563,6 +565,8 @@ extern int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u8 attr_set, u32 mib_val, u8 peer);
 extern int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u32 *mib_val, u8 peer);
+extern int ufshcd_config_pwr_mode(struct ufs_hba *hba,
+		struct ufs_pa_layer_attr *desired_pwr_mode);
 
 /* UIC command interfaces for DME primitives */
 #define DME_LOCAL	0
