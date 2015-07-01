@@ -31,6 +31,8 @@
 
 #include "exynos_thermal_common.h"
 
+unsigned long cpu_max_temp[2];
+
 struct exynos_thermal_zone {
 	enum thermal_device_mode mode;
 	struct thermal_zone_device *therm_dev;
@@ -270,6 +272,7 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 {
 	struct exynos_thermal_zone *th_zone = thermal->devdata;
 	void *data;
+	unsigned long max_temp;
 
 	if (!th_zone->sensor_conf) {
 		dev_err(&thermal->device,
@@ -283,9 +286,11 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 	*temp = *temp * MCELSIUS;
 
 	mutex_lock(&thermal_suspend_lock);
-	if (th_zone->sensor_conf->d_type == CLUSTER0 || th_zone->sensor_conf->d_type == CLUSTER1)
-		cpufreq_set_cur_temp(suspended, *temp / 1000);
-	else if (th_zone->sensor_conf->d_type == GPU)
+	if (th_zone->sensor_conf->d_type == CLUSTER0 || th_zone->sensor_conf->d_type == CLUSTER1) {
+		cpu_max_temp[th_zone->sensor_conf->d_type] = *temp;
+		max_temp = max(cpu_max_temp[CLUSTER0], cpu_max_temp[CLUSTER1]);
+		cpufreq_set_cur_temp(suspended, max_temp / 1000);
+	} else if (th_zone->sensor_conf->d_type == GPU)
 		gpufreq_set_cur_temp(suspended, *temp / 1000);
 	else if (th_zone->sensor_conf->d_type == ISP)
 		isp_set_cur_temp(suspended, *temp / 1000);
