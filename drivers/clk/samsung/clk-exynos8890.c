@@ -488,6 +488,8 @@ void __init exynos8890_clk_init(struct device_node *np)
 	void __iomem *reg_base;
 	int ret;
 
+	BUILD_BUG_ON(mscl_jpeg != CLK_GATE_SMFC);
+
 	if (np) {
 		reg_base = of_iomap(np, 0);
 		if (!reg_base)
