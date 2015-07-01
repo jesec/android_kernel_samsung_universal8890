@@ -380,6 +380,9 @@ struct uic_pwr_mode {
 	u8 gear;
 	u8 mode;
 	u8 hs_series;
+	bool termn;
+	u32 local_l2_timer[3];
+	u32 remote_l2_timer[3];
 };
 
 struct exynos_ufs {

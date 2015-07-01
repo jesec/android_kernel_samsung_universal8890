@@ -2613,14 +2613,17 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 		dev_err(hba->dev,
 			"%s: power mode change failed %d\n", __func__, ret);
 	} else {
-		if (hba->vops && hba->vops->pwr_change_notify)
-			hba->vops->pwr_change_notify(hba,
-				POST_CHANGE, NULL, pwr_mode);
-
+		if (hba->vops && hba->vops->pwr_change_notify) {
+			ret = hba->vops->pwr_change_notify(hba,
+					POST_CHANGE, NULL, pwr_mode);
+			if (ret)
+				goto out;
+		}
 		memcpy(&hba->pwr_info, pwr_mode,
 			sizeof(struct ufs_pa_layer_attr));
 	}
 
+out:
 	return ret;
 }
 
@@ -2635,14 +2638,17 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr final_params = { 0 };
 	int ret;
 
-	if (hba->vops && hba->vops->pwr_change_notify)
-		hba->vops->pwr_change_notify(hba,
-		     PRE_CHANGE, desired_pwr_mode, &final_params);
-	else
+	if (hba->vops && hba->vops->pwr_change_notify) {
+		ret = hba->vops->pwr_change_notify(hba,
+			PRE_CHANGE, desired_pwr_mode, &final_params);
+		if (ret)
+			goto out;
+	} else {
 		memcpy(&final_params, desired_pwr_mode, sizeof(final_params));
-
+	}
 	ret = ufshcd_change_power_mode(hba, &final_params);
 
+out:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ufshcd_config_pwr_mode);
@@ -4474,9 +4480,11 @@ retry:
 			__func__);
 	} else {
 		ret = ufshcd_config_pwr_mode(hba, &hba->max_pwr_info.info);
-		if (ret)
+		if (ret) {
 			dev_err(hba->dev, "%s: Failed setting power mode, err = %d\n",
 					__func__, ret);
+			goto out;
+		}
 	}
 
 	/*

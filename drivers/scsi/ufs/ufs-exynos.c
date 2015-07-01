@@ -574,7 +574,27 @@ static int exynos_ufs_pre_prep_pmc(struct ufs_hba *hba,
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	const struct exynos_ufs_soc *soc = to_phy_soc(ufs);
+	struct uic_pwr_mode *req_pmd = &ufs->req_pmd_parm;
 	struct uic_pwr_mode *act_pmd = &ufs->act_pmd_parm;
+
+	pwr_req->gear_rx
+		= act_pmd->gear= min_t(u8, pwr_max->gear_rx, req_pmd->gear);
+	pwr_req->gear_tx
+		= act_pmd->gear = min_t(u8, pwr_max->gear_tx, req_pmd->gear);
+	pwr_req->lane_rx
+		= act_pmd->lane = min_t(u8, pwr_max->lane_rx, req_pmd->lane);
+	pwr_req->lane_tx
+		= act_pmd->lane = min_t(u8, pwr_max->lane_tx, req_pmd->lane);
+	pwr_req->pwr_rx = act_pmd->mode = req_pmd->mode;
+	pwr_req->pwr_tx = act_pmd->mode = req_pmd->mode;
+	pwr_req->hs_rate = act_pmd->hs_series = req_pmd->hs_series;
+	act_pmd->local_l2_timer[0] = req_pmd->local_l2_timer[0];
+	act_pmd->local_l2_timer[1] = req_pmd->local_l2_timer[1];
+	act_pmd->local_l2_timer[2] = req_pmd->local_l2_timer[2];
+
+	act_pmd->remote_l2_timer[0] = req_pmd->remote_l2_timer[0];
+	act_pmd->remote_l2_timer[1] = req_pmd->remote_l2_timer[1];
+	act_pmd->remote_l2_timer[2] = req_pmd->remote_l2_timer[2];
 
 	if (!soc)
 		goto out;
@@ -609,6 +629,7 @@ static int exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	const struct exynos_ufs_soc *soc = to_phy_soc(ufs);
 	struct uic_pwr_mode *act_pmd = &ufs->act_pmd_parm;
+	int ret = 0;
 
 	if (!soc)
 		goto out;
@@ -627,17 +648,20 @@ static int exynos_ufs_post_prep_pmc(struct ufs_hba *hba,
 			break;
 		}
 
-		if (exynos_ufs_wait_pll_lock(ufs) &&
-				exynos_ufs_wait_cdr_lock(ufs))
-			goto out;
-
-		return -EPERM;
-
+		if (!(exynos_ufs_wait_pll_lock(ufs) &&
+		      exynos_ufs_wait_cdr_lock(ufs)))
+			ret = -EPERM;
 	} else if (IS_PWR_MODE_PWM(act_pmd->mode)) {
 		exynos_ufs_config_phy(ufs, soc->tbl_post_calib_of_pwm, act_pmd);
 	}
+
 out:
-	return 0;
+	dev_info(ufs->dev,
+		"Power mode change(%d): M(%d)G(%d)L(%d)HS-series(%d)\n",
+		 ret, act_pmd->mode, act_pmd->gear,
+		 act_pmd->lane, act_pmd->hs_series);
+
+	return ret;
 }
 
 static void exynos_ufs_set_nexus_t_xfer_req(struct ufs_hba *hba,
@@ -911,22 +935,24 @@ static int exynos_ufs_link_startup_notify(struct ufs_hba *hba, bool notify)
 	return ret;
 }
 
-static int exynos_ufs_pwr_mode_change_notify(struct ufs_hba *hba, bool notify,
+static int exynos_ufs_pwr_change_notify(struct ufs_hba *hba, bool notify,
 					struct ufs_pa_layer_attr *pwr_max,
 					struct ufs_pa_layer_attr *pwr_req)
 {
+	int ret = 0;
+
 	switch (notify) {
 	case PRE_CHANGE:
-		exynos_ufs_pre_prep_pmc(hba, pwr_max, pwr_req);
+		ret = exynos_ufs_pre_prep_pmc(hba, pwr_max, pwr_req);
 		break;
 	case POST_CHANGE:
-		exynos_ufs_post_prep_pmc(hba, pwr_max, pwr_req);
+		ret = exynos_ufs_post_prep_pmc(hba, NULL, pwr_req);
 		break;
 	default:
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 static void exynos_ufs_hibern8_notify(struct ufs_hba *hba,
@@ -1063,6 +1089,63 @@ err_0:
 	return ret;
 }
 
+static int exynos_ufs_get_pwr_mode(struct device_node *np,
+				struct exynos_ufs *ufs)
+{
+	struct uic_pwr_mode *pmd = &ufs->req_pmd_parm;
+	const char *str = NULL;
+
+	if (!of_property_read_string(np, "ufs,pmd-attr-mode", &str)) {
+		if (!strncmp(str, "FAST", sizeof("FAST")))
+			pmd->mode = FAST_MODE;
+		else if (!strncmp(str, "SLOW", sizeof("SLOW")))
+			pmd->mode = SLOW_MODE;
+		else if (!strncmp(str, "FAST_auto", sizeof("FAST_auto")))
+			pmd->mode = FASTAUTO_MODE;
+		else if (!strncmp(str, "SLOW_auto", sizeof("SLOW_auto")))
+			pmd->mode = SLOWAUTO_MODE;
+		else
+			pmd->mode = FAST_MODE;
+	} else {
+		pmd->mode = FAST_MODE;
+	}
+
+	if (of_property_read_u8(np, "ufs,pmd-attr-lane", &pmd->lane))
+		pmd->lane = 1;
+
+	if (of_property_read_u8(np, "ufs,pmd-attr-gear", &pmd->gear))
+		pmd->gear = 1;
+
+	if (IS_PWR_MODE_HS(pmd->mode)) {
+		if (!of_property_read_string(np, "ufs,pmd-attr-hs-series", &str)) {
+			if (!strncmp(str, "HS_rate_b", sizeof("HS_rate_b")))
+				pmd->hs_series = PA_HS_MODE_B;
+			else if (!strncmp(str, "HS_rate_a", sizeof("HS_rate_a")))
+				pmd->hs_series = PA_HS_MODE_A;
+			else
+				pmd->hs_series = PA_HS_MODE_A;
+		} else {
+			pmd->hs_series = PA_HS_MODE_A;
+		}
+	}
+
+	if (of_property_read_u32_array(
+		np, "ufs,pmd-local-l2-timer", pmd->local_l2_timer, 3)) {
+		pmd->local_l2_timer[0] = FC0PROTTIMEOUTVAL;
+		pmd->local_l2_timer[1] = TC0REPLAYTIMEOUTVAL;
+		pmd->local_l2_timer[2] = AFC0REQTIMEOUTVAL;
+	}
+
+	if (of_property_read_u32_array(
+		np, "ufs,pmd-remote-l2-timer", pmd->remote_l2_timer, 3)) {
+		pmd->remote_l2_timer[0] = FC0PROTTIMEOUTVAL;
+		pmd->remote_l2_timer[1] = TC0REPLAYTIMEOUTVAL;
+		pmd->remote_l2_timer[2] = AFC0REQTIMEOUTVAL;
+	}
+
+	return 0;
+}
+
 static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 {
 	struct device_node *np = dev->of_node;
@@ -1084,6 +1167,8 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 		dev_err(dev, "faild to get available pclk range\n");
 		goto out;
 	}
+
+	exynos_ufs_get_pwr_mode(np, ufs);
 
 	if (of_find_property(np, "ufs-opts-skip-connection-estab", NULL))
 		ufs->opts |= EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB;
@@ -1319,7 +1404,7 @@ static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 	.init = exynos_ufs_init,
 	.host_reset = exynos_ufs_host_reset,
 	.link_startup_notify = exynos_ufs_link_startup_notify,
-	.pwr_change_notify = exynos_ufs_pwr_mode_change_notify,
+	.pwr_change_notify = exynos_ufs_pwr_change_notify,
 	.set_nexus_t_xfer_req = exynos_ufs_set_nexus_t_xfer_req,
 	.set_nexus_t_task_mgmt = exynos_ufs_set_nexus_t_task_mgmt,
 	.hibern8_notify = exynos_ufs_hibern8_notify,
