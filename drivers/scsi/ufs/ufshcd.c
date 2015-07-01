@@ -2395,14 +2395,14 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	if (ret) {
 		dev_err(hba->dev,
-			"pwr ctrl cmd 0x%x with mode 0x%x uic error %d\n",
+			"pwr ctrl cmd 0x%x with mode 0x%x sent error %d\n",
 			cmd->command, cmd->argument3, ret);
 		goto out;
 	}
 	ret = ufshcd_wait_for_uic_cmd(hba, cmd);
 	if (ret) {
 		dev_err(hba->dev,
-			"pwr ctrl cmd 0x%x with mode 0x%x uic error %d\n",
+			"pwr ctrl cmd 0x%x with mode 0x%x done uic error %d\n",
 			cmd->command, cmd->argument3, ret);
 		goto out;
 	}
@@ -2839,7 +2839,7 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 
 	if (hba->quirks & UFSHCI_QUIRK_USE_OF_HCE) {
 		/* enable UIC related interrupts */
-		ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
+		ufshcd_enable_intr(hba, UFSHCD_UIC_MASK);
 
 		if (hba->vops && hba->vops->hce_enable_notify)
 			hba->vops->hce_enable_notify(hba, PRE_CHANGE);
@@ -4592,18 +4592,12 @@ static int ufshcd_config_vreg_load(struct device *dev, struct ufs_vreg *vreg,
 static inline int ufshcd_config_vreg_lpm(struct ufs_hba *hba,
 					 struct ufs_vreg *vreg)
 {
-	if (!vreg)
-		return 0;
-
 	return ufshcd_config_vreg_load(hba->dev, vreg, UFS_VREG_LPM_LOAD_UA);
 }
 
 static inline int ufshcd_config_vreg_hpm(struct ufs_hba *hba,
 					 struct ufs_vreg *vreg)
 {
-	if (!vreg)
-		return 0;
-
 	return ufshcd_config_vreg_load(hba->dev, vreg, vreg->max_uA);
 }
 
@@ -4771,6 +4765,7 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	int ret = 0;
 	struct ufs_clk_info *clki;
 	struct list_head *head = &hba->clk_list_head;
+	const char *ref_clk = "ref_clk";
 	unsigned long flags;
 
 	if (!head || list_empty(head))
@@ -4778,7 +4773,8 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
-			if (skip_ref_clk && !strcmp(clki->name, "ref_clk"))
+			if (skip_ref_clk &&
+			    !strncmp(clki->name, ref_clk, strlen(ref_clk)))
 				continue;
 
 			if (on && !clki->enabled) {
@@ -5262,8 +5258,6 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ret)
 		goto set_dev_active;
 
-	ufshcd_vreg_set_lpm(hba);
-
 disable_clks:
 	/*
 	 * The clock scaling needs access to controller registers. Hence, Wait
@@ -5274,16 +5268,12 @@ disable_clks:
 		devfreq_suspend_device(hba->devfreq);
 		hba->clk_scaling.window_start_t = 0;
 	}
+
 	/*
-	 * Call vendor specific suspend callback. As these callbacks may access
-	 * vendor specific host controller register space call them before the
-	 * host clocks are ON.
+	 * Disable the host irq as host controller as there won't be any
+	 * host controller trasanction expected till resume.
 	 */
-	if (hba->vops && hba->vops->suspend) {
-		ret = hba->vops->suspend(hba, pm_op);
-		if (ret)
-			goto set_link_active;
-	}
+	ufshcd_disable_irq(hba);
 
 	if (hba->vops && hba->vops->setup_clocks) {
 		ret = hba->vops->setup_clocks(hba, false);
@@ -5299,10 +5289,18 @@ disable_clks:
 
 	hba->clk_gating.state = CLKS_OFF;
 	/*
-	 * Disable the host irq as host controller as there won't be any
-	 * host controller trasanction expected till resume.
+	 * Call vendor specific suspend callback. As these callbacks may access
+	 * vendor specific host controller register space call them before the
+	 * host clocks are ON.
 	 */
-	ufshcd_disable_irq(hba);
+	if (hba->vops && hba->vops->suspend) {
+		ret = hba->vops->suspend(hba, pm_op);
+		if (ret)
+			goto set_link_active;
+	}
+
+	ufshcd_vreg_set_lpm(hba);
+
 	/* Put the host controller in low power mode if possible */
 	ufshcd_hba_vreg_set_lpm(hba);
 	goto out;

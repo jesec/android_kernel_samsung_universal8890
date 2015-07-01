@@ -944,6 +944,35 @@ static void exynos_ufs_hibern8_notify(struct ufs_hba *hba,
 	}
 }
 
+static int __exynos_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+
+	exynos_ufs_ctrl_phy_pwr(ufs, false);
+
+	return 0;
+}
+
+static int __exynos_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+#if defined(CONFIG_UFS_FMP_DM_CRYPT)
+	int ret = 0;
+#endif
+
+	exynos_ufs_ctrl_phy_pwr(ufs, true);
+
+	exynos_ufs_ctrl_hci_core_clk(ufs, false);
+	exynos_ufs_config_smu(ufs);
+#if defined(CONFIG_UFS_FMP_DM_CRYPT)
+	ret = exynos_smc(SMC_CMD_FMP, FMP_KEY_RESUME, 0, 0);
+	if (ret)
+		dev_warn(ufs->dev, "failed to smc call for FMP: %x\n", ret);
+#endif
+
+	return 0;
+}
+
 static int __exynos_ufs_clk_set_parent(struct device *dev, const char *c, const char *p)
 {
 	struct clk *_c, *_p;
@@ -1236,44 +1265,55 @@ static int exynos_ufs_remove(struct platform_device *pdev)
 static int exynos_ufs_suspend(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct exynos_ufs *ufs = to_exynos_ufs(hba);
-	int ret;
 
-	ret = ufshcd_system_suspend(hba);
-	if (ret)
-		return ret;
-
-	disable_irq(hba->irq);
-
-	exynos_ufs_ctrl_phy_pwr(ufs, false);
-
-	return 0;
+	return ufshcd_system_suspend(hba);
 }
 
 static int exynos_ufs_resume(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct exynos_ufs *ufs = to_exynos_ufs(hba);
-
-	exynos_ufs_ctrl_phy_pwr(ufs, true);
-
-	exynos_ufs_config_smu(ufs);
-
-	enable_irq(hba->irq);
 
 	return ufshcd_system_resume(hba);
 }
+#else
+#define exynos_ufs_suspend	NULL
+#define exynos_ufs_resume	NULL
 #endif /* CONFIG_PM_SLEEP */
 
-#ifdef CONFIG_PM
-static const struct dev_pm_ops exynos_ufs_pmops = {
-	SET_SYSTEM_SLEEP_PM_OPS(exynos_ufs_suspend, exynos_ufs_resume)
-};
+#ifdef CONFIG_PM_RUNTIME
+static int exynos_ufs_runtime_suspend(struct device *dev)
+{
+	return ufshcd_system_suspend(dev_get_drvdata(dev));
+}
 
-#define EXYNOS_UFS_PMOPS (&exynos_ufs_pmops)
+static int exynos_ufs_runtime_resume(struct device *dev)
+{
+	return ufshcd_system_resume(dev_get_drvdata(dev));
+}
+
+static int exynos_ufs_runtime_idle(struct device *dev)
+{
+	return ufshcd_runtime_idle(dev_get_drvdata(dev));
+}
+
 #else
-#define EXYNOS_UFS_PMOPS NULL
-#endif
+#define exynos_ufs_runtime_suspend	NULL
+#define exynos_ufs_runtime_resume	NULL
+#define exynos_ufs_runtime_idle		NULL
+#endif /* CONFIG_PM_RUNTIME */
+
+static void exynos_ufs_shutdown(struct platform_device *pdev)
+{
+	ufshcd_shutdown((struct ufs_hba *)platform_get_drvdata(pdev));
+}
+
+static const struct dev_pm_ops exynos_ufs_dev_pm_ops = {
+	.suspend		= exynos_ufs_suspend,
+	.resume			= exynos_ufs_resume,
+	.runtime_suspend	= exynos_ufs_runtime_suspend,
+	.runtime_resume		= exynos_ufs_runtime_resume,
+	.runtime_idle		= exynos_ufs_runtime_idle,
+};
 
 static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 	.init = exynos_ufs_init,
@@ -1283,6 +1323,8 @@ static const struct ufs_hba_variant_ops exynos_ufs_ops = {
 	.set_nexus_t_xfer_req = exynos_ufs_set_nexus_t_xfer_req,
 	.set_nexus_t_task_mgmt = exynos_ufs_set_nexus_t_task_mgmt,
 	.hibern8_notify = exynos_ufs_hibern8_notify,
+	.suspend = __exynos_ufs_suspend,
+	.resume = __exynos_ufs_resume,
 };
 
 static const struct ufs_phy_cfg init_cfg[] = {
@@ -1446,11 +1488,12 @@ static struct platform_driver exynos_ufs_driver = {
 	.driver = {
 		.name = "exynos-ufs",
 		.owner = THIS_MODULE,
-		.pm = EXYNOS_UFS_PMOPS,
+		.pm = &exynos_ufs_dev_pm_ops,
 		.of_match_table = exynos_ufs_match,
 	},
 	.probe = exynos_ufs_probe,
 	.remove = exynos_ufs_remove,
+	.shutdown = exynos_ufs_shutdown,
 };
 
 module_platform_driver(exynos_ufs_driver);
