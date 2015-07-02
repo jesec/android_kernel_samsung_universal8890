@@ -622,10 +622,8 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 		if (ctx && (ctx->inst_no != MFC_NO_INSTANCE_SET)) {
 			ctx->state = MFCINST_ERROR;
 			ctx->inst_no = MFC_NO_INSTANCE_SET;
-			s5p_mfc_cleanup_queue(&ctx->dst_queue,
-				&ctx->vq_dst);
-			s5p_mfc_cleanup_queue(&ctx->src_queue,
-				&ctx->vq_src);
+			s5p_mfc_cleanup_queue(&ctx->dst_queue);
+			s5p_mfc_cleanup_queue(&ctx->src_queue);
 			clear_work_bit(ctx);
 			wake_up_ctx(ctx, S5P_FIMV_R2H_CMD_ERR_RET, 0);
 		}
@@ -1608,9 +1606,9 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		ctx->state = MFCINST_ERROR;
 		/* Mark all dst buffers as having an error */
 		spin_lock_irqsave(&dev->irqlock, flags);
-		s5p_mfc_cleanup_queue(&ctx->dst_queue, &ctx->vq_dst);
+		s5p_mfc_cleanup_queue(&ctx->dst_queue);
 		/* Mark all src buffers as having an error */
-		s5p_mfc_cleanup_queue(&ctx->src_queue, &ctx->vq_src);
+		s5p_mfc_cleanup_queue(&ctx->src_queue);
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 		if (clear_hw_bit(ctx) == 0)
 			BUG();

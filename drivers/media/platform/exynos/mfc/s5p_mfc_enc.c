@@ -4913,7 +4913,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	spin_lock_irqsave(&dev->irqlock, flags);
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		s5p_mfc_cleanup_queue(&ctx->dst_queue, &ctx->vq_dst);
+		s5p_mfc_cleanup_queue(&ctx->dst_queue);
 		INIT_LIST_HEAD(&ctx->dst_queue);
 		ctx->dst_queue_cnt = 0;
 
@@ -4927,7 +4927,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	} else if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		cleanup_ref_queue(ctx);
 
-		s5p_mfc_cleanup_queue(&ctx->src_queue, &ctx->vq_src);
+		s5p_mfc_cleanup_queue(&ctx->src_queue);
 		INIT_LIST_HEAD(&ctx->src_queue);
 		ctx->src_queue_cnt = 0;
 
