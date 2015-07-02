@@ -1,6 +1,6 @@
-/* arch/arm64/mach-exynos/include/mach/apm-exynos.h
+/* include/soc/samsung/apm-exynos.h
  *
- * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (c) 2015 Samsung Electronics Co., Ltd.
  *               http://www.samsung.com
  *
  * AP Parameter definitions
@@ -14,7 +14,6 @@
 #define __AP_PARAM_PARSER_H __FILE__
 
 #include <asm/io.h>
-#include <asm/mach/map.h>
 
 #include <linux/slab.h>
 #include <linux/device.h>
