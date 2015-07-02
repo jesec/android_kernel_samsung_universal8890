@@ -26,7 +26,7 @@
 #include "../../../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 #include "../governor.h"
 
-#define DEVFREQ_INT_REBOOT_FREQ	(511000)
+#define DEVFREQ_INT_REBOOT_FREQ	(690000)
 
 static struct exynos_devfreq_data *int_data;
 
