@@ -2693,33 +2693,6 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return 0;
 }
 
-static void cleanup_ref_queue(struct s5p_mfc_ctx *ctx)
-{
-	struct s5p_mfc_dec *dec = ctx->dec_priv;
-	struct s5p_mfc_buf *ref_buf;
-	dma_addr_t ref_addr;
-	int i;
-
-	/* move buffers in ref queue to src queue */
-	while (!list_empty(&dec->ref_queue)) {
-		ref_buf = list_entry((&dec->ref_queue)->next,
-						struct s5p_mfc_buf, list);
-
-		for (i = 0; i < 2; i++) {
-			ref_addr = s5p_mfc_mem_plane_addr(ctx, &ref_buf->vb, i);
-			mfc_debug(2, "dec ref[%d] addr: 0x%08lx", i,
-						(unsigned long)ref_addr);
-		}
-
-		list_del(&ref_buf->list);
-		dec->ref_queue_cnt--;
-	}
-
-	mfc_debug(2, "Dec ref-count: %d\n", dec->ref_queue_cnt);
-
-	BUG_ON(dec->ref_queue_cnt);
-}
-
 static void cleanup_assigned_fd(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dec *dec;
@@ -2775,7 +2748,9 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (dec->is_dynamic_dpb) {
 			cleanup_assigned_fd(ctx);
-			cleanup_ref_queue(ctx);
+			s5p_mfc_cleanup_queue(&dec->ref_queue);
+			INIT_LIST_HEAD(&dec->ref_queue);
+			dec->ref_queue_cnt = 0;
 			dec->dynamic_used = 0;
 		}
 
