@@ -408,9 +408,9 @@ static struct exynos_irq_chip exynos_wkup_irq_chip = {
 		.irq_request_resources = exynos_irq_request_resources,
 		.irq_release_resources = exynos_irq_release_resources,
 	},
-	.eint_con = EXYNOS_WKUP_ECON_OFFSET,
-	.eint_mask = EXYNOS_WKUP_EMASK_OFFSET,
-	.eint_pend = EXYNOS_WKUP_EPEND_OFFSET,
+	.eint_con = EXYNOS_GPIO_ECON_OFFSET,
+	.eint_mask = EXYNOS_GPIO_EMASK_OFFSET,
+	.eint_pend = EXYNOS_GPIO_EPEND_OFFSET,
 };
 
 /* interrupt handler for wakeup interrupts 0..15 */
@@ -459,9 +459,9 @@ static void exynos_irq_demux_eint16_31(unsigned int irq, struct irq_desc *desc)
 
 	for (i = 0; i < eintd->nr_banks; ++i) {
 		struct samsung_pin_bank *b = eintd->banks[i];
-		pend = readl(d->virt_base + EXYNOS_WKUP_EPEND_OFFSET
+		pend = readl(d->virt_base + EXYNOS_GPIO_EPEND_OFFSET
 				+ b->eint_offset);
-		mask = readl(d->virt_base + EXYNOS_WKUP_EMASK_OFFSET
+		mask = readl(d->virt_base + EXYNOS_GPIO_EMASK_OFFSET
 				+ b->eint_offset);
 		exynos_irq_demux_eint(pend & ~mask, b->irq_domain);
 	}
