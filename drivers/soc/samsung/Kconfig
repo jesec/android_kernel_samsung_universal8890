@@ -28,4 +28,14 @@ config SAMSUNG_CORE_TEST
 	help
 	  Show system-control registers.
 
+config AP_PARAM
+	bool "Enable AP Parameter File"
+	default n
+	depends on ARCH_EXYNOS
+
+config AP_PARAM_DUMP
+	bool "Enable AP Parameter File Dump sysfs"
+	default n
+	depends on AP_PARAM
+
 endif #SOC_SAMSUNG
