@@ -18,6 +18,10 @@
 #include "../../soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 #include "composite.h"
 
+#if defined(CONFIG_AP_PARAM)
+#include <soc/samsung/ap_param_parser.h>
+#endif
+
 enum exynos8890_clks {
 	none,
 
@@ -491,6 +495,10 @@ void __init exynos8890_clk_init(struct device_node *np)
 	} else {
 		panic("%s: unable to determine soc\n", __func__);
 	}
+
+#if defined(CONFIG_AP_PARAM)
+	ap_param_parse_binary_header();
+#endif
 
 	ret = cal_init();
 	if (ret)
