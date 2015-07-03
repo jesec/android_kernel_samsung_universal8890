@@ -21,7 +21,7 @@
 #include <soc/samsung/exynos-pmu.h>
 #include <soc/samsung/exynos-powermode.h>
 
-#include <sound/exynos.h>
+//#include <sound/exynos.h>
 
 #define EXYNOS8890_PA_GPIO_ALIVE	0x10580000
 #define WAKEUP_STAT_EINT                (1 << 0)
@@ -185,7 +185,8 @@ static int exynos_pm_enter(suspend_state_t state)
 		return -EINVAL;
 	}
 
-	cp_call = is_cp_aud_enabled();
+//	cp_call = is_cp_aud_enabled();
+	cp_call = 0;
 	if (cp_call) {
 		index = PSCI_SYSTEM_CP_CALL;
 		exynos_prepare_cp_call();
