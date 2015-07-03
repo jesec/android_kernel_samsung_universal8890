@@ -22,4 +22,10 @@ config SAMSUNG_DMADEV
 	help
 	  Use DMA device engine for PL330 DMAC.
 
+config SAMSUNG_CORE_TEST
+	bool "Show system-control registers"
+	depends on ARCH_EXYNOS
+	help
+	  Show system-control registers.
+
 endif #SOC_SAMSUNG
