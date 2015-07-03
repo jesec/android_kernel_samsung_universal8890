@@ -1,9 +1,10 @@
+#include <asm/map.h>
+#include <asm/memory.h>
 #include <soc/samsung/ap_param_parser.h>
 
-#include <plat/map-base.h>
-#include <plat/map-s5p.h>
-
 #define ALIGNMENT_SIZE	 4
+
+#define S5P_VA_AP_PARAMETER (VMALLOC_START + 0xF6000000 + 0x02D00000)
 
 /* Variable */
 
@@ -15,7 +16,7 @@ static struct class *ap_param_class;
 #endif
 
 static struct map_desc exynos_iodesc_ap_param __initdata = {
-	.type           = MT_DEVICE_CACHED,
+	.type           = MT_NORMAL_NC,
 };
 
 /* API for internal */
@@ -1293,7 +1294,7 @@ late_initcall_sync(ap_param_dump_init);
 static phys_addr_t ap_param_address;
 static phys_addr_t ap_param_size;
 
-void ap_param_init(phys_addr_t address, phys_addr_t size)
+void __init ap_param_init(phys_addr_t address, phys_addr_t size)
 {
 	for (ap_param_size = 1; ap_param_size < size;)
 		ap_param_size = ap_param_size << 1;
@@ -1585,7 +1586,7 @@ int ap_param_strcmp(char *src1, char *src2)
 	return ((*(unsigned char *)src1 < *(unsigned char *)src2) ? -1 : +1);
 }
 
-void ap_param_init_map_io(void)
+void __init ap_param_init_map_io(void)
 {
 	iotable_init(&exynos_iodesc_ap_param, 1);
 }
