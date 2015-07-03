@@ -9,7 +9,7 @@
 #include "S5E8890-cmu.h"
 #include "S5E8890-vclk-internal.h"
 
-#include <mach/ap_param_parser.h>
+#include <soc/samsung/ap_param_parser.h>
 
 
 extern int offset_percent;

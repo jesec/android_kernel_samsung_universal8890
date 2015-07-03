@@ -26,7 +26,7 @@
 
 #include <soc/samsung/exynos-devfreq.h>
 #include <soc/samsung/tmu.h>
-#include <mach/ap_param_parser.h>
+#include <soc/samsung/ap_param_parser.h>
 
 #include "../governor.h"
 

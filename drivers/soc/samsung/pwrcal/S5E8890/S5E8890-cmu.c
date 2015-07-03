@@ -7,7 +7,7 @@
 #include "S5E8890-pmusfr.h"
 #include "S5E8890-cmu.h"
 
-#include <mach/ap_param_parser.h>
+#include <soc/samsung/ap_param_parser.h>
 
 extern struct pwrcal_pll_ops pll141xx_ops;
 extern struct pwrcal_pll_ops pll1419x_ops;

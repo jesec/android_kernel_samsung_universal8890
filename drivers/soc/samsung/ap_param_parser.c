@@ -1,4 +1,4 @@
-#include <mach/ap_param_parser.h>
+#include <soc/samsung/ap_param_parser.h>
 
 #include <plat/map-base.h>
 #include <plat/map-s5p.h>
