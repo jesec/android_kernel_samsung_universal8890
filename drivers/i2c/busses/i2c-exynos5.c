@@ -192,6 +192,13 @@ static LIST_HEAD(drvdata_list);
 /* Batcher STATE register bits */
 #define UNEXPECTED_HSI2C_INTR			(1u << 1)
 #define BATCHER_OPERATION_COMPLETE		(1u << 0)
+#define BATCHER_IDLE_STATE			(1u << 3)
+#define BATCHER_INIT_STATE			(1u << 4)
+#define BATCHER_GET_SEMAPHORE_STATE		(1u << 5)
+#define BATCHER_CONFIG_STATE			(1u << 6)
+#define BATCHER_CLEAN_INTR_STATE		(1u << 13)
+#define BATCHER_REL_SEMAPHORE_STATE		(1u << 14)
+#define BATCHER_GEN_INT_STATE			(1u << 15)
 
 /* Batcher INT_EN */
 #define HSI2C_BATCHER_INT_ENABLE		(1u << 0)
@@ -757,8 +764,17 @@ static void set_batcher_idle(struct exynos5_i2c *i2c)
 static void reset_batcher(struct exynos5_i2c *i2c)
 {
 	u32 i2c_batcher_con = 0x00;
+
+#ifdef CONFIG_GPIOLIB
+	recover_gpio_pins(i2c);
+#endif
+
 	i2c_batcher_con |= HSI2C_BATCHER_RESET;
 	writel(i2c_batcher_con, i2c->regs + HSI2C_BATCHER_CON);
+
+	i2c_batcher_con &= ~HSI2C_BATCHER_RESET;
+	writel(i2c_batcher_con, i2c->regs + HSI2C_BATCHER_CON);
+
 	if (readl(i2c->regs + HSI2C_BATCHER_STATE) & BATCHER_OPERATION_COMPLETE)
 		writel(BATCHER_OPERATION_COMPLETE, i2c->regs + HSI2C_BATCHER_STATE);
 
@@ -769,6 +785,33 @@ static void reset_batcher(struct exynos5_i2c *i2c)
 static void release_ap_semaphore(struct exynos5_i2c *i2c)
 {
 	writel(0x01, i2c->regs + HSI2C_SMRelease);
+}
+
+static void recover_batcher(struct exynos5_i2c *i2c, u32 batcher_state)
+{
+	if (batcher_state == BATCHER_IDLE_STATE) {
+		dev_warn(i2c->dev, "Batcher State is IDLE\n");
+	} else if (batcher_state == BATCHER_INIT_STATE) {
+		dev_warn(i2c->dev, "Batcher State is INIT\n");
+	} else if (batcher_state == BATCHER_GET_SEMAPHORE_STATE) {
+		dev_warn(i2c->dev, "Batcher State is GET_SEMA\n");
+	} else if (batcher_state == BATCHER_REL_SEMAPHORE_STATE) {
+		dev_warn(i2c->dev, "Batcher State is REL_SEMA\n");
+	} else if (batcher_state == BATCHER_GEN_INT_STATE) {
+		dev_warn(i2c->dev, "Batcher State is GET_INT\n");
+	} else if ((batcher_state >= BATCHER_CONFIG_STATE) &&
+			(batcher_state <= BATCHER_CLEAN_INTR_STATE)) {
+		dev_warn(i2c->dev, "Batcher recovery is started\n");
+		reset_batcher(i2c);
+		release_ap_semaphore(i2c);
+		dev_warn(i2c->dev, "Batcher recovery was done\n");
+		return;
+	} else {
+		/* BATCHER_UNEXPECTED_INT */
+		dev_warn(i2c->dev, "Batcher State is UNEXPECTED_INT\n");
+	}
+
+	dev_warn(i2c->dev, "Batcher can't be recovered\n");
 }
 
 static void finalize_batcher(struct exynos5_i2c *i2c)
@@ -1121,6 +1164,8 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 
 	unsigned int i2c_conf = 0x00;
 	unsigned int i2c_read_length;
+	unsigned int i2c_batcher_state;
+	unsigned char i = 0;
 
 	i2c->msg = msgs;
 	i2c->msg_ptr = 0;
@@ -1289,22 +1334,35 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 		}
 
 		if (timeout == 0) {
-			/* Read Error handlilng for HSI2C_Batcher */
-			dev_warn(i2c->dev, "rx timeout Batcher status= %x\n",
-			readl(i2c->regs + HSI2C_BATCHER_STATE));
+			i2c_batcher_state = readl(i2c->regs + HSI2C_BATCHER_STATE);
 
-			dev_warn(i2c->dev, "Batcher FIFO Status= %x\n",
-			readl(i2c->regs + HSI2C_BATCHER_FIFO_STATUS));
-			dev_warn(i2c->dev, "Batcher INT Status= %x\n",
-			readl(i2c->regs + HSI2C_BATCHER_INT_STATUS));
-#ifdef CONFIG_GPIOLIB
-			recover_gpio_pins(i2c);
-#endif
+			if (i2c_batcher_state & BATCHER_OPERATION_COMPLETE) {
+				do {
+					byte = (unsigned char)readl(i2c->regs +
+						i2c->batcher_read_addr + (i++ * 4));
+					i2c->msg->buf[i2c->msg_ptr++] = byte;
+				} while (i2c->msg_ptr < i2c->msg->len);
 
-			reset_batcher(i2c);
-			release_ap_semaphore(i2c);
+				i2c_batcher_state |= BATCHER_OPERATION_COMPLETE;
+				writel(i2c_batcher_state, i2c->regs + HSI2C_BATCHER_STATE);
 
-			return ret;
+				/* Initialize Batcher */
+				set_batcher_idle(i2c);
+			} else {
+				/* Read Error handlilng for HSI2C_Batcher */
+				dev_warn(i2c->dev, "rx timeout Batcher status= %x\n",
+				readl(i2c->regs + HSI2C_BATCHER_STATE));
+
+				dev_warn(i2c->dev, "Batcher FIFO Status= %x\n",
+				readl(i2c->regs + HSI2C_BATCHER_FIFO_STATUS));
+				dev_warn(i2c->dev, "Batcher INT Status= %x\n",
+				readl(i2c->regs + HSI2C_BATCHER_INT_STATUS));
+
+				/* Batcher recovery */
+				recover_batcher(i2c, i2c_batcher_state);
+
+				return ret;
+			}
 		}
 		ret = 0;
 	} else {
@@ -1328,22 +1386,29 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 		}
 
 		if (timeout == 0) {
-			/* Write Error handlilng for HSI2C_Batcher */
-			dev_warn(i2c->dev, "tx timeout Batcher status= %x\n",
-			readl(i2c->regs + HSI2C_BATCHER_STATE));
+			i2c_batcher_state = readl(i2c->regs + HSI2C_BATCHER_STATE);
 
-			dev_warn(i2c->dev, "Batcher FIFO Status= %x\n",
-			readl(i2c->regs + HSI2C_BATCHER_FIFO_STATUS));
-			dev_warn(i2c->dev, "Batcher INT Status= %x\n",
-			readl(i2c->regs + HSI2C_BATCHER_INT_STATUS));
-#ifdef CONFIG_GPIOLIB
-			recover_gpio_pins(i2c);
-#endif
+			if (i2c_batcher_state & BATCHER_OPERATION_COMPLETE) {
+				i2c_batcher_state |= BATCHER_OPERATION_COMPLETE;
+				writel(i2c_batcher_state, i2c->regs + HSI2C_BATCHER_STATE);
 
-			reset_batcher(i2c);
-			release_ap_semaphore(i2c);
+				/* Initialize Batcher */
+				set_batcher_idle(i2c);
+			} else {
+				/* Write Error handlilng for HSI2C_Batcher */
+				dev_warn(i2c->dev, "tx timeout Batcher status= %x\n",
+				readl(i2c->regs + HSI2C_BATCHER_STATE));
 
-			return ret;
+				dev_warn(i2c->dev, "Batcher FIFO Status= %x\n",
+				readl(i2c->regs + HSI2C_BATCHER_FIFO_STATUS));
+				dev_warn(i2c->dev, "Batcher INT Status= %x\n",
+				readl(i2c->regs + HSI2C_BATCHER_INT_STATUS));
+
+				/* Batcher recovery */
+				recover_batcher(i2c, i2c_batcher_state);
+
+				return ret;
+			}
 		}
 		ret = 0;
 	}
