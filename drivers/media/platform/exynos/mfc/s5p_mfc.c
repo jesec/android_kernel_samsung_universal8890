@@ -1888,8 +1888,15 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	wake_up_ctx(ctx, reason, err);
 
 irq_done:
-	if (dev)
+	if (dev->has_job) {
+		/* If cache flush command is needed, hander should stop */
+		if (dev->curr_ctx_drm != dev->ctx[new_ctx]->is_drm)
+			queue_work(dev->sched_wq, &dev->sched_work);
+		else
+			s5p_mfc_try_run(dev);
+	} else {
 		queue_work(dev->sched_wq, &dev->sched_work);
+	}
 
 irq_end:
 	mfc_debug_leave();
