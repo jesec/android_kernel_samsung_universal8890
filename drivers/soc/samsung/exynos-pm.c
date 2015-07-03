@@ -180,6 +180,11 @@ static int exynos_pm_enter(suspend_state_t state)
 	int ret = 0;
 	int cp_call, index;
 
+	if (!exynos_check_cp_status()) {
+		pr_info("%s: sleep canceled by CP reset \n",__func__);
+		return -EINVAL;
+	}
+
 	cp_call = is_cp_aud_enabled();
 	if (cp_call) {
 		index = PSCI_SYSTEM_CP_CALL;

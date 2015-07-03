@@ -282,6 +282,9 @@ static int is_sicd_available(void)
 	if (is_cpus_busy(sicd_residency, cpu_possible_mask))
 		return false;
 
+	if (!exynos_check_cp_status())
+		return false;
+
 	for_each_idle_ip(index)
 		if (exynos_check_idle_ip_stat(SYS_SICD, index))
 			return false;
@@ -515,6 +518,9 @@ void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
 int determine_lpm(void)
 {
 	int index;
+
+	if (!exynos_check_cp_status())
+		return SYS_AFTR;
 
 	for_each_idle_ip(index) {
 		if (exynos_check_idle_ip_stat(SYS_ALPA, index))

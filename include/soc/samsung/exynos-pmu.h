@@ -37,5 +37,6 @@ int exynos_pmu_write(unsigned int offset, unsigned int val);
 int exynos_pmu_update(unsigned int offset, unsigned int mask, unsigned int val);
 
 void exynos_cpu_sequencer_ctrl(int enable);
+int exynos_check_cp_status(void);
 
 #endif /* __EXYNOS_PMU_H */

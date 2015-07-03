@@ -21,6 +21,8 @@
 /**
  * register offset value from base address
  */
+#define PMU_CP_STAT				0x0038
+
 #define PMU_CPU_CONFIG_BASE			0x2000
 #define PMU_CPU_STATUS_BASE			0x2004
 #define PMU_CPU_ADDR_OFFSET			0x80
@@ -134,6 +136,15 @@ struct exynos_cpu_power_ops exynos_cpu = {
 void exynos_cpu_sequencer_ctrl(int enable)
 {
 	regmap_update_bits(pmureg, PMU_NONBOOT_CLUSTER_CPUSEQ_OPTION, 1, enable);
+}
+
+int exynos_check_cp_status(void)
+{
+	unsigned int val;
+
+	exynos_pmu_read(PMU_CP_STAT, &val);
+
+	return val;
 }
 
 static int exynos_pmu_probe(struct platform_device *pdev)
