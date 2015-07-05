@@ -462,6 +462,15 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			return -ENOMEM;
 		}
 		ctx->port_a_phys = s5p_mfc_mem_daddr_priv(ctx->port_a_buf);
+		ctx->port_a_virt = s5p_mfc_mem_vaddr_priv(ctx->port_a_buf);
+		if (!ctx->port_a_virt) {
+			s5p_mfc_mem_free_priv(ctx->port_a_buf);
+			ctx->port_a_buf = NULL;
+			ctx->port_a_phys = 0;
+
+			mfc_err_ctx("Get vaddr for codec buffer failed.\n");
+			return -ENOMEM;
+		}
 	}
 
 	mfc_debug_leave();

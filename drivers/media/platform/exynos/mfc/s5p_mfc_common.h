@@ -913,10 +913,12 @@ struct s5p_mfc_ctx {
 	void *port_a_buf;
 	size_t port_a_phys;
 	size_t port_a_size;
+	void *port_a_virt;
 
 	void *port_b_buf;
 	size_t port_b_phys;
 	size_t port_b_size;
+	void *port_b_virt;
 
 	enum s5p_mfc_queue_state capture_state;
 	enum s5p_mfc_queue_state output_state;
