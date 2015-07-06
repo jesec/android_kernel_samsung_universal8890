@@ -1265,11 +1265,9 @@ static void samsung_usermux_disable(struct clk_hw *hw)
 	if (usermux->lock)
 		spin_lock_irqsave(usermux->lock, flags);
 
-	exynos_ss_clk(hw->clk, ESS_FLAG_IN);
 	val = readl(usermux->sel_reg);
 	val &= ~(1 << usermux->sel_bit);
 	writel(val, usermux->sel_reg);
-	exynos_ss_clk(hw->clk, ESS_FLAG_OUT);
 
 	if (usermux->stat_reg)
 		do {
