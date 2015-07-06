@@ -136,6 +136,9 @@ enum uic_link_state {
 				    UIC_LINK_TRANS_ACTIVE_STATE)
 #define ufshcd_set_link_trans_hibern8(hba) ((hba)->uic_link_state = \
 				    UIC_LINK_TRANS_HIBERN8_STATE)
+#define ufshcd_in_link_transition(hba) ( \
+		(hba)->uic_link_state == UIC_LINK_TRANS_ACTIVE_STATE || \
+		(hba)->uic_link_state == UIC_LINK_TRANS_HIBERN8_STATE)
 
 /*
  * UFS Power management levels.
