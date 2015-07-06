@@ -2159,8 +2159,6 @@ static void sc_job_finish(struct sc_dev *sc, struct sc_ctx *ctx)
 			if (ret != SMC_TZPC_OK)
 				dev_err(sc->dev,
 				"fail to protection disable (%d)\n", ret);
-			__vb2_ion_set_protected_unlocked(
-					ctx->sc_dev->alloc_ctx, false);
 			clear_bit(DEV_CP, &sc->state);
 		}
 #endif
@@ -2550,7 +2548,6 @@ static int sc_run_next_job(struct sc_dev *sc)
 	}
 	if (ctx->cp_enabled) {
 		set_bit(DEV_CP, &sc->state);
-		__vb2_ion_set_protected_unlocked(ctx->sc_dev->alloc_ctx, true);
 		ret = exynos_smc(SMC_PROTECTION_SET, 0,
 			   SC_SMC_PROTECTION_ID(sc->dev_id),
 			   SMC_PROTECTION_ENABLE);
@@ -2610,7 +2607,6 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 		if (ret != SMC_TZPC_OK)
 			dev_err(sc->dev,
 				"fail to protection disable (%d)\n", ret);
-		__vb2_ion_set_protected_unlocked(ctx->sc_dev->alloc_ctx, false);
 		clear_bit(DEV_CP, &sc->state);
 	}
 #endif
