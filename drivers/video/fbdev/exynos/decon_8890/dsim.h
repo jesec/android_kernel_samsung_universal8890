@@ -121,6 +121,7 @@ struct dsim_device {
 	struct media_pad pad;
 	struct panel_private priv;
 	struct dsim_clks_param clks_param;
+	struct phy *phy;
 };
 
 /**

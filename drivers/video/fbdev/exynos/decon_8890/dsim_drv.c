@@ -23,6 +23,7 @@
 #include <linux/fb.h>
 #include <linux/ctype.h>
 #include <linux/platform_device.h>
+#include <linux/phy/phy.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/memory.h>
@@ -37,8 +38,6 @@
 #include <linux/of_gpio.h>
 
 #include <video/mipi_display.h>
-
-#include <mach/exynos5-mipiphy.h>
 
 #include "regs-dsim.h"
 #include "dsim.h"
@@ -582,15 +581,6 @@ static void dsim_read_test(struct dsim_device *dsim)
 				((dsim->pktgo == DSIM_PKTGO_ENABLED) ? "PKT-GO mode" : "Non PKT-GO mode"), buf[0], buf[1], buf[3]);
 }
 
-static void dsim_d_phy_onoff(struct dsim_device *dsim,
-	unsigned int enable)
-{
-	exynos5_dism_phy_enable(0, enable);
-#if !defined(CONFIG_SOC_EXYNOS7580)
-	/*exynos5_dism_phy_enable(1, enable);*/
-#endif
-}
-
 static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 {
 	unsigned int int_src;
@@ -803,7 +793,7 @@ static int dsim_enable(struct dsim_device *dsim)
 	call_panel_ops(dsim, resume, dsim);
 
 	/* DPHY power on */
-	dsim_d_phy_onoff(dsim, 1);
+	phy_power_on(dsim->phy);
 
 	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
@@ -839,7 +829,7 @@ static int dsim_disable(struct dsim_device *dsim)
 
 	dsim_reg_stop(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane);
 
-	dsim_d_phy_onoff(dsim, 0);
+	phy_power_off(dsim->phy);
 	dsim_set_panel_power(dsim, 0);
 
 #if defined(CONFIG_PM_RUNTIME)
@@ -883,7 +873,7 @@ static int dsim_enter_ulps(struct dsim_device *dsim)
 	if (ret < 0)
 		dsim_dump(dsim);
 
-	dsim_d_phy_onoff(dsim, 0);
+	phy_power_off(dsim->phy);
 
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(dsim->dev);
@@ -923,7 +913,7 @@ static int dsim_exit_ulps(struct dsim_device *dsim)
 	enable_irq(dsim->irq);
 
 	/* DPHY power on */
-	dsim_d_phy_onoff(dsim, 1);
+	phy_power_on(dsim->phy);
 
 	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
@@ -1225,6 +1215,10 @@ static int dsim_probe(struct platform_device *pdev)
 	dsim->id = of_alias_get_id(dev->of_node, "dsim");
 	dsim_info("dsim(%d) probe start..\n", dsim->id);
 
+	dsim->phy = devm_phy_get(&pdev->dev, "dsim_dphy");
+	if (IS_ERR(dsim->phy))
+		return PTR_ERR(dsim->phy);
+
 	if (!dsim->id)
 		dsim0_for_decon = dsim;
 	else
@@ -1323,8 +1317,9 @@ static int dsim_probe(struct platform_device *pdev)
 	dsim_runtime_resume(dsim->dev);
 #endif
 
-	/* DPHY power on */
-	dsim_d_phy_onoff(dsim, 1);
+	/* DPHY init and power on */
+	phy_init(dsim->phy);
+	phy_power_on(dsim->phy);
 
 	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
