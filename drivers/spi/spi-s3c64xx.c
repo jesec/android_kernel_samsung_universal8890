@@ -37,9 +37,6 @@
 #endif
 
 #include <linux/platform_data/spi-s3c64xx.h>
-#if defined(CONFIG_VIDEO_EXYNOS_FIMC_IS) || defined(CONFIG_VIDEO_EXYNOS_FIMC_IS2)
-#include <mach/exynos-fimc-is.h>
-#endif
 
 #include <linux/dma/dma-pl330.h>
 
