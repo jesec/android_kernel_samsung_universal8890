@@ -6,6 +6,8 @@
 #include "S5E8890-vclk.h"
 #include "S5E8890-vclk-internal.h"
 
+#include <soc/samsung/ap_param_parser.h>
+
 #ifdef PWRCAL_TARGET_LINUX
 #include <linux/io.h>
 #include <asm/map.h>
@@ -38,17 +40,23 @@ enum dvfs_id {
 
 struct asv_table_entry {
 	unsigned int index;
-	unsigned int voltage[MAX_ASV_GROUP];
+	unsigned int *voltage;
 };
 
 struct asv_table_list {
-	const struct asv_table_entry *table;
+	struct asv_table_entry *table;
 	unsigned int table_size;
+	unsigned int voltage_count;
 };
 
-#define FORCE_ASV_MAGIC		0x57E9
+#define FORCE_ASV_MAGIC		0x57E90000
 static unsigned int force_asv_group[num_of_dvfs];
 
+#define APM_OTP_ADDRESS		0x101E0178
+#define APM_TABLE_BASE		0x11203700
+#define APM_FUSE_TABLE_BASE	APM_TABLE_BASE
+#define APM_RCC_TABLE_BASE	(APM_TABLE_BASE + 0x0030)
+static void *apm_sram_base;
 
 struct asv_tbl_info {
 	unsigned mngs_asv_group:4;
@@ -86,20 +94,27 @@ struct asv_tbl_info {
 
 	unsigned asv_table_ver:7;
 	unsigned fused_grp:1;
-	unsigned reserved_0:24;
+	unsigned reserved_0:12;
+	unsigned g3d_mcs0:4;
+	unsigned g3d_mcs1:4;
 };
 #define ASV_INFO_ADDR_BASE	(0x101E9000)
 #define ASV_INFO_ADDR_CNT	(sizeof(struct asv_tbl_info) / 4)
 
 static struct asv_tbl_info asv_tbl_info;
 
-static struct asv_table_list pwrcal_big_asv_table[];
-static struct asv_table_list pwrcal_little_asv_table[];
-static struct asv_table_list pwrcal_g3d_asv_table[];
-static struct asv_table_list pwrcal_mif_asv_table[];
-static struct asv_table_list pwrcal_int_asv_table[];
-static struct asv_table_list pwrcal_cam_asv_table[];
-static struct asv_table_list pwrcal_disp_asv_table[];
+static struct asv_table_list *pwrcal_big_asv_table;
+static struct asv_table_list *pwrcal_little_asv_table;
+static struct asv_table_list *pwrcal_g3d_asv_table;
+static struct asv_table_list *pwrcal_mif_asv_table;
+static struct asv_table_list *pwrcal_int_asv_table;
+static struct asv_table_list *pwrcal_cam_asv_table;
+static struct asv_table_list *pwrcal_disp_asv_table;
+
+static struct asv_table_list *pwrcal_big_rcc_table;
+static struct asv_table_list *pwrcal_little_rcc_table;
+static struct asv_table_list *pwrcal_g3d_rcc_table;
+static struct asv_table_list *pwrcal_mif_rcc_table;
 
 static struct pwrcal_vclk_dfs *asv_dvfs_big;
 static struct pwrcal_vclk_dfs *asv_dvfs_little;
@@ -119,6 +134,54 @@ static void asv_set_tablever(unsigned int version)
 {
 	asv_tbl_info.asv_table_ver = version;
 
+	return;
+}
+
+static struct freq_limit {
+	unsigned int big_max;
+	unsigned int little_max;
+	unsigned int g3d_max;
+	unsigned int mif_max;
+	unsigned int int_max;
+	unsigned int cam_max;
+	unsigned int disp_max;
+} freq_limit_policy[] = {
+	[0] = {
+		.big_max = 1872000,
+		.little_max = 1378000,
+		.g3d_max = 600000,
+		.mif_max = 1539000,
+	},
+	[1] = {
+		.big_max = 1872000,
+		.little_max = 1378000,
+		.g3d_max = 600000,
+		.mif_max = 1539000,
+	},
+};
+static void asv_set_freq_limit(void)
+{
+	if (!asv_tbl_info.fused_grp) {
+		asv_dvfs_big->table->max_freq = 728000;
+		asv_dvfs_little->table->max_freq = 1274000;
+		asv_dvfs_g3d->table->max_freq = 260000;
+		asv_dvfs_mif->table->max_freq = 1144000;
+	} else {
+		if (freq_limit_policy[asv_tbl_info.asv_table_ver].big_max)
+			asv_dvfs_big->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].big_max;
+		if (freq_limit_policy[asv_tbl_info.asv_table_ver].little_max)
+			asv_dvfs_little->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].little_max;
+		if (freq_limit_policy[asv_tbl_info.asv_table_ver].g3d_max)
+			asv_dvfs_g3d->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].g3d_max;
+		if (freq_limit_policy[asv_tbl_info.asv_table_ver].mif_max)
+			asv_dvfs_mif->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].mif_max;
+		if (freq_limit_policy[asv_tbl_info.asv_table_ver].int_max)
+			asv_dvfs_int->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].int_max;
+		if (freq_limit_policy[asv_tbl_info.asv_table_ver].cam_max)
+			asv_dvfs_cam->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].cam_max;
+		if (freq_limit_policy[asv_tbl_info.asv_table_ver].disp_max)
+			asv_dvfs_disp->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].disp_max;
+	}
 	return;
 }
 
@@ -142,8 +205,8 @@ static void asv_get_asvinfo(void)
 		*(pasv_table + i) = (unsigned int)tmp;
 	}
 
-	if (asv_tbl_info.asv_table_ver > 0)
-		asv_tbl_info.asv_table_ver = 0;
+	if (asv_tbl_info.asv_table_ver > 1)
+		asm("b .");
 
 	if (!asv_tbl_info.fused_grp) {
 		asv_tbl_info.mngs_asv_group = 0;
@@ -182,82 +245,51 @@ static void asv_get_asvinfo(void)
 		asv_tbl_info.asv_table_ver = 0;
 		asv_tbl_info.fused_grp = 0;
 		asv_tbl_info.reserved_0 = 0;
+		asv_tbl_info.g3d_mcs0 = 0;
+		asv_tbl_info.g3d_mcs1 = 0;
 	}
+
+	if (asv_tbl_info.g3d_mcs0 == 0)
+		asv_tbl_info.g3d_mcs0 = 0x5;
+	if (asv_tbl_info.g3d_mcs1 == 0)
+		asv_tbl_info.g3d_mcs1 = 0xE;
+
+	asv_set_freq_limit();
 }
 
-static unsigned int get_asv_voltage(enum dvfs_id domain, unsigned int lv)
+static int get_asv_group(enum dvfs_id domain, unsigned int lv)
 {
-	int asv;
-	int mod;
-	unsigned int ssa10, ssa11;
-	unsigned int ssa0;
-	unsigned int subgrp_index;
-	const unsigned int *table;
-	unsigned int volt;
+	int asv = 0;
+	int mod = 0;
 
 	switch (domain) {
 	case cal_asv_dvfs_big:
 		asv = asv_tbl_info.mngs_asv_group;
 		mod = asv_tbl_info.mngs_modified_group;
-		ssa10 = asv_tbl_info.mngs_ssa10;
-		ssa11 = asv_tbl_info.mngs_ssa11;
-		ssa0 = asv_tbl_info.mngs_ssa0;
-		subgrp_index = 16;
-		table = pwrcal_big_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	case cal_asv_dvfs_little:
 		asv = asv_tbl_info.apollo_asv_group;
 		mod = asv_tbl_info.apollo_modified_group;
-		ssa10 = asv_tbl_info.apollo_ssa10;
-		ssa11 = asv_tbl_info.apollo_ssa11;
-		ssa0 = asv_tbl_info.apollo_ssa0;
-		subgrp_index = 10;
-		table = pwrcal_little_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	case cal_asv_dvfs_g3d:
 		asv = asv_tbl_info.g3d_asv_group;
 		mod = asv_tbl_info.g3d_modified_group;
-		ssa10 = asv_tbl_info.g3d_ssa10;
-		ssa11 = asv_tbl_info.g3d_ssa11;
-		ssa0 = asv_tbl_info.g3d_ssa0;
-		subgrp_index = 7;
-		table = pwrcal_g3d_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	case cal_asv_dvfs_mif:
 		asv = asv_tbl_info.mif_asv_group;
 		mod = asv_tbl_info.mif_modified_group;
-		ssa10 = asv_tbl_info.mif_ssa10;
-		ssa11 = asv_tbl_info.mif_ssa11;
-		ssa0 = asv_tbl_info.mif_ssa0;
-		subgrp_index = 8;
-		table = pwrcal_mif_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	case cal_asv_dvfs_int:
 		asv = asv_tbl_info.int_asv_group;
 		mod = asv_tbl_info.int_modified_group;
-		ssa10 = asv_tbl_info.int_ssa10;
-		ssa11 = asv_tbl_info.int_ssa11;
-		ssa0 = asv_tbl_info.int_ssa0;
-		subgrp_index = 15;
-		table = pwrcal_int_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	case cal_asv_dvfs_cam:
 		asv = asv_tbl_info.disp_asv_group;
 		mod = asv_tbl_info.disp_modified_group;
-		ssa10 = asv_tbl_info.disp_ssa10;
-		ssa11 = asv_tbl_info.disp_ssa11;
-		ssa0 = asv_tbl_info.disp_ssa0;
-		subgrp_index = 5;
-		table = pwrcal_cam_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	case cal_asv_dvfs_disp:
 		asv = asv_tbl_info.disp_asv_group;
 		mod = asv_tbl_info.disp_modified_group;
-		ssa10 = asv_tbl_info.disp_ssa10;
-		ssa11 = asv_tbl_info.disp_ssa11;
-		ssa0 = asv_tbl_info.disp_ssa0;
-		subgrp_index = 2;
-		table = pwrcal_disp_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	default:
 		asm("b .");	/* Never reach */
@@ -274,11 +306,90 @@ static unsigned int get_asv_voltage(enum dvfs_id domain, unsigned int lv)
 	if (asv < 0 || asv >= MAX_ASV_GROUP)
 		asm("b .");	/* Never reach */
 
+	return asv;
+}
+
+static unsigned int get_asv_voltage(enum dvfs_id domain, unsigned int lv)
+{
+	int asv;
+	unsigned int ssa10, ssa11;
+	unsigned int ssa0;
+	unsigned int subgrp_index;
+	const unsigned int *table;
+	unsigned int volt;
+
+	switch (domain) {
+	case cal_asv_dvfs_big:
+		asv = get_asv_group(cal_asv_dvfs_big, lv);
+		ssa10 = asv_tbl_info.mngs_ssa10;
+		ssa11 = asv_tbl_info.mngs_ssa11;
+		ssa0 = asv_tbl_info.mngs_ssa0;
+		subgrp_index = 16;
+		table = pwrcal_big_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	case cal_asv_dvfs_little:
+		asv = get_asv_group(cal_asv_dvfs_little, lv);
+		ssa10 = asv_tbl_info.apollo_ssa10;
+		ssa11 = asv_tbl_info.apollo_ssa11;
+		ssa0 = asv_tbl_info.apollo_ssa0;
+		subgrp_index = 10;
+		table = pwrcal_little_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	case cal_asv_dvfs_g3d:
+		asv = get_asv_group(cal_asv_dvfs_g3d, lv);
+		ssa10 = asv_tbl_info.g3d_ssa10;
+		ssa11 = asv_tbl_info.g3d_ssa11;
+		ssa0 = asv_tbl_info.g3d_ssa0;
+		subgrp_index = 7;
+		table = pwrcal_g3d_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	case cal_asv_dvfs_mif:
+		asv = get_asv_group(cal_asv_dvfs_mif, lv);
+		ssa10 = asv_tbl_info.mif_ssa10;
+		ssa11 = asv_tbl_info.mif_ssa11;
+		ssa0 = asv_tbl_info.mif_ssa0;
+		subgrp_index = 8;
+		table = pwrcal_mif_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	case cal_asv_dvfs_int:
+		asv = get_asv_group(cal_asv_dvfs_int, lv);
+		ssa10 = asv_tbl_info.int_ssa10;
+		ssa11 = asv_tbl_info.int_ssa11;
+		ssa0 = asv_tbl_info.int_ssa0;
+		subgrp_index = 15;
+		table = pwrcal_int_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	case cal_asv_dvfs_cam:
+		asv = get_asv_group(cal_asv_dvfs_cam, lv);
+		ssa10 = asv_tbl_info.disp_ssa10;
+		ssa11 = asv_tbl_info.disp_ssa11;
+		ssa0 = asv_tbl_info.disp_ssa0;
+		subgrp_index = 5;
+		table = pwrcal_cam_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	case cal_asv_dvfs_disp:
+		asv = get_asv_group(cal_asv_dvfs_disp, lv);
+		ssa10 = asv_tbl_info.disp_ssa10;
+		ssa11 = asv_tbl_info.disp_ssa11;
+		ssa0 = asv_tbl_info.disp_ssa0;
+		subgrp_index = 2;
+		table = pwrcal_disp_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	default:
+		asm("b .");	/* Never reach */
+		break;
+	}
+
 	volt = table[asv];
-	if (lv < subgrp_index)
+	if (lv < subgrp_index) {
 		volt += 12500 * ssa10;
-	else
+		if (ssa10 == 3)
+			volt += 12500;
+	} else {
 		volt += 12500 * ssa11;
+		if (ssa11 == 3)
+			volt += 12500;
+	}
 
 	if (volt < 575000 + ssa0 * 25000)
 		volt = 575000 + ssa0 * 25000;
@@ -370,18 +481,197 @@ static int dvfsdisp_get_asv_table(unsigned int *table)
 	return max_lv;
 }
 
+static int dfsg3d_set_ema(unsigned int volt)
+{
+	if (volt > 750000)
+		pwrcal_writel(EMA_RF2_UHD_CON, asv_tbl_info.g3d_mcs0);
+	else
+		pwrcal_writel(EMA_RF2_UHD_CON, asv_tbl_info.g3d_mcs1);
+
+	return 0;
+}
 
 
 static int asv_rcc_set_table(void)
 {
+	int i;
+	int lv, max_lv, asv;
+	unsigned int *p;
+	unsigned long tmp;
+
+	if (!apm_sram_base) {
+#ifdef PWRCAL_TARGET_LINUX
+		apm_sram_base = (void *)ioremap(v2psfrmap[i].pa, SZ_64K);
+#else
+		apm_sram_base = (void *)APM_TABLE_BASE;
+#endif
+	}
+
+	p = (unsigned int *)(apm_sram_base);
+	for (i = 0; i < 8; i++) {
+#ifdef PWRCAL_TARGET_LINUX
+		exynos_smc_readsfr((unsigned long)(APM_OTP_ADDRESS + 0x4 * i), &tmp);
+#else
+#if (CONFIG_STARTUP_EL_MODE == STARTUP_EL3)
+		tmp = *((volatile unsigned int *)(unsigned long)(APM_OTP_ADDRESS + 0x4 * i));
+#else
+		smc_readsfr((unsigned long)(APM_OTP_ADDRESS + 0x4 * i), &tmp);
+#endif
+#endif
+		*(p + i) = (unsigned int)tmp;
+	}
+
+	p = (unsigned int *)(apm_sram_base + 0x0030);
+	max_lv = asv_dvfs_big->table->num_of_lv;
+	if (max_lv > 25)
+		max_lv = 25;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_big, lv);
+		*(p + lv) = pwrcal_big_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv];
+	}
+
+	p = (unsigned int *)(apm_sram_base + 0x0098);
+	max_lv = asv_dvfs_little->table->num_of_lv;
+	if (max_lv > 20)
+		max_lv = 20;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_little, lv);
+		*(p + lv) = pwrcal_little_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv];
+	}
+
+	p = (unsigned int *)(apm_sram_base + 0x00EC);
+	max_lv = asv_dvfs_g3d->table->num_of_lv;
+	if (max_lv > 11)
+		max_lv = 11;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_g3d, lv);
+		*(p + lv) = pwrcal_g3d_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv];
+	}
+
+	p = (unsigned int *)(apm_sram_base + 0x011C);
+	max_lv = asv_dvfs_mif->table->num_of_lv;
+	if (max_lv > 16)
+		max_lv = 16;
+	for (lv = 0; lv < max_lv; lv++) {
+		asv = get_asv_group(cal_asv_dvfs_mif, lv);
+		*(p + lv) = pwrcal_mif_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv];
+	}
+
 	return 0;
+}
+
+static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwrcal_vclk_dfs *dfs)
+{
+	int i, j, k;
+	void *asv_block, *margin_block;
+	struct ap_param_voltage_domain *domain;
+	struct ap_param_voltage_table *table;
+	struct asv_table_entry *asv_entry;
+	struct ap_param_margin_domain *margin_domain = NULL;
+
+	asv_block = ap_param_get_block("ASV");
+	if (asv_block == NULL)
+		return;
+
+	margin_block = ap_param_get_block("MARGIN");
+
+	domain = ap_param_asv_get_domain(asv_block, dfs->vclk.name);
+	if (domain == NULL)
+		return;
+
+	if (margin_block)
+		margin_domain = ap_param_margin_get_domain(margin_block, dfs->vclk.name);
+
+	*asv_table = kzalloc(sizeof(struct asv_table_list) * domain->num_of_table, GFP_KERNEL);
+	if (*asv_table == NULL)
+		return;
+
+	for (i = 0; i < domain->num_of_table; ++i) {
+		table = &domain->table_list[i];
+
+		(*asv_table)[i].table_size = domain->num_of_table;
+		(*asv_table)[i].table = kzalloc(sizeof(struct asv_table_entry) * domain->num_of_level, GFP_KERNEL);
+		if ((*asv_table)[i].table == NULL)
+			return;
+
+		for (j = 0; j < domain->num_of_level; ++j) {
+			asv_entry = &(*asv_table)[i].table[j];
+
+			asv_entry->index = domain->level_list[j];
+			asv_entry->voltage = kzalloc(sizeof(unsigned int) * domain->num_of_group, GFP_KERNEL);
+
+			for (k = 0; k < domain->num_of_group; ++k) {
+				asv_entry->voltage[k] = table->voltages[j * domain->num_of_group + k];
+				if (margin_domain != NULL)
+					asv_entry->voltage[k] += margin_domain->offset[j * margin_domain->num_of_group + k];
+			}
+		}
+	}
+}
+
+static void asv_rcc_init_table(struct asv_table_list **rcc_table, struct pwrcal_vclk_dfs *dfs)
+
+{
+	int i, j, k;
+	void *rcc_block;
+	struct ap_param_rcc_domain *domain;
+	struct ap_param_rcc_table *table;
+	struct asv_table_entry *rcc_entry;
+
+	rcc_block = ap_param_get_block("RCC");
+	if (rcc_block == NULL)
+		return;
+
+	domain = ap_param_rcc_get_domain(rcc_block, dfs->vclk.name);
+	if (domain == NULL)
+		return;
+
+	*rcc_table = kzalloc(sizeof(struct asv_table_list) * domain->num_of_table, GFP_KERNEL);
+	if (*rcc_table == NULL)
+		return;
+
+	for (i = 0; i < domain->num_of_table; ++i) {
+		table = &domain->table_list[i];
+
+		(*rcc_table)[i].table_size = domain->num_of_table;
+		(*rcc_table)[i].table = kzalloc(sizeof(struct asv_table_entry) * domain->num_of_level, GFP_KERNEL);
+		if ((*rcc_table)[i].table == NULL)
+			return;
+
+		for (j = 0; j < domain->num_of_level; ++j) {
+			rcc_entry = &(*rcc_table)[i].table[j];
+
+			rcc_entry->index = domain->level_list[j];
+			rcc_entry->voltage = kzalloc(sizeof(unsigned int) * domain->num_of_group, GFP_KERNEL);
+
+			for (k = 0; k < domain->num_of_group; ++k)
+				rcc_entry->voltage[k] = table->rcc[j * domain->num_of_group + k];
+		}
+	}
+}
+
+static void asv_voltage_table_init(void)
+{
+	asv_voltage_init_table(&pwrcal_big_asv_table, asv_dvfs_big);
+	asv_voltage_init_table(&pwrcal_little_asv_table, asv_dvfs_little);
+	asv_voltage_init_table(&pwrcal_g3d_asv_table, asv_dvfs_g3d);
+	asv_voltage_init_table(&pwrcal_mif_asv_table, asv_dvfs_mif);
+	asv_voltage_init_table(&pwrcal_int_asv_table, asv_dvfs_int);
+	asv_voltage_init_table(&pwrcal_cam_asv_table, asv_dvfs_cam);
+	asv_voltage_init_table(&pwrcal_disp_asv_table, asv_dvfs_disp);
+}
+
+static void asv_rcc_table_init(void)
+{
+	asv_rcc_init_table(&pwrcal_big_rcc_table, asv_dvfs_big);
+	asv_rcc_init_table(&pwrcal_little_rcc_table, asv_dvfs_little);
+	asv_rcc_init_table(&pwrcal_g3d_rcc_table, asv_dvfs_g3d);
+	asv_rcc_init_table(&pwrcal_mif_rcc_table, asv_dvfs_mif);
 }
 
 static int asv_init(void)
 {
 	struct vclk *vclk;
-
-	asv_get_asvinfo();
 
 	vclk = cal_get_vclk(dvfs_big);
 	asv_dvfs_big = to_dfs(vclk);
@@ -396,8 +686,8 @@ static int asv_init(void)
 	vclk = cal_get_vclk(dvfs_g3d);
 	asv_dvfs_g3d = to_dfs(vclk);
 	asv_dvfs_g3d->dfsops->get_asv_table = dvfsg3d_get_asv_table;
-/*	asv_dvfs_g3d->dfsops->set_ema = dvfsg3d_set_ema;
-*/
+	asv_dvfs_g3d->dfsops->set_ema = dfsg3d_set_ema;
+
 	vclk = cal_get_vclk(dvfs_mif);
 	asv_dvfs_mif = to_dfs(vclk);
 	asv_dvfs_mif->dfsops->get_asv_table = dvfsmif_get_asv_table;
@@ -415,6 +705,23 @@ static int asv_init(void)
 	asv_dvfs_disp = to_dfs(vclk);
 	asv_dvfs_disp->dfsops->get_asv_table = dvfsdisp_get_asv_table;
 
+	pwrcal_big_asv_table = NULL;
+	pwrcal_little_asv_table = NULL;
+	pwrcal_g3d_asv_table = NULL;
+	pwrcal_mif_asv_table = NULL;
+	pwrcal_int_asv_table = NULL;
+	pwrcal_cam_asv_table = NULL;
+	pwrcal_disp_asv_table = NULL;
+
+	pwrcal_big_rcc_table = NULL;
+	pwrcal_little_rcc_table = NULL;
+	pwrcal_g3d_rcc_table = NULL;
+	pwrcal_mif_rcc_table = NULL;
+
+	asv_get_asvinfo();
+	asv_voltage_table_init();
+	asv_rcc_table_init();
+
 	return 0;
 }
 
@@ -428,159 +735,4 @@ struct cal_asv_ops cal_asv_ops = {
 	.set_tablever = asv_set_tablever,
 	.set_rcc_table = asv_rcc_set_table,
 	.asv_init = asv_init,
-};
-
-static const struct asv_table_entry pwrcal_volt_table_big_asv_v0[] = {
-	{	3000,	{	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	} },
-	{	2900,	{	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	} },
-	{	2800,	{	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	} },
-	{	2700,	{	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	} },
-	{	2600,	{	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	} },
-	{	2496,	{	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	} },
-	{	2392,	{	1268750,	1256250,	1243750,	1231250,	1218750,	1206250,	1193750,	1181250,	1168750,	1156250,	1143750,	1131250,	1118750,	1106250,	1093750,	1081250,	} },
-	{	2288,	{	1187500,	1175000,	1162500,	1150000,	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	} },
-	{	2184,	{	1131250,	1118750,	1106250,	1093750,	1081250,	1068750,	1056250,	1043750,	1031250,	1018750,	1006250,	993750,	981250,	968750,	956250,	943750,	} },
-	{	2080,	{	1081250,	1068750,	1056250,	1043750,	1031250,	1018750,	1006250,	993750,	981250,	968750,	956250,	943750,	931250,	918750,	906250,	893750,	} },
-	{	1976,	{	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	900000,	887500,	875000,	862500,	850000,	} },
-	{	1872,	{	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	900000,	887500,	875000,	862500,	850000,	837500,	825000,	812500,	} },
-	{	1768,	{	962500,	950000,	937500,	925000,	912500,	900000,	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	} },
-	{	1664,	{	931250,	918750,	906250,	893750,	881250,	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	} },
-	{	1560,	{	900000,	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	} },
-	{	1456,	{	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	} },
-	{	1352,	{	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	} },
-	{	1248,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	1144,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	1040,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	936,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	832,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	728,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	624,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	520,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	416,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	312,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	208,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-};
-
-static const struct asv_table_entry pwrcal_volt_table_little_asv_v0[] = {
-	{	1976,	{	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	} },
-	{	1898,	{	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	} },
-	{	1794,	{	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	} },
-	{	1690,	{	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	} },
-	{	1586,	{	1162500,	1150000,	1137500,	1125000,	1112500,	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	} },
-	{	1482,	{	1100000,	1087500,	1075000,	1062500,	1050000,	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	} },
-	{	1378,	{	1037500,	1025000,	1012500,	1000000,	987500,	975000,	962500,	950000,	937500,	925000,	912500,	900000,	887500,	875000,	862500,	850000,	} },
-	{	1274,	{	987500,	975000,	962500,	950000,	937500,	925000,	912500,	900000,	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	} },
-	{	1170,	{	937500,	925000,	912500,	900000,	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	} },
-	{	1066,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	962,	{	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	} },
-	{	858,	{	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	637500,	625000,	} },
-	{	754,	{	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	625000,	625000,	} },
-	{	650,	{	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	637500,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	546,	{	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	442,	{	681250,	668750,	656250,	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	338,	{	650000,	637500,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	234,	{	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	130,	{	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-};
-
-static const struct asv_table_entry pwrcal_volt_table_g3d_asv_v0[] = {
-	{	1000,	{	906250,	893750,	881250,	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	} },
-	{	900,	{	906250,	893750,	881250,	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	} },
-	{	800,	{	906250,	893750,	881250,	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	} },
-	{	780,	{	906250,	893750,	881250,	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	} },
-	{	702,	{	906250,	893750,	881250,	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	} },
-	{	598,	{	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	} },
-	{	546,	{	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	} },
-	{	416,	{	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	351,	{	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	273,	{	725000,	712500,	700000,	687500,	675000,	662500,	650000,	637500,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	169,	{	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	104,	{	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-};
-
-static const struct asv_table_entry pwrcal_volt_table_mif_asv_v0[] = {
-	{	1846,	{	931250,	918750,	906250,	893750,	881250,	868750,	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	} },
-	{	1742,	{	912500,	900000,	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	} },
-	{	1560,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	1482,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	1352,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	1222,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	1092,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	962,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	832,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	676,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	572,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	416,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-	{	286,	{	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	687500,	675000,	} },
-};
-
-static const struct asv_table_entry pwrcal_volt_table_int_asv_v0[] = {
-	{	690,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	680,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	670,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	660,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	650,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	640,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	630,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	620,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	610,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	600,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	511,	{	887500,	875000,	862500,	850000,	837500,	825000,	812500,	800000,	787500,	775000,	762500,	750000,	737500,	725000,	712500,	700000,	} },
-	{	468,	{	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	} },
-	{	400,	{	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	} },
-	{	336,	{	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	} },
-	{	255,	{	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	} },
-	{	200,	{	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	} },
-	{	168,	{	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	} },
-	{	127,	{	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	656250,	643750,	631250,	625000,	} },
-};
-
-static const struct asv_table_entry pwrcal_volt_table_disp_asv_v0[] = {
-	{	528,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	400,	{	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	637500,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	336,	{	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	637500,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-	{	168,	{	737500,	725000,	712500,	700000,	687500,	675000,	662500,	650000,	637500,	625000,	625000,	625000,	625000,	625000,	625000,	625000,	} },
-};
-
-static const struct asv_table_entry pwrcal_volt_table_cam_asv_v0[] = {
-	{	690,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	680,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	670,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	660,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	650,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	640,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	630,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	620,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	610,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-	{	600,	{	856250,	843750,	831250,	818750,	806250,	793750,	781250,	768750,	756250,	743750,	731250,	718750,	706250,	693750,	681250,	668750,	} },
-};
-
-
-
-static struct asv_table_list pwrcal_big_asv_table[] = {
-	PWRCAL_ASV_LIST(pwrcal_volt_table_big_asv_v0),
-};
-
-static struct asv_table_list pwrcal_little_asv_table[] = {
-	PWRCAL_ASV_LIST(pwrcal_volt_table_little_asv_v0),
-};
-
-static struct asv_table_list pwrcal_g3d_asv_table[] = {
-	PWRCAL_ASV_LIST(pwrcal_volt_table_g3d_asv_v0),
-};
-
-static struct asv_table_list pwrcal_mif_asv_table[] = {
-	PWRCAL_ASV_LIST(pwrcal_volt_table_mif_asv_v0),
-};
-
-static struct asv_table_list pwrcal_int_asv_table[] = {
-	PWRCAL_ASV_LIST(pwrcal_volt_table_int_asv_v0),
-};
-
-static struct asv_table_list pwrcal_cam_asv_table[] = {
-	PWRCAL_ASV_LIST(pwrcal_volt_table_cam_asv_v0),
-};
-
-static struct asv_table_list pwrcal_disp_asv_table[] = {
-	PWRCAL_ASV_LIST(pwrcal_volt_table_disp_asv_v0),
 };
