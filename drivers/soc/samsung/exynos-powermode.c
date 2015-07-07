@@ -62,9 +62,6 @@ static struct exynos_powermode_info *pm_info;
 /******************************************************************************
  *                                  IDLE_IP                                   *
  ******************************************************************************/
-#define for_each_idle_ip(num)					\
-        for ((num) = 0; (num) < NUM_IDLE_IP; num++)
-
 #define PMU_IDLE_IP_BASE		0x03E0
 #define PMU_IDLE_IP_MASK_BASE		0x03F0
 #define PMU_IDLE_IP(x)			(PMU_IDLE_IP_BASE + (x * 0x4))
@@ -461,7 +458,7 @@ static int parsing_dt_wakeup_mask(struct device_node *np)
 	int ret;
 	unsigned int pdn_num;
 
-	for (pdn_num = 0; pdn_num < NUM_SYS_POWERDOWN; pdn_num++) {
+	for_each_syspower_mode(pdn_num) {
 		ret = of_property_read_u32_index(np, "wakeup_mask",
 				pdn_num, &pm_info->wakeup_mask[pdn_num][0]);
 		if (ret)
@@ -602,7 +599,7 @@ int __init exynos_powermode_init(void)
 
 	dt_init_exynos_powermode();
 
-	for (mode = 0; mode < NUM_SYS_POWERDOWN; mode++)
+	for_each_syspower_mode(mode)
 		for_each_idle_ip(index)
 			pm_info->idle_ip_mask[mode][index] = 0xFFFFFFFF;
 
