@@ -858,6 +858,14 @@ int decon_enable(struct decon_device *decon)
 			goto err;
 		}
 	} else {
+		if (decon->pdata->psr_mode != DECON_VIDEO_MODE) {
+			if (decon->pinctrl && decon->decon_te_on) {
+				if (pinctrl_select_state(decon->pinctrl, decon->decon_te_on)) {
+					decon_err("failed to turn on Decon_TE\n");
+					goto err;
+				}
+			}
+		}
 		if (decon->out_type == DECON_OUT_DSI) {
 			pm_stay_awake(decon->dev);
 			dev_warn(decon->dev, "pm_stay_awake");
@@ -866,14 +874,6 @@ int decon_enable(struct decon_device *decon)
 				decon_err("starting stream failed for %s\n",
 						decon->output_sd->name);
 				goto err;
-			}
-		}
-		if (decon->pdata->psr_mode != DECON_VIDEO_MODE) {
-			if (decon->pinctrl && decon->decon_te_on) {
-				if (pinctrl_select_state(decon->pinctrl, decon->decon_te_on)) {
-					decon_err("failed to turn on Decon_TE\n");
-					goto err;
-				}
 			}
 		}
 	}
