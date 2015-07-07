@@ -429,6 +429,9 @@ int dsim_read_data(struct dsim_device *dsim, u32 data_id,
 
 	reinit_completion(&dsim_rd_comp);
 
+	/* Init RX FIFO before read */
+	dsim_reg_set_fifo_ctrl(dsim->id, DSIM_FIFOCTRL_INIT_RX);
+
 	/* Set the maximum packet size returned */
 	dsim_write_data(dsim,
 		MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE, count, 0);

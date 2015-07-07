@@ -178,6 +178,7 @@
 #define DSIM_FIFOCTRL_EMPTY_RX			(1 << 12)
 #define DSIM_FIFOCTRL_FULL_PH_SFR		(1 << 11)
 #define DSIM_FIFOCTRL_FULL_PL_SFR		(1 << 9)
+#define DSIM_FIFOCTRL_INIT_RX			(1 << 2)
 #define DSIM_FIFOCTRL_INIT_SFR			(1 << 1)
 
 /* Muli slice setting register*/
