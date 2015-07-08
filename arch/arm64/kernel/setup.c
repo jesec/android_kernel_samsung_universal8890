@@ -136,8 +136,8 @@ void __init smp_setup_processor_id(void)
 int __init early_init_dt_scan_ap_parameter(unsigned long node, const char *uname,
 		int depth, void *data)
 {
-	unsigned long address = 0, size = 0;
-	__be32 *paddr, *psize;
+	int address = 0, size = 0;
+	const __be32 *paddr, *psize;
 
 	if (depth != 1 || (strcmp(uname, "ap_parameter") != 0))
 		return 0;
