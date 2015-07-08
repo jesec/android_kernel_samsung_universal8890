@@ -679,7 +679,7 @@ static ssize_t ap_param_dump_header(struct class *class,
 	}
 
 	pr_info("[AP PARAM] : AP Parameter Information\n");
-	pr_info("\t[VA] : %p\n", S5P_VA_AP_PARAMETER);
+	pr_info("\t[VA] : %lx\n", S5P_VA_AP_PARAMETER);
 	pr_info("\t[SIGN] : %c%c%c%c\n",
 			ap_param_header->sign[0],
 			ap_param_header->sign[1],
