@@ -185,4 +185,6 @@ source "drivers/thunderbolt/Kconfig"
 source "drivers/trace/Kconfig"
 
 source "drivers/bts/Kconfig"
+
+source "drivers/mailbox/samsung/Kconfig"
 endmenu
