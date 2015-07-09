@@ -527,7 +527,7 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 		udelay(5);
 	}
 
-	if (reg->tmu_ctrl1) {
+	if (reg->tmu_ctrl1 && reg->lpi0_mode_en_shift) {
 		con = readl(data->base + reg->tmu_ctrl1);
 		con |= 1 << reg->lpi0_mode_en_shift;
 		writel(con, data->base + reg->tmu_ctrl1);
