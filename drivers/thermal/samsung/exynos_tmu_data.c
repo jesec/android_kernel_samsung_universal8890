@@ -756,14 +756,6 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.inten_rise5_shift = EXYNOS8890_TMU_INTEN_RISE5_SHIFT,
 	.inten_rise6_shift = EXYNOS8890_TMU_INTEN_RISE6_SHIFT,
 	.inten_rise7_shift = EXYNOS8890_TMU_INTEN_RISE7_SHIFT,
-	.inten_fall0_shift = EXYNOS8890_TMU_INTEN_FALL0_SHIFT,
-	.inten_fall1_shift = EXYNOS8890_TMU_INTEN_FALL1_SHIFT,
-	.inten_fall2_shift = EXYNOS8890_TMU_INTEN_FALL2_SHIFT,
-	.inten_fall3_shift = EXYNOS8890_TMU_INTEN_FALL3_SHIFT,
-	.inten_fall4_shift = EXYNOS8890_TMU_INTEN_FALL4_SHIFT,
-	.inten_fall5_shift = EXYNOS8890_TMU_INTEN_FALL5_SHIFT,
-	.inten_fall6_shift = EXYNOS8890_TMU_INTEN_FALL6_SHIFT,
-	.inten_fall7_shift = EXYNOS8890_TMU_INTEN_FALL7_SHIFT,
 	.tmu_intstat = EXYNOS8890_TMU_REG_INTCLEAR,
 	.tmu_intclear = EXYNOS8890_TMU_REG_INTCLEAR,
 	.emul_con = EXYNOS8890_EMUL_CON,
@@ -828,8 +820,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.d_type = BIG_CPU, \
 	.registers = &exynos8890_tmu_registers, \
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
-			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
-			TMU_SUPPORT_EMUL_TIME),
+			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME),
 
 #define EXYNOS8890_TMU_DATA_APOLLO \
 	.tmu_name = "APOLLO",	\
@@ -890,8 +881,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.d_type = CPU, \
 	.registers = &exynos8890_tmu_registers, \
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
-			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
-			TMU_SUPPORT_EMUL_TIME),
+			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME),
 
 #define EXYNOS8890_TMU_DATA_GPU \
 	.tmu_name = "GPU",	\
@@ -960,8 +950,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.d_type = GPU, \
 	.registers = &exynos8890_tmu_registers, \
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
-			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
-			TMU_SUPPORT_EMUL_TIME),
+			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME),
 
 #define EXYNOS8890_TMU_DATA_ISP \
 	.tmu_name = "ISP",	\
@@ -1006,8 +995,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.d_type = ISP, \
 	.registers = &exynos8890_tmu_registers, \
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
-			TMU_SUPPORT_FALLING_TRIP | TMU_SUPPORT_READY_STATUS | \
-			TMU_SUPPORT_EMUL_TIME),
+			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME),
 
 struct exynos_tmu_init_data const exynos8890_default_tmu_data = {
 	.tmu_data = {
