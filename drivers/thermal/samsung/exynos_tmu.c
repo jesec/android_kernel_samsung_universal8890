@@ -261,9 +261,7 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	data->temp_error2 = ((trim_info >> reg->triminfo_85_shift) &
 				pdata->temp_mask);
 
-	if (!data->temp_error1 ||
-		(pdata->min_efuse_value > data->temp_error1) ||
-		(data->temp_error1 > pdata->max_efuse_value))
+	if (!data->temp_error1)
 		data->temp_error1 = pdata->efuse_value & pdata->temp_mask;
 
 	if (!data->temp_error2)
