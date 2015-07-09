@@ -248,9 +248,44 @@ static void exynos_pcie_power_off_phy(struct pcie_port *pp)
 	val |= PCIE_PHY_COMMON_PD_CMN;
 	exynos_phy_writel(exynos_pcie, val, PCIE_PHY_COMMON_POWER);
 
-	val = exynos_phy_readl(exynos_pcie, PCIE_PHY_TRSV0_POWER);
-	val |= PCIE_PHY_TRSV0_PD_TSV;
-	exynos_phy_writel(exynos_pcie, val, PCIE_PHY_TRSV0_POWER);
+	/* wait to check whether link down again(D0 UNINIT) or not for retry */
+	usleep_range(1000, 11000);
+	val = exynos_elb_readl(exynos_pcie, PCIE_PM_DSTATE) & 0x7;
+	if (count >= MAX_TIMEOUT || val == PCIE_D0_UNINIT_STATE) {
+		try_cnt++;
+		dev_err(dev, "%s: Link is not up, try count: %d, %x\n", __func__,
+			try_cnt, exynos_elb_readl(exynos_pcie, PCIE_ELBI_RDLH_LINKUP));
+		if (try_cnt < 10) {
+			gpio_set_value(exynos_pcie->perst_gpio, 0);
+			/* LTSSM disable */
+			exynos_elb_writel(exynos_pcie, PCIE_ELBI_LTSSM_DISABLE,
+					  PCIE_APP_LTSSM_ENABLE);
+			goto retry;
+		} else {
+			for (i = 31; i >= 0; i--)
+				history_buffer[i] = exynos_elb_readl(exynos_pcie,
+								PCIE_HISTORY_REG(i));
+			for (i = 31; i >= 0; i--)
+				dev_info(dev, "LTSSM: 0x%02x, L1sub: 0x%x, D state: 0x%x\n",
+					 LTSSM_STATE(history_buffer[i]),
+					 L1SUB_STATE(history_buffer[i]),
+					 PM_DSTATE(history_buffer[i]));
+
+			BUG_ON(1);
+			return -EPIPE;
+		}
+	} else {
+		dev_info(dev, "%s: Link up:%x\n", __func__,
+			 exynos_elb_readl(exynos_pcie, PCIE_ELBI_RDLH_LINKUP));
+
+		if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+			val = exynos_elb_readl(exynos_pcie, PCIE_IRQ_PULSE);
+			exynos_elb_writel(exynos_pcie, val, PCIE_IRQ_PULSE);
+			val = exynos_elb_readl(exynos_pcie, PCIE_IRQ_EN_PULSE);
+			val |= IRQ_LINKDOWN_ENABLE;
+			exynos_elb_writel(exynos_pcie, val, PCIE_IRQ_EN_PULSE);
+		}
+	}
 
 	val = exynos_phy_readl(exynos_pcie, PCIE_PHY_TRSV1_POWER);
 	val |= PCIE_PHY_TRSV1_PD_TSV;
@@ -406,8 +441,44 @@ static void exynos_pcie_enable_irq_pulse(struct pcie_port *pp)
 static irqreturn_t exynos_pcie_irq_handler(int irq, void *arg)
 {
 	struct pcie_port *pp = arg;
+	u32 val;
+	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pp);
+	u32 history_buffer[32];
+	int i;
 
-	exynos_pcie_clear_irq_pulse(pp);
+	/* handle PULSE interrupt */
+	val = exynos_elb_readl(exynos_pcie, PCIE_IRQ_PULSE);
+	exynos_elb_writel(exynos_pcie, val, PCIE_IRQ_PULSE);
+
+	if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+		if (val & IRQ_LINK_DOWN) {
+			dev_info(pp->dev, "!!!PCIE LINK DOWN!!!\n");
+
+			for (i = 31; i >= 0; i--)
+				history_buffer[i] = exynos_elb_readl(exynos_pcie,
+								PCIE_HISTORY_REG(i));
+			for (i = 31; i >= 0; i--)
+				dev_info(pp->dev, "LTSSM: 0x%02x, L1sub: 0x%x, D state: 0x%x\n",
+					 LTSSM_STATE(history_buffer[i]),
+					 L1SUB_STATE(history_buffer[i]),
+					 PM_DSTATE(history_buffer[i]));
+
+			queue_work(exynos_pcie->pcie_wq, &exynos_pcie->work.work);
+		}
+	}
+
+	/* handle LEVEL interrupt */
+	val = exynos_elb_readl(exynos_pcie, PCIE_IRQ_LEVEL);
+#ifdef CONFIG_PCI_MSI
+	if ((val | IRQ_MSI_CTRL) && exynos_pcie->use_msi)
+		dw_handle_msi_irq(pp);
+#endif
+	exynos_elb_writel(exynos_pcie, val, PCIE_IRQ_LEVEL);
+
+	/* handle SPECIAL interrupt */
+	val = exynos_elb_readl(exynos_pcie, PCIE_IRQ_SPECIAL);
+	exynos_elb_writel(exynos_pcie, val, PCIE_IRQ_SPECIAL);
+
 	return IRQ_HANDLED;
 }
 
@@ -644,6 +715,345 @@ static const struct of_device_id exynos_pcie_of_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, exynos_pcie_of_match);
+
+static void exynos_pcie_resumed_phydown(struct pcie_port *pp)
+{
+	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pp);
+	u32 val;
+
+	/* phy all power down on wifi off during suspend/resume */
+	exynos_pcie_clock_enable(pp, 1);
+
+	exynos_pcie_enable_interrupts(pp);
+	regmap_update_bits(exynos_pcie->pmureg,
+			   PCIE_PHY_CONTROL + exynos_pcie->ch_num * 4,
+			   PCIE_PHY_CONTROL_MASK, 1);
+
+	if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+		/* APP_REQ_EXIT_L1_MODE : BIT0 (0x0 : S/W mode, 0x1 : H/W mode) */
+		exynos_elb_writel(exynos_pcie, 0x1, PCIE_APP_REQ_EXIT_L1_MODE);
+		exynos_elb_writel(exynos_pcie, PCIE_LINKDOWN_RST_MANUAL,
+				  PCIE_LINKDOWN_RST_CTRL_SEL);
+
+		/* setting for not-gating core clock in L2 state */
+		val = exynos_elb_readl(exynos_pcie, PCIE_SOFT_AUXCLK_SEL_CTRL);
+		val &= ~CORE_CLK_GATING;
+		exynos_elb_writel(exynos_pcie, val, PCIE_SOFT_AUXCLK_SEL_CTRL);
+	}
+
+	exynos_pcie_assert_phy_reset(pp);
+
+	/* phy all power down */
+	if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+		val = exynos_phy_readl(exynos_pcie, 0x15*4);
+		val |= 0xf << 3;
+		exynos_phy_writel(exynos_pcie, val, 0x15*4);
+		exynos_phy_writel(exynos_pcie, 0xff, 0x4E*4);
+		exynos_phy_writel(exynos_pcie, 0x3f, 0x4F*4);
+	}
+
+	exynos_pcie_phy_clock_enable(pp, 0);
+	regmap_update_bits(exynos_pcie->pmureg,
+			   PCIE_PHY_CONTROL + exynos_pcie->ch_num * 4,
+			   PCIE_PHY_CONTROL_MASK, 0);
+	exynos_pcie_clock_enable(pp, 0);
+}
+
+void exynos_pcie_poweron(int ch_num)
+{
+	struct pcie_port *pp = &g_pcie[ch_num].pp;
+	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pp);
+	struct pinctrl *pinctrl_reset;
+	u32 val, vendor_id, device_id;
+
+	dev_info(pp->dev, "%s, start of poweron, pcie state: %d\n", __func__,
+		 exynos_pcie->state);
+
+	if (exynos_pcie->state == STATE_LINK_DOWN) {
+#ifdef CONFIG_CPU_IDLE
+		exynos_update_ip_idle_status(exynos_pcie->idle_ip_index, 0);
+#endif
+		pinctrl_reset = devm_pinctrl_get_select_default(pp->dev);
+		if (IS_ERR(pinctrl_reset)) {
+			dev_err(pp->dev, "faied to set pcie pin state\n");
+			return;
+		}
+
+		exynos_pcie_clock_enable(pp, 1);
+		regmap_update_bits(exynos_pcie->pmureg,
+				   PCIE_PHY_CONTROL + exynos_pcie->ch_num * 4,
+				   PCIE_PHY_CONTROL_MASK, 1);
+
+		/* phy all power down clear */
+		if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+			val = exynos_phy_readl(exynos_pcie, 0x15*4);
+			val &= ~(0xf << 3);
+			exynos_phy_writel(exynos_pcie, val, 0x15*4);
+			exynos_phy_writel(exynos_pcie, 0x0, 0x4E*4);
+			exynos_phy_writel(exynos_pcie, 0x0, 0x4F*4);
+		}
+
+		exynos_pcie->state = STATE_LINK_UP_TRY;
+
+		/* Enable history buffer */
+		val = exynos_elb_readl(exynos_pcie, PCIE_STATE_HISTORY_CHECK);
+		val |= HISTORY_BUFFER_ENABLE;
+		exynos_elb_writel(exynos_pcie, val, PCIE_STATE_HISTORY_CHECK);
+
+		if (!exynos_pcie->probe_ok) {
+			exynos_pcie_establish_link(pp);
+			exynos_pcie->state = STATE_LINK_UP;
+			dw_pcie_scan(pp);
+
+			exynos_pcie_rd_own_conf(pp, PCI_VENDOR_ID, 4, &val);
+			vendor_id = val & ID_MASK;
+			device_id = (val >> 16) & ID_MASK;
+
+			exynos_pcie->pci_dev = pci_get_device(vendor_id, device_id, NULL);
+			if (!exynos_pcie->pci_dev) {
+				dev_err(pp->dev, "Failed to get pci device\n");
+				return;
+			}
+
+#ifdef CONFIG_PCI_MSI
+			exynos_pcie_msi_init(pp);
+#endif
+
+			pci_save_state(exynos_pcie->pci_dev);
+			exynos_pcie->pci_saved_configs =
+				pci_store_saved_state(exynos_pcie->pci_dev);
+			exynos_pcie->probe_ok = 1;
+		} else if (exynos_pcie->probe_ok) {
+			exynos_pcie_reset(pp);
+			exynos_pcie->state = STATE_LINK_UP;
+
+#ifdef CONFIG_PCI_MSI
+			exynos_pcie_msi_init(pp);
+#endif
+
+			pci_load_saved_state(exynos_pcie->pci_dev,
+					     exynos_pcie->pci_saved_configs);
+			pci_restore_state(exynos_pcie->pci_dev);
+		}
+	}
+
+	dev_info(pp->dev, "%s, end of poweron, pcie state: %d\n", __func__,
+		 exynos_pcie->state);
+}
+EXPORT_SYMBOL(exynos_pcie_poweron);
+
+void exynos_pcie_poweroff(int ch_num)
+{
+	struct pcie_port *pp = &g_pcie[ch_num].pp;
+	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pp);
+	struct pinctrl *pinctrl_reset;
+	unsigned long flags;
+	u32 val;
+
+	dev_info(pp->dev, "%s, start of poweroff, pcie state: %d\n", __func__,
+		 exynos_pcie->state);
+
+	if (exynos_pcie->state == STATE_LINK_UP ||
+	    exynos_pcie->state == STATE_LINK_DOWN_TRY) {
+		exynos_pcie->state = STATE_LINK_DOWN_TRY;
+		while (exynos_pcie->lpc_checking)
+			usleep_range(1000, 1100);
+
+		if (ch_num == 1) {
+			exynos_pcie->pcie_tpoweron_max = 0;
+			if (exynos_pcie->eint_flag) {
+				exynos_pcie_enable_l1_exit_irq(pp, 0);
+				exynos_pcie->eint_flag = 0;
+			}
+		}
+
+		if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+			val = exynos_elb_readl(exynos_pcie, PCIE_IRQ_EN_PULSE);
+			val &= ~IRQ_LINKDOWN_ENABLE;
+			exynos_elb_writel(exynos_pcie, val, PCIE_IRQ_EN_PULSE);
+		}
+
+		spin_lock_irqsave(&pp->conf_lock, flags);
+		exynos_pcie->state = STATE_LINK_DOWN;
+
+		/* Disable history buffer */
+		val = exynos_elb_readl(exynos_pcie, PCIE_STATE_HISTORY_CHECK);
+		val &= ~HISTORY_BUFFER_ENABLE;
+		exynos_elb_writel(exynos_pcie, val, PCIE_STATE_HISTORY_CHECK);
+
+		gpio_set_value(exynos_pcie->perst_gpio, 0);
+		/* LTSSM disable */
+		writel(PCIE_ELBI_LTSSM_DISABLE, exynos_pcie->elbi_base + PCIE_APP_LTSSM_ENABLE);
+
+		/* phy all power down */
+		if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+			val = exynos_phy_readl(exynos_pcie, 0x15*4);
+			val |= 0xf << 3;
+			exynos_phy_writel(exynos_pcie, val, 0x15*4);
+			exynos_phy_writel(exynos_pcie, 0xff, 0x4E*4);
+			exynos_phy_writel(exynos_pcie, 0x3f, 0x4F*4);
+		}
+
+		spin_unlock_irqrestore(&pp->conf_lock, flags);
+
+		exynos_pcie_phy_clock_enable(pp, 0);
+		regmap_update_bits(exynos_pcie->pmureg,
+				   PCIE_PHY_CONTROL + exynos_pcie->ch_num * 4,
+				   PCIE_PHY_CONTROL_MASK, 0);
+		exynos_pcie_clock_enable(pp, 0);
+
+		pinctrl_reset = devm_pinctrl_get_select(pp->dev, "clkreq_output");
+		if (IS_ERR(pinctrl_reset)) {
+			dev_err(pp->dev, "failed to set pcie clkerq pin to output high\n");
+			return;
+		}
+#ifdef CONFIG_CPU_IDLE
+		exynos_update_ip_idle_status(exynos_pcie->idle_ip_index, 1);
+#endif
+	}
+
+	dev_info(pp->dev, "%s, end of poweroff, pcie state: %d\n",  __func__,
+		 exynos_pcie->state);
+}
+EXPORT_SYMBOL(exynos_pcie_poweroff);
+
+void exynos_pcie_send_pme_turn_off(struct exynos_pcie *exynos_pcie)
+{
+	struct pcie_port *pp = &exynos_pcie->pp;
+	struct device *dev = pp->dev;
+	int __maybe_unused count = 0;
+	u32 __maybe_unused val;
+
+	if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie")) {
+		exynos_elb_writel(exynos_pcie, 0x0, PCIE_APP_REQ_EXIT_L1_MODE);
+		exynos_elb_writel(exynos_pcie, 0x0, 0xa8);
+		exynos_elb_writel(exynos_pcie, 0x1, PCIE_APP_REQ_EXIT_L1);
+		exynos_elb_writel(exynos_pcie, 0x1, 0xac);
+		exynos_elb_writel(exynos_pcie, 0x13, 0xb0);
+		exynos_elb_writel(exynos_pcie, 0x19, 0xd0);
+		exynos_elb_writel(exynos_pcie, 0x1, 0xa8);
+	}
+
+	while (count < MAX_TIMEOUT) {
+		if ((exynos_elb_readl(exynos_pcie, PCIE_IRQ_PULSE)
+		    & IRQ_RADM_PM_TO_ACK)) {
+			dev_err(dev, "ack message is ok\n");
+			break;
+		}
+
+		udelay(10);
+		count++;
+	}
+
+	if (count >= MAX_TIMEOUT)
+		dev_err(dev, "cannot receive ack message from wifi\n");
+
+	if (of_device_is_compatible(pp->dev->of_node, "samsung,exynos8890-pcie"))
+		exynos_elb_writel(exynos_pcie, 0x0, PCIE_APP_REQ_EXIT_L1);
+
+	do {
+		val = exynos_elb_readl(exynos_pcie, PCIE_ELBI_RDLH_LINKUP);
+		val = val & 0x1f;
+		if (val == 0x15) {
+			dev_err(dev, "received Enter_L23_READY DLLP packet\n");
+			break;
+		}
+		udelay(10);
+		count++;
+	} while (count < MAX_TIMEOUT);
+
+	if (count >= MAX_TIMEOUT)
+		dev_err(dev, "cannot receive L23_READY DLLP packet\n");
+}
+
+int exynos_pcie_pm_suspend(int ch_num)
+{
+	struct pcie_port *pp = &g_pcie[ch_num].pp;
+	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pp);
+	unsigned long flags;
+
+	if (exynos_pcie->state == STATE_LINK_DOWN) {
+		dev_info(pp->dev, "RC%d already off\n", exynos_pcie->ch_num);
+		return 0;
+	}
+
+	spin_lock_irqsave(&pp->conf_lock, flags);
+	exynos_pcie->state = STATE_LINK_DOWN_TRY;
+	spin_unlock_irqrestore(&pp->conf_lock, flags);
+
+	exynos_pcie_send_pme_turn_off(exynos_pcie);
+	exynos_pcie_poweroff(ch_num);
+
+	return 0;
+}
+EXPORT_SYMBOL(exynos_pcie_pm_suspend);
+
+int exynos_pcie_pm_resume(int ch_num)
+{
+	exynos_pcie_poweron(ch_num);
+
+	return 0;
+}
+EXPORT_SYMBOL(exynos_pcie_pm_resume);
+
+#ifdef CONFIG_PM
+static int exynos_pcie_suspend_noirq(struct device *dev)
+{
+	struct exynos_pcie *exynos_pcie = dev_get_drvdata(dev);
+
+	if (exynos_pcie->state == STATE_LINK_DOWN) {
+		dev_info(dev, "RC%d already off\n", exynos_pcie->ch_num);
+		return 0;
+	}
+
+	exynos_pcie_send_pme_turn_off(exynos_pcie);
+	gpio_set_value(exynos_pcie->perst_gpio, 0);
+
+	return 0;
+}
+
+static int exynos_pcie_resume_noirq(struct device *dev)
+{
+	struct exynos_pcie *exynos_pcie = dev_get_drvdata(dev);
+
+	if (exynos_pcie->state == STATE_LINK_DOWN) {
+		exynos_pcie_resumed_phydown(&exynos_pcie->pp);
+		return 0;
+	}
+
+	if (of_device_is_compatible(dev->of_node, "samsung,exynos8890-pcie")) {
+		writel(0x0, exynos_pcie->elbi_base + PCIE_SOFT_CORE_RESET);
+		udelay(20);
+		writel(0x1, exynos_pcie->elbi_base + PCIE_SOFT_CORE_RESET);
+	}
+
+	exynos_pcie_enable_interrupts(&exynos_pcie->pp);
+
+	regmap_update_bits(exynos_pcie->pmureg,
+			   PCIE_PHY_CONTROL + exynos_pcie->ch_num * 4,
+			   PCIE_PHY_CONTROL_MASK, 1);
+
+	exynos_pcie_establish_link(&exynos_pcie->pp);
+
+	/* setup ATU for cfg/mem outbound */
+	dw_pcie_prog_viewport_cfg0(&exynos_pcie->pp, 0x1000000);
+	dw_pcie_prog_viewport_mem_outbound(&exynos_pcie->pp);
+
+	/* L1.2 ASPM enable */
+	dw_pcie_config_l1ss(&exynos_pcie->pp);
+
+	return 0;
+}
+
+#else
+#define exynos_pcie_suspend_noirq	NULL
+#define exynos_pcie_resume_noirq	NULL
+#endif
+
+static const struct dev_pm_ops exynos_pcie_dev_pm_ops = {
+	.suspend_noirq	= exynos_pcie_suspend_noirq,
+	.resume_noirq	= exynos_pcie_resume_noirq,
+};
 
 static struct platform_driver exynos_pcie_driver = {
 	.remove		= __exit_p(exynos_pcie_remove),
