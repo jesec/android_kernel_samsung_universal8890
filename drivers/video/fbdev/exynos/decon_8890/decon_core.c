@@ -3596,7 +3596,7 @@ static int decon_probe(struct platform_device *pdev)
 
 	call_init_ops(decon, bts_add, decon);
 
-	if (decon->pdata->out_type == DECON_OUT_DSI) {
+	if (!decon->id && decon->pdata->out_type == DECON_OUT_DSI) {
 		/* Enable only Decon_F during probe */
 #if defined(CONFIG_PM_RUNTIME)
 		pm_runtime_get_sync(decon->dev);
@@ -3635,7 +3635,7 @@ static int decon_probe(struct platform_device *pdev)
 		win_regs.offset_x = fbinfo->var.xoffset;
 		win_regs.offset_y = fbinfo->var.yoffset;
 		win_regs.type = decon->default_idma;
-		decon_reg_set_window_control(decon->id, win_idx, &win_regs, true);
+		decon_reg_set_window_control(decon->id, win_idx, &win_regs, false);
 
 		decon->vpp_usage_bitmask |= (1 << decon->default_idma);
 		decon->vpp_used[decon->default_idma] = true;
@@ -3660,7 +3660,6 @@ static int decon_probe(struct platform_device *pdev)
 			decon->vpp_usage_bitmask &= ~(1 << decon->default_idma);
 			decon->vpp_err_stat[decon->default_idma] = true;
 		}
-
 		decon_reg_update_req_window(decon->id, win_idx);
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE)
