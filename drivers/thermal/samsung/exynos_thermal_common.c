@@ -41,6 +41,7 @@ struct exynos_thermal_zone {
 	bool bind;
 };
 
+static DEFINE_MUTEX (thermal_suspend_lock);
 static bool suspended;
 static bool is_cpu_hotplugged_out;
 
@@ -276,12 +277,14 @@ static int exynos_get_temp(struct thermal_zone_device *thermal,
 	/* convert the temperature into millicelsius */
 	*temp = *temp * MCELSIUS;
 
+	mutex_lock(&thermal_suspend_lock);
 	if (th_zone->sensor_conf->d_type == BIG_CPU)
 		cpufreq_set_cur_temp(suspended, *temp / 1000);
-	else  if (th_zone->sensor_conf->d_type == CPU)
+	else if (th_zone->sensor_conf->d_type == CPU)
 		cpufreq_set_cur_temp(suspended, *temp / 1000);
-	else  if (th_zone->sensor_conf->d_type == GPU)
+	else if (th_zone->sensor_conf->d_type == GPU)
 		gpufreq_set_cur_temp(suspended, *temp / 1000);
+	mutex_unlock(&thermal_suspend_lock);
 
 	return 0;
 }
@@ -454,10 +457,14 @@ static int exynos_pm_notifier(struct notifier_block *notifier,
 {
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
+		mutex_lock(&thermal_suspend_lock);
 		suspended = true;
+		mutex_unlock(&thermal_suspend_lock);
 		break;
 	case PM_POST_SUSPEND:
+		mutex_lock(&thermal_suspend_lock);
 		suspended = false;
+		mutex_unlock(&thermal_suspend_lock);
 		break;
 	}
 
