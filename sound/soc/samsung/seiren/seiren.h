@@ -145,17 +145,6 @@
 #define FW_SRAM_NAME		"seiren_fw_sram.bin"
 #define FW_DRAM_NAME		"seiren_fw_dram.bin"
 
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-#define DMA_CH_MAX		(8)
-#define DMA_PARAM_OFFSET	(0x23000)
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
-/* DMA_CH 0 is reserved for OFFLOAD */
-#define DMA_CH_BEGIN		(1)
-#else
-#define DMA_CH_BEGIN		(0)
-#endif
-#endif
-
 #ifdef CONFIG_SND_ESA_SA_EFFECT
 #define EFFECT_OFFSET		(0x1A000)
 #endif
@@ -318,8 +307,7 @@ struct audio_eq_band_info_t {
 struct seiren_info {
 	struct platform_device *pdev;
 	spinlock_t	lock;
-#if defined(CONFIG_SND_SAMSUNG_SEIREN_DMA) || \
-	defined(CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD)
+#if defined(CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD)
 	spinlock_t	cmd_lock;
 	spinlock_t	compr_lock;
 #endif
@@ -328,11 +316,6 @@ struct seiren_info {
 	void __iomem	*mailbox;
 	void __iomem	*sram;
 	struct clk	*clk_ca5;
-	struct clk	*opclk_ca5;
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	struct clk	*clk_dmac;
-	struct clk	*clk_timer;
-#endif
 	unsigned int	irq_ca5;
 	struct proc_dir_entry	*proc_file;
 #ifdef CONFIG_SND_SAMSUNG_IOMMU
@@ -376,12 +359,6 @@ struct seiren_info {
 	struct pm_qos_request	ca5_mif_qos;
 	int		mif_qos;
 	int		int_qos;
-#endif
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	void __iomem	*dma_param;
-	bool		dma_ch[DMA_CH_MAX];
-	void		(*dma_cb[DMA_CH_MAX])(void *data);
-	void		*dma_cb_param[DMA_CH_MAX];
 #endif
 #ifdef CONFIG_SND_ESA_SA_EFFECT
 	void __iomem	*effect_ram;
@@ -434,14 +411,6 @@ struct esa_rtd {
 	/* multi-instance */
 	unsigned int	idx;
 };
-
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-extern void __iomem *esa_dma_get_mem(void);
-extern int esa_dma_open(void);
-extern void esa_dma_close(int ch);
-extern int esa_dma_send_cmd(u32 cmd, int ch, void __iomem *reg_ack);
-extern int esa_dma_set_callback(void (*cb)(void *data), void *param, int ch);
-#endif
 
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 enum OFFLOAD_IPTYPE {

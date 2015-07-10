@@ -507,7 +507,7 @@ static void esa_fw_download(void)
 {
 	int n;
 
-	esa_debug("%s: fw size = sram(%d) dram(%d)\n", __func__,
+	esa_info("%s: fw size = sram(%d) dram(%d)\n", __func__,
 			si.fw_sbin_size, si.fw_dbin_size);
 
 	lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
@@ -517,7 +517,7 @@ static void esa_fw_download(void)
 	memset(si.mailbox, 0, 128);
 #endif
 	if (si.fw_suspended) {
-		esa_debug("%s: resume\n", __func__);
+		esa_info("%s: resume\n", __func__);
 		/* Restore SRAM */
 		memcpy(si.sram, si.fwmem_sram_bak, SRAM_FW_MAX);
 #ifndef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
@@ -526,7 +526,7 @@ static void esa_fw_download(void)
 		memcpy(si.mailbox,  si.mailbox_bak,  128);
 #endif
 	} else {
-		esa_debug("%s: intialize\n", __func__);
+		esa_info("%s: intialize\n", __func__);
 		for (n = 0; n < FWAREA_NUM; n++)
 			memset(si.fwarea[n], 0, FWAREA_SIZE);
 
@@ -539,7 +539,7 @@ static void esa_fw_download(void)
 
 	lpass_reset(LPASS_IP_CA5, LPASS_OP_NORMAL);
 
-	esa_debug("%s: CA5 startup...\n", __func__);
+	esa_info("%s: CA5 startup...\n", __func__);
 }
 
 static int esa_fw_startup(void)
@@ -1272,15 +1272,6 @@ static irqreturn_t esa_isr(int irqno, void *id)
 		si.fw_ready = true;
 		wakeup = true;
 		break;
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	case INTR_DMA:
-		val &= 0xFF;
-		esa_debug("INTR_DMA (ch %d)\n", val);
-		if (si.dma_cb[val])
-			(*si.dma_cb[val])(si.dma_cb_param[val]);
-		writel(0, si.mailbox + COMPR_INTR_DMA_ACK);
-		break;
-#endif
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 	case INTR_CREATED:
 		esa_info("INTR_CREATED\n");
@@ -1925,10 +1916,6 @@ static const struct file_operations esa_proc_fops = {
 static int esa_do_suspend(struct device *dev)
 {
 	esa_fw_shutdown();
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	clk_disable_unprepare(si.clk_timer);
-	clk_disable_unprepare(si.clk_dmac);
-#endif
 	clk_disable_unprepare(si.clk_ca5);
 	lpass_put_sync(dev);
 	esa_update_qos();
@@ -1944,10 +1931,6 @@ static int esa_do_resume(struct device *dev)
 
 	lpass_get_sync(dev);
 	clk_prepare_enable(si.clk_ca5);
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	clk_prepare_enable(si.clk_dmac);
-	clk_prepare_enable(si.clk_timer);
-#endif
 	esa_fw_startup();
 	esa_update_qos();
 
@@ -1963,10 +1946,6 @@ static int esa_suspend(struct device *dev)
 		return 0;
 
 	esa_fw_shutdown();
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	clk_disable_unprepare(si.clk_timer);
-	clk_disable_unprepare(si.clk_dmac);
-#endif
 	clk_disable_unprepare(si.clk_ca5);
 
 	si.pm_suspended = true;
@@ -1984,10 +1963,6 @@ static int esa_resume(struct device *dev)
 	si.pm_suspended = false;
 
 	clk_prepare_enable(si.clk_ca5);
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	clk_prepare_enable(si.clk_dmac);
-	clk_prepare_enable(si.clk_timer);
-#endif
 	esa_fw_startup();
 
 	return 0;
@@ -2107,8 +2082,7 @@ static int esa_probe(struct platform_device *pdev)
 	printk(banner);
 
 	spin_lock_init(&si.lock);
-#if defined(CONFIG_SND_SAMSUNG_SEIREN_DMA) || \
-	defined(CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD)
+#if defined(CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD)
 	spin_lock_init(&si.cmd_lock);
 	spin_lock_init(&si.compr_lock);
 	si.is_compr_open = false;
@@ -2133,10 +2107,6 @@ static int esa_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	si.dma_param = si.sram + DMA_PARAM_OFFSET;
-#endif
-
 #ifdef CONFIG_SND_ESA_SA_EFFECT
 	si.effect_ram = si.sram + EFFECT_OFFSET;
 	si.out_sample_rate = 0;
@@ -2156,30 +2126,6 @@ static int esa_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	si.opclk_ca5 = clk_get(dev, "ca5_opclk");
-	if (IS_ERR(si.opclk_ca5)) {
-		dev_err(dev, "ca5 opclk not found\n");
-		clk_put(si.clk_ca5);
-		return -ENODEV;
-	}
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	si.clk_dmac = clk_get(dev, "dmac");
-	if (IS_ERR(si.clk_dmac)) {
-		dev_err(dev, "dmac clk not found\n");
-		clk_put(si.opclk_ca5);
-		clk_put(si.clk_ca5);
-		return -ENODEV;
-	}
-
-	si.clk_timer = clk_get(dev, "timer");
-	if (IS_ERR(si.clk_timer)) {
-		dev_err(dev, "timer clk not found\n");
-		clk_put(si.clk_dmac);
-		clk_put(si.opclk_ca5);
-		clk_put(si.clk_ca5);
-		return -ENODEV;
-	}
-#endif
 	if (np) {
 		if (of_find_property(np, "samsung,lpass-subip", NULL))
 			lpass_register_subip(dev, "ca5");
@@ -2210,6 +2156,8 @@ static int esa_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "could not load firmware\n");
 		goto err;
+	} else {
+		dev_err(dev, "load firmware success\n");
 	}
 
 	ret = request_irq(si.irq_ca5, esa_isr, 0, "lpass-ca5", 0);
@@ -2230,7 +2178,6 @@ static int esa_probe(struct platform_device *pdev)
 	esa_debug("mailbox    = %p\n", si.mailbox);
 	esa_debug("bufmem_pa  = %p\n", (void*)si.bufmem_pa);
 	esa_debug("fwmem_pa   = %p\n", (void*)si.fwmem_pa);
-	esa_debug("ca5 opclk  = %ldHz\n", clk_get_rate(si.opclk_ca5));
 
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_use_autosuspend(dev);
@@ -2260,11 +2207,6 @@ static int esa_probe(struct platform_device *pdev)
 	return 0;
 
 err:
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	clk_put(si.clk_timer);
-	clk_put(si.clk_dmac);
-#endif
-	clk_put(si.opclk_ca5);
 	clk_put(si.clk_ca5);
 	return -ENODEV;
 }
@@ -2283,11 +2225,6 @@ static int esa_remove(struct platform_device *pdev)
 	lpass_put_sync(&pdev->dev);
 #endif
 	clk_put(si.clk_ca5);
-	clk_put(si.opclk_ca5);
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_DMA
-	clk_put(si.clk_dmac);
-	clk_put(si.clk_timer);
-#endif
 	return ret;
 }
 
