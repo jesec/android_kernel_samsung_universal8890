@@ -101,6 +101,7 @@ struct thermal_sensor_conf {
 	enum dev_type d_type;
 	int id;
 	bool hotplug_enable;
+	int count;
 	int hotplug_in_threshold;
 	int hotplug_out_threshold;
 };

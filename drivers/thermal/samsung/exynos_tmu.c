@@ -45,6 +45,8 @@
 #include "exynos_tmu.h"
 #include "exynos_tmu_data.h"
 
+static unsigned int sensor_count = 0;
+
 /**
  * struct exynos_tmu_data : A structure to hold the private data of the TMU
 	driver
@@ -1024,7 +1026,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	sensor_conf->dev = &pdev->dev;
 
 #if defined(CONFIG_CPU_THERMAL_IPA)
-	if (sensor_conf->id == 0) {
+	if (sensor_count++ == FIRST_SENSOR) {
 		ipa_sensor_conf.private_data = sensor_conf->driver_data;
 		ipa_register_thermal_sensor(&ipa_sensor_conf);
 	}

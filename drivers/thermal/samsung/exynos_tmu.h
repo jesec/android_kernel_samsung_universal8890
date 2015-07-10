@@ -26,6 +26,8 @@
 
 #include "exynos_thermal_common.h"
 
+#define FIRST_SENSOR		0
+
 enum calibration_type {
 	TYPE_ONE_POINT_TRIMMING,
 	TYPE_ONE_POINT_TRIMMING_25,
