@@ -169,7 +169,9 @@ unsigned int cpu_lock[14] =
 void lpass_set_cpu_lock(int level)
 {
 	mutex_lock(&lpass_mutex);
+#ifdef USE_AUD_DEVFREQ
 	pm_qos_update_request(&lpass.aud_cluster0_qos, cpu_lock[level]);
+#endif
 	mutex_unlock(&lpass_mutex);
 }
 #endif
@@ -450,7 +452,7 @@ void lpass_get_sync(struct device *ip_dev)
 		if (si->dev == ip_dev) {
 			atomic_inc(&si->use_cnt);
 			atomic_inc(&lpass.use_cnt);
-			pr_debug("%s: %s (use:%d)\n", __func__,
+			pr_info("%s: %s (use:%d)\n", __func__,
 				si->name, atomic_read(&si->use_cnt));
 			pm_runtime_get_sync(&lpass.pdev->dev);
 		}
@@ -467,7 +469,7 @@ void lpass_put_sync(struct device *ip_dev)
 		if (si->dev == ip_dev) {
 			atomic_dec(&si->use_cnt);
 			atomic_dec(&lpass.use_cnt);
-			pr_debug("%s: %s (use:%d)\n", __func__,
+			pr_info("%s: %s (use:%d)\n", __func__,
 				si->name, atomic_read(&si->use_cnt));
 			pm_runtime_put_sync(&lpass.pdev->dev);
 		}
@@ -595,9 +597,7 @@ static void lpass_retention_pad(void)
 	}
 
 	/* Set PAD retention */
-#if 0
 	lpass_retention_pad_reg();
-#endif
 }
 
 static void lpass_release_pad(void)
@@ -611,9 +611,7 @@ static void lpass_release_pad(void)
 	}
 
 	/* Release PAD retention */
-#if 0
 	lpass_release_pad_reg();
-#endif
 }
 
 static void ass_enable(void)
@@ -647,7 +645,7 @@ static void lpass_enable(void)
 	/* Enable PLL */
 	lpass_enable_pll(true);
 
-//	lpass_reg_restore();
+	lpass_reg_restore();
 
 	/* PLL path */
 	lpass_set_mux_pll();
@@ -667,11 +665,9 @@ static void lpass_enable(void)
 	/* PAD */
 	lpass_release_pad();
 
-#if 0
 	/* Clear memory */
-	memset(lpass.mem, 0, lpass.mem_size);
+//	memset(lpass.mem, 0, lpass.mem_size);
 
-#endif
 	lpass.enabled = true;
 }
 
@@ -1057,7 +1053,7 @@ static int lpass_probe(struct platform_device *pdev)
 		dev_err(dev, "SFR ioremap failed\n");
 		return -ENOMEM;
 	}
-	pr_debug("%s: regs_base = %08X (%08X bytes)\n",
+	pr_info("%s: regs_base = %08X (%08X bytes)\n",
 		__func__, (u32)res->start, (u32)resource_size(res));
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
@@ -1072,7 +1068,7 @@ static int lpass_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	lpass.mem_size = resource_size(res);
-	pr_debug("%s: sram_base = %08X (%08X bytes)\n",
+	pr_info("%s: sram_base = %08X (%08X bytes)\n",
 		__func__, (u32)res->start, (u32)resource_size(res));
 
 	if (lpass.ver >= LPASS_VER_370200) {
@@ -1087,7 +1083,7 @@ static int lpass_probe(struct platform_device *pdev)
 			dev_err(dev, "SFR ioremap failed\n");
 			return -ENOMEM;
 		}
-		pr_debug("%s: regs-s_base = %08X (%08X bytes)\n",
+		pr_info("%s: regs-s_base = %08X (%08X bytes)\n",
 			__func__, (u32)res->start, (u32)resource_size(res));
 	} else {
 		lpass.regs_s = lpass.regs;
@@ -1138,6 +1134,13 @@ static int lpass_probe(struct platform_device *pdev)
 	atomic_set(&lpass.use_cnt, 0);
 	atomic_set(&lpass.stream_cnt, 0);
 	lpass_init_reg_list();
+
+	/* unmask irq source */
+	if (is_new_ass())
+		writel(INTR_CA5_MASK_VAL, lpass.regs + LPASS_INTR_CA5_MASK);
+
+	writel(INTR_CPU_MASK_VAL, lpass.regs + LPASS_INTR_CPU_MASK);
+	lpass_reg_save();
 	lpass.valid = true;
 
 	lpass.pmureg = syscon_regmap_lookup_by_phandle(dev->of_node,
@@ -1161,15 +1164,6 @@ static int lpass_probe(struct platform_device *pdev)
 #endif
 	lpass.display_on = true;
 	fb_register_client(&fb_noti_block);
-
-#if 0
-/* unmask irq source */
-	if (is_new_ass())
-		writel(INTR_CA5_MASK_VAL, lpass.regs + LPASS_INTR_CA5_MASK);
-	writel(INTR_CPU_MASK_VAL, lpass.regs + LPASS_INTR_CPU_MASK);
-
-	lpass_reg_save();
-#endif
 
 #ifdef USE_AUD_DEVFREQ
 	lpass.cpu_qos = 0;
