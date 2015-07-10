@@ -336,15 +336,11 @@ int amba_device_add(struct amba_device *dev, struct resource *parent)
 
 		amba_put_disable_pclk(dev);
 
-#ifndef CONFIG_SOC_EXYNOS8890
 		if (cid == AMBA_CID)
 			dev->periphid = pid;
 
 		if (!dev->periphid)
 			ret = -ENODEV;
-#else
-		dev->periphid = 0x341330;
-#endif
 	}
 
 	iounmap(tmp);
