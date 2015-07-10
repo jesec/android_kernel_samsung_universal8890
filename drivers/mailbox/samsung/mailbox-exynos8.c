@@ -39,16 +39,20 @@
 #include <linux/apm-exynos.h>
 #include <linux/mailbox-exynos.h>
 #include <asm-generic/checksum.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
-#include <mach/asv-exynos.h>
-#include <mach/exynos-pm.h>
-#include <mach/regs-pmu-exynos8890.h>
-#include <mach/exynos-powermode.h>
-#include "../../arch/arm64/mach-exynos/pwrcal/pwrcal.h"
+#include <soc/samsung/asv-exynos.h>
+#include <soc/samsung/exynos-pm.h>
+#include <soc/samsung/exynos-powermode.h>
+#include "../../soc/samsung/pwrcal/pwrcal.h"
 
 /* firmware file information */
 #define fw_checksum	61921
 char *firmware_file = "apm_8890_v6.h";
+void __iomem *sram_base;
+void __iomem *exynos_mailbox_reg;
+struct regmap *cortexm3_pmu_regmap;
 
 extern char* protocol_name;
 
@@ -89,27 +93,27 @@ void samsung_mbox_disable_irq(void)
 }
 #endif
 
-static inline struct samsung_mlink *to_samsung_mlink(struct mbox_link *plink)
+static inline struct samsung_mlink *to_samsung_mchan(struct mbox_chan *pchan)
 {
-	if (!plink)
+	if (!pchan)
 		return NULL;
 
-	return container_of(plink, struct samsung_mlink, link);
+	return container_of(pchan, struct samsung_mlink, chan);
 }
 
-static inline struct samsung_mbox *to_samsung_mbox(struct mbox_link *plink)
+static inline struct samsung_mbox *to_samsung_mbox(struct mbox_chan *pchan)
 {
-	if (!plink)
+	if (!pchan)
 		return NULL;
 
-	return to_samsung_mlink(plink)->smc;
+	return to_samsung_mchan(pchan)->smc;
 }
 
 static void firmware_load(const char *firmware, int size)
 {
 	dram_checksum = csum_partial(firmware, size, 0);
 
-	memcpy(EXYNOS_MAILBOX_SRAM, firmware, size);
+	memcpy(sram_base, firmware, size);
 
 	pr_info("OK \n");
 }
@@ -143,20 +147,20 @@ static irqreturn_t samsung_ipc_handler(int irq, void *p)
 	mbox_link_txdone(&plink->link, MBOX_OK);
 
 	/* Acknowledge the interrupt by clearing the interrupt register */
-	tmp = __raw_readl(EXYNOS_MAILBOX_RX_INT);
+	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
 	tmp &= ~RX_INT_CLEAR;
-	__raw_writel(tmp, EXYNOS_MAILBOX_RX_INT);
+	__raw_writel(tmp, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
 
 	/* Debug information */
-	rx.buf[rx.cnt][G3D_STATUS] = (__raw_readl(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
+	rx.buf[rx.cnt][G3D_STATUS] = (exynos_cortexm3_pmu_read(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
 	rx.name[rx.cnt] = protocol_name;
 	for (i = 0; i < MAILBOX_REG_CNT; i++) {
 		rx.time[rx.cnt] = ktime_to_ms(ktime_get());
-		rx.buf[rx.cnt][i] = __raw_readl(EXYNOS_MAILBOX_RX(i));
+		rx.buf[rx.cnt][i] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(i));
 	}
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 	/* Debug register clear */
-	__raw_writel(0x0, EXYNOS_MAILBOX_RX(0));
+	__raw_writel(0x0, exynos_mailbox_reg + EXYNOS_MAILBOX_RX(0));
 
 	/* Check firmware setting voltage */
 	rx.atl_value = ((rx.buf[rx.cnt][0] >> ATL_VOL_SHIFT) & VOL_MASK);
@@ -186,50 +190,50 @@ static irqreturn_t samsung_ipc_handler(int irq, void *p)
 #endif
 
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
-static int samsung_mbox_startup(struct mbox_link *link, void *ignored)
+static int samsung_mbox_startup(struct mbox_chan *chan)
 {
 	return 0;
 }
 #else
-static int samsung_mbox_startup(struct mbox_link *link, void *ignored) { return 0;}
+static int samsung_mbox_startup(struct mbox_chan *chan) { return 0;}
 #endif
 
-static int samsung_mbox_send_data(struct mbox_link *link, void *msg)
+static int samsung_mbox_send_data(struct mbox_chan *chan, void *msg)
 {
-	struct samsung_mlink *samsung_link = to_samsung_mlink(link);
+	struct samsung_mlink *samsung_link = to_samsung_mchan(chan);
 	u32 *msg_data = (u32 *)msg;
 	u32 i, status, limit_cnt = 0, tmp;
 
 	samsung_link->data = msg_data;
 
 	/* Check cortex m3 hardware status */
-	tmp = __raw_readl(EXYNOS_PMU_CORTEXM3_APM_STATUS);
+	tmp = exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_STATUS);
 	status = (((tmp >> STANDBYWFI) & STANDBYWFI_MASK) & (tmp & APM_STATUS_MASK));
 	if (status)
 		return -1;
 
 	/* Check rx interrupt status */
 	do {
-		status = __raw_readl(EXYNOS_MAILBOX_RX(3)) & CM3_INTERRPUT_SHIFT;
+		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(3)) & CM3_INTERRPUT_SHIFT;
 		limit_cnt++;
 		if (limit_cnt > CM3_COUNT_MAX) return -1;
 	} while (status);
 
-	tx.buf[tx.cnt][G3D_STATUS] = (__raw_readl(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
+	tx.buf[tx.cnt][G3D_STATUS] = (exynos_cortexm3_pmu_read(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
 	tx.name[tx.cnt] = protocol_name;
 
 	limit_cnt = 0;
 	/* Check Tx interrupt status */
 	do {
-		status = __raw_readl(EXYNOS_MAILBOX_TX(3)) & CM3_INTERRPUT_SHIFT;
+		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX(3)) & CM3_INTERRPUT_SHIFT;
 		limit_cnt++;
 		if (limit_cnt > CM3_COUNT_MAX) return -1;
 	} while (status);
 
 	/* Save information and data to mailbox SFR */
 	for (i = 0; i < MAILBOX_REG_CNT; i++) {
-		writel(msg_data[i], EXYNOS_MAILBOX_TX(i));
-		tx.buf[tx.cnt][i] = readl(EXYNOS_MAILBOX_TX(i));
+		writel(msg_data[i], exynos_mailbox_reg + EXYNOS_MAILBOX_TX(i));
+		tx.buf[tx.cnt][i] = readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX(i));
 		/* Save a time and message information */
 		tx.time[tx.cnt] = ktime_to_ms(ktime_get());
 	}
@@ -250,14 +254,14 @@ static int samsung_mbox_send_data(struct mbox_link *link, void *msg)
 }
 
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
-static void samsung_mbox_shutdown(struct mbox_link *link)
+static void samsung_mbox_shutdown(struct mbox_chan *chan)
 {
 }
 #else
-static void samsung_mbox_shutdown(struct mbox_link *link) {}
+static void samsung_mbox_shutdown(struct mbox_chan *chan) {}
 #endif
 
-int samsung_mbox_last_tx_done(struct mbox_link *link)
+bool samsung_mbox_last_tx_done(struct mbox_chan *chan)
 {
 	unsigned int status, limit_cnt = 0, tmp, i;
 
@@ -267,27 +271,27 @@ int samsung_mbox_last_tx_done(struct mbox_link *link)
 			usleep_range(28, 30);
 		}
 
-		status = __raw_readl(EXYNOS_MAILBOX_RX_INT) & CM3_POLLING_SHIFT;
+		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT) & CM3_POLLING_SHIFT;
 
 		limit_cnt++;
 		if (limit_cnt > 100) return -EIO;
 	} while(!status);
 
 	/* Acknowledge the interrupt by clearing the interrupt register */
-	tmp = __raw_readl(EXYNOS_MAILBOX_RX_INT);
+	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
 	tmp &= ~RX_INT_CLEAR;
-	__raw_writel(tmp, EXYNOS_MAILBOX_RX_INT);
+	__raw_writel(tmp, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
 
 	/* Debug information */
-	rx.buf[rx.cnt][G3D_STATUS] = (__raw_readl(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
+	rx.buf[rx.cnt][G3D_STATUS] = (exynos_cortexm3_pmu_read(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
 	rx.name[rx.cnt] = protocol_name;
 	for (i = 0; i < MAILBOX_REG_CNT; i++) {
 		rx.time[rx.cnt] = ktime_to_ms(ktime_get());
-		rx.buf[rx.cnt][i] = __raw_readl(EXYNOS_MAILBOX_RX(i));
+		rx.buf[rx.cnt][i] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(i));
 	}
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 	/* Debug register clear */
-	__raw_writel(0x0, EXYNOS_MAILBOX_RX(0));
+	__raw_writel(0x0, exynos_mailbox_reg + EXYNOS_MAILBOX_RX(0));
 
 	/* Check firmware setting voltage */
 	rx.atl_value = ((rx.buf[rx.cnt][0] >> ATL_VOL_SHIFT) & VOL_MASK);
@@ -315,7 +319,7 @@ int samsung_mbox_last_tx_done(struct mbox_link *link)
 	return 0;
 }
 
-static struct mbox_link_ops samsung_mbox_ops = {
+static struct mbox_chan_ops samsung_mbox_ops = {
 	.send_data = samsung_mbox_send_data,
 	.startup = samsung_mbox_startup,
 	.shutdown = samsung_mbox_shutdown,
@@ -329,17 +333,21 @@ int data_history(void) {
 #if 0
 	int count;
 #endif
-	pr_info("EXYNOS_MAILBOX_TX_CON : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_TX_CON));
-	pr_info("EXYNOS_MAILBOX_TX_ADDR : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_TX_ADDR));
-	pr_info("EXYNOS_MAILBOX_TX_DATA : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_TX_DATA));
-	pr_info("EXYNOS_MAILBOX_TX_INT : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_TX_INT));
-	pr_info("EXYNOS_MAILBOX_RX(0) : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_RX(0)));
-	pr_info("EXYNOS_MAILBOX_RX(1) : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_RX(1)));
-	pr_info("EXYNOS_MAILBOX_RX(2) : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_RX(2)));
-	pr_info("EXYNOS_MAILBOX_RX(3) : %8.0x \n", __raw_readl(EXYNOS_MAILBOX_RX(3)));
-	pr_info("EXYNOS_CORTEXM3_APM_CONFIGURATION : %8.0x \n", __raw_readl(EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION));
-	pr_info("EXYNOS_CORTEXM3_APM_STATUS : %8.0x \n", __raw_readl(EXYNOS_PMU_CORTEXM3_APM_STATUS));
-	pr_info("EXYNOS_CORTEXM3_APM_OPTION : %8.0x \n", __raw_readl(EXYNOS_PMU_CORTEXM3_APM_OPTION));
+
+	pr_info("EXYNOS_MAILBOX_TX_CON : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_CON));
+	pr_info("EXYNOS_MAILBOX_TX_ADDR : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_ADDR));
+	pr_info("EXYNOS_MAILBOX_TX_DATA : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_DATA));
+	pr_info("EXYNOS_MAILBOX_TX_INT : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_INT));
+	pr_info("EXYNOS_MAILBOX_RX(0) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(0)));
+	pr_info("EXYNOS_MAILBOX_RX(1) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(1)));
+	pr_info("EXYNOS_MAILBOX_RX(2) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(2)));
+	pr_info("EXYNOS_MAILBOX_RX(3) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(3)));
+	pr_info("EXYNOS_CORTEXM3_APM_CONFIGURATION : %8.0x \n",
+		exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION));
+	pr_info("EXYNOS_CORTEXM3_APM_STATUS : %8.0x \n",
+		exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_STATUS));
+	pr_info("EXYNOS_CORTEXM3_APM_OPTION : %8.0x \n",
+		exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_OPTION));
 
 #if 0
 	for (count = 0; count < DEBUG_COUNT; count++) {
@@ -367,8 +375,8 @@ static void thread_mailbox_work(struct work_struct *work)
 			pr_err("mailbox : request firmware fail \n");
 		}
 
-		sram_checksum = csum_partial(EXYNOS_MAILBOX_SRAM, fw_entry->size, 0);
-		ret = memcmp(EXYNOS_MAILBOX_SRAM, fw_entry->data, fw_entry->size);
+		sram_checksum = csum_partial(sram_base, fw_entry->size, 0);
+		ret = memcmp(sram_base, fw_entry->data, fw_entry->size);
 		if (ret) {
 			/* Cortex M3 compare error case */
 			sram_status = SRAM_UNSTABLE;
@@ -425,7 +433,7 @@ static void thread_mailbox_work(struct work_struct *work)
 
 			/* Check cortex M3 core enter wfi mode */
 			do {
-				tmp = __raw_readl(EXYNOS_PMU_CORTEXM3_APM_STATUS);
+				tmp = exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_STATUS);
 				status = (tmp >> STANDBYWFI) & STANDBYWFI_MASK;
 				limit_cnt++;
 				if (limit_cnt > CM3_COUNT_MAX) break;
@@ -511,13 +519,44 @@ static struct notifier_block exynos_mailbox_reboot_notifier = {
 	.priority = (INT_MIN + 1),
 };
 
+unsigned int exynos_cortexm3_pmu_read(unsigned int offset)
+{
+	unsigned int val;
+	int ret;
+	ret = regmap_read(cortexm3_pmu_regmap, offset, &val);
+	if (ret)
+		pr_err("%s, cannot read cortexm3 pmu register!\n", __func__);
+
+	return val;
+}
+
+void exynos_cortexm3_pmu_write(unsigned int val, unsigned int offset)
+{
+	int ret;
+	ret = regmap_write(cortexm3_pmu_regmap, offset, val);
+	if (ret)
+		pr_err("%s cannot write cortexm3 pmu register!\n", __func__);
+}
+
+u32 exynos_mailbox_reg_read(unsigned int offset)
+{
+	return __raw_readl(exynos_mailbox_reg + offset);
+}
+
+void exynos_mailbox_reg_write(unsigned int val, unsigned int offset)
+{
+	__raw_writel(val, exynos_mailbox_reg+  offset);
+}
+
 static int samsung_mbox_probe(struct platform_device *pdev)
 {
 	struct samsung_mbox *samsung_mbox;
 	struct device_node *node = pdev->dev.of_node;
 	struct samsung_mlink *mbox_link;
-	struct mbox_link **link;
+	struct mbox_chan **chan;
 	int loop, count, ret = 0;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
 
 	if (!node) {
 		dev_err(&pdev->dev, "driver doesnt support"
@@ -533,16 +572,28 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	exynos_mailbox_reg = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(exynos_mailbox_reg))
+	        return PTR_ERR(exynos_mailbox_reg);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	sram_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(sram_base))
+	        return PTR_ERR(sram_base);
+
+	cortexm3_pmu_regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "samsung,syscon-phandle");
+
 	samsung_mbox = devm_kzalloc(&pdev->dev,
 			sizeof(struct samsung_mbox), GFP_KERNEL);
 
 	if (IS_ERR(samsung_mbox))
 		return PTR_ERR(samsung_mbox);
 
-	link = devm_kzalloc(&pdev->dev, (count + 1) * sizeof(*link),
+	chan = devm_kzalloc(&pdev->dev, (count + 1) * sizeof(*chan),
 			GFP_KERNEL);
-	if (IS_ERR(link))
-		return PTR_ERR(link);
+	if (IS_ERR(chan))
+		return PTR_ERR(chan);
 
 	/* copy dev information */
 	samsung_mbox->dev = &pdev->dev;
@@ -565,15 +616,13 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 		}
 
 		mbox_link->smc = samsung_mbox;
-		link[loop] = &mbox_link->link;
+		chan[loop] = &mbox_link->chan;
 		if (of_property_read_string_index(node, "samsung,mbox-names",
 						  loop, &mbox_link->name)) {
 			dev_err(&pdev->dev,
 				"mbox_name [%d] read failed\n", loop);
 			return -ENODEV;
 		}
-
-		snprintf(link[loop]->link_name, 16, mbox_link->name);
 
 		/* Get of cl dvfs related information to DT */
 		switch (exynos_get_table_ver()) {
@@ -614,10 +663,9 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 			cl_init.atlas_margin, cl_init.apollo_margin, cl_init.g3d_margin,
 			cl_init.mif_margin, cl_init.period);
 
-		dev_info(&pdev->dev, "Initialize <%s> mail box \n", link[loop]->link_name);
 	}
 
-	link[loop] = NULL; /* Terminating link */
+	chan[loop] = NULL; /* Terminating chan */
 
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
 	/* Request interrupt */
@@ -632,7 +680,6 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 #endif
 
 	mutex_init(&samsung_mbox->lock);
-	samsung_mbox->mbox_con.links = link;
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
 	samsung_mbox->mbox_con.txdone_irq = true;
 #endif
@@ -642,11 +689,13 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 	samsung_mbox->mbox_con.txpoll_period = POLL_PERIOD;
 #endif
 	samsung_mbox->mbox_con.ops = &samsung_mbox_ops;
-	snprintf(samsung_mbox->mbox_con.controller_name, 16, "samsung_mbox");
+	samsung_mbox->mbox_con.num_chans = count;
+	samsung_mbox->mbox_con.dev = &pdev->dev;
+	samsung_mbox->mbox_con.chans = &mbox_link->chan;
 
 	ret = mbox_controller_register(&samsung_mbox->mbox_con);
 	if (ret) {
-		dev_err(&pdev->dev, "%s: MBOX Link register failed\n", __func__);
+		dev_err(&pdev->dev, "%s: MBOX channel register failed\n", __func__);
 		return ret;
 	}
 

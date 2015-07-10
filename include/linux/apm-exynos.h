@@ -13,6 +13,7 @@
 #ifndef __ASM_ARCH_REGS_APM_H
 #define __ASM_ARCH_REGS_APM_H __FILE__
 
+#include <linux/regmap.h>
 #include <linux/types.h>
 #include <linux/file.h>
 #include <linux/fs.h>
@@ -112,6 +113,22 @@
 #define APM_ON					(1)
 #define APM_WFI_TIMEOUT				(2)
 
+#define EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION                           (0x2500)
+#define EXYNOS_PMU_CORTEXM3_APM_STATUS                                  (0x2504)
+#define EXYNOS_PMU_CORTEXM3_APM_OPTION                                  (0x2508)
+#define EXYNOS_PMU_CORTEXM3_APM_DURATION0                               (0x2510)
+#define EXYNOS_PMU_CORTEXM3_APM_DURATION1                               (0x2514)
+#define EXYNOS_PMU_CORTEXM3_APM_DURATION2                               (0x2518)
+#define EXYNOS_PMU_CORTEXM3_APM_DURATION3                               (0x251C)
+
+/* CORTEX M3 */
+#define ENABLE_APM                      (0x1 << 15)
+#define APM_STATUS_MASK                 (0x1)
+#define STANDBYWFI                      (28)
+#define STANDBYWFI_MASK                 (0x1)
+#define APM_LOCAL_PWR_CFG_RUN           (0x1 << 0)
+#define APM_LOCAL_PWR_CFG_RESET         (~(0x1 << 0))
+
 struct apm_ops {
 	int (*apm_update_bits) (unsigned int type, unsigned int reg,
 					unsigned int mask, unsigned int value);
@@ -200,4 +217,9 @@ extern int exynos_apm_bulk_read(unsigned int type, unsigned char reg, unsigned c
 #define exynos7890_apm_bulk_write(a, b, c, d)	exynos7420_apm_bulk_write(a, b, c, d)
 #define exynos7890_apm_read(a, b, c)		exynos7420_apm_read(a, b, c)
 #define exynos7890_apm_bulk_read(a, b, c, d)	exynos7420_apm_bulk_read(a, b, c, d)
+
+unsigned int exynos_cortexm3_pmu_read(unsigned int offset);
+void exynos_cortexm3_pmu_write(unsigned int val, unsigned int offset);
+unsigned int exynos_mailbox_reg_read(unsigned int offset);
+void exynos_mailbox_reg_write(unsigned int val, unsigned int offset);
 #endif

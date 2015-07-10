@@ -20,8 +20,7 @@
 #include <linux/mailbox-exynos.h>
 #include <linux/apm-exynos.h>
 #include <asm/io.h>
-#include <mach/asv-exynos.h>
-#include <mach/regs-pmu-exynos7420.h>
+#include <soc/samsung/asv-exynos.h>
 
 /* Add OPS */
 struct cl_ops *cl_ops;
@@ -299,6 +298,7 @@ static int exynos_apm_probe(struct platform_device *pdev)
 #ifdef CONFIG_EXYNOS_MBOX
 	register_apm_notifier(&exynos_apm_notifier);
 	cl_ops = &exynos_cl_function_ops;
+	exynos_mbox_client_init(&pdev->dev);
 #endif
 	return 0;
 }

@@ -1,4 +1,4 @@
-/* linux/arch/arm/mach-exynos/apm-exynos8890.c
+/* drivers/mailbox/samsung/apm-exynos8890.c
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com/
@@ -20,8 +20,7 @@
 #include <linux/apm-exynos.h>
 #include <linux/mailbox-exynos.h>
 #include <asm/io.h>
-#include <mach/asv-exynos.h>
-#include <mach/regs-pmu-exynos8890.h>
+#include <soc/samsung/asv-exynos.h>
 
 #define PMIC_MIF_OUT			(0x1B)
 #define PMIC_ATL_OUT			(0x1D)
@@ -45,10 +44,10 @@ void exynos8890_apm_power_up(void)
 {
 	u32 tmp;
 
-	tmp = __raw_readl(EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
+	tmp = exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
 	tmp &= APM_LOCAL_PWR_CFG_RESET;
 	tmp |= APM_LOCAL_PWR_CFG_RUN;
-	__raw_writel(tmp, EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
+	exynos_cortexm3_pmu_write(tmp, EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
 }
 
 void exynos8890_apm_power_down(void)
@@ -56,9 +55,9 @@ void exynos8890_apm_power_down(void)
 	u32 tmp;
 
 	/* Reset CORTEX M3 */
-	tmp = __raw_readl(EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
+	tmp = exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
 	tmp &= APM_LOCAL_PWR_CFG_RESET;
-	__raw_writel(tmp, EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
+	exynos_cortexm3_pmu_write(tmp, EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION);
 }
 
 /* exynos8890_apm_reset_release
@@ -69,19 +68,19 @@ void exynos8890_apm_reset_release(void)
 	unsigned int tmp;
 
 	/* Cortex M3 Interrupt bit clear */
-	__raw_writel(0x0, EXYNOS_MAILBOX_TX_INT);
-	__raw_writel(0x0, EXYNOS_MAILBOX_RX_INT);
+	exynos_mailbox_reg_write(0x0, EXYNOS_MAILBOX_TX_INT);
+	exynos_mailbox_reg_write(0x0, EXYNOS_MAILBOX_RX_INT);
 
 	/* Set APM device enable */
-	tmp = __raw_readl(EXYNOS_PMU_CORTEXM3_APM_OPTION);
+	tmp = exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_OPTION);
 	tmp &= ~ENABLE_APM;
 	tmp |= ENABLE_APM;
-	__raw_writel(tmp, EXYNOS_PMU_CORTEXM3_APM_OPTION);
+	exynos_cortexm3_pmu_write(tmp, EXYNOS_PMU_CORTEXM3_APM_OPTION);
 
-	tmp = __raw_readl(EXYNOS_MAILBOX_MRX_SEM);
+	tmp = exynos_mailbox_reg_read(EXYNOS_MAILBOX_MRX_SEM);
 	tmp &= ~MRX_SEM_ENABLE;
 	tmp |= MRX_SEM_ENABLE;
-	__raw_writel(tmp, EXYNOS_MAILBOX_MRX_SEM);
+	exynos_mailbox_reg_write(tmp, EXYNOS_MAILBOX_MRX_SEM);
 }
 
 
@@ -95,10 +94,10 @@ static int check_rx_data(void *msg)
 	u32 buf[5] = {0, 0, 0, 0, 0};
 
 	for (i = 0; i < MBOX_LEN; i++)
-		buf[i] = __raw_readl(EXYNOS_MAILBOX_RX(i));
+		buf[i] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX(i));
 
 	/* Check return command */
-	buf[4] = __raw_readl(EXYNOS_MAILBOX_TX(0));
+	buf[4] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_TX(0));
 
 	/* Check apm device return value */
 	if (buf[1] == APM_GPIO_ERR)
@@ -142,9 +141,7 @@ static void channel_ack_mode(struct mbox_client *client)
 	client->tx_block = NULL;
 #endif
 	client->tx_tout = TIMEOUT;
-	client->link_data = NULL;
 	client->knows_txdone = false;
-	client->chan_name = "samsung_mbox:exynos-apm";
 }
 EXPORT_SYMBOL_GPL(channel_ack_mode);
 
@@ -153,7 +150,7 @@ static int exynos_send_message(struct mbox_client *mbox_cl, void *msg)
 	struct mbox_chan *chan;
 	int ret;
 
-	chan = mbox_request_channel(mbox_cl);
+	chan = mbox_request_channel(mbox_cl, 0);
 	if (IS_ERR(chan)) {
 		pr_err("mailbox : Did not make a mailbox channel\n");
 		return PTR_ERR(chan);
@@ -173,7 +170,7 @@ static int exynos_send_message(struct mbox_client *mbox_cl, void *msg)
 		}
 	} else {
 		pr_err("%s : Mailbox timeout\n", __func__);
-		pr_err("POLLING status: 0x%x\n", __raw_readl(EXYNOS_MAILBOX_RX_INT));
+		pr_err("POLLING status: 0x%x\n", exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX_INT));
 		apm_wfi_prepare = APM_ON;
 		mbox_free_channel(chan);
 		return ERR_TIMEOUT;
@@ -188,7 +185,7 @@ static int exynos_send_message_bulk_read(struct mbox_client *mbox_cl, void *msg)
 	struct mbox_chan *chan;
 	int ret;
 
-	chan = mbox_request_channel(mbox_cl);
+	chan = mbox_request_channel(mbox_cl, 0);
 	if (IS_ERR(chan)) {
 		pr_err("mailbox : Did not make a mailbox channel\n");
 		return PTR_ERR(chan);
@@ -545,7 +542,7 @@ int exynos8890_apm_enter_wfi(void)
 	msg[0] = 1 << 23;
 	msg[3] = TX_INTERRUPT_ENABLE;
 
-	chan = mbox_request_channel(&cl);
+	chan = mbox_request_channel(&cl, 0);
 	if (IS_ERR(chan)) {
 		pr_err("mailbox : Did not make a mailbox channel\n");
 		mutex_unlock(&cl_mutex);
@@ -739,7 +736,7 @@ int exynos8890_apm_read(unsigned int type, unsigned int reg, unsigned int *val)
 	msg[1] = reg;
 	msg[3] = TX_INTERRUPT_ENABLE;
 
-	chan = mbox_request_channel(&cl);
+	chan = mbox_request_channel(&cl, 0);
 	if (IS_ERR(chan)) {
 		pr_err("mailbox : Did not make a mailbox channel\n");
 		mutex_unlock(&cl_mutex);
@@ -804,8 +801,8 @@ int exynos8890_apm_bulk_read(unsigned int type, unsigned char reg, unsigned char
 		goto timeout;
 	}
 
-	result[0] = __raw_readl(EXYNOS_MAILBOX_RX(1));
-	result[1] = __raw_readl(EXYNOS_MAILBOX_RX(2));
+	result[0] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX(1));
+	result[1] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX(2));
 
 	for (i = 0; i < count; i++) {
 		if (i < BYTE_4)
@@ -825,6 +822,12 @@ timeout :
 	return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(exynos8890_apm_bulk_read);
+
+void exynos_mbox_client_init(struct device *dev)
+{
+	cl.dev = dev;
+}
+EXPORT_SYMBOL_GPL(exynos_mbox_client_init);
 
 struct cl_ops exynos_cl_function_ops = {
 	.cl_dvfs_setup			= exynos8890_do_cl_dvfs_setup,
