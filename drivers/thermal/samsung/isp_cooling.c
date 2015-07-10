@@ -22,7 +22,6 @@
  */
 #include <linux/module.h>
 #include <linux/thermal.h>
-#include <linux/cpufreq.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
@@ -41,7 +40,7 @@
  * @isp_state: integer value representing the current state of isp
  *	cooling	devices.
  * @isp_val: integer value representing the absolute value of the clipped
- *	frequency.
+ *	fps.
  * @allowed_isp: all the isp involved for this isp_cooling_device.
  *
  * This structure is required for keeping information of each
@@ -60,7 +59,7 @@ static BLOCKING_NOTIFIER_HEAD(isp_notifier);
 
 static unsigned int isp_dev_count;
 
-extern struct cpufreq_frequency_table isp_fps_table[];
+extern struct isp_fps_table isp_fps_table[];
 
 /**
  * get_idr - function to get a unique id.
@@ -111,17 +110,17 @@ enum isp_cooling_property {
  * @isp: isp for which the property is required
  * @input: query parameter
  * @output: query return
- * @property: type of query (frequency, level, max level)
+ * @property: type of query (fps, level, max level)
  *
  * This is the common function to
  * 1. get maximum isp cooling states
- * 2. translate frequency to cooling state
- * 3. translate cooling state to frequency
+ * 2. translate fps to cooling state
+ * 3. translate cooling state to fps
  * Note that the code may be not in good shape
  * but it is written in this way in order to:
  * a) reduce duplicate code as most of the code can be shared.
  * b) make sure the logic is consistent when translating between
- *    cooling states and frequencies.
+ *    cooling states and fps.
  *
  * Return: 0 on success, -EINVAL when invalid parameters are passed.
  */
@@ -131,9 +130,9 @@ static int get_property(unsigned int isp, unsigned long input,
 {
 	int i;
 	unsigned long max_level = 0, level = 0;
-	unsigned int freq = CPUFREQ_ENTRY_INVALID;
+	unsigned int fps = ISP_FPS_ENTRY_INVALID;
 	int descend = -1;
-	struct cpufreq_frequency_table *pos, *table =
+	struct isp_fps_table *pos, *table =
 					isp_fps_table;
 
 	if (!output)
@@ -142,20 +141,20 @@ static int get_property(unsigned int isp, unsigned long input,
 	if (!table)
 		return -EINVAL;
 
-	cpufreq_for_each_valid_entry(pos, table) {
+	isp_fps_for_each_valid_entry(pos, table) {
 		/* ignore duplicate entry */
-		if (freq == pos->frequency)
+		if (fps == pos->fps)
 			continue;
 
-		/* get the frequency order */
-		if (freq != CPUFREQ_ENTRY_INVALID && descend == -1)
-			descend = freq > pos->frequency;
+		/* get the fps order */
+		if (fps != ISP_FPS_ENTRY_INVALID && descend == -1)
+			descend = fps > pos->fps;
 
-		freq = pos->frequency;
+		fps = pos->fps;
 		max_level++;
 	}
 
-	/* No valid cpu frequency entry */
+	/* No valid cpu fps entry */
 	if (max_level == 0)
 		return -EINVAL;
 
@@ -169,22 +168,22 @@ static int get_property(unsigned int isp, unsigned long input,
 	}
 
 	i = 0;
-	cpufreq_for_each_valid_entry(pos, table) {
+	isp_fps_for_each_valid_entry(pos, table) {
 		/* ignore duplicate entry */
-		if (freq == pos->frequency)
+		if (fps == pos->fps)
 			continue;
 
-		/* now we have a valid frequency entry */
-		freq = pos->frequency;
+		/* now we have a valid fps entry */
+		fps = pos->fps;
 
-		if (property == GET_LEVEL && (unsigned int)input == freq) {
-			/* get level by frequency */
+		if (property == GET_LEVEL && (unsigned int)input == fps) {
+			/* get level by fps */
 			*output = descend ? i : (max_level - i);
 			return 0;
 		}
 		if (property == GET_FREQ && level == i) {
-			/* get frequency by level */
-			*output = freq;
+			/* get fps by level */
+			*output = fps;
 			return 0;
 		}
 		i++;
@@ -196,10 +195,10 @@ static int get_property(unsigned int isp, unsigned long input,
 /**
  * isp_cooling_get_level - for a give isp, return the cooling level.
  * @isp: isp for which the level is required
- * @freq: the frequency of interest
+ * @fps: the fps of interest
  *
  * This function will match the cooling level corresponding to the
- * requested @freq and return it.
+ * requested @fps and return it.
  *
  * Return: The matched cooling level on success or THERMAL_CSTATE_INVALID
  * otherwise.
@@ -216,8 +215,8 @@ unsigned long isp_cooling_get_fps(unsigned int isp, unsigned int fps)
 EXPORT_SYMBOL_GPL(isp_cooling_get_fps);
 
 /**
- * isp_apply_cooling - function to apply frequency clipping.
- * @isp_device: isp_cooling_device pointer containing frequency
+ * isp_apply_cooling - function to apply fps clipping.
+ * @isp_device: isp_cooling_device pointer containing fps
  *	clipping data.
  * @cooling_state: value of the cooling state.
  *
@@ -342,7 +341,7 @@ int exynos_tmu_isp_add_notifier(struct notifier_block *n)
 /**
  * __isp_cooling_register - helper function to create isp cooling device
  * @np: a valid struct device_node to the cooling device device tree node
- * @clip_isp: ispmask of isp where the frequency constraints will happen.
+ * @clip_isp: ispmask of isp where the fps constraints will happen.
  *
  * This interface function registers the isp cooling device with the name
  * "thermal-isp-%x". This api can support multiple instances of isp
@@ -395,7 +394,7 @@ __isp_cooling_register(struct device_node *np,
 
 /**
  * isp_cooling_register - function to create isp cooling device.
- * @clip_isp: cpumask of gpus where the frequency constraints will happen.
+ * @clip_isp: cpumask of gpus where the fps constraints will happen.
  *
  * This interface function registers the isp cooling device with the name
  * "thermal-isp-%x". This api can support multiple instances of isp
@@ -414,7 +413,7 @@ EXPORT_SYMBOL_GPL(isp_cooling_register);
 /**
  * of_isp_cooling_register - function to create isp cooling device.
  * @np: a valid struct device_node to the cooling device device tree node
- * @clip_isp: cpumask of gpus where the frequency constraints will happen.
+ * @clip_isp: cpumask of gpus where the fps constraints will happen.
  *
  * This interface function registers the isp cooling device with the name
  * "thermal-isp-%x". This api can support multiple instances of isp

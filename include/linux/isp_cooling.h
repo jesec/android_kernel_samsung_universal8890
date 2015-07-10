@@ -30,6 +30,46 @@
 
 #ifdef CONFIG_ISP_THERMAL
 
+#define ISP_FPS_ENTRY_INVALID ~0
+#define ISP_FPS_TABLE_END     ~1
+
+struct isp_fps_table {
+	unsigned int	flags;
+	unsigned int	driver_data; /* driver specific data, not used by core */
+	unsigned int	fps; /* kHz - doesn't need to be in ascending
+				    * order */
+};
+
+static inline bool isp_fps_next_valid(struct isp_fps_table **pos)
+{
+	while ((*pos)->fps != ISP_FPS_TABLE_END)
+		if ((*pos)->fps != ISP_FPS_ENTRY_INVALID)
+			return true;
+		else
+			(*pos)++;
+	return false;
+}
+
+/*
+ * isp_fps_for_each_entry -	iterate over a cpufreq_frequency_table
+ * @pos:	the cpufreq_frequency_table * to use as a loop cursor.
+ * @table:	the cpufreq_frequency_table * to iterate over.
+ */
+
+#define isp_fps_for_each_entry(pos, table)	\
+	for (pos = table; pos->fps != ISP_FPS_TABLE_END; pos++)
+
+/*
+ * isp_fps_for_each_valid_entry -     iterate over a cpufreq_frequency_table
+ *	excluding CPUFREQ_ENTRY_INVALID frequencies.
+ * @pos:        the cpufreq_frequency_table * to use as a loop cursor.
+ * @table:      the cpufreq_frequency_table * to iterate over.
+ */
+
+#define isp_fps_for_each_valid_entry(pos, table)	\
+	for (pos = table; isp_fps_next_valid(&pos); pos++)
+
+
 /**
  * isp_cooling_register - function to create isp cooling device.
  * @clip_gpus: cpumask of gpus where the frequency constraints will happen
