@@ -22,6 +22,7 @@
  */
 
 #include <linux/cpufreq.h>
+#include <linux/isp_cooling.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
@@ -46,6 +47,8 @@
 #include "exynos_tmu_data.h"
 
 static unsigned int sensor_count = 0;
+struct cpufreq_frequency_table gpu_freq_table[10];
+struct isp_fps_table isp_fps_table[10];
 
 /**
  * struct exynos_tmu_data : A structure to hold the private data of the TMU
@@ -812,6 +815,10 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 	unsigned int i;
 	u32 value;
 	char node_name[20];
+	struct cpufreq_frequency_table *table_ptr;
+	struct isp_fps_table *isp_table_ptr;
+	unsigned int table_size;
+	u32 gpu_idx_num = 0, isp_idx_num = 0;
 
 	if (!data || !pdev->dev.of_node)
 		return -ENODEV;
@@ -916,7 +923,57 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 			dev_err(&pdev->dev, "No input hotplug_out_threshold data\n");
 	}
 
+	/* gpu cooling frequency table parse */
+	ret = of_property_read_u32(pdev->dev.of_node, "gpu_idx_num", &gpu_idx_num);
+	if (gpu_idx_num) {
+		table_ptr = kzalloc(sizeof(struct cpufreq_frequency_table)
+							* gpu_idx_num, GFP_KERNEL);
+		if (table_ptr == NULL) {
+			pr_err("%s: failed to allocate for cpufreq_dvfs_table\n", __func__);
+			kfree(table_ptr);
+			return -ENODEV;
+		}
+
+		table_size = sizeof(struct cpufreq_frequency_table) / sizeof(unsigned int);
+		ret = of_property_read_u32_array(pdev->dev.of_node, "gpu_cooling_table",
+			(unsigned int *)table_ptr, table_size * gpu_idx_num);
+
+		for (i = 0; i < gpu_idx_num; i++) {
+			gpu_freq_table[i].flags = table_ptr[i].flags;
+			gpu_freq_table[i].driver_data = table_ptr[i].driver_data;
+			gpu_freq_table[i].frequency = table_ptr[i].frequency;
+			pr_info("[GPU TMU] index : %d, frequency : %d \n", gpu_freq_table[i].driver_data, gpu_freq_table[i].frequency);
+		}
+
+		kfree(table_ptr);
+	}
+
+	/* isp cooling frequency table parse */
+	ret = of_property_read_u32(pdev->dev.of_node, "isp_idx_num", &isp_idx_num);
+	if (isp_idx_num) {
+		isp_table_ptr = kzalloc(sizeof(struct isp_fps_table) * isp_idx_num, GFP_KERNEL);
+		if (table_ptr == NULL) {
+			pr_err("%s: failed to allocate for isp_fps_table\n", __func__);
+			kfree(table_ptr);
+			return -ENODEV;
+		}
+
+		table_size = sizeof(struct isp_fps_table) / sizeof(unsigned int);
+		ret = of_property_read_u32_array(pdev->dev.of_node, "isp_cooling_table",
+			(unsigned int *)isp_table_ptr, table_size * isp_idx_num);
+
+		for (i = 0; i < isp_idx_num; i++) {
+			isp_fps_table[i].flags = isp_table_ptr[i].flags;
+			isp_fps_table[i].driver_data = isp_table_ptr[i].driver_data;
+			isp_fps_table[i].fps = isp_table_ptr[i].fps;
+			pr_info("[ISP TMU] index : %d, fps : %d \n", isp_fps_table[i].driver_data, isp_fps_table[i].fps);
+		}
+
+		kfree(table_ptr);
+	}
+
 	data->pdata = pdata;
+
 	/*
 	 * Check if the TMU shares some registers and then try to map the
 	 * memory of common registers.

@@ -60,17 +60,7 @@ static BLOCKING_NOTIFIER_HEAD(isp_notifier);
 
 static unsigned int isp_dev_count;
 
-#if defined(CONFIG_SOC_EXYNOS8890)
-static struct cpufreq_frequency_table isp_fps_table[] = {
-	{0, 63},	/* This means no limits */
-	{1, 62},
-	{2, 61},
-	{3, 60},
-	{4, 15},	/* TEMP 100 */
-	{5,  5},	/* TEMP 105 */
-	{6, CPUFREQ_TABLE_END},
-};
-#endif
+extern struct cpufreq_frequency_table isp_fps_table[];
 
 /**
  * get_idr - function to get a unique id.
