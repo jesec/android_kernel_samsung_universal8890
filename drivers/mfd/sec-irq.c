@@ -27,7 +27,7 @@
 #include <linux/mfd/samsung/s5m8767.h>
 
 #ifdef CONFIG_EXYNOS_MBOX
-#include <mach/apm-exynos.h>
+#include <soc/samsung/asv-exynos.h>
 #endif
 
 static struct regmap_irq s2mps15_irqs[] = {

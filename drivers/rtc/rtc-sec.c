@@ -33,7 +33,7 @@
 #include <soc/samsung/cpufreq.h>
 
 #ifdef CONFIG_EXYNOS_MBOX
-#include <mach/apm-exynos.h>
+#include <linux/apm-exynos.h>
 #endif
 struct s2m_rtc_info {
 	struct device		*dev;
