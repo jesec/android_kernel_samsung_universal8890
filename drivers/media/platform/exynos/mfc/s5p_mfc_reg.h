@@ -10,9 +10,10 @@
  * (at your option) any later version.
  */
 
-#ifndef __S5P_MFC_REG_H_
-#define __S5P_MFC_REG_H_ __FILE__
+#ifndef __S5P_MFC_REG_H
+#define __S5P_MFC_REG_H __FILE__
 
+#include <linux/io.h>
 #include "s5p_mfc_common.h"
 
 #define MFC_SYS_SW_RESET_ADDR		S5P_FIMV_SW_RESET
@@ -108,16 +109,6 @@
 #define MFC_ENC_PROFILE_MASK	0x3
 #define MFC_ENC_PROFILE_SHFT	0x0
 
-#define _MFC_SET_REG(target, val)	s5p_mfc_write_reg(dev, val, MFC_##target##_ADDR)
-#define MFC_SET_REG(target, val, shadow)					\
-	do {									\
-		shadow = s5p_mfc_read_reg(dev, MFC_##target##_ADDR);			\
-		shadow &= ~(MFC_##target##_MASK << MFC_##target##_SHFT);	\
-		shadow |= ((val & MFC_##target##_MASK) << MFC_##target##_SHFT);	\
-		s5p_mfc_write_reg(dev, shadow, MFC_##target##_ADDR);			\
-	} while (0)
-
-#define _MFC_GET_REG(target)	s5p_mfc_read_reg(dev, MFC_##target##_ADDR)
 #define MFC_GET_REG(target)						\
 	((s5p_mfc_read_reg(dev, MFC_##target##_ADDR) >> MFC_##target##_SHFT)	\
 	& MFC_##target##_MASK)
@@ -125,6 +116,38 @@
 #define MFC_GET_ADR(target)						\
 	(s5p_mfc_read_reg(dev, MFC_##target##_ADR_ADDR) << MFC_##target##_ADR_SHFT)
 
-void s5p_mfc_write_reg(struct s5p_mfc_dev *dev, unsigned int data, unsigned int offset);
-unsigned int s5p_mfc_read_reg(struct s5p_mfc_dev *dev, unsigned int offset);
-#endif /* __S5P_MFC_REG_H_ */
+#define R2H_BIT(x)	(((x) > 0) ? (1 << ((x) - 1)) : 0)
+
+static inline unsigned int r2h_bits(int cmd)
+{
+	unsigned int mask = R2H_BIT(cmd);
+
+	if (cmd == S5P_FIMV_R2H_CMD_FRAME_DONE_RET)
+		mask |= (R2H_BIT(S5P_FIMV_R2H_CMD_FIELD_DONE_RET) |
+			 R2H_BIT(S5P_FIMV_R2H_CMD_COMPLETE_SEQ_RET) |
+			 R2H_BIT(S5P_FIMV_R2H_CMD_SLICE_DONE_RET) |
+			 R2H_BIT(S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET) |
+			 R2H_BIT(S5P_FIMV_R2H_CMD_ENC_BUFFER_FULL_RET));
+	/* FIXME: Temporal mask for S3D SEI processing */
+	else if (cmd == S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET)
+		mask |= (R2H_BIT(S5P_FIMV_R2H_CMD_FIELD_DONE_RET) |
+			 R2H_BIT(S5P_FIMV_R2H_CMD_SLICE_DONE_RET) |
+			 R2H_BIT(S5P_FIMV_R2H_CMD_FRAME_DONE_RET));
+
+	return (mask |= R2H_BIT(S5P_FIMV_R2H_CMD_ERR_RET));
+}
+
+static inline void s5p_mfc_write_reg(struct s5p_mfc_dev *dev, unsigned int data, unsigned int offset)
+{
+	writel(data, dev->regs_base + offset);
+}
+
+static inline unsigned int s5p_mfc_read_reg(struct s5p_mfc_dev *dev, unsigned int offset)
+{
+	return readl(dev->regs_base + offset);
+}
+
+#define READL(offset)		readl(dev->regs_base + (offset))
+#define WRITEL(data, offset)	writel((data), dev->regs_base + (offset))
+
+#endif /* __S5P_MFC_REG_H */

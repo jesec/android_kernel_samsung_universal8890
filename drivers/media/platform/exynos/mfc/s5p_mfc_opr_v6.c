@@ -41,21 +41,15 @@
 #include "s5p_mfc_dec.h"
 #include "s5p_mfc_enc.h"
 #include "s5p_mfc_ctrl.h"
+#include "s5p_mfc_reg.h"
 
-/* #define S5P_MFC_DEBUG_REGWRITE  */
-#ifdef S5P_MFC_DEBUG_REGWRITE
-#undef writel
-#define writel(v, r)								\
-	do {									\
-		printk(KERN_ERR "MFCWRITE(%p): %08x\n", r, (unsigned int)v);	\
-	__raw_writel(v, r);							\
-	} while (0)
-#endif /* S5P_MFC_DEBUG_REGWRITE */
+/* This value guarantees 375msec ~ 2sec according to MFC clock (533MHz ~ 100MHz)
+ * releated with S5P_FIMV_DEC_TIMEOUT_VALUE */
+#define MFC_TIMEOUT_VALUE	200000000
 
-#define READL(offset)		readl(dev->regs_base + (offset))
-#define WRITEL(data, offset)	writel((data), dev->regs_base + (offset))
-#define OFFSETA(x)		(((x) - dev->port_a) >> S5P_FIMV_MEM_OFFSET)
-#define OFFSETB(x)		(((x) - dev->port_b) >> S5P_FIMV_MEM_OFFSET)
+/* Scratch buffer size for MFC v9.0 */
+#define DEC_V90_STATIC_BUFFER_SIZE	16384
+
 #define CPB_GAP			512
 #define set_strm_size_max(cpb_max)	((cpb_max) - CPB_GAP)
 

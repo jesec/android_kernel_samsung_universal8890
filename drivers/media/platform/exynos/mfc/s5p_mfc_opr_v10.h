@@ -12,8 +12,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef S5P_MFC_OPR_V10_H_
-#define S5P_MFC_OPR_V10_H_
+#ifndef __S5P_MFC_OPR_V10_H
+#define __S5P_MFC_OPR_V10_H __FILE__
 
 #include "s5p_mfc_mem.h"
 
@@ -182,12 +182,6 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 #define ENC_HEVC_RC_FRAME_RATE_MAX	((1 << 16) - 1)
 #define ENC_HEVC_LEVEL_MAX		62
 
-/* Definitions for shared memory compatibility */
-#define PIC_TIME_TOP		S5P_FIMV_D_RET_PICTURE_TAG_TOP
-#define PIC_TIME_BOT		S5P_FIMV_D_RET_PICTURE_TAG_BOT
-#define CROP_INFO_H		S5P_FIMV_D_DISPLAY_CROP_INFO1
-#define CROP_INFO_V		S5P_FIMV_D_DISPLAY_CROP_INFO2
-
 /* Scratch buffer size for MFC v6.1 */
 #define DEC_V61_H264_SCRATCH_SIZE(x, y)				\
 		((x * 128) + 65536)
@@ -277,9 +271,6 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 		(((x) * 576) + 10512 +	\
 		 (((x) * 16) * (((y) * 16) * 3 / 2) * 4))
 
-/* Scratch buffer size for MFC v9.0 */
-#define DEC_V90_STATIC_BUFFER_SIZE	16384
-
 #define mfc_get_dec_used_flag()		readl(dev->regs_base + \
 						S5P_FIMV_D_USED_DPB_FLAG_LOWER)
 
@@ -290,4 +281,4 @@ void s5p_mfc_cleanup_queue(struct list_head *lh);
 void s5p_mfc_write_info(struct s5p_mfc_ctx *ctx, unsigned int data, unsigned int ofs);
 unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs);
 
-#endif /* S5P_MFC_OPR_V10_H_ */
+#endif /* __S5P_MFC_OPR_V10_H */

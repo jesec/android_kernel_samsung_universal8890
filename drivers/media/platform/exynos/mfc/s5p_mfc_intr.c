@@ -19,6 +19,7 @@
 #include <linux/io.h>
 
 #include "s5p_mfc_common.h"
+#include "s5p_mfc_reg.h"
 
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_debug.h"
