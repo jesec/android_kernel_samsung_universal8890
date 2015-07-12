@@ -185,18 +185,10 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 	case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
 	case MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE:
 	case MIPI_DSI_DSC_PRA:
-		reinit_completion(&dsim_ph_wr_comp);
-		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
-		dsim_reg_wr_tx_header(dsim->id, data_id, data0, data1);
-		if (dsim_wait_for_cmd_fifo_empty(dsim, 0)) {
-			dev_err(dsim->dev, "ID:%d : MIPI DSIM short packet write Timeout! 0x%lx\n",
-						data_id, data0);
-			ret = -ETIMEDOUT;
-			goto exit;
-		}
-		break;
-
-	/* general command */
+	case MIPI_DSI_GENERIC_READ_REQUEST_0_PARAM:
+	case MIPI_DSI_GENERIC_READ_REQUEST_1_PARAM:
+	case MIPI_DSI_GENERIC_READ_REQUEST_2_PARAM:
+	case MIPI_DSI_DCS_READ:
 	case MIPI_DSI_COLOR_MODE_OFF:
 	case MIPI_DSI_COLOR_MODE_ON:
 	case MIPI_DSI_SHUTDOWN_PERIPHERAL:
@@ -212,35 +204,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 		}
 		break;
 
-	/* packet types for video data */
-	case MIPI_DSI_V_SYNC_START:
-	case MIPI_DSI_V_SYNC_END:
-	case MIPI_DSI_H_SYNC_START:
-	case MIPI_DSI_H_SYNC_END:
-	case MIPI_DSI_END_OF_TRANSMISSION:
-		break;
-
-	/* short and response packet types for command */
-	case MIPI_DSI_GENERIC_READ_REQUEST_0_PARAM:
-	case MIPI_DSI_GENERIC_READ_REQUEST_1_PARAM:
-	case MIPI_DSI_GENERIC_READ_REQUEST_2_PARAM:
-	case MIPI_DSI_DCS_READ:
-		reinit_completion(&dsim_ph_wr_comp);
-		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
-		dsim_reg_wr_tx_header(dsim->id, data_id, data0, data1);
-		if (dsim_wait_for_cmd_fifo_empty(dsim, 0)) {
-			dev_err(dsim->dev, "ID: %d : MIPI DSIM short packet write Timeout! 0x%lx\n",
-						data_id, data0);
-			ret = -ETIMEDOUT;
-			goto exit;
-		}
-		break;
-
-	/* long packet type and null packet */
-	case MIPI_DSI_NULL_PACKET:
-	case MIPI_DSI_BLANKING_PACKET:
-		break;
-
+	/* long packet types of packet types for command. */
 	case MIPI_DSI_GENERIC_LONG_WRITE:
 	case MIPI_DSI_DCS_LONG_WRITE:
 	case MIPI_DSI_DSC_PPS:
@@ -252,23 +216,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 		reinit_completion(&dsim_ph_wr_comp);
 		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PL_FIFO_EMPTY |
 						DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
-		/* if data count is less then 4, then send 3bytes data.  */
-		if (data1 < 4) {
-			unsigned int payload = 0;
-			payload = *(u8 *)(data0) |
-				*(u8 *)(data0 + 1) << 8 |
-				*(u8 *)(data0 + 2) << 16;
-
-			dsim_reg_wr_tx_payload(dsim->id, payload);
-
-			dev_dbg(dsim->dev, "count = %d payload = %x,%x %x %x\n",
-				data1, payload,
-				*(u8 *)(data0),
-				*(u8 *)(data0 + 1),
-				*(u8 *)(data0 + 2));
-		/* in case that data count is more then 4 */
-		} else
-			dsim_long_data_wr(dsim, data0, data1);
+		dsim_long_data_wr(dsim, data0, data1);
 
 		/* put data into header fifo */
 		dsim_reg_wr_tx_header(dsim->id, data_id, data1 & 0xff, (data1 & 0xff00) >> 8);
@@ -287,14 +235,8 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 		break;
 	}
 
-	/* packet typo for video data */
-	case MIPI_DSI_PACKED_PIXEL_STREAM_16:
-	case MIPI_DSI_PACKED_PIXEL_STREAM_18:
-	case MIPI_DSI_PIXEL_STREAM_3BYTE_18:
-	case MIPI_DSI_PACKED_PIXEL_STREAM_24:
-		break;
 	default:
-		dev_warn(dsim->dev, "data id %x is not supported current DSI spec.\n", data_id);
+		dev_warn(dsim->dev, "data id %x is not supported current LSI spec.\n", data_id);
 		ret = -EINVAL;
 		goto exit;
 	}
