@@ -45,7 +45,6 @@
 
 static DEFINE_MUTEX(dsim_rd_wr_mutex);
 static DECLARE_COMPLETION(dsim_ph_wr_comp);
-static DECLARE_COMPLETION(dsim_wr_comp);
 static DECLARE_COMPLETION(dsim_rd_comp);
 
 static int dsim_runtime_suspend(struct device *dev);
@@ -128,35 +127,71 @@ static void dsim_long_data_wr(struct dsim_device *dsim, unsigned long data0, uns
 	}
 }
 
-static int dsim_wait_for_cmd_fifo_empty(struct dsim_device *dsim, int id)
+static int dsim_wait_for_cmd_fifo_empty(struct dsim_device *dsim, bool must_wait)
 {
-	switch (id) {
-	case 0: /* SFR_PH_FIFO */
-		if (!wait_for_completion_timeout(&dsim_ph_wr_comp,
-			MIPI_WR_TIMEOUT)) {
-			if (dsim_read_mask(dsim->id, DSIM_INTSRC, DSIM_INTSRC_SFR_PH_FIFO_EMPTY)) {
-				reinit_completion(&dsim_ph_wr_comp);
-				dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
-				return 0;
-			}
-			return -ETIMEDOUT;
-		}
-		break;
-	case 1: /* SFR_PL_FIFO */
-		if (!wait_for_completion_timeout(&dsim_wr_comp,
-			MIPI_WR_TIMEOUT)) {
-			if (dsim_read_mask(dsim->id, DSIM_INTSRC, DSIM_INTSRC_SFR_PL_FIFO_EMPTY)) {
-				reinit_completion(&dsim_wr_comp);
-				dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PL_FIFO_EMPTY);
-				return 0;
-			}
-			return -ETIMEDOUT;
-		}
-		break;
-	default:
-		break;
+	int ret = 0;
+
+	if (!must_wait) {
+		dsim_dbg("%s Doesn't need to wait fifo_completion\n", __func__);
+		return ret;
+	} else {
+		dsim_dbg("%s Waiting for fifo_completion...\n", __func__);
 	}
-	return 0;
+
+	/* SFR_PH_FIFO */
+	reinit_completion(&dsim_ph_wr_comp);
+	dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
+	if (dsim_reg_header_fifo_is_empty(dsim->id))
+		return ret;
+
+	if (!wait_for_completion_timeout(&dsim_ph_wr_comp, MIPI_WR_TIMEOUT)) {
+		if (dsim_read_mask(dsim->id, DSIM_INTSRC, DSIM_INTSRC_SFR_PH_FIFO_EMPTY)) {
+			reinit_completion(&dsim_ph_wr_comp);
+			dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
+			return 0;
+		}
+		ret = -ETIMEDOUT;
+	}
+
+	if ((dsim->state == DSIM_STATE_HSCLKEN) && (ret == -ETIMEDOUT)) {
+		dev_err(dsim->dev, "%s have timed out\n", __func__);
+		dsim_dump(dsim);
+		dsim_reg_set_fifo_ctrl(dsim->id, DSIM_FIFOCTRL_INIT_SFR);
+	}
+	return ret;
+}
+
+/* wait for until SFR fifo is empty */
+int dsim_wait_for_cmd_done(struct dsim_device *dsim)
+{
+	int ret = 0;
+	struct decon_device *decon = (struct decon_device *)dsim->decon;
+
+	decon_lpd_block_exit(decon);
+
+	mutex_lock(&dsim_rd_wr_mutex);
+	ret = dsim_wait_for_cmd_fifo_empty(dsim, true);
+	mutex_unlock(&dsim_rd_wr_mutex);
+
+	decon_lpd_unblock(decon);
+	return ret;
+}
+
+bool dsim_fifo_empty_needed(struct dsim_device *dsim, unsigned int data_id,
+	unsigned long data0)
+{
+	/* read case or partial update command */
+	if (data_id == MIPI_DSI_DCS_READ
+			|| data0 == MIPI_DCS_SET_PAGE_ADDRESS) {
+		dsim_dbg("%s: id:%d, data=%ld\n", __func__, data_id, data0);
+		return true;
+	}
+
+	/* Check a FIFO level whether writable or not */
+	if (!dsim_reg_is_writable_fifo_state(dsim->id))
+		return true;
+
+	return false;
 }
 
 int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
@@ -164,6 +199,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 {
 	int ret = 0;
 	struct decon_device *decon = (struct decon_device *)dsim->decon;
+	bool must_wait = true;
 
 	/* LPD related: Decon must be enabled for PACKET_GO mode */
 	decon_lpd_block_exit(decon);
@@ -193,62 +229,28 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 	case MIPI_DSI_COLOR_MODE_ON:
 	case MIPI_DSI_SHUTDOWN_PERIPHERAL:
 	case MIPI_DSI_TURN_ON_PERIPHERAL:
-		reinit_completion(&dsim_ph_wr_comp);
-		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 		dsim_reg_wr_tx_header(dsim->id, data_id, data0, data1);
-		if (dsim_wait_for_cmd_fifo_empty(dsim, 0)) {
-			dev_err(dsim->dev, "ID: %d : MIPI DSIM short packet write Timeout! 0x%lx\n",
-						data_id, data0);
-			ret = -ETIMEDOUT;
-			goto exit;
-		}
+		must_wait = dsim_fifo_empty_needed(dsim, data_id, data0);
 		break;
 
 	/* long packet types of packet types for command. */
 	case MIPI_DSI_GENERIC_LONG_WRITE:
 	case MIPI_DSI_DCS_LONG_WRITE:
 	case MIPI_DSI_DSC_PPS:
-	{
-		unsigned int size;
-
-		size = data1 * 4;
-		reinit_completion(&dsim_wr_comp);
-		reinit_completion(&dsim_ph_wr_comp);
-		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PL_FIFO_EMPTY |
-						DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 		dsim_long_data_wr(dsim, data0, data1);
-
-		/* put data into header fifo */
 		dsim_reg_wr_tx_header(dsim->id, data_id, data1 & 0xff, (data1 & 0xff00) >> 8);
-		if (dsim_wait_for_cmd_fifo_empty(dsim, 1)) {
-			dev_err(dsim->dev, "ID: %d : MIPI DSIM write Timeout!  0x%0lx\n",
-						data_id, data0);
-			ret = -ETIMEDOUT;
-			goto exit;
-		}
-		if (dsim_wait_for_cmd_fifo_empty(dsim, 0)) {
-			dev_err(dsim->dev, "ID: %d : MIPI DSIM short packet write Timeout! 0x%lx\n",
-						data_id, data0);
-			ret = -ETIMEDOUT;
-			goto exit;
-		}
+		must_wait = dsim_fifo_empty_needed(dsim, data_id, *(u8 *)data0);
 		break;
-	}
 
 	default:
 		dev_warn(dsim->dev, "data id %x is not supported current LSI spec.\n", data_id);
 		ret = -EINVAL;
-		goto exit;
 	}
 
-exit:
-	if ((dsim->state == DSIM_STATE_HSCLKEN) && (ret == -ETIMEDOUT)) {
-		dev_err(dsim->dev, "0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
-				readl(dsim->reg_base + DSIM_DPHY_STATUS),
-				readl(dsim->reg_base + DSIM_INTSRC),
-				readl(dsim->reg_base + DSIM_FIFOCTRL),
-				readl(dsim->reg_base + DSIM_CMD_CONFIG));
-		dsim_reg_set_fifo_ctrl(dsim->id, DSIM_FIFOCTRL_INIT_SFR);
+	ret = dsim_wait_for_cmd_fifo_empty(dsim, must_wait);
+	if (ret < 0) {
+		dev_err(dsim->dev, "ID: %d : MIPI DSIM command write Timeout! 0x%lx\n",
+				data_id, data0);
 	}
 
 err_exit:
@@ -513,8 +515,6 @@ static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 	int_src = readl(dsim->reg_base + DSIM_INTSRC);
 
 	/* Test bit */
-	if (int_src & DSIM_INTSRC_SFR_PL_FIFO_EMPTY)
-		complete(&dsim_wr_comp);
 	if (int_src & DSIM_INTSRC_SFR_PH_FIFO_EMPTY)
 		complete(&dsim_ph_wr_comp);
 	if (int_src & DSIM_INTSRC_RX_DATA_DONE)

@@ -147,6 +147,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 		unsigned long data0, unsigned int data1);
 int dsim_read_data(struct dsim_device *dsim, u32 data_id, u32 addr,
 		u32 count, u8 *buf);
+int dsim_wait_for_cmd_done(struct dsim_device *dsim);
 
 #ifdef CONFIG_DECON_MIPI_DSI_PKTGO
 void dsim_pkt_go_ready(struct dsim_device *dsim);
@@ -184,6 +185,16 @@ static inline int dsim_wr_data(u32 id, u32 cmd_id, unsigned long d0, u32 d1)
 		return ret;
 
 	return 0;
+}
+
+static inline int dsim_wait_for_cmd_completion(u32 id)
+{
+	int ret;
+	struct dsim_device *dsim = get_dsim_drvdata(id);
+
+	ret = dsim_wait_for_cmd_done(dsim);
+
+	return ret;
 }
 
 /* register access subroutines */
