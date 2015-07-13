@@ -175,8 +175,10 @@
 /* FIFO status and control register */
 #define DSIM_FIFOCTRL				(0x4C)
 #define DSIM_FIFOCTRL_NUMBER_OF_PH_SFR(_x)	(((_x) & 0x3f) << 16)
+#define DSIM_FIFOCTRL_NUMBER_OF_PH_SFR_GET(_x)	(((_x) >> 16) & 0x3f)
 #define DSIM_FIFOCTRL_EMPTY_RX			(1 << 12)
 #define DSIM_FIFOCTRL_FULL_PH_SFR		(1 << 11)
+#define DSIM_FIFOCTRL_EMPTY_PH_SFR		(1 << 10)
 #define DSIM_FIFOCTRL_FULL_PL_SFR		(1 << 9)
 #define DSIM_FIFOCTRL_INIT_RX			(1 << 2)
 #define DSIM_FIFOCTRL_INIT_SFR			(1 << 1)
