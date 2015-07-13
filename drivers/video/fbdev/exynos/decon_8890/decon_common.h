@@ -126,7 +126,6 @@ struct decon_window_regs {
 	u32 colormap;
 	u32 start_time;
 	u32 pixel_count;
-	enum decon_idma_type type;
 
 	/* OS used */
 	u32 whole_w;
@@ -134,6 +133,8 @@ struct decon_window_regs {
 	u32 offset_x;
 	u32 offset_y;
 	u32 winmap_state;
+
+	enum decon_idma_type type;
 };
 
 /* To find a proper CLOCK ratio */

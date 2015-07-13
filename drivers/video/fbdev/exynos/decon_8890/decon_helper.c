@@ -339,11 +339,10 @@ void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *reg
 	int idx = atomic_inc_return(&decon->disp_ss_log_idx) % DISP_EVENT_LOG_MAX;
 	struct disp_ss_log *log = &decon->disp_ss_log[idx];
 	int win = 0;
+	bool window_updated = false;
 
 	log->time = ktime_get();
 	log->type = DISP_EVT_UPDATE_HANDLER;
-
-	memset(&log->data.reg, 0, sizeof(struct decon_update_reg_data));
 
 	for (win = 0; win < MAX_DECON_WIN; win++) {
 		if (regs->win_regs[win].wincon & WIN_CONTROL_EN_F) {
@@ -351,6 +350,8 @@ void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *reg
 				sizeof(struct decon_window_regs));
 			memcpy(&log->data.reg.win_config[win], &regs->vpp_config[win],
 				sizeof(struct decon_win_config));
+		} else {
+			log->data.reg.win_config[win].state = DECON_WIN_STATE_DISABLED;
 		}
 	}
 
@@ -361,20 +362,17 @@ void DISP_SS_EVENT_LOG_WINCON(struct v4l2_subdev *sd, struct decon_reg_data *reg
 #ifdef CONFIG_FB_WINDOW_UPDATE
 	if ((regs->need_update) ||
 		(decon->need_update && regs->update_win.w)) {
+		window_updated = true;
 		memcpy(&log->data.reg.win, &regs->update_win,
 				sizeof(struct decon_rect));
-	} else {
+	}
+#endif
+	if (!window_updated) {
 		log->data.reg.win.x = 0;
 		log->data.reg.win.y = 0;
 		log->data.reg.win.w = decon->lcd_info->xres;
 		log->data.reg.win.h = decon->lcd_info->yres;
 	}
-#else
-	log->data.reg.win.x = 0;
-	log->data.reg.win.y = 0;
-	log->data.reg.win.w = decon->lcd_info->xres;
-	log->data.reg.win.h = decon->lcd_info->yres;
-#endif
 }
 
 /* Common API to log a event related with DSIM COMMAND */
