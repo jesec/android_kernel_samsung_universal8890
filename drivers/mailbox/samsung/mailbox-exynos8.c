@@ -261,7 +261,7 @@ static void samsung_mbox_shutdown(struct mbox_chan *chan)
 static void samsung_mbox_shutdown(struct mbox_chan *chan) {}
 #endif
 
-bool samsung_mbox_last_tx_done(struct mbox_chan *chan)
+int samsung_mbox_last_tx_done(struct mbox_chan *chan)
 {
 	unsigned int status, limit_cnt = 0, tmp, i;
 
