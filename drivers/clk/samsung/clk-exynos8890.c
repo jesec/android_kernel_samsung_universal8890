@@ -101,7 +101,7 @@ enum exynos8890_clks {
 	ccore_i2c = 950,
 
 	/* number for clkout port starts from 1000 */
-	oscclk_nfc = 1000,
+	oscclk_nfc = 1000, oscclk_aud,
 
 	/* clk id for sysmmu: 1100 ~ 1149
 	 * NOTE: clock IDs of sysmmus are defined in
@@ -122,6 +122,7 @@ static struct of_device_id ext_clk_match[] __initdata = {
 
 static struct init_vclk exynos8890_clkout_vclks[] __initdata = {
 	VCLK(oscclk_nfc, pxmxdx_oscclk_nfc, "pxmxdx_oscclk_nfc", 0, 0, NULL),
+	VCLK(oscclk_aud, pxmxdx_oscclk_aud, "pxmxdx_oscclk_aud", 0, 0, NULL),
 };
 
 static struct init_vclk exynos8890_ccore_vclks[] __initdata = {
