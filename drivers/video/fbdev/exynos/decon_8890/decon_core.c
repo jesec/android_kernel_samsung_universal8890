@@ -2846,7 +2846,7 @@ static int decon_register_subdev_nodes(struct decon_device *decon,
 		return ret;
 	}
 
-	decon_info("Register V4L2 subdev nodes for DECON\n");
+	decon_dbg("Register V4L2 subdev nodes for DECON\n");
 
 	return 0;
 
@@ -2862,7 +2862,7 @@ static int decon_create_links(struct decon_device *decon,
 	u32 flags = MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED;
 #endif
 
-	decon_info("decon%d create links\n", decon->id);
+	decon_dbg("decon%d create links\n", decon->id);
 	memset(err, 0, sizeof(err));
 
 	/*
@@ -2951,7 +2951,7 @@ static int decon_register_entity(struct decon_device *decon)
 		decon_err("failed to register DECON subdev\n");
 		return ret;
 	}
-	decon_info("%s entity init\n", sd->name);
+	decon_dbg("%s entity init\n", sd->name);
 
 	switch (decon->id) {
 		/* All decons can be LINKED to DSIM0/1/2 */
@@ -3578,7 +3578,7 @@ static int decon_probe(struct platform_device *pdev)
 		win_regs.wincon |= WIN_CONTROL_EN_F;
 		win_regs.start_pos = win_start_pos(0, 0);
 		win_regs.end_pos = win_end_pos(0, 0, fbinfo->var.xres, fbinfo->var.yres);
-		pr_info("xres %d yres %d win_start_pos %x win_end_pos %x\n",
+		decon_dbg("xres %d yres %d win_start_pos %x win_end_pos %x\n",
 			fbinfo->var.xres, fbinfo->var.yres, win_regs.start_pos,
 			win_regs.end_pos);
 		win_regs.colormap = 0x00FF00;

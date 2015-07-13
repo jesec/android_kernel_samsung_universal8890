@@ -663,7 +663,7 @@ static int dsim_get_gpios(struct dsim_device *dsim)
 	struct device *dev = dsim->dev;
 	struct dsim_resources *res = &dsim->res;
 
-	dsim_info("%s +\n", __func__);
+	dsim_dbg("%s +\n", __func__);
 
 	if (of_get_property(dev->of_node, "gpios", NULL) != NULL)  {
 		/* panel reset */
@@ -680,11 +680,11 @@ static int dsim_get_gpios(struct dsim_device *dsim)
 		res->lcd_power[1] = of_get_gpio(dev->of_node, 2);
 		if (res->lcd_power[1] < 0) {
 			res->lcd_power[1] = -1;
-			dsim_info("This board doesn't support 2nd LCD power GPIO");
+			dsim_dbg("This board doesn't support 2nd LCD power GPIO");
 		}
 	}
 
-	dsim_info("%s -\n", __func__);
+	dsim_dbg("%s -\n", __func__);
 	return 0;
 }
 
@@ -805,8 +805,6 @@ static int dsim_enable(struct dsim_device *dsim)
 	dsim->state = DSIM_STATE_HSCLKEN;
 
 	call_panel_ops(dsim, displayon, dsim);
-
-	dsim_clocks_info(dsim);
 
 	return 0;
 }
@@ -1129,7 +1127,6 @@ static int dsim_parse_lcd_info(struct dsim_device *dsim)
 	struct device_node *node;
 
 	node = of_parse_phandle(dsim->dev->of_node, "lcd_info", 0);
-	dsim_info("%s is founded\n", of_node_full_name(node));
 
 	of_property_read_u32(node, "mode", &dsim->lcd_info.mode);
 	dsim_dbg("%s mode\n", dsim->lcd_info.mode ? "command" : "video");
@@ -1137,7 +1134,8 @@ static int dsim_parse_lcd_info(struct dsim_device *dsim)
 	of_property_read_u32_array(node, "resolution", res, 2);
 	dsim->lcd_info.xres = res[0];
 	dsim->lcd_info.yres = res[1];
-	dsim_info("LCD resolution: xres(%d), yres(%d)\n", res[0], res[1]);
+	dsim_info("LCD(%s) resolution: xres(%d), yres(%d)\n",
+			of_node_full_name(node), res[0], res[1]);
 
 	of_property_read_u32_array(node, "size", res, 2);
 	dsim->lcd_info.width = res[0];
@@ -1193,7 +1191,7 @@ static int dsim_parse_lcd_info(struct dsim_device *dsim)
 	dsim_dbg("mic version(%d)\n", dsim->lcd_info.mic_ver);
 
 	of_property_read_u32(node, "type_of_ddi", &dsim->lcd_info.ddi_type);
-	dsim_info("ddi type(%d)\n", dsim->lcd_info.ddi_type);
+	dsim_dbg("ddi type(%d)\n", dsim->lcd_info.ddi_type);
 
 	return 0;
 }
@@ -1232,7 +1230,7 @@ static int dsim_probe(struct platform_device *pdev)
 	spin_lock_init(&dsim->slock);
 
 	of_property_read_u32(dev->of_node, "data_lane_cnt", &dsim->data_lane_cnt);
-	dev_info(dev, "using data lane count(%d)\n", dsim->data_lane_cnt);
+	dsim_dbg("using data lane count(%d)\n", dsim->data_lane_cnt);
 
 	dsim_parse_lcd_info(dsim);
 	/* added */
@@ -1243,7 +1241,7 @@ static int dsim_probe(struct platform_device *pdev)
 		goto err_mem_region;
 	}
 
-	dsim_info("res: start(0x%x), end(0x%x)\n", (u32)res->start, (u32)res->end);
+	dsim_dbg("res: start(0x%x), end(0x%x)\n", (u32)res->start, (u32)res->end);
 	dsim->reg_base = devm_ioremap_resource(dev, res);
 	if (!dsim->reg_base) {
 		dev_err(&pdev->dev, "mipi-dsi: failed to remap io region\n");
