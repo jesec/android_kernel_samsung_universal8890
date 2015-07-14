@@ -3565,6 +3565,10 @@ static int decon_probe(struct platform_device *pdev)
 			}
 		}
 
+		/* DSIM device will use the decon pointer to call the LPD functions */
+		dsim = container_of(decon->output_sd, struct dsim_device, sd);
+		dsim->decon = (void *)decon;
+
 		decon_to_init_param(decon, &p);
 		if (decon_reg_init(decon->id, decon->out_idx, &p) < 0)
 			goto decon_init_done;
@@ -3620,8 +3624,7 @@ static int decon_probe(struct platform_device *pdev)
 		decon_to_psr_info(decon, &psr);
 		decon_reg_set_int(decon->id, &psr, 1);
 		decon_reg_start(decon->id, &psr);
-		dsim = container_of(decon->output_sd, struct dsim_device, sd);
-		dsim->decon = (void *)decon;
+
 		call_panel_ops(dsim, displayon, dsim);
 		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
 		if (decon_reg_wait_update_done_and_mask(decon->id, &psr, SHADOW_UPDATE_TIMEOUT)
