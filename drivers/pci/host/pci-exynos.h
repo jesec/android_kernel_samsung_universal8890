@@ -17,6 +17,12 @@
 #define ID_MASK			0xffff
 #define MAX_RC_NUM		2
 
+#if defined(CONFIG_SOC_EXYNOS8890)
+#define PCI_DEVICE_ID_EXYNOS	0xa544
+#else
+#define PCI_DEVICE_ID_EXYNOS	0xecec
+#endif
+
 #define to_exynos_pcie(x)	container_of(x, struct exynos_pcie, pp)
 
 struct exynos_pcie_clks {

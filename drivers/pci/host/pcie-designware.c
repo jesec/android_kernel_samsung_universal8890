@@ -734,9 +734,15 @@ static struct pci_ops dw_pcie_ops = {
 
 void dw_pcie_setup_rc(struct pcie_port *pp)
 {
+	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pp);
 	u32 val;
 	u32 membase;
 	u32 memlimit;
+
+	/* change vendor ID and device ID for PCIe */
+	dw_pcie_wr_own_conf(pp, PCI_VENDOR_ID, 2, PCI_VENDOR_ID_SAMSUNG);
+	dw_pcie_wr_own_conf(pp, PCI_DEVICE_ID, 2,
+			    PCI_DEVICE_ID_EXYNOS + exynos_pcie->ch_num);
 
 	/* set the number of lanes */
 	dw_pcie_readl_rc(pp, PCIE_PORT_LINK_CONTROL, &val);
