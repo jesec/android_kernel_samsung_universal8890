@@ -111,6 +111,33 @@ int check_esa_status(void)
 #endif
 }
 
+void esa_memset_mailbox(void)
+{
+	int i;
+
+	for (i = 0; i < 0x80; i += 0x4)
+		writel(0x0, si.mailbox + i);
+}
+
+void esa_memcpy_mailbox(bool save)
+{
+	unsigned int *src;
+	unsigned int *dst;
+	int i;
+
+	if (save) {
+		src = si.mailbox;
+		dst = si.mailbox_bak;
+		for (i = 0; i < 0x80; i += 0x4, dst++)
+			*dst = readl(src + i);
+	} else {
+		src = si.mailbox_bak;
+		dst = si.mailbox;
+		for (i = 0; i < 0x80; i += 0x4, src++)
+			writel(*src, dst + i);
+	}
+}
+
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 static int esa_set_cpu_lock_kthread(void *arg)
 {
@@ -523,14 +550,14 @@ static void esa_fw_download(void)
 #ifndef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 		memset(si.sram + FW_ZERO_SET_BASE, 0, FW_ZERO_SET_SIZE);
 #else
-		memcpy(si.mailbox,  si.mailbox_bak,  128);
+		esa_memcpy_mailbox(false);
 #endif
 	} else {
 		esa_info("%s: intialize\n", __func__);
 		for (n = 0; n < FWAREA_NUM; n++)
 			memset(si.fwarea[n], 0, FWAREA_SIZE);
 
-		memset(si.mailbox, 0, 128);
+		esa_memset_mailbox();
 		memset(si.sram, 0, SRAM_FW_MAX);	/* for ZI area */
 		memcpy(si.sram, si.fwmem, si.fw_sbin_size);
 		memcpy(si.fwarea[0], si.fwmem + si.fw_sbin_size,
@@ -606,7 +633,7 @@ static void esa_fw_shutdown(void)
 	/* Backup SRAM */
 	memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MAX);
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
-	memcpy(si.mailbox_bak, si.mailbox, 128);
+	esa_memcpy_mailbox(true);
 #endif
 	/* power off */
 	esa_debug("Turn off CA5...\n");

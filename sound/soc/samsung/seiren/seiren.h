@@ -331,7 +331,7 @@ struct seiren_info {
 	phys_addr_t	fwmem_pa;
 	void __kernel	*fwmem_sram_bak;
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
-	unsigned char	mailbox_bak[128];
+	unsigned int 	mailbox_bak[32];
 #endif
 	volatile bool	isr_done;
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
