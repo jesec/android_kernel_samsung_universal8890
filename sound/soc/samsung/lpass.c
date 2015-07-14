@@ -1048,7 +1048,7 @@ static int lpass_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	lpass.regs = devm_ioremap_resource(&pdev->dev, res);
+	lpass.regs = ioremap_wc(res->start, resource_size(res));
 	if (!lpass.regs) {
 		dev_err(dev, "SFR ioremap failed\n");
 		return -ENOMEM;
@@ -1062,7 +1062,7 @@ static int lpass_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	lpass.mem = devm_ioremap_resource(&pdev->dev, res);
+	lpass.mem = ioremap_wc(res->start, resource_size(res));
 	if (!lpass.mem) {
 		dev_err(dev, "SRAM ioremap failed\n");
 		return -ENOMEM;
@@ -1078,7 +1078,7 @@ static int lpass_probe(struct platform_device *pdev)
 			return -ENXIO;
 		}
 
-		lpass.regs_s = devm_ioremap_resource(&pdev->dev, res);
+		lpass.regs_s = ioremap_wc(res->start, resource_size(res));
 		if (!lpass.regs_s) {
 			dev_err(dev, "SFR ioremap failed\n");
 			return -ENOMEM;
@@ -1193,6 +1193,10 @@ static int lpass_remove(struct platform_device *pdev)
 #else
 	lpass_disable();
 #endif
+	iounmap(lpass.regs);
+	iounmap(lpass.regs_s);
+	iounmap(lpass.mem);
+
 	return 0;
 }
 
