@@ -277,6 +277,11 @@ int exynos_check_aud_pwr(void)
 		return AUD_PWR_AFTR;
 }
 
+void lpass_update_lpclock(u32 ctrlid, bool idle)
+{
+	lpass_update_lpclock_impl(&lpass.pdev->dev, ctrlid, idle);
+}
+
 void __iomem *lpass_get_regs(void)
 {
 	return lpass.regs;
@@ -1167,6 +1172,8 @@ static int lpass_probe(struct platform_device *pdev)
 #endif
 	lpass.display_on = true;
 	fb_register_client(&fb_noti_block);
+
+	lpass_update_lpclock(LPCLK_CTRLID_LEGACY|LPCLK_CTRLID_OFFLOAD, false);
 
 #ifdef USE_AUD_DEVFREQ
 	lpass.cpu_qos = 0;

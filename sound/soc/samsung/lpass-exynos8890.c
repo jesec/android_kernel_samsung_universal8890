@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 
 #include <sound/exynos.h>
+#include <soc/samsung/exynos-powermode.h>
 
 #if 0
 #include <mach/map.h>
@@ -48,9 +49,17 @@ static struct lpass_cmu_info {
 	struct clk		*aud_pll;
 } lpass_cmu;
 
+static int g_init_sicd_index;
+static int g_init_sicd_aud_index;
+static int g_sicd_index;
+static int g_sicd_aud_index;
+static int g_current_power_mode;
+
 void __iomem *lpass_cmu_save[] = {
 	NULL,	/* endmark */
 };
+
+extern int check_adma_status(void);
 
 void lpass_init_clk_gate(void)
 {
@@ -137,6 +146,60 @@ void lpass_enable_pll(bool on)
 		clk_disable_unprepare(lpass_cmu.aud_pll);
 	}
 }
+
+void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
+{
+#ifdef CONFIG_CPU_IDLE
+	int dram_used;
+
+	dram_used = check_adma_status();
+
+	if (g_init_sicd_index == 0) {
+		g_sicd_index = exynos_get_idle_ip_index(dev_name(dev));
+		g_init_sicd_index = 1;
+	}
+	if (g_init_sicd_aud_index == 0) {
+		g_sicd_aud_index = exynos_get_idle_ip_index("11400000.lpass.sicd_aud");
+		g_init_sicd_aud_index = 1;
+	}
+	if (g_sicd_index < 0 || g_sicd_aud_index < 0) {
+		dev_err(dev, "ERROR : Can't get SICD index for 'audio'.\n");
+		return;
+	}
+
+	if (ctrlid & LPCLK_CTRLID_LEGACY) {
+		if (active && dram_used == 0)
+			g_current_power_mode |= LPCLK_CTRLID_LEGACY;
+		else
+			g_current_power_mode &= (~LPCLK_CTRLID_LEGACY);
+	}
+	if (ctrlid & LPCLK_CTRLID_OFFLOAD) {
+		if (active)
+			g_current_power_mode |= LPCLK_CTRLID_OFFLOAD;
+		else
+			g_current_power_mode &= (~LPCLK_CTRLID_OFFLOAD);
+	}
+	switch (g_current_power_mode) {
+	case 0x00:
+		exynos_update_ip_idle_status(g_sicd_index, 1);
+		exynos_update_ip_idle_status(g_sicd_aud_index, 0);
+		break;
+	case 0x01:
+		exynos_update_ip_idle_status(g_sicd_index, 0);
+		exynos_update_ip_idle_status(g_sicd_aud_index, 1);
+		break;
+	case 0x02:
+	case 0x03:
+		exynos_update_ip_idle_status(g_sicd_index, 0);
+		exynos_update_ip_idle_status(g_sicd_aud_index, 0);
+		break;
+	default:
+		pr_err("[ERROR] Invalid audio power mode: 0x%04X\n",
+			g_current_power_mode);
+	}
+#endif
+}
+
 
 
 /* Module information */
