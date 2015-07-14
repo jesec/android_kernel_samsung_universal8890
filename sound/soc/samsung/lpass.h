@@ -33,8 +33,13 @@
 #define LPASS_SW_RESET_CA5	(1 << 0)
 #define LPASS_SW_RESET_SB	(1 << 11)
 #define LPASS_SW_RESET_UART	(1 << 10)
+#ifndef CONFIG_SOC_EXYNOS8890
 #define LPASS_SW_RESET_PCM	(1 << 9)
 #define LPASS_SW_RESET_I2S	(1 << 8)
+#else
+#define LPASS_SW_RESET_PCM	(1 << 8)
+#define LPASS_SW_RESET_I2S	(1 << 7)
+#endif
 #define LPASS_SW_RESET_TIMER	(1 << 2)
 #define LPASS_SW_RESET_MEM	(1 << 1)
 #define LPASS_SW_RESET_DMA	(1 << 0)
