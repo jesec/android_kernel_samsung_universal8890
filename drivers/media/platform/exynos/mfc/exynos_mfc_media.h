@@ -95,9 +95,6 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 	V4L2_MPEG_MFC51_VIDEO_FRAME_TYPE_OTHERS		= 5,
 };
 
-
-/* new entry for enum v4l2_mpeg_video_header_mode */
-
 #define V4L2_CID_MPEG_MFC51_VIDEO_H264_INTERLACE	\
 					(V4L2_CID_MPEG_MFC_BASE + 20)
 #define V4L2_CID_MPEG_MFC51_VIDEO_H264_RC_FRAME_RATE	\
@@ -113,7 +110,6 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 					(V4L2_CID_MPEG_MFC_BASE + 25)
 
 #define V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH	V4L2_CID_MPEG_VIDEO_GOP_SIZE
-
 #define V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE_CH		\
 				V4L2_CID_MPEG_MFC51_VIDEO_H264_RC_FRAME_RATE
 #define V4L2_CID_MPEG_MFC51_VIDEO_BIT_RATE_CH	V4L2_CID_MPEG_VIDEO_BITRATE
@@ -123,6 +119,9 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 
 /* new entry for enum v4l2_mpeg_video_header_mode */
 #define V4L2_MPEG_VIDEO_HEADER_MODE_AT_THE_READY	2
+
+/* new entry for enum v4l2_mpeg_video_multi_slice_mode */
+#define V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB_ROW	3
 
 #define V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_S_B \
 	V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
