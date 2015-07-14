@@ -1,6 +1,7 @@
 #include <asm/map.h>
 #include <asm/memory.h>
 #include <soc/samsung/ap_param_parser.h>
+#include <soc/samsung/ap_param_binary.h>
 
 #define ALIGNMENT_SIZE	 4
 
@@ -15,9 +16,11 @@ static char ap_parameter_signature[] = "PARA";
 static struct class *ap_param_class;
 #endif
 
+#if 0 /* HACK : comment for using header */
 static struct map_desc exynos_iodesc_ap_param __initdata = {
 	.type           = MT_NORMAL_NC,
 };
+#endif
 
 /* API for internal */
 
@@ -1292,10 +1295,13 @@ late_initcall_sync(ap_param_dump_init);
 /* API for external */
 
 static phys_addr_t ap_param_address;
+#if 0
 static phys_addr_t ap_param_size;
+#endif
 
 void __init ap_param_init(phys_addr_t address, phys_addr_t size)
 {
+#if 0
 	for (ap_param_size = 1; ap_param_size < size;)
 		ap_param_size = ap_param_size << 1;
 
@@ -1304,6 +1310,8 @@ void __init ap_param_init(phys_addr_t address, phys_addr_t size)
 	exynos_iodesc_ap_param.virtual = (unsigned long)S5P_VA_AP_PARAMETER;
 
 	ap_param_address = (phys_addr_t)S5P_VA_AP_PARAMETER;
+#endif
+	ap_param_address = (phys_addr_t)ap_param_binary;
 }
 
 void *ap_param_get_block(char *block_name)
@@ -1588,5 +1596,7 @@ int ap_param_strcmp(char *src1, char *src2)
 
 void __init ap_param_init_map_io(void)
 {
+#if 0
 	iotable_init(&exynos_iodesc_ap_param, 1);
+#endif
 }
