@@ -123,6 +123,9 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 /* new entry for enum v4l2_mpeg_video_multi_slice_mode */
 #define V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB_ROW	3
 
+/* new entry for enum v4l2_mpeg_video_h264_profile */
+#define V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH	17
+
 #define V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_S_B \
 	V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 
