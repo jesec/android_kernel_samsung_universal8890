@@ -38,9 +38,7 @@ struct s5p_mfc_qos {
 	unsigned int freq_int;
 	unsigned int freq_mif;
 	unsigned int freq_cpu;
-#ifndef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
 	unsigned int freq_kfc;
-#endif
 	unsigned int has_enc_table;
 };
 #endif

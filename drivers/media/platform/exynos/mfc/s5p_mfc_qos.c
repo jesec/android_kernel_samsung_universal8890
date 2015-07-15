@@ -67,11 +67,6 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 				PM_QOS_BUS_THROUGHPUT,
 				qos_table[idx].freq_mif);
 
-#ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-		pm_qos_add_request(&dev->qos_req_cluster1,
-				PM_QOS_CLUSTER1_FREQ_MIN
-				qos_table[idx].freq_cpu);
-#endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 		pm_qos_add_request(&dev->qos_req_cluster1,
 				PM_QOS_CLUSTER1_FREQ_MIN,
@@ -116,10 +111,6 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 					qos_table[idx].freq_mif);
 		}
 
-#ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-		pm_qos_update_request(&dev->qos_req_cluster1,
-				qos_table[idx].freq_cpu);
-#endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 		pm_qos_update_request(&dev->qos_req_cluster1,
 				qos_table[idx].freq_cpu);
@@ -142,9 +133,6 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 							dev->curr_rate);
 		pm_qos_remove_request(&dev->qos_req_mif);
 
-#ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-		pm_qos_remove_request(&dev->qos_req_cluster1);
-#endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 		pm_qos_remove_request(&dev->qos_req_cluster1);
 		pm_qos_remove_request(&dev->qos_req_cluster0);
@@ -161,13 +149,6 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 static void mfc_qos_print(struct s5p_mfc_ctx *ctx,
 		struct s5p_mfc_qos *qos_table, int index)
 {
-#ifdef CONFIG_ARM_EXYNOS_IKS_CPUFREQ
-	mfc_debug(2, "\tint: %d(%d), mif: %d, cpu: %d\n",
-			qos_table[index].freq_int,
-			qos_table[index].freq_mfc,
-			qos_table[index].freq_mif,
-			qos_table[index].freq_cpu);
-#endif
 #ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 	mfc_info_ctx("\tint: %d(%d), mif: %d, cpu: %d, kfc: %d\n",
 			qos_table[index].freq_int,
@@ -187,20 +168,11 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 	for (i = (pdata->num_qos_steps - 1); i >= 0; i--) {
 		mfc_debug(7, "QoS index: %d\n", i + 1);
 		if (total_mb > qos_table[i].thrd_mb) {
-#if defined(CONFIG_SOC_EXYNOS5430)
-			/* Table is different between MAX dec and enc */
-			if (i == (pdata->num_qos_steps - 1) &&
-				ctx->type == MFCINST_ENCODER) {
-				mfc_debug(2, "Change Table for encoder\n");
-				i = i - 1;
-			}
-#elif defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
 			/* Table is different between decoder and encoder */
 			if (dev->has_enc_ctx && qos_table[i].has_enc_table) {
 				mfc_debug(2, "Table changes %d -> %d\n", i, i - 1);
 				i = i - 1;
 			}
-#endif
 			if (atomic_read(&dev->qos_req_cur) == 0) {
 				mfc_qos_print(ctx, qos_table, i);
 				mfc_qos_operate(ctx, MFC_QOS_ADD, i);
