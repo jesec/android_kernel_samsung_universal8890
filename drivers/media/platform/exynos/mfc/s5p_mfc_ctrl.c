@@ -595,8 +595,6 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 	}
 	mfc_info_dev("curr_ctx_drm:%d\n", dev->curr_ctx_drm);
 	dev->wakeup_status = 1;
-	/* Set clock source again after wake up */
-	s5p_mfc_set_clock_parent(dev);
 
 	/* 0. MFC reset */
 	mfc_debug(2, "MFC reset...\n");

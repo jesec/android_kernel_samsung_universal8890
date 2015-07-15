@@ -2188,9 +2188,6 @@ static int s5p_mfc_open(struct file *file)
 			goto err_pwr_enable;
 		}
 
-		/* Set clock source again after power on */
-		s5p_mfc_set_clock_parent(dev);
-
 		dev->curr_ctx = ctx->num;
 		dev->preempt_ctx = MFC_NO_INSTANCE_SET;
 		dev->curr_ctx_drm = ctx->is_drm;
