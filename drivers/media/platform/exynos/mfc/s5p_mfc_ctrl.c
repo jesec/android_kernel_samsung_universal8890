@@ -316,7 +316,7 @@ int s5p_mfc_sleep(struct s5p_mfc_dev *dev)
 	old_state = ctx->state;
 	s5p_mfc_change_state(ctx, MFCINST_ABORT);
 	ret = wait_event_interruptible_timeout(ctx->queue,
-			(test_bit(ctx->num, &dev->hw_lock) == 0),
+			(dev->hw_lock == 0),
 			msecs_to_jiffies(MFC_INT_TIMEOUT));
 	if (ret == 0) {
 		mfc_err_dev("Waiting for hardware to finish timed out\n");
