@@ -30,7 +30,6 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 #include <linux/irq.h>
-#include <linux/uaccess.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_qos.h>
 #include <linux/iommu.h>
@@ -40,6 +39,11 @@
 #include <linux/firmware.h>
 #include <linux/kthread.h>
 #include <linux/exynos_ion.h>
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
+#include <linux/syscalls.h>
+#include <linux/uaccess.h>
+#include <linux/file.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cachetype.h>
@@ -452,6 +456,46 @@ void esa_compr_close(void)
 }
 #endif
 
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+static void esa_fw_snapshot(void)
+{
+        struct file *sram_filp;
+        struct file *dram_filp;
+        mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MAX);
+	sram_filp = filp_open("/data/seiren_fw_sram_snapsot.bin",
+			O_RDWR|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
+	vfs_write(sram_filp, si.fwmem_sram_bak, SRAM_FW_MAX, &sram_filp->f_pos);
+	vfs_fsync(sram_filp, 0);
+	filp_close(sram_filp, NULL);
+
+	dram_filp = filp_open("/data/seiren_fw_dram_snapsot.bin",
+			O_RDWR|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
+	vfs_write(dram_filp, si.fwarea[0], SZ_4M, &dram_filp->f_pos);
+	vfs_fsync(dram_filp, 0);
+	filp_close(dram_filp, NULL);
+
+	set_fs(old_fs);
+}
+
+struct kobject *seiren_fw_snapshot_kobj = NULL;
+static ssize_t snapshot_seiren_fw(struct kobject *kobj, struct kobj_attribute *attr,
+					const char *buf, size_t count)
+{
+	pr_info("%s: %d seiren snapshot is called\n", __func__, __LINE__);
+	esa_fw_snapshot();
+
+	return count;
+}
+
+static struct kobj_attribute seiren_fw_dump_attribute =
+	__ATTR(seiren_fw_dump, S_IRUGO | S_IWUSR, NULL, snapshot_seiren_fw);
+#endif
+
 static void esa_dump_fw_log(void)
 {
 	char log[256];
@@ -473,6 +517,10 @@ static void esa_dump_fw_log(void)
 		memcpy(log, addr, 128);
 		esa_info("%s", log);
 	}
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+	memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MAX);
+	esa_fw_snapshot();
+#endif
 }
 
 #ifndef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
@@ -2284,6 +2332,14 @@ static int esa_probe(struct platform_device *pdev)
 			kthread_run(esa_set_cpu_lock_kthread, NULL,
 					"esa-set-cpu-lock");
 	sched_setscheduler_nocheck(si.aud_cpu_lock_thrd, SCHED_NORMAL, &param);
+
+	if (!seiren_fw_snapshot_kobj) {
+		seiren_fw_snapshot_kobj	=
+			kobject_create_and_add("snapshot-seiren-fw", NULL);
+		if (sysfs_create_file(seiren_fw_snapshot_kobj, &seiren_fw_dump_attribute.attr))
+			pr_err("%s: failed to create sysfs to control PCM dump\n", __func__);
+	}
+
 #endif
 #ifdef CONFIG_PM_DEVFREQ
 	si.mif_qos = 0;
