@@ -176,8 +176,7 @@ cache_type_store(struct device *dev, struct device_attribute *attr,
 
 	for (i = 0; i < ARRAY_SIZE(sd_cache_types); i++) {
 		len = strlen(sd_cache_types[i]);
-		if (strncmp(sd_cache_types[i], buf, len) == 0 &&
-		    buf[len] == '\n') {
+		if (strncmp(sd_cache_types[i], buf, len) == 0) {
 			ct = i;
 			break;
 		}
