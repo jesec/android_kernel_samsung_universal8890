@@ -294,6 +294,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	struct cpufreq_policy *policy = data;
 	unsigned long max_freq = 0;
 	struct cpufreq_cooling_device *cpufreq_dev;
+	char *cooling_device_name;
 
 	if (event != CPUFREQ_ADJUST)
 		return 0;
@@ -311,8 +312,14 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 
 		max_freq = cpufreq_dev->cpufreq_val;
 
-		if (policy->max != max_freq)
+		if (policy->max != max_freq) {
+			if (policy->cpu)
+				cooling_device_name = "cluster1";
+			else
+				cooling_device_name = "cluster0";
 			cpufreq_verify_within_limits(policy, 0, max_freq);
+			exynos_ss_thermal(NULL, 0, cooling_device_name, max_freq);
+		}
 	}
 	mutex_unlock(&cooling_cpufreq_lock);
 

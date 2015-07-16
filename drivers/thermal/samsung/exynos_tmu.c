@@ -567,6 +567,7 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 	const struct exynos_tmu_registers *reg = pdata->registers;
 	u32 temp_code;
 	int temp, max_temp;
+	char *cool_device_name = "NONE";
 
 	mutex_lock(&data->lock);
 
@@ -590,7 +591,7 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 	if (!(pdata->d_type == ISP))
 		max_temp = exynos_tmu_max_temp_read(data);
 #endif
-	exynos_ss_printk("[TMU] id[%d] , %d\n", data->id, temp);
+	exynos_ss_thermal(pdata, temp, cool_device_name, 0);
 	mutex_unlock(&data->lock);
 
 	return temp;
