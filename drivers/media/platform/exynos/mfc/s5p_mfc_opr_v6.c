@@ -92,14 +92,6 @@ static inline u32 s5p_mfc_read_shm(struct s5p_mfc_dev *dev, unsigned int ofs)
 	return readl(dev->dis_shm_buf.virt + ofs);
 }
 
-/* Allocate temporary buffers for decoding */
-int s5p_mfc_alloc_dec_temp_buffers(struct s5p_mfc_ctx *ctx)
-{
-	/* NOP */
-
-	return 0;
-}
-
 /* Release temproary buffers for decoding */
 void s5p_mfc_release_dec_desc_buffer(struct s5p_mfc_ctx *ctx)
 {
@@ -462,7 +454,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->port_a_buf = 0;
 			printk(KERN_ERR
 			       "Buf alloc for decoding failed (port A).\n");
-			return -ENOMEM;
+			return 0;
 		}
 		ctx->port_a_phys = s5p_mfc_mem_daddr_priv(ctx->port_a_buf);
 		ctx->port_a_virt = s5p_mfc_mem_vaddr_priv(ctx->port_a_buf);
@@ -472,7 +464,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->port_a_phys = 0;
 
 			mfc_err_ctx("Get vaddr for codec buffer failed.\n");
-			return -ENOMEM;
+			return 0;
 		}
 	}
 
@@ -588,7 +580,7 @@ void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 		return;
 	}
 
-	if (ctx->ctx.alloc) {
+	if (ctx->ctx.virt) {
 		s5p_mfc_mem_free_priv(ctx->ctx.alloc);
 		ctx->ctx.alloc = NULL;
 		ctx->ctx.ofs = 0;
@@ -720,7 +712,7 @@ void release_dev_dis_shared_buffer(struct s5p_mfc_dev *dev,
 	if (buf_type == MFCBUF_DRM)
 		dis_shm_buf = &dev->dis_shm_buf_drm;
 #endif
-	if (dis_shm_buf->alloc) {
+	if (dis_shm_buf->virt) {
 		s5p_mfc_mem_free_priv(dis_shm_buf->alloc);
 		dis_shm_buf->alloc = NULL;
 		dis_shm_buf->ofs = 0;
@@ -747,7 +739,7 @@ void mfc_release_dev_context_buffer(struct s5p_mfc_dev *dev,
 		ctx_buf = &dev->ctx_buf_drm;
 #endif
 
-	if (ctx_buf->alloc) {
+	if (ctx_buf->virt) {
 		s5p_mfc_mem_free_priv(ctx_buf->alloc);
 		ctx_buf->alloc = NULL;
 		ctx_buf->ofs = 0;

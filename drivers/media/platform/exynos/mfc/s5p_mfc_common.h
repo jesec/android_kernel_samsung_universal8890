@@ -1209,8 +1209,11 @@ static inline int clear_hw_bit(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret = -1;
 
-	if (!atomic_read(&dev->watchdog_run))
+	if (!atomic_read(&dev->watchdog_run)) {
 		ret = test_and_clear_bit(ctx->num, &dev->hw_lock);
+		/* Reset the timeout watchdog */
+		atomic_set(&dev->watchdog_cnt, 0);
+	}
 
 	return ret;
 }

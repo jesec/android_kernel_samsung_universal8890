@@ -629,6 +629,7 @@ static inline unsigned int r2h_bits(int cmd)
 
 #define S5P_FIMV_VPS_ONLY_ERROR		42
 #define S5P_FIMV_SW_RESET		0x0000
+#define S5P_FIMV_ERR_NULL_SCRATCH		61
 
 /* Memory controller register */
 #define S5P_FIMV_MC_DRAMBASE_ADR_A	0x0508

@@ -1587,6 +1587,15 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		/* This error had to happen while parsing the header */
 	case MFCINST_HEAD_PARSED:
 		/* This error had to happen while setting dst buffers */
+		if (err == S5P_FIMV_ERR_NULL_SCRATCH) {
+			ctx->state = MFCINST_ERROR;
+			spin_lock_irqsave(&dev->irqlock, flags);
+			/* Mark all dst buffers as having an error */
+			s5p_mfc_cleanup_queue(&ctx->dst_queue);
+			/* Mark all src buffers as having an error */
+			s5p_mfc_cleanup_queue(&ctx->src_queue);
+			spin_unlock_irqrestore(&dev->irqlock, flags);
+		}
 	case MFCINST_RETURN_INST:
 		/* This error had to happen while releasing instance */
 	case MFCINST_DPB_FLUSHING:
@@ -1629,6 +1638,26 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		break;
 	}
 	return;
+}
+
+static irqreturn_t s5p_mfc_top_half_irq(int irq, void *priv)
+{
+	struct s5p_mfc_dev *dev = priv;
+	struct s5p_mfc_ctx *ctx;
+	unsigned int err;
+	unsigned int reason;
+
+	ctx = dev->ctx[dev->curr_ctx];
+	if (!ctx)
+		mfc_err("no mfc context to run\n");
+
+	reason = s5p_mfc_get_int_reason();
+	err = s5p_mfc_get_int_err();
+	mfc_debug(2, "[c:%d] Int reason: %d (err: %d)\n",
+			dev->curr_ctx, reason, err);
+	MFC_TRACE_DEV("<< Int reason(top): %d\n", reason);
+
+	return IRQ_WAKE_THREAD;
 }
 
 /* Interrupt processing */
@@ -2889,8 +2918,8 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		goto err_res_irq;
 	}
 	dev->irq = res->start;
-	ret = request_threaded_irq(dev->irq, NULL, s5p_mfc_irq, IRQF_ONESHOT, pdev->name,
-									dev);
+	ret = request_threaded_irq(dev->irq, s5p_mfc_top_half_irq, s5p_mfc_irq,
+				IRQF_ONESHOT, pdev->name, dev);
 	if (ret != 0) {
 		dev_err(&pdev->dev, "failed to install irq (%d)\n", ret);
 		goto err_req_irq;

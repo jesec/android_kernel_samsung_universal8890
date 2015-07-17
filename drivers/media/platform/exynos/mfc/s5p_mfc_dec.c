@@ -1518,8 +1518,12 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		}
 	}
 
-	s5p_mfc_alloc_instance_buffer(ctx);
-	s5p_mfc_alloc_dec_temp_buffers(ctx);
+	ret = s5p_mfc_alloc_instance_buffer(ctx);
+	if (ret) {
+		mfc_err_ctx("Failed to allocate instance[%d] buffers.\n",
+				ctx->num);
+		return -ENOMEM;
+	}
 
 	spin_lock_irq(&dev->condlock);
 	set_bit(ctx->num, &dev->ctx_work_bits);
