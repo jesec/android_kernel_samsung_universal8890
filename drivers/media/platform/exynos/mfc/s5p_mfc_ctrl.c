@@ -16,16 +16,13 @@
 #include <linux/firmware.h>
 #include <linux/err.h>
 #include <linux/sched.h>
-#include "s5p_mfc_common.h"
+
+#include "s5p_mfc_ctrl.h"
 
 #include "s5p_mfc_mem.h"
 #include "s5p_mfc_intr.h"
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_reg.h"
 #include "s5p_mfc_cmd.h"
 #include "s5p_mfc_pm.h"
-#include "s5p_mfc_ctrl.h"
-
 
 /* Allocate firmware */
 int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
@@ -283,48 +280,6 @@ static int s5p_mfc_reset(struct s5p_mfc_dev *dev)
 	mfc_debug_leave();
 
 	return 0;
-}
-
-void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
-					enum mfc_buf_usage_type buf_type)
-{
-	struct s5p_mfc_extra_buf *fw_info;
-
-	fw_info = &dev->fw_info;
-
-	if (IS_MFCV6(dev)) {
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-		if (buf_type == MFCBUF_DRM)
-			fw_info = &dev->drm_fw_info;
-
-		s5p_mfc_write_reg(dev, fw_info->ofs, S5P_FIMV_RISC_BASE_ADDRESS);
-		mfc_info_dev("[%d] Base Address : %08lx\n", buf_type, fw_info->ofs);
-#else
-		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_RISC_BASE_ADDRESS);
-		mfc_debug(2, "Base Address : %08zu\n", dev->port_a);
-#endif
-	} else {
-		/* channelA, port0 */
-		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_MC_DRAMBASE_ADR_A);
-		/* channelB, port1 */
-		s5p_mfc_write_reg(dev, dev->port_b, S5P_FIMV_MC_DRAMBASE_ADR_B);
-
-		mfc_debug(2, "Port A: %08zu, Port B: %08zu\n", dev->port_a, dev->port_b);
-	}
-}
-
-static inline void s5p_mfc_clear_cmds(struct s5p_mfc_dev *dev)
-{
-	if (IS_MFCV6(dev)) {
-		/* Zero initialization should be done before RESET.
-		 * Nothing to do here. */
-	} else {
-		s5p_mfc_write_reg(dev, 0xffffffff, S5P_FIMV_SI_CH0_INST_ID);
-		s5p_mfc_write_reg(dev, 0xffffffff, S5P_FIMV_SI_CH1_INST_ID);
-
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_CMD);
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_HOST2RISC_CMD);
-	}
 }
 
 /* Initialize hardware */

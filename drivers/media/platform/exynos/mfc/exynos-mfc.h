@@ -10,8 +10,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef _EXYNOS_MFC_H
-#define _EXYNOS_MFC_H
+#ifndef __EXYNOS_MFC_H
+#define __EXYNOS_MFC_H __FILE__
 
 #include <linux/platform_device.h>
 
@@ -74,4 +74,4 @@ struct s5p_mfc_platdata {
 void s5p_mfc_set_platdata(struct s5p_mfc_platdata *pd);
 void s5p_mfc_setname(struct platform_device *pdev,char *name);
 
-#endif /* _EXYNOS_MFC_H */
+#endif /* __EXYNOS_MFC_H */

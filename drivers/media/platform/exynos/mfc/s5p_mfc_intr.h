@@ -12,15 +12,13 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef _S5P_MFC_INTR_H_
-#define _S5P_MFC_INTR_H_
+#ifndef __S5P_MFC_INTR_H
+#define __S5P_MFC_INTR_H __FILE__
 
 #include "s5p_mfc_common.h"
 
 int s5p_mfc_wait_for_done_ctx(struct s5p_mfc_ctx *ctx, int command);
 int s5p_mfc_wait_for_done_dev(struct s5p_mfc_dev *dev, int command);
-void s5p_mfc_clean_ctx_int_flags(struct s5p_mfc_ctx *ctx);
-void s5p_mfc_clean_dev_int_flags(struct s5p_mfc_dev *dev);
 void s5p_mfc_cleanup_timeout(struct s5p_mfc_ctx *ctx);
 
-#endif /* _S5P_MFC_INTR_H_ */
+#endif /* __S5P_MFC_INTR_H */

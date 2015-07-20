@@ -23,15 +23,12 @@
 #include <media/videobuf2-core.h>
 #include <linux/v4l2-controls.h>
 
-#include "s5p_mfc_common.h"
-#include "exynos_mfc_media.h"
+#include "s5p_mfc_enc.h"
 
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_mem.h"
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_reg.h"
-#include "s5p_mfc_enc.h"
 #include "s5p_mfc_pm.h"
+#include "s5p_mfc_opr_v10.h"
 
 #define DEF_SRC_FMT	1
 #define DEF_DST_FMT	2
@@ -2750,7 +2747,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP9_ENC))) {
-				/* claer NUM_T_LAYER_CHANGE */
+				/* clear NUM_T_LAYER_CHANGE */
 				value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
 				value &= ~(1 << 10);
 				s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
@@ -2770,7 +2767,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				/* set RC_BIT_RATE_CHANGE */
 				value |= (1 << 2);
 			else
-				/* claer RC_BIT_RATE_CHANGE */
+				/* clear RC_BIT_RATE_CHANGE */
 				value &= ~(1 << 2);
 			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
 
@@ -3523,7 +3520,7 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		s5p_mfc_try_run(dev);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_OPEN_INSTANCE_RET)) {
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 			s5p_mfc_release_instance_buffer(ctx);
 			ret = -EIO;
 			goto out;
@@ -5223,7 +5220,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		ctx->state = MFCINST_ABORT;
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		aborted = 1;
 	}
 
@@ -5231,7 +5228,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		ctx->state = MFCINST_ABORT;
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		aborted = 1;
 	}
 
@@ -5243,7 +5240,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		s5p_mfc_try_run(dev);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 
 		enc->in_slice = 0;
 		enc->buf_full = 0;

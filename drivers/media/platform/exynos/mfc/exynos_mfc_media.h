@@ -12,8 +12,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef __LINUX_EXYNOS_MFC_MEDIA_H
-#define __LINUX_EXYNOS_MFC_MEDIA_H
+#ifndef __EXYNOS_MFC_MEDIA_H
+#define __EXYNOS_MFC_MEDIA_H __FILE__
 
 /* RGB formats */
 #define V4L2_PIX_FMT_RGB32X    v4l2_fourcc('R', 'G', 'B', 'X') /* 32  RGB-8-8-8-8   */
@@ -379,4 +379,4 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 #define V4L2_CID_MPEG_VIDEO_DISABLE_IVF_HEADER			\
 					(V4L2_CID_MPEG_MFC_BASE + 181)
 
-#endif /* __LINUX_EXYNOS_MFC_MEDIA_H */
+#endif /* __EXYNOS_MFC_MEDIA_H */

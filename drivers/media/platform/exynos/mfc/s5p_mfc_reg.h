@@ -14,7 +14,12 @@
 #define __S5P_MFC_REG_H __FILE__
 
 #include <linux/io.h>
-#include "s5p_mfc_common.h"
+
+#include "s5p_mfc_data_struct.h"
+
+#if defined(CONFIG_EXYNOS_MFC_V10)
+#include "regs-mfc-v10.h"
+#endif
 
 #define MFC_SYS_SW_RESET_ADDR		S5P_FIMV_SW_RESET
 #define MFC_SYS_SW_RESET_MASK		0x3FF

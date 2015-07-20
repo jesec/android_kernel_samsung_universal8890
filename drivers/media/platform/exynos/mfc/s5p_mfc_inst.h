@@ -10,10 +10,12 @@
  * (at your option) any later version.
  */
 
-#ifndef __S5P_MFC_INST_H_
-#define __S5P_MFC_INST_H_ __FILE__
+#ifndef __S5P_MFC_INST_H
+#define __S5P_MFC_INST_H __FILE__
+
+#include "s5p_mfc_common.h"
 
 int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx);
 int s5p_mfc_close_inst(struct s5p_mfc_ctx *ctx);
 
-#endif /* __S5P_MFC_INST_H_  */
+#endif /* __S5P_MFC_INST_H  */

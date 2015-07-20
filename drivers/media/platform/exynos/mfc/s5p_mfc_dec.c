@@ -23,15 +23,12 @@
 #include <linux/videodev2_exynos_media.h>
 #include <media/videobuf2-core.h>
 
-#include "s5p_mfc_common.h"
-#include "exynos_mfc_media.h"
+#include "s5p_mfc_dec.h"
 
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_mem.h"
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_reg.h"
-#include "s5p_mfc_dec.h"
 #include "s5p_mfc_pm.h"
+#include "s5p_mfc_opr_v10.h"
 
 #define DEF_SRC_FMT	2
 #define DEF_DST_FMT	0
@@ -1247,7 +1244,7 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 				mfc_err("MFCINST_VPS_PARSED_ONLY !!!\n");
 				return -EAGAIN;
 			} else {
-				s5p_mfc_cleanup_timeout(ctx);
+				s5p_mfc_cleanup_timeout_and_try_run(ctx);
 				return -EIO;
 			}
 		}
@@ -1468,7 +1465,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		/* Wait until instance is returned or timeout occured */
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET)) {
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 			return -EIO;
 		}
 		/* Free resources */
@@ -1532,7 +1529,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 	s5p_mfc_try_run(dev);
 	if (s5p_mfc_wait_for_done_ctx(ctx,
 			S5P_FIMV_R2H_CMD_OPEN_INSTANCE_RET)) {
-		s5p_mfc_cleanup_timeout(ctx);
+		s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		s5p_mfc_release_instance_buffer(ctx);
 		s5p_mfc_release_dec_desc_buffer(ctx);
 		return -EIO;
@@ -1684,7 +1681,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		if (dec->dst_memtype == V4L2_MEMORY_MMAP) {
 			if (s5p_mfc_wait_for_done_ctx(ctx,
 					S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET)) {
-				s5p_mfc_cleanup_timeout(ctx);
+				s5p_mfc_cleanup_timeout_and_try_run(ctx);
 				return -EIO;
 			}
 		}
@@ -1958,7 +1955,7 @@ static int get_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		/* Should wait for the header to be parsed */
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_SEQ_DONE_RET)) {
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 			return -EIO;
 		}
 
@@ -2747,7 +2744,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		ctx->state = MFCINST_ABORT;
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		if (on_res_change(ctx))
 			mfc_debug(2, "stop on res change(state:%d)\n", ctx->state);
 		else
@@ -2820,7 +2817,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		s5p_mfc_try_run(dev);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_DPB_FLUSH_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		ctx->state = prev_state;
 	}
 }
@@ -2968,7 +2965,7 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 	if (wait_flag) {
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 	}
 
 	mfc_debug_leave();

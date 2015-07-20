@@ -21,11 +21,10 @@
 
 #include <soc/samsung/bts.h>
 
-#include "s5p_mfc_common.h"
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_reg.h"
-#include "s5p_mfc_ctrl.h"
 #include "s5p_mfc_pm.h"
+
+#include "s5p_mfc_cmd.h"
+#include "s5p_mfc_mem.h"
 
 #define CLK_DEBUG
 

@@ -31,17 +31,14 @@
 #include <soc/samsung/bts.h>
 #include <soc/samsung/devfreq.h>
 
-#include "s5p_mfc_common.h"
+#include "s5p_mfc_opr_v10.h"
+
 #include "s5p_mfc_cmd.h"
 #include "s5p_mfc_mem.h"
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_inst.h"
 #include "s5p_mfc_pm.h"
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_dec.h"
-#include "s5p_mfc_enc.h"
 #include "s5p_mfc_ctrl.h"
-#include "s5p_mfc_reg.h"
 
 /* This value guarantees 375msec ~ 2sec according to MFC clock (533MHz ~ 100MHz)
  * releated with S5P_FIMV_DEC_TIMEOUT_VALUE */
@@ -3809,6 +3806,15 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 			queue_work(dev->sched_wq, &dev->sched_work);
 		spin_unlock_irq(&dev->condlock);
 	}
+}
+
+void s5p_mfc_cleanup_timeout_and_try_run(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+
+	s5p_mfc_cleanup_timeout(ctx);
+
+	s5p_mfc_try_run(dev);
 }
 
 void s5p_mfc_cleanup_queue(struct list_head *lh)

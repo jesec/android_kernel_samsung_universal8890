@@ -10,10 +10,7 @@
  * (at your option) any later version.
  */
 
-#include "s5p_mfc_common.h"
 #include "s5p_mfc_cmd.h"
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_intr.h"
 
 int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx)
 {

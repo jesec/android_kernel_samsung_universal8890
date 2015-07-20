@@ -41,17 +41,16 @@
 #include <mach/regs-pmu.h>
 #endif
 
-#include "exynos_mfc_media.h"
 #include "s5p_mfc_common.h"
+
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_inst.h"
 #include "s5p_mfc_mem.h"
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_reg.h"
 #include "s5p_mfc_ctrl.h"
 #include "s5p_mfc_dec.h"
 #include "s5p_mfc_enc.h"
 #include "s5p_mfc_pm.h"
+#include "s5p_mfc_opr_v10.h"
 
 #define S5P_MFC_NAME		"s5p-mfc"
 #define S5P_MFC_DEC_NAME	"s5p-mfc-dec"
@@ -2298,14 +2297,14 @@ static int s5p_mfc_release(struct file *file)
 		ctx->state = MFCINST_ABORT;
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 	}
 
 	if (need_to_wait_nal_abort(ctx)) {
 		ctx->state = MFCINST_ABORT;
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
-			s5p_mfc_cleanup_timeout(ctx);
+			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 	}
 
 	if (ctx->type == MFCINST_ENCODER) {
@@ -2324,7 +2323,7 @@ static int s5p_mfc_release(struct file *file)
 			s5p_mfc_try_run(dev);
 			if (s5p_mfc_wait_for_done_ctx(ctx,
 					S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
-				s5p_mfc_cleanup_timeout(ctx);
+				s5p_mfc_cleanup_timeout_and_try_run(ctx);
 
 			enc->in_slice = 0;
 			enc->buf_full = 0;

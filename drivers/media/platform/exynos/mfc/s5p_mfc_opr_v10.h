@@ -15,7 +15,7 @@
 #ifndef __S5P_MFC_OPR_V10_H
 #define __S5P_MFC_OPR_V10_H __FILE__
 
-#include "s5p_mfc_mem.h"
+#include "s5p_mfc_common.h"
 
 #define MFC_CTRL_MODE_CUSTOM	MFC_CTRL_MODE_SFR
 
@@ -275,6 +275,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 						S5P_FIMV_D_USED_DPB_FLAG_LOWER)
 
 void s5p_mfc_try_run(struct s5p_mfc_dev *dev);
+void s5p_mfc_cleanup_timeout_and_try_run(struct s5p_mfc_ctx *ctx);
 
 void s5p_mfc_cleanup_queue(struct list_head *lh);
 

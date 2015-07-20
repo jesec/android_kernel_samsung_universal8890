@@ -10,11 +10,13 @@
  * (at your option) any later version.
  */
 
-#ifndef __S5P_MFC_MEM_H_
-#define __S5P_MFC_MEM_H_ __FILE__
+#ifndef __S5P_MFC_MEM_H
+#define __S5P_MFC_MEM_H __FILE__
 
 #include <linux/platform_device.h>
 #include <media/videobuf2-ion.h>
+
+#include "s5p_mfc_common.h"
 
 /* Offset base used to differentiate between CAPTURE and OUTPUT
 *  while mmaping */
@@ -93,4 +95,4 @@ int s5p_mfc_mem_flush_vb(struct vb2_buffer *vb, u32 num_planes);
 
 void s5p_mfc_mem_suspend(void *alloc_ctx);
 int s5p_mfc_mem_resume(void *alloc_ctx);
-#endif /* __S5P_MFC_MEM_H_ */
+#endif /* __S5P_MFC_MEM_H */

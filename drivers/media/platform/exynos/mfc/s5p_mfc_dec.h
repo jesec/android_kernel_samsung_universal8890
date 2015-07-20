@@ -10,8 +10,10 @@
  * (at your option) any later version.
  */
 
-#ifndef __S5P_MFC_DEC_H_
-#define __S5P_MFC_DEC_H_ __FILE__
+#ifndef __S5P_MFC_DEC_H
+#define __S5P_MFC_DEC_H __FILE__
+
+#include "s5p_mfc_common.h"
 
 #define MAX_FRAME_SIZE		(2*1024*1024)
 #define DEFAULT_TAG		(0xE05)
@@ -22,4 +24,4 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx);
 void s5p_mfc_dec_store_crop_info(struct s5p_mfc_ctx *ctx);
 int dec_cleanup_user_shared_handle(struct s5p_mfc_ctx *ctx);
 
-#endif /* __S5P_MFC_DEC_H_ */
+#endif /* __S5P_MFC_DEC_H */

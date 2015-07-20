@@ -15,10 +15,7 @@
 #include <media/videobuf2-memops.h>
 #include <asm/cacheflush.h>
 
-#include "s5p_mfc_common.h"
 #include "s5p_mfc_mem.h"
-#include "s5p_mfc_pm.h"
-#include "s5p_mfc_debug.h"
 
 struct vb2_mem_ops *s5p_mfc_mem_ops(void)
 {

@@ -13,6 +13,8 @@
 #ifndef __S5P_MFC_PM_H
 #define __S5P_MFC_PM_H __FILE__
 
+#include "s5p_mfc_common.h"
+
 int s5p_mfc_init_pm(struct s5p_mfc_dev *dev);
 void s5p_mfc_final_pm(struct s5p_mfc_dev *dev);
 

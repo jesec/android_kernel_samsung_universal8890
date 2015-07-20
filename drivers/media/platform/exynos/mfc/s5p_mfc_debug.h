@@ -15,8 +15,6 @@
 #ifndef __S5P_MFC_DEBUG_H
 #define __S5P_MFC_DEBUG_H __FILE__
 
-#include "s5p_mfc_common.h"
-
 #define DEBUG
 
 #ifdef DEBUG

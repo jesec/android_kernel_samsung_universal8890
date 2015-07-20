@@ -10,12 +10,7 @@
  * (at your option) any later version.
  */
 
-#include "s5p_mfc_common.h"
-
-#include "s5p_mfc_debug.h"
-#include "s5p_mfc_reg.h"
 #include "s5p_mfc_cmd.h"
-#include "s5p_mfc_mem.h"
 
 int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd,
 				struct s5p_mfc_cmd_args *args)
@@ -142,4 +137,32 @@ int s5p_mfc_close_inst_cmd(struct s5p_mfc_ctx *ctx)
 	mfc_debug_leave();
 
 	return ret;
+}
+
+void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
+					enum mfc_buf_usage_type buf_type)
+{
+	struct s5p_mfc_extra_buf *fw_info;
+
+	fw_info = &dev->fw_info;
+
+	if (IS_MFCV6(dev)) {
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+		if (buf_type == MFCBUF_DRM)
+			fw_info = &dev->drm_fw_info;
+
+		s5p_mfc_write_reg(dev, fw_info->ofs, S5P_FIMV_RISC_BASE_ADDRESS);
+		mfc_info_dev("[%d] Base Address : %08lx\n", buf_type, fw_info->ofs);
+#else
+		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_RISC_BASE_ADDRESS);
+		mfc_debug(2, "Base Address : %08zu\n", dev->port_a);
+#endif
+	} else {
+		/* channelA, port0 */
+		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_MC_DRAMBASE_ADR_A);
+		/* channelB, port1 */
+		s5p_mfc_write_reg(dev, dev->port_b, S5P_FIMV_MC_DRAMBASE_ADR_B);
+
+		mfc_debug(2, "Port A: %08zu, Port B: %08zu\n", dev->port_a, dev->port_b);
+	}
 }
