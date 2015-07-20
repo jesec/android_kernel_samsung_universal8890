@@ -1,8 +1,10 @@
 /*
- * Register definition file for Samsung MFC V10 Driver
+ * drivers/media/platform/exynos/mfc/regs-mfc-v10.h
  *
  * Copyright (c) 2015 Samsung Electronics
  * http://www.samsung.com/
+ *
+ * Register definition file for Samsung MFC V10 Driver
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,7 +28,7 @@
 #define S5P_FIMV_REG_CLEAR_COUNT	1024
 
 /* Codec Common Registers */
-#define S5P_FIMV_SW_RESET		0x0000
+#define S5P_FIMV_SW_RESET			0x0000
 #define S5P_FIMV_RISC_ON			0x0000
 #define S5P_FIMV_RISC2HOST_INT			0x003C
 #define S5P_FIMV_HOST2RISC_INT			0x0044
@@ -39,11 +41,11 @@
 #define S5P_FIMV_RISC2HOST_CMD			0x1104
 
 /* Channel & stream interface register */
-#define S5P_FIMV_SI_RTN_CHID		0x2000 /* Return CH instance ID register */
-#define S5P_FIMV_SI_CH0_INST_ID		0x2040 /* codec instance ID */
-#define S5P_FIMV_SI_CH1_INST_ID		0x2080 /* codec instance ID */
+#define S5P_FIMV_SI_RTN_CHID			0x2000 /* Return CH instance ID register */
+#define S5P_FIMV_SI_CH0_INST_ID			0x2040 /* codec instance ID */
+#define S5P_FIMV_SI_CH1_INST_ID			0x2080 /* codec instance ID */
 
-#define S5P_FIMV_SI_CH0_DPB_CONF_CTRL   0x2068 /* DPB Config Control Register */
+#define S5P_FIMV_SI_CH0_DPB_CONF_CTRL   	0x2068 /* DPB Config Control Register */
 
 #define S5P_FIMV_MFC_BUS_RESET_CTRL		0x7110
 #define S5P_FIMV_MFC_BUS_STATUS			0x7018
@@ -428,10 +430,10 @@
 #define S5P_FIMV_D_CHROMA_DPB_SIZE		S5P_FIMV_D_SECOND_PLANE_DPB_SIZE
 
 /* Definitions for shared memory compatibility */
-#define PIC_TIME_TOP		S5P_FIMV_D_RET_PICTURE_TAG_TOP
-#define PIC_TIME_BOT		S5P_FIMV_D_RET_PICTURE_TAG_BOT
-#define CROP_INFO_H		S5P_FIMV_D_DISPLAY_CROP_INFO1
-#define CROP_INFO_V		S5P_FIMV_D_DISPLAY_CROP_INFO2
+#define PIC_TIME_TOP				S5P_FIMV_D_RET_PICTURE_TAG_TOP
+#define PIC_TIME_BOT				S5P_FIMV_D_RET_PICTURE_TAG_BOT
+#define CROP_INFO_H				S5P_FIMV_D_DISPLAY_CROP_INFO1
+#define CROP_INFO_V				S5P_FIMV_D_DISPLAY_CROP_INFO2
 
 /* TO-DO
  * need to remove the definitions
@@ -512,7 +514,7 @@
 #define S5P_FIMV_D_OPT_DYNAMIC_DPB_SET_SHIFT	3
 #define S5P_FIMV_D_OPT_NOT_CODED_SET_SHIFT	4
 #define S5P_FIMV_D_PROFILE_HEVC_MAIN		1
-#define S5P_FIMV_D_PROFILE_HEVC_MAIN_10	2
+#define S5P_FIMV_D_PROFILE_HEVC_MAIN_10		2
 
 /* 0xF0C4 */
 #define S5P_FIMV_D_SEI_NEED_INIT_BUFFER_SHIFT	1
@@ -547,15 +549,11 @@
 #define S5P_FIMV_DISPLAY_FRAME_B		3
 #define S5P_FIMV_DISPLAY_LAST_INFO_MASK		0x1
 #define S5P_FIMV_DISPLAY_LAST_INFO_SHIFT	11
-#define S5P_FIMV_SHARED_CROP_INFO_H		0x0020
+
+
 #define S5P_FIMV_SHARED_CROP_LEFT_MASK		0xFFFF
-#define S5P_FIMV_SHARED_CROP_LEFT_SHIFT		0
-#define S5P_FIMV_SHARED_CROP_RIGHT_MASK		0xFFFF0000
 #define S5P_FIMV_SHARED_CROP_RIGHT_SHIFT	16
-#define S5P_FIMV_SHARED_CROP_INFO_V		0x0024
 #define S5P_FIMV_SHARED_CROP_TOP_MASK		0xFFFF
-#define S5P_FIMV_SHARED_CROP_TOP_SHIFT		0
-#define S5P_FIMV_SHARED_CROP_BOTTOM_MASK	0xFFFF0000
 #define S5P_FIMV_SHARED_CROP_BOTTOM_SHIFT	16
 
 
@@ -567,8 +565,6 @@
 #define S5P_FIMV_DECODED_FRAME_I		1
 #define S5P_FIMV_DECODED_FRAME_P		2
 #define S5P_FIMV_DECODED_FRAME_B		3
-
-#define S5P_FIMV_DECODED_PIC_PROFILE_MASK	0x001F
 
 
 #define S5P_FIMV_ENC_PROFILE_H264_BASELINE             0
@@ -628,20 +624,19 @@
 #define S5P_FIMV_CODEC_VP9_ENC		27
 
 
-#define S5P_FIMV_ERR_FRAME_CONCEAL		150
+#define S5P_FIMV_ERR_FRAME_CONCEAL	150
 
 #define S5P_FIMV_VPS_ONLY_ERROR		42
 
 
 /* Command from RISC to HOST */
-#define S5P_FIMV_RISC2HOST_CMD_MASK	0x1FFFF
+#define S5P_FIMV_RISC2HOST_CMD_MASK		0x1FFFF
 
+#define S5P_FIMV_D_MVC_VIEW_ID_DISP_MASK	0xFFFF
+#define S5P_FIMV_DECODED_PIC_PROFILE_MASK	0x001F
 
 #define S5P_FIMV_NV12M_HALIGN			512
 #define S5P_FIMV_NV12MT_HALIGN			16
 #define S5P_FIMV_NV12MT_VALIGN			16
-
-
-#define S5P_FIMV_D_MVC_VIEW_ID_DISP_MASK	                0xFFFF
 
 #endif /* __REGS_MFC_V10_H */

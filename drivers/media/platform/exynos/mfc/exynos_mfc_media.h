@@ -1,5 +1,5 @@
 /*
- * Video for Linux Two header file for Exynos
+ * drivers/media/platform/exynos/mfc/exynos_mfc_media.h
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com

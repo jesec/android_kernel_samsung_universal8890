@@ -1,4 +1,5 @@
-/* drivers/media/platform/exynos/mfc/exynos-mfc.h
+/*
+ * drivers/media/platform/exynos/mfc/exynos-mfc.h
  *
  * Copyright 2011 Samsung Electronics Co., Ltd.
  *      http://www.samsung.com/
@@ -15,14 +16,7 @@
 
 #include <linux/platform_device.h>
 
-#if	defined(CONFIG_ARM_EXYNOS5410_BUS_DEVFREQ) ||	\
-	defined(CONFIG_ARM_EXYNOS5420_BUS_DEVFREQ) ||	\
-	defined(CONFIG_ARM_EXYNOS5430_BUS_DEVFREQ) ||	\
-	defined(CONFIG_ARM_EXYNOS5422_BUS_DEVFREQ) ||	\
-	defined(CONFIG_ARM_EXYNOS5433_BUS_DEVFREQ) ||	\
-	defined(CONFIG_ARM_EXYNOS7420_BUS_DEVFREQ) ||	\
-	defined(CONFIG_ARM_EXYNOS7890_BUS_DEVFREQ) ||	\
-	defined(CONFIG_ARM_EXYNOS8890_BUS_DEVFREQ)
+#if	defined(CONFIG_ARM_EXYNOS8890_BUS_DEVFREQ)
 #define CONFIG_MFC_USE_BUS_DEVFREQ
 #endif
 

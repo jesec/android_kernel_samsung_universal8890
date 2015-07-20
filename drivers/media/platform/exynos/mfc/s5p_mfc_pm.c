@@ -1,5 +1,5 @@
 /*
- * linux/drivers/media/video/exynos/mfc/s5p_mfc_pm.c
+ * drivers/media/platform/exynos/mfc/s5p_mfc_pm.c
  *
  * Copyright (c) 2010 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com/

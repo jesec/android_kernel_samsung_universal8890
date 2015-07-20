@@ -1,11 +1,11 @@
 /*
- * drivers/media/video/exynos/mfc/s5p_mfc_intr.h
+ * drivers/media/platform/exynos/mfc/s5p_mfc_intr.h
+ *
+ * Copyright (c) 2010 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com/
  *
  * Header file for Samsung MFC (Multi Function Codec - FIMV) driver
  * It contains waiting functions declarations.
- *
- * Kamil Debski, Copyright (c) 2010 Samsung Electronics
- * http://www.samsung.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

@@ -1,11 +1,11 @@
 /*
- * drivers/media/video/exynos/mfc/s5p_mfc_intr.c
+ * drivers/media/platform/exynos/mfc/s5p_mfc_intr.c
+ *
+ * Copyright (c) 2010 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com/
  *
  * C file for Samsung MFC (Multi Function Codec - FIMV) driver
  * This file contains functions used to wait for command completion.
- *
- * Kamil Debski, Copyright (c) 2010 Samsung Electronics
- * http://www.samsung.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

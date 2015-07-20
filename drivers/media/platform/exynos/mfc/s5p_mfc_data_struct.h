@@ -1,9 +1,11 @@
 /*
- * This file contains definitions of enums and structs used by the codec
- * driver.
+ * drivers/media/platform/exynos/mfc/s5p_mfc_data_struct.h
  *
  * Copyright (c) 2010 Samsung Electronics Co., Ltd.
- * Kamil Debski, <k.debski@samsung.com>
+ *		http://www.samsung.com/
+ *
+ * This file contains definitions of enums and structs used by the codec
+ * driver.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by the

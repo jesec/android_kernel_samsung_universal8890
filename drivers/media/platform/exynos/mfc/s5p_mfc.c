@@ -1,8 +1,10 @@
 /*
- * Samsung S5P Multi Format Codec V5/V6
+ * drivers/media/platform/exynos/mfc/s5p_mfc.c
  *
  * Copyright (c) 2010 Samsung Electronics Co., Ltd.
  * Kamil Debski, <k.debski@samsung.com>
+ *
+ * Samsung S5P Multi Format Codec
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,14 +34,6 @@
 #include <soc/samsung/bts.h>
 #include <soc/samsung/devfreq.h>
 #include <asm/cacheflush.h>
-
-#if defined(CONFIG_SOC_EXYNOS5422)
-#include <mach/regs-clock-exynos5422.h>
-#include <mach/regs-pmu-exynos5422.h>
-#elif defined(CONFIG_SOC_EXYNOS5430)
-#include <mach/regs-clock-exynos5430.h>
-#include <mach/regs-pmu.h>
-#endif
 
 #include "s5p_mfc_common.h"
 
@@ -418,117 +412,6 @@ void s5p_mfc_watchdog(unsigned long arg)
 	add_timer(&dev->watchdog_timer);
 }
 
-#if defined(CONFIG_SOC_EXYNOS5422)
-static int mfc_check_power_state(struct s5p_mfc_dev *dev)
-{
-	int reg_val, ref_val;
-
-	ref_val = s5p_mfc_get_power_ref_cnt(dev);
-	reg_val = readl(EXYNOS5422_MFC_CONFIGURATION);
-	mfc_err("* MFC power state = 0x%x, ref cnt = %d\n", reg_val, ref_val);
-
-	if (reg_val)
-		return 1;
-
-	return 0;
-}
-
-#define MFC_CMU_INFO_CNT	7
-static int mfc_check_clock_state(struct s5p_mfc_dev *dev)
-{
-	int i, ref_val, is_enabled = 0;
-	int reg_val[MFC_CMU_INFO_CNT];
-	char *reg_desc[MFC_CMU_INFO_CNT] = {
-		"CLK_SRC_TOP1",
-		"CLK_SRC_TOP11",
-		"CLK_SRC_TOP4",
-		"CLK_DIV_TOP1",
-		"CLK_SRC_MASK_TOP1",
-		"CLK_GATE_BUS_MFC",
-		"CLKGATE_IP_MFC",
-	};
-	int reg_offset[MFC_CMU_INFO_CNT] = {
-		(int)EXYNOS5_CLK_SRC_TOP1,
-		(int)EXYNOS5_CLK_SRC_TOP11,
-		(int)EXYNOS5_CLK_SRC_TOP4,
-		(int)EXYNOS5_CLK_DIV_TOP1,
-		(int)EXYNOS5_CLK_SRC_MASK_TOP1,
-		(int)EXYNOS5_CLK_GATE_BUS_MFC,
-		(int)EXYNOS5_CLK_GATE_IP_MFC,
-	};
-
-
-	ref_val = s5p_mfc_get_clk_ref_cnt(dev);
-	mfc_err("** CMU ref cnt = %d\n", ref_val);
-
-	for (i = 0; i < MFC_CMU_INFO_CNT; i++) {
-		reg_val[i] = readl((int *)reg_offset[i]);
-		mfc_err("** CMU %s = 0x%x\n", reg_desc[i], reg_val[i]);
-		if (reg_offset[i] == (int)EXYNOS5_CLK_GATE_IP_MFC) {
-			is_enabled = (reg_val[i] >> 0) & 0x1;
-		}
-	}
-
-	if (is_enabled)
-		return 1;
-
-	return 0;
-}
-static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
-{
-	int ret;
-
-	if (mfc_check_power_state(dev)) {
-		ret = mfc_check_clock_state(dev);
-		if (ret)
-			s5p_mfc_dump_regs(dev);
-	}
-	mfc_disp_dev_state(dev);
-
-	return 0;
-}
-#elif defined(CONFIG_SOC_EXYNOS5430)
-static int mfc_check_power_state(struct s5p_mfc_dev *dev)
-{
-	int reg_val, ref_val;
-
-	ref_val = s5p_mfc_get_power_ref_cnt(dev);
-	if (dev->id == 0)
-		reg_val = readl(EXYNOS5430_MFC0_CONFIGURATION);
-	else
-		reg_val = readl(EXYNOS5430_MFC1_CONFIGURATION);
-	mfc_err("* MFC power state = 0x%x, ref cnt = %d\n", reg_val, ref_val);
-
-	if (reg_val)
-		return 1;
-
-	return 0;
-}
-
-static int mfc_check_clock_state(struct s5p_mfc_dev *dev)
-{
-	int ref_val;
-
-	ref_val = s5p_mfc_get_clk_ref_cnt(dev);
-	mfc_err("** CMU ref cnt = %d\n", ref_val);
-
-	return ref_val;
-}
-
-static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
-{
-	int ret;
-
-	if (mfc_check_power_state(dev)) {
-		ret = mfc_check_clock_state(dev);
-		if (ret)
-			s5p_mfc_dump_regs(dev);
-	}
-	mfc_disp_dev_state(dev);
-
-	return 0;
-}
-#else
 static int mfc_check_power_state(struct s5p_mfc_dev *dev)
 {
 	int ref_val;
@@ -562,7 +445,6 @@ static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
 
 	return 0;
 }
-#endif
 
 static void s5p_mfc_watchdog_worker(struct work_struct *work)
 {
@@ -2330,29 +2212,6 @@ static int s5p_mfc_release(struct file *file)
 		}
 	}
 
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
-	if ((ctx->type == MFCINST_ENCODER) && is_UHD(ctx)) {
-#if defined(CONFIG_SOC_EXYNOS5422)
-		sysmmu_set_qos(dev->device, 0x8);
-#endif
-		bts_scen_update(TYPE_MFC_UD_ENCODING, 0);
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-		exynos5_update_media_layers(TYPE_UD_ENCODING, 0);
-#endif
-		mfc_info_ctx("UHD encoding stop\n");
-	}
-#endif
-
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
-	if ((ctx->type == MFCINST_DECODER) && is_UHD(ctx)) {
-		bts_scen_update(TYPE_MFC_UD_DECODING, 0);
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-		exynos5_update_media_layers(TYPE_UD_DECODING, 0);
-#endif
-		mfc_info_ctx("UHD decoding stop\n");
-	}
-#endif
-
 	if (call_cop(ctx, cleanup_ctx_ctrls, ctx) < 0)
 		mfc_err_ctx("failed in cleanup_ctx_ctrl\n");
 
@@ -2608,9 +2467,6 @@ static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
 	of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
 	of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
 	of_property_read_u32(np_qos, "freq_kfc", &pdata->freq_kfc);
-#if defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS7890)
-	of_property_read_u32(np_qos, "has_enc_table", &pdata->has_enc_table);
-#endif
 
 	return ret;
 }
@@ -2639,30 +2495,6 @@ static int parse_mfc_qos_extra(struct device_node *np, char *node_name,
 
 	return ret;
 }
-
-#if defined(CONFIG_EXYNOS5430_HD)
-#define MIF_MAX_COUNT		7
-static int mif_for_hd[2][MIF_MAX_COUNT] = {
-	/* For MFC0 */
-	{ 127000, 127000, 127000, 158000, 211000, 825000, 413000 },
-	/* For MFC1 */
-	{ 127000, 127000, 127000, 158000, 211000, 825000, 0 },
-};
-
-static void parse_mfc_qos_mif_update(struct s5p_mfc_dev *dev, struct s5p_mfc_qos *pdata, int num_steps)
-{
-	int i, min_count = num_steps;
-
-	if (num_steps > MIF_MAX_COUNT) {
-		min_count = MIF_MAX_COUNT;
-		mfc_info_dev("MIF_MAX_COUNT = %d, steps for dev-%d : %d\n",
-				MIF_MAX_COUNT, dev->id, num_steps);
-	}
-
-	for (i = 0; i < min_count; i++)
-		pdata[i].freq_mif = mif_for_hd[dev->id][i];
-}
-#endif
 #endif
 
 static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
@@ -2698,9 +2530,6 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 		parse_mfc_qos_extra(np, node_name, &pdata->qos_extra[i]);
 	}
 
-#if defined(CONFIG_EXYNOS5430_HD)
-	parse_mfc_qos_mif_update(mfc, pdata->qos_table, pdata->num_qos_steps);
-#endif
 #endif
 }
 

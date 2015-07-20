@@ -1,5 +1,5 @@
 /*
- * linux/drivers/media/video/exynos/mfc/s5p_mfc_qos.c
+ * drivers/media/platform/exynos/mfc/s5p_mfc_qos.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com/

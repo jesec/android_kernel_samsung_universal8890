@@ -1,11 +1,11 @@
 /*
- * drivers/media/video/exynos/mfc/s5p_mfc_opr_v6.c
+ * drivers/media/platform/exynos/mfc/s5p_mfc_opr_v6.c
+ *
+ * Copyright (c) 2010 Samsung Electronics Co., Ltd.
+ *		http://www.samsung.com/
  *
  * Samsung MFC (Multi Function Codec - FIMV) driver
  * This file contains hw related functions.
- *
- * Kamil Debski, Copyright (c) 2010 Samsung Electronics
- * http://www.samsung.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1761,16 +1761,6 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 			mfc_info_ctx("Set High profile for UHD\n");
 			p_264->profile = 0x2;
 		}
-#if defined(CONFIG_SOC_EXYNOS5422)
-		sysmmu_set_qos(dev->device, 0xF);
-#endif
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
-		bts_scen_update(TYPE_MFC_UD_ENCODING, 1);
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-		exynos5_update_media_layers(TYPE_UD_ENCODING, 1);
-#endif
-		mfc_info_ctx("UHD encoding start\n");
-#endif
 	}
 
 	/* profile & level */
@@ -2002,12 +1992,6 @@ static int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		WRITEL(reg, S5P_FIMV_E_H264_OPTIONS_2);
 		mfc_debug(2, "enable_ltr : %d\n", p_264->enable_ltr);
 	}
-
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
-	reg = READL(S5P_FIMV_E_H264_OPTIONS_2);
-	reg |= (0x1 << 3); /* Enable ECO MODE */
-	WRITEL(reg, S5P_FIMV_E_H264_OPTIONS_2);
-#endif
 
 	/* hier qp enable */
 	reg = READL(S5P_FIMV_E_H264_OPTIONS);
@@ -3529,16 +3513,6 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 			"before starting processing.\n");
 		return -EAGAIN;
 	}
-
-#if defined(CONFIG_SOC_EXYNOS5422) || defined(CONFIG_SOC_EXYNOS5433)
-	if(is_UHD(ctx)) {
-		bts_scen_update(TYPE_MFC_UD_DECODING, 1);
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-		exynos5_update_media_layers(TYPE_UD_DECODING, 1);
-#endif
-		mfc_info_ctx("UHD decoding start\n");
-	}
-#endif
 
 	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
