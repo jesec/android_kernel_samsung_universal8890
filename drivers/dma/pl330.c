@@ -30,6 +30,8 @@
 #include <linux/err.h>
 
 #include "dmaengine.h"
+#include <soc/samsung/exynos-pm.h>
+
 #define PL330_MAX_CHAN		8
 #define PL330_MAX_IRQS		32
 #define PL330_MAX_PERI		32
@@ -475,6 +477,8 @@ struct pl330_dmac {
 	void __iomem	*base;
 	/* Used the DMA wrapper */
 	bool wrapper;
+	/* Notifier block for powermode */
+	struct notifier_block lpa_nb;
 	void __iomem *inst_wrapper;
 	int 			usage_count;
 	/* Populated by the PL330 core driver during pl330_add */
@@ -2804,6 +2808,49 @@ static int pl330_dma_device_slave_caps(struct dma_chan *dchan,
 	return 0;
 }
 
+#ifdef CONFIG_CPU_IDLE
+static int pl330_notifier(struct notifier_block *nb,
+			unsigned long event, void *data)
+{
+	struct pl330_dmac *pl330 =
+		container_of(nb, struct pl330_dmac, lpa_nb);
+
+	switch (event) {
+	case LPA_EXIT:
+		if (pl330->inst_wrapper)
+			__raw_writel((pl330->mcode_bus >> 32) & 0xf, pl330->inst_wrapper);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+#endif /* CONFIG_CPU_IDLE */
+
+#ifdef CONFIG_PM
+static int pl330_resume(struct device *dev)
+{
+	struct pl330_dmac *pl330;
+
+	pl330 = (struct pl330_dmac *)dev_get_drvdata(dev);
+
+	if (pl330->inst_wrapper)
+		__raw_writel((pl330->mcode_bus >> 32) & 0xf, pl330->inst_wrapper);
+
+	return 0;
+}
+
+static const struct dev_pm_ops pl330_pm_ops = {
+	.resume		= pl330_resume,
+};
+
+#define PL330_PM (&pl330_pm_ops)
+
+#else /* CONFIG_PM */
+
+#define PL330_PM NULL
+
+#endif /* !CONFIG_PM */
+
 static int
 pl330_probe(struct amba_device *adev, const struct amba_id *id)
 {
@@ -2966,6 +3013,18 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 		pcfg->data_buf_dep, pcfg->data_bus_width / 8, pcfg->num_chan,
 		pcfg->num_peri, pcfg->num_events);
 
+#ifdef CONFIG_CPU_IDLE
+	pl330->lpa_nb.notifier_call = pl330_notifier;
+	pl330->lpa_nb.next = NULL;
+	pl330->lpa_nb.priority = 0;
+
+	ret = exynos_pm_register_notifier(&pl330->lpa_nb);
+	if (ret) {
+		dev_err(&adev->dev, "failed to register pm notifier\n");
+		goto probe_err3;
+	}
+#endif
+
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_put_sync(&adev->dev);
 #endif
@@ -3033,6 +3092,7 @@ MODULE_DEVICE_TABLE(amba, pl330_ids);
 static struct amba_driver pl330_driver = {
 	.drv = {
 		.owner = THIS_MODULE,
+		.pm = PL330_PM,
 		.name = "dma-pl330",
 	},
 	.id_table = pl330_ids,
