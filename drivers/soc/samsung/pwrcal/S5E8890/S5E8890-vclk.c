@@ -180,6 +180,20 @@ static struct pwrcal_clk_set pxmxdx_cam1_scl_grp[] = {
 	{CLK(CAM1_DIV_PCLK_CAM1_SCL_283),	1,	-1},
 	{CLK_NONE,				0,	0},
 };
+static struct pwrcal_clk_set pxmxdx_oscclk_nfc_grp[] = {
+	{CLK(CLKOUT_TCXO_26M),			1,	0},
+	{CLK(CLKOUT_OSCCLK_NFC),		0,	1},
+	{CLK_NONE,				0,	0},
+};
+static struct pwrcal_clk_set pxmxdx_oscclk_aud_grp[] = {
+	{CLK(CLKOUT_TCXO_IN0),			1,	0},
+	{CLK(CLKOUT_TCXO_IN1),			1,	0},
+	{CLK(CLKOUT_TCXO_IN2),			1,	0},
+	{CLK(CLKOUT_TCXO_IN3),			1,	0},
+	{CLK(CLKOUT_TCXO_IN4),			1,	0},
+	{CLK(CLKOUT_CLKOUT0_DISABLE),		0,	1},
+	{CLK_NONE,				0,	0},
+};
 
 
 PXMXDX(pxmxdx_top,	0,	pxmxdx_top_grp);
@@ -211,6 +225,8 @@ PXMXDX(pxmxdx_cam1_peri,	gate_bus0_cam,	pxmxdx_cam1_peri_grp);
 PXMXDX(pxmxdx_cam1_csis2,	gate_bus0_cam,	pxmxdx_cam1_csis2_grp);
 PXMXDX(pxmxdx_cam1_csis3,	gate_bus0_cam,	pxmxdx_cam1_csis3_grp);
 PXMXDX(pxmxdx_cam1_scl,	gate_bus0_cam,	pxmxdx_cam1_scl_grp);
+PXMXDX(pxmxdx_oscclk_nfc,	0,	pxmxdx_oscclk_nfc_grp);
+PXMXDX(pxmxdx_oscclk_aud,	0,	pxmxdx_oscclk_aud_grp);
 
 M1D1G1(sclk_decon0_eclk0,	0,	TOP_MUX_SCLK_DISP0_DECON0_ECLK0,	TOP_DIV_SCLK_DISP0_DECON0_ECLK0,	TOP_GATE_SCLK_DISP0_DECON0_ECLK0,	DISP0_MUX_SCLK_DISP0_DECON0_ECLK0_USER);
 M1D1G1(sclk_decon0_vclk0,	0,	TOP_MUX_SCLK_DISP0_DECON0_VCLK0,	TOP_DIV_SCLK_DISP0_DECON0_VCLK0,	TOP_GATE_SCLK_DISP0_DECON0_VCLK0,	DISP0_MUX_SCLK_DISP0_DECON0_VCLK0_USER);
@@ -1872,6 +1888,8 @@ void vclk_unused_disable(void)
 	vclk_disable(VCLK(pxmxdx_cam1_csis2));
 	vclk_disable(VCLK(pxmxdx_cam1_csis3));
 	vclk_disable(VCLK(pxmxdx_cam1_scl));
+	vclk_disable(VCLK(pxmxdx_oscclk_nfc));
+	vclk_disable(VCLK(pxmxdx_oscclk_aud));
 	vclk_disable(VCLK(gate_bus0_display));
 	vclk_disable(VCLK(gate_bus0_cam));
 	vclk_disable(VCLK(gate_bus0_fsys1));
@@ -2214,6 +2232,8 @@ void vclk_init(void)
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_cam1_csis2);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_cam1_csis3);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_cam1_scl);
+	ADD_LIST(vclk_pxmxdx_list, pxmxdx_oscclk_nfc);
+	ADD_LIST(vclk_pxmxdx_list, pxmxdx_oscclk_aud);
 
 
 	ADD_LIST(vclk_umux_list, umux_bus0_aclk_bus0_528);

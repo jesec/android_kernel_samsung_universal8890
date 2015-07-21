@@ -345,6 +345,8 @@ enum {
 	pxmxdx_cam1_csis2,
 	pxmxdx_cam1_csis3,
 	pxmxdx_cam1_scl,
+	pxmxdx_oscclk_nfc,
+	pxmxdx_oscclk_aud,
 	vclk_group_pxmxdx_end,
 	num_of_pxmxdx = vclk_group_pxmxdx_end - 0x0A050000,
 

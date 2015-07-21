@@ -334,6 +334,8 @@ PXMXDX_EXTERN(pxmxdx_cam1_peri)
 PXMXDX_EXTERN(pxmxdx_cam1_csis2)
 PXMXDX_EXTERN(pxmxdx_cam1_csis3)
 PXMXDX_EXTERN(pxmxdx_cam1_scl)
+PXMXDX_EXTERN(pxmxdx_oscclk_nfc)
+PXMXDX_EXTERN(pxmxdx_oscclk_aud)
 
 UMUX_EXTERN(umux_bus0_aclk_bus0_528)
 UMUX_EXTERN(umux_bus0_aclk_bus0_200)
