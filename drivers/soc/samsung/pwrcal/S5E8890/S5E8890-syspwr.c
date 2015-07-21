@@ -221,15 +221,18 @@ static void init_pmu_feedback(void)
 	}
 }
 
-#define XXTI_DUR_STABLE				0x1FBD0 /* 5ms @ 26MHz */
-#define TCXO_DUR_STABLE				0x1FBD0 /* 5ms @ 26MHz */
-#define EXT_REGULATOR_DUR_STABLE	0x45D30 /* 11ms @ 26MHz */
+#define XXTI_DUR_STABLE				0xCB1 /* 2ms @ 26MHz */
+#define TCXO_DUR_STABLE				0xCB1 /* 2ms @ 26MHz */
+#define EXT_REGULATOR_DUR_STABLE	0x130A /* 3ms @ 26MHz */
+#define EXT_REGULATOR_MIF_DUR_STABLE	0x130A /* 3ms @ 26MHz */
+
 
 static void init_pmu_stable_counter(void)
 {
 	pwrcal_writel(XXTI_DURATION3, XXTI_DUR_STABLE);
 	pwrcal_writel(TCXO_DURATION3, TCXO_DUR_STABLE);
 	pwrcal_writel(EXT_REGULATOR_DURATION3, EXT_REGULATOR_DUR_STABLE);
+	pwrcal_writel(EXT_REGULATOR_MIF_DURATION3, EXT_REGULATOR_MIF_DUR_STABLE);
 }
 
 #define ENABLE_HW_TRIP                 (0x1 << 31)
