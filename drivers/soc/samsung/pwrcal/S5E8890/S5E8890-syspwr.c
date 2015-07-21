@@ -547,12 +547,8 @@ void set_pmu_central_seq_mif(bool enable)
 }
 
 
-static int syspwr_hwacg_control(void)
+static int syspwr_hwacg_control(int mode)
 {
-	if (pwrcal_getf(FSYS1_STATUS, 0, 0xF) == 0xF) {
-		pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI0, 0, 1);
-		pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI1, 0, 1);
-	}
 	/* all QCH_CTRL in CMU_IMEM */
 	pwrcal_setbit(QCH_CTRL_AXI_LH_ASYNC_MI_IMEM, 0, 1);
 	pwrcal_setbit(QCH_CTRL_SSS, 0, 1);
@@ -599,9 +595,17 @@ static int syspwr_hwacg_control(void)
 		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 0);
 	}
 	/* all QCH_CTRL in CMU_FSYS1 */
+	if (mode != syspwr_sicd && mode != syspwr_sicd_cpd && mode != syspwr_aftr) {
+		if (pwrcal_getf(FSYS1_STATUS, 0, 0xF) == 0xF) {
+			pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI0, 0, 1);
+			pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI1, 0, 1);
+			pwrcal_setbit(CG_CTRL_VAL_SCLK_PCIE_LINK_WIFI0, 0, 1);
+			pwrcal_setbit(CG_CTRL_VAL_SCLK_PCIE_LINK_WIFI1, 0, 1);
+			pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI0, 0, 0x3, 0x1);
+			pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI1, 0, 0x3, 0x1);
+		}
+	}
 	if (pwrcal_getf(FSYS1_STATUS, 0, 0xF) == 0xF) {
-		pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI0, 0, 1);
-		pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_AXI_LH_ASYNC_MI_TOP_FSYS1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_CMU_FSYS1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PMU_FSYS1, 0, 1);
@@ -610,8 +614,6 @@ static int syspwr_hwacg_control(void)
 		pwrcal_setbit(QCH_CTRL_UFS_LINK_SDCARD, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PPMU_FSYS1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS1, 0, 1);
-		pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI0, 0, 0x3, 0x1);
-		pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI1, 0, 0x3, 0x1);
 	}
 
 	pwrcal_setf(QSTATE_CTRL_APM, 0, 0x3, 0x1);
@@ -636,13 +638,23 @@ static int syspwr_hwacg_control(void)
 
 	return 0;
 }
-static int syspwr_hwacg_control_post(void)
+static int syspwr_hwacg_control_post(int mode)
 {
 	if (pwrcal_getf(FSYS0_STATUS, 0, 0xF) == 0xF) {
 		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 1);
 		pwrcal_setbit(QCH_CTRL_USBHOST20, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PPMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 1);
+	}
+	if (mode != syspwr_sicd && mode != syspwr_sicd_cpd && mode != syspwr_aftr) {
+		if (pwrcal_getf(FSYS1_STATUS, 0, 0xF) == 0xF) {
+			pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI0, 0, 0x3, 0x3);
+			pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI1, 0, 0x3, 0x3);
+			pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI0, 0, 0);
+			pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI1, 0, 0);
+			pwrcal_setbit(CG_CTRL_VAL_SCLK_PCIE_LINK_WIFI0, 0, 1);
+			pwrcal_setbit(CG_CTRL_VAL_SCLK_PCIE_LINK_WIFI1, 0, 1);
+		}
 	}
 	return 0;
 }
@@ -2105,7 +2117,7 @@ static void mif_work_around(void)
 static void pwrcal_syspwr_prepare(int mode)
 {
 	save_cmusfr(mode);
-	syspwr_hwacg_control();
+	syspwr_hwacg_control(mode);
 	disable_armidleclockdown();
 
 	set_pmu_sys_pwr_reg(mode);
@@ -2127,6 +2139,7 @@ static void pwrcal_syspwr_prepare(int mode)
 		pwrcal_setbit(G3D_OPTION, 30, 0);
 		pwrcal_setbit(WAKEUP_MASK, 30, 1);
 		set_pmu_central_seq_mif(true);
+		break;
 	case syspwr_aftr:
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 2, 0);
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 1, 0);
@@ -2230,8 +2243,7 @@ void set_pmu_pad_retention_release(void)
 
 static void pwrcal_syspwr_post(int mode)
 {
-
-	syspwr_hwacg_control_post();
+	syspwr_hwacg_control_post(mode);
 	enable_armidleclockdown();
 
 	if (pwrcal_getbit(CENTRAL_SEQ_CONFIGURATION , 16) == 0x1) {
@@ -2271,14 +2283,13 @@ static void pwrcal_syspwr_post(int mode)
 	default:
 		break;
 	}
-
 	restore_cmusfr(mode);
 }
 static void pwrcal_syspwr_earlywakeup(int mode)
 {
 	set_pmu_central_seq(false);
 
-	syspwr_hwacg_control_post();
+	syspwr_hwacg_control_post(mode);
 	enable_armidleclockdown();
 
 	switch (mode) {
