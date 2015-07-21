@@ -166,10 +166,14 @@ int dfs_trans_pll(int lv_from, int lv_to, struct dfs_table *table, int opt)
 			case TRANS_HIGH:
 				if (from < to)
 					trans = 1;
+				if (to == 0)
+					trans = 0;
 				break;
 			case TRANS_LOW:
 				if (from > to)
 					trans = 1;
+				if (from == 0)
+					trans = 0;
 				break;
 			case TRANS_DIFF:
 				if (from != to)
