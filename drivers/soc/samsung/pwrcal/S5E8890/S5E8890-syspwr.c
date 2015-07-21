@@ -255,7 +255,6 @@ static void enable_armidleclockdown(void)
 	pwrcal_setf(PWR_CTRL3_MNGS, 16, 0x7, 0x7); // PWR_CTRL3[18:16] L2QDELAY = 3'b111 (512 timer ticks)
 	pwrcal_setbit(PWR_CTRL3_APOLLO, 0, 1); // PWR_CTRL3[0] USE_L2QACTIVE = 1
 	pwrcal_setbit(PWR_CTRL3_APOLLO, 1, 1); // PWR_CTRL3[0] IGNORE_L2QREQUEST = 1
-	pwrcal_setf(PWR_CTRL3_APOLLO, 16, 0x7, 0x7); // PWR_CTRL3[18:16] L2QDELAY = 3'b111 (512 timer ticks)
 }
 
 static void disable_armidleclockdown(void)
