@@ -24,7 +24,7 @@ static struct pll_spec gpll1416X_spec = {
 	0,	0,
 	4*MHZ,	12*MHZ,
 	1600*MHZ,	3200*MHZ,
-	200*MHZ,	2500*MHZ,
+	200*MHZ,	3200*MHZ,
 };
 
 static struct pll_spec gpll1417X_spec = {
