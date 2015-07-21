@@ -745,7 +745,7 @@ int _pwrcal_private_mux_set_src(struct pwrcal_clk *clk, unsigned int src)
 			mux_stat = pwrcal_getf(submux[i]->status,
 						submux[i]->s_shift,
 						TO_MASK(submux[i]->s_width));
-			if (mux_stat == src)
+			if (mux_stat == (1 << src))
 				break;
 
 			if (timeout > CLK_WAIT_CNT)
