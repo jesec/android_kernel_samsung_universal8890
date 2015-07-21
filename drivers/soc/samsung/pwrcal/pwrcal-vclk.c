@@ -583,6 +583,8 @@ static int m1d1g1_set(struct vclk *vclk, unsigned long freq_to)
 					min_diff = freq_to - cur_freq;
 					min_diff_mux = pidx;
 					min_diff_div = didx;
+					if (min_diff == 0)
+						break;
 				}
 			}
 		}
