@@ -9,8 +9,42 @@
 
 #define PAD_INITIATE_WAKEUP	(0x1 << 28)
 
+#define ISP_FORCE_POWERDOWN
+
 static void cam0_prev(int enable)
 {
+
+#ifdef ISP_FORCE_POWERDOWN
+	if (enable == 0) {
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS0_414, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_CSIS0_207, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS1_168_CAM0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS2_234_CAM0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS3_132_CAM0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_3AA0_414_CAM0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_3AA0_207, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_3AA1_414_CAM0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_3AA1_207, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_TREX_528_CAM0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_TREX_264, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_TREX_132, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_SCLK_PROMISE_CAM0, 0xFFFFFFFF);
+
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS0_414_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_CSIS0_207_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS1_168_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS2_234_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_CSIS3_132_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_3AA0_414_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_3AA0_207_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM0_3AA1_414_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_3AA1_207_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM0_TREX_264_LOCAL, 0xFFFFFFFF);
+
+		pwrcal_writel(LPI_MASK_CAM0_BUSMASTER, 0x1F);
+	}
+#endif
+
 	if (pwrcal_getf(CAM1_STATUS, 0, 0xF) == 0xF) {
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM1_CSIS2_414_CAM1, 0, 1);
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM1_CSIS2_414_LOCAL, 0, 1);
@@ -48,6 +82,38 @@ static void cam0_prev(int enable)
 
 static void cam1_prev(int enable)
 {
+#ifdef ISP_FORCE_POWERDOWN
+	if (enable == 0) {
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_ARM_672_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM1_ARM_168, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_TREX_VRA_528_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM1_TREX_VRA_264, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_TREX_B_528_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_BUS_264_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM1_BUS_132, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM1_PERI_84, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_CSIS2_414_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_CSIS3_132_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_SCL_566_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM1_SCL_283, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_SCLK_CAM1_ISP_SPI0_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_SCLK_CAM1_ISP_SPI1_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_SCLK_CAM1_ISP_UART_CAM1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_SCLK_ISP_PERI_IS_B, 0xFFFFFFFF);
+
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_TREX_VRA_528_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM1_TREX_VRA_264_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_BUS_264_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_CAM1_PERI_84_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_CSIS2_414_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_CSIS3_132_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_CAM1_SCL_566_LOCAL, 0xFFFFFFFF);
+
+		pwrcal_writel(LPI_MASK_CAM1_BUSMASTER, 0xF);
+		pwrcal_setf(A7IS_OPTION, 15, 0x7, 0);
+	}
+#endif
+
 	if (pwrcal_getf(CAM0_STATUS, 0, 0xF) == 0xF) {
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM0_CSIS0_414, 1, 1);
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM0_CSIS0_414_LOCAL, 1, 1);
@@ -80,6 +146,29 @@ static void cam1_prev(int enable)
 
 static void isp0_prev(int enable)
 {
+#ifdef ISP_FORCE_POWERDOWN
+	if (enable == 0) {
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_ISP0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP0_TPU, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_ISP0_TPU, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP0_TREX, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_TREX_264, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_HPM_APBIF_ISP0, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_TREX_132, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_SCLK_PROMISE_ISP0, 0xFFFFFFFF);
+
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP0_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_ISP0_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP0_TPU_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_ISP0_TPU_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP0_TREX_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_TREX_132_LOCAL, 0xFFFFFFFF);
+
+		pwrcal_writel(LPI_MASK_ISP0_BUSMASTER, 0x3);
+	}
+#endif
+
 	if (pwrcal_getf(CAM0_STATUS, 0, 0xF) == 0xF) {
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM0_CSIS2_234_CAM0, 0, 1);
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM0_CSIS2_234_LOCAL, 0, 1);
@@ -100,6 +189,20 @@ static void isp0_prev(int enable)
 
 static void isp1_prev(int enable)
 {
+#ifdef ISP_FORCE_POWERDOWN
+	if (enable == 0) {
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_ISP1_234, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_HPM_APBIF_ISP1, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_SCLK_PROMISE_ISP1, 0xFFFFFFFF);
+
+		pwrcal_writel(CLK_ENABLE_ACLK_ISP1_LOCAL, 0xFFFFFFFF);
+		pwrcal_writel(CLK_ENABLE_PCLK_ISP1_234_LOCAL, 0xFFFFFFFF);
+
+		pwrcal_writel(LPI_MASK_ISP1_BUSMASTER, 0x1);
+	}
+#endif
+
 	if (pwrcal_getf(CAM0_STATUS, 0, 0xF) == 0xF) {
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM0_CSIS2_234_CAM0, 0, 1);
 		pwrcal_setbit(CLK_ENABLE_ACLK_CAM0_CSIS2_234_LOCAL, 0, 1);
