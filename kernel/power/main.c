@@ -46,7 +46,7 @@ int pm_notifier_call_chain(unsigned long val)
 }
 
 /* If set, devices may be suspended and resumed asynchronously. */
-int pm_async_enabled = 1;
+int pm_async_enabled = 0;
 
 static ssize_t pm_async_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
@@ -65,7 +65,7 @@ static ssize_t pm_async_store(struct kobject *kobj, struct kobj_attribute *attr,
 	if (val > 1)
 		return -EINVAL;
 
-	pm_async_enabled = val;
+	pm_async_enabled = 0;
 	return n;
 }
 
