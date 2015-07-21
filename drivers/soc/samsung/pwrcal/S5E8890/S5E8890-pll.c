@@ -201,6 +201,9 @@ static int _clk_pll141xx_enable(struct pwrcal_clk *clk)
 {
 	int timeout;
 
+	if (pwrcal_getbit(clk->offset, PLL141XX_ENABLE))
+		return 0;
+
 	pwrcal_setbit(clk->offset, PLL141XX_ENABLE, 1);
 
 	for (timeout = 0;; timeout++) {
@@ -217,6 +220,9 @@ static int _clk_pll141xx_enable(struct pwrcal_clk *clk)
 static int _clk_pll1419x_enable(struct pwrcal_clk *clk)
 {
 	int timeout;
+
+	if (pwrcal_getbit(clk->offset, PLL141XX_ENABLE))
+		return 0;
 
 	pwrcal_setbit(clk->offset, PLL141XX_ENABLE, 1);
 
@@ -598,6 +604,9 @@ static int _clk_pll1431x_is_enabled(struct pwrcal_clk *clk)
 static int _clk_pll1431x_enable(struct pwrcal_clk *clk)
 {
 	int timeout;
+
+	if (pwrcal_getbit(clk->offset, PLL1431X_ENABLE))
+		return 0;
 
 	pwrcal_setbit(clk->offset, PLL1431X_ENABLE, 1);
 
