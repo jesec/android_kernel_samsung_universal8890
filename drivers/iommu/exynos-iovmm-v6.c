@@ -24,9 +24,9 @@
 
 #include "exynos-iommu.h"
 
-/* IOVM region: [0x1000000, 0xE0000000) */
+/* IOVM region: [0x1000000, 0xD0000000) */
 #define IOVA_START_V6	0x10000000
-#define IOVM_SIZE_V6	(0xE0000000  - IOVA_START_V6)
+#define IOVM_SIZE_V6	(0xD0000000  - IOVA_START_V6)
 #define sg_physically_continuous(sg) (sg_next(sg) == NULL)
 
 /* alloc_iovm_region - Allocate IO virtual memory region
