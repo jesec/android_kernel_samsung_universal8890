@@ -643,7 +643,7 @@ int __init exynos_powermode_init(void)
 		return -ENOMEM;
 	}
 
-	pm_info->sicd_enabled = true;
+	pm_info->sicd_enabled = false;
 
 	dt_init_exynos_powermode();
 
