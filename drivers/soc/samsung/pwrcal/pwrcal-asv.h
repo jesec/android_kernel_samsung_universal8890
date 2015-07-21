@@ -5,7 +5,9 @@ struct cal_asv_ops {
 	void (*print_asv_info)(void);
 	void (*print_rcc_info)(void);
 	void (*set_grp)(unsigned int id, unsigned int asvgrp);
+	int (*get_grp)(unsigned int id, unsigned int lv);
 	void (*set_tablever)(unsigned int version);
+	int (*get_tablever)(void);
 	int (*set_rcc_table)(void);
 	int (*asv_init)(void);
 };

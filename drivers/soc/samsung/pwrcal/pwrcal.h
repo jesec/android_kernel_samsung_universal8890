@@ -68,7 +68,9 @@ extern void cal_asv_print_info(void);
 extern void cal_rcc_print_info(void);
 extern int cal_asv_set_rcc_table(void);
 extern void cal_asv_set_grp(unsigned int id, unsigned int asvgrp);
+extern int cal_asv_get_grp(unsigned int id, unsigned int lv);
 extern void cal_asv_set_tablever(unsigned int version);
+extern int cal_asv_get_tablever(void);
 
 
 extern int cal_init(void);
