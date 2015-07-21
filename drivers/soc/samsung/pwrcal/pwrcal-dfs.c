@@ -361,6 +361,8 @@ static int transition(unsigned int rate_from,
 			goto errorout;
 		if (table->switch_post)
 			table->switch_post(rate_from, rate_switch);
+		if (dfs_trans_mux(lv_from, lv_switch, table, TRANS_DIFF))
+			goto errorout;
 		if (dfs_trans_div(lv_from, lv_switch, table, TRANS_LOW))
 			goto errorout;
 		if (dfs_trans_pll(lv_from, lv_to, table, TRANS_DIFF))
@@ -373,7 +375,7 @@ static int transition(unsigned int rate_from,
 			goto errorout;
 		if (table->switch_post)
 			table->switch_post(rate_switch, rate_to);
-		if (dfs_trans_mux(lv_from, lv_to, table, TRANS_DIFF))
+		if (dfs_trans_mux(lv_switch, lv_to, table, TRANS_DIFF))
 			goto errorout;
 		if (dfs_trans_div(lv_switch, lv_to, table, TRANS_LOW))
 			goto errorout;
