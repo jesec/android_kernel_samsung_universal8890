@@ -20,6 +20,7 @@
 #include <string.h>
 #include <common.h>
 #include <kernel/timer.h>
+#include <kernel/panic.h>
 #include <compat.h>
 
 #define pr_err(_msg, args...)	\

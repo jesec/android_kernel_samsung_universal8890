@@ -289,7 +289,7 @@ static int get_asv_group(enum dvfs_id domain, unsigned int lv)
 		mod = asv_tbl_info.disp_modified_group;
 		break;
 	default:
-		asm("b .");	/* Never reach */
+		BUG();	/* Never reach */
 		break;
 	}
 
@@ -301,7 +301,7 @@ static int get_asv_group(enum dvfs_id domain, unsigned int lv)
 	}
 
 	if (asv < 0 || asv >= MAX_ASV_GROUP)
-		asm("b .");	/* Never reach */
+		BUG();	/* Never reach */
 
 	return asv;
 }
@@ -373,7 +373,7 @@ static unsigned int get_asv_voltage(enum dvfs_id domain, unsigned int lv)
 		table = pwrcal_disp_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	default:
-		asm("b .");	/* Never reach */
+		BUG();	/* Never reach */
 		break;
 	}
 
