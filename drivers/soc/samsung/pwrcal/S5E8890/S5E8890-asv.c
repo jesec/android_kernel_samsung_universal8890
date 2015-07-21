@@ -205,9 +205,6 @@ static void asv_get_asvinfo(void)
 		*(pasv_table + i) = (unsigned int)tmp;
 	}
 
-	if (asv_tbl_info.asv_table_ver > 1)
-		asm("b .");
-
 	if (!asv_tbl_info.fused_grp) {
 		asv_tbl_info.mngs_asv_group = 0;
 		asv_tbl_info.mngs_modified_group = 0;
@@ -491,7 +488,6 @@ static int dfsg3d_set_ema(unsigned int volt)
 	return 0;
 }
 
-
 static int asv_rcc_set_table(void)
 {
 	int i;
@@ -578,6 +574,9 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 	domain = ap_param_asv_get_domain(asv_block, dfs->vclk.name);
 	if (domain == NULL)
 		return;
+
+	if (asv_tbl_info.asv_table_ver >= domain->num_of_table)
+		BUG();
 
 	if (margin_block)
 		margin_domain = ap_param_margin_get_domain(margin_block, dfs->vclk.name);
