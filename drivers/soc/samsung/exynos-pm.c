@@ -14,6 +14,7 @@
 #include <linux/suspend.h>
 #include <linux/wakeup_reason.h>
 #include <linux/gpio.h>
+#include <linux/syscore_ops.h>
 #include <asm/psci.h>
 #include <asm/suspend.h>
 
@@ -175,47 +176,61 @@ int exynos_pm_lpa_exit(void)
 EXPORT_SYMBOL_GPL(exynos_pm_lpa_exit);
 #endif /* CONFIG_CPU_IDLE */
 
-static int exynos_pm_enter(suspend_state_t state)
-{
-	int ret = 0;
-	int cp_call, index;
+int early_wakeup;
+int psci_index;
+int is_cp_call;
 
+static int exynos_pm_syscore_suspend(void)
+{
 	if (!exynos_check_cp_status()) {
 		pr_info("%s: sleep canceled by CP reset \n",__func__);
 		return -EINVAL;
 	}
 
-//	cp_call = is_cp_aud_enabled();
-	cp_call = 0;
-	if (cp_call) {
-		index = PSCI_SYSTEM_CP_CALL;
+//	is_cp_call = is_cp_aud_enabled();
+	is_cp_call = 0;
+	if (is_cp_call) {
+		psci_index = PSCI_SYSTEM_CP_CALL;
 		exynos_prepare_cp_call();
 		pr_info("%s: Enter ALPA mode for voice call\n",__func__);
 	} else {
-		index = PSCI_SYSTEM_SLEEP;
+		psci_index = PSCI_SYSTEM_SLEEP;
 		exynos_prepare_sys_powerdown(SYS_SLEEP);
 		pr_info("%s: Enter sleep mode\n",__func__);
 	}
 
+	return 0;
+}
+
+static void exynos_pm_syscore_resume(void)
+{
+	if (is_cp_call)
+		exynos_wakeup_cp_call(early_wakeup);
+	else
+		exynos_wakeup_sys_powerdown(SYS_SLEEP,
+					(bool)early_wakeup);
+
+	exynos_show_wakeup_reason((bool)early_wakeup);
+
+	pr_debug("%s: post sleep, preparing to return\n", __func__);
+}
+
+static struct syscore_ops exynos_pm_syscore_ops = {
+	.suspend	= exynos_pm_syscore_suspend,
+	.resume		= exynos_pm_syscore_resume,
+};
+
+static int exynos_pm_enter(suspend_state_t state)
+{
 	/* This will also act as our return point when
 	 * we resume as it saves its own register state and restores it
 	 * during the resume. */
-	ret = cpu_suspend(index);
-	if (ret)
+	early_wakeup = cpu_suspend(psci_index);
+	if (early_wakeup)
 		pr_info("%s: return to originator\n", __func__);
 
-	if (cp_call)
-		exynos_wakeup_cp_call(ret);
-	else
-		exynos_wakeup_sys_powerdown(SYS_SLEEP, (bool)ret);
-
-	exynos_show_wakeup_reason((bool)ret);
-
-	pr_debug("%s: post sleep, preparing to return\n", __func__);
-
-	return ret;
+	return early_wakeup;
 }
-
 
 static const struct platform_suspend_ops exynos_pm_ops = {
 	.enter		= exynos_pm_enter,
@@ -225,6 +240,7 @@ static const struct platform_suspend_ops exynos_pm_ops = {
 static __init int exynos_pm_drvinit(void)
 {
 	suspend_set_ops(&exynos_pm_ops);
+	register_syscore_ops(&exynos_pm_syscore_ops);
 
 	exynos_eint_base = ioremap(EXYNOS8890_PA_GPIO_ALIVE, SZ_8K);
 
