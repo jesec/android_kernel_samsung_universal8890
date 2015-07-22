@@ -120,6 +120,18 @@ struct vb2_ion_cookie {
 	off_t offset;
 };
 
+/* vb2_ion_buffer_offset - return the mapped offset of the buffer
+ * - cookie: pointer returned by vb2_plane_cookie()
+ *
+ * Returns offset value that the mapping starts from.
+ */
+
+static inline off_t vb2_ion_buffer_offset(void *cookie)
+{
+	return IS_ERR_OR_NULL(cookie) ?
+		-EINVAL : ((struct vb2_ion_cookie *)cookie)->offset;
+}
+
 /* vb2_ion_phys_address - returns the physical address of the given buffer
  * - cookie: pointer returned by vb2_plane_cookie()
  * - phys_addr: pointer to the store of the physical address of the buffer
