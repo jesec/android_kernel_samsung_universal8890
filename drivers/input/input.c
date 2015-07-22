@@ -1656,36 +1656,35 @@ static void input_dev_toggle(struct input_dev *dev, bool activate)
  */
 void input_reset_device(struct input_dev *dev)
 {
-	unsigned long flags;
-
 	mutex_lock(&dev->mutex);
-	spin_lock_irqsave(&dev->event_lock, flags);
 
-	input_dev_toggle(dev, true);
-	input_dev_release_keys(dev);
+	if (dev->users) {
+		input_dev_toggle(dev, true);
 
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+		/*
+		 * Keys that have been pressed at suspend time are unlikely
+		 * to be still pressed when we resume.
+		 */
+		spin_lock_irq(&dev->event_lock);
+		input_dev_release_keys(dev);
+		spin_unlock_irq(&dev->event_lock);
+	}
+
 	mutex_unlock(&dev->mutex);
 }
 EXPORT_SYMBOL(input_reset_device);
 
-#ifdef CONFIG_PM_SLEEP
+#ifdef CONFIG_PM
 static int input_dev_suspend(struct device *dev)
 {
 	struct input_dev *input_dev = to_input_dev(dev);
 
-	spin_lock_irq(&input_dev->event_lock);
+	mutex_lock(&input_dev->mutex);
 
-	/*
-	 * Keys that are pressed now are unlikely to be
-	 * still pressed when we resume.
-	 */
-	input_dev_release_keys(input_dev);
+	if (input_dev->users)
+		input_dev_toggle(input_dev, false);
 
-	/* Turn off LEDs and sounds, if any are active. */
-	input_dev_toggle(input_dev, false);
-
-	spin_unlock_irq(&input_dev->event_lock);
+	mutex_unlock(&input_dev->mutex);
 
 	return 0;
 }
@@ -1694,43 +1693,7 @@ static int input_dev_resume(struct device *dev)
 {
 	struct input_dev *input_dev = to_input_dev(dev);
 
-	spin_lock_irq(&input_dev->event_lock);
-
-	/* Restore state of LEDs and sounds, if any were active. */
-	input_dev_toggle(input_dev, true);
-
-	spin_unlock_irq(&input_dev->event_lock);
-
-	return 0;
-}
-
-static int input_dev_freeze(struct device *dev)
-{
-	struct input_dev *input_dev = to_input_dev(dev);
-
-	spin_lock_irq(&input_dev->event_lock);
-
-	/*
-	 * Keys that are pressed now are unlikely to be
-	 * still pressed when we resume.
-	 */
-	input_dev_release_keys(input_dev);
-
-	spin_unlock_irq(&input_dev->event_lock);
-
-	return 0;
-}
-
-static int input_dev_poweroff(struct device *dev)
-{
-	struct input_dev *input_dev = to_input_dev(dev);
-
-	spin_lock_irq(&input_dev->event_lock);
-
-	/* Turn off LEDs and sounds, if any are active. */
-	input_dev_toggle(input_dev, false);
-
-	spin_unlock_irq(&input_dev->event_lock);
+	input_reset_device(input_dev);
 
 	return 0;
 }
@@ -1738,8 +1701,7 @@ static int input_dev_poweroff(struct device *dev)
 static const struct dev_pm_ops input_dev_pm_ops = {
 	.suspend	= input_dev_suspend,
 	.resume		= input_dev_resume,
-	.freeze		= input_dev_freeze,
-	.poweroff	= input_dev_poweroff,
+	.poweroff	= input_dev_suspend,
 	.restore	= input_dev_resume,
 };
 #endif /* CONFIG_PM */
@@ -1748,7 +1710,7 @@ static struct device_type input_dev_type = {
 	.groups		= input_dev_attr_groups,
 	.release	= input_dev_release,
 	.uevent		= input_dev_uevent,
-#ifdef CONFIG_PM_SLEEP
+#ifdef CONFIG_PM
 	.pm		= &input_dev_pm_ops,
 #endif
 };
