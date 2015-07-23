@@ -3804,34 +3804,3 @@ void s5p_mfc_cleanup_queue(struct list_head *lh)
 		list_del(&b->list);
 	}
 }
-
-void s5p_mfc_write_info(struct s5p_mfc_ctx *ctx, unsigned int data, unsigned int ofs)
-{
-	struct s5p_mfc_dev *dev = ctx->dev;
-
-	/* MFC 6.x uses SFR for information */
-	if (dev->hw_lock) {
-		WRITEL(data, ofs);
-	} else {
-		s5p_mfc_clock_on(dev);
-		WRITEL(data, ofs);
-		s5p_mfc_clock_off(dev);
-	}
-}
-
-unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs)
-{
-	struct s5p_mfc_dev *dev = ctx->dev;
-	int ret;
-
-	/* MFC 6.x uses SFR for information */
-	if (dev->hw_lock) {
-		ret = READL(ofs);
-	} else {
-		s5p_mfc_clock_on(dev);
-		ret = READL(ofs);
-		s5p_mfc_clock_off(dev);
-	}
-
-	return ret;
-}

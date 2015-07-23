@@ -95,4 +95,9 @@ int s5p_mfc_mem_flush_vb(struct vb2_buffer *vb, u32 num_planes);
 
 void s5p_mfc_mem_suspend(void *alloc_ctx);
 int s5p_mfc_mem_resume(void *alloc_ctx);
+
+int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev);
+int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev);
+int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev);
+
 #endif /* __S5P_MFC_MEM_H */

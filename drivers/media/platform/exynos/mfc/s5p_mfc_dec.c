@@ -24,6 +24,7 @@
 
 #include "s5p_mfc_dec.h"
 
+#include "s5p_mfc_ctrl.h"
 #include "s5p_mfc_intr.h"
 #include "s5p_mfc_mem.h"
 #include "s5p_mfc_pm.h"

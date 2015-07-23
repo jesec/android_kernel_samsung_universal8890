@@ -279,7 +279,6 @@ void s5p_mfc_cleanup_timeout_and_try_run(struct s5p_mfc_ctx *ctx);
 
 void s5p_mfc_cleanup_queue(struct list_head *lh);
 
-void s5p_mfc_write_info(struct s5p_mfc_ctx *ctx, unsigned int data, unsigned int ofs);
-unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs);
+int s5p_mfc_get_new_ctx(struct s5p_mfc_dev *dev);
 
 #endif /* __S5P_MFC_OPR_V10_H */

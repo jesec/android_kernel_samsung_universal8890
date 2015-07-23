@@ -64,6 +64,13 @@ err_p_clk:
 	return ret;
 }
 
+void s5p_mfc_final_pm(struct s5p_mfc_dev *dev)
+{
+	clk_put(dev->pm.clock);
+
+	pm_runtime_disable(dev->pm.device);
+}
+
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 {
@@ -78,13 +85,6 @@ static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
 	return 0;
 }
 #endif
-
-void s5p_mfc_final_pm(struct s5p_mfc_dev *dev)
-{
-	clk_put(dev->pm.clock);
-
-	pm_runtime_disable(dev->pm.device);
-}
 
 int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 {
