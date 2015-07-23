@@ -405,9 +405,6 @@ static int vb2_ion_map_dmabuf(void *mem_priv)
 		return -EINVAL;
 	}
 
-	vb2_ion_sync_for_device((void *) &buf->cookie, 0,
-				buf->size, buf->direction);
-
 	buf->cookie.offset = 0;
 	/* buf->kva = NULL; */
 
@@ -445,9 +442,6 @@ static void vb2_ion_unmap_dmabuf(void *mem_priv)
 
 	dma_buf_unmap_attachment(buf->attachment,
 			buf->cookie.sgt, buf->direction);
-
-	vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
-			buf->size, buf->direction);
 
 	buf->cookie.sgt = NULL;
 }
@@ -1068,8 +1062,7 @@ int vb2_ion_buf_prepare(struct vb2_buffer *vb)
 
 	for (i = 0; i < vb->num_planes; i++) {
 		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
-		if (!buf->vma)
-			return 0;
+
 		vb2_ion_sync_for_device((void *) &buf->cookie, 0,
 							buf->size, dir);
 	}
@@ -1088,8 +1081,8 @@ void vb2_ion_buf_finish(struct vb2_buffer *vb)
 
 	for (i = 0; i < vb->num_planes; i++) {
 		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
-		if (buf->vma)
-			vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
+
+		vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
 						buf->size, dir);
 	}
 }
@@ -1105,9 +1098,6 @@ int vb2_ion_buf_prepare_exact(struct vb2_buffer *vb)
 
 	for (i = 0; i < vb->num_planes; i++) {
 		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
-
-		if (!buf->vma)
-			return 0;
 
 		vb2_ion_sync_for_device((void *) &buf->cookie, 0,
 					vb2_get_plane_payload(vb, i), dir);
@@ -1127,9 +1117,6 @@ int vb2_ion_buf_finish_exact(struct vb2_buffer *vb)
 
 	for (i = 0; i < vb->num_planes; i++) {
 		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
-
-		if (!buf->vma)
-			return 0;
 
 		vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
 					vb2_get_plane_payload(vb, i), dir);
