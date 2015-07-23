@@ -50,6 +50,7 @@ void cpu_maps_update_done(void)
 EXPORT_SYMBOL(cpu_notifier_register_done);
 
 static RAW_NOTIFIER_HEAD(cpu_chain);
+static RAW_NOTIFIER_HEAD(cpus_chain);
 
 /* If set, cpu_up and cpu_down will return -EBUSY and do nothing.
  * Should always be manipulated under cpu_add_remove_lock
@@ -191,6 +192,15 @@ int __ref register_cpu_notifier(struct notifier_block *nb)
 	return ret;
 }
 
+int __ref register_cpus_notifier(struct notifier_block *nb)
+{
+	int ret;
+	cpu_maps_update_begin();
+	ret = raw_notifier_chain_register(&cpus_chain, nb);
+	cpu_maps_update_done();
+	return ret;
+}
+
 int __ref __register_cpu_notifier(struct notifier_block *nb)
 {
 	return raw_notifier_chain_register(&cpu_chain, nb);
@@ -207,10 +217,27 @@ static int __cpu_notify(unsigned long val, void *v, int nr_to_call,
 	return notifier_to_errno(ret);
 }
 
+static int __cpus_notify(unsigned long val, void *v, int nr_to_call,
+			int *nr_calls)
+{
+	int ret;
+
+	ret = __raw_notifier_call_chain(&cpus_chain, val, v, nr_to_call,
+					nr_calls);
+
+	return notifier_to_errno(ret);
+}
+
 static int cpu_notify(unsigned long val, void *v)
 {
 	return __cpu_notify(val, v, -1, NULL);
 }
+
+static int cpus_notify(unsigned long val, void *v)
+{
+	return __cpus_notify(val, v, -1, NULL);
+}
+
 
 #ifdef CONFIG_HOTPLUG_CPU
 
@@ -221,6 +248,12 @@ static void cpu_notify_nofail(unsigned long val, void *v)
 EXPORT_SYMBOL(register_cpu_notifier);
 EXPORT_SYMBOL(__register_cpu_notifier);
 
+static void cpus_notify_nofail(unsigned long val, void *v)
+{
+	BUG_ON(cpus_notify(val, v));
+}
+EXPORT_SYMBOL(register_cpus_notifier);
+
 void __ref unregister_cpu_notifier(struct notifier_block *nb)
 {
 	cpu_maps_update_begin();
@@ -228,6 +261,14 @@ void __ref unregister_cpu_notifier(struct notifier_block *nb)
 	cpu_maps_update_done();
 }
 EXPORT_SYMBOL(unregister_cpu_notifier);
+
+void __ref unregister_cpus_notifier(struct notifier_block *nb)
+{
+	cpu_maps_update_begin();
+	raw_notifier_chain_unregister(&cpus_chain, nb);
+	cpu_maps_update_done();
+}
+EXPORT_SYMBOL(unregister_cpus_notifier);
 
 void __ref __unregister_cpu_notifier(struct notifier_block *nb)
 {
@@ -311,12 +352,18 @@ static int __ref take_cpu_down(void *_param)
 	struct take_cpu_down_param *param = _param;
 	int err;
 
+	void *hcpu;
+	if ((long)param->hcpu == NR_CPUS)
+		hcpu = (void *)(long)smp_processor_id();
+	else
+		hcpu = param->hcpu;
+
 	/* Ensure this CPU doesn't handle any more interrupts. */
 	err = __cpu_disable();
 	if (err < 0)
 		return err;
 
-	cpu_notify(CPU_DYING | param->mod, param->hcpu);
+	cpu_notify(CPU_DYING | param->mod, hcpu);
 	/* Park the stopper thread */
 	kthread_park(current);
 	return 0;
@@ -373,6 +420,11 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 	/* This actually kills the CPU. */
 	__cpu_die(cpu);
 
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	if (cpumask_test_cpu(cpu, &hmp_fast_cpu_mask))
+		cpus_notify_nofail(CPUS_DOWN_COMPLETE, (void *)cpu_online_mask);
+#endif
+
 	/* CPU is completely dead: tell everyone.  Too late to complain. */
 	cpu_notify_nofail(CPU_DEAD | mod, hcpu);
 
@@ -385,6 +437,128 @@ out_release:
 		cpu_notify_nofail(CPU_POST_DEAD | mod, hcpu);
 	return err;
 }
+
+int __ref cpus_down(struct cpumask *cpus)
+{
+	cpumask_t dest_cpus;
+	cpumask_t prepared_cpus;
+	int err = 0, cpu;
+	int nr_calls[8] = {0};
+	struct take_cpu_down_param tcd_param = {
+		.mod = 0,
+		.hcpu = (void *)NR_CPUS,
+	};
+
+	cpu_maps_update_begin();
+	cpu_hotplug_begin();
+
+	cpumask_and(&dest_cpus, cpus, cpu_online_mask);
+
+	if (cpu_hotplug_disabled || !cpumask_weight(&dest_cpus)
+			|| num_online_cpus() <= cpumask_weight(&dest_cpus)) {
+		err = -EBUSY;
+		goto out;
+	}
+
+	cpumask_clear(&prepared_cpus);
+
+	for_each_cpu(cpu, &dest_cpus) {
+		void *hcpu = (void *)(long)cpu;
+		cpumask_set_cpu(cpu, &prepared_cpus);
+
+		err = __cpu_notify(CPU_DOWN_PREPARE, hcpu, -1, &nr_calls[cpu]);
+		if (err) {
+			nr_calls[cpu]--;
+			goto err_down_prepare;
+		}
+	}
+
+	for_each_cpu(cpu, &dest_cpus) {
+		smpboot_park_threads(cpu);
+	}
+
+	err = __stop_machine(take_cpu_down, &tcd_param, &dest_cpus);
+	if (err)
+		goto err_stop_machine;
+
+	for_each_cpu(cpu, &dest_cpus) {
+		BUG_ON(cpu_online(cpu));
+		/*
+		 * The migration_call() CPU_DYING callback will have removed all
+		 * runnable tasks from the cpu, there's only the idle task left now
+		 * that the migration thread is done doing the stop_machine thing.
+		 *
+		 * Wait for the stop thread to go away.
+		 */
+		while (!idle_cpu(cpu))
+			cpu_relax();
+
+		/* This actually kills the CPU. */
+		__cpu_die(cpu);
+	}
+
+	cpus_notify_nofail(CPUS_DOWN_COMPLETE, (void *)cpu_online_mask);
+
+	/* CPU is completely dead: tell everyone.  Too late to complain. */
+	for_each_cpu(cpu, &dest_cpus) {
+		void *hcpu = (void *)(long)cpu;
+
+		cpu_notify_nofail(CPU_DEAD, hcpu);
+		check_for_tasks(cpu);
+	}
+
+	cpu_hotplug_done();
+
+	for_each_cpu(cpu, &dest_cpus) {
+		void *hcpu = (void *)(long)cpu;
+
+		cpu_notify_nofail(CPU_POST_DEAD, hcpu);
+	}
+
+	cpu_maps_update_done();
+
+	return 0;
+
+err_stop_machine:
+	for_each_cpu(cpu, &dest_cpus) {
+		void *hcpu = (void *)(long)cpu;
+		smpboot_unpark_threads(cpu);
+		cpu_notify_nofail(CPU_DOWN_FAILED, hcpu);
+	}
+	goto out;
+
+err_down_prepare:
+	for_each_cpu(cpu, &prepared_cpus) {
+		void *hcpu = (void *)(long)cpu;
+		__cpu_notify(CPU_DOWN_FAILED, hcpu, nr_calls[cpu], NULL);
+		printk("%s: attempt to take down CPU %u failed\n",
+					__func__, cpu);
+	}
+
+out:
+	cpu_hotplug_done();
+	cpu_maps_update_done();
+
+	return err;
+}
+EXPORT_SYMBOL(cpus_down);
+
+int __ref cpus_up(struct cpumask *cpus)
+{
+	int err = 0;
+	unsigned int cpu = 0;
+	cpumask_t dest_cpus;
+
+	cpumask_andnot(&dest_cpus, cpus, cpu_online_mask);
+	for_each_cpu(cpu, &dest_cpus) {
+		err = cpu_up(cpu);
+		if (err)
+			goto out;
+	}
+out:
+	return err;
+}
+EXPORT_SYMBOL(cpus_up);
 
 int __ref cpu_down(unsigned int cpu)
 {
@@ -464,6 +638,9 @@ out:
 int cpu_up(unsigned int cpu)
 {
 	int err = 0;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	cpumask_t dest_cpus;
+#endif
 
 	if (!cpu_possible(cpu)) {
 		pr_err("can't online cpu %d because it is not configured as may-hotadd at boot time\n",
@@ -484,6 +661,16 @@ int cpu_up(unsigned int cpu)
 		err = -EBUSY;
 		goto out;
 	}
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	if (cpumask_test_cpu(cpu, &hmp_fast_cpu_mask)) {
+		cpumask_or(&dest_cpus, cpumask_of(cpu), cpu_online_mask);
+
+		err = cpus_notify(CPUS_UP_PREPARE, (void *)&dest_cpus);
+		if (err)
+			goto out;
+	}
+#endif
 
 	err = _cpu_up(cpu, 0);
 
