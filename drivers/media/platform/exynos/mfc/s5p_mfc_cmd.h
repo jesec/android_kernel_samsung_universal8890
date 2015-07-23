@@ -47,4 +47,10 @@ static inline void s5p_mfc_clear_cmds(struct s5p_mfc_dev *dev)
 	}
 }
 
+#define s5p_mfc_clear_int_flags()				\
+	do {							\
+		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_CMD);	\
+		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_INT);	\
+	} while (0)
+
 #endif /* __S5P_MFC_CMD_H */

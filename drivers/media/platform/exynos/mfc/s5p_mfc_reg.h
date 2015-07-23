@@ -121,27 +121,6 @@
 #define MFC_GET_ADR(target)						\
 	(s5p_mfc_read_reg(dev, MFC_##target##_ADR_ADDR) << MFC_##target##_ADR_SHFT)
 
-#define R2H_BIT(x)	(((x) > 0) ? (1 << ((x) - 1)) : 0)
-
-static inline unsigned int r2h_bits(int cmd)
-{
-	unsigned int mask = R2H_BIT(cmd);
-
-	if (cmd == S5P_FIMV_R2H_CMD_FRAME_DONE_RET)
-		mask |= (R2H_BIT(S5P_FIMV_R2H_CMD_FIELD_DONE_RET) |
-			 R2H_BIT(S5P_FIMV_R2H_CMD_COMPLETE_SEQ_RET) |
-			 R2H_BIT(S5P_FIMV_R2H_CMD_SLICE_DONE_RET) |
-			 R2H_BIT(S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET) |
-			 R2H_BIT(S5P_FIMV_R2H_CMD_ENC_BUFFER_FULL_RET));
-	/* FIXME: Temporal mask for S3D SEI processing */
-	else if (cmd == S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET)
-		mask |= (R2H_BIT(S5P_FIMV_R2H_CMD_FIELD_DONE_RET) |
-			 R2H_BIT(S5P_FIMV_R2H_CMD_SLICE_DONE_RET) |
-			 R2H_BIT(S5P_FIMV_R2H_CMD_FRAME_DONE_RET));
-
-	return (mask |= R2H_BIT(S5P_FIMV_R2H_CMD_ERR_RET));
-}
-
 static inline void s5p_mfc_write_reg(struct s5p_mfc_dev *dev, unsigned int data, unsigned int offset)
 {
 	writel(data, dev->regs_base + offset);

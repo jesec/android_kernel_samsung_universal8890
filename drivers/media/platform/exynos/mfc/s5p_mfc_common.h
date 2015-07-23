@@ -26,6 +26,7 @@
 #endif
 
 #include "s5p_mfc_reg.h"
+#include "s5p_mfc_utils.h"
 #include "s5p_mfc_data_struct.h"
 #include "s5p_mfc_debug.h"
 
