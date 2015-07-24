@@ -331,6 +331,10 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
 	struct irq_desc *desc = irq_to_desc(gpio_to_irq(button->gpio));
 
+	if (button->code == KEY_POWER) {
+		printk(KERN_INFO "PWR key is %s\n", state ? "pressed" : "released");
+	}
+
 	if (type == EV_ABS) {
 		if (state)
 			input_event(input, type, button->code, button->value);
