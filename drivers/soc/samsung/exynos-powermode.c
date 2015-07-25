@@ -370,10 +370,14 @@ static int is_sicd_available(void)
  */
 int enter_c2(unsigned int cpu, int index)
 {
+	int cluster;
+
 	exynos_cpu.power_down(cpu);
 
 	spin_lock(&c2_lock);
 	update_c2_state(true, cpu);
+
+	cluster = get_cluster_id(cpu);
 
 	/*
 	 * Below sequence determines whether to power down the cluster/enter SICD
@@ -387,7 +391,7 @@ int enter_c2(unsigned int cpu, int index)
 	 * Power down of LITTLE cluster have nothing to gain power consumption,
 	 * so it is not supported. For you reference, cluster id "1" indicates LITTLE.
 	 */
-	if (get_cluster_id(cpu))
+	if (cluster)
 		goto system_idle_clock_down;
 
 	if (is_cpd_available(cpu)) {
@@ -398,7 +402,7 @@ int enter_c2(unsigned int cpu, int index)
 	}
 
 system_idle_clock_down:
-	if (is_sicd_available()) {
+	if (cluster && is_sicd_available()) {
 		if (check_cluster_idle_state(cpu)) {
 			exynos_prepare_sys_powerdown(SYS_SICD_CPD);
 			index = PSCI_SYSTEM_IDLE_CLUSTER_SLEEP;
