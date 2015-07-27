@@ -3,7 +3,7 @@
 #include "S5E8890-sfrbase.h"
 #include "S5E8890-vclk-internal.h"
 
-#include <soc/samsung/ap_param_parser.h>
+#include <soc/samsung/ect_parser.h>
 
 #ifndef MHZ
 #define MHZ		((unsigned long long)1000000)
@@ -413,13 +413,13 @@ void dfs_dram_param_init(void)
 	int i;
 	void *dram_block;
 	int memory_size = 3; // means 3GB
-	struct ap_param_timing_param_size *size;
+	struct ect_timing_param_size *size;
 
-	dram_block = ap_param_get_block(BLOCK_TIMING_PARAM);
+	dram_block = ect_get_block(BLOCK_TIMING_PARAM);
 	if (dram_block == NULL)
 		return;
 
-	size = ap_param_timing_param_get_size(dram_block, memory_size);
+	size = ect_timing_param_get_size(dram_block, memory_size);
 	if (size == NULL)
 		return;
 
@@ -486,13 +486,13 @@ void dfs_mif_level_init(void)
 {
 	int i;
 	void *dvfs_block;
-	struct ap_param_dvfs_domain *domain;
+	struct ect_dvfs_domain *domain;
 
-	dvfs_block = ap_param_get_block(BLOCK_DVFS);
+	dvfs_block = ect_get_block(BLOCK_DVFS);
 	if (dvfs_block == NULL)
 		return;
 
-	domain = ap_param_dvfs_get_domain(dvfs_block, vclk_dvfs_mif.vclk.name);
+	domain = ect_dvfs_get_domain(dvfs_block, vclk_dvfs_mif.vclk.name);
 	if (domain == NULL)
 		return;
 

@@ -7,7 +7,7 @@
 #include "S5E8890-pmusfr.h"
 #include "S5E8890-cmu.h"
 
-#include <soc/samsung/ap_param_parser.h>
+#include <soc/samsung/ect_parser.h>
 
 extern struct pwrcal_pll_ops pll141xx_ops;
 extern struct pwrcal_pll_ops pll1419x_ops;
@@ -2055,17 +2055,17 @@ void clk_pll_set_rate_table(struct pwrcal_pll *pll)
 	int i;
 	void *pll_block;
 	struct pwrcal_pll_rate_table *pll_rate_table;
-	struct ap_param_pll *pll_unit;
-	struct ap_param_pll_frequency *pll_frequency;
+	struct ect_pll *pll_unit;
+	struct ect_pll_frequency *pll_frequency;
 
 	if (pll == NULL)
 		return;
 
-	pll_block = ap_param_get_block(BLOCK_PLL);
+	pll_block = ect_get_block(BLOCK_PLL);
 	if (pll_block == NULL)
 		return;
 
-	pll_unit = ap_param_pll_get_pll(pll_block, (char *)pll->clk.name);
+	pll_unit = ect_pll_get_pll(pll_block, (char *)pll->clk.name);
 	if (pll_unit == NULL)
 		return;
 

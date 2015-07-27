@@ -9,7 +9,7 @@
 #include "S5E8890-cmu.h"
 #include "S5E8890-vclk-internal.h"
 
-#include <soc/samsung/ap_param_parser.h>
+#include <soc/samsung/ect_parser.h>
 
 
 extern int offset_percent;
@@ -990,14 +990,14 @@ void dfs_set_clk_information(struct pwrcal_vclk_dfs *dfs)
 {
 	int i, j;
 	void *dvfs_block;
-	struct ap_param_dvfs_domain *dvfs_domain;
+	struct ect_dvfs_domain *dvfs_domain;
 	struct dfs_table *dvfs_table;
 
-	dvfs_block = ap_param_get_block("DVFS");
+	dvfs_block = ect_get_block("DVFS");
 	if (dvfs_block == NULL)
 		return;
 
-	dvfs_domain = ap_param_dvfs_get_domain(dvfs_block, dfs->vclk.name);
+	dvfs_domain = ect_dvfs_get_domain(dvfs_block, dfs->vclk.name);
 	if (dvfs_domain == NULL)
 		return;
 
@@ -1037,13 +1037,13 @@ void dfs_set_pscdc_information(void)
 {
 	int i;
 	void *gen_block;
-	struct ap_param_gen_param_table *pscdc;
+	struct ect_gen_param_table *pscdc;
 
-	gen_block = ap_param_get_block("GEN");
+	gen_block = ect_get_block("GEN");
 	if (gen_block == NULL)
 		return;
 
-	pscdc = ap_param_gen_param_get_table(gen_block, "PSCDC");
+	pscdc = ect_gen_param_get_table(gen_block, "PSCDC");
 	if (pscdc == NULL)
 		return;
 
