@@ -26,7 +26,7 @@
 
 #include <soc/samsung/exynos-devfreq.h>
 #include <soc/samsung/tmu.h>
-#include <soc/samsung/ap_param_parser.h>
+#include <soc/samsung/ect_parser.h>
 
 #include "../governor.h"
 
@@ -405,18 +405,18 @@ static struct attribute_group exynos_devfreq_attr_group = {
 #endif
 
 #ifdef CONFIG_OF
-#if defined(CONFIG_AP_PARAM)
-static int exynos_devfreq_parse_ap_param(struct exynos_devfreq_data *data, const char *dvfs_domain_name)
+#if defined(CONFIG_ECT)
+static int exynos_devfreq_parse_ect(struct exynos_devfreq_data *data, const char *dvfs_domain_name)
 {
 	int i;
 	void *dvfs_block;
-	struct ap_param_dvfs_domain *dvfs_domain;
+	struct ect_dvfs_domain *dvfs_domain;
 
-	dvfs_block = ap_param_get_block(BLOCK_DVFS);
+	dvfs_block = ect_get_block(BLOCK_DVFS);
 	if (dvfs_block == NULL)
 		return -ENODEV;
 
-	dvfs_domain = ap_param_dvfs_get_domain(dvfs_block, (char *)dvfs_domain_name);
+	dvfs_domain = ect_dvfs_get_domain(dvfs_block, (char *)dvfs_domain_name);
 	if (dvfs_domain == NULL)
 		return -ENODEV;
 
@@ -441,10 +441,10 @@ static int exynos_devfreq_parse_dt(struct device_node *np, struct exynos_devfreq
 	const char *use_tmu;
 	const char *use_cl_dvfs;
 	const char *use_switch_clk;
-#if defined(CONFIG_AP_PARAM)
+#if defined(CONFIG_ECT)
 	const char *devfreq_domain_name;
 #endif
-	int not_using_ap_param = true;
+	int not_using_ect = true;
 	u32 freq_array[6];
 	u32 volt_array[4];
 
@@ -480,13 +480,13 @@ static int exynos_devfreq_parse_dt(struct device_node *np, struct exynos_devfreq
 		return -EINVAL;
 	}
 
-#if defined(CONFIG_AP_PARAM)
+#if defined(CONFIG_ECT)
 	if (of_property_read_string(np, "devfreq_domain_name", &devfreq_domain_name))
 		return -ENODEV;
-	not_using_ap_param = exynos_devfreq_parse_ap_param(data, devfreq_domain_name);
+	not_using_ect = exynos_devfreq_parse_ect(data, devfreq_domain_name);
 #endif
 
-	if (not_using_ap_param) {
+	if (not_using_ect) {
 		if (of_property_read_u32(np, "opp_list_length", &data->opp_list_length))
 			return -ENODEV;
 
