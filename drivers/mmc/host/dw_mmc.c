@@ -2590,30 +2590,57 @@ static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(500);
 	u32 ctrl;
+	u32 clksel_saved = 0x0;
+
+	/* Interrupt disable */
+	ctrl = mci_readl(host, CTRL);
+	ctrl &= ~(SDMMC_CTRL_INT_ENABLE);
+	mci_writel(host, CTRL, ctrl);
+
+	/* set Rx timing to 0 */
+	clksel_saved = mci_readl(host, CLKSEL);
+	mci_writel(host, CLKSEL, clksel_saved & ~(0x3 << 6 | 0x7));
 
 	ctrl = mci_readl(host, CTRL);
 	ctrl |= reset;
+	mci_writel(host, CTRL, ctrl);
+
+	/* All interrupt clear */
+	mci_writel(host, RINTSTS, 0xFFFFFFFF);
+
+	/* Interrupt enable */
+	ctrl |= SDMMC_CTRL_INT_ENABLE;
 	mci_writel(host, CTRL, ctrl);
 
 	/* wait till resets clear */
 	do {
 		ctrl = mci_readl(host, CTRL);
 		if (!(ctrl & reset))
-			return true;
+			break;
 	} while (time_before(jiffies, timeout));
 
-	dev_err(host->dev,
-		"Timeout resetting block (ctrl reset %#x)\n",
-		ctrl & reset);
+	/* restore Rx timing */
+	mci_writel(host, CLKSEL, clksel_saved);
 
-	return false;
+	if (!(ctrl & reset))
+		return true;
+	else {
+		dev_err(host->dev,
+			"Timeout resetting block (ctrl reset %#x)\n",
+			ctrl & reset);
+
+		return false;
+	}
 }
 
 static bool dw_mci_reset(struct dw_mci *host)
 {
 	u32 flags = SDMMC_CTRL_RESET | SDMMC_CTRL_FIFO_RESET;
+	struct dw_mci_slot *slot = host->cur_slot;
 	bool ret = false;
-
+	int retry = 10;
+	unsigned int ctrl;
+	u32 status;
 	/*
 	 * Reseting generates a block interrupt, hence setting
 	 * the scatter-gather pointer to NULL.
@@ -2654,6 +2681,13 @@ static bool dw_mci_reset(struct dw_mci *host)
 			/* when using DMA next we reset the fifo again */
 			if (!dw_mci_ctrl_reset(host, SDMMC_CTRL_FIFO_RESET))
 				goto ciu_out;
+			else
+			/* clear exception raw interrupts can not be handled
+			   ex) fifo full => RXDR interrupt rising */
+				ctrl = mci_readl(host, RINTSTS);
+				ctrl = ctrl & ~(mci_readl(host, MINTSTS));
+				if (ctrl)
+					mci_writel(host, RINTSTS, ctrl);
 		}
 	} else {
 		/* if the controller reset bit did clear, then set clock regs */
@@ -2673,8 +2707,26 @@ static bool dw_mci_reset(struct dw_mci *host)
 	ret = true;
 
 ciu_out:
+	if (slot) {
+		unsigned long timeout = jiffies + msecs_to_jiffies(500);
+		dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
+		/* Check For DATA busy */
+		do {
+
+			while (time_before(jiffies, timeout)) {
+				status = mci_readl(host, STATUS);
+				if (!(status & SDMMC_STATUS_BUSY))
+					goto out;
+			}
+			dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
+			timeout = jiffies + msecs_to_jiffies(10);
+		} while (--retry);
+	}
+out:
+
 	/* After a CTRL reset we need to have CIU set clock registers  */
-	mci_send_cmd(host->cur_slot, SDMMC_CMD_UPD_CLK, 0);
+		mci_send_cmd(slot, SDMMC_CMD_UPD_CLK |
+			SDMMC_CMD_PRV_DAT_WAIT, 0);
 
 	return ret;
 }
