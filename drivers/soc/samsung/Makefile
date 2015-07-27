@@ -12,4 +12,4 @@ obj-$(CONFIG_EXYNOS_CHIPID)	+= exynos-chipid.o
 obj-$(CONFIG_EXYNOS_REBOOT)	+= exynos-reboot.o
 obj-$(CONFIG_PM_RUNTIME)        += pm_domains/
 
-obj-$(CONFIG_AP_PARAM)		+= ap_param_parser.o
+obj-$(CONFIG_ECT)		+= ect_parser.o

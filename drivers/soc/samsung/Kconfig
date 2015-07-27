@@ -28,14 +28,14 @@ config SAMSUNG_CORE_TEST
 	help
 	  Show system-control registers.
 
-config AP_PARAM
-	bool "Enable AP Parameter File"
+config ECT
+	bool "Enable Exynos Characteristic Table File"
 	default n
 	depends on ARCH_EXYNOS
 
-config AP_PARAM_DUMP
-	bool "Enable AP Parameter File Dump sysfs"
+config ECT_DUMP
+	bool "Enable Exynos Characteristic Table File Dump sysfs"
 	default n
-	depends on AP_PARAM
+	depends on ECT
 
 endif #SOC_SAMSUNG
