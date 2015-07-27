@@ -177,7 +177,6 @@ enum sysmmu_property {
 enum sysmmu_clock_ids {
 	SYSMMU_ACLK,
 	SYSMMU_PCLK,
-	SYSMMU_MASTER,
 	SYSMMU_CLK_NUM,
 };
 
@@ -288,19 +287,6 @@ static inline void __sysmmu_clk_disable(struct sysmmu_drvdata *data)
 	if (!IS_ERR(data->clocks[SYSMMU_PCLK]))
 		clk_disable(data->clocks[SYSMMU_PCLK]);
 }
-
-static inline void __master_clk_enable(struct sysmmu_drvdata *data)
-{
-	if (!IS_ERR(data->clocks[SYSMMU_MASTER]))
-		clk_enable(data->clocks[SYSMMU_MASTER]);
-}
-
-static inline void __master_clk_disable(struct sysmmu_drvdata *data)
-{
-	if (!IS_ERR(data->clocks[SYSMMU_MASTER]))
-		clk_disable(data->clocks[SYSMMU_MASTER]);
-}
-
 
 static inline bool get_sysmmu_runtime_active(struct sysmmu_drvdata *data)
 {

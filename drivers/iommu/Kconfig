@@ -197,19 +197,6 @@ config EXYNOS_IOVMM_V6
 	  and managing the allocated virtual memory regions.
 	  This config supports SYSMMU V6 version.
 
-config EXYNOS_IOMMU_NO_MASTER_CLKGATE
-	bool "Always enable master's clock when System MMU is enabled"
-	depends on EXYNOS_IOMMU || EXYNOS7_IOMMU || EXYNOS_IOMMU_V6
-	default y
-	help
-	  Exynos IOMMU driver gates master's clock when access to the MMIO of
-	  System MMU is required. However, if the master's device driver does
-	  not handle the master's gate clocks, Exynos IOMMU driver may disable
-	  the master's clock.
-	  Say Y if Exynos IOMMU driver always enable the master's gate clock
-	  if System MMU is enabled to guarantee that the master's clock is not
-	  gated by System MMU driver.
-
 config EXYNOS_IOMMU_EVENT_LOG
 	bool "Logging System MMU events in private uncached buffer"
 	depends on EXYNOS_IOMMU || EXYNOS_IOMMU_V6

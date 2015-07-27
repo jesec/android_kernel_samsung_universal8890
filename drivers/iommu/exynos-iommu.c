@@ -119,7 +119,7 @@ static char *sysmmu_fault_name[SYSMMU_FAULTS_NUM] = {
 	"UNKNOWN FAULT"
 };
 
-static char *sysmmu_clock_names[SYSMMU_CLK_NUM] = {"aclk", "pclk", "master"};
+static char *sysmmu_clock_names[SYSMMU_CLK_NUM] = {"aclk", "pclk"};
 
 static const char * const sysmmu_prop_opts[] = {
 	[SYSMMU_PROP_RESERVED]		= "Reserved",
@@ -791,12 +791,10 @@ void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
 				is_sysmmu_runtime_active(drvdata)) {
 			TRACE_LOG_DEV(drvdata->sysmmu,
 				"FLPD invalidation @ %#x\n", iova);
-			__master_clk_enable(drvdata);
 			__sysmmu_tlb_invalidate_flpdcache(
 					drvdata->sfrbase, iova);
 			SYSMMU_EVENT_LOG_FLPD_FLUSH(
 					SYSMMU_DRVDATA_TO_LOG(drvdata), iova);
-			__master_clk_disable(drvdata);
 		} else {
 			TRACE_LOG_DEV(drvdata->sysmmu,
 				"Skip FLPD invalidation @ %#x\n", iova);
@@ -822,11 +820,9 @@ static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova,
 				is_sysmmu_runtime_active(drvdata)) {
 			TRACE_LOG_DEV(drvdata->sysmmu,
 				"TLB invalidation @ %#x\n", iova);
-			__master_clk_enable(drvdata);
 			__sysmmu_tlb_invalidate_entry(drvdata->sfrbase, iova);
 			SYSMMU_EVENT_LOG_TLB_INV_VPN(
 					SYSMMU_DRVDATA_TO_LOG(drvdata), iova);
-			__master_clk_disable(drvdata);
 		} else {
 			TRACE_LOG_DEV(drvdata->sysmmu,
 				"Skip TLB invalidation @ %#x\n", iova);
@@ -863,11 +859,7 @@ void exynos_sysmmu_tlb_invalidate(struct iommu_domain *domain, dma_addr_t start,
 			TRACE_LOG_DEV(drvdata->sysmmu,
 				"TLB invalidation %#x@%#x\n", size, start);
 
-			__master_clk_enable(drvdata);
-
 			__sysmmu_tlb_invalidate(drvdata, start, size);
-
-			__master_clk_disable(drvdata);
 
 			spin_unlock(&drvdata->lock);
 		}
@@ -883,8 +875,6 @@ static inline void __sysmmu_disable_nocount(struct sysmmu_drvdata *drvdata)
 	__raw_sysmmu_disable(drvdata->sfrbase, disable);
 
 	__sysmmu_clk_disable(drvdata);
-	if (IS_ENABLED(CONFIG_EXYNOS_IOMMU_NO_MASTER_CLKGATE))
-		__master_clk_disable(drvdata);
 
 	SYSMMU_EVENT_LOG_DISABLE(SYSMMU_DRVDATA_TO_LOG(drvdata));
 
@@ -904,11 +894,8 @@ static bool __sysmmu_disable(struct sysmmu_drvdata *drvdata)
 		drvdata->pgtable = 0;
 		drvdata->domain = NULL;
 
-		if (is_sysmmu_runtime_active(drvdata)) {
-			__master_clk_enable(drvdata);
+		if (is_sysmmu_runtime_active(drvdata))
 			__sysmmu_disable_nocount(drvdata);
-			__master_clk_disable(drvdata);
-		}
 
 		TRACE_LOG_DEV(drvdata->sysmmu, "Disabled\n");
 	} else  {
@@ -923,9 +910,6 @@ static bool __sysmmu_disable(struct sysmmu_drvdata *drvdata)
 
 static void __sysmmu_enable_nocount(struct sysmmu_drvdata *drvdata)
 {
-	if (IS_ENABLED(CONFIG_EXYNOS_IOMMU_NO_MASTER_CLKGATE))
-		__master_clk_enable(drvdata);
-
 	__sysmmu_clk_enable(drvdata);
 
 	__sysmmu_init_config(drvdata);
@@ -950,11 +934,8 @@ static int __sysmmu_enable(struct sysmmu_drvdata *drvdata,
 		drvdata->pgtable = pgtable;
 		drvdata->domain = domain;
 
-		if (is_sysmmu_runtime_active(drvdata)) {
-			__master_clk_enable(drvdata);
+		if (is_sysmmu_runtime_active(drvdata))
 			__sysmmu_enable_nocount(drvdata);
-			__master_clk_disable(drvdata);
-		}
 
 		TRACE_LOG_DEV(drvdata->sysmmu, "Enabled\n");
 	} else {
@@ -1139,15 +1120,11 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 			continue;
 		}
 
-		__master_clk_enable(drvdata);
-
 		if (sysmmu_block(drvdata->sfrbase)) {
 			__exynos_sysmmu_set_prefbuf_by_region(
 					drvdata, dev, pb_reg, num_reg);
 			sysmmu_unblock(drvdata->sfrbase);
 		}
-
-		__master_clk_disable(drvdata);
 
 		spin_unlock(&drvdata->lock);
 	}
@@ -1181,15 +1158,11 @@ int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
 			continue;
 		}
 
-		__master_clk_enable(drvdata);
-
 		if (sysmmu_block(drvdata->sfrbase)) {
 			__exynos_sysmmu_set_prefbuf_axi_id(drvdata, dev,
 					inplanes, onplanes, ipoption, opoption);
 			sysmmu_unblock(drvdata->sfrbase);
 		}
-
-		__master_clk_disable(drvdata);
 
 		spin_unlock(&drvdata->lock);
 	}
@@ -1225,10 +1198,8 @@ int sysmmu_set_prefetch_buffer_property(struct device *dev,
 			continue;
 		}
 
-		__master_clk_enable(drvdata);
 		__exynos_sysmmu_set_prefbuf_property(drvdata, dev,
 				inplanes, onplanes, ipoption, opoption);
-		__master_clk_disable(drvdata);
 
 		spin_unlock(&drvdata->lock);
 	}
@@ -2926,14 +2897,11 @@ void exynos_sysmmu_show_status(struct device *dev)
 
 		pr_info("DUMPING SYSTEM MMU: %s\n", dev_name(drvdata->sysmmu));
 
-		__master_clk_enable(drvdata);
 		if (sysmmu_block(drvdata->sfrbase))
 			dump_sysmmu_tlb_pb(drvdata->sfrbase);
 		else
 			pr_err("!!Failed to block Sytem MMU!\n");
 		sysmmu_unblock(drvdata->sfrbase);
-
-		__master_clk_disable(drvdata);
 	}
 }
 
@@ -3001,13 +2969,12 @@ void exynos_sysmmu_show_ppc_event(struct device *dev)
 			continue;
 		}
 
-		__master_clk_enable(drvdata);
 		if (sysmmu_block(drvdata->sfrbase))
 			dump_sysmmu_ppc_cnt(drvdata);
 		else
 			pr_err("!!Failed to block Sytem MMU!\n");
+
 		sysmmu_unblock(drvdata->sfrbase);
-		__master_clk_disable(drvdata);
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
 }
@@ -3028,7 +2995,6 @@ void exynos_sysmmu_clear_ppc_event(struct device *dev)
 			continue;
 		}
 
-		__master_clk_enable(drvdata);
 		if (sysmmu_block(drvdata->sfrbase)) {
 			dump_sysmmu_ppc_cnt(drvdata);
 			__raw_writel(0x2, drvdata->sfrbase + REG_PPC_PMNC);
@@ -3037,9 +3003,8 @@ void exynos_sysmmu_clear_ppc_event(struct device *dev)
 			drvdata->event_cnt = 0;
 		} else
 			pr_err("!!Failed to block Sytem MMU!\n");
-		sysmmu_unblock(drvdata->sfrbase);
-		__master_clk_disable(drvdata);
 
+		sysmmu_unblock(drvdata->sfrbase);
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
 }
@@ -3061,7 +3026,6 @@ int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
 			continue;
 		}
 
-		__master_clk_enable(drvdata);
 		if (sysmmu_block(drvdata->sfrbase)) {
 			if (drvdata->event_cnt < MAX_NUM_PPC) {
 				ret = sysmmu_set_ppc_event(drvdata, event);
@@ -3073,9 +3037,8 @@ int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
 			}
 		} else
 			pr_err("!!Failed to block Sytem MMU!\n");
-		sysmmu_unblock(drvdata->sfrbase);
-		__master_clk_disable(drvdata);
 
+		sysmmu_unblock(drvdata->sfrbase);
 		spin_unlock_irqrestore(&drvdata->lock, flags);
 	}
 
