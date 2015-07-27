@@ -600,9 +600,19 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 			asv_entry->voltage = kzalloc(sizeof(unsigned int) * domain->num_of_group, GFP_KERNEL);
 
 			for (k = 0; k < domain->num_of_group; ++k) {
-				asv_entry->voltage[k] = table->voltages[j * domain->num_of_group + k];
-				if (margin_domain != NULL)
-					asv_entry->voltage[k] += margin_domain->offset[j * margin_domain->num_of_group + k];
+				if (table->voltages != NULL)
+					asv_entry->voltage[k] = table->voltages[j * domain->num_of_group + k];
+				else if (table->voltages_step != NULL)
+					asv_entry->voltage[k] = table->voltages_step[j * domain->num_of_group + k]
+									* table->volt_step;
+
+				if (margin_domain != NULL) {
+					if (margin_domain->offset != NULL)
+						asv_entry->voltage[k] += margin_domain->offset[j * margin_domain->num_of_group + k];
+					else
+						asv_entry->voltage[k] += margin_domain->offset_compact[j * margin_domain->num_of_group + k]
+										* margin_domain->volt_step;
+				}
 			}
 		}
 	}
@@ -643,8 +653,12 @@ static void asv_rcc_init_table(struct asv_table_list **rcc_table, struct pwrcal_
 			rcc_entry->index = domain->level_list[j];
 			rcc_entry->voltage = kzalloc(sizeof(unsigned int) * domain->num_of_group, GFP_KERNEL);
 
-			for (k = 0; k < domain->num_of_group; ++k)
-				rcc_entry->voltage[k] = table->rcc[j * domain->num_of_group + k];
+			for (k = 0; k < domain->num_of_group; ++k) {
+				if (table->rcc != NULL)
+					rcc_entry->voltage[k] = table->rcc[j * domain->num_of_group + k];
+				else
+					rcc_entry->voltage[k] = table->rcc_compact[j * domain->num_of_group + k];
+			}
 		}
 	}
 }
