@@ -23,6 +23,7 @@
 #define wait_condition(x, c) (x->int_cond &&		\
 		(R2H_BIT(x->int_type) & r2h_bits(c)))
 #define is_err_cond(x)	((x->int_cond) && (x->int_type == S5P_FIMV_R2H_CMD_ERR_RET))
+
 int s5p_mfc_wait_for_done_dev(struct s5p_mfc_dev *dev, int command)
 {
 	int ret;

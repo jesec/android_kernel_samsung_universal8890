@@ -17,40 +17,8 @@
 
 #include "s5p_mfc_common.h"
 
-#define MFC_CTRL_MODE_CUSTOM	MFC_CTRL_MODE_SFR
-
-int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx);
-int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx,
-		dma_addr_t buf_addr,
-		unsigned int start_num_byte,
-		unsigned int buf_size);
-
-void s5p_mfc_set_enc_frame_buffer(struct s5p_mfc_ctx *ctx,
-		dma_addr_t addr[], int num_planes);
-int s5p_mfc_set_enc_stream_buffer(struct s5p_mfc_ctx *ctx,
-		dma_addr_t addr, unsigned int size);
-void s5p_mfc_get_enc_frame_buffer(struct s5p_mfc_ctx *ctx,
-		dma_addr_t addr[], int num_planes);
-int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *mfc_ctx);
-
 int s5p_mfc_decode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame);
 int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame);
-
-/* Memory allocation */
-int s5p_mfc_alloc_dec_temp_buffers(struct s5p_mfc_ctx *ctx);
-void s5p_mfc_set_dec_desc_buffer(struct s5p_mfc_ctx *ctx);
-void s5p_mfc_release_dec_desc_buffer(struct s5p_mfc_ctx *ctx);
-
-int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx);
-void s5p_mfc_release_codec_buffers(struct s5p_mfc_ctx *ctx);
-
-int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx);
-void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx);
-int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev);
-void s5p_mfc_release_dev_context_buffer(struct s5p_mfc_dev *dev);
-
-void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx);
-void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx);
 
 void s5p_mfc_try_run(struct s5p_mfc_dev *dev);
 void s5p_mfc_cleanup_timeout_and_try_run(struct s5p_mfc_ctx *ctx);

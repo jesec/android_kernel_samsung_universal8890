@@ -16,7 +16,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
 
-#include "s5p_mfc_pm.h"
+#include "s5p_mfc_qos.h"
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 enum {

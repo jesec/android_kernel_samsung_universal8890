@@ -44,8 +44,10 @@
 #include "s5p_mfc_dec.h"
 #include "s5p_mfc_enc.h"
 #include "s5p_mfc_pm.h"
-#include "s5p_mfc_opr_v10.h"
+#include "s5p_mfc_qos.h"
 #include "s5p_mfc_cmd.h"
+#include "s5p_mfc_opr_v10.h"
+#include "s5p_mfc_buf.h"
 
 #define S5P_MFC_NAME		"s5p-mfc"
 #define S5P_MFC_DEC_NAME	"s5p-mfc-dec"

@@ -570,6 +570,8 @@ enum s5p_mfc_ctrl_mode {
 	MFC_CTRL_MODE_CST	= 0x4,
 };
 
+#define MFC_CTRL_MODE_CUSTOM	MFC_CTRL_MODE_SFR
+
 struct s5p_mfc_buf_ctrl;
 
 struct s5p_mfc_ctrl_cfg {

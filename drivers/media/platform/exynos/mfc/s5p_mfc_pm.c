@@ -10,16 +10,9 @@
  * (at your option) any later version.
  */
 
-#include <linux/err.h>
-#include <linux/clk.h>
-#include <linux/jiffies.h>
 #include <linux/pm_runtime.h>
-#include <linux/platform_device.h>
 #include <linux/clk.h>
-#include <linux/clk-private.h>
 #include <linux/smc.h>
-
-#include <soc/samsung/bts.h>
 
 #include "s5p_mfc_pm.h"
 

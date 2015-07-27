@@ -27,12 +27,4 @@ int s5p_mfc_power_off(struct s5p_mfc_dev *dev);
 int s5p_mfc_get_power_ref_cnt(struct s5p_mfc_dev *dev);
 int s5p_mfc_get_clk_ref_cnt(struct s5p_mfc_dev *dev);
 
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-void s5p_mfc_qos_on(struct s5p_mfc_ctx *ctx);
-void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx);
-#else
-#define s5p_mfc_qos_on(ctx)	do {} while (0)
-#define s5p_mfc_qos_off(ctx)	do {} while (0)
-#endif
-
 #endif /* __S5P_MFC_PM_H */
