@@ -101,6 +101,7 @@ struct exynos_adc {
 	struct clk		*sclk;
 	unsigned int		irq;
 	struct regulator	*vdd;
+	bool needs_adc_phy;
 
 	struct completion	completion;
 
@@ -112,7 +113,6 @@ struct exynos_adc {
 struct exynos_adc_data {
 	int num_channels;
 	bool needs_sclk;
-	bool needs_adc_phy;
 	u32 mask;
 
 	void (*init_hw)(struct exynos_adc *info);
@@ -186,7 +186,7 @@ static int exynos_adc_enable_access(struct exynos_adc *info)
 	int ret;
 
 	exynos_update_ip_idle_status(info->idle_ip_index, 0);
-	if (info->data->needs_adc_phy)
+	if (info->needs_adc_phy)
 		writel(1, info->enable_reg);
 
 	if (info->vdd) {
@@ -215,7 +215,7 @@ static void exynos_adc_disable_access(struct exynos_adc *info)
 	if (info->vdd)
 		regulator_disable(info->vdd);
 
-	if (info->data->needs_adc_phy)
+	if (info->needs_adc_phy)
 		writel(0, info->enable_reg);
 	exynos_update_ip_idle_status(info->idle_ip_index, 1);
 }
@@ -260,7 +260,6 @@ static void exynos_adc_v1_start_conv(struct exynos_adc *info,
 static const struct exynos_adc_data exynos_adc_v1_data = {
 	.num_channels	= MAX_ADC_V1_CHANNELS,
 	.mask		= ADC_DATX_MASK,	/* 12 bit ADC resolution */
-	.needs_adc_phy	= true,
 
 	.init_hw	= exynos_adc_v1_init_hw,
 	.exit_hw	= exynos_adc_v1_exit_hw,
@@ -395,7 +394,6 @@ static void exynos_adc_v2_start_conv(struct exynos_adc *info,
 static const struct exynos_adc_data exynos_adc_v2_data = {
 	.num_channels	= MAX_ADC_V2_CHANNELS,
 	.mask		= ADC_DATX_MASK, /* 12 bit ADC resolution */
-	.needs_adc_phy	= true,
 
 	.init_hw	= exynos_adc_v2_init_hw,
 	.exit_hw	= exynos_adc_v2_exit_hw,
@@ -407,7 +405,6 @@ static const struct exynos_adc_data exynos3250_adc_data = {
 	.num_channels	= MAX_EXYNOS3250_ADC_CHANNELS,
 	.mask		= ADC_DATX_MASK, /* 12 bit ADC resolution */
 	.needs_sclk	= true,
-	.needs_adc_phy	= true,
 
 	.init_hw	= exynos_adc_v2_init_hw,
 	.exit_hw	= exynos_adc_v2_exit_hw,
@@ -606,9 +603,9 @@ static int exynos_adc_probe(struct platform_device *pdev)
 	}
 
 	if (of_find_property(np, "samsung,adc-phy-control", NULL))
-		info->data->needs_adc_phy = true;
+		info->needs_adc_phy = true;
 	else
-		info->data->needs_adc_phy = false;
+		info->needs_adc_phy = false;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	info->regs = devm_ioremap_resource(&pdev->dev, mem);
@@ -616,7 +613,7 @@ static int exynos_adc_probe(struct platform_device *pdev)
 		return PTR_ERR(info->regs);
 
 
-	if (info->data->needs_adc_phy) {
+	if (info->needs_adc_phy) {
 		mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 		info->enable_reg = devm_ioremap_resource(&pdev->dev, mem);
 		if (IS_ERR(info->enable_reg))
