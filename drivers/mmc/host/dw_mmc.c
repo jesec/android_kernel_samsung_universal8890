@@ -146,6 +146,7 @@ static void dw_mci_biu_clk_dis(struct dw_mci *host)
 }
 
 static bool dw_mci_reset(struct dw_mci *host);
+static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset);
 
 #if defined(CONFIG_DEBUG_FS)
 static int dw_mci_req_show(struct seq_file *s, void *v)
@@ -270,6 +271,71 @@ err:
 
 static void mci_send_cmd(struct dw_mci_slot *slot, u32 cmd, u32 arg);
 
+u32 dw_mci_disable_interrupt(struct dw_mci *host, unsigned int *int_mask)
+{
+	u32 ctrl;
+
+	ctrl = mci_readl(host, CTRL);
+	ctrl &= ~(SDMMC_CTRL_INT_ENABLE);
+	mci_writel(host, CTRL, ctrl);
+
+	*int_mask = mci_readl(host, INTMASK);
+
+	mci_writel(host, INTMASK, 0);
+
+	return ctrl;
+}
+
+void dw_mci_enable_interrupt(struct dw_mci *host, unsigned int int_mask)
+{
+	unsigned int ctrl;
+	mci_writel(host, INTMASK, int_mask);
+
+	ctrl = mci_readl(host, CTRL);
+	mci_writel(host, CTRL, ctrl | SDMMC_CTRL_INT_ENABLE);
+}
+
+static void dw_mci_update_clock(struct dw_mci_slot *slot)
+{
+	struct dw_mci *host = slot->host;
+	unsigned long timeout;
+	int retry = 10;
+	unsigned int int_mask = 0;
+	unsigned int cmd_status = 0;
+
+	atomic_inc_return(&slot->host->ciu_en_win);
+	dw_mci_ciu_clk_en(slot->host, false);
+	atomic_dec_return(&slot->host->ciu_en_win);
+
+	dw_mci_disable_interrupt(host, &int_mask);
+
+	do {
+		wmb();
+		mci_writel(host, CMD, SDMMC_CMD_START | SDMMC_CMD_UPD_CLK);
+
+		timeout = jiffies + msecs_to_jiffies(1);
+		while (time_before(jiffies, timeout)) {
+			cmd_status = mci_readl(host, CMD) & SDMMC_CMD_START;
+			if (!cmd_status)
+				goto out;
+
+			if (mci_readl(host, RINTSTS) & SDMMC_INT_HLE) {
+				mci_writel(host, RINTSTS, SDMMC_INT_HLE);
+				break;
+				/* reset controller because a command is stuecked */
+			}
+		}
+
+		dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
+	} while (--retry);
+
+	dev_err(&slot->mmc->class_dev,
+			"Timeout updating command (status %#x)\n", cmd_status);
+out:
+	/* recover interrupt mask after updating clock */
+	dw_mci_enable_interrupt(host, int_mask);
+}
+
 static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 {
 	struct mmc_data	*data;
@@ -314,8 +380,7 @@ static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 		clk_en_a = mci_readl(host, CLKENA);
 		clk_en_a &= ~(SDMMC_CLKEN_LOW_PWR << slot->id);
 		mci_writel(host, CLKENA, clk_en_a);
-		mci_send_cmd(slot, SDMMC_CMD_UPD_CLK |
-			     SDMMC_CMD_PRV_DAT_WAIT, 0);
+		dw_mci_update_clock(slot);
 	}
 
 	if (cmd->flags & MMC_RSP_PRESENT) {
@@ -957,13 +1022,13 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 		mci_writel(host, CLKSRC, 0);
 
 		/* inform CIU */
-		mci_send_cmd(slot, sdmmc_cmd_bits, 0);
+		dw_mci_update_clock(slot);
 
 		/* set clock to desired speed */
 		mci_writel(host, CLKDIV, div);
 
 		/* inform CIU */
-		mci_send_cmd(slot, sdmmc_cmd_bits, 0);
+		dw_mci_update_clock(slot);
 
 		/* enable clock; only low power if no SDIO */
 		clk_en_a = SDMMC_CLKEN_ENABLE << slot->id;
@@ -972,7 +1037,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 		mci_writel(host, CLKENA, clk_en_a);
 
 		/* inform CIU */
-		mci_send_cmd(slot, sdmmc_cmd_bits, 0);
+		dw_mci_update_clock(slot);
 
 		/* keep the clock with reflecting clock dividor */
 		slot->__clk_old = clock << div;
@@ -1311,8 +1376,7 @@ static void dw_mci_disable_low_power(struct dw_mci_slot *slot)
 
 	if (clk_en_a & clken_low_pwr) {
 		mci_writel(host, CLKENA, clk_en_a & ~clken_low_pwr);
-		mci_send_cmd(slot, SDMMC_CMD_UPD_CLK |
-			     SDMMC_CMD_PRV_DAT_WAIT, 0);
+		dw_mci_update_clock(slot);
 	}
 }
 
@@ -2590,18 +2654,11 @@ static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(500);
 	u32 ctrl;
-	u32 clksel_saved = 0x0;
+	unsigned int int_mask = 0;
 
 	/* Interrupt disable */
-	ctrl = mci_readl(host, CTRL);
-	ctrl &= ~(SDMMC_CTRL_INT_ENABLE);
-	mci_writel(host, CTRL, ctrl);
+	ctrl = dw_mci_disable_interrupt(host, &int_mask);
 
-	/* set Rx timing to 0 */
-	clksel_saved = mci_readl(host, CLKSEL);
-	mci_writel(host, CLKSEL, clksel_saved & ~(0x3 << 6 | 0x7));
-
-	ctrl = mci_readl(host, CTRL);
 	ctrl |= reset;
 	mci_writel(host, CTRL, ctrl);
 
@@ -2609,28 +2666,17 @@ static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset)
 	mci_writel(host, RINTSTS, 0xFFFFFFFF);
 
 	/* Interrupt enable */
-	ctrl |= SDMMC_CTRL_INT_ENABLE;
-	mci_writel(host, CTRL, ctrl);
+	dw_mci_enable_interrupt(host, int_mask);
 
 	/* wait till resets clear */
 	do {
-		ctrl = mci_readl(host, CTRL);
-		if (!(ctrl & reset))
-			break;
+		if (!(mci_readl(host, CTRL) & reset))
+			return true;
 	} while (time_before(jiffies, timeout));
 
-	/* restore Rx timing */
-	mci_writel(host, CLKSEL, clksel_saved);
+	dev_err(host->dev, "Timeout resetting block (ctrl %#x)\n", ctrl);
 
-	if (!(ctrl & reset))
-		return true;
-	else {
-		dev_err(host->dev,
-			"Timeout resetting block (ctrl reset %#x)\n",
-			ctrl & reset);
-
-		return false;
-	}
+	return false;
 }
 
 static bool dw_mci_reset(struct dw_mci *host)
@@ -2725,9 +2771,7 @@ ciu_out:
 out:
 
 	/* After a CTRL reset we need to have CIU set clock registers  */
-		mci_send_cmd(slot, SDMMC_CMD_UPD_CLK |
-			SDMMC_CMD_PRV_DAT_WAIT, 0);
-
+		dw_mci_update_clock(slot);
 	return ret;
 }
 

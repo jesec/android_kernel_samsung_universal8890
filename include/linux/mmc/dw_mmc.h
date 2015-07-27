@@ -176,6 +176,8 @@ struct dw_mci {
 	struct clk		*ciu_clk;
 	atomic_t		biu_clk_cnt;
 	atomic_t		ciu_clk_cnt;
+	atomic_t		biu_en_win;
+	atomic_t		ciu_en_win;
 	struct dw_mci_slot	*slot[MAX_MCI_SLOTS];
 
 	/* FIFO push and pull */
