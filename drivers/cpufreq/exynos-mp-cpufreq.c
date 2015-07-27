@@ -42,7 +42,7 @@
 #include <soc/samsung/exynos-powermode.h>
 #include <soc/samsung/asv-exynos.h>
 #include <soc/samsung/tmu.h>
-#include <soc/samsung/ap_param_parser.h>
+#include <soc/samsung/ect_parser.h>
 
 #define POWER_COEFF_15P		68 /* percore param */
 #define POWER_COEFF_7P		10 /* percore  param */
@@ -2079,18 +2079,18 @@ static struct platform_device_id exynos_mp_cpufreq_driver_ids[] = {
 };
 MODULE_DEVICE_TABLE(platform, exynos_mp_cpufreq_driver_ids);
 
-#if defined(CONFIG_AP_PARAM)
+#if defined(CONFIG_ECT)
 static void exynos_mp_cpufreq_parse_minlock(char *cluster_name, unsigned int frequency, unsigned int *mif_freq)
 {
 	int i;
 	void *cpumif_block;
-	struct ap_param_minlock_domain *domain;
+	struct ect_minlock_domain *domain;
 
-	cpumif_block = ap_param_get_block(BLOCK_MINLOCK);
+	cpumif_block = ect_get_block(BLOCK_MINLOCK);
 	if (cpumif_block == NULL)
 		return;
 
-	domain = ap_param_minlock_get_domain(cpumif_block, cluster_name);
+	domain = ect_minlock_get_domain(cpumif_block, cluster_name);
 	if (domain == NULL)
 		return;
 
@@ -2109,13 +2109,13 @@ static int exynos_mp_cpufreq_parse_frequency(char *cluster_name, struct exynos_d
 {
 	int i;
 	void *dvfs_block;
-	struct ap_param_dvfs_domain *domain;
+	struct ect_dvfs_domain *domain;
 
-	dvfs_block = ap_param_get_block(BLOCK_DVFS);
+	dvfs_block = ect_get_block(BLOCK_DVFS);
 	if (dvfs_block == NULL)
 		return -ENODEV;
 
-	domain = ap_param_dvfs_get_domain(dvfs_block, cluster_name);
+	domain = ect_dvfs_get_domain(dvfs_block, cluster_name);
 	if (domain == NULL)
 		return -ENODEV;
 
@@ -2160,7 +2160,7 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 	const char *cluster_domain_name;
 	char *cluster_name;
 	int ret;
-	int not_using_ap_param = true;
+	int not_using_ect = true;
 
 	if (!np) {
 		pr_info("%s: cpufreq_dt is not existed. \n", __func__);
@@ -2207,10 +2207,10 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 				&cluster_domain_name))
 		return -ENODEV;
 
-#if defined(CONFIG_AP_PARAM)
-	not_using_ap_param = exynos_mp_cpufreq_parse_frequency((char *)cluster_domain_name, ptr);
+#if defined(CONFIG_ECT)
+	not_using_ect = exynos_mp_cpufreq_parse_frequency((char *)cluster_domain_name, ptr);
 #endif
-	if (not_using_ap_param) {
+	if (not_using_ect) {
 		/* memory alloc for table */
 		ptr->freq_table = kzalloc(sizeof(struct cpufreq_frequency_table)
 				* (ptr->max_idx_num + 1), GFP_KERNEL);
