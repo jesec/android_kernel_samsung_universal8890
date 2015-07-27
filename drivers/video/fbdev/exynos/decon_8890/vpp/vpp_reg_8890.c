@@ -269,6 +269,11 @@ void vpp_reg_set_v_coef(u32 id, u32 v_ratio)
 int vpp_reg_set_rotation(u32 id, struct vpp_size_param *p)
 {
 	vpp_write_mask(id, VG_IN_CON, p->rot << 8, VG_IN_CON_IN_ROTATION_MASK);
+	if (p->rot > 0)
+		vpp_write_mask(id, VG_IN_CON, VG_IN_CON_IN_IC_MAX, VG_IN_CON_IN_IC_MAX);
+	else
+		vpp_write_mask(id, VG_IN_CON, VG_IN_CON_IN_IC_MAX_DEFAULT, VG_IN_CON_IN_IC_MAX);
+
 	return 0;
 }
 
