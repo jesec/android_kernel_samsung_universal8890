@@ -38,8 +38,8 @@
 #include <soc/samsung/exynos-pm.h>
 #include <soc/samsung/cpufreq.h>
 
-#if defined(CONFIG_AP_PARAM)
-#include <soc/samsung/ap_param_parser.h>
+#if defined(CONFIG_ECT)
+#include <soc/samsung/ect_parser.h>
 #endif
 
 #include "exynos_thermal_common.h"
@@ -994,25 +994,25 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 	return 0;
 }
 
-#if defined(CONFIG_AP_PARAM)
-static int exynos_tmu_ap_param_set_information(struct platform_device *pdev)
+#if defined(CONFIG_ECT)
+static int exynos_tmu_ect_set_information(struct platform_device *pdev)
 {
 	int i;
 	void *thermal_block;
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
 	struct exynos_tmu_platform_data *pdata = data->pdata;
-	struct ap_param_ap_thermal_function *function;
+	struct ect_ap_thermal_function *function;
 
 	if (pdata->tmu_name == NULL)
 		return 0;
 
-	thermal_block = ap_param_get_block(BLOCK_AP_THERMAL);
+	thermal_block = ect_get_block(BLOCK_AP_THERMAL);
 	if (thermal_block == NULL) {
 		dev_err(&pdev->dev, "Failed to get thermal block");
 		return 0;
 	}
 
-	function = ap_param_ap_thermal_get_function(thermal_block, pdata->tmu_name);
+	function = ect_ap_thermal_get_function(thermal_block, pdata->tmu_name);
 	if (function == NULL) {
 		dev_err(&pdev->dev, "Failed to get thermal block %s", pdata->tmu_name);
 		return 0;
@@ -1080,10 +1080,10 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-#if defined(CONFIG_AP_PARAM)
-	ret = exynos_tmu_ap_param_set_information(pdev);
+#if defined(CONFIG_ECT)
+	ret = exynos_tmu_ect_set_information(pdev);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to ap_param\n");
+		dev_err(&pdev->dev, "Failed to ect\n");
 		goto err;
 	}
 #endif
