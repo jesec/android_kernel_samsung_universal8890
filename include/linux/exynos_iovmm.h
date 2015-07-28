@@ -324,26 +324,6 @@ struct sysmmu_prefbuf {
 void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg);
 
-/*
- * sysmmu_set_qos() - change PTW_QOS of the System MMUs of the given device
- *
- * @dev: device descriptor of master device
- * @qos: QoS value of Page table walking in the range of 0 ~ 15
- *
- * The changed QoS value is kept until it is changed to other value or
- * reset to the default value with sysmmu_reset_qos().
- */
-void sysmmu_set_qos(struct device *dev, unsigned int qos);
-/*
- * sysmmu_reset_qos() - reset PTW_QOS of the System MMUs to the default value
- *
- * @dev: device descriptor of master device
- *
- * PTW_QOS value of the System MMUs of @dev is reset to the default value that
- * is defined in compile time or booting time.
- */
-void sysmmu_reset_qos(struct device *dev);
-
 void exynos_sysmmu_show_status(struct device *dev);
 void exynos_sysmmu_dump_pgtable(struct device *dev);
 
@@ -380,9 +360,6 @@ int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
 {
 	return -ENOSYS;
 }
-
-#define sysmmu_set_qos(dev, qos) do { } while (0)
-#define sysmmu_reset_qos(dev) do { } while (0)
 
 #define exynos_sysmmu_show_status(dev) do { } while (0)
 #define exynos_sysmmu_dump_pgtable(dev) do { } while (0)

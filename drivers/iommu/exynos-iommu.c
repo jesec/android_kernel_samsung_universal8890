@@ -1294,64 +1294,6 @@ int sysmmu_set_prefetch_buffer_property(struct device *dev,
 
 	return 0;
 }
-static void __sysmmu_set_ptwqos(struct sysmmu_drvdata *data)
-{
-	u32 cfg;
-
-	if (!sysmmu_block(data->sfrbase))
-		return;
-
-	cfg = __raw_readl(data->sfrbase + REG_MMU_CFG);
-	cfg &= ~CFG_QOS(15); /* clearing PTW_QOS field */
-
-	/*
-	 * PTW_QOS of System MMU 1.x ~ 3.x are all overridable
-	 * in __sysmmu_init_config()
-	 */
-	if (__raw_sysmmu_version(data->sfrbase) < MAKE_MMU_VER(5, 0))
-		cfg |= CFG_QOS(data->qos);
-	else if (!(data->qos < 0))
-		cfg |= CFG_QOS_OVRRIDE | CFG_QOS(data->qos);
-	else
-		cfg &= ~CFG_QOS_OVRRIDE;
-
-	__raw_writel(cfg, data->sfrbase + REG_MMU_CFG);
-	sysmmu_unblock(data->sfrbase);
-}
-
-static void __sysmmu_set_qos(struct device *dev, unsigned int qosval)
-{
-	struct exynos_iommu_owner *owner = dev->archdata.iommu;
-	struct sysmmu_list_data *list;
-	unsigned long flags;
-
-	spin_lock_irqsave(&owner->lock, flags);
-
-	for_each_sysmmu_list(dev, list) {
-		struct sysmmu_drvdata *data;
-		data = dev_get_drvdata(list->sysmmu);
-		spin_lock(&data->lock);
-		data->qos = qosval;
-		if (is_sysmmu_really_enabled(data)) {
-			__master_clk_enable(data);
-			__sysmmu_set_ptwqos(data);
-			__master_clk_disable(data);
-		}
-		spin_unlock(&data->lock);
-	}
-
-	spin_unlock_irqrestore(&owner->lock, flags);
-}
-
-void sysmmu_set_qos(struct device *dev, unsigned int qos)
-{
-	__sysmmu_set_qos(dev, (qos > 15) ? 15 : qos);
-}
-
-void sysmmu_reset_qos(struct device *dev)
-{
-	__sysmmu_set_qos(dev, DEFAULT_QOS_VALUE);
-}
 
 void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova)
 {
