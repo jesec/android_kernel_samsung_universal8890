@@ -723,18 +723,6 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 	atomic_notifier_call_chain(&drvdata->fault_notifiers, addr, &flags);
 
-#if 0 /* Recovering System MMU fault is available from System MMU v6 */
-	if ((ret == 0) &&
-		((itype == SYSMMU_FAULT_PAGE_FAULT) ||
-		 (itype == SYSMMU_FAULT_ACCESS))) {
-		if (flags & IOMMU_FAULT_WRITE)
-			itype += REG_INT_STATUS_WRITE_BIT;
-		__raw_writel(1 << itype, drvdata->sfrbase + REG_INT_CLEAR);
-
-		sysmmu_unblock(drvdata->sfrbase);
-	} else
-#endif
-
 	panic("Unrecoverable System MMU Fault!!");
 
 	return IRQ_HANDLED;
@@ -990,79 +978,6 @@ bool exynos_sysmmu_disable(struct device *dev)
 
 	return disabled;
 }
-
-#ifdef CONFIG_EXYNOS_IOMMU_RECOVER_FAULT_HANDLER
-int recover_fault_handler (struct iommu_domain *domain,
-				struct device *dev, unsigned long fault_addr,
-				int itype, void *reserved)
-{
-	struct exynos_iommu_domain *priv = domain->priv;
-	struct exynos_iommu_owner *owner;
-	unsigned long flags;
-
-	itype %= 16;
-
-	if (itype == SYSMMU_PAGEFAULT) {
-		struct exynos_iovmm *vmm_data;
-		sysmmu_pte_t *sent;
-		sysmmu_pte_t *pent;
-
-		BUG_ON(priv->pgtable == NULL);
-
-		sent = section_entry(priv->pgtable, fault_addr);
-		if (!lv1ent_page(sent)) {
-			pent = kmem_cache_zalloc(lv2table_kmem_cache,
-						 GFP_ATOMIC);
-			if (!pent)
-				return -ENOMEM;
-
-			*sent = mk_lv1ent_page(__pa(pent));
-			pgtable_flush(sent, sent + 1);
-		}
-		pent = page_entry(sent, fault_addr);
-		if (lv2ent_fault(pent)) {
-			*pent = mk_lv2ent_spage(fault_page);
-			pgtable_flush(pent, pent + 1);
-		} else {
-			pr_err("[%s] 0x%lx by '%s' is already mapped\n",
-				sysmmu_fault_name[itype], fault_addr,
-				dev_name(dev));
-		}
-
-		owner = dev->archdata.iommu;
-		vmm_data = (struct exynos_iovmm *)owner->vmm_data;
-		if (find_iovm_region(vmm_data, fault_addr)) {
-			pr_err("[%s] 0x%lx by '%s' is remapped\n",
-				sysmmu_fault_name[itype],
-				fault_addr, dev_name(dev));
-		} else {
-			pr_err("[%s] '%s' accessed unmapped address(0x%lx)\n",
-				sysmmu_fault_name[itype], dev_name(dev),
-				fault_addr);
-		}
-	} else if (itype == SYSMMU_L1TLB_MULTIHIT) {
-		spin_lock_irqsave(&priv->lock, flags);
-		list_for_each_entry(owner, &priv->clients, client)
-			sysmmu_tlb_invalidate_entry(owner->dev,
-						(dma_addr_t)fault_addr, true);
-		spin_unlock_irqrestore(&priv->lock, flags);
-
-		pr_err("[%s] occured at 0x%lx by '%s'\n",
-			sysmmu_fault_name[itype], fault_addr, dev_name(dev));
-	} else {
-		return -ENOSYS;
-	}
-
-	return 0;
-}
-#else
-int recover_fault_handler (struct iommu_domain *domain,
-				struct device *dev, unsigned long fault_addr,
-				int itype, void *reserved)
-{
-	return -ENOSYS;
-}
-#endif
 
 void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg)
@@ -1599,7 +1514,7 @@ static int exynos_iommu_domain_init(struct iommu_domain *domain)
 	INIT_LIST_HEAD(&priv->clients);
 
 	domain->priv = priv;
-	domain->handler = recover_fault_handler;
+
 	return 0;
 
 err_init_event_log:
