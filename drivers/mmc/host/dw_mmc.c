@@ -79,6 +79,17 @@ struct idmac_desc_64addr {
 
 	u32		des6;	/* Lower 32-bits of Next Descriptor Address */
 	u32		des7;	/* Upper 32-bits of Next Descriptor Address */
+#define IDMAC_64ADDR_SET_DESC_CLEAR(d) \
+do {			\
+	(d)->des1 = 0;	\
+	(d)->des2 = 0;	\
+	(d)->des3 = 0;	\
+} while(0)
+#define IDMAC_64ADDR_SET_DESC_ADDR(d, a) \
+do {			\
+	(d)->des6 = ((u32)(a) & 0xffffffff); \
+	(d)->des7 = ((u32)((a) >> 32));	\
+} while(0)
 };
 
 struct idmac_desc {
@@ -98,6 +109,10 @@ struct idmac_desc {
 	u32		des2;	/* buffer 1 physical address */
 
 	u32		des3;	/* buffer 2 physical address */
+#define IDMAC_SET_DESC_ADDR(d, a) \
+do {	\
+	(d)->des3 = (u32)(a);	\
+} while(0)
 };
 #endif /* CONFIG_MMC_DW_IDMAC */
 
@@ -468,6 +483,7 @@ static void dw_mci_stop_dma(struct dw_mci *host)
 	if (host->using_dma) {
 		host->dma_ops->stop(host);
 		host->dma_ops->cleanup(host);
+		host->dma_ops->reset(host);
 	}
 
 	/* Data transfer was stopped by the interrupt handler */
@@ -510,12 +526,25 @@ static void dw_mci_idmac_stop_dma(struct dw_mci *host)
 	/* Disable and reset the IDMAC interface */
 	temp = mci_readl(host, CTRL);
 	temp &= ~SDMMC_CTRL_USE_IDMAC;
-	temp |= SDMMC_CTRL_DMA_RESET;
 	mci_writel(host, CTRL, temp);
+
+	/* reset the IDMAC interface */
+	dw_mci_ctrl_reset(host, SDMMC_CTRL_DMA_RESET);
 
 	/* Stop the IDMAC running */
 	temp = mci_readl(host, BMOD);
 	temp &= ~(SDMMC_IDMAC_ENABLE | SDMMC_IDMAC_FB);
+	temp |= SDMMC_IDMAC_SWRESET;
+	mci_writel(host, BMOD, temp);
+
+}
+
+static void dw_mci_idma_reset_dma(struct dw_mci *host)
+{
+	u32 temp;
+
+	temp = mci_readl(host, BMOD);
+	/* Software reset of DMA */
 	temp |= SDMMC_IDMAC_SWRESET;
 	mci_writel(host, BMOD, temp);
 }
@@ -631,6 +660,7 @@ static void dw_mci_idmac_start_dma(struct dw_mci *host, unsigned int sg_len)
 static int dw_mci_idmac_init(struct dw_mci *host)
 {
 	int i;
+	dma_addr_t addr;
 
 	if (host->dma_64bit_address == true) {
 		struct idmac_desc_64addr *p;
@@ -640,22 +670,14 @@ static int dw_mci_idmac_init(struct dw_mci *host)
 		/* Forward link the descriptor list */
 		for (i = 0, p = host->sg_cpu; i < host->ring_size - 1;
 								i++, p++) {
-			p->des6 = (host->sg_dma +
-					(sizeof(struct idmac_desc_64addr) *
-							(i + 1))) & 0xffffffff;
-
-			p->des7 = (u64)(host->sg_dma +
-					(sizeof(struct idmac_desc_64addr) *
-							(i + 1))) >> 32;
-			/* Initialize reserved and buffer size fields to "0" */
-			p->des1 = 0;
-			p->des2 = 0;
-			p->des3 = 0;
+			addr = host->sg_dma + (sizeof(struct idmac_desc_64addr) *
+					(i + 1));
+			IDMAC_64ADDR_SET_DESC_ADDR(p,addr);
+			IDMAC_64ADDR_SET_DESC_CLEAR(p);
 		}
 
 		/* Set the last descriptor as the end-of-ring descriptor */
-		p->des6 = host->sg_dma & 0xffffffff;
-		p->des7 = (u64)host->sg_dma >> 32;
+		IDMAC_64ADDR_SET_DESC_ADDR(p, host->sg_dma);
 		p->des0 = IDMAC_DES0_ER;
 
 	} else {
@@ -664,12 +686,14 @@ static int dw_mci_idmac_init(struct dw_mci *host)
 		host->ring_size = PAGE_SIZE / sizeof(struct idmac_desc);
 
 		/* Forward link the descriptor list */
-		for (i = 0, p = host->sg_cpu; i < host->ring_size - 1; i++, p++)
-			p->des3 = host->sg_dma + (sizeof(struct idmac_desc) *
+		for (i = 0, p = host->sg_cpu; i < host->ring_size - 1; i++, p++) {
+			addr = host->sg_dma + (sizeof(struct idmac_desc) *
 								(i + 1));
+			IDMAC_SET_DESC_ADDR(p, addr);
+		}
 
 		/* Set the last descriptor as the end-of-ring descriptor */
-		p->des3 = host->sg_dma;
+		IDMAC_SET_DESC_ADDR(p, host->sg_dma);
 		p->des0 = IDMAC_DES0_ER;
 	}
 
@@ -702,6 +726,7 @@ static const struct dw_mci_dma_ops dw_mci_idmac_ops = {
 	.init = dw_mci_idmac_init,
 	.start = dw_mci_idmac_start_dma,
 	.stop = dw_mci_idmac_stop_dma,
+	.reset = dw_mci_idma_reset_dma,
 	.complete = dw_mci_idmac_complete_dma,
 	.cleanup = dw_mci_dma_cleanup,
 };
@@ -712,7 +737,10 @@ static int dw_mci_pre_dma_transfer(struct dw_mci *host,
 				   bool next)
 {
 	struct scatterlist *sg;
+	struct dw_mci_slot *slot = host->cur_slot;
+	struct mmc_card *card = slot->mmc->card;
 	unsigned int i, sg_len;
+	unsigned int align_mask = 3;
 
 	if (!next && data->host_cookie)
 		return data->host_cookie;
@@ -730,6 +758,40 @@ static int dw_mci_pre_dma_transfer(struct dw_mci *host,
 
 	for_each_sg(data->sg, sg, data->sg_len, i) {
 		if (sg->offset & 3 || sg->length & 3)
+			return -EINVAL;
+	}
+
+	if (card && mmc_card_sdio(card)) {
+		unsigned int rxwmark_val = 0, txwmark_val = 0, msize_val = 0;
+
+		if (data->blksz >= (4 * (1 << host->data_shift))) {
+			msize_val = 1;
+			rxwmark_val = 3;
+			txwmark_val = 4;
+		} else {
+			msize_val = 0;
+			rxwmark_val = 1;
+			txwmark_val = host->fifo_depth / 2;
+		}
+
+		host->fifoth_val = ((msize_val << 28) | (rxwmark_val << 16) |
+				(txwmark_val << 0));
+		dev_dbg(host->dev,
+				"data->blksz: %d data->blocks %d Transfer Size %d  "
+				"msize_val : %d, rxwmark_val : %d host->fifoth_val: 0x%08x\n",
+				data->blksz, data->blocks, (data->blksz * data->blocks),
+				msize_val, rxwmark_val, host->fifoth_val);
+
+		mci_writel(host, FIFOTH, host->fifoth_val);
+
+		if (mmc_card_uhs(card)
+				&& card->host->caps & MMC_CAP_UHS_SDR104
+				&& data->flags & MMC_DATA_READ)
+			mci_writel(host, CDTHRCTL, data->blksz << 16 | 1);
+	}
+
+	for_each_sg(data->sg, sg, data->sg_len, i) {
+		if (sg->offset & align_mask || sg->length & align_mask)
 			return -EINVAL;
 	}
 
@@ -873,6 +935,11 @@ static int dw_mci_submit_data_dma(struct dw_mci *host, struct mmc_data *data)
 	if (!host->use_dma)
 		return -ENODEV;
 
+	if (host->use_dma && host->dma_ops->init && host->dma_ops->reset) {
+		host->dma_ops->init(host);
+		host->dma_ops->reset(host);
+	}
+
 	sg_len = dw_mci_pre_dma_transfer(host, data, 0);
 	if (sg_len < 0) {
 		host->dma_ops->stop(host);
@@ -900,6 +967,7 @@ static int dw_mci_submit_data_dma(struct dw_mci *host, struct mmc_data *data)
 	mci_writel(host, CTRL, temp);
 
 	/* Disable RX/TX IRQs, let DMA handle it */
+	mci_writel(host, RINTSTS, SDMMC_INT_TXDR | SDMMC_INT_RXDR);
 	temp = mci_readl(host, INTMASK);
 	temp  &= ~(SDMMC_INT_RXDR | SDMMC_INT_TXDR);
 	mci_writel(host, INTMASK, temp);
@@ -928,6 +996,10 @@ static void dw_mci_submit_data(struct dw_mci *host, struct mmc_data *data)
 
 	if (dw_mci_submit_data_dma(host, data)) {
 		int flags = SG_MITER_ATOMIC;
+
+		if (SDMMC_GET_FCNT(mci_readl(host, STATUS)))
+			dw_mci_ctrl_reset(host, SDMMC_CTRL_FIFO_RESET);
+
 		if (host->data->flags & MMC_DATA_READ)
 			flags |= SG_MITER_TO_SG;
 		else
@@ -2849,7 +2921,7 @@ int dw_mci_probe(struct dw_mci *host)
 {
 	const struct dw_mci_drv_data *drv_data = host->drv_data;
 	int width, i, ret = 0;
-	u32 fifo_size;
+	u32 fifo_size, msize, tx_wmark, rx_wmark;
 	int init_slots = 0;
 
 	if (!host->pdata) {
@@ -2985,9 +3057,45 @@ int dw_mci_probe(struct dw_mci *host)
 		fifo_size = host->pdata->fifo_depth;
 	}
 	host->fifo_depth = fifo_size;
-	host->fifoth_val =
-		SDMMC_SET_FIFOTH(0x2, fifo_size / 2 - 1, fifo_size / 2);
+
+	WARN_ON(fifo_size < 8);
+
+	/*
+	 *	HCON[9:7] -> H_DATA_WIDTH
+	 *	000 16 bits
+	 *	001 32 bits
+	 *	010 64 bits
+	 *
+	 *	FIFOTH[30:28] -> DW_DMA_Mutiple_Transaction_Size
+	 *	msize:
+	 *	000  1 transfers
+	 *	001  4
+	 *	010  8
+	 *	011  16
+	 *	100  32
+	 *	101  64
+	 *	110  128
+	 *	111  256
+	 *
+	 *	AHB Master can support 1/4/8/16 burst in DMA.
+	 *	So, Max support burst spec is 16 burst.
+	 *
+	 *	msize <= 011(16 burst)
+	 *	Transaction_Size = msize * H_DATA_WIDTH;
+	 *	rx_wmark = Transaction_Size - 1;
+	 *	tx_wmark = fifo_size - Transaction_Size;
+	 */
+	msize = host->data_shift;
+	msize &= 7;
+	rx_wmark = ((1 << (msize + 1)) - 1) & 0xfff;
+	tx_wmark = (fifo_size - (1 << (msize + 1))) & 0xfff;
+
+	host->fifoth_val = msize << SDMMC_FIFOTH_DMA_MULTI_TRANS_SIZE;
+	host->fifoth_val |= (rx_wmark << SDMMC_FIFOTH_RX_WMARK) | tx_wmark;
+
 	mci_writel(host, FIFOTH, host->fifoth_val);
+
+	dev_info(host->dev, "FIFOTH: 0x %08x", mci_readl(host, FIFOTH));
 
 	/* disable clock to CIU */
 	mci_writel(host, CLKENA, 0);
