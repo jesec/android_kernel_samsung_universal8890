@@ -45,6 +45,7 @@
 #include <soc/samsung/asv-exynos.h>
 #include <soc/samsung/exynos-pm.h>
 #include <soc/samsung/exynos-powermode.h>
+#include <soc/samsung/ect_parser.h>
 #include "../../soc/samsung/pwrcal/pwrcal.h"
 
 /* firmware file information */
@@ -63,6 +64,7 @@ static struct workqueue_struct *mailbox_wq;
 static struct cl_init_data cl_init;
 static struct class *mailbox_class;
 static struct debug_data tx, rx;
+static unsigned int firmware_load_mode;
 
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 u32 atl_voltage;
@@ -109,6 +111,65 @@ static inline struct samsung_mbox *to_samsung_mbox(struct mbox_chan *pchan)
 	return to_samsung_mchan(pchan)->smc;
 }
 
+#ifdef CONFIG_ECT
+int memcpy_integer(char *src1, char *src2, unsigned int size)
+{
+	int i, chunk_count, remain_count;
+	unsigned int *int_src1 = (unsigned int *)src1;
+	unsigned int *int_src2 = (unsigned int *)src2;
+
+	chunk_count = size / sizeof(int);
+	remain_count = size % sizeof(int);
+
+	for (i = 0; i < chunk_count; ++i) {
+		*int_src1 = *int_src2;
+		int_src1++;
+		int_src2++;
+	}
+
+	src1 += chunk_count * sizeof(int);
+	src2 += chunk_count * sizeof(int);
+
+	for (i = 0; i < remain_count; ++i) {
+		*src1 = *src2;
+		src1++;
+		src2++;
+	}
+
+	return 0;
+}
+
+int memcmp_integer(char *src1, char *src2, unsigned int size)
+{
+	int i, chunk_count, remain_count;
+	unsigned int *int_src1 = (unsigned int *)src1;
+	unsigned int *int_src2 = (unsigned int *)src2;
+
+	chunk_count = size / sizeof(int);
+	remain_count = size % sizeof(int);
+
+	for (i = 0; i < chunk_count; ++i) {
+		if (*int_src1 != *int_src2)
+			return *int_src1 - *int_src2;
+
+		int_src1++;
+		int_src2++;
+	}
+
+	src1 += chunk_count * sizeof(int);
+	src2 += chunk_count * sizeof(int);
+
+	for(i = 0; i < remain_count; ++i) {
+		if (*src1 != *src2)
+			return *src1 - *src2;
+		src1++;
+		src2++;
+	}
+
+	return 0;
+}
+#endif
+
 static void firmware_load(const char *firmware, int size)
 {
 	dram_checksum = csum_partial(firmware, size, 0);
@@ -121,18 +182,36 @@ static void firmware_load(const char *firmware, int size)
 static int firmware_update(struct device *dev)
 {
 	const struct firmware *fw_entry = NULL;
+#ifdef CONFIG_ECT
+	struct ect_bin *fw;
+	void *firmware;
+#endif
 	int err;
 
 	dev_info(dev, "Loading APM firmware ... ");
-	err = request_firmware(&fw_entry, firmware_file, dev);
-	if (err) {
-		dev_err(dev, "FAIL \n");
-		return err;
+
+#ifdef CONFIG_ECT
+	firmware = ect_get_block(BLOCK_BIN);
+	if (firmware) {
+		fw = ect_binary_get_bin(firmware, firmware_file);
+		if (fw)
+			firmware_load_mode = 1;
 	}
-
-	firmware_load(fw_entry->data, fw_entry->size);
-
-	release_firmware(fw_entry);
+#endif
+	if (firmware_load_mode) {
+		dram_checksum = csum_partial(fw->ptr, fw->binary_size, 0);
+		memcpy_integer(sram_base, fw->ptr, fw->binary_size);
+		pr_info("OK : Use ect func\n");
+	} else {
+		err = request_firmware(&fw_entry, firmware_file, dev);
+		if (err) {
+			dev_err(dev, "FAIL \n");
+			return err;
+		}
+		firmware_load(fw_entry->data, fw_entry->size);
+		release_firmware(fw_entry);
+		pr_info("OK : Use firmware f/w\n");
+	}
 
 	return 0;
 }
@@ -362,17 +441,26 @@ static void thread_mailbox_work(struct work_struct *work)
 {
 	const struct firmware *fw_entry = NULL;
 	unsigned int tmp, status, limit_cnt = 0;
-	int ret, err;
 	unsigned int sram_checksum = 0;
+	struct ect_bin *fw;
+	void *firmware;
+	int ret, err;
 
 	if (!apm_power_down) {
-		err = request_firmware(&fw_entry, firmware_file, NULL);
-		if (err) {
-			pr_err("mailbox : request firmware fail \n");
+		if (firmware_load_mode) {
+			firmware = ect_get_block(BLOCK_BIN);
+			fw = ect_binary_get_bin(firmware, firmware_file);
+			sram_checksum = csum_partial(sram_base, fw->binary_size, 0);
+			ret = memcmp_integer(sram_base, fw->ptr, fw->binary_size);
+		} else {
+			err = request_firmware(&fw_entry, firmware_file, NULL);
+			if (err) {
+				pr_err("mailbox : request firmware fail \n");
+			}
+			sram_checksum = csum_partial(sram_base, fw_entry->size, 0);
+			ret = memcmp(sram_base, fw_entry->data, fw_entry->size);
+			release_firmware(fw_entry);
 		}
-
-		sram_checksum = csum_partial(sram_base, fw_entry->size, 0);
-		ret = memcmp(sram_base, fw_entry->data, fw_entry->size);
 		if (ret) {
 			/* Cortex M3 compare error case */
 			sram_status = SRAM_UNSTABLE;
@@ -384,8 +472,6 @@ static void thread_mailbox_work(struct work_struct *work)
 		}
 		pr_info("mailbox : fw_checksum [%d], DRAM checksum [%d], sram checksum [%d] \n",
 								fw_checksum, dram_checksum, sram_checksum);
-
-		release_firmware(fw_entry);
 
 		/* This condition is lcd on */
 		/* Local power up to cortex M3 */
