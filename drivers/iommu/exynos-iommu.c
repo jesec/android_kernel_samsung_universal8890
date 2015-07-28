@@ -190,12 +190,6 @@ static bool has_sysmmu_l1_tlb(void __iomem *sfrbase)
 	return MMU_IS_TLB_FULL_ASSOCIATIVE(cfg);
 }
 
-void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova)
-{
-	if (has_sysmmu_capable_pbuf(sfrbase))
-		writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
-}
-
 void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova)
 {
 	writel(iova | 0x1, sfrbase + REG_MMU_FLUSH_ENTRY);
@@ -776,31 +770,6 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata)
 
 	cfg |= __raw_readl(drvdata->sfrbase + REG_MMU_CFG) & ~CFG_MASK;
 	__raw_writel(cfg, drvdata->sfrbase + REG_MMU_CFG);
-}
-
-void sysmmu_tlb_invalidate_flpdcache(struct device *dev, dma_addr_t iova)
-{
-	struct sysmmu_list_data *list;
-
-	for_each_sysmmu_list(dev, list) {
-		unsigned long flags;
-		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
-
-		spin_lock_irqsave(&drvdata->lock, flags);
-		if (is_sysmmu_active(drvdata) &&
-				is_sysmmu_runtime_active(drvdata)) {
-			TRACE_LOG_DEV(drvdata->sysmmu,
-				"FLPD invalidation @ %#x\n", iova);
-			__sysmmu_tlb_invalidate_flpdcache(
-					drvdata->sfrbase, iova);
-			SYSMMU_EVENT_LOG_FLPD_FLUSH(
-					SYSMMU_DRVDATA_TO_LOG(drvdata), iova);
-		} else {
-			TRACE_LOG_DEV(drvdata->sysmmu,
-				"Skip FLPD invalidation @ %#x\n", iova);
-		}
-		spin_unlock_irqrestore(&drvdata->lock, flags);
-	}
 }
 
 static void sysmmu_tlb_invalidate_entry(struct device *dev, dma_addr_t iova,

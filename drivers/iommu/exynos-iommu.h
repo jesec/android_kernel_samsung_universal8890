@@ -392,7 +392,6 @@ static inline sysmmu_pte_t *section_entry(
 }
 
 irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id);
-void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova);
 void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova);
 void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size);
