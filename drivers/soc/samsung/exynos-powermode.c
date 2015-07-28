@@ -68,13 +68,13 @@ static struct exynos_powermode_info *pm_info;
 #define PMU_IDLE_IP(x)			(PMU_IDLE_IP_BASE + (x * 0x4))
 #define PMU_IDLE_IP_MASK(x)		(PMU_IDLE_IP_MASK_BASE + (x * 0x4))
 
-static int exynos_check_idle_ip_stat(int mode, int index)
+static int exynos_check_idle_ip_stat(int mode, int reg_index)
 {
 	unsigned int val, mask;
 	int ret;
 
-	exynos_pmu_read(PMU_IDLE_IP(index), &val);
-	mask = pm_info->idle_ip_mask[mode][index];
+	exynos_pmu_read(PMU_IDLE_IP(reg_index), &val);
+	mask = pm_info->idle_ip_mask[mode][reg_index];
 
 	ret = (val & ~mask) == ~mask ? 0 : -EBUSY;
 
@@ -97,7 +97,7 @@ static int exynos_check_idle_ip_stat(int mode, int index)
 		 *--------------------------- (XOR)
 		 *           0 0 0 0 0 1 0 0
 		 */
-		cpuidle_profile_collect_idle_ip(mode, index, (val ^ ~mask));
+		cpuidle_profile_collect_idle_ip(mode, reg_index, (val ^ ~mask));
 	}
 
 	return ret;
@@ -111,27 +111,49 @@ static void exynos_set_idle_ip_mask(enum sys_powerdown mode)
 
 	spin_lock_irqsave(&idle_ip_mask_lock, flags);
 	for_each_idle_ip(i)
-		exynos_pmu_write(PMU_IDLE_IP_MASK(i), pm_info->idle_ip_mask[mode][i]);
+		exynos_pmu_write(PMU_IDLE_IP_MASK(i),
+				pm_info->idle_ip_mask[mode][i]);
 	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
 }
 
-static void idle_ip_unmask(int mode, int idle_ip, int index)
+static void idle_ip_unmask(int mode, int reg_index, int index)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&idle_ip_mask_lock, flags);
-	pm_info->idle_ip_mask[mode][idle_ip] &= ~(0x1 << index);
+	pm_info->idle_ip_mask[mode][reg_index] &= ~(0x1 << index);
 	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
 }
 
-static void exynos_create_idle_ip_mask(int idle_ip, int ip_index)
+/**
+ * There are 4 IDLE_IP registers in PMU, IDLE_IP therefore supports 128 index,
+ * 0 from 127. To access the IDLE_IP register, convert_idle_ip_index() converts
+ * idle_ip index to register index and bit in regster. For example, idle_ip index
+ * 33 converts to IDLE_IP1[1]. convert_idle_ip_index() returns register index
+ * and ships bit in register to *ip_index.
+ */
+static int convert_idle_ip_index(int *ip_index)
+{
+	int reg_index;
+
+	reg_index = *ip_index / IDLE_IP_REG_SIZE;
+	*ip_index = *ip_index % IDLE_IP_REG_SIZE;
+
+	return reg_index;
+}
+
+static void exynos_create_idle_ip_mask(int ip_index)
 {
 	struct device_node *root = of_find_node_by_path("/exynos-powermode/idle_ip_mask");
 	struct device_node *node;
 	char prop_ref_mask[20] = "ref-mask-idle-ip";
 	char buf[2];
+	int reg_index;
 
-	snprintf(buf, 2, "%d", idle_ip);
+	reg_index = convert_idle_ip_index(&ip_index);
+
+	/* Make string as ref-mask-idle-ipx (x = idle_ip register index) */
+	snprintf(buf, 2, "%d", reg_index);
 	strcat(prop_ref_mask, buf);
 
 	for_each_child_of_node(root, node) {
@@ -145,7 +167,7 @@ static void exynos_create_idle_ip_mask(int idle_ip, int ip_index)
 		if (val) {
 			ref_mask = be32_to_cpup(val);
 			if (ref_mask & (0x1 << ip_index))
-				idle_ip_unmask(mode, idle_ip, ip_index);
+				idle_ip_unmask(mode, reg_index, ip_index);
 		}
 	}
 }
@@ -153,53 +175,62 @@ static void exynos_create_idle_ip_mask(int idle_ip, int ip_index)
 int exynos_get_idle_ip_index(const char *ip_name)
 {
 	struct device_node *np = of_find_node_by_name(NULL, "exynos-powermode");
-	int ip_index, i;
+	int ip_index, fix_idle_ip;
+	int ret;
 
-	for_each_idle_ip(i) {
-		char prop_idle_ip[10] = "idle-ip";
-		char buf[2];
-
-		snprintf(buf, 2, "%d", i);
-		strcat(prop_idle_ip, buf);
-
-		ip_index = of_property_match_string(np, prop_idle_ip, ip_name);
-		if (ip_index >= 0) {
-			/**
-			 * If it successes to find IP in idle_ip list, we set
-			 * corresponding bit in idle_ip mask.
-			 */
-			exynos_create_idle_ip_mask(i, ip_index);
-			goto out;
+	fix_idle_ip = of_property_match_string(np, "fix-idle-ip", ip_name);
+	if (fix_idle_ip >= 0) {
+		ret = of_property_read_u32_index(np, "fix-idle-ip-index",
+						fix_idle_ip, &ip_index);
+		if (ret) {
+			pr_err("%s: Cannot get fix-idle-ip-index property\n", __func__);
+			return ret;
 		}
+
+		goto create_idle_ip;
 	}
 
-	pr_err("%s: Fail to find %s in idle-ip list with err %d\n",
+	ip_index = of_property_match_string(np, "idle-ip", ip_name);
+	if (ip_index < 0) {
+		pr_err("%s: Fail to find %s in idle-ip list with err %d\n",
 					__func__, ip_name, ip_index);
+		return ip_index;
+	}
 
-out:
+	if (ip_index > IDLE_IP_MAX_CONFIGURABLE_INDEX) {
+		pr_err("%s: %s index %d is out of range\n",
+					__func__, ip_name, ip_index);
+		return ip_index;
+	}
+
+create_idle_ip:
+	/**
+	 * If it successes to find IP in idle_ip list, we set
+	 * corresponding bit in idle_ip mask.
+	 */
+	exynos_create_idle_ip_mask(ip_index);
+
 	return ip_index;
 }
 
 static DEFINE_SPINLOCK(ip_idle_lock);
-void exynos_update_ip_idle_status(int index, int idle)
+void exynos_update_ip_idle_status(int ip_index, int idle)
 {
 	unsigned long flags;
+	int reg_index;
+
+	/*
+	 * If ip_index is not valid, it should not update IDLE_IP.
+	 */
+	if (ip_index < 0 || ip_index > IDLE_IP_MAX_CONFIGURABLE_INDEX)
+		return;
+
+	reg_index = convert_idle_ip_index(&ip_index);
 
 	spin_lock_irqsave(&ip_idle_lock, flags);
-	exynos_pmu_update(PMU_IDLE_IP(0), 1 << index, idle << index);
+	exynos_pmu_update(PMU_IDLE_IP(reg_index),
+				1 << ip_index, idle << ip_index);
 	spin_unlock_irqrestore(&ip_idle_lock, flags);
-
-	return;
-}
-
-static DEFINE_SPINLOCK(pd_idle_lock);
-void exynos_update_pd_idle_status(int index, int idle)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&pd_idle_lock, flags);
-	exynos_pmu_update(PMU_IDLE_IP(1), 1 << index, idle << index);
-	spin_unlock_irqrestore(&pd_idle_lock, flags);
 
 	return;
 }
@@ -207,22 +238,33 @@ void exynos_update_pd_idle_status(int index, int idle)
 void exynos_get_idle_ip_list(char *(*idle_ip_list)[IDLE_IP_REG_SIZE])
 {
 	struct device_node *np = of_find_node_by_name(NULL, "exynos-powermode");
-	int i, size, bit;
+	int size;
+	const char *list[IDLE_IP_MAX_CONFIGURABLE_INDEX];
+	int i, bit, reg_index;
 
-	for_each_idle_ip(i) {
-		char prop_idle_ip[10] = "idle-ip";
-		char buf[2];
-		const char *list[IDLE_IP_REG_SIZE];
+	size = of_property_count_strings(np, "idle-ip");
+	if (of_property_read_string_array(np, "idle-ip", list, size) < 0) {
+		pr_err("%s: Cannot find idle-ip property\n", __func__);
+		return;
+	}
 
-		snprintf(buf, 2, "%d", i);
-		strcat(prop_idle_ip, buf);
+	for (i = 0, bit = 0; i < size; i++, bit = i) {
+		reg_index = convert_idle_ip_index(&bit);
+		idle_ip_list[reg_index][bit] = (char *)list[i];
+	}
 
-		size = of_property_count_strings(np, prop_idle_ip);
-		if (of_property_read_string_array(np, prop_idle_ip, list, size) < 0)
-			continue;
+	/* IDLE_IP3[31:30] is for the exclusive use of pcie wifi */
+	size = of_property_count_strings(np, "fix-idle-ip");
+	if (of_property_read_string_array(np, "fix-idle-ip", list, size) < 0) {
+		pr_err("%s: Cannot find fix-idle-ip property\n", __func__);
+		return;
+	}
 
-		for (bit = 0; bit < IDLE_IP_REG_SIZE; bit++)
-			idle_ip_list[i][bit] = (char *)list[bit];
+	for (i = 0; i < size; i++) {
+		if (!of_property_read_u32_index(np, "fix-idle-ip-index", i, &bit)) {
+			reg_index = convert_idle_ip_index(&bit);
+			idle_ip_list[reg_index][bit] = (char *)list[i];
+		}
 	}
 }
 
@@ -587,8 +629,6 @@ void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
  */
 int determine_lpm(void)
 {
-	int index;
-
 	if (!exynos_check_cp_status())
 		return SYS_AFTR;
 

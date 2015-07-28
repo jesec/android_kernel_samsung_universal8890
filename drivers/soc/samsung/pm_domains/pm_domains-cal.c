@@ -33,7 +33,7 @@ static int exynos_pd_status(struct exynos_pm_domain *pd)
  */
 static void exynos_genpd_power_on_pre(struct exynos_pm_domain *pd)
 {
-	exynos_update_pd_idle_status(pd->idle_ip_index, 0);
+	exynos_update_ip_idle_status(pd->idle_ip_index, 0);
 
 	if (!strcmp("pd-cam0", pd->name))
 		exynos_devfreq_sync_voltage(DEVFREQ_CAM, true);
@@ -54,7 +54,7 @@ static void exynos_genpd_power_off_pre(struct exynos_pm_domain *pd)
 
 static void exynos_genpd_power_off_post(struct exynos_pm_domain *pd)
 {
-	exynos_update_pd_idle_status(pd->idle_ip_index, 1);
+	exynos_update_ip_idle_status(pd->idle_ip_index, 1);
 
 	if (!strcmp("pd-cam0", pd->name))
 		exynos_devfreq_sync_voltage(DEVFREQ_CAM, false);
