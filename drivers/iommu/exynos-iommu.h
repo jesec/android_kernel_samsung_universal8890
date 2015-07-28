@@ -270,8 +270,6 @@ extern const char *ppc_event_name[];
 #define PGSIZE_BITMAP (DSECT_SIZE | SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
 
 void __sysmmu_show_status(struct sysmmu_drvdata *drvdata);
-void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata, dma_addr_t iova);
-void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata);
 
 static inline void __sysmmu_clk_enable(struct sysmmu_drvdata *data)
 {

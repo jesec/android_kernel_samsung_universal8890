@@ -327,9 +327,6 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 void exynos_sysmmu_show_status(struct device *dev);
 void exynos_sysmmu_dump_pgtable(struct device *dev);
 
-void exynos_sysmmu_set_df(struct device *dev, dma_addr_t iova);
-void exynos_sysmmu_release_df(struct device *dev);
-
 #else
 static inline int exynos_sysmmu_enable(struct device *owner, unsigned long *pgd)
 {
@@ -364,8 +361,6 @@ int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
 #define exynos_sysmmu_show_status(dev) do { } while (0)
 #define exynos_sysmmu_dump_pgtable(dev) do { } while (0)
 
-#define exynos_sysmmu_set_df(dev, iova)	do { } while (0)
-#define exynos_sysmmu_release_df(dev)	do { } while (0)
 #define exynos_sysmmu_clear_ppc_event(dev) do { } while (0)
 #define exynos_sysmmu_show_ppc_event(dev) do { } while (0)
 #endif
