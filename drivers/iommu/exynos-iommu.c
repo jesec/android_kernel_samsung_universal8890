@@ -1101,46 +1101,6 @@ void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 	spin_unlock_irqrestore(&owner->lock, flags);
 }
 
-int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
-			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption[], unsigned int opoption[])
-{
-	struct exynos_iommu_owner *owner = dev->archdata.iommu;
-	struct sysmmu_list_data *list;
-	unsigned long flags;
-
-	if (!dev->archdata.iommu) {
-		dev_err(dev, "%s: No System MMU is configured\n", __func__);
-		return -EINVAL;
-	}
-
-	spin_lock_irqsave(&owner->lock, flags);
-
-	for_each_sysmmu_list(dev, list) {
-		struct sysmmu_drvdata *drvdata = dev_get_drvdata(list->sysmmu);
-
-		spin_lock(&drvdata->lock);
-
-		if (!is_sysmmu_active(drvdata) ||
-			!is_sysmmu_runtime_active(drvdata)) {
-			spin_unlock(&drvdata->lock);
-			continue;
-		}
-
-		if (sysmmu_block(drvdata->sfrbase)) {
-			__exynos_sysmmu_set_prefbuf_axi_id(drvdata, dev,
-					inplanes, onplanes, ipoption, opoption);
-			sysmmu_unblock(drvdata->sfrbase);
-		}
-
-		spin_unlock(&drvdata->lock);
-	}
-
-	spin_unlock_irqrestore(&owner->lock, flags);
-
-	return 0;
-}
-
 int sysmmu_set_prefetch_buffer_property(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption[], unsigned int opoption[])

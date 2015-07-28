@@ -189,28 +189,6 @@ void exynos_sysmmu_show_ppc_event(struct device *dev);
 					SYSMMU_PBUFCFG_PREFETCH |   \
 					SYSMMU_PBUFCFG_READ)
 
-/*
- * sysmmu_set_prefetch_buffer_by_plane() -
- *                               set prefetch buffer configuration by plane
- *
- * @dev: device descriptor of master device
- * @inplanes: number of input planes that uses prefetch buffers.
- * @onplanes: number of output planes that uses prefetch buffers.
- * @option_iplanes: prefetch buffer configurations to input planes.
- * @option_oplanes: prefetch buffer configurations to output planes.
- *
- * Returns 0 if setting is successful. -EINVAL if the argument is invalid.
- *
- * @inplanes and @onplanes must not exceed the values to exynos_create_iovmm().
- * The setting is reset if System MMU is reset.
- * The situation that System MMU is reset are:
- * - iovmm_deactivate()
- * - local power down due to suspend to ram, pm_rutime_put() or its equivalent.
- */
-int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
-			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption[], unsigned int opoption[]);
-
 int sysmmu_set_prefetch_buffer_property(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
 			unsigned int ipoption[], unsigned int opoption[]);
@@ -223,13 +201,6 @@ int sysmmu_set_prefetch_buffer_property(struct device *dev,
 #define iovmm_unmap_oto(dev, phys)	do { } while (0)
 #define exynos_create_iovmm(sysmmu, inplanes, onplanes) 0
 #define iovmm_set_fault_handler(dev, handler, token) do { } while (0)
-
-int sysmmu_set_prefetch_buffer_by_plane(struct device *dev,
-			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption[], unsigned int opoption[])
-{
-	return 0;
-}
 
 int sysmmu_set_prefetch_buffer_property(struct device *dev,
 			unsigned int inplanes, unsigned int onplanes,
