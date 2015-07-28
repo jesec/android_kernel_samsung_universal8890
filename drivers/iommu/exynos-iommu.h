@@ -122,11 +122,9 @@ struct exynos_iommu_owner {
 	void *vmm_data;         /* IO virtual memory manager's data */
 	spinlock_t lock;        /* Lock to preserve consistency of System MMU */
 	struct list_head mmu_list; /* head of sysmmu_list_data.node */
-#ifdef CONFIG_EXYNOS_IOMMU_V6
 	struct notifier_block nb;
 	iommu_fault_handler_t fault_handler;
 	void *token;
-#endif
 };
 
 struct exynos_vm_region {
@@ -206,9 +204,7 @@ struct sysmmu_drvdata {
 #ifdef CONFIG_EXYNOS_IOMMU_EVENT_LOG
 	struct exynos_iommu_event_log log;
 #endif
-#ifdef CONFIG_EXYNOS_IOMMU_V6
 	struct atomic_notifier_head fault_notifiers;
-#endif
 	unsigned char event_cnt;
 };
 
@@ -238,56 +234,6 @@ int sysmmu_set_ppc_event(struct sysmmu_drvdata *drvdata, int event);
 void dump_sysmmu_ppc_cnt(struct sysmmu_drvdata *drvdata);
 extern const char *ppc_event_name[];
 
-#if defined(CONFIG_EXYNOS7_IOMMU) && defined(CONFIG_EXYNOS5_IOMMU)
-#error "CONFIG_IOMMU_EXYNOS5 and CONFIG_IOMMU_EXYNOS7 defined together"
-#endif
-
-#if defined(CONFIG_EXYNOS5_IOMMU) /* System MMU v1/2/3 */
-
-#define REG_PPC_PMNC		0x800
-#define REG_PPC_CNTENS		0x810
-#define REG_PPC_CNTENC		0x820
-#define REG_PPC_INTENS		0x830
-#define REG_PPC_INTENC		0x840
-#define REG_PPC_FLAG		0x850
-#define REG_PPC_CCNT		0x900
-#define REG_PPC_PMCNT(x)	(0x910 + 0x10 * (x))
-#define REG_PPC_EVENT_SEL(offset, cnt)	((offset) + 0x4 * (cnt))
-
-#define SYSMMU_OF_COMPAT_STRING "samsung,exynos4210-sysmmu"
-#define DEFAULT_QOS_VALUE	8
-#define PG_ENT_SHIFT 0 /* 32bit PA, 32bit VA */
-#define lv1ent_fault(sent) ((*(sent) == ZERO_LV2LINK) || \
-			   ((*(sent) & 3) == 0) || ((*(sent) & 3) == 3))
-#define lv1ent_page(sent) ((*(sent) != ZERO_LV2LINK) && \
-			  ((*(sent) & 3) == 1))
-#define lv1ent_section(sent) ((*(sent) & 3) == 2)
-#define lv1ent_dsection(sent) 0 /* Large section is not defined */
-#define lv1ent_spsection(sent) (((*(sent) & 3) == 2) && \
-			       (((*(sent) >> 18) & 1) == 1))
-#define lv2ent_fault(pent) ((*(pent) & 3) == 0 || \
-			   ((*(pent) & SPAGE_ENT_MASK) == fault_page))
-#define lv2ent_small(pent) ((*(pent) & 2) == 2)
-#define lv2ent_large(pent) ((*(pent) & 3) == 1)
-#define dsection_phys(sent) ({ BUG(); 0; }) /* large section is not defined */
-#define dsection_offs(iova) ({ BUG(); 0; })
-#define mk_lv1ent_spsect(pa) ((sysmmu_pte_t) ((pa) | 0x40002))
-#define mk_lv1ent_dsect(pa) ({ BUG(); 0; })
-#define mk_lv1ent_sect(pa) ((sysmmu_pte_t) ((pa) | 2))
-#define mk_lv1ent_page(pa) ((sysmmu_pte_t) ((pa) | 1))
-#define mk_lv2ent_lpage(pa) ((sysmmu_pte_t) ((pa) | 1))
-#define mk_lv2ent_spage(pa) ((sysmmu_pte_t) ((pa) | 2))
-#define set_lv1ent_shareable(sent) (*(sent) |= (1 << 16))
-#define set_lv2ent_shareable(pent) (*(pent) |= (1 << 10))
-
-#define PGSIZE_BITMAP (SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
-
-#define __exynos_sysmmu_set_df(drvdata, iova) do { } while (0)
-#define __exynos_sysmmu_release_df(drvdata) do { } while (0)
-
- /* System MMU v5 ~ */
-#elif defined(CONFIG_EXYNOS7_IOMMU) || defined(CONFIG_EXYNOS_IOMMU_V6)
-
 #define REG_PPC_EVENT_SEL(x)	(0x600 + 0x4 * (x))
 #define REG_PPC_PMNC		0x620
 #define REG_PPC_CNTENS		0x624
@@ -301,15 +247,8 @@ extern const char *ppc_event_name[];
 #define SYSMMU_OF_COMPAT_STRING "samsung,exynos5430-sysmmu"
 #define DEFAULT_QOS_VALUE	-1 /* Inherited from master */
 #define PG_ENT_SHIFT 4 /* 36bit PA, 32bit VA */
-#ifndef CONFIG_EXYNOS_IOMMU_V6
-#define lv1ent_fault(sent) ((*(sent) == ZERO_LV2LINK) || \
-			   ((*(sent) & 7) == 0))
-#define lv1ent_page(sent) ((*(sent) != ZERO_LV2LINK) && \
-			  ((*(sent) & 7) == 1))
-#else
 #define lv1ent_fault(sent) ((*(sent) & 7) == 0)
 #define lv1ent_page(sent) ((*(sent) & 7) == 1)
-#endif
 #define lv1ent_section(sent) ((*(sent) & 7) == 2)
 #define lv1ent_dsection(sent) ((*(sent) & 7) == 4)
 #define lv1ent_spsection(sent) ((*(sent) & 7) == 6)
@@ -333,10 +272,6 @@ extern const char *ppc_event_name[];
 void __sysmmu_show_status(struct sysmmu_drvdata *drvdata);
 void __exynos_sysmmu_set_df(struct sysmmu_drvdata *drvdata, dma_addr_t iova);
 void __exynos_sysmmu_release_df(struct sysmmu_drvdata *drvdata);
-
-#else
-#error "Neither CONFIG_IOMMU_EXYNOS5 nor CONFIG_IOMMU_EXYNOS7 is defined"
-#endif
 
 static inline void __sysmmu_clk_enable(struct sysmmu_drvdata *data)
 {
@@ -368,10 +303,6 @@ static inline void __master_clk_disable(struct sysmmu_drvdata *data)
 		clk_disable(data->clocks[SYSMMU_MASTER]);
 }
 
-
-#if defined(CONFIG_EXYNOS7_IOMMU) && defined(CONFIG_EXYNOS5_IOMMU)
-#error "CONFIG_IOMMU_EXYNOS5 and CONFIG_IOMMU_EXYNOS7 defined together"
-#endif
 
 static inline bool get_sysmmu_runtime_active(struct sysmmu_drvdata *data)
 {
@@ -463,7 +394,6 @@ void __sysmmu_init_config(struct sysmmu_drvdata *drvdata);
 void __sysmmu_set_ptbase(void __iomem *sfrbase, phys_addr_t pfn_pgtable);
 
 extern sysmmu_pte_t *zero_lv2_table;
-#define ZERO_LV2LINK mk_lv1ent_page(virt_to_phys(zero_lv2_table))
 
 static inline sysmmu_pte_t *page_entry(sysmmu_pte_t *sent, unsigned long iova)
 {
@@ -482,22 +412,9 @@ void __sysmmu_tlb_invalidate_flpdcache(void __iomem *sfrbase, dma_addr_t iova);
 void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova);
 void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size);
-#if defined(CONFIG_EXYNOS_IOMMU)
-void __exynos_sysmmu_set_prefbuf_by_plane(struct sysmmu_drvdata *drvdata,
-			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption, unsigned int opoption);
-void __exynos_sysmmu_set_prefbuf_by_region(struct sysmmu_drvdata *drvdata,
-			struct sysmmu_prefbuf pb_reg[],
-			unsigned int num_reg);
-int __prepare_prefetch_buffers_by_plane(struct sysmmu_drvdata *drvdata,
-				struct sysmmu_prefbuf prefbuf[], int num_pb,
-				int inplanes, int onplanes,
-				int ipoption, int opoption);
-#endif
-
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
 
-#if defined(CONFIG_EXYNOS_IOVMM) || defined(CONFIG_EXYNOS_IOVMM_V6)
+#if defined(CONFIG_EXYNOS_IOVMM_V6)
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
 {
 	if (!dev->archdata.iommu) {
@@ -522,11 +439,9 @@ static inline int find_iovmm_plane(struct exynos_iovmm *vmm, dma_addr_t iova)
 	return -1;
 }
 
-#if defined(CONFIG_EXYNOS_IOVMM_V6)
 struct exynos_iovmm *exynos_create_single_iovmm(const char *name);
 int exynos_sysmmu_add_fault_notifier(struct device *dev,
 		iommu_fault_handler_t handler, void *token);
-#endif
 #else
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
 {
@@ -548,6 +463,6 @@ static inline struct exynos_iovmm *exynos_create_single_iovmm(const char *name)
 {
 	return NULL;
 }
-#endif /* CONFIG_EXYNOS_IOVMM */
+#endif /* CONFIG_EXYNOS_IOVMM_V6 */
 
 #endif /* _EXYNOS_IOMMU_H_ */
