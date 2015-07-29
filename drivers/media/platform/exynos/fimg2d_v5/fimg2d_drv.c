@@ -693,7 +693,7 @@ static void g2d_parse_dt(struct device_node *np, struct fimg2d_platdata *pdata)
 
 }
 
-static int fimg2d_sysmmu_fault_handler(struct iommu_domain *domain,
+static int __attribute__((unused)) fimg2d_sysmmu_fault_handler(struct iommu_domain *domain,
 		struct device *dev, unsigned long iova, int flags, void *token)
 {
 	struct fimg2d_bltcmd *cmd;

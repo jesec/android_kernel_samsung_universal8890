@@ -93,6 +93,12 @@ enum sysmmu_ppc_event {
 	TOTAL_ID_NUM,
 };
 
+struct sysmmu_prefbuf {
+	unsigned long base;
+	unsigned long size;
+	unsigned long config;
+};
+
 #if defined(CONFIG_EXYNOS_IOVMM)
 int iovmm_activate(struct device *dev);
 void iovmm_deactivate(struct device *dev);
@@ -222,12 +228,6 @@ extern int handle_pte_fault(struct mm_struct *mm,
 			    struct vm_area_struct *vma, unsigned long address,
 			    pte_t *pte, pmd_t *pmd, unsigned int flags);
 
-struct sysmmu_prefbuf {
-	unsigned long base;
-	unsigned long size;
-	unsigned long config;
-};
-
 /*
  * sysmmu_set_prefetch_buffer_by_region() - set prefetch buffer configuration
  *
@@ -279,31 +279,20 @@ static inline bool exynos_sysmmu_disable(struct device *owner)
 	return false;
 }
 
-int exynos_sysmmu_map_user_pages(struct device *dev,
-					struct mm_struct *mm,
-					unsigned long vaddr, size_t size,
-					int write)
-{
-	return -ENODEV;
-}
-
-int exynos_sysmmu_unmap_user_pages(struct device *dev,
-					struct mm_struct *mm,
-					unsigned long vaddr, size_t size)
-{
-	return -ENODEV;
-}
-
-int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
-{
-	return -ENOSYS;
-}
-
+#define sysmmu_set_prefetch_buffer_property(dev, inplanes, onplnes, ipoption, opoption) \
+					(0)
+#define sysmmu_set_prefetch_buffer_by_region(dev, pb_reg, num_reg) \
+					do { } while (0)
+#define exynos_sysmmu_map_user_pages(dev, mm, vaddr, iova, size, write, sharable) \
+					(-ENOSYS)
+#define exynos_sysmmu_unmap_user_pages(dev, mm, vaddr, iova, size) \
+					do { } while (0)
 #define exynos_sysmmu_show_status(dev) do { } while (0)
 #define exynos_sysmmu_dump_pgtable(dev) do { } while (0)
 
 #define exynos_sysmmu_clear_ppc_event(dev) do { } while (0)
 #define exynos_sysmmu_show_ppc_event(dev) do { } while (0)
+#define exynos_sysmmu_set_ppc_event(dev, event) do { } while (0)
 #define iovmm_set_fault_handler(dev, handler, token) do { } while(0)
 #endif
 #endif /*__ASM_PLAT_IOVMM_H*/

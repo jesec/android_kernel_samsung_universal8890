@@ -423,7 +423,6 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 	}
 
 	if (cur_read_order != vpp->prev_read_order) {
-		struct device *dev = &vpp->pdev->dev;
 		u32 ipoption[vpp->pbuf_num];
 		ipoption[0] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
 
@@ -440,10 +439,8 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 			ipoption[2] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
 		}
 
-		ret = sysmmu_set_prefetch_buffer_property(dev,
+		ret = sysmmu_set_prefetch_buffer_property(&vpp->pdev->dev,
 				vpp->pbuf_num, 0, ipoption, NULL);
-		if (ret)
-			dev_err(DEV, "failed set pbuf\n");
 	}
 
 	vpp->prev_read_order = cur_read_order;

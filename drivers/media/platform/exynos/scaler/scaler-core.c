@@ -3263,7 +3263,7 @@ static const struct m2m1shot_devops sc_m2m1shot_ops = {
 	.timeout_task = sc_m2m1shot_timeout_task,
 };
 
-static int sc_sysmmu_fault_handler(struct iommu_domain *domain,
+static int __attribute__((unused)) sc_sysmmu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long iova, int flags, void *token)
 {
 	struct sc_dev *sc = dev_get_drvdata(dev);

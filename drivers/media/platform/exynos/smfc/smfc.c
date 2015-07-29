@@ -732,7 +732,7 @@ err_clk:
 	return ret;
 }
 
-static int smfc_iommu_fault_handler(
+static int __attribute__((unused)) smfc_iommu_fault_handler(
 		struct iommu_domain *domain, struct device *dev,
 		unsigned long fault_addr, int fault_flags, void *token)
 {
