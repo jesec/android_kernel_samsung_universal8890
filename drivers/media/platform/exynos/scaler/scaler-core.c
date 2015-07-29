@@ -3552,11 +3552,6 @@ static int sc_probe(struct platform_device *pdev)
 				(u32 *)&sc->cfw))
 		sc->cfw = 0;
 
-	ret = exynos_create_iovmm(&pdev->dev, 3, 3);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to create iovmm\n");
-		goto err_iommu;
-	}
 	ret = vb2_ion_attach_iommu(sc->alloc_ctx);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to vb2 ion attach iommu\n");

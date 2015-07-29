@@ -592,11 +592,6 @@ static void iovmm_register_debugfs(struct exynos_iovmm *vmm)
 			exynos_iovmm_debugfs_root, vmm, &iovmm_debug_fops);
 }
 
-int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes)
-{
-	return 0;
-}
-
 struct exynos_iovmm *exynos_create_single_iovmm(const char *name)
 {
 	struct exynos_iovmm *vmm;

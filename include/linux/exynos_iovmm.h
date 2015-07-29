@@ -56,8 +56,6 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
  */
 void iovmm_unmap(struct device *dev, dma_addr_t iova);
 
-int exynos_create_iovmm(struct device *dev, int inplanes, int onplanes);
-
 #define SYSMMU_FAULT_BITS	4
 #define SYSMMU_FAULT_SHIFT	16
 #define SYSMMU_FAULT_MASK	((1 << SYSMMU_FAULT_BITS) - 1)
@@ -181,7 +179,6 @@ int sysmmu_set_prefetch_buffer_property(struct device *dev,
 #define iovmm_deactivate(dev)		do { } while (0)
 #define iovmm_map(dev, sg, offset, size, direction) (-ENOSYS)
 #define iovmm_unmap(dev, iova)		do { } while (0)
-#define exynos_create_iovmm(sysmmu, inplanes, onplanes) 0
 #define iovmm_set_fault_handler(dev, handler, token) do { } while (0)
 
 int sysmmu_set_prefetch_buffer_property(struct device *dev,

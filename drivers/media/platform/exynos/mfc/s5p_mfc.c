@@ -2566,7 +2566,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		goto alloc_ctx_fail;
 	}
 
-	exynos_create_iovmm(&pdev->dev, 3, 3);
 	dev->sched_wq = alloc_workqueue("s5p_mfc/sched", WQ_UNBOUND
 					| WQ_MEM_RECLAIM | WQ_HIGHPRI, 1);
 	if (dev->sched_wq == NULL) {

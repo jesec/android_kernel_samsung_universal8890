@@ -825,7 +825,6 @@ static int fimg2d_probe(struct platform_device *pdev)
 	}
 #endif
 
-	exynos_create_iovmm(dev, 3, 3);
 	iovmm_set_fault_handler(dev, fimg2d_sysmmu_fault_handler, ctrl);
 
 	fimg2d_debug("register sysmmu page fault handler\n");
