@@ -1458,7 +1458,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 
 	/* In case of calling s_fmt twice or more */
 	if (ctx->inst_no != MFC_NO_INSTANCE_SET) {
-		ctx->state = MFCINST_RETURN_INST;
+		s5p_mfc_change_state(ctx, MFCINST_RETURN_INST);
 		spin_lock_irq(&dev->condlock);
 		set_bit(ctx->num, &dev->ctx_work_bits);
 		spin_unlock_irq(&dev->condlock);
@@ -1474,7 +1474,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		s5p_mfc_release_instance_buffer(ctx);
 		s5p_mfc_release_dec_desc_buffer(ctx);
 
-		ctx->state = MFCINST_INIT;
+		s5p_mfc_change_state(ctx, MFCINST_INIT);
 	}
 
 	if (dec->crc_enable && (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC ||
@@ -2689,7 +2689,7 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 	}
 
 	if (ctx->state == MFCINST_FINISHING || ctx->state == MFCINST_FINISHED)
-		ctx->state = MFCINST_RUNNING;
+		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 
 	/* If context is ready then dev = work->data;schedule it to run */
 	if (s5p_mfc_dec_ctx_ready(ctx)) {
@@ -2743,7 +2743,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		mfc_err("no mfc decoder to run\n");
 
 	if (need_to_wait_frame_start(ctx)) {
-		ctx->state = MFCINST_ABORT;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
@@ -2804,14 +2804,14 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	}
 
 	if (aborted)
-		ctx->state = MFCINST_RUNNING;
+		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	if (IS_MFCV6(dev) && q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 			need_to_dpb_flush(ctx)) {
 		prev_state = ctx->state;
-		ctx->state = MFCINST_DPB_FLUSHING;
+		s5p_mfc_change_state(ctx, MFCINST_DPB_FLUSHING);
 		spin_lock_irq(&dev->condlock);
 		set_bit(ctx->num, &dev->ctx_work_bits);
 		spin_unlock_irq(&dev->condlock);
@@ -2820,7 +2820,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_DPB_FLUSH_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
-		ctx->state = prev_state;
+		s5p_mfc_change_state(ctx, prev_state);
 	}
 }
 
@@ -3021,7 +3021,7 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	ctx->capture_state = QUEUE_FREE;
 	ctx->output_state = QUEUE_FREE;
 
-	ctx->state = MFCINST_INIT;
+	s5p_mfc_change_state(ctx, MFCINST_INIT);
 	ctx->type = MFCINST_DECODER;
 	ctx->c_ops = &decoder_codec_ops;
 	ctx->src_fmt = &formats[DEF_SRC_FMT];

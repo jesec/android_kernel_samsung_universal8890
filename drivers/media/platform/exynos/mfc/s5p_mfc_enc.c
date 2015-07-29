@@ -3053,9 +3053,9 @@ static int enc_post_seq_start(struct s5p_mfc_ctx *ctx)
 	}
 
 	if (IS_MFCV6(dev))
-		ctx->state = MFCINST_HEAD_PARSED; /* for INIT_BUFFER cmd */
+		s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED); /* for INIT_BUFFER cmd */
 	else {
-		ctx->state = MFCINST_RUNNING;
+		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 
 		if (s5p_mfc_enc_ctx_ready(ctx)) {
 			spin_lock_irq(&dev->condlock);
@@ -3129,7 +3129,7 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 	mfc_debug(2, "display order: %d\n", pic_count);
 
 	if (enc->buf_full) {
-		ctx->state = MFCINST_ABORT_INST;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT_INST);
 		return 0;
 	}
 
@@ -3203,7 +3203,7 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 			ctx->state != MFCINST_FINISHING) {
 		if (ctx->state == MFCINST_RUNNING_NO_OUTPUT ||
 			ctx->state == MFCINST_RUNNING_BUF_FULL)
-			ctx->state = MFCINST_RUNNING;
+			s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 
 		s5p_mfc_get_enc_frame_buffer(ctx, &enc_addr[0], raw->num_planes);
 
@@ -3278,7 +3278,7 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 		/* slice_type = 4 && strm_size = 0, skipped enable
 		   should be considered */
 		if ((slice_type == -1) && (strm_size == 0))
-			ctx->state = MFCINST_RUNNING_NO_OUTPUT;
+			s5p_mfc_change_state(ctx, MFCINST_RUNNING_NO_OUTPUT);
 
 		mfc_debug(2, "slice_type: %d, ctx->state: %d\n", slice_type, ctx->state);
 		mfc_debug(2, "enc src count: %d, enc ref count: %d\n",
@@ -3498,7 +3498,7 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			mfc_err_ctx("failed to set capture format\n");
 			return -EINVAL;
 		}
-		ctx->state = MFCINST_INIT;
+		s5p_mfc_change_state(ctx, MFCINST_INIT);
 
 		ctx->dst_fmt = fmt;
 		ctx->codec_mode = ctx->dst_fmt->codec_mode;
@@ -5220,7 +5220,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	int aborted = 0;
 
 	if (need_to_wait_frame_start(ctx)) {
-		ctx->state = MFCINST_ABORT;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
@@ -5228,7 +5228,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	}
 
 	if (need_to_wait_nal_abort(ctx)) {
-		ctx->state = MFCINST_ABORT;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
@@ -5236,7 +5236,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	}
 
 	if (enc->in_slice || enc->buf_full) {
-		ctx->state = MFCINST_ABORT_INST;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT_INST);
 		spin_lock_irq(&dev->condlock);
 		set_bit(ctx->num, &dev->ctx_work_bits);
 		spin_unlock_irq(&dev->condlock);
@@ -5283,7 +5283,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	if (aborted)
-		ctx->state = MFCINST_RUNNING;
+		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 }
 
 static void s5p_mfc_buf_queue(struct vb2_buffer *vb)

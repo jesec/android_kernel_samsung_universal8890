@@ -689,7 +689,7 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 	if (temp_vb->vb.v4l2_buf.reserved2 & FLAG_LAST_FRAME) {
 		last_frame = 1;
 		mfc_debug(2, "Setting ctx->state to FINISHING\n");
-		ctx->state = MFCINST_FINISHING;
+		s5p_mfc_change_state(ctx, MFCINST_FINISHING);
 	}
 	s5p_mfc_decode_one_frame(ctx, last_frame);
 
@@ -776,7 +776,7 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 	if (src_mb->vb.v4l2_buf.reserved2 & FLAG_LAST_FRAME) {
 		last_frame = 1;
 		mfc_debug(2, "Setting ctx->state to FINISHING\n");
-		ctx->state = MFCINST_FINISHING;
+		s5p_mfc_change_state(ctx, MFCINST_FINISHING);
 	}
 	for (i = 0; i < raw->num_planes; i++) {
 		src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
@@ -923,7 +923,7 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 	ret = s5p_mfc_set_dec_frame_buffer(ctx);
 	if (ret) {
 		mfc_err_ctx("Failed to alloc frame mem.\n");
-		ctx->state = MFCINST_ERROR;
+		s5p_mfc_change_state(ctx, MFCINST_ERROR);
 	}
 
 	if (ctx->codec_mode == S5P_FIMV_CODEC_VP9_DEC)
@@ -958,7 +958,7 @@ static inline int s5p_mfc_run_init_enc_buffers(struct s5p_mfc_ctx *ctx)
 	ret = s5p_mfc_set_enc_ref_buffer(ctx);
 	if (ret) {
 		mfc_err_ctx("Failed to alloc frame mem.\n");
-		ctx->state = MFCINST_ERROR;
+		s5p_mfc_change_state(ctx, MFCINST_ERROR);
 	}
 	return ret;
 }

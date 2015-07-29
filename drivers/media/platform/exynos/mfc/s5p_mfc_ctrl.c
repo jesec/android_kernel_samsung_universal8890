@@ -314,7 +314,7 @@ int s5p_mfc_sleep(struct s5p_mfc_dev *dev)
 		return -EINVAL;
 	}
 	old_state = ctx->state;
-	ctx->state = MFCINST_ABORT;
+	s5p_mfc_change_state(ctx, MFCINST_ABORT);
 	ret = wait_event_interruptible_timeout(ctx->queue,
 			(test_bit(ctx->num, &dev->hw_lock) == 0),
 			msecs_to_jiffies(MFC_INT_TIMEOUT));
@@ -329,7 +329,7 @@ int s5p_mfc_sleep(struct s5p_mfc_dev *dev)
 	set_bit(ctx->num, &dev->hw_lock);
 	spin_unlock_irq(&dev->condlock);
 
-	ctx->state = old_state;
+	s5p_mfc_change_state(ctx, old_state);
 	s5p_mfc_clock_on(dev);
 	s5p_mfc_clean_dev_int_flags(dev);
 	ret = s5p_mfc_sleep_cmd(dev);

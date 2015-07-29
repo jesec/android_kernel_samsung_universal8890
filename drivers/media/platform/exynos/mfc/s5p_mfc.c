@@ -603,7 +603,7 @@ static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
 	}
 	if (ctx->state != MFCINST_ABORT && ctx->state != MFCINST_HEAD_PARSED &&
 			ctx->state != MFCINST_RES_CHANGE_FLUSH)
-		ctx->state = MFCINST_RUNNING;
+		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 	mfc_debug(2, "After cleanup\n");
 }
 
@@ -1136,11 +1136,11 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 				dec->dynamic_used, mfc_get_dec_used_flag());
 
 	if (ctx->state == MFCINST_RES_CHANGE_INIT)
-		ctx->state = MFCINST_RES_CHANGE_FLUSH;
+		s5p_mfc_change_state(ctx, MFCINST_RES_CHANGE_FLUSH);
 
 	if (res_change) {
 		mfc_debug(2, "Resolution change set to %d\n", res_change);
-		ctx->state = MFCINST_RES_CHANGE_INIT;
+		s5p_mfc_change_state(ctx, MFCINST_RES_CHANGE_INIT);
 		ctx->wait_state = WAIT_DECODING;
 		mfc_debug(2, "Decoding waiting! : %d\n", ctx->wait_state);
 
@@ -1164,7 +1164,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 		mfc_debug(2, "Frame packing SEI exists for a frame.\n");
 		mfc_debug(2, "Reallocate DPBs and issue init_buffer.\n");
 		ctx->is_dpb_realloc = 1;
-		ctx->state = MFCINST_HEAD_PARSED;
+		s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED);
 		ctx->capture_state = QUEUE_FREE;
 		ctx->wait_state = WAIT_DECODING;
 		s5p_mfc_handle_frame_all_extracted(ctx);
@@ -1176,7 +1176,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 		if (ctx->state == MFCINST_RES_CHANGE_FLUSH) {
 			mfc_debug(2, "Last frame received after resolution change.\n");
 			s5p_mfc_handle_frame_all_extracted(ctx);
-			ctx->state = MFCINST_RES_CHANGE_END;
+			s5p_mfc_change_state(ctx, MFCINST_RES_CHANGE_END);
 			goto leave_handle_frame;
 		} else {
 			s5p_mfc_handle_frame_all_extracted(ctx);
@@ -1316,7 +1316,7 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 	case MFCINST_GOT_INST:
 		/* This error had to happen while parsing vps only */
 		if (err == S5P_FIMV_VPS_ONLY_ERROR) {
-			ctx->state = MFCINST_VPS_PARSED_ONLY;
+			s5p_mfc_change_state(ctx, MFCINST_VPS_PARSED_ONLY);
 			if (!list_empty(&ctx->src_queue)) {
 				src_buf = list_entry(ctx->src_queue.next,
 						struct s5p_mfc_buf, list);
@@ -1347,7 +1347,7 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 	case MFCINST_HEAD_PARSED:
 		/* This error had to happen while setting dst buffers */
 		if (err == S5P_FIMV_ERR_NULL_SCRATCH) {
-			ctx->state = MFCINST_ERROR;
+			s5p_mfc_change_state(ctx, MFCINST_ERROR);
 			spin_lock_irqsave(&dev->irqlock, flags);
 			/* Mark all dst buffers as having an error */
 			s5p_mfc_cleanup_queue(&ctx->dst_queue);
@@ -1364,7 +1364,7 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 	case MFCINST_FINISHED:
 		/* It is higly probable that an error occured
 		 * while decoding a frame */
-		ctx->state = MFCINST_ERROR;
+		s5p_mfc_change_state(ctx, MFCINST_ERROR);
 		/* Mark all dst buffers as having an error */
 		spin_lock_irqsave(&dev->irqlock, flags);
 		s5p_mfc_cleanup_queue(&ctx->dst_queue);
@@ -1536,7 +1536,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 						/* NOTHING TO-DO */
 					} else if (reg == 2) { /* Resolution Change for B-frame */
 						s5p_mfc_release_codec_buffers(ctx);
-						ctx->state = MFCINST_HEAD_PARSED; /* for INIT_BUFFER cmd */
+						s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED); /* for INIT_BUFFER cmd */
 
 						ctx->enc_res_change_state = 0;
 						ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
@@ -1544,7 +1544,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 								(unsigned int)ctx->min_scratch_buf_size);
 					} else if (reg == 3) { /* Resolution Change for only P-frame */
 						s5p_mfc_release_codec_buffers(ctx);
-						ctx->state = MFCINST_HEAD_PARSED; /* for INIT_BUFFER cmd */
+						s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED); /* for INIT_BUFFER cmd */
 
 						ctx->enc_res_change_state = 0;
 						ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
@@ -1590,9 +1590,9 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			}
 
 			if (ctx->img_width == 0 || ctx->img_height == 0)
-				ctx->state = MFCINST_ERROR;
+				s5p_mfc_change_state(ctx, MFCINST_ERROR);
 			else
-				ctx->state = MFCINST_HEAD_PARSED;
+				s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED);
 
 			if (ctx->state == MFCINST_HEAD_PARSED)
 				dec->is_interlaced =
@@ -1619,14 +1619,14 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		break;
 	case S5P_FIMV_R2H_CMD_OPEN_INSTANCE_RET:
 		ctx->inst_no = s5p_mfc_get_inst_no();
-		ctx->state = MFCINST_GOT_INST;
+		s5p_mfc_change_state(ctx, MFCINST_GOT_INST);
 		break;
 	case S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET:
-		ctx->state = MFCINST_FREE;
+		s5p_mfc_change_state(ctx, MFCINST_FREE);
 		break;
 	case S5P_FIMV_R2H_CMD_NAL_ABORT_RET:
 		if (ctx->type == MFCINST_ENCODER) {
-			ctx->state = MFCINST_RUNNING_BUF_FULL;
+			s5p_mfc_change_state(ctx, MFCINST_RUNNING_BUF_FULL);
 			enc->buf_full = 0;
 			if (ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)
 				mfc_err_ctx("stream buffer size isn't enough\n");
@@ -1634,11 +1634,11 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 				if (ctx->c_ops->post_frame_start(ctx))
 					mfc_err_ctx("post_frame_start() failed\n");
 		} else {
-			ctx->state = MFCINST_ABORT;
+			s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		}
 		break;
 	case S5P_FIMV_R2H_CMD_DPB_FLUSH_RET:
-		ctx->state = MFCINST_ABORT;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		break;
 	case S5P_FIMV_R2H_CMD_INIT_BUFFERS_RET:
 		if (err != 0) {
@@ -1646,7 +1646,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			break;
 		}
 
-		ctx->state = MFCINST_RUNNING;
+		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 		if (ctx->type == MFCINST_DECODER) {
 			if (dec->dst_memtype == V4L2_MEMORY_MMAP) {
 				if (!dec->dpb_flush && !dec->remained) {
@@ -2105,14 +2105,14 @@ static int s5p_mfc_release(struct file *file)
 			dev->num_drm_inst, dev->num_inst, ctx->is_drm);
 
 	if (need_to_wait_frame_start(ctx)) {
-		ctx->state = MFCINST_ABORT;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 	}
 
 	if (need_to_wait_nal_abort(ctx)) {
-		ctx->state = MFCINST_ABORT;
+		s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
@@ -2127,7 +2127,7 @@ static int s5p_mfc_release(struct file *file)
 		}
 
 		if (enc->in_slice || enc->buf_full) {
-			ctx->state = MFCINST_ABORT_INST;
+			s5p_mfc_change_state(ctx, MFCINST_ABORT_INST);
 			spin_lock_irq(&dev->condlock);
 			set_bit(ctx->num, &dev->ctx_work_bits);
 			spin_unlock_irq(&dev->condlock);
@@ -2161,7 +2161,7 @@ static int s5p_mfc_release(struct file *file)
 				(test_bit(ctx->num, &dev->hw_lock) == 0),
 				msecs_to_jiffies(MFC_INT_SHORT_TIMEOUT));
 
-		ctx->state = MFCINST_RETURN_INST;
+		s5p_mfc_change_state(ctx, MFCINST_RETURN_INST);
 		spin_lock_irq(&dev->condlock);
 		set_bit(ctx->num, &dev->ctx_work_bits);
 		spin_unlock_irq(&dev->condlock);
