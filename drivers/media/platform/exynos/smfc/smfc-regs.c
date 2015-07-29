@@ -364,6 +364,7 @@ void smfc_hwconfigure_image(struct smfc_ctx *ctx,
 	struct vb2_buffer *vb2buf_img, *vb2buf_jpg;
 	u32 stream_address;
 	u32 format = ctx->img_fmt->regcfg;
+	u32 burstlen = 1 << ctx->smfc->devdata->burstlenth_bits;
 
 	__raw_writel(ctx->width | (ctx->height << 16),
 			ctx->smfc->reg + REG_MAIN_IMAGE_SIZE);
@@ -394,15 +395,17 @@ void smfc_hwconfigure_image(struct smfc_ctx *ctx,
 		u32 streamsize = vb2_plane_size(vb2buf_jpg, 0);
 
 		streamsize -= ctx->offset_of_sos;
-		streamsize += stream_address & SMFC_ADDR_ALIGN_MASK;
-		streamsize = ALIGN(streamsize, SMFC_ADDR_ALIGN);
-		streamsize /= SMFC_ADDR_ALIGN;
+		streamsize += stream_address & SMFC_ADDR_ALIGN_MASK(burstlen);
+		streamsize = ALIGN(streamsize, burstlen);
+		streamsize >>= ctx->smfc->devdata->burstlenth_bits;
 		__raw_writel(streamsize, ctx->smfc->reg + REG_MAIN_STREAM_SIZE);
-	} else {
+	} else if (smfc_is_capable(ctx->smfc,
+					V4L2_CAP_EXYNOS_JPEG_MAX_STREAMSIZE)) {
 		u32 maxstreamsize = round_down(vb2_plane_size(vb2buf_jpg, 0),
 							SMFC_STREAMSIZE_ALIGN);
 		if (!IS_ALIGNED(stream_address, 16))
-			maxstreamsize += SMFC_EXTRA_STREAMSIZE(stream_address);
+			maxstreamsize +=
+				SMFC_EXTRA_STREAMSIZE(stream_address, burstlen);
 
 		__raw_writel(maxstreamsize,
 				ctx->smfc->reg + REG_MAIN_MAX_STREAM_SIZE);
@@ -415,8 +418,9 @@ void smfc_hwconfigure_start(struct smfc_ctx *ctx,
 	u32 cfg;
 	void __iomem *base = ctx->smfc->reg;
 
-	__raw_writel(!(ctx->flags & SMFC_CTX_B2B_COMPRESS) ? 0 : 1,
-			base + REG_SEC_JPEG_CNTL);
+	if (smfc_is_capable(ctx->smfc, V4L2_CAP_EXYNOS_JPEG_B2B_COMPRESSION))
+		__raw_writel(!(ctx->flags & SMFC_CTX_B2B_COMPRESS) ? 0 : 1,
+				base + REG_SEC_JPEG_CNTL);
 
 	/* configure "Error max compressed size" interrupt */
 	cfg = __raw_readl(base + REG_INT_EN);
@@ -450,7 +454,8 @@ void smfc_hwconfigure_start(struct smfc_ctx *ctx,
 
 bool smfc_hwstatus_okay(struct smfc_dev *smfc, struct smfc_ctx *ctx)
 {
-	u32 val, val2, reg;
+	u32 val, reg;
+	u32 val2 = 0;
 
 	/* Disable global interrupt */
 	reg = __raw_readl(smfc->reg + REG_MAIN_JPEG_CNTL);
@@ -458,7 +463,8 @@ bool smfc_hwstatus_okay(struct smfc_dev *smfc, struct smfc_ctx *ctx)
 	__raw_writel(reg, smfc->reg + REG_MAIN_JPEG_CNTL);
 
 	val = __raw_readl(smfc->reg + REG_MAIN_INT_STATUS);
-	val2 = __raw_readl(smfc->reg + REG_SEC_INT_STATUS);
+	if (smfc_is_capable(ctx->smfc, V4L2_CAP_EXYNOS_JPEG_B2B_COMPRESSION))
+		val2 = __raw_readl(smfc->reg + REG_SEC_INT_STATUS);
 
 	if (!val && !val2) {
 		dev_err(smfc->dev, "Interrupt with no state change\n");
