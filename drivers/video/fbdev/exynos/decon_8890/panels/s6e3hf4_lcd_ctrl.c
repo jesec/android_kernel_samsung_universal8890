@@ -97,6 +97,7 @@ void lcd_init(int id, struct decon_lcd *lcd)
 				(unsigned long)SEQ_SLEEP_OUT[0], 0) < 0)
 		dsim_err("fail to send SEQ_SLEEP_OUT command.\n");
 
+	dsim_wait_for_cmd_completion(id);
 	msleep(120);
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, SEQ_TE_ON[0], 0) < 0)

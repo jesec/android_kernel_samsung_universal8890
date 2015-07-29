@@ -97,6 +97,7 @@ void lcd_init(int id, struct decon_lcd *lcd)
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, SEQ_SLEEP_OUT[0], 0) < 0)
 		dsim_err("fail to send SEQ_SLEEP_OUT command.\n");
 
+	dsim_wait_for_cmd_completion(id);
 	mdelay(100);
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_2A,
@@ -143,6 +144,7 @@ void lcd_init(int id, struct decon_lcd *lcd)
 				ARRAY_SIZE(SEQ_TE_ON)) < 0)
 		dsim_err("fail to write SEQ_TE_ON init command.\n");
 
+	dsim_wait_for_cmd_completion(id);
 	mdelay(120);
 }
 

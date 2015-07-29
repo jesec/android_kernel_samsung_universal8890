@@ -108,6 +108,7 @@ void lcd_init(int id, struct decon_lcd *lcd)
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, (unsigned long)SEQ_SLEEP_OUT[0], 0) < 0)
 		dsim_err("fail to write SLEEP_OUT init command.\n");
 
+	dsim_wait_for_cmd_completion(id);
 	msleep(10);
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TEST_KEY_ON_F0,
@@ -179,6 +180,7 @@ void lcd_init(int id, struct decon_lcd *lcd)
 		dsim_err("fail to write KEY_OFF init command.\n");
 
 	/* Added 120ms delay before SEQ_DISPLAY_ON */
+	dsim_wait_for_cmd_completion(id);
 	msleep(120);
 }
 
