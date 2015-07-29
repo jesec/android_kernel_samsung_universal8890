@@ -44,6 +44,7 @@ int s5p_mfc_init_pm(struct s5p_mfc_dev *dev)
 	atomic_set(&dev->clk_ref, 0);
 
 	dev->pm.device = dev->device;
+	dev->pm.clock_on_steps = 0;
 	dev->pm.clock_off_steps = 0;
 	pm_runtime_enable(dev->pm.device);
 
@@ -92,20 +93,21 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	s5p_mfc_clock_set_rate(dev, dev->curr_rate);
 	mutex_unlock(&dev->curr_rate_lock);
 #endif
-	dev->pm.clock_on_steps = 2;
+	dev->pm.clock_on_steps |= 0x1 << 1;
 	ret = clk_enable(dev->pm.clock);
 	if (ret < 0)
 		return ret;
 
-	dev->pm.clock_on_steps = 3;
 	if (dev->pm.base_type != MFCBUF_INVALID)
 		s5p_mfc_init_memctrl(dev, dev->pm.base_type);
 
+	dev->pm.clock_on_steps |= 0x1 << 2;
 	if (dev->curr_ctx_drm && dev->is_support_smc) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
 		mfc_debug(3, "Begin: enable protection\n");
 		ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					dev->id, SMC_PROTECTION_ENABLE);
+		dev->pm.clock_on_steps |= 0x1 << 3;
 		if (!ret) {
 			printk("Protection Enable failed! ret(%u)\n", ret);
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
@@ -117,13 +119,13 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	} else {
 		ret = s5p_mfc_mem_resume(dev->alloc_ctx[0]);
 		if (ret < 0) {
-			dev->pm.clock_on_steps = 4;
+			dev->pm.clock_on_steps |= 0x1 << 4;
 			clk_disable(dev->pm.clock);
 			return ret;
 		}
 	}
 
-	dev->pm.clock_on_steps = 5;
+	dev->pm.clock_on_steps |= 0x1 << 5;
 	if (IS_MFCV6(dev)) {
 		if ((!dev->wakeup_status) && (dev->sys_init_status)) {
 			spin_lock_irqsave(&dev->pm.clklock, flags);
@@ -132,16 +134,19 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 				val = s5p_mfc_read_reg(dev, S5P_FIMV_MFC_BUS_RESET_CTRL);
 				val &= ~(0x1);
 				s5p_mfc_write_reg(dev, val, S5P_FIMV_MFC_BUS_RESET_CTRL);
+				dev->pm.clock_on_steps |= 0x1 << 6;
 			}
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
 		} else {
+			dev->pm.clock_on_steps |= 0x1 << 7;
 			atomic_inc_return(&dev->clk_ref);
 		}
 	} else {
+		dev->pm.clock_on_steps |= 0x1 << 8;
 		atomic_inc_return(&dev->clk_ref);
 	}
 
-	dev->pm.clock_on_steps = 6;
+	dev->pm.clock_on_steps |= 0x1 << 9;
 	state = atomic_read(&dev->clk_ref);
 	mfc_debug(2, "+ %d\n", state);
 	MFC_TRACE_DEV("-- clock_on : ref state(%d)\n", state);
@@ -172,7 +177,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 	MFC_TRACE_DEV("++ clock_off\n");
 	if (IS_MFCV6(dev)) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
-		dev->pm.clock_off_steps = 2;
+		dev->pm.clock_off_steps |= 0x1 << 1;
 		if ((atomic_dec_return(&dev->clk_ref) == 0) &&
 				FW_HAS_BUS_RESET(dev)) {
 			s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_MFC_BUS_RESET_CTRL);
@@ -187,24 +192,24 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 				val = s5p_mfc_read_reg(dev,
 						S5P_FIMV_MFC_BUS_RESET_CTRL);
 			} while ((val & 0x2) == 0);
-		dev->pm.clock_off_steps = 3;
+			dev->pm.clock_off_steps |= 0x1 << 2;
 		}
 		spin_unlock_irqrestore(&dev->pm.clklock, flags);
 	} else {
 		atomic_dec_return(&dev->clk_ref);
 	}
 
-	dev->pm.clock_off_steps = 4;
+	dev->pm.clock_off_steps |= 0x1 << 3;
 	state = atomic_read(&dev->clk_ref);
 	if (state < 0) {
 		mfc_err_dev("Clock state is wrong(%d)\n", state);
 		atomic_set(&dev->clk_ref, 0);
-		dev->pm.clock_off_steps = 5;
+		dev->pm.clock_off_steps |= 0x1 << 4;
 	} else {
 		if (dev->curr_ctx_drm && dev->is_support_smc) {
 			mfc_debug(3, "Begin: disable protection\n");
 			spin_lock_irqsave(&dev->pm.clklock, flags);
-			dev->pm.clock_off_steps = 6;
+			dev->pm.clock_off_steps |= 0x1 << 5;
 			ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					dev->id, SMC_PROTECTION_DISABLE);
 			if (!ret) {
@@ -214,19 +219,18 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 				return;
 			}
 			mfc_debug(3, "End: disable protection\n");
-			dev->pm.clock_off_steps = 7;
+			dev->pm.clock_off_steps |= 0x1 << 6;
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
 		} else {
-			dev->pm.clock_off_steps = 8;
+			dev->pm.clock_off_steps |= 0x1 << 7;
 			s5p_mfc_mem_suspend(dev->alloc_ctx[0]);
-			dev->pm.clock_off_steps = 9;
 		}
-		dev->pm.clock_off_steps = 10;
+		dev->pm.clock_off_steps |= 0x1 << 8;
 		clk_disable(dev->pm.clock);
 	}
+	dev->pm.clock_off_steps |= 0x1 << 9;
 	mfc_debug(2, "- %d\n", state);
 	MFC_TRACE_DEV("-- clock_off: ref state(%d)\n", state);
-	dev->pm.clock_off_steps = 11;
 }
 
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev)

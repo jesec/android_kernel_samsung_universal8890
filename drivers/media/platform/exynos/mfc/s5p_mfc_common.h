@@ -332,6 +332,8 @@ static inline int clear_hw_bit(struct s5p_mfc_ctx *ctx)
 		ret = test_and_clear_bit(ctx->num, &dev->hw_lock);
 		/* Reset the timeout watchdog */
 		atomic_set(&dev->watchdog_cnt, 0);
+	} else {
+		mfc_err_ctx("couldn't clear hw_lock\n");
 	}
 
 	return ret;
