@@ -73,6 +73,7 @@
 #define MFC_BASE_MASK		((1 << 17) - 1)
 
 #define FLAG_LAST_FRAME		0x80000000
+#define FLAG_EMPTY_DATA		0x40000000
 #define MFC_MAX_INTERVAL	(2 * USEC_PER_SEC)
 
 /* MFC conceal color is black */

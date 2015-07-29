@@ -3216,6 +3216,7 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 	unsigned long flags;
 	int last_frame = 0;
 	unsigned int index;
+	unsigned int size;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -3260,14 +3261,13 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 				dec->consumed, dec->remained_size);
 	} else {
 		if (temp_vb->consumed)
-			s5p_mfc_set_dec_stream_buffer(ctx,
-				s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
-				temp_vb->consumed,
-				temp_vb->vb.v4l2_planes[0].bytesused - temp_vb->consumed);
+			size = temp_vb->vb.v4l2_planes[0].bytesused - temp_vb->consumed;
 		else
-			s5p_mfc_set_dec_stream_buffer(ctx,
+			size = temp_vb->vb.v4l2_buf.reserved2 & FLAG_EMPTY_DATA ?
+				0 : temp_vb->vb.v4l2_planes[0].bytesused;
+		s5p_mfc_set_dec_stream_buffer(ctx,
 				s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
-				0, temp_vb->vb.v4l2_planes[0].bytesused);
+				temp_vb->consumed, size);
 	}
 
 	index = temp_vb->vb.v4l2_buf.index;
@@ -3307,8 +3307,7 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 
-	if (temp_vb->vb.v4l2_planes[0].bytesused == 0 ||
-			temp_vb->vb.v4l2_buf.reserved2 == FLAG_LAST_FRAME) {
+	if (temp_vb->vb.v4l2_buf.reserved2 & FLAG_LAST_FRAME) {
 		last_frame = 1;
 		mfc_debug(2, "Setting ctx->state to FINISHING\n");
 		ctx->state = MFCINST_FINISHING;
@@ -3395,27 +3394,15 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 	src_mb = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
 	src_mb->used = 1;
 
-	if (src_mb->vb.v4l2_planes[0].bytesused == 0 ||
-			src_mb->vb.v4l2_buf.reserved2 == FLAG_LAST_FRAME) {
+	if (src_mb->vb.v4l2_buf.reserved2 & FLAG_LAST_FRAME) {
 		last_frame = 1;
 		mfc_debug(2, "Setting ctx->state to FINISHING\n");
 		ctx->state = MFCINST_FINISHING;
-
-		if (src_mb->vb.v4l2_buf.reserved2 == FLAG_LAST_FRAME) {
-			for (i = 0; i < raw->num_planes; i++) {
-				src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
-				mfc_debug(2, "enc src[%d] addr: 0x%08lx",
-						i, (unsigned long)src_addr[i]);
-			}
-		} else {
-			mfc_debug(2, "Set address zero for all planes\n");
-		}
-	} else {
-		for (i = 0; i < raw->num_planes; i++) {
-			src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
-			mfc_debug(2, "enc src[%d] addr: 0x%08lx",
-					i, (unsigned long)src_addr[i]);
-		}
+	}
+	for (i = 0; i < raw->num_planes; i++) {
+		src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
+		mfc_debug(2, "enc src[%d] addr: 0x%08lx",
+				i, (unsigned long)src_addr[i]);
 	}
 
 	s5p_mfc_set_enc_frame_buffer(ctx, &src_addr[0], raw->num_planes);
