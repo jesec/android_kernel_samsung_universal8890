@@ -1807,24 +1807,17 @@ static int s5p_mfc_open(struct file *file)
 				dev->drm_fw_status = 0;
 			} else {
 				phys_addr_t drm_fw_base, normal_fw_base;
-#if (!IS_ENABLED(CONFIG_EXYNOS_IOMMU_V6))
-				phys_addr_t sectbl_base;
-#endif
 				size_t drm_fw_size, normal_fw_size;
 
 				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &normal_fw_base, &normal_fw_size);
 				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &drm_fw_base, &drm_fw_size);
-#if (!IS_ENABLED(CONFIG_EXYNOS_IOMMU_V6))
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_SECTBL, &sectbl_base, &normal_fw_size);
 
-				ret = exynos_smc(SMC_DRM_SECMEM_INFO, sectbl_base, drm_fw_base, drm_fw_size);
-#else
 				ret = exynos_smc(SMC_DRM_SECMEM_INFO, 0, drm_fw_base, drm_fw_size);
 				if (ret < 0) {
 					mfc_err("Fail to pass secure page table base address. ret = %d\n", ret);
 					dev->drm_fw_status = 0;
 				}
-#endif
+
 				ret = exynos_smc(SMC_DRM_FW_LOADING,
 						drm_fw_base, normal_fw_base, dev->fw_size);
 				if (ret) {

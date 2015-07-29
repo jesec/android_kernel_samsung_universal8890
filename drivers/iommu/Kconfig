@@ -173,9 +173,10 @@ config TEGRA_IOMMU_SMMU
 	  hardware included on Tegra SoCs.
 
 # EXYNOS IOMMU support
-config EXYNOS_IOMMU_V6
-	bool "Exynos IOMMU Support"
-	depends on ARCH_EXYNOS && (SOC_EXYNOS7420 || SOC_EXYNOS7580 || SOC_EXYNOS7890 || SOC_EXYNOS8890)
+config EXYNOS_IOMMU
+	bool "IOMMU for Exynos"
+	default y
+	depends on ARCH_EXYNOS
 	select IOMMU_API
 	select ARM_DMA_USE_IOMMU
 	help
@@ -184,12 +185,9 @@ config EXYNOS_IOMMU_V6
 	  non-linear physical memory chunks as linear memory in their
 	  address space.
 
-	  If unsure, say N here.
-
-config EXYNOS_IOVMM_V6
-	bool "IO Virtual Memory Manager for Exynos IOMMU V6"
-	select GENERIC_ALLOCATOR
-	depends on EXYNOS_IOMMU_V6
+config EXYNOS_IOVMM
+	bool "IO Virtual Memory Manager for Exynos IOMMU"
+	depends on EXYNOS_IOMMU
 	default y
 	help
 	  Supporting the users of Exynos IOMMU for allocating and mapping
@@ -199,12 +197,12 @@ config EXYNOS_IOVMM_V6
 
 config EXYNOS_IOMMU_EVENT_LOG
 	bool "Logging System MMU events in private uncached buffer"
-	depends on EXYNOS_IOMMU || EXYNOS_IOMMU_V6
+	depends on EXYNOS_IOMMU
 	default y
 
 config EXYNOS_IOMMU_DEBUG
 	bool "Debugging log for Exynos IOMMU"
-	depends on EXYNOS_IOMMU || EXYNOS_IOMMU_V6
+	depends on EXYNOS_IOMMU
 	help
 	  Select this to see the detailed log message that shows what
 	  happens in the IOMMU driver.

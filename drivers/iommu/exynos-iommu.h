@@ -397,7 +397,7 @@ void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size);
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
 
-#if defined(CONFIG_EXYNOS_IOVMM_V6)
+#if defined(CONFIG_EXYNOS_IOVMM)
 static inline struct exynos_iovmm *exynos_get_iovmm(struct device *dev)
 {
 	if (!dev->archdata.iommu) {
@@ -446,6 +446,6 @@ static inline struct exynos_iovmm *exynos_create_single_iovmm(const char *name)
 {
 	return NULL;
 }
-#endif /* CONFIG_EXYNOS_IOVMM_V6 */
+#endif /* CONFIG_EXYNOS_IOVMM */
 
 #endif /* _EXYNOS_IOMMU_H_ */

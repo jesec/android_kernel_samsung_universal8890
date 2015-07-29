@@ -233,7 +233,7 @@ void sysmmu_add_log_to_debugfs(struct dentry *debugfs_root,
 void iommu_add_log_to_debugfs(struct dentry *debugfs_root,
 			struct exynos_iommu_event_log *log, const char *name);
 
-#if defined(CONFIG_EXYNOS_IOVMM) || defined(CONFIG_EXYNOS_IOVMM_V6)
+#if defined(CONFIG_EXYNOS_IOVMM)
 void iovmm_add_log_to_debugfs(struct dentry *debugfs_root,
 			struct exynos_iommu_event_log *log, const char *name);
 #else

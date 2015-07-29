@@ -28,7 +28,7 @@ const struct of_device_id of_default_bus_match_table[] = {
 #ifdef CONFIG_ARM_AMBA
 	{ .compatible = "arm,amba-bus", },
 #endif /* CONFIG_ARM_AMBA */
-#ifdef CONFIG_EXYNOS_IOMMU_V6
+#ifdef CONFIG_EXYNOS_IOMMU
 	{ .compatible = "samsung,exynos-iommu-bus", },
 #endif
 	{} /* Empty terminated list */
