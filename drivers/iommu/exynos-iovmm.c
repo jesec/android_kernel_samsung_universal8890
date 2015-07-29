@@ -652,13 +652,3 @@ err_alloc_vmm:
 
 	return ERR_PTR(ret);
 }
-
-void iovmm_set_fault_handler(struct device *dev,
-			     iommu_fault_handler_t handler, void *token)
-{
-	int ret;
-
-	ret = exynos_sysmmu_add_fault_notifier(dev, handler, token);
-	if (ret)
-		dev_err(dev, "Failed to %s's fault notifier\n", dev_name(dev));
-}

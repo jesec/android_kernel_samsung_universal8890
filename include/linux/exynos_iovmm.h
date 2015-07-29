@@ -11,7 +11,6 @@
 #ifndef __ASM_PLAT_IOVMM_H
 #define __ASM_PLAT_IOVMM_H
 
-#if defined(CONFIG_EXYNOS_IOVMM)
 #include <linux/dma-direction.h>
 #include <linux/iommu.h>
 
@@ -23,6 +22,78 @@ struct device;
 
 typedef u32 exynos_iova_t;
 
+#define SYSMMU_FAULT_BITS	4
+#define SYSMMU_FAULT_SHIFT	16
+#define SYSMMU_FAULT_MASK	((1 << SYSMMU_FAULT_BITS) - 1)
+#define SYSMMU_FAULT_FLAG(id) (((id) & SYSMMU_FAULT_MASK) << SYSMMU_FAULT_SHIFT)
+#define SYSMMU_FAULT_ID(fg)   (((fg) >> SYSMMU_FAULT_SHIFT) & SYSMMU_FAULT_MASK)
+
+#define SYSMMU_FAULT_PTW_ACCESS   0
+#define SYSMMU_FAULT_PAGE_FAULT   1
+#define SYSMMU_FAULT_TLB_MULTIHIT 2
+#define SYSMMU_FAULT_ACCESS       3
+#define SYSMMU_FAULT_SECURITY     4
+#define SYSMMU_FAULT_UNKNOWN      5
+
+#define IOMMU_FAULT_EXYNOS_PTW_ACCESS SYSMMU_FAULT_FLAG(SYSMMU_FAULT_PTW_ACCESS)
+#define IOMMU_FAULT_EXYNOS_PAGE_FAULT SYSMMU_FAULT_FLAG(SYSMMU_FAULT_PAGE_FAULT)
+#define IOMMU_FAULT_EXYNOS_TLB_MULTIHIT \
+				SYSMMU_FAULT_FLAG(SYSMMU_FAULT_TLB_MULTIHIT)
+#define IOMMU_FAULT_EXYNOS_ACCESS     SYSMMU_FAULT_FLAG(SYSMMU_FAULT_ACCESS)
+#define IOMMU_FAULT_EXYNOS_SECURITY   SYSMMU_FAULT_FLAG(SYSMMU_FAULT_SECURITY)
+#define IOMMU_FAULT_EXYNOS_UNKNOWN    SYSMMU_FAULT_FLAG(SYSMMU_FAULT_UNKOWN)
+
+#define SYSMMU_PBUFCFG_TLB_UPDATE      (1 << 16)
+#define SYSMMU_PBUFCFG_ASCENDING       (1 << 12)
+#define SYSMMU_PBUFCFG_DESCENDING      (0 << 12)
+#define SYSMMU_PBUFCFG_PREFETCH                (1 << 8)
+#define SYSMMU_PBUFCFG_WRITE           (1 << 4)
+#define SYSMMU_PBUFCFG_READ            (0 << 4)
+
+#define SYSMMU_PBUFCFG_DEFAULT_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_ASCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_READ)
+#define SYSMMU_PBUFCFG_DEFAULT_OUTPUT  (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_ASCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_WRITE)
+
+#define SYSMMU_PBUFCFG_ASCENDING_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_ASCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_READ)
+
+#define SYSMMU_PBUFCFG_DESCENDING_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
+					SYSMMU_PBUFCFG_DESCENDING |  \
+					SYSMMU_PBUFCFG_PREFETCH |   \
+					SYSMMU_PBUFCFG_READ)
+/* SYSMMU PPC Event ID */
+enum sysmmu_ppc_event {
+	READ_TOTAL,
+	READ_L1TLB_MISS,
+	READ_L2TLB_MISS,
+	READ_FLPD_MISS,
+	READ_PB_LOOKUP,
+	READ_PB_MISS,
+	READ_BLOCK_NUM_BY_PREFETCH,
+	READ_BLOCK_CYCLE_BRY_PREFETCH,
+	READ_TLB_MISS,
+	READ_FLPD_MISS_PREFETCH,
+	WRITE_TOTAL = 0x10,
+	WRITE_L1TLB_MISS,
+	WRITE_L2TLB_MISS,
+	WRITE_FLPD_MISS,
+	WRITE_PB_LOOKUP,
+	WRITE_PB_MISS,
+	WRITE_BLOCK_NUM_BY_PREFETCH,
+	WRITE_BLOCK_CYCLE_BY_PREFETCH,
+	WRITE_TLB_MISS,
+	WRITE_FLPD_MISS_PREFETCH,
+	TOTAL_ID_NUM,
+};
+
+#if defined(CONFIG_EXYNOS_IOVMM)
 int iovmm_activate(struct device *dev);
 void iovmm_deactivate(struct device *dev);
 struct iommu_domain *get_domain_from_dev(struct device *dev);
@@ -56,74 +127,6 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
  */
 void iovmm_unmap(struct device *dev, dma_addr_t iova);
 
-#define SYSMMU_FAULT_BITS	4
-#define SYSMMU_FAULT_SHIFT	16
-#define SYSMMU_FAULT_MASK	((1 << SYSMMU_FAULT_BITS) - 1)
-#define SYSMMU_FAULT_FLAG(id) (((id) & SYSMMU_FAULT_MASK) << SYSMMU_FAULT_SHIFT)
-#define SYSMMU_FAULT_ID(fg)   (((fg) >> SYSMMU_FAULT_SHIFT) & SYSMMU_FAULT_MASK)
-
-#define SYSMMU_FAULT_PTW_ACCESS   0
-#define SYSMMU_FAULT_PAGE_FAULT   1
-#define SYSMMU_FAULT_TLB_MULTIHIT 2
-#define SYSMMU_FAULT_ACCESS       3
-#define SYSMMU_FAULT_SECURITY     4
-#define SYSMMU_FAULT_UNKNOWN      5
-
-#define IOMMU_FAULT_EXYNOS_PTW_ACCESS SYSMMU_FAULT_FLAG(SYSMMU_FAULT_PTW_ACCESS)
-#define IOMMU_FAULT_EXYNOS_PAGE_FAULT SYSMMU_FAULT_FLAG(SYSMMU_FAULT_PAGE_FAULT)
-#define IOMMU_FAULT_EXYNOS_TLB_MULTIHIT \
-				SYSMMU_FAULT_FLAG(SYSMMU_FAULT_TLB_MULTIHIT)
-#define IOMMU_FAULT_EXYNOS_ACCESS     SYSMMU_FAULT_FLAG(SYSMMU_FAULT_ACCESS)
-#define IOMMU_FAULT_EXYNOS_SECURITY   SYSMMU_FAULT_FLAG(SYSMMU_FAULT_SECURITY)
-#define IOMMU_FAULT_EXYNOS_UNKNOWN    SYSMMU_FAULT_FLAG(SYSMMU_FAULT_UNKOWN)
-
-/*
- * iovmm_set_fault_handler - register fault handler of dev to iommu controller
- * @dev: the device that wants to register fault handler
- * @handler: fault handler
- * @token: any data the device driver needs to get when fault occurred
- */
-void iovmm_set_fault_handler(struct device *dev,
-			     iommu_fault_handler_t handler, void *token);
-
-/* SYSMMU PPC Event ID */
-enum sysmmu_ppc_event {
-	READ_TOTAL,
-	READ_L1TLB_MISS,
-	READ_L2TLB_MISS,
-	READ_FLPD_MISS,
-	READ_PB_LOOKUP,
-	READ_PB_MISS,
-	READ_BLOCK_NUM_BY_PREFETCH,
-	READ_BLOCK_CYCLE_BRY_PREFETCH,
-	READ_TLB_MISS,
-	READ_FLPD_MISS_PREFETCH,
-	WRITE_TOTAL = 0x10,
-	WRITE_L1TLB_MISS,
-	WRITE_L2TLB_MISS,
-	WRITE_FLPD_MISS,
-	WRITE_PB_LOOKUP,
-	WRITE_PB_MISS,
-	WRITE_BLOCK_NUM_BY_PREFETCH,
-	WRITE_BLOCK_CYCLE_BY_PREFETCH,
-	WRITE_TLB_MISS,
-	WRITE_FLPD_MISS_PREFETCH,
-	TOTAL_ID_NUM,
-};
-
-/*
- * exynos_sysmmu_set/clear/show_ppc_event() -
- *		set/clear/show system mmu ppc event
- *
- * @dev: device descriptor of master device.
- * @event: system mmu ppc event id.
- * Returns 0 if setting is successful. -EINVAL if the argument is invalid.
- *
- */
-int exynos_sysmmu_set_ppc_event(struct device *dev, int event);
-void exynos_sysmmu_clear_ppc_event(struct device *dev);
-void exynos_sysmmu_show_ppc_event(struct device *dev);
-
 /*
  * flags to option_iplanes and option_oplanes.
  * inplanes and onplanes is 'input planes' and 'output planes', respectively.
@@ -145,49 +148,12 @@ void exynos_sysmmu_show_ppc_event(struct device *dev);
  * - Clear SYSMMU_PBUFCFG_PREFETCH if access to a buffer has poor locality.
  * - Otherwise, always set flags as default value.
  */
-#define SYSMMU_PBUFCFG_TLB_UPDATE      (1 << 16)
-#define SYSMMU_PBUFCFG_ASCENDING       (1 << 12)
-#define SYSMMU_PBUFCFG_DESCENDING      (0 << 12)
-#define SYSMMU_PBUFCFG_PREFETCH                (1 << 8)
-#define SYSMMU_PBUFCFG_WRITE           (1 << 4)
-#define SYSMMU_PBUFCFG_READ            (0 << 4)
-
-#define SYSMMU_PBUFCFG_DEFAULT_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
-					SYSMMU_PBUFCFG_ASCENDING |  \
-					SYSMMU_PBUFCFG_PREFETCH |   \
-					SYSMMU_PBUFCFG_READ)
-#define SYSMMU_PBUFCFG_DEFAULT_OUTPUT  (SYSMMU_PBUFCFG_TLB_UPDATE | \
-					SYSMMU_PBUFCFG_ASCENDING |  \
-					SYSMMU_PBUFCFG_PREFETCH |   \
-					SYSMMU_PBUFCFG_WRITE)
-
-#define SYSMMU_PBUFCFG_ASCENDING_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
-					SYSMMU_PBUFCFG_ASCENDING |  \
-					SYSMMU_PBUFCFG_PREFETCH |   \
-					SYSMMU_PBUFCFG_READ)
-
-#define SYSMMU_PBUFCFG_DESCENDING_INPUT   (SYSMMU_PBUFCFG_TLB_UPDATE | \
-					SYSMMU_PBUFCFG_DESCENDING |  \
-					SYSMMU_PBUFCFG_PREFETCH |   \
-					SYSMMU_PBUFCFG_READ)
-
-int sysmmu_set_prefetch_buffer_property(struct device *dev,
-			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption[], unsigned int opoption[]);
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
 #define iovmm_map(dev, sg, offset, size, direction) (-ENOSYS)
 #define iovmm_unmap(dev, iova)		do { } while (0)
-#define iovmm_set_fault_handler(dev, handler, token) do { } while (0)
-
-int sysmmu_set_prefetch_buffer_property(struct device *dev,
-			unsigned int inplanes, unsigned int onplanes,
-			unsigned int ipoption[], unsigned int opoption[])
-{
-	return 0;
-}
-
+#define get_domain_from_dev(dev)	NULL
 #endif /* CONFIG_EXYNOS_IOVMM */
 
 #if defined(CONFIG_EXYNOS_IOMMU)
@@ -274,8 +240,33 @@ struct sysmmu_prefbuf {
 void sysmmu_set_prefetch_buffer_by_region(struct device *dev,
 			struct sysmmu_prefbuf pb_reg[], unsigned int num_reg);
 
+int sysmmu_set_prefetch_buffer_property(struct device *dev,
+			unsigned int inplanes, unsigned int onplanes,
+			unsigned int ipoption[], unsigned int opoption[]);
 void exynos_sysmmu_show_status(struct device *dev);
 void exynos_sysmmu_dump_pgtable(struct device *dev);
+
+/*
+ * exynos_sysmmu_set/clear/show_ppc_event() -
+ *		set/clear/show system mmu ppc event
+ *
+ * @dev: device descriptor of master device.
+ * @event: system mmu ppc event id.
+ * Returns 0 if setting is successful. -EINVAL if the argument is invalid.
+ *
+ */
+int exynos_sysmmu_set_ppc_event(struct device *dev, int event);
+void exynos_sysmmu_clear_ppc_event(struct device *dev);
+void exynos_sysmmu_show_ppc_event(struct device *dev);
+
+/*
+ * iovmm_set_fault_handler - register fault handler of dev to iommu controller
+ * @dev: the device that wants to register fault handler
+ * @handler: fault handler
+ * @token: any data the device driver needs to get when fault occurred
+ */
+void iovmm_set_fault_handler(struct device *dev,
+			     iommu_fault_handler_t handler, void *token);
 
 #else
 static inline int exynos_sysmmu_enable(struct device *owner, unsigned long *pgd)
@@ -313,5 +304,6 @@ int exynos_sysmmu_set_ppc_event(struct device *dev, int event)
 
 #define exynos_sysmmu_clear_ppc_event(dev) do { } while (0)
 #define exynos_sysmmu_show_ppc_event(dev) do { } while (0)
+#define iovmm_set_fault_handler(dev, handler, token) do { } while(0)
 #endif
 #endif /*__ASM_PLAT_IOVMM_H*/

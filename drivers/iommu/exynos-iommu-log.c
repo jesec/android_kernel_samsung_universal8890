@@ -198,7 +198,6 @@ static int exynos_iommu_debugfs_log_open(struct inode *inode, struct file *file)
 #define SYSMMU_DENTRY_LOG_ROOT_NAME "eventlog"
 static struct dentry *sysmmu_debugfs_log_root;
 static struct dentry *iommu_debugfs_log_root;
-static struct dentry *iovmm_debugfs_log_root;
 
 static const struct file_operations exynos_iommu_debugfs_fops = {
 	.open = exynos_iommu_debugfs_log_open,
@@ -246,9 +245,13 @@ void iommu_add_log_to_debugfs(struct dentry *debugfs_root,
 				log, name);
 }
 
+#if defined(CONFIG_EXYNOS_IOVMM)
+static struct dentry *iovmm_debugfs_log_root;
+
 void iovmm_add_log_to_debugfs(struct dentry *debugfs_root,
 			struct exynos_iommu_event_log *log, const char *name)
 {
 	__sysmmu_add_log_to_debugfs(debugfs_root, &iovmm_debugfs_log_root,
 				log, name);
 }
+#endif
