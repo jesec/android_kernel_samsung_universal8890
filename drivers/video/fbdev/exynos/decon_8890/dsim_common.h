@@ -28,6 +28,33 @@ enum {
 	DSIM_LANE_DATA3	= (1 << 4),
 };
 
+/* DSI Error report bit definitions */
+enum {
+	MIPI_DSI_ERR_SOT			= (1 << 0),
+	MIPI_DSI_ERR_SOT_SYNC			= (1 << 1),
+	MIPI_DSI_ERR_EOT_SYNC			= (1 << 2),
+	MIPI_DSI_ERR_ESCAPE_MODE_ENTRY_CMD	= (1 << 3),
+	MIPI_DSI_ERR_LOW_POWER_TRANSMIT_SYNC	= (1 << 4),
+	MIPI_DSI_ERR_HS_RECEIVE_TIMEOUT		= (1 << 5),
+	MIPI_DSI_ERR_FALSE_CONTROL		= (1 << 6),
+	/* Bit 7 is reserved */
+	MIPI_DSI_ERR_ECC_SINGLE_BIT		= (1 << 8),
+	MIPI_DSI_ERR_ECC_MULTI_BIT		= (1 << 9),
+	MIPI_DSI_ERR_CHECKSUM			= (1 << 10),
+	MIPI_DSI_ERR_DATA_TYPE_NOT_RECOGNIZED	= (1 << 11),
+	MIPI_DSI_ERR_VCHANNEL_ID_INVALID	= (1 << 12),
+	MIPI_DSI_ERR_INVALID_TRANSMIT_LENGTH	= (1 << 13),
+	/* Bit 14 is reserved */
+	MIPI_DSI_ERR_PROTOCAL_VIOLATION		= (1 << 15),
+	/* DSI_PROTOCAL_VIOLATION[15] is for protocol violation that is caused EoTp
+	 * missing So this bit is egnored because of not supportung @S.LSI AP */
+	/* FALSE_ERROR_CONTROL[6] is for detect invalid escape or turnaround sequence.
+	 * This bit is not supporting @S.LSI AP because of non standard
+	 * ULPS enter/exit sequence during power-gating */
+	/* Bit [14],[7] is reserved */
+	MIPI_DSI_ERR_BIT_MASK			= (0x3f3f), /* Error_Range[13:0] */
+};
+
 struct dsim_pll_param {
 	u32 p;
 	u32 m;
@@ -74,6 +101,9 @@ int dsim_reg_set_hs_clock(u32 id, u32 en);
 void dsim_reg_set_int(u32 id, u32 en);
 int dsim_reg_set_ulps(u32 id, u32 en, u32 lanes);
 int dsim_reg_set_smddi_ulps(u32 id, u32 en, u32 lanes);
+/* RX related APIs list */
+u32 dsim_reg_get_rx_fifo(u32 id);
+int dsim_reg_rx_err_handler(u32 id, u32 rx_fifo);
 
 /* CAL raw functions list */
 void dsim_reg_sw_reset(u32 id);

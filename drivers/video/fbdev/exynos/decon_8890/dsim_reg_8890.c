@@ -1313,6 +1313,55 @@ void dsim_reg_set_int(u32 id, u32 en)
 	dsim_write_mask(id, DSIM_INTMSK, val, mask);
 }
 
+u32 dsim_reg_get_rx_fifo(u32 id)
+{
+	return dsim_read(id, DSIM_RXFIFO);
+}
+
+int dsim_reg_rx_err_handler(u32 id, u32 rx_fifo)
+{
+	int ret = 0;
+	u32 err_bit = rx_fifo >> 8; /* Error_Range [23:8] */
+
+	if ((err_bit & MIPI_DSI_ERR_BIT_MASK) == 0) {
+		dsim_dbg("dsim%d, Non error reporting format (rx_fifo=0x%x)\n",
+				id, rx_fifo);
+		return ret;
+	}
+
+	/* Parse error report bit*/
+	if (err_bit & MIPI_DSI_ERR_SOT)
+		dsim_err("SoT error!\n");
+	if (err_bit & MIPI_DSI_ERR_SOT_SYNC)
+		dsim_err("SoT sync error!\n");
+	if (err_bit & MIPI_DSI_ERR_EOT_SYNC)
+		dsim_err("EoT error!\n");
+	if (err_bit & MIPI_DSI_ERR_ESCAPE_MODE_ENTRY_CMD)
+		dsim_err("Escape mode entry command error!\n");
+	if (err_bit & MIPI_DSI_ERR_LOW_POWER_TRANSMIT_SYNC)
+		dsim_err("Low-power transmit sync error!\n");
+	if (err_bit & MIPI_DSI_ERR_HS_RECEIVE_TIMEOUT)
+		dsim_err("HS receive timeout error!\n");
+	if (err_bit & MIPI_DSI_ERR_FALSE_CONTROL)
+		dsim_err("False control error!\n");
+	if (err_bit & MIPI_DSI_ERR_ECC_SINGLE_BIT)
+		dsim_err("ECC error, single-bit(detected and corrected)!\n");
+	if (err_bit & MIPI_DSI_ERR_ECC_MULTI_BIT)
+		dsim_err("ECC error, multi-bit(detected, not corrected)!\n");
+	if (err_bit & MIPI_DSI_ERR_CHECKSUM)
+		dsim_err("Checksum error(long packet only)!\n");
+	if (err_bit & MIPI_DSI_ERR_DATA_TYPE_NOT_RECOGNIZED)
+		dsim_err("DSI data type not recognized!\n");
+	if (err_bit & MIPI_DSI_ERR_VCHANNEL_ID_INVALID)
+		dsim_err("DSI VC ID invalid!\n");
+	if (err_bit & MIPI_DSI_ERR_INVALID_TRANSMIT_LENGTH)
+		dsim_err("Invalid transmission length!\n");
+
+	dsim_err("dsim%d, (rx_fifo=0x%x) Check DPHY values about HS clk.\n",
+			id, rx_fifo);
+	return -EINVAL;
+}
+
 /*
  * enter or exit ulps mode
  *
