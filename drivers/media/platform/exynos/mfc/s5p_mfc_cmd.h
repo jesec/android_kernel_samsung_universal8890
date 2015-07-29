@@ -32,6 +32,7 @@ int s5p_mfc_close_inst_cmd(struct s5p_mfc_ctx *ctx);
 
 void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 					enum mfc_buf_usage_type buf_type);
+int s5p_mfc_check_int_cmd(struct s5p_mfc_dev *dev);
 
 static inline void s5p_mfc_clear_cmds(struct s5p_mfc_dev *dev)
 {

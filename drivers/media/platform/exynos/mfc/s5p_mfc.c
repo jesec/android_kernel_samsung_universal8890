@@ -407,7 +407,8 @@ void s5p_mfc_watchdog(unsigned long arg)
 		 * watchdog timer. This usually means a serious hw
 		 * error. Now it is time to kill all instances and
 		 * reset the MFC. */
-		mfc_err_dev("Time out during waiting for HW.\n");
+		mfc_err_dev("[%d] Time out during waiting for HW\n",
+				atomic_read(&dev->watchdog_cnt));
 		queue_work(dev->watchdog_wq, &dev->watchdog_work);
 	}
 	dev->watchdog_timer.expires = jiffies +
@@ -452,11 +453,7 @@ static int s5p_mfc_check_hw_state(struct s5p_mfc_dev *dev)
 static void s5p_mfc_watchdog_worker(struct work_struct *work)
 {
 	struct s5p_mfc_dev *dev;
-	struct s5p_mfc_ctx *ctx;
-	int i;
-	int mutex_locked;
-	unsigned long flags;
-	int ref_cnt;
+	int cmd = 0;
 
 	dev = container_of(work, struct s5p_mfc_dev, watchdog_work);
 
@@ -465,105 +462,34 @@ static void s5p_mfc_watchdog_worker(struct work_struct *work)
 		return;
 	}
 
+	if (!atomic_read(&dev->watchdog_cnt)) {
+		mfc_err_dev("interrupt handler is called\n");
+		return;
+	}
+
+	/* Check whether HW interrupt has occured or not */
+	if (mfc_check_power_state(dev) && mfc_check_clock_state(dev))
+		cmd = s5p_mfc_check_int_cmd(dev);
+	if (cmd) {
+		if (atomic_read(&dev->watchdog_cnt) == (3 * MFC_WATCHDOG_CNT)) {
+			mfc_err_dev("MFC driver waited for upward of 8sec\n");
+		} else {
+			mfc_err_dev("interrupt(%d) is occured, wait scheduling\n", cmd);
+			return;
+		}
+	} else {
+		mfc_err_dev("Driver timeout error handling\n");
+	}
+
+	/* Run watchdog worker */
 	atomic_set(&dev->watchdog_run, 1);
 
-	mfc_err_dev("Driver timeout error handling.\n");
-	/* Lock the mutex that protects open and release.
-	 * This is necessary as they may load and unload firmware. */
-	mutex_locked = mutex_trylock(&dev->mfc_mutex);
-	if (!mutex_locked)
-		mfc_err_dev("This is not good. Some instance may be "
-							"closing/opening.\n");
-
-#if 1
 	/* Reset the timeout watchdog */
 	atomic_set(&dev->watchdog_cnt, 0);
 	s5p_mfc_check_hw_state(dev);
 
 	/* Stop */
 	BUG();
-
-	ref_cnt = s5p_mfc_get_clk_ref_cnt(dev);
-	if (ref_cnt > 0) {
-		for (i = ref_cnt; i > 0; i--)
-			s5p_mfc_clock_off(dev);
-	}
-#else
-	/* Call clock on/off to make ref count 0 */
-	ref_cnt = s5p_mfc_get_clk_ref_cnt(dev);
-	mfc_debug(2, "Clock reference count: %d\n", ref_cnt);
-	if (ref_cnt < 0) {
-		for (i = ref_cnt; i < 0; i++)
-			s5p_mfc_clock_on(dev);
-	} else if (ref_cnt > 0) {
-		for (i = ref_cnt; i > 0; i--)
-			s5p_mfc_clock_off(dev);
-	}
-#endif
-	spin_lock_irqsave(&dev->irqlock, flags);
-
-	for (i = 0; i < MFC_NUM_CONTEXTS; i++) {
-		ctx = dev->ctx[i];
-		if (ctx && (ctx->inst_no != MFC_NO_INSTANCE_SET)) {
-			ctx->state = MFCINST_ERROR;
-			ctx->inst_no = MFC_NO_INSTANCE_SET;
-			s5p_mfc_cleanup_queue(&ctx->dst_queue);
-			s5p_mfc_cleanup_queue(&ctx->src_queue);
-			clear_work_bit(ctx);
-			wake_up_ctx(ctx, S5P_FIMV_R2H_CMD_ERR_RET, 0);
-		}
-	}
-
-	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	for (i = 0; i < MFC_NUM_CONTEXTS; i++) {
-		ctx = dev->ctx[i];
-		if (ctx && (ctx->inst_no != MFC_NO_INSTANCE_SET))
-			s5p_mfc_qos_off(ctx);
-	}
-
-	spin_lock_irq(&dev->condlock);
-	dev->hw_lock = 0;
-	spin_unlock_irq(&dev->condlock);
-
-#if 1
-	/* Power off to disable MFC H/W.
-	 * No need to laod firmware again, it is useless. */
-	s5p_mfc_power_off(dev);
-	mfc_info_dev("MFC power off to disable H/W.\n");
-
-	mdelay(500);
-
-	/* Power on again. Power will be off when release is called. */
-	mfc_info_dev("MFC power on again.\n");
-	s5p_mfc_power_on(dev);
-
-#else
-	/* Double check if there is at least one instance running.
-	 * If no instance is in memory than no firmware should be present */
-	if (dev->num_inst > 0) {
-		ret = s5p_mfc_load_firmware(dev);
-		if (ret != 0) {
-			mfc_err_dev("Failed to reload FW.\n");
-			goto watchdog_exit;
-		}
-
-		ret = s5p_mfc_init_hw(dev);
-		if (ret != 0) {
-			mfc_err_dev("Failed to reinit FW.\n");
-			goto watchdog_exit;
-		}
-	}
-#endif
-
-#if 0
-watchdog_exit:
-#endif
-
-	if (mutex_locked)
-		mutex_unlock(&dev->mfc_mutex);
-
-	atomic_set(&dev->watchdog_run, 0);
 }
 
 static inline enum s5p_mfc_node_type s5p_mfc_get_node_type(struct file *file)

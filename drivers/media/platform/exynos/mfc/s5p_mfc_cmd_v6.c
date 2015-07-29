@@ -166,3 +166,11 @@ void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 		mfc_debug(2, "Port A: %08zu, Port B: %08zu\n", dev->port_a, dev->port_b);
 	}
 }
+
+int s5p_mfc_check_int_cmd(struct s5p_mfc_dev *dev)
+{
+	if (s5p_mfc_read_reg(dev, S5P_FIMV_RISC2HOST_INT))
+		return s5p_mfc_read_reg(dev, S5P_FIMV_RISC2HOST_CMD);
+	else
+		return 0;
+}
