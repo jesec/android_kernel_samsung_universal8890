@@ -2368,7 +2368,6 @@ static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
 	}
 
 	of_property_read_u32(np_qos, "thrd_mb", &pdata->thrd_mb);
-	of_property_read_u32(np_qos, "freq_mfc", &pdata->freq_mfc);
 	of_property_read_u32(np_qos, "freq_int", &pdata->freq_int);
 	of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
 	of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
@@ -2392,7 +2391,6 @@ static int parse_mfc_qos_extra(struct device_node *np, char *node_name,
 
 	of_property_read_u32(np_qos, "thrd_mb", &pdata->thrd_mb);
 	if (pdata->thrd_mb != MFC_QOS_FLAG_NODATA) {
-		of_property_read_u32(np_qos, "freq_mfc", &pdata->freq_mfc);
 		of_property_read_u32(np_qos, "freq_int", &pdata->freq_int);
 		of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
 		of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
@@ -2460,7 +2458,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 
 	spin_lock_init(&dev->irqlock);
 	spin_lock_init(&dev->condlock);
-	mutex_init(&dev->curr_rate_lock);
 
 	dev->device = &pdev->dev;
 	dev->pdata = pdev->dev.platform_data;
@@ -2487,11 +2484,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	}
 
 	mfc_parse_dt(dev->device->of_node, dev);
-
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-	/* initial clock rate should be min rate */
-	dev->curr_rate = dev->min_rate = dev->pdata->min_rate;
-#endif
 
 	atomic_set(&dev->trace_ref, 0);
 	dev->mfc_trace = g_mfc_trace[dev->id];
@@ -2781,16 +2773,14 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		atomic_set(&dev->qos_req_cnt[i], 0);
 
 	for (i = 0; i < dev->pdata->num_qos_steps; i++) {
-		mfc_info_dev("QoS table[%d] int : %d (mfc : %d), mif : %d\n",
+		mfc_info_dev("QoS table[%d] int : %d, mif : %d\n",
 				i,
 				dev->pdata->qos_table[i].freq_int,
-				dev->pdata->qos_table[i].freq_mfc,
 				dev->pdata->qos_table[i].freq_mif);
 		if (dev->pdata->qos_extra[i].thrd_mb != MFC_QOS_FLAG_NODATA)
-			mfc_info_dev(">> Extra[%d] int : %d (mfc : %d), mif : %d\n",
+			mfc_info_dev(">> Extra[%d] int : %d, mif : %d\n",
 				i,
 				dev->pdata->qos_extra[i].freq_int,
-				dev->pdata->qos_extra[i].freq_mfc,
 				dev->pdata->qos_extra[i].freq_mif);
 	}
 #endif
@@ -2856,7 +2846,6 @@ err_req_mem:
 err_res_mem:
 	s5p_mfc_final_pm(dev);
 err_pm:
-	mutex_destroy(&dev->curr_rate_lock);
 	return ret;
 }
 

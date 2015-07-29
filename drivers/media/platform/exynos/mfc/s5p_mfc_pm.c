@@ -65,21 +65,6 @@ void s5p_mfc_final_pm(struct s5p_mfc_dev *dev)
 	pm_runtime_disable(dev->pm.device);
 }
 
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-static int s5p_mfc_clock_set_rate(struct s5p_mfc_dev *dev, unsigned long rate)
-{
-	struct clk *clk_child = NULL;
-
-	if(clk_child)
-		clk_set_rate(clk_child, rate * 1000);
-
-	if(clk_child)
-		clk_put(clk_child);
-
-	return 0;
-}
-#endif
-
 int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 {
 	int ret = 0;
@@ -87,16 +72,13 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	unsigned long flags;
 
 	dev->pm.clock_on_steps = 1;
-#ifdef CONFIG_MFC_USE_BUS_DEVFREQ
-	MFC_TRACE_DEV("++ clock_on: Set clock rate(%d)\n", dev->curr_rate);
-	mutex_lock(&dev->curr_rate_lock);
-	s5p_mfc_clock_set_rate(dev, dev->curr_rate);
-	mutex_unlock(&dev->curr_rate_lock);
-#endif
-	dev->pm.clock_on_steps |= 0x1 << 1;
+	state = atomic_read(&dev->clk_ref);
+	MFC_TRACE_DEV("++ clock_on : ref state(%d)\n", state);
+
 	ret = clk_enable(dev->pm.clock);
 	if (ret < 0)
 		return ret;
+	dev->pm.clock_on_steps |= 0x1 << 1;
 
 	if (dev->pm.base_type != MFCBUF_INVALID)
 		s5p_mfc_init_memctrl(dev, dev->pm.base_type);
@@ -173,8 +155,9 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 	int ret = 0;
 
 	dev->pm.clock_off_steps = 1;
+	state = atomic_read(&dev->clk_ref);
+	MFC_TRACE_DEV("++ clock_off: ref state(%d)\n", state);
 
-	MFC_TRACE_DEV("++ clock_off\n");
 	if (IS_MFCV6(dev)) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
 		dev->pm.clock_off_steps |= 0x1 << 1;
@@ -229,6 +212,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 		clk_disable(dev->pm.clock);
 	}
 	dev->pm.clock_off_steps |= 0x1 << 9;
+	state = atomic_read(&dev->clk_ref);
 	mfc_debug(2, "- %d\n", state);
 	MFC_TRACE_DEV("-- clock_off: ref state(%d)\n", state);
 }

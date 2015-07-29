@@ -325,7 +325,6 @@ struct s5p_mfc_dev {
 
 	/* for direct clock control */
 	int min_rate;
-	int curr_rate;
 #endif
 	int id;
 	atomic_t clk_ref;
@@ -338,7 +337,6 @@ struct s5p_mfc_dev {
 	atomic_t trace_ref;
 	struct _mfc_trace *mfc_trace;
 
-	struct mutex curr_rate_lock;
 	int has_enc_ctx;
 
 	bool has_job;
