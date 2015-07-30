@@ -21,7 +21,7 @@
 #endif
 
 /* These definitions are need to guide from AP team */
-#define DSIM_STOP_STATE_CNT		0x7ff
+#define DSIM_STOP_STATE_CNT		0xA
 #define DSIM_BTA_TIMEOUT		0xff
 #define DSIM_LP_RX_TIMEOUT		0xffff
 #define DSIM_MULTI_PACKET_CNT		0xffff
@@ -1311,6 +1311,11 @@ void dsim_reg_set_int(u32 id, u32 en)
 		DSIM_INTMSK_ERR_RX_ECC;
 
 	dsim_write_mask(id, DSIM_INTMSK, val, mask);
+}
+
+u32 dsim_reg_rx_fifo_is_empty(u32 id)
+{
+	return dsim_read_mask(id, DSIM_FIFOCTRL, DSIM_FIFOCTRL_EMPTY_RX);
 }
 
 u32 dsim_reg_get_rx_fifo(u32 id)

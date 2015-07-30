@@ -18,6 +18,7 @@
 #define DSIM_PIXEL_FORMAT_RGB24		0x7
 #define DSIM_PIXEL_FORMAT_RGB18		0x6
 #define DSIM_PIXEL_FORMAT_RGB18_PACKED	0x5
+#define DSIM_RX_FIFO_MAX_DEPTH		64
 
 /* define DSI lane types. */
 enum {
@@ -102,6 +103,7 @@ void dsim_reg_set_int(u32 id, u32 en);
 int dsim_reg_set_ulps(u32 id, u32 en, u32 lanes);
 int dsim_reg_set_smddi_ulps(u32 id, u32 en, u32 lanes);
 /* RX related APIs list */
+u32 dsim_reg_rx_fifo_is_empty(u32 id);
 u32 dsim_reg_get_rx_fifo(u32 id);
 int dsim_reg_rx_err_handler(u32 id, u32 rx_fifo);
 
