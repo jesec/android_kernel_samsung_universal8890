@@ -1153,23 +1153,26 @@ static void exynos_ufs_config_smu(struct exynos_ufs *ufs)
 
 static bool exynos_ufs_wait_pll_lock(struct exynos_ufs *ufs)
 {
-	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
+	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 	u32 reg;
 
 	do {
 		reg = phy_pma_readl(ufs, PHY_PMA_COMN_ADDR(0x1E));
 		if ((reg >> 5) & 0x1)
 			return true;
+		usleep_range(1, 1);
 	} while (time_before(jiffies, timeout));
 
 	dev_err(ufs->dev, "timeout mphy pll lock\n");
+	exynos_ufs_get_sfr(ufs->hba);
+	exynos_ufs_sfr_dump(ufs->hba);
 
 	return false;
 }
 
 static bool exynos_ufs_wait_cdr_lock(struct exynos_ufs *ufs)
 {
-	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
+	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 	u32 reg, val;
 
 	val = ufs->wait_cdr_lock;
@@ -1179,9 +1182,12 @@ static bool exynos_ufs_wait_cdr_lock(struct exynos_ufs *ufs)
 		reg = phy_pma_readl(ufs, PHY_PMA_TRSV_ADDR(val, 0));
 		if ((reg >> 4) & 0x1)
 			return true;
+		usleep_range(1, 1);
 	} while (time_before(jiffies, timeout));
 
 	dev_err(ufs->dev, "timeout mphy cdr lock\n");
+	exynos_ufs_get_sfr(ufs->hba);
+	exynos_ufs_sfr_dump(ufs->hba);
 
 	return false;
 }
