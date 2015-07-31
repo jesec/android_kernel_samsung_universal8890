@@ -75,24 +75,26 @@ extern int debug;
 		char str[MFC_TRACE_STR_LEN];
 	};
 
-#define MFC_TRACE_DEV(fmt, args...)							\
+/* If there is no ctx structure */
+#define MFC_TRACE_DEV(fmt, args...)									\
 		do {											\
 			int cpu = raw_smp_processor_id();						\
 			int cnt;									\
-			cnt = atomic_inc_return(&dev->trace_ref) & (MFC_TRACE_COUNT_MAX - 1);	\
+			cnt = atomic_inc_return(&dev->trace_ref) & (MFC_TRACE_COUNT_MAX - 1);		\
 			dev->mfc_trace[cnt].time = cpu_clock(cpu);					\
-			snprintf(dev->mfc_trace[cnt].str, MFC_TRACE_STR_LEN,			\
-					"[d:%d] " fmt, dev->id, ##args);				\
+			snprintf(dev->mfc_trace[cnt].str, MFC_TRACE_STR_LEN,				\
+					"[c:%d] " fmt, dev->curr_ctx, ##args);				\
 		} while(0)
 
-#define MFC_TRACE_CTX(fmt, args...)							\
+/* If there is ctx structure */
+#define MFC_TRACE_CTX(fmt, args...)									\
 		do {											\
 			int cpu = raw_smp_processor_id();						\
 			int cnt;									\
-			cnt = atomic_inc_return(&dev->trace_ref) & (MFC_TRACE_COUNT_MAX - 1);	\
+			cnt = atomic_inc_return(&dev->trace_ref) & (MFC_TRACE_COUNT_MAX - 1);		\
 			dev->mfc_trace[cnt].time = cpu_clock(cpu);					\
-			snprintf(dev->mfc_trace[cnt].str, MFC_TRACE_STR_LEN,			\
-					"[d:%d, c:%d] " fmt, ctx->dev->id, ctx->num, ##args);		\
+			snprintf(dev->mfc_trace[cnt].str, MFC_TRACE_STR_LEN,				\
+					"[c:%d] " fmt, ctx->num, ##args);				\
 		} while(0)
 
 #endif /* __S5P_MFC_DEBUG_H */

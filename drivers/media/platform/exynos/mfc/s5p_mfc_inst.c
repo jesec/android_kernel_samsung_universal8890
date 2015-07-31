@@ -16,12 +16,10 @@
 
 int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx)
 {
-	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret;
 
 	/* Preparing decoding - getting instance number */
 	mfc_debug(2, "Getting instance number\n");
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_open_inst_cmd(ctx);
 	if (ret) {
@@ -33,12 +31,10 @@ int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx)
 
 int s5p_mfc_close_inst(struct s5p_mfc_ctx *ctx)
 {
-	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret = -EINVAL;
 
 	/* Closing decoding instance  */
 	mfc_debug(2, "Returning instance number\n");
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	if (ctx->state != MFCINST_FREE)
 		ret = s5p_mfc_close_inst_cmd(ctx);

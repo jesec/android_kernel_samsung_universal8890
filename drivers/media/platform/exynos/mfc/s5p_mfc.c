@@ -1376,7 +1376,7 @@ static irqreturn_t s5p_mfc_top_half_irq(int irq, void *priv)
 	err = s5p_mfc_get_int_err();
 	mfc_debug(2, "[c:%d] Int reason: %d (err: %d)\n",
 			dev->curr_ctx, reason, err);
-	MFC_TRACE_DEV("<< Int reason(top): %d\n", reason);
+	MFC_TRACE_CTX("<< Int reason(top): %d\n", reason);
 
 	return IRQ_WAKE_THREAD;
 }

@@ -518,7 +518,6 @@ static inline int s5p_mfc_run_dec_last_frames(struct s5p_mfc_ctx *ctx)
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	s5p_mfc_decode_one_frame(ctx, 1);
 
@@ -683,7 +682,6 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 
 	if (temp_vb->vb.v4l2_buf.reserved2 & FLAG_LAST_FRAME) {
@@ -733,7 +731,6 @@ static inline int s5p_mfc_run_enc_last_frames(struct s5p_mfc_ctx *ctx)
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	s5p_mfc_encode_one_frame(ctx, 1);
 
@@ -799,7 +796,6 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 	if (call_cop(ctx, set_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
 		mfc_err_ctx("failed in set_buf_ctrls_val\n");
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	s5p_mfc_encode_one_frame(ctx, last_frame);
 
@@ -846,7 +842,6 @@ static inline int s5p_mfc_run_init_dec(struct s5p_mfc_ctx *ctx)
 			0, temp_vb->vb.v4l2_planes[0].bytesused);
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
-	dev->curr_ctx = ctx->num;
 	mfc_debug(2, "Header addr: 0x%08lx\n",
 		(unsigned long)s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0));
 	s5p_mfc_clean_ctx_int_flags(ctx);
@@ -881,7 +876,6 @@ static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
 
 	s5p_mfc_set_stride_enc(ctx);
 
-	dev->curr_ctx = ctx->num;
 	mfc_debug(2, "Header addr: 0x%08lx\n",
 		(unsigned long)s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0));
 	s5p_mfc_clean_ctx_int_flags(ctx);
@@ -918,7 +912,6 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 		return -EAGAIN;
 	}
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_set_dec_frame_buffer(ctx);
 	if (ret) {
@@ -934,7 +927,6 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 
 static inline int s5p_mfc_run_init_enc_buffers(struct s5p_mfc_ctx *ctx)
 {
-	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret;
 
 	ret = s5p_mfc_alloc_codec_buffers(ctx);
@@ -953,7 +945,6 @@ static inline int s5p_mfc_run_init_enc_buffers(struct s5p_mfc_ctx *ctx)
 		return -EAGAIN;
 	}
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_set_enc_ref_buffer(ctx);
 	if (ret) {
@@ -977,7 +968,6 @@ static inline int s5p_mfc_abort_inst(struct s5p_mfc_ctx *ctx)
 		return -EINVAL;
 	}
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 
 	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
@@ -993,7 +983,6 @@ static inline int s5p_mfc_dec_dpb_flush(struct s5p_mfc_ctx *ctx)
 	if (on_res_change(ctx))
 		mfc_err("dpb flush on res change(state:%d)\n", ctx->state);
 
-	dev->curr_ctx = ctx->num;
 	s5p_mfc_clean_ctx_int_flags(ctx);
 
 	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
@@ -1050,6 +1039,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 
 	mfc_debug(1, "New context: %d\n", new_ctx);
 	mfc_debug(1, "Seting new context to %p\n", ctx);
+	dev->curr_ctx = ctx->num;
 
 	/* Got context to run in ctx */
 	mfc_debug(1, "ctx->dst_queue_cnt=%d ctx->dpb_count=%d ctx->src_queue_cnt=%d\n",
