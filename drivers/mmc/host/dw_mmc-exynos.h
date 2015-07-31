@@ -35,7 +35,12 @@ struct dw_mci_exynos_priv_data {
 	u32			sdr_timing;
 	u32			sdr_hs_timing;
 	u32			ddr_timing;
+	u32                     hs400_timing;
+	u32                     tuned_sample;
 	u32			cur_speed;
+	u32			dqs_delay;
+	u32			saved_dqs_en;
+	u32			saved_strobe_ctrl;
 	u32			hs200_timing;
 	u32			ddr200_timing;
 	u32			ddr200_ulp_timing;
@@ -101,6 +106,11 @@ extern void dw_mci_reg_dump(struct dw_mci *host);
 #define SDMMC_DDR200_ASYNC_FIFO_CTRL	0x184
 #define SDMMC_DDR200_DLINE_CTRL		0x188
 
+/* Extended Register's Offset */
+#define SDMMC_HS400_DQS_EN		0x180
+#define SDMMC_HS400_ASYNC_FIFO_CTRL	0x184
+#define SDMMC_HS400_DLINE_CTRL		0x188
+
 #define SDMMC_EMMCP_BASE		0x1000
 #define SDMMC_MPSTAT			(SDMMC_EMMCP_BASE + 0x0008)
 #define SDMMC_MPSECURITY		(SDMMC_EMMCP_BASE + 0x0010)
@@ -131,6 +141,20 @@ extern void dw_mci_reg_dump(struct dw_mci *host);
 	 SDMMC_CLKSEL_CCLK_FINE_DRIVE(f_drv) |	\
 	 SDMMC_CLKSEL_CCLK_DRIVE(drv) |		\
 	 SDMMC_CLKSEL_CCLK_SAMPLE(sample))
+
+#define SDMMC_CLKSEL_GET_DIV(x)		(((x) >> 24) & 0x7)
+#define SDMMC_CLKSEL_UP_SAMPLE(x, y)	(((x) & ~SDMMC_CLKSEL_CCLK_SAMPLE(7)) |\
+					 SDMMC_CLKSEL_CCLK_SAMPLE(y))
+
+#define SDMMC_CLKSEL_TIMING_MASK	SDMMC_CLKSEL_TIMING(0x7, 0x7, 0x7 ,0x7)
+
+/* RCLK_EN register defines */
+#define DATA_STROBE_EN			BIT(0)
+#define AXI_NON_BLOCKING_WR	BIT(7)
+
+/* DLINE_CTRL register defines */
+#define DQS_CTRL_RD_DELAY(x, y)		(((x) & ~0x3FF) | ((y) & 0x3FF))
+#define DQS_CTRL_GET_RD_DELAY(x)	((x) & 0x3FF)
 
 /* SDMMC_DDR200_RDDQS_EN */
 #define DWMCI_TXDT_CRC_TIMER_FASTLIMIT(x)	(((x) & 0xFF) << 16)
@@ -194,6 +218,7 @@ extern void dw_mci_reg_dump(struct dw_mci *host);
 
 #define EXYNOS4210_FIXED_CIU_CLK_DIV	2
 #define EXYNOS4412_FIXED_CIU_CLK_DIV	4
+#define HS400_FIXED_CIU_CLK_DIV		1
 
 /* FMP SECURITY bits */
 #define DWMCI_MPSECURITY_PROTBYTZPC		BIT(31)

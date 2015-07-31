@@ -148,16 +148,29 @@ static int dw_mci_exynos_priv_init(struct dw_mci *host)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
 
-	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS5420_SMU) {
-		mci_writel(host, MPSBEGIN0, 0);
-		mci_writel(host, MPSEND0, DWMCI_BLOCK_NUM);
-		mci_writel(host, MPSCTRL0, DWMCI_MPSCTRL_SECURE_WRITE_BIT |
-			   DWMCI_MPSCTRL_NON_SECURE_READ_BIT |
-			   DWMCI_MPSCTRL_VALID |
-			   DWMCI_MPSCTRL_NON_SECURE_WRITE_BIT);
-	}
+	priv->saved_strobe_ctrl = mci_readl(host, HS400_DLINE_CTRL);
+	priv->saved_dqs_en = mci_readl(host, HS400_DQS_EN);
+	priv->saved_dqs_en |= AXI_NON_BLOCKING_WR;
+	mci_writel(host, HS400_DQS_EN, priv->saved_dqs_en);
+	if (!priv->dqs_delay)
+		priv->dqs_delay =
+			DQS_CTRL_GET_RD_DELAY(priv->saved_strobe_ctrl);
 
 	return 0;
+}
+
+static void dw_mci_exynos_set_clksel_timing(struct dw_mci *host, u32 timing)
+{
+	u32 clksel;
+
+	clksel = mci_readl(host, CLKSEL);
+	clksel = (clksel & ~SDMMC_CLKSEL_TIMING_MASK) | timing;
+	mci_writel(host, CLKSEL, clksel);
+}
+
+static inline u8 dw_mci_exynos_get_ciu_div(struct dw_mci *host)
+{
+	return SDMMC_CLKSEL_GET_DIV(mci_readl(host, CLKSEL)) + 1;
 }
 
 static int dw_mci_exynos_setup_clock(struct dw_mci *host)
@@ -226,43 +239,107 @@ static void dw_mci_exynos_prepare_command(struct dw_mci *host, u32 *cmdr)
 		*cmdr |= SDMMC_CMD_USE_HOLD_REG;
 }
 
-static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
+static void dw_mci_exynos_config_hs400(struct dw_mci *host, u32 timing)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
-	unsigned int wanted = ios->clock;
-	unsigned long actual;
-	u8 div = priv->ciu_div + 1;
+	u32 dqs, strobe;
 
-	if (ios->timing == MMC_TIMING_MMC_DDR52) {
-		mci_writel(host, CLKSEL, priv->ddr_timing);
-		/* Should be double rate for DDR mode */
-		if (ios->bus_width == MMC_BUS_WIDTH_8)
-			wanted <<= 1;
+	/*
+	 * Not supported to configure register
+	 * related to HS400
+	 */
+	if (priv->ctrl_type < DW_MCI_TYPE_EXYNOS5420)
+		return;
+
+	dqs = priv->saved_dqs_en;
+	strobe = priv->saved_strobe_ctrl;
+
+	if (timing == MMC_TIMING_MMC_HS400) {
+		dqs |= DATA_STROBE_EN;
+		strobe = DQS_CTRL_RD_DELAY(strobe, priv->dqs_delay);
 	} else {
-		mci_writel(host, CLKSEL, priv->sdr_timing);
+		dqs &= ~DATA_STROBE_EN;
 	}
 
-	/* Don't care if wanted clock is zero */
-	if (!wanted)
+	mci_writel(host, HS400_DQS_EN, dqs);
+	mci_writel(host, HS400_DLINE_CTRL, strobe);
+}
+
+static void dw_mci_exynos_adjust_clock(struct dw_mci *host, unsigned int wanted)
+{
+	struct dw_mci_exynos_priv_data *priv = host->priv;
+	unsigned long actual;
+	u8 div;
+	int ret;
+	/*
+	 * Don't care if wanted clock is zero or
+	 * ciu clock is unavailable
+	 */
+	if (!wanted || IS_ERR(host->ciu_clk))
 		return;
 
 	/* Guaranteed minimum frequency for cclkin */
 	if (wanted < EXYNOS_CCLKIN_MIN)
 		wanted = EXYNOS_CCLKIN_MIN;
 
-	if (wanted != priv->cur_speed) {
-		int ret = clk_set_rate(host->ciu_clk, wanted * div);
-		if (ret)
-			dev_warn(host->dev,
-				"failed to set clk-rate %u error: %d\n",
-				 wanted * div, ret);
-		actual = clk_get_rate(host->ciu_clk);
-		host->bus_hz = actual / div;
-		priv->cur_speed = wanted;
-		host->current_speed = 0;
-	}
+	if (wanted == priv->cur_speed)
+		return;
+
+	div = dw_mci_exynos_get_ciu_div(host);
+	ret = clk_set_rate(host->ciu_clk, wanted * div);
+	if (ret)
+		dev_warn(host->dev,
+			"failed to set clk-rate %u error: %d\n",
+			wanted * div, ret);
+	actual = clk_get_rate(host->ciu_clk);
+	host->bus_hz = actual / div;
+	priv->cur_speed = wanted;
+	host->current_speed = 0;
 }
 
+static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
+{
+	struct dw_mci_exynos_priv_data *priv = host->priv;
+	unsigned int wanted = ios->clock;
+	u32 *clk_tbl = priv->ref_clk;
+	u32 timing = ios->timing, clksel;
+	u32 cclkin;
+
+	cclkin = clk_tbl[timing];
+
+	if(host->bus_hz != cclkin)
+		wanted = cclkin;
+
+	switch (timing) {
+	case MMC_TIMING_MMC_HS400:
+		/* Update tuned sample timing */
+		clksel = SDMMC_CLKSEL_UP_SAMPLE(
+				priv->hs400_timing, priv->tuned_sample);
+		wanted <<= 1;
+		break;
+	case MMC_TIMING_MMC_DDR52:
+		clksel = priv->ddr_timing;
+		/* Should be double rate for DDR mode */
+		if (ios->bus_width == MMC_BUS_WIDTH_8)
+			wanted <<= 1;
+		break;
+	default:
+		clksel = priv->sdr_timing;
+	}
+
+	/* Set clock timing for the requested speed mode*/
+	dw_mci_exynos_set_clksel_timing(host, clksel);
+
+	/* Configure setting for HS400 */
+	dw_mci_exynos_config_hs400(host, timing);
+
+	/* Configure clock rate */
+	dw_mci_exynos_adjust_clock(host, wanted);
+}
+
+#ifndef MHZ
+#define MHZ (1000*1000)
+#endif
 static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 {
 	struct dw_mci_exynos_priv_data *priv;
@@ -270,7 +347,12 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 	u32 timing[4];
 	u32 div = 0;
 	int idx;
-	int ret;
+	int ref_clk_size;
+	u32 *ref_clk;
+	u32 *ciu_clkin_values = NULL;
+	int idx_ref;
+	int ret = 0;
+	int id = 0;
 
 	priv = devm_kzalloc(host->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -283,14 +365,47 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 			priv->ctrl_type = exynos_compat[idx].ctrl_type;
 	}
 
-	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS4412)
-		priv->ciu_div = EXYNOS4412_FIXED_CIU_CLK_DIV - 1;
-	else if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS4210)
-		priv->ciu_div = EXYNOS4210_FIXED_CIU_CLK_DIV - 1;
-	else {
-		of_property_read_u32(np, "samsung,dw-mshc-ciu-div", &div);
-		priv->ciu_div = div;
+	if (of_property_read_u32(np, "num-ref-clks", &ref_clk_size)) {
+		dev_err(host->dev, "Getting a number of referece clock failed\n");
+		ret = -ENODEV;
+		goto err_ref_clk;
 	}
+
+	ref_clk = devm_kzalloc(host->dev, ref_clk_size * sizeof(*ref_clk),
+					GFP_KERNEL);
+	if (!ref_clk) {
+		dev_err(host->dev, "Mem alloc failed for reference clock table\n");
+		ret = -ENOMEM;
+		goto err_ref_clk;
+	}
+
+	ciu_clkin_values = devm_kzalloc(host->dev,
+			ref_clk_size * sizeof(*ciu_clkin_values), GFP_KERNEL);
+
+	if (!ciu_clkin_values) {
+		dev_err(host->dev, "Mem alloc failed for temporary clock values\n");
+		ret = -ENOMEM;
+		goto err_ref_clk;
+	}
+	if (of_property_read_u32_array(np, "ciu_clkin", ciu_clkin_values, ref_clk_size)) {
+		dev_err(host->dev, "Getting ciu_clkin values faild\n");
+		ret = -ENOMEM;
+		goto err_ref_clk;
+	}
+
+	for (idx_ref = 0; idx_ref < ref_clk_size; idx_ref++, ref_clk++, ciu_clkin_values++) {
+		if (*ciu_clkin_values > MHZ)
+			*(ref_clk) = (*ciu_clkin_values);
+		else
+			*(ref_clk) = (*ciu_clkin_values) * MHZ;
+	}
+
+	ref_clk -= ref_clk_size;
+	ciu_clkin_values -= ref_clk_size;
+	priv->ref_clk = ref_clk;
+
+	of_property_read_u32(np, "samsung,dw-mshc-ciu-div", &div);
+	priv->ciu_div = div;
 
 	ret = of_property_read_u32_array(np,
 			"samsung,dw-mshc-sdr-timing", timing, 4);
@@ -306,7 +421,9 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 
 	priv->ddr_timing = SDMMC_CLKSEL_TIMING(timing[0], timing[1], timing[2], timing[3]);
 	host->priv = priv;
-	return 0;
+
+err_ref_clk:
+	return ret;
 }
 
 static inline u8 dw_mci_exynos_get_clksmpl(struct dw_mci *host)
