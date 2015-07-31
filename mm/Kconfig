@@ -559,6 +559,15 @@ config ZSWAP
 	  they have not be fully explored on the large set of potential
 	  configurations and workloads that exist.
 
+config ESWAP
+	bool "Exynos SWAP for frontswap backend"
+	depends on !ZSWAP
+	depends on FRONTSWAP
+	select ZPOOL
+	default n
+	help
+	  This enables H/W compress for swap page.
+
 config ZPOOL
 	tristate "Common API for compressed memory storage"
 	default n
