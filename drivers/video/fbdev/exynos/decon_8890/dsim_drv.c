@@ -50,7 +50,7 @@ static DECLARE_COMPLETION(dsim_rd_comp);
 static int dsim_runtime_suspend(struct device *dev);
 static int dsim_runtime_resume(struct device *dev);
 
-#define MIPI_WR_TIMEOUT msecs_to_jiffies(100)
+#define MIPI_WR_TIMEOUT msecs_to_jiffies(33)
 #define MIPI_RD_TIMEOUT msecs_to_jiffies(100)
 
 #ifdef CONFIG_OF
@@ -132,9 +132,14 @@ static int dsim_wait_for_cmd_fifo_empty(struct dsim_device *dsim, bool must_wait
 	int ret = 0;
 
 	if (!must_wait) {
+		/* timer is running, but already command is transferred */
+		if (dsim_reg_header_fifo_is_empty(dsim->id))
+			del_timer(&dsim->cmd_timer);
+
 		dsim_dbg("%s Doesn't need to wait fifo_completion\n", __func__);
 		return ret;
 	} else {
+		del_timer(&dsim->cmd_timer);
 		dsim_dbg("%s Waiting for fifo_completion...\n", __func__);
 	}
 
@@ -211,6 +216,9 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 		goto err_exit;
 	}
 	DISP_SS_EVENT_LOG_CMD(&dsim->sd, data_id, data0);
+
+	/* Run write-fail dectector */
+	mod_timer(&dsim->cmd_timer, jiffies + MIPI_WR_TIMEOUT);
 
 	switch (data_id) {
 	/* short packet types of packet types for command. */
@@ -497,6 +505,36 @@ end:
 
 #endif
 
+void dsim_cmd_fail_detector(unsigned long arg)
+{
+	struct dsim_device *dsim = (struct dsim_device *)arg;
+	struct decon_device *decon = (struct decon_device *)dsim->decon;
+
+	dsim_dbg("%s +\n", __func__);
+	decon_lpd_block(decon);
+	if (dsim->state != DSIM_STATE_HSCLKEN) {
+		dev_err(dsim->dev, "%s: DSIM is not ready. state(%d)\n",
+				__func__, dsim->state);
+		goto exit;
+	}
+
+	/* If already FIFO empty even though the timer is no pending */
+	if (!timer_pending(&dsim->cmd_timer)
+			&& dsim_reg_header_fifo_is_empty(dsim->id)) {
+		reinit_completion(&dsim_ph_wr_comp);
+		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
+		goto exit;
+	}
+
+	dev_err(dsim->dev, "FIFO empty irq hasn't been occured\n");
+	dsim_dump(dsim);
+
+exit:
+	decon_lpd_unblock(decon);
+	dsim_dbg("%s -\n", __func__);
+	return;
+}
+
 static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 {
 	unsigned int int_src;
@@ -515,8 +553,10 @@ static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 	int_src = readl(dsim->reg_base + DSIM_INTSRC);
 
 	/* Test bit */
-	if (int_src & DSIM_INTSRC_SFR_PH_FIFO_EMPTY)
+	if (int_src & DSIM_INTSRC_SFR_PH_FIFO_EMPTY) {
+		del_timer(&dsim->cmd_timer);
 		complete(&dsim_ph_wr_comp);
+	}
 	if (int_src & DSIM_INTSRC_RX_DATA_DONE)
 		complete(&dsim_rd_comp);
 	if (int_src & DSIM_INTSRC_FRAME_DONE)
@@ -738,6 +778,7 @@ static int dsim_disable(struct dsim_device *dsim)
 
 	/* Wait for current read & write CMDs. */
 	mutex_lock(&dsim_rd_wr_mutex);
+	del_timer(&dsim->cmd_timer);
 	dsim->state = DSIM_STATE_SUSPEND;
 	mutex_unlock(&dsim_rd_wr_mutex);
 
@@ -1261,6 +1302,8 @@ static int dsim_probe(struct platform_device *pdev)
 
 	dsim->timing.bps = 0;
 
+	setup_timer(&dsim->cmd_timer, dsim_cmd_fail_detector,
+			(unsigned long)dsim);
 	mutex_init(&dsim_rd_wr_mutex);
 
 	pm_runtime_enable(dev);
