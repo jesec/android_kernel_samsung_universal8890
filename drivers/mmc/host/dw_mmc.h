@@ -15,6 +15,7 @@
 #define _DW_MMC_H_
 
 #define DW_MMC_240A		0x240a
+#define DW_MMC_260A		0x260a
 
 #define SDMMC_CTRL		0x000
 #define SDMMC_PWREN		0x004
@@ -166,6 +167,9 @@
 	__raw_readl((dev)->regs + SDMMC_##reg)
 #define mci_writel(dev, reg, value)			\
 	__raw_writel((value), (dev)->regs + SDMMC_##reg)
+
+/* timeout (maximum) */
+#define dw_mci_set_timeout(host)	mci_writel(host, TMOUT, 0xffffffff)
 
 /* 16-bit FIFO access macros */
 #define mci_readw(dev, reg)			\

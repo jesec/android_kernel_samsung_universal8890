@@ -166,6 +166,7 @@ struct dw_mci {
 	u32			current_speed;
 	u32			num_slots;
 	u32			fifoth_val;
+	u32			cd_rd_thr;
 	u16			verid;
 	u16			data_offset;
 	struct device		*dev;
@@ -227,7 +228,8 @@ struct dw_mci_dma_ops {
 #define DW_MCI_QUIRK_BROKEN_CARD_DETECTION	BIT(3)
 /* No write protect */
 #define DW_MCI_QUIRK_NO_WRITE_PROTECT		BIT(4)
-
+/* No detect end bit during read */
+#define DW_MCI_QUIRK_NO_DETECT_EBIT		BIT(5)
 /* Slot level quirks */
 /* This slot has no write protect */
 #define DW_MCI_SLOT_QUIRK_NO_WRITE_PROTECT	BIT(0)
@@ -261,6 +263,14 @@ struct dw_mci_board {
 
 	/* delay in mS before detecting cards after interrupt */
 	u32 detect_delay_ms;
+
+	u8 clk_smpl;
+	bool is_fine_tuned;
+	bool tuned;
+	bool extra_tuning;
+	bool only_once_tune;
+
+	unsigned char io_mode;
 
 	struct dw_mci_dma_ops *dma_ops;
 	struct dma_pdata *data;
