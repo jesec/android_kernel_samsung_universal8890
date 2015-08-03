@@ -326,6 +326,13 @@ int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	int shift = 0;
 	struct decon_mode_info psr;
 
+	if ((decon->pdata->out_type == DECON_OUT_DSI) &&
+			(decon->state == DECON_STATE_INIT)) {
+		decon_warn("%s: decon%d init state, UNBLANK missed\n",
+				__func__, decon->id);
+		return 0;
+	}
+
 	decon_lpd_block_exit(decon);
 
 	decon_set_par(info);
@@ -359,6 +366,10 @@ int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	config.dst.f_w = config.src.f_w;
 	config.dst.f_h = config.src.f_h;
 	sd = decon->mdev->vpp_sd[decon->default_idma];
+	/* Set a default Bandwidth */
+	if (v4l2_subdev_call(sd, core, ioctl, VPP_SET_BW, &config))
+			decon_err("Failed to VPP_SET_BW VPP-%d\n", decon->default_idma);
+
 	if (v4l2_subdev_call(sd, core, ioctl, VPP_WIN_CONFIG, &config)) {
 		decon_err("%s: Failed to config VPP-%d\n", __func__, win->vpp_id);
 		decon->vpp_usage_bitmask &= ~(1 << win->vpp_id);
