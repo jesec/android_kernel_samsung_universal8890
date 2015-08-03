@@ -1465,7 +1465,7 @@ static void decon_set_protected_content(struct decon_device *decon,
 							decon->id, type);
 				} else {
 					TRACE_VPP_LOG(decon, prot);
-					decon_info("decon%d DMA-%d protection %s\n",
+					decon_dbg("decon%d DMA-%d protection %s\n",
 							decon->id, type, prot ? "enabled" : "disabled");
 				}
 			}
@@ -2273,7 +2273,10 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	}
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
-		old_plane_cnt[i] = decon->windows[i]->plane_cnt;
+		if (decon->pdata->out_type == DECON_OUT_WB)
+			old_plane_cnt[i] = decon_get_plane_cnt(regs->vpp_config[i].format);
+		else
+			old_plane_cnt[i] = decon->windows[i]->plane_cnt;
 		for (j = 0; j < old_plane_cnt[i]; ++j)
 			old_dma_bufs[i][j] = decon->windows[i]->dma_buf_data[j];
 		if (regs->dma_buf_data[i][0].fence)
