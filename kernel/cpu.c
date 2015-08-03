@@ -398,6 +398,8 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 	}
 	smpboot_park_threads(cpu);
 
+	cpu_notify_nofail(CPU_DOWN_LATE_PREPARE | mod, 0);
+
 	err = __stop_machine(take_cpu_down, &tcd_param, cpumask_of(cpu));
 	if (err) {
 		/* CPU didn't die: tell everyone.  Can't complain. */
@@ -472,6 +474,8 @@ int __ref cpus_down(struct cpumask *cpus)
 			goto err_down_prepare;
 		}
 	}
+
+	cpu_notify_nofail(CPU_DOWN_LATE_PREPARE, 0);
 
 	for_each_cpu(cpu, &dest_cpus) {
 		smpboot_park_threads(cpu);

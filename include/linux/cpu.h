@@ -91,6 +91,7 @@ enum {
 					* Called on the new cpu, just before
 					* enabling interrupts. Must not sleep,
 					* must not fail */
+#define CPU_DOWN_LATE_PREPARE	0x000B
 
 /* Used for CPU hotplug events occurring while tasks are frozen due to a suspend
  * operation in progress
