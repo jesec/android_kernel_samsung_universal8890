@@ -1913,7 +1913,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_SHARED_SET_E_FRAME_TAG,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
@@ -1925,7 +1925,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_GET_DST,
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG,
 		.is_volatile = 0,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_SHARED_GET_E_FRAME_TAG,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
@@ -1973,11 +1973,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_I_PERIOD,
 		.mask = 0xFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 0,
 	},
@@ -1985,11 +1985,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE_CH,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_FRAME_RATE,
 		.mask = 0xFFFF,
 		.shft = 16,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 1,
 	},
@@ -1997,11 +1997,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_BIT_RATE_CH,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_BIT_RATE,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 2,
 	},
@@ -2023,11 +2023,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H264_MAX_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2035,11 +2035,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H264_MIN_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2047,11 +2047,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H263_MAX_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2059,11 +2059,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H263_MIN_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2071,11 +2071,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2083,11 +2083,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2095,11 +2095,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_VP8_MAX_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2107,11 +2107,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_VP8_MIN_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2119,11 +2119,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_VP9_MAX_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2131,11 +2131,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_VP9_MIN_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2143,11 +2143,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 10,
 	},
@@ -2155,11 +2155,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_E_NUM_T_LAYER,
 		.mask = 0x00000007,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 10,
 	},
@@ -2167,11 +2167,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2179,11 +2179,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_NEW_RC_QP_BOUND,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 4,
 	},
@@ -2191,11 +2191,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 10,
 	},
@@ -2203,11 +2203,11 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_CUSTOM,
+		.flag_mode = MFC_CTRL_MODE_SFR,
 		.flag_addr = S5P_FIMV_PARAM_CHANGE_FLAG,
 		.flag_shft = 10,
 	},
@@ -2215,7 +2215,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_E_PICTURE_PROFILE,
 		.mask = 0x000000FF,
 		.shft = 8,
@@ -2227,7 +2227,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_CUSTOM,
+		.mode = MFC_CTRL_MODE_SFR,
 		.addr = S5P_FIMV_E_PICTURE_PROFILE,
 		.mask = 0x0000000F,
 		.shft = 0,
@@ -2684,7 +2684,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 
 		/* read old vlaue */
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			value = s5p_mfc_read_reg(dev, buf_ctrl->addr);
+			value = MFC_READL(buf_ctrl->addr);
 		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
 			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
 
@@ -2697,15 +2697,15 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		value |= ((buf_ctrl->val & buf_ctrl->mask) << buf_ctrl->shft);
 
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			s5p_mfc_write_reg(dev, value, buf_ctrl->addr);
+			MFC_WRITEL(value, buf_ctrl->addr);
 		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
 			s5p_mfc_write_info(ctx, value, buf_ctrl->addr);
 
 		/* set change flag bit */
 		if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SFR) {
-			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+			value = MFC_READL(buf_ctrl->flag_addr);
 			value |= (1 << buf_ctrl->flag_shft);
-			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+			MFC_WRITEL(value, buf_ctrl->flag_addr);
 		} else if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SHM) {
 			value = s5p_mfc_read_info(ctx, buf_ctrl->flag_addr);
 			value |= (1 << buf_ctrl->flag_shft);
@@ -2721,7 +2721,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
 			p->codec.h264.num_hier_layer = buf_ctrl->val & 0x7;
 			p->codec.h264.hier_ref_type = (buf_ctrl->val >> 16) & 0x1;
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
+			value = MFC_READL(S5P_FIMV_E_NUM_T_LAYER);
 			buf_ctrl->old_val2 = value;
 			value &= ~(0x7 << 4);
 			if (p->codec.h264.hier_ref_type) {
@@ -2731,7 +2731,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				value &= ~(0x1 << 7);
 				value |= 0x7 << 4;
 			}
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
+			MFC_WRITEL(value, S5P_FIMV_E_NUM_T_LAYER);
 		}
 
 		if (buf_ctrl->id
@@ -2751,9 +2751,9 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				((temporal_LC.temporal_layer_count > 3) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP9_ENC))) {
 				/* clear NUM_T_LAYER_CHANGE */
-				value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+				value = MFC_READL(buf_ctrl->flag_addr);
 				value &= ~(1 << 10);
-				s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+				MFC_WRITEL(value, buf_ctrl->flag_addr);
 				mfc_err_ctx("temporal layer count is invalid : %d\n",
 						temporal_LC.temporal_layer_count);
 				goto invalid_layer_count;
@@ -2765,19 +2765,19 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			}
 
 			/* enable RC_BIT_RATE_CHANGE */
-			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+			value = MFC_READL(buf_ctrl->flag_addr);
 			if (temporal_LC.temporal_layer_bitrate[0] > 0)
 				/* set RC_BIT_RATE_CHANGE */
 				value |= (1 << 2);
 			else
 				/* clear RC_BIT_RATE_CHANGE */
 				value &= ~(1 << 2);
-			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+			MFC_WRITEL(value, buf_ctrl->flag_addr);
 
 			mfc_debug(2, "temporal layer count : %d\n",
 					temporal_LC.temporal_layer_count & 0x7);
 
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
+			value = MFC_READL(S5P_FIMV_E_NUM_T_LAYER);
 			buf_ctrl->old_val2 = value;
 			value &= ~(0x7);
 			value &= ~(0x7 << 4);
@@ -2789,46 +2789,46 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				value &= ~(0x1 << 7);
 				value |= 0x7 << 4;
 			}
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
+			MFC_WRITEL(value, S5P_FIMV_E_NUM_T_LAYER);
 			for(i = 0; i < (temporal_LC.temporal_layer_count & 0x7); i++) {
 				mfc_debug(2, "temporal layer bitrate[%d] : %d\n",
 					i, temporal_LC.temporal_layer_bitrate[i]);
-				s5p_mfc_write_reg(dev,
-					temporal_LC.temporal_layer_bitrate[i], buf_ctrl->addr + i * 4);
+				MFC_WRITEL(temporal_LC.temporal_layer_bitrate[i],
+						buf_ctrl->addr + i * 4);
 			}
 		}
 		if ((buf_ctrl->id == V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH) && FW_HAS_GOP2(dev)) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_GOP_CONFIG2);
+			value = MFC_READL(S5P_FIMV_E_GOP_CONFIG2);
 			buf_ctrl->old_val |= (value << 16) & 0x3FFF0000;
 			value &= ~(0x3FFF);
 			value |= (buf_ctrl->val >> 16) & 0x3FFF;
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_GOP_CONFIG2);
+			MFC_WRITEL(value, S5P_FIMV_E_GOP_CONFIG2);
 		}
 
 		/* PROFILE & LEVEL have to be set up together */
 		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_LEVEL) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			value = MFC_READL(S5P_FIMV_E_PICTURE_PROFILE);
 			buf_ctrl->old_val |= (value & 0x000F) << 8;
 			value &= ~(0x000F);
 			value |= p->codec.h264.profile & 0x000F;
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+			MFC_WRITEL(value, S5P_FIMV_E_PICTURE_PROFILE);
 			p->codec.h264.level = buf_ctrl->val;
 		}
 		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_PROFILE) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			value = MFC_READL(S5P_FIMV_E_PICTURE_PROFILE);
 			buf_ctrl->old_val |= value & 0xFF00;
 			value &= ~(0x00FF << 8);
 			value |= (p->codec.h264.level << 8) & 0xFF00;
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+			MFC_WRITEL(value, S5P_FIMV_E_PICTURE_PROFILE);
 			p->codec.h264.profile = buf_ctrl->val;
 		}
 
 		/* temproral layer priority */
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
+			value = MFC_READL(S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
 			buf_ctrl->old_val |= value & 0x3FFFFFC0;
 			value &= ~(0x3FFFFFC0);
-			value2 = s5p_mfc_read_reg(dev, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
+			value2 = MFC_READL(S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
 			buf_ctrl->old_val2 = value2 & 0x0FFF;
 			value2 &= ~(0x0FFF);
 			for (i = 0; i < (p->codec.h264.num_hier_layer & 0x07); i++) {
@@ -2837,8 +2837,8 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				else
 					value2 |= ((buf_ctrl->val & 0x3F) + i) << (6 * (i - 5));
 			}
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
-			s5p_mfc_write_reg(dev, value2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
+			MFC_WRITEL(value, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
+			MFC_WRITEL(value2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
 		}
 		/* per buffer QP setting change */
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_CONFIG_QP)
@@ -2851,10 +2851,10 @@ invalid_layer_count:
 	}
 
 	if (!p->rc_frame && !p->rc_mb) {
-		value = s5p_mfc_read_reg(dev, S5P_FIMV_E_FIXED_PICTURE_QP);
+		value = MFC_READL(S5P_FIMV_E_FIXED_PICTURE_QP);
 		value &= ~(0xFF000000);
 		value |= (enc->config_qp & 0xFF) << 24;
-		s5p_mfc_write_reg(dev, value, S5P_FIMV_E_FIXED_PICTURE_QP);
+		MFC_WRITEL(value, S5P_FIMV_E_FIXED_PICTURE_QP);
 	}
 
 	return 0;
@@ -2871,7 +2871,7 @@ static int enc_get_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			continue;
 
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			value = s5p_mfc_read_reg(dev, buf_ctrl->addr);
+			value = MFC_READL(buf_ctrl->addr);
 		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
 			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
 		else if (buf_ctrl->mode == MFC_CTRL_MODE_CST)
@@ -2904,7 +2904,7 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 			continue;
 
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			value = s5p_mfc_read_reg(dev, buf_ctrl->addr);
+			value = MFC_READL(buf_ctrl->addr);
 		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
 			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
 
@@ -2913,15 +2913,15 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 							<< buf_ctrl->shft);
 
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			s5p_mfc_write_reg(dev, value, buf_ctrl->addr);
+			MFC_WRITEL(value, buf_ctrl->addr);
 		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
 			s5p_mfc_write_info(ctx, value, buf_ctrl->addr);
 
 		/* clear change flag bit */
 		if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SFR) {
-			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+			value = MFC_READL(buf_ctrl->flag_addr);
 			value &= ~(1 << buf_ctrl->flag_shft);
-			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+			MFC_WRITEL(value, buf_ctrl->flag_addr);
 		} else if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SHM) {
 			value = s5p_mfc_read_info(ctx, buf_ctrl->flag_addr);
 			value &= ~(1 << buf_ctrl->flag_shft);
@@ -2932,44 +2932,44 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 				"id: 0x%08x old val: %d\n",
 				buf_ctrl->id, buf_ctrl->old_val);
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH && FW_HAS_GOP2(dev)) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_GOP_CONFIG2);
+			value = MFC_READL(S5P_FIMV_E_GOP_CONFIG2);
 			value &= ~(0x3FFF);
 			value |= (buf_ctrl->old_val >> 16) & 0x3FFF;
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_GOP_CONFIG2);
+			MFC_WRITEL(value, S5P_FIMV_E_GOP_CONFIG2);
 		}
 		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_LEVEL) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			value = MFC_READL(S5P_FIMV_E_PICTURE_PROFILE);
 			value &= ~(0x000F);
 			value |= (buf_ctrl->old_val >> 8) & 0x000F;
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+			MFC_WRITEL(value, S5P_FIMV_E_PICTURE_PROFILE);
 		}
 		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_PROFILE) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_PICTURE_PROFILE);
+			value = MFC_READL(S5P_FIMV_E_PICTURE_PROFILE);
 			value &= ~(0xFF00);
 			value |= buf_ctrl->old_val & 0xFF00;
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_PICTURE_PROFILE);
+			MFC_WRITEL(value, S5P_FIMV_E_PICTURE_PROFILE);
 		}
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY) {
-			s5p_mfc_write_reg(dev, buf_ctrl->old_val, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
-			s5p_mfc_write_reg(dev, buf_ctrl->old_val2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
+			MFC_WRITEL(buf_ctrl->old_val, S5P_FIMV_E_H264_HD_SVC_EXTENSION_0);
+			MFC_WRITEL(buf_ctrl->old_val2, S5P_FIMV_E_H264_HD_SVC_EXTENSION_1);
 		}
 		if (buf_ctrl->id
 			== V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH ||
 			buf_ctrl->id
 			== V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH) {
-			s5p_mfc_write_reg(dev, buf_ctrl->old_val2, S5P_FIMV_E_NUM_T_LAYER);
+			MFC_WRITEL(buf_ctrl->old_val2, S5P_FIMV_E_NUM_T_LAYER);
 			/* clear RC_BIT_RATE_CHANGE */
-			value = s5p_mfc_read_reg(dev, buf_ctrl->flag_addr);
+			value = MFC_READL(buf_ctrl->flag_addr);
 			value &= ~(1 << 2);
-			s5p_mfc_write_reg(dev, value, buf_ctrl->flag_addr);
+			MFC_WRITEL(value, buf_ctrl->flag_addr);
 		}
 		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
-			value = s5p_mfc_read_reg(dev, S5P_FIMV_E_NUM_T_LAYER);
+			value = MFC_READL(S5P_FIMV_E_NUM_T_LAYER);
 			value &= ~(0x1 << 7);
 			value &= ~(0x7 << 4);
 			value |= (buf_ctrl->old_val2 & (0x1 << 7));
 			value |= (buf_ctrl->old_val2 & (0x7 << 4));
-			s5p_mfc_write_reg(dev, value, S5P_FIMV_E_NUM_T_LAYER);
+			MFC_WRITEL(value, S5P_FIMV_E_NUM_T_LAYER);
 		}
 	}
 
@@ -3117,9 +3117,9 @@ static void enc_change_resolution(struct s5p_mfc_ctx *ctx)
 	 */
 	if (ctx->enc_res_change) {
 		/* clear resolution change bits */
-		reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_PARAM_CHANGE);
+		reg = MFC_READL(S5P_FIMV_E_PARAM_CHANGE);
 		reg &= ~(0x7 << 6);
-		s5p_mfc_write_reg(dev, reg, S5P_FIMV_E_PARAM_CHANGE);
+		MFC_WRITEL(reg, S5P_FIMV_E_PARAM_CHANGE);
 
 		ctx->enc_res_change_state = ctx->enc_res_change;
 		ctx->enc_res_change = 0;
@@ -3128,7 +3128,7 @@ static void enc_change_resolution(struct s5p_mfc_ctx *ctx)
 	if (ctx->enc_res_change_state == 1) { /* resolution swap */
 		ctx->enc_res_change_state = 0;
 	} else if (ctx->enc_res_change_state == 2) { /* resolution change */
-		reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_NAL_DONE_INFO);
+		reg = MFC_READL(S5P_FIMV_E_NAL_DONE_INFO);
 		reg = (reg & (0x3 << 4)) >> 4;
 
 		/*
@@ -3150,7 +3150,7 @@ static void enc_change_resolution(struct s5p_mfc_ctx *ctx)
 
 			ctx->enc_res_change_state = 0;
 			ctx->min_scratch_buf_size =
-				s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
+				MFC_READL(S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
 			mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
 					(unsigned int)ctx->min_scratch_buf_size);
 			if (reg == 3)

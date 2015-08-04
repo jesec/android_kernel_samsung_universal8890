@@ -19,11 +19,11 @@ int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd,
 	MFC_TRACE_DEV(">> Issue cmd : %d\n", cmd);
 
 	/* Reset RISC2HOST command */
-	s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_RISC2HOST_CMD);
+	MFC_WRITEL(0x0, S5P_FIMV_RISC2HOST_CMD);
 
 	/* Issue the command */
-	s5p_mfc_write_reg(dev, cmd, S5P_FIMV_HOST2RISC_CMD);
-	s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_HOST2RISC_INT);
+	MFC_WRITEL(cmd, S5P_FIMV_HOST2RISC_CMD);
+	MFC_WRITEL(0x1, S5P_FIMV_HOST2RISC_INT);
 
 	return 0;
 }
@@ -51,10 +51,10 @@ int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev,
 		dis_shm_buf = &dev->dis_shm_buf_drm;
 	}
 #endif
-	s5p_mfc_write_reg(dev, ctx_buf->ofs, S5P_FIMV_CONTEXT_MEM_ADDR);
-	s5p_mfc_write_reg(dev, buf_size->dev_ctx, S5P_FIMV_CONTEXT_MEM_SIZE);
+	MFC_WRITEL(ctx_buf->ofs, S5P_FIMV_CONTEXT_MEM_ADDR);
+	MFC_WRITEL(buf_size->dev_ctx, S5P_FIMV_CONTEXT_MEM_SIZE);
 	if (IS_MFCv7X(dev)) {
-		s5p_mfc_write_reg(dev, dis_shm_buf->ofs,
+		MFC_WRITEL(dis_shm_buf->ofs,
 					S5P_FIMV_DIS_SHARED_MEM_ADDR);
 		mfc_debug(2, "Setting shared memory = 0x%x\n",
 					(unsigned int)dis_shm_buf->ofs);
@@ -108,11 +108,11 @@ int s5p_mfc_open_inst_cmd(struct s5p_mfc_ctx *ctx)
 	dev = ctx->dev;
 	mfc_debug(2, "Requested codec mode: %d\n", ctx->codec_mode);
 
-	s5p_mfc_write_reg(dev, ctx->codec_mode, S5P_FIMV_CODEC_TYPE);
-	s5p_mfc_write_reg(dev, ctx->ctx.ofs, S5P_FIMV_CONTEXT_MEM_ADDR);
-	s5p_mfc_write_reg(dev, ctx->ctx_buf_size, S5P_FIMV_CONTEXT_MEM_SIZE);
+	MFC_WRITEL(ctx->codec_mode, S5P_FIMV_CODEC_TYPE);
+	MFC_WRITEL(ctx->ctx.ofs, S5P_FIMV_CONTEXT_MEM_ADDR);
+	MFC_WRITEL(ctx->ctx_buf_size, S5P_FIMV_CONTEXT_MEM_SIZE);
 	if (ctx->type == MFCINST_DECODER)
-		s5p_mfc_write_reg(dev, ctx->dec_priv->crc_enable,
+		MFC_WRITEL(ctx->dec_priv->crc_enable,
 							S5P_FIMV_D_CRC_CTRL);
 
 	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_OPEN_INSTANCE, NULL);
@@ -130,7 +130,7 @@ int s5p_mfc_close_inst_cmd(struct s5p_mfc_ctx *ctx)
 
 	mfc_debug_enter();
 
-	s5p_mfc_write_reg(dev, ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 
 	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_CLOSE_INSTANCE, NULL);
 
@@ -151,17 +151,17 @@ void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 		if (buf_type == MFCBUF_DRM)
 			fw_info = &dev->drm_fw_info;
 
-		s5p_mfc_write_reg(dev, fw_info->ofs, S5P_FIMV_RISC_BASE_ADDRESS);
+		MFC_WRITEL(fw_info->ofs, S5P_FIMV_RISC_BASE_ADDRESS);
 		mfc_info_dev("[%d] Base Address : %08lx\n", buf_type, fw_info->ofs);
 #else
-		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_RISC_BASE_ADDRESS);
+		MFC_WRITEL(dev->port_a, S5P_FIMV_RISC_BASE_ADDRESS);
 		mfc_debug(2, "Base Address : %08zu\n", dev->port_a);
 #endif
 	} else {
 		/* channelA, port0 */
-		s5p_mfc_write_reg(dev, dev->port_a, S5P_FIMV_MC_DRAMBASE_ADR_A);
+		MFC_WRITEL(dev->port_a, S5P_FIMV_MC_DRAMBASE_ADR_A);
 		/* channelB, port1 */
-		s5p_mfc_write_reg(dev, dev->port_b, S5P_FIMV_MC_DRAMBASE_ADR_B);
+		MFC_WRITEL(dev->port_b, S5P_FIMV_MC_DRAMBASE_ADR_B);
 
 		mfc_debug(2, "Port A: %08zu, Port B: %08zu\n", dev->port_a, dev->port_b);
 	}
@@ -169,8 +169,8 @@ void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 
 int s5p_mfc_check_int_cmd(struct s5p_mfc_dev *dev)
 {
-	if (s5p_mfc_read_reg(dev, S5P_FIMV_RISC2HOST_INT))
-		return s5p_mfc_read_reg(dev, S5P_FIMV_RISC2HOST_CMD);
+	if (MFC_READL(S5P_FIMV_RISC2HOST_INT))
+		return MFC_READL(S5P_FIMV_RISC2HOST_CMD);
 	else
 		return 0;
 }

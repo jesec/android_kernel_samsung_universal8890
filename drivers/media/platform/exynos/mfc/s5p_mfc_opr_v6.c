@@ -70,9 +70,9 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 	}
 	mfc_debug(2, "InstNo: %d/%d\n", ctx->inst_no, S5P_FIMV_CH_SEQ_HEADER);
 	mfc_debug(2, "BUFs: %08x %08x %08x\n",
-		  READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
-		  READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
-		  READL(S5P_FIMV_D_CPB_BUFFER_ADDR));
+		  MFC_READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
+		  MFC_READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
+		  MFC_READL(S5P_FIMV_D_CPB_BUFFER_ADDR));
 
 	reg |= (dec->idr_decoding << S5P_FIMV_D_OPT_IDR_DECODING_SHFT);
 	/* FMO_ASO_CTRL - 0: Enable, 1: Disable */
@@ -83,7 +83,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 	 * set to negative value. */
 	if (dec->display_delay >= 0) {
 		reg |= (0x1 << S5P_FIMV_D_OPT_DDELAY_EN_SHIFT);
-		WRITEL(dec->display_delay, S5P_FIMV_D_DISPLAY_DELAY);
+		MFC_WRITEL(dec->display_delay, S5P_FIMV_D_DISPLAY_DELAY);
 	}
 	/* Setup loop filter, for decoding this is only valid for MPEG4 */
 	if ((ctx->codec_mode == S5P_FIMV_CODEC_MPEG4_DEC) &&
@@ -107,16 +107,16 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 	if (FW_HAS_CONCEAL_CONTROL(dev))
 		reg |= (0x3 << S5P_FIMV_D_OPT_CONCEAL_CONTROL);
 
-	WRITEL(reg, S5P_FIMV_D_DEC_OPTIONS);
+	MFC_WRITEL(reg, S5P_FIMV_D_DEC_OPTIONS);
 
 	if (FW_HAS_CONCEAL_CONTROL(dev))
-		WRITEL(MFC_CONCEAL_COLOR, S5P_FIMV_D_FORCE_PIXEL_VAL);
+		MFC_WRITEL(MFC_CONCEAL_COLOR, S5P_FIMV_D_FORCE_PIXEL_VAL);
 
 	if (ctx->codec_mode == S5P_FIMV_CODEC_FIMV1_DEC) {
 		mfc_debug(2, "Setting FIMV1 resolution to %dx%d\n",
 					ctx->img_width, ctx->img_height);
-		WRITEL(ctx->img_width, S5P_FIMV_D_SET_FRAME_WIDTH);
-		WRITEL(ctx->img_height, S5P_FIMV_D_SET_FRAME_HEIGHT);
+		MFC_WRITEL(ctx->img_width, S5P_FIMV_D_SET_FRAME_WIDTH);
+		MFC_WRITEL(ctx->img_height, S5P_FIMV_D_SET_FRAME_HEIGHT);
 	}
 
 	switch (ctx->dst_fmt->fourcc) {
@@ -147,16 +147,16 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		pix_val = 0;
 		break;
 	}
-	WRITEL(pix_val, S5P_FIMV_PIXEL_FORMAT);
+	MFC_WRITEL(pix_val, S5P_FIMV_PIXEL_FORMAT);
 
 	/* sei parse */
 	reg = dec->sei_parse;
 	/* Enable realloc interface if SEI is enabled */
 	if (dec->sei_parse && FW_HAS_SEI_S3D_REALLOC(dev))
 		reg |= (0x1 << S5P_FIMV_D_SEI_NEED_INIT_BUFFER_SHIFT);
-	WRITEL(reg, S5P_FIMV_D_SEI_ENABLE);
+	MFC_WRITEL(reg, S5P_FIMV_D_SEI_ENABLE);
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_SEQ_HEADER, NULL);
 
 	mfc_debug_leave();
@@ -189,16 +189,16 @@ int s5p_mfc_decode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 	if (dec->is_dynamic_dpb) {
 		mfc_debug(2, "Dynamic:0x%08x, Available:0x%08lx\n",
 					dec->dynamic_set, dec->dpb_status);
-		WRITEL(dec->dynamic_set, S5P_FIMV_D_DYNAMIC_DPB_FLAG_LOWER);
-		WRITEL(0x0, S5P_FIMV_D_DYNAMIC_DPB_FLAG_UPPER);
+		MFC_WRITEL(dec->dynamic_set, S5P_FIMV_D_DYNAMIC_DPB_FLAG_LOWER);
+		MFC_WRITEL(0x0, S5P_FIMV_D_DYNAMIC_DPB_FLAG_UPPER);
 	}
-	WRITEL(dec->dpb_status, S5P_FIMV_D_AVAILABLE_DPB_FLAG_LOWER);
-	WRITEL(0x0, S5P_FIMV_D_AVAILABLE_DPB_FLAG_UPPER);
-	WRITEL(dec->slice_enable, S5P_FIMV_D_SLICE_IF_ENABLE);
+	MFC_WRITEL(dec->dpb_status, S5P_FIMV_D_AVAILABLE_DPB_FLAG_LOWER);
+	MFC_WRITEL(0x0, S5P_FIMV_D_AVAILABLE_DPB_FLAG_UPPER);
+	MFC_WRITEL(dec->slice_enable, S5P_FIMV_D_SLICE_IF_ENABLE);
 	if (FW_HAS_INT_TIMEOUT(dev))
-		WRITEL(MFC_TIMEOUT_VALUE, S5P_FIMV_DEC_TIMEOUT_VALUE);
+		MFC_WRITEL(MFC_TIMEOUT_VALUE, S5P_FIMV_DEC_TIMEOUT_VALUE);
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	/* Issue different commands to instance basing on whether it
 	 * is the last frame or not. */
 	switch (last_frame) {
@@ -238,7 +238,7 @@ static int s5p_mfc_init_encode(struct s5p_mfc_ctx *ctx)
 		return -EINVAL;
 	}
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_SEQ_HEADER, NULL);
 
 	mfc_debug(2, "--\n");
@@ -256,7 +256,7 @@ static int s5p_mfc_h264_set_aso_slice_order(struct s5p_mfc_ctx *ctx)
 
 	if (p_264->aso_enable) {
 		for (i = 0; i < 8; i++)
-			WRITEL(p_264->aso_slice_order[i],
+			MFC_WRITEL(p_264->aso_slice_order[i],
 				S5P_FIMV_E_H264_ASO_SLICE_ORDER_0 + i * 4);
 	}
 	return 0;
@@ -269,7 +269,7 @@ static inline void s5p_mfc_set_stride_enc(struct s5p_mfc_ctx *ctx)
 
 	if (IS_MFCv7X(dev) || IS_MFCV8(dev)) {
 		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
-			WRITEL(ctx->raw_buf.stride[i],
+			MFC_WRITEL(ctx->raw_buf.stride[i],
 				S5P_FIMV_E_SOURCE_FIRST_STRIDE + (i * 4));
 			mfc_debug(2, "enc src[%d] stride: 0x%08lx",
 				i, (unsigned long)ctx->raw_buf.stride[i]);
@@ -323,13 +323,13 @@ int s5p_mfc_start_change_resol_enc(struct s5p_mfc_ctx *ctx)
 	}
 
 	if ((old_img_width == new_img_height) && (old_img_height == new_img_width)) {
-		reg = READL(S5P_FIMV_E_PARAM_CHANGE);
+		reg = MFC_READL(S5P_FIMV_E_PARAM_CHANGE);
 		reg &= ~(0x1 << 6);
 		reg |= (0x1 << 6); /* resolution swap */
-		WRITEL(reg, S5P_FIMV_E_PARAM_CHANGE);
+		MFC_WRITEL(reg, S5P_FIMV_E_PARAM_CHANGE);
 		ret = 1;
 	} else {
-		reg = READL(S5P_FIMV_E_PARAM_CHANGE);
+		reg = MFC_READL(S5P_FIMV_E_PARAM_CHANGE);
 		reg &= ~(0x3 << 7);
 		/* For now, FW does not care S5P_FIMV_E_PARAM_CHANGE is 1 or 2.
 		 * It cares S5P_FIMV_E_PARAM_CHANGE is NOT zero.
@@ -341,18 +341,18 @@ int s5p_mfc_start_change_resol_enc(struct s5p_mfc_ctx *ctx)
 			reg |= (0x2 << 7); /* resolution decreased */
 			mfc_info_ctx("Resolution Decreased\n");
 		}
-		WRITEL(reg, S5P_FIMV_E_PARAM_CHANGE);
+		MFC_WRITEL(reg, S5P_FIMV_E_PARAM_CHANGE);
 
 		/** set cropped width */
-		WRITEL(ctx->img_width, S5P_FIMV_E_CROPPED_FRAME_WIDTH);
+		MFC_WRITEL(ctx->img_width, S5P_FIMV_E_CROPPED_FRAME_WIDTH);
 		/** set cropped height */
-		WRITEL(ctx->img_height, S5P_FIMV_E_CROPPED_FRAME_HEIGHT);
+		MFC_WRITEL(ctx->img_height, S5P_FIMV_E_CROPPED_FRAME_HEIGHT);
 
 		/* bit rate */
 		if (p->rc_frame)
-			WRITEL(p->rc_bitrate, S5P_FIMV_E_RC_BIT_RATE);
+			MFC_WRITEL(p->rc_bitrate, S5P_FIMV_E_RC_BIT_RATE);
 		else
-			WRITEL(1, S5P_FIMV_E_RC_BIT_RATE);
+			MFC_WRITEL(1, S5P_FIMV_E_RC_BIT_RATE);
 		ret = 2;
 	}
 
@@ -360,7 +360,7 @@ int s5p_mfc_start_change_resol_enc(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_set_stride_enc(ctx);
 
 	/** set cropped offset */
-	WRITEL(0x0, S5P_FIMV_E_FRAME_CROP_OFFSET);
+	MFC_WRITEL(0x0, S5P_FIMV_E_FRAME_CROP_OFFSET);
 
 	return ret;
 }
@@ -382,7 +382,7 @@ int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 		ctx->enc_drc_flag = 0;
 	}
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	/* Issue different commands to instance basing on whether it
 	 * is the last frame or not. */
 	switch (last_frame) {
@@ -463,8 +463,8 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 		}
 	} else {
 		for (i = 0; i < raw->num_planes; i++) {
-			WRITEL(raw->plane_size[i], S5P_FIMV_D_LUMA_DPB_SIZE + i*4);
-			WRITEL(dst_vb->planes.raw[i],
+			MFC_WRITEL(raw->plane_size[i], S5P_FIMV_D_LUMA_DPB_SIZE + i*4);
+			MFC_WRITEL(dst_vb->planes.raw[i],
 					S5P_FIMV_D_LUMA_DPB + (i*0x100 + dst_index*4));
 		}
 	}
@@ -970,7 +970,7 @@ static inline int s5p_mfc_abort_inst(struct s5p_mfc_ctx *ctx)
 
 	s5p_mfc_clean_ctx_int_flags(ctx);
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_NAL_ABORT, NULL);
 
 	return 0;
@@ -985,7 +985,7 @@ static inline int s5p_mfc_dec_dpb_flush(struct s5p_mfc_ctx *ctx)
 
 	s5p_mfc_clean_ctx_int_flags(ctx);
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_FLUSH, NULL);
 
 	return 0;

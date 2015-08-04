@@ -40,18 +40,18 @@ static inline void s5p_mfc_clear_cmds(struct s5p_mfc_dev *dev)
 		/* Zero initialization should be done before RESET.
 		 * Nothing to do here. */
 	} else {
-		s5p_mfc_write_reg(dev, 0xffffffff, S5P_FIMV_SI_CH0_INST_ID);
-		s5p_mfc_write_reg(dev, 0xffffffff, S5P_FIMV_SI_CH1_INST_ID);
+		MFC_WRITEL(0xffffffff, S5P_FIMV_SI_CH0_INST_ID);
+		MFC_WRITEL(0xffffffff, S5P_FIMV_SI_CH1_INST_ID);
 
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_CMD);
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_HOST2RISC_CMD);
+		MFC_WRITEL(0, S5P_FIMV_RISC2HOST_CMD);
+		MFC_WRITEL(0, S5P_FIMV_HOST2RISC_CMD);
 	}
 }
 
 #define s5p_mfc_clear_int_flags()				\
 	do {							\
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_CMD);	\
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_INT);	\
+		MFC_WRITEL(0, S5P_FIMV_RISC2HOST_CMD);	\
+		MFC_WRITEL(0, S5P_FIMV_RISC2HOST_INT);	\
 	} while (0)
 
 #endif /* __S5P_MFC_CMD_H */

@@ -29,7 +29,7 @@ static inline int s5p_mfc_bus_reset(struct s5p_mfc_dev *dev)
 	unsigned long timeout;
 
 	/* Reset */
-	s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_MFC_BUS_RESET_CTRL);
+	MFC_WRITEL(0x1, S5P_FIMV_MFC_BUS_RESET_CTRL);
 
 	timeout = jiffies + msecs_to_jiffies(MFC_BW_TIMEOUT);
 	/* Check bus status */
@@ -38,7 +38,7 @@ static inline int s5p_mfc_bus_reset(struct s5p_mfc_dev *dev)
 			mfc_err_dev("Timeout while resetting MFC.\n");
 			return -EIO;
 		}
-		status = s5p_mfc_read_reg(dev, S5P_FIMV_MFC_BUS_RESET_CTRL);
+		status = MFC_READL(S5P_FIMV_MFC_BUS_RESET_CTRL);
 	} while ((status & 0x2) == 0);
 
 	return 0;
@@ -61,28 +61,28 @@ static int s5p_mfc_reset(struct s5p_mfc_dev *dev)
 	/* Stop procedure */
 	/* Reset VI */
 	/*
-	s5p_mfc_write_reg(dev, 0x3f7, S5P_FIMV_SW_RESET);
+	MFC_WRITEL(0x3f7, S5P_FIMV_SW_RESET);
 	*/
 
 	if (IS_MFCV6(dev)) {
 		/* Zero Initialization of MFC registers */
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC2HOST_CMD);
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_HOST2RISC_CMD);
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_FW_VERSION);
+		MFC_WRITEL(0, S5P_FIMV_RISC2HOST_CMD);
+		MFC_WRITEL(0, S5P_FIMV_HOST2RISC_CMD);
+		MFC_WRITEL(0, S5P_FIMV_FW_VERSION);
 
 		for (i = 0; i < S5P_FIMV_REG_CLEAR_COUNT; i++)
-			s5p_mfc_write_reg(dev, 0, S5P_FIMV_REG_CLEAR_BEGIN + (i*4));
+			MFC_WRITEL(0, S5P_FIMV_REG_CLEAR_BEGIN + (i*4));
 
 		if (IS_MFCv6X(dev))
 			if (s5p_mfc_bus_reset(dev))
 				return -EIO;
 		if (!IS_MFCV8(dev))
-			s5p_mfc_write_reg(dev, 0, S5P_FIMV_RISC_ON);
-		s5p_mfc_write_reg(dev, 0x1FFF, S5P_FIMV_MFC_RESET);
-		s5p_mfc_write_reg(dev, 0, S5P_FIMV_MFC_RESET);
+			MFC_WRITEL(0, S5P_FIMV_RISC_ON);
+		MFC_WRITEL(0x1FFF, S5P_FIMV_MFC_RESET);
+		MFC_WRITEL(0, S5P_FIMV_MFC_RESET);
 	} else {
-		s5p_mfc_write_reg(dev, 0x3f6, S5P_FIMV_SW_RESET);	/*  reset RISC */
-		s5p_mfc_write_reg(dev, 0x3e2, S5P_FIMV_SW_RESET);	/*  All reset except for MC */
+		MFC_WRITEL(0x3f6, S5P_FIMV_SW_RESET);	/*  reset RISC */
+		MFC_WRITEL(0x3e2, S5P_FIMV_SW_RESET);	/*  All reset except for MC */
 		mdelay(10);
 
 		timeout = jiffies + msecs_to_jiffies(MFC_BW_TIMEOUT);
@@ -94,12 +94,12 @@ static int s5p_mfc_reset(struct s5p_mfc_dev *dev)
 				return -EIO;
 			}
 
-			status = s5p_mfc_read_reg(dev, S5P_FIMV_MC_STATUS);
+			status = MFC_READL(S5P_FIMV_MC_STATUS);
 
 		} while (status & 0x3);
 
-		s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_SW_RESET);
-		s5p_mfc_write_reg(dev, 0x3fe, S5P_FIMV_SW_RESET);
+		MFC_WRITEL(0x0, S5P_FIMV_SW_RESET);
+		MFC_WRITEL(0x3fe, S5P_FIMV_SW_RESET);
 	}
 
 	mfc_debug_leave();
@@ -160,12 +160,12 @@ static int _s5p_mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf
 
 	/* 3. Release reset signal to the RISC */
 	if (IS_MFCV6(dev))
-		s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_RISC_ON);
+		MFC_WRITEL(0x1, S5P_FIMV_RISC_ON);
 	else
-		s5p_mfc_write_reg(dev, 0x3ff, S5P_FIMV_SW_RESET);
+		MFC_WRITEL(0x3ff, S5P_FIMV_SW_RESET);
 
 	if (IS_MFCv10X(dev))
-		s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_MFC_CLOCK_OFF);
+		MFC_WRITEL(0x0, S5P_FIMV_MFC_CLOCK_OFF);
 
 	mfc_debug(2, "Will now wait for completion of firmware transfer.\n");
 	if (s5p_mfc_wait_for_done_dev(dev, S5P_FIMV_R2H_CMD_FW_STATUS_RET)) {
@@ -199,22 +199,22 @@ static int _s5p_mfc_init_hw(struct s5p_mfc_dev *dev, enum mfc_buf_usage_type buf
 		goto err_init_hw;
 	}
 
-	fimv_info = MFC_GET_REG(SYS_FW_FIMV_INFO);
+	fimv_info = s5p_mfc_get_fimv_info();
 	if (fimv_info != 'D' && fimv_info != 'E')
 		fimv_info = 'N';
 
 	mfc_info_dev("MFC v%x.%x, F/W: %02xyy, %02xmm, %02xdd (%c)\n",
 		 MFC_VER_MAJOR(dev),
 		 MFC_VER_MINOR(dev),
-		 MFC_GET_REG(SYS_FW_VER_YEAR),
-		 MFC_GET_REG(SYS_FW_VER_MONTH),
-		 MFC_GET_REG(SYS_FW_VER_DATE),
+		 s5p_mfc_get_fw_ver_year(),
+		 s5p_mfc_get_fw_ver_month(),
+		 s5p_mfc_get_fw_ver_date(),
 		 fimv_info);
 
-	dev->fw.date = MFC_GET_REG(SYS_FW_VER_ALL);
+	dev->fw.date = s5p_mfc_get_fw_ver_all();
 	/* Check MFC version and F/W version */
 	if (IS_MFCV6(dev) && FW_HAS_VER_INFO(dev)) {
-		fw_ver = MFC_GET_REG(SYS_MFC_VER);
+		fw_ver = s5p_mfc_get_mfc_version();
 		if (fw_ver != mfc_version(dev)) {
 			mfc_err_dev("Invalid F/W version(0x%x) for MFC H/W(0x%x)\n",
 					fw_ver, mfc_version(dev));
@@ -288,8 +288,8 @@ void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev)
 		s5p_mfc_clock_off(dev);
 	} else if (IS_MFCv10X(dev)) {
 		mfc_info_dev("MFC h/w state: %d\n",
-				s5p_mfc_read_reg(dev, S5P_FIMV_MFC_STATE));
-		s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_MFC_CLOCK_OFF);
+				MFC_READL(S5P_FIMV_MFC_STATE));
+		MFC_WRITEL(0x1, S5P_FIMV_MFC_CLOCK_OFF);
 	}
 
 	mfc_debug(2, "mfc deinit completed\n");
@@ -355,7 +355,7 @@ int s5p_mfc_sleep(struct s5p_mfc_dev *dev)
 
 err_mfc_sleep:
 	if (IS_MFCv10X(dev))
-		s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_MFC_CLOCK_OFF);
+		MFC_WRITEL(0x1, S5P_FIMV_MFC_CLOCK_OFF);
 	s5p_mfc_clock_off(dev);
 	mfc_debug_leave();
 
@@ -418,12 +418,12 @@ int s5p_mfc_wakeup(struct s5p_mfc_dev *dev)
 
 	/* 4. Release reset signal to the RISC */
 	if (IS_MFCV6(dev))
-		s5p_mfc_write_reg(dev, 0x1, S5P_FIMV_RISC_ON);
+		MFC_WRITEL(0x1, S5P_FIMV_RISC_ON);
 	else
-		s5p_mfc_write_reg(dev, 0x3ff, S5P_FIMV_SW_RESET);
+		MFC_WRITEL(0x3ff, S5P_FIMV_SW_RESET);
 
 	if (IS_MFCv10X(dev))
-		s5p_mfc_write_reg(dev, 0x0, S5P_FIMV_MFC_CLOCK_OFF);
+		MFC_WRITEL(0x0, S5P_FIMV_MFC_CLOCK_OFF);
 
 	mfc_debug(2, "Will now wait for completion of firmware transfer.\n");
 	if (FW_WAKEUP_AFTER_RISC_ON(dev)) {
@@ -461,18 +461,12 @@ err_mfc_wakeup:
 	return 0;
 }
 
+/* It was backward compatibility due to virtual SFR using shared memory */
 void s5p_mfc_write_info(struct s5p_mfc_ctx *ctx, unsigned int data, unsigned int ofs)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 
-	/* MFC 6.x uses SFR for information */
-	if (dev->hw_lock) {
-		WRITEL(data, ofs);
-	} else {
-		s5p_mfc_clock_on(dev);
-		WRITEL(data, ofs);
-		s5p_mfc_clock_off(dev);
-	}
+	MFC_WRITEL(data, ofs);
 }
 
 unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs)
@@ -480,14 +474,7 @@ unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	int ret;
 
-	/* MFC 6.x uses SFR for information */
-	if (dev->hw_lock) {
-		ret = READL(ofs);
-	} else {
-		s5p_mfc_clock_on(dev);
-		ret = READL(ofs);
-		s5p_mfc_clock_off(dev);
-	}
+	ret = MFC_READL(ofs);
 
 	return ret;
 }

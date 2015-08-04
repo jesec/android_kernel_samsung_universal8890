@@ -21,117 +21,84 @@
 #include "regs-mfc-v10.h"
 #endif
 
-#define MFC_SYS_SW_RESET_ADDR		S5P_FIMV_SW_RESET
-#define MFC_SYS_SW_RESET_MASK		0x3FF
-#define MFC_SYS_SW_RESET_SHFT		0x0
-#define MFC_SYS_R2H_INT_ADDR		S5P_FIMV_RISC_HOST_INT
-#define MFC_SYS_R2H_INT_MASK		0x1
-#define MFC_SYS_R2H_INT_SHFT		0x0
-#define MFC_SYS_H2R_CMD_ADDR		S5P_FIMV_HOST2RISC_CMD
-#define MFC_SYS_H2R_ARG1_ADDR		S5P_FIMV_HOST2RISC_ARG1
-#define MFC_SYS_CODEC_TYPE_ADDR		S5P_FIMV_HOST2RISC_ARG1
-#define MFC_SYS_INST_ID_ADDR		S5P_FIMV_HOST2RISC_ARG1
-#define MFC_SYS_FW_MEM_SIZE_ADDR	S5P_FIMV_HOST2RISC_ARG1
-#define MFC_SYS_H2R_ARG2_ADDR		S5P_FIMV_HOST2RISC_ARG2
-#define MFC_SYS_CRC_GEN_EN_ADDR		S5P_FIMV_HOST2RISC_ARG2
-#define MFC_SYS_CRC_GEN_EN_MASK		0x1
-#define MFC_SYS_CRC_GEN_EN_SHFT		0x1F
-#define MFC_SYS_ENC_PIXEL_CACHE_ADDR	S5P_FIMV_HOST2RISC_ARG2
-#define MFC_SYS_ENC_PIXEL_CACHE_MASK	0x2
-#define MFC_SYS_ENC_PIXEL_CACHE_SHFT	0x0
-#define MFC_SYS_DEC_PIXEL_CACHE_ADDR	S5P_FIMV_HOST2RISC_ARG2
-#define MFC_SYS_DEC_PIXEL_CACHE_MASK	0x2
-#define MFC_SYS_DEC_PIXEL_CACHE_SHFT	0x0
-#define MFC_SYS_H2R_ARG3_ADDR		S5P_FIMV_HOST2RISC_ARG3
+#define MFC_READL(offset)		readl(dev->regs_base + (offset))
+#define MFC_WRITEL(data, offset)	writel((data), dev->regs_base + (offset))
 
-#define MFC_SYS_H2R_ARG4_ADDR		S5P_FIMV_HOST2RISC_ARG4
 
-#define MFC_SYS_FW_FIMV_INFO_ADDR	S5P_FIMV_FW_VERSION
-#define MFC_SYS_FW_FIMV_INFO_MASK	0xFF
-#define MFC_SYS_FW_FIMV_INFO_SHFT	24
-#define MFC_SYS_FW_VER_YEAR_ADDR	S5P_FIMV_FW_VERSION
-#define MFC_SYS_FW_VER_YEAR_MASK	0xFF
-#define MFC_SYS_FW_VER_YEAR_SHFT	16
-#define MFC_SYS_FW_VER_MONTH_ADDR	S5P_FIMV_FW_VERSION
-#define MFC_SYS_FW_VER_MONTH_MASK	0xFF
-#define MFC_SYS_FW_VER_MONTH_SHFT	8
-#define MFC_SYS_FW_VER_DATE_ADDR	S5P_FIMV_FW_VERSION
-#define MFC_SYS_FW_VER_DATE_MASK	0xFF
-#define MFC_SYS_FW_VER_DATE_SHFT	0
-#define MFC_SYS_FW_VER_ALL_ADDR		S5P_FIMV_FW_VERSION
-#define MFC_SYS_FW_VER_ALL_MASK		0xFFFFFF
-#define MFC_SYS_FW_VER_ALL_SHFT	0
+#define s5p_mfc_get_fimv_info()		((MFC_READL(S5P_FIMV_FW_VERSION)		\
+						>> S5P_FIMV_FW_VER_INFO_SHFT)		\
+						& S5P_FIMV_FW_VER_INFO_MASK)
+#define s5p_mfc_get_fw_ver_year()	((MFC_READL(S5P_FIMV_FW_VERSION)		\
+						>> S5P_FIMV_FW_VER_YEAR_SHFT)		\
+						& S5P_FIMV_FW_VER_YEAR_MASK)
+#define s5p_mfc_get_fw_ver_month()	((MFC_READL(S5P_FIMV_FW_VERSION)		\
+						>> S5P_FIMV_FW_VER_MONTH_SHFT)		\
+						& S5P_FIMV_FW_VER_MONTH_MASK)
+#define s5p_mfc_get_fw_ver_date()	((MFC_READL(S5P_FIMV_FW_VERSION)		\
+						>> S5P_FIMV_FW_VER_DATE_SHFT)		\
+						& S5P_FIMV_FW_VER_DATE_MASK)
+#define s5p_mfc_get_fw_ver_all()	((MFC_READL(S5P_FIMV_FW_VERSION)		\
+						>> S5P_FIMV_FW_VER_ALL_SHFT)		\
+						& S5P_FIMV_FW_VER_ALL_MASK)
+#define s5p_mfc_get_mfc_version()	((MFC_READL(S5P_FIMV_MFC_VERSION)		\
+						>> S5P_FIMV_MFC_VER_SHFT)		\
+						& S5P_FIMV_MFC_VER_MASK)
 
-#define MFC_DEC_DISPLAY_Y_ADR_ADDR	S5P_FIMV_SI_DISPLAY_Y_ADR
-#define MFC_DEC_DISPLAY_Y_ADR_MASK	0xFFFFFFFF
-#define MFC_DEC_DISPLAY_Y_ADR_SHFT	S5P_FIMV_MEM_OFFSET
-#define MFC_DEC_DISPLAY_C_ADR_ADDR	S5P_FIMV_SI_DISPLAY_C_ADR
-#define MFC_DEC_DISPLAY_C_ADR_MASK	0xFFFFFFFF
-#define MFC_DEC_DISPLAY_C_ADR_SHFT	S5P_FIMV_MEM_OFFSET
+#define s5p_mfc_get_dspl_y_adr()	(MFC_READL(S5P_FIMV_SI_DISPLAY_Y_ADR) << 11)
+#define s5p_mfc_get_dspl_status()	MFC_READL(S5P_FIMV_D_DISPLAY_STATUS)
+#define s5p_mfc_get_decoded_status()	MFC_READL(S5P_FIMV_D_DECODED_STATUS)
+#define s5p_mfc_get_dec_frame_type()	(MFC_READL(S5P_FIMV_D_DECODED_FRAME_TYPE)	\
+						& S5P_FIMV_DECODED_FRAME_MASK)
+#define s5p_mfc_get_disp_frame_type()	(MFC_READL(S5P_FIMV_D_DISPLAY_FRAME_TYPE)	\
+						& S5P_FIMV_DISPLAY_FRAME_MASK)
+#define s5p_mfc_get_interlace_type()	((MFC_READL(S5P_FIMV_D_DISPLAY_FRAME_TYPE)	\
+						>> S5P_FIMV_DISPLAY_TEMP_INFO_SHIFT)	\
+						& S5P_FIMV_DISPLAY_TEMP_INFO_MASK)
+#define s5p_mfc_get_consumed_stream()	MFC_READL(S5P_FIMV_D_DECODED_NAL_SIZE)
+#define s5p_mfc_get_int_reason()	(MFC_READL(S5P_FIMV_RISC2HOST_CMD)		\
+						& S5P_FIMV_RISC2HOST_CMD_MASK)
+#define s5p_mfc_get_int_err()		MFC_READL(S5P_FIMV_ERROR_CODE)
+#define s5p_mfc_err_dec(x)		(((x) & S5P_FIMV_ERR_DEC_MASK)			\
+						>> S5P_FIMV_ERR_DEC_SHIFT)
+#define s5p_mfc_err_dspl(x)		(((x) & S5P_FIMV_ERR_DSPL_MASK)			\
+						>> S5P_FIMV_ERR_DSPL_SHIFT)
+#define s5p_mfc_get_img_width()		MFC_READL(S5P_FIMV_D_DISPLAY_FRAME_WIDTH)
+#define s5p_mfc_get_img_height()	MFC_READL(S5P_FIMV_D_DISPLAY_FRAME_HEIGHT)
+#define s5p_mfc_get_dpb_count()		MFC_READL(S5P_FIMV_D_MIN_NUM_DPB)
+#define s5p_mfc_get_scratch_size()	MFC_READL(S5P_FIMV_D_MIN_SCRATCH_BUFFER_SIZE)
+#define s5p_mfc_get_dis_count()		0
+#define s5p_mfc_get_mv_count()		MFC_READL(S5P_FIMV_D_MIN_NUM_MV)
+#define s5p_mfc_get_inst_no()		MFC_READL(S5P_FIMV_RET_INSTANCE_ID)
+#define s5p_mfc_get_enc_dpb_count()	MFC_READL(S5P_FIMV_E_NUM_DPB)
+#define s5p_mfc_get_enc_scratch_size()	MFC_READL(S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE)
+#define s5p_mfc_get_enc_strm_size()	MFC_READL(S5P_FIMV_E_STREAM_SIZE)
+#define s5p_mfc_get_enc_slice_type()	MFC_READL(S5P_FIMV_E_SLICE_TYPE)
+#define s5p_mfc_get_enc_pic_count()	MFC_READL(S5P_FIMV_E_PICTURE_COUNT)
+#define s5p_mfc_get_sei_avail_status()	MFC_READL(S5P_FIMV_D_FRAME_PACK_SEI_AVAIL)
+#define s5p_mfc_get_mvc_num_views()	MFC_READL(S5P_FIMV_D_MVC_NUM_VIEWS)
 
-#define MFC_DEC_DECODED_Y_ADR_ADDR	S5P_FIMV_SI_DECODED_Y_ADR
-#define MFC_DEC_DECODED_Y_ADR_MASK	0xFFFFFFFF
-#define MFC_DEC_DECODED_Y_ADR_SHFT	S5P_FIMV_MEM_OFFSET
-#define MFC_DEC_DECODED_C_ADR_ADDR	S5P_FIMV_SI_DECODED_C_ADR
-#define MFC_DEC_DECODED_C_ADR_MASK	0xFFFFFFFF
-#define MFC_DEC_DECODED_C_ADR_SHFT	S5P_FIMV_MEM_OFFSET
+#define s5p_mfc_get_mvc_disp_view_id()	(MFC_READL(S5P_FIMV_D_MVC_VIEW_ID)		\
+					& S5P_FIMV_D_MVC_VIEW_ID_DISP_MASK)
 
-#define MFC_DEC_DISPLAY_STATUS_ADDR	MFC_SI_DISPLAY_STATUS
-#define MFC_DEC_DISPLAY_STATUS_MASK	0x7
-#define MFC_DEC_DISPLAY_STATUS_SHFT	0x0
-#define MFC_DEC_DISPLAY_INTERACE_ADDR	MFC_SI_DISPLAY_STATUS
-#define MFC_DEC_DISPLAY_INTERACE_MASK	0x1
-#define MFC_DEC_DISPLAY_INTERACE_SHFT	0x3
-#define MFC_DEC_DISPLAY_RES_CHG_ADDR	MFC_SI_DISPLAY_STATUS
-#define MFC_DEC_DISPLAY_RES_CHG_MASK	0x3
-#define MFC_DEC_DISPLAY_RES_CHG_SHFT	0x4
+#define s5p_mfc_is_interlace_picture()	((MFC_READL(S5P_FIMV_D_DISPLAY_STATUS)		\
+						& S5P_FIMV_DEC_STATUS_INTERLACE_MASK))	\
+						>> S5P_FIMV_DEC_STATUS_INTERLACE_SHIFT
 
-#define MFC_DEC_DECODE_FRAME_TYPE_ADDR	S5P_FIMV_DECODE_FRAME_TYPE
-#define MFC_DEC_DECODE_FRAME_TYPE_MASK	0x7
-#define MFC_DEC_DECODE_FRAME_TYPE_SHFT	0
+#define s5p_mfc_get_dec_status()	(MFC_READL(S5P_FIMV_D_DECODED_STATUS)		\
+						& S5P_FIMV_DECODED_FRAME_MASK)
+#define s5p_mfc_get_dec_frame()		(MFC_READL(S5P_FIMV_D_DECODED_FRAME_TYPE)	\
+						& S5P_FIMV_DECODED_FRAME_MASK)
+#define s5p_mfc_get_profile()		(MFC_READL(S5P_FIMV_D_DECODED_PICTURE_PROFILE)	\
+						& S5P_FIMV_DECODED_PIC_PROFILE_MASK)
+#define mfc_get_dec_used_flag()		MFC_READL(S5P_FIMV_D_USED_DPB_FLAG_LOWER)
 
-#define MFC_DEC_DECODE_STATUS_ADDR	MFC_SI_DECODE_STATUS
-#define MFC_DEC_DECODE_STATUS_MASK	0x7
-#define MFC_DEC_DECODE_STATUS_SHFT	0x0
-#define MFC_DEC_DECODE_INTERACE_ADDR	MFC_SI_DECODE_STATUS
-#define MFC_DEC_DECODE_INTERACE_MASK	0x1
-#define MFC_DEC_DECODE_INTERACE_SHFT	0x3
-#define MFC_DEC_DECODE_NUM_CRC_ADDR	MFC_SI_DECODE_STATUS
-#define MFC_DEC_DECODE_NUM_CRC_MASK	0x1
-#define MFC_DEC_DECODE_NUM_CRC_SHFT	0x4
-#define MFC_DEC_DECODE_GEN_CRC_ADDR	MFC_SI_DECODE_STATUS
-#define MFC_DEC_DECODE_GEN_CRC_MASK	0x1
-#define MFC_DEC_DECODE_GEN_CRC_SHFT	0x5
+#define mfc_get_disp_first_addr()	-1
+#define mfc_get_dec_first_addr()	-1
+#define mfc_get_last_disp_info()	((MFC_READL(S5P_FIMV_D_DISPLAY_STATUS)		\
+						>> S5P_FIMV_DISPLAY_LAST_INFO_SHIFT)	\
+						& S5P_FIMV_DISPLAY_LAST_INFO_MASK)
 
-#define MFC_SYS_MFC_VER_ADDR		S5P_FIMV_MFC_VERSION
-#define MFC_SYS_MFC_VER_MASK		0xFFFFFFFF
-#define MFC_SYS_MFC_VER_SHFT		0x0
-
-#define MFC_ENC_LEVEL_ADDR	MFC_ENC_PROFILE
-#define MFC_ENC_LEVEL_MASK	0xFF
-#define MFC_ENC_LEVEL_SHFT	0x8
-#define MFC_ENC_PROFILE_ADDR	MFC_ENC_PROFILE
-#define MFC_ENC_PROFILE_MASK	0x3
-#define MFC_ENC_PROFILE_SHFT	0x0
-
-#define MFC_GET_REG(target)						\
-	((s5p_mfc_read_reg(dev, MFC_##target##_ADDR) >> MFC_##target##_SHFT)	\
-	& MFC_##target##_MASK)
-
-#define MFC_GET_ADR(target)						\
-	(s5p_mfc_read_reg(dev, MFC_##target##_ADR_ADDR) << MFC_##target##_ADR_SHFT)
-
-static inline void s5p_mfc_write_reg(struct s5p_mfc_dev *dev, unsigned int data, unsigned int offset)
-{
-	writel(data, dev->regs_base + offset);
-}
-
-static inline unsigned int s5p_mfc_read_reg(struct s5p_mfc_dev *dev, unsigned int offset)
-{
-	return readl(dev->regs_base + offset);
-}
-
-#define READL(offset)		readl(dev->regs_base + (offset))
-#define WRITEL(data, offset)	writel((data), dev->regs_base + (offset))
+#define s5p_mfc_get_dec_y_addr()	MFC_READL(S5P_FIMV_SI_DECODED_Y_ADR)
+#define s5p_mfc_get_disp_y_addr()	MFC_READL(S5P_FIMV_SI_DISPLAY_Y_ADR)
 
 #endif /* __S5P_MFC_REG_H */

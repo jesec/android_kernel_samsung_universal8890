@@ -948,10 +948,10 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 	if (ctx->state == MFCINST_GOT_INST && strm_size == 0)
 		mfc_info_ctx("stream size is 0\n");
 
-	WRITEL(strm_size, S5P_FIMV_D_STREAM_DATA_SIZE);
-	WRITEL(buf_addr, S5P_FIMV_D_CPB_BUFFER_ADDR);
-	WRITEL(cpb_buf_size, S5P_FIMV_D_CPB_BUFFER_SIZE);
-	WRITEL(start_num_byte, S5P_FIMV_D_CPB_BUFFER_OFFSET);
+	MFC_WRITEL(strm_size, S5P_FIMV_D_STREAM_DATA_SIZE);
+	MFC_WRITEL(buf_addr, S5P_FIMV_D_CPB_BUFFER_ADDR);
+	MFC_WRITEL(cpb_buf_size, S5P_FIMV_D_CPB_BUFFER_SIZE);
+	MFC_WRITEL(start_num_byte, S5P_FIMV_D_CPB_BUFFER_OFFSET);
 
 	mfc_debug_leave();
 	return 0;
@@ -965,10 +965,10 @@ void s5p_mfc_set_enc_frame_buffer(struct s5p_mfc_ctx *ctx,
 
 	if (IS_MFCv7X(dev) || IS_MFCV8(dev)) {
 		for (i = 0; i < num_planes; i++)
-			WRITEL(addr[i], S5P_FIMV_E_SOURCE_FIRST_ADDR + (i*4));
+			MFC_WRITEL(addr[i], S5P_FIMV_E_SOURCE_FIRST_ADDR + (i*4));
 	} else {
 		for (i = 0; i < num_planes; i++)
-			WRITEL(addr[i], S5P_FIMV_E_SOURCE_LUMA_ADDR + (i*4));
+			MFC_WRITEL(addr[i], S5P_FIMV_E_SOURCE_LUMA_ADDR + (i*4));
 	}
 }
 
@@ -980,8 +980,8 @@ int s5p_mfc_set_enc_stream_buffer(struct s5p_mfc_ctx *ctx,
 
 	size = ALIGN(size, 512);
 
-	WRITEL(addr, S5P_FIMV_E_STREAM_BUFFER_ADDR); /* 16B align */
-	WRITEL(size, S5P_FIMV_E_STREAM_BUFFER_SIZE);
+	MFC_WRITEL(addr, S5P_FIMV_E_STREAM_BUFFER_ADDR); /* 16B align */
+	MFC_WRITEL(size, S5P_FIMV_E_STREAM_BUFFER_SIZE);
 
 	mfc_debug(2, "stream buf addr: 0x%08lx, size: 0x%08x(%d)",
 		(unsigned long)addr, size, size);
@@ -1002,10 +1002,10 @@ void s5p_mfc_get_enc_frame_buffer(struct s5p_mfc_ctx *ctx,
 		addr_offset = S5P_FIMV_E_ENCODED_SOURCE_LUMA_ADDR;
 
 	for (i = 0; i < num_planes; i++)
-		addr[i] = READL(addr_offset + (i * 4));
+		addr[i] = MFC_READL(addr_offset + (i * 4));
 
-	enc_recon_y_addr = READL(S5P_FIMV_E_RECON_LUMA_DPB_ADDR);
-	enc_recon_c_addr = READL(S5P_FIMV_E_RECON_CHROMA_DPB_ADDR);
+	enc_recon_y_addr = MFC_READL(S5P_FIMV_E_RECON_LUMA_DPB_ADDR);
+	enc_recon_c_addr = MFC_READL(S5P_FIMV_E_RECON_CHROMA_DPB_ADDR);
 
 	mfc_debug(2, "recon y addr: 0x%08lx", enc_recon_y_addr);
 	mfc_debug(2, "recon c addr: 0x%08lx", enc_recon_c_addr);
@@ -1028,25 +1028,25 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 	mfc_debug(2, "Buf1: %p (%ld)\n", (void *)buf_addr1, buf_size1);
 
 	for (i = 0; i < ctx->dpb_count; i++) {
-		WRITEL(buf_addr1, S5P_FIMV_E_LUMA_DPB + (4 * i));
+		MFC_WRITEL(buf_addr1, S5P_FIMV_E_LUMA_DPB + (4 * i));
 		buf_addr1 += enc->luma_dpb_size;
-		WRITEL(buf_addr1, S5P_FIMV_E_CHROMA_DPB + (4 * i));
+		MFC_WRITEL(buf_addr1, S5P_FIMV_E_CHROMA_DPB + (4 * i));
 		buf_addr1 += enc->chroma_dpb_size;
-		WRITEL(buf_addr1, S5P_FIMV_E_ME_BUFFER + (4 * i));
+		MFC_WRITEL(buf_addr1, S5P_FIMV_E_ME_BUFFER + (4 * i));
 		buf_addr1 += enc->me_buffer_size;
 		buf_size1 -= (enc->luma_dpb_size + enc->chroma_dpb_size +
 			enc->me_buffer_size);
 	}
 
-	WRITEL(buf_addr1, S5P_FIMV_E_SCRATCH_BUFFER_ADDR);
-	WRITEL(ctx->scratch_buf_size, S5P_FIMV_E_SCRATCH_BUFFER_SIZE);
+	MFC_WRITEL(buf_addr1, S5P_FIMV_E_SCRATCH_BUFFER_ADDR);
+	MFC_WRITEL(ctx->scratch_buf_size, S5P_FIMV_E_SCRATCH_BUFFER_SIZE);
 	buf_addr1 += ctx->scratch_buf_size;
 	buf_size1 -= ctx->scratch_buf_size;
 
 	if (!IS_MFCv78(dev)) {
-		WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER0);
+		MFC_WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER0);
 		buf_addr1 += enc->tmv_buffer_size >> 1;
-		WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER1);
+		MFC_WRITEL(buf_addr1, S5P_FIMV_E_TMV_BUFFER1);
 		buf_addr1 += enc->tmv_buffer_size >> 1;
 		buf_size1 -= enc->tmv_buffer_size;
 	}
@@ -1058,7 +1058,7 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 		return -ENOMEM;
 	}
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_INIT_BUFS, NULL);
 
 	mfc_debug_leave();
@@ -1193,7 +1193,7 @@ static int mfc_set_dec_stride_buffer(struct s5p_mfc_ctx *ctx, struct list_head *
 	int i;
 
 	for (i = 0; i < ctx->raw_buf.num_planes; i++) {
-		WRITEL(ctx->raw_buf.stride[i],
+		MFC_WRITEL(ctx->raw_buf.stride[i],
 			S5P_FIMV_D_FIRST_PLANE_DPB_STRIDE_SIZE + (i * 4));
 		mfc_debug(2, "# plane%d.size = %d, stride = %d\n", i,
 			ctx->raw_buf.plane_size[i], ctx->raw_buf.stride[i]);
@@ -1243,37 +1243,37 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	mfc_debug(2, "Setting display delay to %d\n", dec->display_delay);
 
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
-		WRITEL(dec->tiled_buf_cnt, S5P_FIMV_D_NUM_DPB);
-		WRITEL(tiled_ref->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
-		WRITEL(tiled_ref->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
+		MFC_WRITEL(dec->tiled_buf_cnt, S5P_FIMV_D_NUM_DPB);
+		MFC_WRITEL(tiled_ref->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
+		MFC_WRITEL(tiled_ref->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
 		mfc_debug(2, "Tiled Plane size : 0 = %d, 1 = %d\n",
 			tiled_ref->plane_size[0], tiled_ref->plane_size[1]);
 	} else if (IS_MFCV8(dev)) {
-		WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
+		MFC_WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
 		mfc_debug(2, "raw->num_planes %d\n", raw->num_planes);
 		for (i = 0; i < raw->num_planes; i++) {
 			mfc_debug(2, "raw->plane_size[%d]= %d\n", i, raw->plane_size[i]);
-			WRITEL(raw->plane_size[i], S5P_FIMV_D_FIRST_PLANE_DPB_SIZE + i*4);
+			MFC_WRITEL(raw->plane_size[i], S5P_FIMV_D_FIRST_PLANE_DPB_SIZE + i*4);
 		}
 	} else {
-		WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
-		WRITEL(raw->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
-		WRITEL(raw->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
+		MFC_WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
+		MFC_WRITEL(raw->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
+		MFC_WRITEL(raw->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
 	}
 
-	WRITEL(buf_addr1, S5P_FIMV_D_SCRATCH_BUFFER_ADDR);
-	WRITEL(ctx->scratch_buf_size, S5P_FIMV_D_SCRATCH_BUFFER_SIZE);
+	MFC_WRITEL(buf_addr1, S5P_FIMV_D_SCRATCH_BUFFER_ADDR);
+	MFC_WRITEL(ctx->scratch_buf_size, S5P_FIMV_D_SCRATCH_BUFFER_SIZE);
 	buf_addr1 += ctx->scratch_buf_size;
 	buf_size1 -= ctx->scratch_buf_size;
 
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC ||
 			ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC ||
 			ctx->codec_mode == S5P_FIMV_CODEC_HEVC_DEC)
-		WRITEL(ctx->mv_size, S5P_FIMV_D_MV_BUFFER_SIZE);
+		MFC_WRITEL(ctx->mv_size, S5P_FIMV_D_MV_BUFFER_SIZE);
 
 	if (ctx->codec_mode == S5P_FIMV_CODEC_VP9_DEC){
-		WRITEL(buf_addr1, S5P_FIMV_D_STATIC_BUFFER_ADDR);
-		WRITEL(DEC_V90_STATIC_BUFFER_SIZE, S5P_FIMV_D_STATIC_BUFFER_SIZE);
+		MFC_WRITEL(buf_addr1, S5P_FIMV_D_STATIC_BUFFER_ADDR);
+		MFC_WRITEL(DEC_V90_STATIC_BUFFER_SIZE, S5P_FIMV_D_STATIC_BUFFER_SIZE);
 		buf_addr1 += DEC_V90_STATIC_BUFFER_SIZE;
 		buf_size1 -= DEC_V90_STATIC_BUFFER_SIZE;
 	}
@@ -1305,7 +1305,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		reg |= (0x1 << S5P_FIMV_D_OPT_NOT_CODED_SET_SHIFT);
 		mfc_info_ctx("Notcoded frame copy mode start\n");
 	}
-	WRITEL(reg, S5P_FIMV_D_INIT_BUFFER_OPTIONS);
+	MFC_WRITEL(reg, S5P_FIMV_D_INIT_BUFFER_OPTIONS);
 
 	frame_size_mv = ctx->mv_size;
 	mfc_debug(2, "Frame size: %d, %d, %d, mv: %d\n",
@@ -1320,12 +1320,12 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
 		for (i = 0; i < dec->tiled_buf_cnt; i++) {
 			mfc_debug(2, "Tiled Luma %zu\n", buf_addr1);
-			WRITEL(buf_addr1, S5P_FIMV_D_LUMA_DPB + i * 4);
+			MFC_WRITEL(buf_addr1, S5P_FIMV_D_LUMA_DPB + i * 4);
 			buf_addr1 += tiled_ref->plane_size[0];
 			buf_size1 -= tiled_ref->plane_size[0];
 
 			mfc_debug(2, "\tTiled Chroma %zu\n", buf_addr1);
-			WRITEL(buf_addr1, S5P_FIMV_D_CHROMA_DPB + i * 4);
+			MFC_WRITEL(buf_addr1, S5P_FIMV_D_CHROMA_DPB + i * 4);
 			buf_addr1 += tiled_ref->plane_size[1];
 			buf_size1 -= tiled_ref->plane_size[1];
 		}
@@ -1336,7 +1336,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			if (dec->is_dynamic_dpb)
 				break;
 			for (j = 0; j < raw->num_planes; j++) {
-				WRITEL(buf->planes.raw[j], S5P_FIMV_D_LUMA_DPB + (j*0x100 + i*4));
+				MFC_WRITEL(buf->planes.raw[j], S5P_FIMV_D_LUMA_DPB + (j*0x100 + i*4));
 			}
 
 			if ((i == 0) && (!ctx->is_drm)) {
@@ -1359,11 +1359,11 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 				break;
 			mfc_debug(2, "Luma %llx\n",
 				(unsigned long long)buf->planes.raw[0]);
-			WRITEL(buf->planes.raw[0],
+			MFC_WRITEL(buf->planes.raw[0],
 					S5P_FIMV_D_LUMA_DPB + (i * 4));
 			mfc_debug(2, "\tChroma %llx\n",
 				(unsigned long long)buf->planes.raw[1]);
-			WRITEL(buf->planes.raw[1],
+			MFC_WRITEL(buf->planes.raw[1],
 					S5P_FIMV_D_CHROMA_DPB + (i * 4));
 
 			if ((i == 0) && (!ctx->is_drm)) {
@@ -1387,14 +1387,14 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 
 	if (IS_MFCv10X(dev) && dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
 		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
-			WRITEL(raw->stride_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_STRIDE_SIZE + (i * 4));
-			WRITEL(raw->plane_size_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_SIZE + (i * 4));
+			MFC_WRITEL(raw->stride_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_STRIDE_SIZE + (i * 4));
+			MFC_WRITEL(raw->plane_size_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_SIZE + (i * 4));
 			mfc_debug(2, "# HEVC 10bit : 2bits plane%d.size = %d, stride = %d\n", i,
 				ctx->raw_buf.plane_size_2bits[i], ctx->raw_buf.stride_2bits[i]);
 		}
 	}
 
-	WRITEL(dec->mv_count, S5P_FIMV_D_NUM_MV);
+	MFC_WRITEL(dec->mv_count, S5P_FIMV_D_NUM_MV);
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC ||
 			ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC ||
 			ctx->codec_mode == S5P_FIMV_CODEC_HEVC_DEC) {
@@ -1406,7 +1406,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			buf_size1 -= align_gap;
 
 			mfc_debug(2, "\tBuf1: %zu, size: %ld\n", buf_addr1, buf_size1);
-			WRITEL(buf_addr1, S5P_FIMV_D_MV_BUFFER + i * 4);
+			MFC_WRITEL(buf_addr1, S5P_FIMV_D_MV_BUFFER + i * 4);
 			buf_addr1 += frame_size_mv;
 			buf_size1 -= frame_size_mv;
 		}
@@ -1419,7 +1419,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		return -ENOMEM;
 	}
 
-	WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
+	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_INIT_BUFS, NULL);
 
 	mfc_debug(2, "After setting buffers.\n");

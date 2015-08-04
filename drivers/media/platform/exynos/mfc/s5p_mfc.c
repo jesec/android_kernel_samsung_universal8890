@@ -112,7 +112,7 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 				dev->regs_base, dev);
 
 	/* Enable all FW clock gating */
-	writel(0xFFFFFFFF, dev->regs_base + 0x1060);
+	MFC_WRITEL(0xFFFFFFFF, S5P_FIMV_MFC_FW_CLOCK);
 
 	for (i = 0; i < MFC_SFR_AREA_COUNT; i++) {
 		printk("[%04X .. %04X]\n", addr[i][0], addr[i][0] + addr[i][1]);
@@ -661,7 +661,7 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 		dec_y_addr = mfc_get_dec_first_addr();
 	else
-		dec_y_addr = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
+		dec_y_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 
 	if (dec->is_dynamic_dpb)
 		dst_queue_addr = &dec->ref_queue;
@@ -736,13 +736,13 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 		dspl_y_addr = mfc_get_disp_first_addr();
 	else
-		dspl_y_addr = MFC_GET_ADR(DEC_DISPLAY_Y);
+		dspl_y_addr = s5p_mfc_get_disp_y_addr();
 
 	if (dec->immediate_display == 1) {
 		if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 			dspl_y_addr = mfc_get_dec_first_addr();
 		else
-			dspl_y_addr = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
+			dspl_y_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 		frame_type = s5p_mfc_get_dec_frame_type();
 	}
 
@@ -1014,7 +1014,7 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 		dec_addr = mfc_get_dec_first_addr();
 	else
-		dec_addr = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
+		dec_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 	buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
 
 	if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
@@ -1209,7 +1209,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			if (IS_MFCv7X(dev) && dec->is_dual_dpb)
 				dec->y_addr_for_pb = mfc_get_dec_first_addr();
 			else
-				dec->y_addr_for_pb = (dma_addr_t)MFC_GET_ADR(DEC_DECODED_Y);
+				dec->y_addr_for_pb = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 
 			spin_unlock_irqrestore(&dev->irqlock, flags);
 			stream_vir = vb2_plane_vaddr(&src_buf->vb, 0);
