@@ -1392,7 +1392,6 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	unsigned int reason;
 	unsigned int err;
 	unsigned long flags;
-	unsigned int reg = 0;
 	int new_ctx;
 
 	mfc_debug_enter();
@@ -1485,51 +1484,6 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			} else {
 				enc->buf_full = 0;
 				enc->in_slice = 0;
-			}
-
-			if (ctx->enc_res_change || ctx->enc_res_change_state) {
-				/* Right after the first NAL_START finished with the new resolution,
-				 * We need to reset the fields
-				 */
-				if (ctx->enc_res_change) {
-					reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_PARAM_CHANGE);
-					reg &= ~(0x7 << 6); /* clear resolution change bits */
-					s5p_mfc_write_reg(dev, reg, S5P_FIMV_E_PARAM_CHANGE);
-
-					ctx->enc_res_change_state = ctx->enc_res_change;
-					ctx->enc_res_change = 0;
-				}
-
-				if (ctx->enc_res_change_state == 1) { /* resolution swap */
-					ctx->enc_res_change_state = 0;
-				} else if (ctx->enc_res_change_state == 2) { /* resolution change */
-					reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_NAL_DONE_INFO);
-					reg = (reg & (0x3 << 4)) >> 4;
-
-					mfc_debug(2, "Encoding Resolution Status : %d\n", reg);
-
-					if (reg == 1) { /* Resolution Change for B-frame */
-						/* Encode with previous resolution */
-						/* NOTHING TO-DO */
-					} else if (reg == 2) { /* Resolution Change for B-frame */
-						s5p_mfc_release_codec_buffers(ctx);
-						s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED); /* for INIT_BUFFER cmd */
-
-						ctx->enc_res_change_state = 0;
-						ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
-						mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
-								(unsigned int)ctx->min_scratch_buf_size);
-					} else if (reg == 3) { /* Resolution Change for only P-frame */
-						s5p_mfc_release_codec_buffers(ctx);
-						s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED); /* for INIT_BUFFER cmd */
-
-						ctx->enc_res_change_state = 0;
-						ctx->min_scratch_buf_size = s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
-						ctx->enc_res_change_re_input = 1;
-						mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
-								(unsigned int)ctx->min_scratch_buf_size);
-					}
-				}
 			}
 			if (ctx->c_ops->post_frame_start)
 				if (ctx->c_ops->post_frame_start(ctx))

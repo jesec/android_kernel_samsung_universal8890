@@ -3106,6 +3106,59 @@ static int enc_pre_frame_start(struct s5p_mfc_ctx *ctx)
 	return 0;
 }
 
+static void enc_change_resolution(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	unsigned int reg = 0;
+
+	/*
+	 * Right after the first NAL_START finished with the new resolution,
+	 * We need to reset the fields
+	 */
+	if (ctx->enc_res_change) {
+		/* clear resolution change bits */
+		reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_PARAM_CHANGE);
+		reg &= ~(0x7 << 6);
+		s5p_mfc_write_reg(dev, reg, S5P_FIMV_E_PARAM_CHANGE);
+
+		ctx->enc_res_change_state = ctx->enc_res_change;
+		ctx->enc_res_change = 0;
+	}
+
+	if (ctx->enc_res_change_state == 1) { /* resolution swap */
+		ctx->enc_res_change_state = 0;
+	} else if (ctx->enc_res_change_state == 2) { /* resolution change */
+		reg = s5p_mfc_read_reg(dev, S5P_FIMV_E_NAL_DONE_INFO);
+		reg = (reg & (0x3 << 4)) >> 4;
+
+		/*
+		 * Encoding resolution status
+		 * 0: Normal encoding
+		 * 1: Resolution Change for B-frame
+		 *    (Encode with previous resolution)
+		 * 2: Resolution Change for B-frame
+		 *    (Last encoding with previous resolution)
+		 * 3: Resolution Change for only P-frame
+		 *    (No encode, as all frames with previous resolution are encoded)
+		 */
+		mfc_debug(2, "Encoding Resolution Status : %d\n", reg);
+
+		if (reg == 2 || reg == 3) {
+			s5p_mfc_release_codec_buffers(ctx);
+			/* for INIT_BUFFER cmd */
+			s5p_mfc_change_state(ctx, MFCINST_HEAD_PARSED);
+
+			ctx->enc_res_change_state = 0;
+			ctx->min_scratch_buf_size =
+				s5p_mfc_read_reg(dev, S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE);
+			mfc_debug(2, "S5P_FIMV_E_MIN_SCRATCH_BUFFER_SIZE = 0x%x\n",
+					(unsigned int)ctx->min_scratch_buf_size);
+			if (reg == 3)
+				ctx->enc_res_change_re_input = 1;
+		}
+	}
+}
+
 static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -3132,6 +3185,9 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 		s5p_mfc_change_state(ctx, MFCINST_ABORT_INST);
 		return 0;
 	}
+
+	if (ctx->enc_res_change || ctx->enc_res_change_state)
+		enc_change_resolution(ctx);
 
 	/* set encoded frame type */
 	enc->frame_type = slice_type;
