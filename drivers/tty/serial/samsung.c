@@ -1186,28 +1186,6 @@ static struct console s3c24xx_serial_console;
 
 static int __init s3c24xx_serial_console_init(void)
 {
-	struct clk *console_clk;
-	char pclk_name[16], sclk_name[16];
-
-	snprintf(pclk_name, sizeof(pclk_name), "console-pclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
-	snprintf(sclk_name, sizeof(sclk_name), "console-sclk%d", CONFIG_S3C_LOWLEVEL_UART_PORT);
-
-	pr_info("Enable clock for console to add reference counter\n");
-
-	console_clk = clk_get(NULL, pclk_name);
-	if (IS_ERR(console_clk)) {
-		pr_err("Can't get %s!(it's not err)\n", pclk_name);
-	} else {
-		clk_prepare_enable(console_clk);
-	}
-
-	console_clk = clk_get(NULL, sclk_name);
-	if (IS_ERR(console_clk)) {
-		pr_err("Can't get %s!(it's not err)\n", sclk_name);
-	} else {
-		clk_prepare_enable(console_clk);
-	}
-
 	register_console(&s3c24xx_serial_console);
 	return 0;
 }
@@ -1554,7 +1532,7 @@ void s3c24xx_serial_fifo_wait(void)
 	unsigned long wait_time;
 
 	list_for_each_entry(ourport, &drvdata_list, node) {
-		if (ourport->port.line != CONFIG_S3C_LOWLEVEL_UART_PORT)
+		if (!uart_console(&ourport->port))
 			continue;
 
 		wait_time = jiffies + HZ / 4;
