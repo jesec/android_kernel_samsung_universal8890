@@ -256,9 +256,12 @@ static void dw_mci_exynos_config_hs400(struct dw_mci *host, u32 timing)
 	dqs = priv->saved_dqs_en;
 	strobe = priv->saved_strobe_ctrl;
 
-	if (timing == MMC_TIMING_MMC_HS400) {
-		dqs |= DATA_STROBE_EN;
+	if (timing == MMC_TIMING_MMC_HS400 ||
+			timing == MMC_TIMING_MMC_HS400_ES) {
+		dqs |= (DATA_STROBE_EN | DWMCI_AXI_NON_BLOCKING_WRITE);
 		strobe = DQS_CTRL_RD_DELAY(strobe, priv->dqs_delay);
+		if (timing == MMC_TIMING_MMC_HS400_ES)
+			dqs |= DWMCI_RESP_RCLK_MODE;
 	} else {
 		dqs &= ~DATA_STROBE_EN;
 	}
@@ -315,6 +318,7 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 
 	switch (timing) {
 	case MMC_TIMING_MMC_HS400:
+	case MMC_TIMING_MMC_HS400_ES:
 		/* Update tuned sample timing */
 		clksel = SDMMC_CLKSEL_UP_SAMPLE(
 				priv->ddr200_timing, priv->tuned_sample);

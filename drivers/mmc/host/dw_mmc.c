@@ -1259,7 +1259,8 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	/* DDR mode set */
 	if (ios->timing == MMC_TIMING_MMC_DDR52 ||
-			ios->timing == MMC_TIMING_MMC_HS400 )
+			ios->timing == MMC_TIMING_MMC_HS400 ||
+			ios->timing == MMC_TIMING_MMC_HS400_ES)
 		regs |= ((0x1 << slot->id) << 16);
 	else
 		regs &= ~((0x1 << slot->id) << 16);

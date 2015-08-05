@@ -64,6 +64,7 @@ struct mmc_ios {
 #define MMC_TIMING_MMC_DDR52	6
 #define MMC_TIMING_MMC_HS200	7
 #define MMC_TIMING_MMC_HS400	8
+#define MMC_TIMING_MMC_HS400_ES	9
 
 	unsigned char	signal_voltage;		/* signalling voltage (1.8V or 3.3V) */
 
@@ -290,8 +291,8 @@ struct mmc_host {
 #define MMC_CAP2_HS400_1_2V	(1 << 16)	/* Can support HS400 1.2V */
 #define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V | \
 				 MMC_CAP2_HS400_1_2V)
-#define MMC_CAP2_SDIO_IRQ_NOTHREAD (1 << 17)
-
+#define MMC_CAP2_SDIO_IRQ_NOTHREAD	(1 << 17)
+#define MMC_CAP2_STROBE_ENHANCED	(1 << 18) /* enhanced strobe */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 #ifdef CONFIG_MMC_CLKGATE
@@ -538,7 +539,8 @@ static inline bool mmc_card_ddr52(struct mmc_card *card)
 
 static inline bool mmc_card_hs400(struct mmc_card *card)
 {
-	return card->host->ios.timing == MMC_TIMING_MMC_HS400;
+	return card->host->ios.timing == MMC_TIMING_MMC_HS400 ||
+		card->host->ios.timing == MMC_TIMING_MMC_HS400_ES;
 }
 
 #endif /* LINUX_MMC_HOST_H */
