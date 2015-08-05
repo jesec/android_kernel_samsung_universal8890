@@ -125,7 +125,8 @@ static int vpp_wait_for_update(struct vpp_dev *vpp)
 				update_cnt, vpp->update_cnt);
 			return -ETIMEDOUT;
 		}
-		DISP_SS_EVENT_LOG(DISP_EVT_VPP_UPDATE_DONE, vpp->sd, ktime_set(0, 0));
+		DISP_SS_EVENT_LOG(DISP_EVT_VPP_UPDATE_DONE,
+						vpp->sd, ktime_set(0, 0));
 	}
 	return 0;
 }
@@ -144,7 +145,8 @@ static int vpp_wait_for_framedone(struct vpp_dev *vpp)
 				msecs_to_jiffies(17));
 		if (ret == 0) {
 			dev_err(DEV, "timeout of frame done(st:%d, up:%d, %d, do:%d)\n",
-				vpp->start_count, vpp->update_cnt, done_cnt, vpp->done_count);
+				vpp->start_count, vpp->update_cnt, done_cnt,
+				vpp->done_count);
 			return -ETIMEDOUT;
 		}
 	}
@@ -229,7 +231,8 @@ err:
 	dev_err(DEV, "src f_w : %d, src f_h: %d\n", src->f_w, src->f_h);
 	dev_err(DEV, "src w : %d, src h: %d\n", src->w, src->h);
 	dev_err(DEV, "dst w : %d, dst h: %d\n", dst->w, dst->h);
-	dev_err(DEV, "rotation : %d, color_format : %d\n",config->vpp_parm.rot, config->format);
+	dev_err(DEV, "rotation : %d, color_format : %d\n",
+				config->vpp_parm.rot, config->format);
 
 	return -EINVAL;
 }
@@ -320,32 +323,36 @@ static int vpp_init(struct vpp_dev *vpp)
 
 	int ret = 0;
 
-	if(vpp->id == 0 || vpp->id == 2) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G0, 0);
+	if (vpp->id == 0 || vpp->id == 2) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_G0, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp0: %d\n", ret);
 			return -EBUSY;
 		}
 	}
 
-	if(vpp->id == 1 || vpp->id == 3) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G1, 0);
+	if (vpp->id == 1 || vpp->id == 3) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_G1, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp0: %d)\n", ret);
 			return -EBUSY;
 		}
 	}
 
-	if(vpp->id == 4 || vpp->id == 6) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_VGR0, 0);
+	if (vpp->id == 4 || vpp->id == 6) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_VGR0, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp1: %d\n", ret);
 			return -EBUSY;
 		}
 	}
 
-	if(vpp->id == 5 || vpp->id == 7 || vpp->id == 8) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G3, 0);
+	if (vpp->id == 5 || vpp->id == 7 || vpp->id == 8) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_G3, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp1: %d)\n", ret);
 			return -EBUSY;
@@ -539,7 +546,8 @@ err:
 	return ret;
 }
 
-static long vpp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
+				unsigned int cmd, void *arg)
 {
 	struct vpp_dev *vpp = v4l2_get_subdevdata(sd);
 	int ret = 0;
@@ -767,7 +775,8 @@ static irqreturn_t vpp_irq_handler(int irq, void *priv)
 	if (vpp_irq & VG_IRQ_SFR_UPDATE_DONE) {
 		vpp->update_cnt++;
 		wake_up_interruptible_all(&vpp->update_queue);
-		DISP_SS_EVENT_LOG(DISP_EVT_VPP_SHADOW_UPDATE, vpp->sd, ktime_set(0, 0));
+		DISP_SS_EVENT_LOG(DISP_EVT_VPP_SHADOW_UPDATE,
+						vpp->sd, ktime_set(0, 0));
 	}
 
 	dev_dbg(DEV, "irq status : 0x%x\n", vpp_irq);
@@ -896,32 +905,36 @@ static int vpp_probe(struct platform_device *pdev)
 
 	vpp_config_id(vpp);
 
-	if(vpp->id == 0 || vpp->id == 2) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G0, 0);
+	if (vpp->id == 0 || vpp->id == 2) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_G0, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp0: %d\n", ret);
 			return -EBUSY;
 		}
 	}
 
-	if(vpp->id == 1 || vpp->id == 3) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G1, 0);
+	if (vpp->id == 1 || vpp->id == 3) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_G1, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp0: %d)\n", ret);
 			return -EBUSY;
 		}
 	}
 
-	if(vpp->id == 4 || vpp->id == 6) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_VGR0, 0);
+	if (vpp->id == 4 || vpp->id == 6) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_VGR0, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp1: %d\n", ret);
 			return -EBUSY;
 		}
 	}
 
-	if(vpp->id == 5 || vpp->id == 7 || vpp->id == 8) {
-		ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT, PROT_G3, 0);
+	if (vpp->id == 5 || vpp->id == 7 || vpp->id == 8) {
+		ret = exynos_smc(MC_FC_SET_CFW_PROT,
+				MC_FC_DRM_SET_CFW_PROT, PROT_G3, 0);
 		if (ret != 2) {
 			vpp_err("smc call fail for vpp1: %d)\n", ret);
 			return -EBUSY;

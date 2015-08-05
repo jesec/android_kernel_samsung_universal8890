@@ -219,7 +219,8 @@ void vpp_reg_set_plane_alpha(u32 id, u32 plane_alpha);
 void vpp_reg_wait_idle(u32 id);
 int vpp_reg_get_irq_status(u32 id);
 void vpp_reg_set_clear_irq(u32 id, u32 irq);
-void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_format *vi);
+void vpp_constraints_params(struct vpp_size_constraints *vc,
+					struct vpp_img_format *vi);
 void vpp_reg_init(u32 id);
 void vpp_reg_deinit(u32 id, u32 reset_en);
 void vpp_reg_wait_pingpong_clear(u32 id);

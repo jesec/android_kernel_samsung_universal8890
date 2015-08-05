@@ -142,17 +142,16 @@ int vpp_reg_set_in_format(u32 id, u32 format, struct vpp_img_format *vi)
 {
 	u32 cfg = vpp_read(id, VG_IN_CON);
 
-	cfg &= ~(VG_IN_CON_IMG_FORMAT_MASK |
-			VG_IN_CON_CHROMINANCE_STRIDE_EN);
+	cfg &= ~(VG_IN_CON_IMG_FORMAT_MASK | VG_IN_CON_CHROMINANCE_STRIDE_EN);
 
 	if ((id == 0 || id == 1 || id == 4 || id == 5) &&
 			(format >= DECON_PIXEL_FORMAT_NV16)) {
-		vpp_err("Unsupported YUV format in G%d \n", id);
+		vpp_err("Unsupported YUV format in G%d\n", id);
 		return -EINVAL;
 	}
 
 	if (!vi->vgr && (vi->scale || vi->rot)) {
-		vpp_err("Unsupported Scailing in (V)G%d \n", id);
+		vpp_err("Unsupported Scailing in (V)G%d\n", id);
 		return -EINVAL;
 	}
 
@@ -306,12 +305,14 @@ void vpp_reg_set_scale_ratio(u32 id, struct vpp_size_param *p, u32 rot_en)
 	p->vpp_h_ratio = h_ratio;
 	p->vpp_v_ratio = v_ratio;
 
-	vpp_dbg("h_ratio : %#x, v_ratio : %#x\n", p->vpp_h_ratio, p->vpp_v_ratio);
+	vpp_dbg("h_ratio : %#x, v_ratio : %#x\n",
+			p->vpp_h_ratio, p->vpp_v_ratio);
 }
 
 void vpp_reg_set_in_buf_addr(u32 id, struct vpp_size_param *p)
 {
-	vpp_dbg("y : %llu, cb : %llu, cr : %llu\n", p->addr0, p->addr1, p->addr2);
+	vpp_dbg("y : %llu, cb : %llu, cr : %llu\n",
+			p->addr0, p->addr1, p->addr2);
 	vpp_write(id, VG_BASE_ADDR_Y(0), p->addr0);
 	vpp_write(id, VG_BASE_ADDR_CB(0), p->addr1);
 	vpp_write(id, VG_PINGPONG_UPDATE, VG_ADDR_PINGPONG_UPDATE);
@@ -435,8 +436,8 @@ int vpp_reg_get_irq_status(u32 id)
 {
 	u32 cfg = vpp_read(id, VG_IRQ);
 	cfg &= (VG_IRQ_SFR_UPDATE_DONE | VG_IRQ_HW_RESET_DONE |
-		VG_IRQ_READ_SLAVE_ERROR | VG_IRQ_DEADLOCK_STATUS |
-		VG_IRQ_FRAMEDONE);
+			VG_IRQ_READ_SLAVE_ERROR | VG_IRQ_DEADLOCK_STATUS |
+			VG_IRQ_FRAMEDONE);
 	return cfg;
 }
 
@@ -445,152 +446,152 @@ void vpp_reg_set_clear_irq(u32 id, u32 irq)
 	vpp_write_mask(id, VG_IRQ, ~0, irq);
 }
 
-void vpp_constraints_params(struct vpp_size_constraints *vc, struct vpp_img_format *vi)
+void vpp_constraints_params(struct vpp_size_constraints *vc,
+		struct vpp_img_format *vi)
 {
-	if (!vi->wb) {
-		if (!vi->vgr) {
-			if (vi->yuv) {
-				vc->src_mul_w = YUV_SRC_SIZE_MULTIPLE;
-				vc->src_mul_h = YUV_SRC_SIZE_MULTIPLE;
-				vc->src_w_min = YUV_SRC_WIDTH_MIN;
-				vc->src_w_max = YUV_SRC_WIDTH_MAX;
-				vc->src_h_min = YUV_SRC_HEIGHT_MIN;
-				vc->src_h_max = YUV_SRC_HEIGHT_MAX;
-				vc->img_mul_w = YUV_IMG_SIZE_MULTIPLE;
-				vc->img_mul_h = YUV_IMG_SIZE_MULTIPLE;
-				vc->img_w_min = YUV_IMG_WIDTH_MIN;
-				vc->img_w_max = IMG_WIDTH_MAX;
-				vc->img_h_min = YUV_IMG_HEIGHT_MIN;
-				vc->img_h_max = IMG_WIDTH_MAX;
-				vc->src_mul_x = YUV_SRC_OFFSET_MULTIPLE;
-				vc->src_mul_y = YUV_SRC_OFFSET_MULTIPLE;
-				vc->sca_w_min = SCALED_WIDTH_MIN;
-				vc->sca_w_max = SCALED_WIDTH_MAX;
-				vc->sca_h_min = SCALED_HEIGHT_MIN;
-				vc->sca_h_max = SCALED_HEIGHT_MAX;
-				vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+	if (!vi->wb && !vi->vgr) {
+		if (vi->yuv) {
+			vc->src_mul_w = YUV_SRC_SIZE_MULTIPLE;
+			vc->src_mul_h = YUV_SRC_SIZE_MULTIPLE;
+			vc->src_w_min = YUV_SRC_WIDTH_MIN;
+			vc->src_w_max = YUV_SRC_WIDTH_MAX;
+			vc->src_h_min = YUV_SRC_HEIGHT_MIN;
+			vc->src_h_max = YUV_SRC_HEIGHT_MAX;
+			vc->img_mul_w = YUV_IMG_SIZE_MULTIPLE;
+			vc->img_mul_h = YUV_IMG_SIZE_MULTIPLE;
+			vc->img_w_min = YUV_IMG_WIDTH_MIN;
+			vc->img_w_max = IMG_WIDTH_MAX;
+			vc->img_h_min = YUV_IMG_HEIGHT_MIN;
+			vc->img_h_max = IMG_WIDTH_MAX;
+			vc->src_mul_x = YUV_SRC_OFFSET_MULTIPLE;
+			vc->src_mul_y = YUV_SRC_OFFSET_MULTIPLE;
+			vc->sca_w_min = SCALED_WIDTH_MIN;
+			vc->sca_w_max = SCALED_WIDTH_MAX;
+			vc->sca_h_min = SCALED_HEIGHT_MIN;
+			vc->sca_h_max = SCALED_HEIGHT_MAX;
+			vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+			vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
+		} else {
+			vc->src_mul_w = RGB_SRC_SIZE_MULTIPLE;
+			vc->src_mul_h = RGB_SRC_SIZE_MULTIPLE;
+			vc->src_w_min = RGB_SRC_WIDTH_MIN;
+			vc->src_w_max = RGB_SRC_WIDTH_MAX;
+			vc->src_h_min = RGB_SRC_HEIGHT_MIN;
+			vc->src_h_max = RGB_SRC_HEIGHT_MAX;
+			vc->img_mul_w = RGB_IMG_SIZE_MULTIPLE;
+			vc->img_mul_h = RGB_IMG_SIZE_MULTIPLE;
+			vc->img_w_min = RGB_IMG_WIDTH_MIN;
+			vc->img_w_max = IMG_WIDTH_MAX;
+			vc->img_h_min = RGB_IMG_HEIGHT_MIN;
+			vc->img_h_max = IMG_WIDTH_MAX;
+			vc->src_mul_x = RGB_SRC_OFFSET_MULTIPLE;
+			vc->src_mul_y = RGB_SRC_OFFSET_MULTIPLE;
+			vc->sca_w_min = SCALED_WIDTH_MIN;
+			vc->sca_w_max = SCALED_WIDTH_MAX;
+			vc->sca_h_min = SCALED_HEIGHT_MIN;
+			vc->sca_h_max = SCALED_HEIGHT_MAX;
+			vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+			vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
+		}
+	} else if (!vi->wb && vi->vgr) {
+		if (!vi->yuv) {
+			vc->src_mul_w = RGB_SRC_SIZE_MULTIPLE;
+			vc->src_mul_h = RGB_SRC_SIZE_MULTIPLE;
+			vc->src_w_max = RGB_SRC_WIDTH_MAX;
+			vc->src_h_max = RGB_SRC_HEIGHT_MAX;
+			vc->sca_w_min = SCALED_WIDTH_MIN;
+			vc->sca_w_max = SCALED_WIDTH_MAX;
+			vc->sca_h_min = SCALED_HEIGHT_MIN;
+			vc->sca_h_max = SCALED_HEIGHT_MAX;
+			vc->src_mul_x = RGB_SRC_OFFSET_MULTIPLE;
+			vc->src_mul_y = RGB_SRC_OFFSET_MULTIPLE;
+			vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+
+			if (vi->pre_none) {
+				vc->img_mul_w = PRE_RGB_WIDTH;
+				vc->img_mul_h = PRE_RGB_HEIGHT;
+			} else if (vi->pre_12) {
+				vc->img_mul_w = PRE12_RGB_WIDTH;
+				vc->img_mul_h = PRE12_RGB_HEIGHT;
+			} else if (vi->pre_14) {
+				vc->img_mul_w = PRE14_RGB_WIDTH;
+				vc->img_mul_h = PRE14_RGB_HEIGHT;
+			}
+			if (!vi->rot) {
+				vc->src_w_min = ROT1_RGB_SRC_WIDTH_MIN;
+				vc->src_h_min = ROT1_RGB_SRC_HEIGHT_MIN;
+				vc->img_w_min = ROT1_RGB_IMG_WIDTH_MIN;
+				vc->img_h_min = ROT1_RGB_IMG_HEIGHT_MIN;
 				vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 			} else {
-				vc->src_mul_w = RGB_SRC_SIZE_MULTIPLE;
-				vc->src_mul_h = RGB_SRC_SIZE_MULTIPLE;
-				vc->src_w_min = RGB_SRC_WIDTH_MIN;
-				vc->src_w_max = RGB_SRC_WIDTH_MAX;
-				vc->src_h_min = RGB_SRC_HEIGHT_MIN;
-				vc->src_h_max = RGB_SRC_HEIGHT_MAX;
-				vc->img_mul_w = RGB_IMG_SIZE_MULTIPLE;
-				vc->img_mul_h = RGB_IMG_SIZE_MULTIPLE;
-				vc->img_w_min = RGB_IMG_WIDTH_MIN;
-				vc->img_w_max = IMG_WIDTH_MAX;
-				vc->img_h_min = RGB_IMG_HEIGHT_MIN;
-				vc->img_h_max = IMG_WIDTH_MAX;
-				vc->src_mul_x = RGB_SRC_OFFSET_MULTIPLE;
-				vc->src_mul_y = RGB_SRC_OFFSET_MULTIPLE;
-				vc->sca_w_min = SCALED_WIDTH_MIN;
-				vc->sca_w_max = SCALED_WIDTH_MAX;
-				vc->sca_h_min = SCALED_HEIGHT_MIN;
-				vc->sca_h_max = SCALED_HEIGHT_MAX;
-				vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+				vc->src_w_min = ROT2_RGB_SRC_WIDTH_MIN;
+				vc->src_h_min = ROT2_RGB_SRC_HEIGHT_MIN;
+				vc->img_w_min = ROT2_RGB_IMG_WIDTH_MIN;
+				vc->img_h_min = ROT2_RGB_IMG_HEIGHT_MIN;
 				vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
 			}
-		} else {
-			if (!vi->yuv) {
-				vc->src_mul_w = RGB_SRC_SIZE_MULTIPLE;
-				vc->src_mul_h = RGB_SRC_SIZE_MULTIPLE;
-				vc->src_w_max = RGB_SRC_WIDTH_MAX;
-				vc->src_h_max = RGB_SRC_HEIGHT_MAX;
-				vc->sca_w_min = SCALED_WIDTH_MIN;
-				vc->sca_w_max = SCALED_WIDTH_MAX;
-				vc->sca_h_min = SCALED_HEIGHT_MIN;
-				vc->sca_h_max = SCALED_HEIGHT_MAX;
-				vc->src_mul_x = RGB_SRC_OFFSET_MULTIPLE;
-				vc->src_mul_y = RGB_SRC_OFFSET_MULTIPLE;
-				vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
-
-				if (vi->pre_none) {
-					vc->img_mul_w = PRE_RGB_WIDTH;
-					vc->img_mul_h = PRE_RGB_HEIGHT;
-				} else if (vi->pre_12) {
-					vc->img_mul_w = PRE12_RGB_WIDTH;
-					vc->img_mul_h = PRE12_RGB_HEIGHT;
-				} else if (vi->pre_14) {
-					vc->img_mul_w = PRE14_RGB_WIDTH;
-					vc->img_mul_h = PRE14_RGB_HEIGHT;
-				}
-				if (!vi->rot) {
-					vc->src_w_min = ROT1_RGB_SRC_WIDTH_MIN;
-					vc->src_h_min = ROT1_RGB_SRC_HEIGHT_MIN;
-					vc->img_w_min = ROT1_RGB_IMG_WIDTH_MIN;
-					vc->img_h_min = ROT1_RGB_IMG_HEIGHT_MIN;
-					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
-				} else {
-					vc->src_w_min = ROT2_RGB_SRC_WIDTH_MIN;
-					vc->src_h_min = ROT2_RGB_SRC_HEIGHT_MIN;
-					vc->img_w_min = ROT2_RGB_IMG_WIDTH_MIN;
-					vc->img_h_min = ROT2_RGB_IMG_HEIGHT_MIN;
-					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
-				}
-				if (vi->normal) {
-					vc->img_w_max = ROT3_RGB_IMG_WIDTH_MAX;
-					vc->img_h_max = ROT3_RGB_IMG_HEIGHT_MAX;
-				} else {
-					vc->img_w_max = ROT4_RGB_IMG_WIDTH_MAX;
-					vc->img_h_max = ROT4_RGB_IMG_HEIGHT_MAX;
-					vc->blk_w_min = ROT3_RGB_BLK_WIDTH_MIN;
-					vc->blk_w_max = ROT3_RGB_BLK_WIDTH_MAX;
-					vc->blk_h_min = ROT3_RGB_BLK_HEIGHT_MIN;
-					vc->blk_h_max = ROT3_RGB_BLK_HEIGHT_MAX;
-				}
+			if (vi->normal) {
+				vc->img_w_max = ROT3_RGB_IMG_WIDTH_MAX;
+				vc->img_h_max = ROT3_RGB_IMG_HEIGHT_MAX;
 			} else {
-				vc->src_mul_w = YUV_SRC_SIZE_MULTIPLE;
-				vc->src_w_max = YUV_SRC_WIDTH_MAX;
-				vc->src_h_max = YUV_SRC_HEIGHT_MAX;
-				vc->sca_w_min = SCALED_WIDTH_MIN;
-				vc->sca_w_max = SCALED_WIDTH_MAX;
-				vc->sca_h_min = SCALED_HEIGHT_MIN;
-				vc->sca_h_max = SCALED_HEIGHT_MAX;
-				vc->src_mul_x = SRC_SIZE_MULTIPLE;
-				vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+				vc->img_w_max = ROT4_RGB_IMG_WIDTH_MAX;
+				vc->img_h_max = ROT4_RGB_IMG_HEIGHT_MAX;
+				vc->blk_w_min = ROT3_RGB_BLK_WIDTH_MIN;
+				vc->blk_w_max = ROT3_RGB_BLK_WIDTH_MAX;
+				vc->blk_h_min = ROT3_RGB_BLK_HEIGHT_MIN;
+				vc->blk_h_max = ROT3_RGB_BLK_HEIGHT_MAX;
+			}
+		} else {
+			vc->src_mul_w = YUV_SRC_SIZE_MULTIPLE;
+			vc->src_w_max = YUV_SRC_WIDTH_MAX;
+			vc->src_h_max = YUV_SRC_HEIGHT_MAX;
+			vc->sca_w_min = SCALED_WIDTH_MIN;
+			vc->sca_w_max = SCALED_WIDTH_MAX;
+			vc->sca_h_min = SCALED_HEIGHT_MIN;
+			vc->sca_h_max = SCALED_HEIGHT_MAX;
+			vc->src_mul_x = SRC_SIZE_MULTIPLE;
+			vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
 
-				if (!vi->rot) {
-					vc->src_w_min = ROT1_YUV_SRC_WIDTH_MIN;
-					vc->src_h_min = ROT1_YUV_SRC_HEIGHT_MIN;
-					vc->img_w_min = ROT1_YUV_IMG_WIDTH_MIN;
-					vc->img_h_min = ROT1_YUV_IMG_HEIGHT_MIN;
-				} else {
-					vc->src_w_min = ROT2_YUV_SRC_WIDTH_MIN;
-					vc->src_h_min = ROT2_YUV_SRC_HEIGHT_MIN;
-					vc->img_w_min = ROT2_YUV_IMG_WIDTH_MIN;
-					vc->img_h_min = ROT2_YUV_IMG_HEIGHT_MIN;
-				}
-				if (vi->normal) {
-					vc->img_w_max = ROT3_YUV_IMG_WIDTH_MAX;
-					vc->img_h_max = ROT3_YUV_IMG_HEIGHT_MAX;
-				} else {
-					vc->img_w_max = ROT4_YUV_IMG_WIDTH_MAX;
-					vc->img_h_max = ROT4_YUV_IMG_HEIGHT_MAX;
-				}
-				if (vi->yuv422) {
-					vc->src_mul_h = YUV_SRC_SIZE_MUL_HEIGHT;
-					if (vi->pre_none) {
-						vc->img_mul_w = PRE_YUV_WIDTH;
-						if (!vi->rot)
-							vc->img_mul_h = PRE_ROT1_YUV_HEIGHT;
-						else
-							vc->img_mul_h = PRE_YUV_HEIGHT;
+			if (!vi->rot) {
+				vc->src_w_min = ROT1_YUV_SRC_WIDTH_MIN;
+				vc->src_h_min = ROT1_YUV_SRC_HEIGHT_MIN;
+				vc->img_w_min = ROT1_YUV_IMG_WIDTH_MIN;
+				vc->img_h_min = ROT1_YUV_IMG_HEIGHT_MIN;
+			} else {
+				vc->src_w_min = ROT2_YUV_SRC_WIDTH_MIN;
+				vc->src_h_min = ROT2_YUV_SRC_HEIGHT_MIN;
+				vc->img_w_min = ROT2_YUV_IMG_WIDTH_MIN;
+				vc->img_h_min = ROT2_YUV_IMG_HEIGHT_MIN;
+			}
+			if (vi->normal) {
+				vc->img_w_max = ROT3_YUV_IMG_WIDTH_MAX;
+				vc->img_h_max = ROT3_YUV_IMG_HEIGHT_MAX;
+			} else {
+				vc->img_w_max = ROT4_YUV_IMG_WIDTH_MAX;
+				vc->img_h_max = ROT4_YUV_IMG_HEIGHT_MAX;
+			}
+			if (vi->yuv422) {
+				vc->src_mul_h = YUV_SRC_SIZE_MUL_HEIGHT;
+				if (vi->pre_none) {
+					vc->img_mul_w = PRE_YUV_WIDTH;
+					if (!vi->rot)
+						vc->img_mul_h = PRE_ROT1_YUV_HEIGHT;
+					else
+						vc->img_mul_h = PRE_YUV_HEIGHT;
 
-					} else if (vi->pre_12) {
-						vc->img_mul_w = PRE12_YUV_WIDTH;
-						if (!vi->rot)
-							vc->img_mul_h = PRE12_ROT1_YUV_HEIGHT;
-						else
-							vc->img_mul_h = PRE12_YUV_HEIGHT;
-					} else if (vi->pre_14) {
-						vc->img_mul_w = PRE14_YUV_WIDTH;
-						if (!vi->rot) {
-							vc->img_mul_h = PRE14_ROT1_YUV_HEIGHT;
-						} else {
-							vc->img_mul_h = PRE14_YUV_HEIGHT;
-						}
+				} else if (vi->pre_12) {
+					vc->img_mul_w = PRE12_YUV_WIDTH;
+					if (!vi->rot)
+						vc->img_mul_h = PRE12_ROT1_YUV_HEIGHT;
+					else
+						vc->img_mul_h = PRE12_YUV_HEIGHT;
+				} else if (vi->pre_14) {
+					vc->img_mul_w = PRE14_YUV_WIDTH;
+					if (!vi->rot) {
+						vc->img_mul_h = PRE14_ROT1_YUV_HEIGHT;
+					} else {
+						vc->img_mul_h = PRE14_YUV_HEIGHT;
+
 					}
 					if (!vi->rot) {
 						vc->src_mul_y = SRC_ROT2_MUL_Y;
