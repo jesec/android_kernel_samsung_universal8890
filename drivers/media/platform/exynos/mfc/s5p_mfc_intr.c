@@ -77,3 +77,34 @@ void s5p_mfc_cleanup_timeout(struct s5p_mfc_ctx *ctx)
 	clear_bit(ctx->num, &dev->ctx_work_bits);
 	spin_unlock_irq(&dev->condlock);
 }
+
+
+int s5p_mfc_get_new_ctx(struct s5p_mfc_dev *dev)
+{
+	int new_ctx;
+	int cnt;
+
+	if (!dev) {
+		mfc_err("no mfc device to run\n");
+		return -EINVAL;
+	}
+	mfc_debug(2, "Previous context: %d (bits %08lx)\n", dev->curr_ctx,
+							dev->ctx_work_bits);
+
+	if (dev->preempt_ctx > MFC_NO_INSTANCE_SET)
+		return dev->preempt_ctx;
+	else
+		new_ctx = (dev->curr_ctx + 1) % MFC_NUM_CONTEXTS;
+
+	cnt = 0;
+	while (!test_bit(new_ctx, &dev->ctx_work_bits)) {
+		new_ctx = (new_ctx + 1) % MFC_NUM_CONTEXTS;
+		cnt++;
+		if (cnt > MFC_NUM_CONTEXTS) {
+			/* No contexts to run */
+			return -EAGAIN;
+		}
+	}
+
+	return new_ctx;
+}

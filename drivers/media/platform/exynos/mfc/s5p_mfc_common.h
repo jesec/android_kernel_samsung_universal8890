@@ -20,13 +20,14 @@
 #include <linux/slab.h>
 
 #include "exynos-mfc.h"
+#include "exynos_mfc_media.h"
 
 #if defined(CONFIG_EXYNOS_MFC_V10)
 #include "regs-mfc-v10.h"
 #endif
 
 #include "s5p_mfc_reg.h"
-#include "s5p_mfc_utils.h"
+#include "s5p_mfc_macros.h"
 #include "s5p_mfc_data_struct.h"
 #include "s5p_mfc_debug.h"
 
@@ -291,27 +292,8 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 extern struct ion_device *ion_exynos;
 #endif
 
-int get_framerate(struct timeval *to, struct timeval *from);
-int get_framerate_by_interval(int interval);
-
 int s5p_mfc_dec_ctx_ready(struct s5p_mfc_ctx *ctx);
 int s5p_mfc_enc_ctx_ready(struct s5p_mfc_ctx *ctx);
-
-static inline int is_decoder_node(enum s5p_mfc_node_type node)
-{
-	if (node == MFCNODE_DECODER || node == MFCNODE_DECODER_DRM)
-		return 1;
-
-	return 0;
-}
-
-static inline int is_drm_node(enum s5p_mfc_node_type node)
-{
-	if (node == MFCNODE_DECODER_DRM || node == MFCNODE_ENCODER_DRM)
-		return 1;
-
-	return 0;
-}
 
 static inline int s5p_mfc_ctx_ready(struct s5p_mfc_ctx *ctx)
 {
@@ -321,44 +303,6 @@ static inline int s5p_mfc_ctx_ready(struct s5p_mfc_ctx *ctx)
 		return s5p_mfc_enc_ctx_ready(ctx);
 
 	return 0;
-}
-
-static inline int clear_hw_bit(struct s5p_mfc_ctx *ctx)
-{
-	struct s5p_mfc_dev *dev = ctx->dev;
-	int ret = -1;
-
-	if (!atomic_read(&dev->watchdog_run)) {
-		ret = test_and_clear_bit(ctx->num, &dev->hw_lock);
-		/* Reset the timeout watchdog */
-		atomic_set(&dev->watchdog_cnt, 0);
-	} else {
-		mfc_err_ctx("couldn't clear hw_lock\n");
-	}
-
-	return ret;
-}
-
-static inline void s5p_mfc_clean_dev_int_flags(struct s5p_mfc_dev *dev)
-{
-	dev->int_cond = 0;
-	dev->int_type = 0;
-	dev->int_err = 0;
-}
-
-static inline void s5p_mfc_clean_ctx_int_flags(struct s5p_mfc_ctx *ctx)
-{
-	ctx->int_cond = 0;
-	ctx->int_type = 0;
-	ctx->int_err = 0;
-}
-
-static inline void s5p_mfc_change_state(struct s5p_mfc_ctx *ctx, enum s5p_mfc_inst_state state)
-{
-	struct s5p_mfc_dev *dev = ctx->dev;
-
-	MFC_TRACE_CTX("** state : %d\n", state);
-	ctx->state = state;
 }
 
 #endif /* __S5P_MFC_COMMON_H */

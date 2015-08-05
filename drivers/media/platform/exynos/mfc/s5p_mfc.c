@@ -12,8 +12,6 @@
  * (at your option) any later version.
  */
 
-#define DEBUG
-
 #include <linux/io.h>
 #include <linux/sched.h>
 #include <linux/clk.h>
@@ -48,6 +46,7 @@
 #include "s5p_mfc_cmd.h"
 #include "s5p_mfc_opr_v10.h"
 #include "s5p_mfc_buf.h"
+#include "s5p_mfc_utils.h"
 
 #define S5P_MFC_NAME		"s5p-mfc"
 #define S5P_MFC_DEC_NAME	"s5p-mfc-dec"
@@ -233,60 +232,6 @@ void s5p_mfc_watchdog(unsigned long arg)
 	dev->watchdog_timer.expires = jiffies +
 					msecs_to_jiffies(MFC_WATCHDOG_INTERVAL);
 	add_timer(&dev->watchdog_timer);
-}
-
-/*
- * A framerate table determines framerate by the interval(us) of each frame.
- * Framerate is not accurate, just rough value to seperate overload section.
- * Base line of each section are selected from 25fps(40000us), 45fps(22222us)
- * and 100fps(10000us).
- *
- * interval(us) | 0           10000         22222         40000           |
- * framerate    |     120fps    |    60fps    |    30fps    |    25fps    |
- */
-
-#define COL_FRAME_RATE		0
-#define COL_FRAME_INTERVAL	1
-static unsigned long framerate_table[][2] = {
-	{ 25000, 40000 },
-	{ 30000, 22222 },
-	{ 60000, 10000 },
-	{ 120000, 0 },
-};
-
-static inline unsigned long timeval_diff(struct timeval *to,
-					struct timeval *from)
-{
-	return (to->tv_sec * USEC_PER_SEC + to->tv_usec)
-		- (from->tv_sec * USEC_PER_SEC + from->tv_usec);
-}
-
-int get_framerate_by_interval(int interval)
-{
-	unsigned long i;
-
-	/* if the interval is too big (2sec), framerate set to 0 */
-	if (interval > MFC_MAX_INTERVAL)
-		return 0;
-
-	for (i = 0; i < ARRAY_SIZE(framerate_table); i++) {
-		if (interval > framerate_table[i][COL_FRAME_INTERVAL])
-			return framerate_table[i][COL_FRAME_RATE];
-	}
-
-	return 0;
-}
-
-int get_framerate(struct timeval *to, struct timeval *from)
-{
-	unsigned long interval;
-
-	if (timeval_compare(to, from) <= 0)
-		return 0;
-
-	interval = timeval_diff(to, from);
-
-	return get_framerate_by_interval(interval);
 }
 
 /* Return the minimum interval between previous and next entry */
@@ -1713,6 +1658,22 @@ static int s5p_mfc_release_sec_pgtable(struct s5p_mfc_dev *dev)
 	return -1;
 }
 #endif
+
+static inline int is_decoder_node(enum s5p_mfc_node_type node)
+{
+	if (node == MFCNODE_DECODER || node == MFCNODE_DECODER_DRM)
+		return 1;
+
+	return 0;
+}
+
+static inline int is_drm_node(enum s5p_mfc_node_type node)
+{
+	if (node == MFCNODE_DECODER_DRM || node == MFCNODE_ENCODER_DRM)
+		return 1;
+
+	return 0;
+}
 
 /* Open an MFC node */
 static int s5p_mfc_open(struct file *file)

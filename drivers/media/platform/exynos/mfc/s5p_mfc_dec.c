@@ -31,6 +31,7 @@
 #include "s5p_mfc_qos.h"
 #include "s5p_mfc_opr_v10.h"
 #include "s5p_mfc_buf.h"
+#include "s5p_mfc_utils.h"
 
 #define DEF_SRC_FMT	2
 #define DEF_DST_FMT	0

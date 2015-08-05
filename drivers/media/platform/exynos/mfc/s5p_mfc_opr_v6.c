@@ -12,8 +12,6 @@
  * published by the Free Software Foundation.
  */
 
-#define DEBUG
-
 #include <linux/delay.h>
 #include <linux/mm.h>
 #include <linux/io.h>
@@ -164,7 +162,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 }
 
 /* Decode a single frame */
-int s5p_mfc_decode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
+static int s5p_mfc_decode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 {
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_dec *dec;
@@ -366,7 +364,7 @@ int s5p_mfc_start_change_resol_enc(struct s5p_mfc_ctx *ctx)
 }
 
 /* Encode a single frame */
-int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
+static int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 
@@ -397,36 +395,6 @@ int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 	mfc_debug(2, "--\n");
 
 	return 0;
-}
-
-int s5p_mfc_get_new_ctx(struct s5p_mfc_dev *dev)
-{
-	int new_ctx;
-	int cnt;
-
-	if (!dev) {
-		mfc_err("no mfc device to run\n");
-		return -EINVAL;
-	}
-	mfc_debug(2, "Previous context: %d (bits %08lx)\n", dev->curr_ctx,
-							dev->ctx_work_bits);
-
-	if (dev->preempt_ctx > MFC_NO_INSTANCE_SET)
-		return dev->preempt_ctx;
-	else
-		new_ctx = (dev->curr_ctx + 1) % MFC_NUM_CONTEXTS;
-
-	cnt = 0;
-	while (!test_bit(new_ctx, &dev->ctx_work_bits)) {
-		new_ctx = (new_ctx + 1) % MFC_NUM_CONTEXTS;
-		cnt++;
-		if (cnt > MFC_NUM_CONTEXTS) {
-			/* No contexts to run */
-			return -EAGAIN;
-		}
-	}
-
-	return new_ctx;
 }
 
 static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_vb)
@@ -1185,16 +1153,3 @@ void s5p_mfc_cleanup_timeout_and_try_run(struct s5p_mfc_ctx *ctx)
 	s5p_mfc_try_run(dev);
 }
 
-void s5p_mfc_cleanup_queue(struct list_head *lh)
-{
-	struct s5p_mfc_buf *b;
-	int i;
-
-	while (!list_empty(lh)) {
-		b = list_entry(lh->next, struct s5p_mfc_buf, list);
-		for (i = 0; i < b->vb.num_planes; i++)
-			vb2_set_plane_payload(&b->vb, i, 0);
-		vb2_buffer_done(&b->vb, VB2_BUF_STATE_ERROR);
-		list_del(&b->list);
-	}
-}

@@ -13,6 +13,7 @@
 #include "s5p_mfc_inst.h"
 
 #include "s5p_mfc_cmd.h"
+#include "s5p_mfc_intr.h"
 
 int s5p_mfc_open_inst(struct s5p_mfc_ctx *ctx)
 {
