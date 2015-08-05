@@ -317,7 +317,7 @@ int s5p_mfc_start_change_resol_enc(struct s5p_mfc_ctx *ctx)
 		old_img_width, old_img_height, new_img_width, new_img_height);
 
 	if (ctx->img_width) {
-		ctx->buf_width = ALIGN(ctx->img_width, S5P_FIMV_NV12M_HALIGN);
+		ctx->buf_width = ALIGN(ctx->img_width, MFC_NV12M_HALIGN);
 	}
 
 	if ((old_img_width == new_img_height) && (old_img_height == new_img_width)) {
@@ -431,9 +431,10 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 		}
 	} else {
 		for (i = 0; i < raw->num_planes; i++) {
-			MFC_WRITEL(raw->plane_size[i], S5P_FIMV_D_LUMA_DPB_SIZE + i*4);
+			MFC_WRITEL(raw->plane_size[i],
+				S5P_FIMV_D_FIRST_PLANE_DPB_SIZE + i*4);
 			MFC_WRITEL(dst_vb->planes.raw[i],
-					S5P_FIMV_D_LUMA_DPB + (i*0x100 + dst_index*4));
+				S5P_FIMV_D_FIRST_PLANE_DPB0 + (i*0x100 + dst_index*4));
 		}
 	}
 

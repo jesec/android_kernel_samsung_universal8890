@@ -483,12 +483,12 @@ int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	reg |= (p_264->open_gop << 4);
 	MFC_WRITEL(reg, S5P_FIMV_E_H264_OPTIONS);
 	/** value */
-	MFC_WRITEL(0x0, S5P_FIMV_E_H264_I_PERIOD);
+	MFC_WRITEL(0x0, S5P_FIMV_E_H264_REFRESH_PERIOD);
 	if (p_264->open_gop) {
 		reg = 0;
 		reg &= ~(0xffff);
 		reg |= p_264->open_gop_size;
-		MFC_WRITEL(reg, S5P_FIMV_E_H264_I_PERIOD);
+		MFC_WRITEL(reg, S5P_FIMV_E_H264_REFRESH_PERIOD);
 	}
 
 	/* 'WEIGHTED_BI_PREDICTION' for B is disable */

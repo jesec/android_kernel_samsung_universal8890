@@ -789,8 +789,8 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 	dec = ctx->dec_priv;
 	tiled_ref = &dec->tiled_ref;
 
-	ctx->buf_width = ALIGN(ctx->img_width, S5P_FIMV_NV12MT_HALIGN);
-	ctx->buf_height = ALIGN(ctx->img_height, S5P_FIMV_NV12MT_VALIGN);
+	ctx->buf_width = ALIGN(ctx->img_width, MFC_NV12MT_HALIGN);
+	ctx->buf_height = ALIGN(ctx->img_height, MFC_NV12MT_VALIGN);
 	mfc_info_ctx("SEQ Done: Movie dimensions %dx%d, "
 			"buffer dimensions: %dx%d\n", ctx->img_width,
 			ctx->img_height, ctx->buf_width, ctx->buf_height);
@@ -932,7 +932,7 @@ int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx, dma_addr_t buf_addr,
 		return -EINVAL;
 	}
 
-	cpb_buf_size = ALIGN(dec->src_buf_size, S5P_FIMV_NV12M_HALIGN);
+	cpb_buf_size = ALIGN(dec->src_buf_size, MFC_NV12M_HALIGN);
 
 	if (strm_size >= set_strm_size_max(cpb_buf_size)) {
 		mfc_info_ctx("Decrease strm_size : %u -> %zu, gap : %d\n",
@@ -1085,7 +1085,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 	add_size = mfc_linear_buf_size(mfc_version(dev));
 	default_size = mb_width * mb_height * 256;
 
-	ctx->buf_width = ALIGN(ctx->img_width, S5P_FIMV_NV12M_HALIGN);
+	ctx->buf_width = ALIGN(ctx->img_width, MFC_NV12M_HALIGN);
 
 	switch (ctx->src_fmt->fourcc) {
 	case V4L2_PIX_FMT_YUV420M:
@@ -1244,8 +1244,8 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
 		MFC_WRITEL(dec->tiled_buf_cnt, S5P_FIMV_D_NUM_DPB);
-		MFC_WRITEL(tiled_ref->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
-		MFC_WRITEL(tiled_ref->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
+		MFC_WRITEL(tiled_ref->plane_size[0], S5P_FIMV_D_FIRST_PLANE_DPB_SIZE);
+		MFC_WRITEL(tiled_ref->plane_size[1], S5P_FIMV_D_SECOND_PLANE_DPB_SIZE);
 		mfc_debug(2, "Tiled Plane size : 0 = %d, 1 = %d\n",
 			tiled_ref->plane_size[0], tiled_ref->plane_size[1]);
 	} else if (IS_MFCV8(dev)) {
@@ -1257,8 +1257,8 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		}
 	} else {
 		MFC_WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
-		MFC_WRITEL(raw->plane_size[0], S5P_FIMV_D_LUMA_DPB_SIZE);
-		MFC_WRITEL(raw->plane_size[1], S5P_FIMV_D_CHROMA_DPB_SIZE);
+		MFC_WRITEL(raw->plane_size[0], S5P_FIMV_D_FIRST_PLANE_DPB_SIZE);
+		MFC_WRITEL(raw->plane_size[1], S5P_FIMV_D_SECOND_PLANE_DPB_SIZE);
 	}
 
 	MFC_WRITEL(buf_addr1, S5P_FIMV_D_SCRATCH_BUFFER_ADDR);
@@ -1320,12 +1320,12 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
 		for (i = 0; i < dec->tiled_buf_cnt; i++) {
 			mfc_debug(2, "Tiled Luma %zu\n", buf_addr1);
-			MFC_WRITEL(buf_addr1, S5P_FIMV_D_LUMA_DPB + i * 4);
+			MFC_WRITEL(buf_addr1, S5P_FIMV_D_FIRST_PLANE_DPB0 + i * 4);
 			buf_addr1 += tiled_ref->plane_size[0];
 			buf_size1 -= tiled_ref->plane_size[0];
 
 			mfc_debug(2, "\tTiled Chroma %zu\n", buf_addr1);
-			MFC_WRITEL(buf_addr1, S5P_FIMV_D_CHROMA_DPB + i * 4);
+			MFC_WRITEL(buf_addr1, S5P_FIMV_D_SECOND_PLANE_DPB0 + i * 4);
 			buf_addr1 += tiled_ref->plane_size[1];
 			buf_size1 -= tiled_ref->plane_size[1];
 		}
@@ -1336,7 +1336,8 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			if (dec->is_dynamic_dpb)
 				break;
 			for (j = 0; j < raw->num_planes; j++) {
-				MFC_WRITEL(buf->planes.raw[j], S5P_FIMV_D_LUMA_DPB + (j*0x100 + i*4));
+				MFC_WRITEL(buf->planes.raw[j],
+					S5P_FIMV_D_FIRST_PLANE_DPB0 + (j*0x100 + i*4));
 			}
 
 			if ((i == 0) && (!ctx->is_drm)) {
@@ -1360,11 +1361,11 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			mfc_debug(2, "Luma %llx\n",
 				(unsigned long long)buf->planes.raw[0]);
 			MFC_WRITEL(buf->planes.raw[0],
-					S5P_FIMV_D_LUMA_DPB + (i * 4));
+					S5P_FIMV_D_FIRST_PLANE_DPB0 + (i * 4));
 			mfc_debug(2, "\tChroma %llx\n",
 				(unsigned long long)buf->planes.raw[1]);
 			MFC_WRITEL(buf->planes.raw[1],
-					S5P_FIMV_D_CHROMA_DPB + (i * 4));
+					S5P_FIMV_D_SECOND_PLANE_DPB0 + (i * 4));
 
 			if ((i == 0) && (!ctx->is_drm)) {
 				int j, color[3] = { 0x0, 0x80, 0x80 };
@@ -1406,7 +1407,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			buf_size1 -= align_gap;
 
 			mfc_debug(2, "\tBuf1: %zu, size: %ld\n", buf_addr1, buf_size1);
-			MFC_WRITEL(buf_addr1, S5P_FIMV_D_MV_BUFFER + i * 4);
+			MFC_WRITEL(buf_addr1, S5P_FIMV_D_MV_BUFFER0 + i * 4);
 			buf_addr1 += frame_size_mv;
 			buf_size1 -= frame_size_mv;
 		}

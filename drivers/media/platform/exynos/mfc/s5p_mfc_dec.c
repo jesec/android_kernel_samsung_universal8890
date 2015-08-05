@@ -482,7 +482,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG,
 		.is_volatile = 1,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_SHARED_SET_FRAME_TAG,
+		.addr = S5P_FIMV_D_PICTURE_TAG,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -494,7 +494,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_SHARED_GET_FRAME_TAG_TOP,
+		.addr = S5P_FIMV_D_RET_PICTURE_TAG_TOP,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -506,7 +506,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_DISPLAY_STATUS,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_SI_DISPLAY_STATUS,
+		.addr = S5P_FIMV_D_DISPLAY_STATUS,
 		.mask = 0x7,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -519,7 +519,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_LUMA,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_CRC_LUMA0,
+		.addr = S5P_FIMV_D_DECODED_FIRST_PLANE_CRC,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -531,7 +531,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_CHROMA,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_CRC_CHROMA0,
+		.addr = S5P_FIMV_D_DECODED_SECOND_PLANE_CRC,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -543,7 +543,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_LUMA_BOT,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_CRC_LUMA1,
+		.addr = S5P_FIMV_D_DECODED_FIRST_PLANE_CRC,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -555,7 +555,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_CHROMA_BOT,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_CRC_CHROMA1,
+		.addr = S5P_FIMV_D_DECODED_SECOND_PLANE_CRC,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -567,9 +567,9 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_CRC_GENERATED,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_SI_DECODED_STATUS,
-		.mask = S5P_FIMV_DEC_CRC_GEN_MASK,
-		.shft = S5P_FIMV_DEC_CRC_GEN_SHIFT,
+		.addr = S5P_FIMV_D_DECODED_STATUS,
+		.mask = S5P_FIMV_DEC_STATUS_CRC_GEN_MASK,
+		.shft = S5P_FIMV_DEC_STATUS_CRC_GEN_SHIFT,
 		.flag_mode = MFC_CTRL_MODE_NONE,
 		.flag_addr = 0,
 		.flag_shft = 0,
@@ -579,7 +579,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_SEI_FP_AVAIL,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_FRAME_PACK_SEI_AVAIL,
+		.addr = S5P_FIMV_D_FRAME_PACK_SEI_AVAIL,
 		.mask = 0x1,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -591,7 +591,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRGMENT_ID,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_FRAME_PACK_ARRGMENT_ID,
+		.addr = S5P_FIMV_D_FRAME_PACK_ARRGMENT_ID,
 		.mask = 0xFFFFFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -603,7 +603,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_SEI_FP_INFO,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_FRAME_PACK_SEI_INFO,
+		.addr = S5P_FIMV_D_FRAME_PACK_SEI_INFO,
 		.mask = 0x3FFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -615,7 +615,7 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.id = V4L2_CID_MPEG_VIDEO_H264_SEI_FP_GRID_POS,
 		.is_volatile = 0,
 		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_FRAME_PACK_GRID_POS,
+		.addr = S5P_FIMV_D_FRAME_PACK_GRID_POS,
 		.mask = 0xFFFF,
 		.shft = 0,
 		.flag_mode = MFC_CTRL_MODE_NONE,
@@ -1486,15 +1486,15 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 			switch (ctx_ctrl->id) {
 			case V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_LUMA:
 				ctx_ctrl->type = MFC_CTRL_TYPE_GET_DST;
-				ctx_ctrl->addr = S5P_FIMV_CRC_DISP_LUMA0;
+				ctx_ctrl->addr = S5P_FIMV_D_DISPLAY_FIRST_PLANE_CRC;
 				break;
 			case V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_CHROMA:
 				ctx_ctrl->type = MFC_CTRL_TYPE_GET_DST;
-				ctx_ctrl->addr = S5P_FIMV_CRC_DISP_CHROMA0;
+				ctx_ctrl->addr = S5P_FIMV_D_DISPLAY_SECOND_PLANE_CRC;
 				break;
 			case V4L2_CID_MPEG_MFC51_VIDEO_CRC_GENERATED:
 				ctx_ctrl->type = MFC_CTRL_TYPE_GET_DST;
-				ctx_ctrl->addr = S5P_FIMV_CRC_DISP_STATUS;
+				ctx_ctrl->addr = S5P_FIMV_D_DISPLAY_STATUS;
 				break;
 			case V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_LUMA_BOT:
 			case V4L2_CID_MPEG_MFC51_VIDEO_CRC_DATA_CHROMA_BOT:
@@ -2250,10 +2250,10 @@ void s5p_mfc_dec_store_crop_info(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	u32 left, right, top, bottom;
 
-	left = s5p_mfc_read_info(ctx, CROP_INFO_H);
+	left = s5p_mfc_read_info(ctx, S5P_FIMV_D_DISPLAY_CROP_INFO1);
 	right = left >> S5P_FIMV_SHARED_CROP_RIGHT_SHIFT;
 	left = left & S5P_FIMV_SHARED_CROP_LEFT_MASK;
-	top = s5p_mfc_read_info(ctx, CROP_INFO_V);
+	top = s5p_mfc_read_info(ctx, S5P_FIMV_D_DISPLAY_CROP_INFO2);
 	bottom = top >> S5P_FIMV_SHARED_CROP_BOTTOM_SHIFT;
 	top = top & S5P_FIMV_SHARED_CROP_TOP_MASK;
 

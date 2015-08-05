@@ -1237,7 +1237,7 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		/* This error had to happen while acquireing instance */
 	case MFCINST_GOT_INST:
 		/* This error had to happen while parsing vps only */
-		if (err == S5P_FIMV_VPS_ONLY_ERROR) {
+		if (err == S5P_FIMV_ERR_VPS_ONLY_ERROR) {
 			s5p_mfc_change_state(ctx, MFCINST_VPS_PARSED_ONLY);
 			if (!list_empty(&ctx->src_queue)) {
 				src_buf = list_entry(ctx->src_queue.next,

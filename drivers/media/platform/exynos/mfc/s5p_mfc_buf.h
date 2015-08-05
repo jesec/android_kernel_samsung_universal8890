@@ -17,6 +17,10 @@
 
 #include "s5p_mfc_common.h"
 
+#define MFC_NV12M_HALIGN                  512
+#define MFC_NV12MT_HALIGN                 16
+#define MFC_NV12MT_VALIGN                 16
+
 enum MFC_SHM_OFS {
 	D_FIRST_DIS_STRIDE      = 0x000,
 	D_SECOND_DIS_STRIDE     = 0x004,
