@@ -170,8 +170,6 @@
 					IS_MFCv10X(dev))
 #define FW_WAKEUP_AFTER_RISC_ON(dev)	(IS_MFCV8(dev) || IS_MFCv78(dev))
 
-#define FW_NEED_SHARED_MEMORY(dev)	(IS_MFCv5X(dev) || IS_MFCv6X(dev) ||	\
-					(IS_MFCv7X(dev) && !IS_MFCv78(dev)))
 #define FW_HAS_LAST_DISP_INFO(dev)	(IS_MFCv9X(dev) &&			\
 					(dev->fw.date >= 0x141205))
 #define FW_HAS_GOP2(dev)		((IS_MFCv9X(dev) &&			\

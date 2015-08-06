@@ -460,21 +460,3 @@ err_mfc_wakeup:
 
 	return 0;
 }
-
-/* It was backward compatibility due to virtual SFR using shared memory */
-void s5p_mfc_write_info(struct s5p_mfc_ctx *ctx, unsigned int data, unsigned int ofs)
-{
-	struct s5p_mfc_dev *dev = ctx->dev;
-
-	MFC_WRITEL(data, ofs);
-}
-
-unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs)
-{
-	struct s5p_mfc_dev *dev = ctx->dev;
-	int ret;
-
-	ret = MFC_READL(ofs);
-
-	return ret;
-}

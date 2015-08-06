@@ -413,29 +413,11 @@ static int mfc_set_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct s5p_mfc_buf *dst_
 	mfc_debug(2, "Dst addr [%d] = 0x%llx\n", dst_index,
 			(unsigned long long)dst_vb->planes.raw[0]);
 
-	if (dec->is_dual_dpb) {
-		for (i = 0; i < raw->num_planes; i++) {
-			s5p_mfc_write_shm(dev, dst_vb->planes.raw[i],
-				D_FIRST_DIS0 + (i * 0x100) + (dst_index * 4));
-			s5p_mfc_write_shm(dev, raw->plane_size[i],
-				D_FIRST_DIS_SIZE + (i * 4));
-
-			/* Stride should be multiple of 16 */
-			s5p_mfc_write_shm(dev, raw->stride[i],
-				D_FIRST_DIS_STRIDE + (i * 4));
-
-			mfc_debug(2, "[DIS] plane%d addr = %llx\n", i,
-				(unsigned long long)dst_vb->planes.raw[i]);
-			mfc_debug(2, "[DIS] size = %d, stride = %d\n",
-					raw->plane_size[i], raw->stride[i]);
-		}
-	} else {
-		for (i = 0; i < raw->num_planes; i++) {
-			MFC_WRITEL(raw->plane_size[i],
+	for (i = 0; i < raw->num_planes; i++) {
+		MFC_WRITEL(raw->plane_size[i],
 				S5P_FIMV_D_FIRST_PLANE_DPB_SIZE + i*4);
-			MFC_WRITEL(dst_vb->planes.raw[i],
+		MFC_WRITEL(dst_vb->planes.raw[i],
 				S5P_FIMV_D_FIRST_PLANE_DPB0 + (i*0x100 + dst_index*4));
-		}
 	}
 
 	return 0;

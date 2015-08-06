@@ -32,7 +32,7 @@ int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev,
 					enum mfc_buf_usage_type buf_type)
 {
 	struct s5p_mfc_buf_size_v6 *buf_size;
-	struct s5p_mfc_extra_buf *ctx_buf, *dis_shm_buf;
+	struct s5p_mfc_extra_buf *ctx_buf;
 	int ret;
 
 	mfc_debug_enter();
@@ -44,21 +44,12 @@ int s5p_mfc_sys_init_cmd(struct s5p_mfc_dev *dev,
 
 	buf_size = dev->variant->buf_size->buf;
 	ctx_buf = &dev->ctx_buf;
-	dis_shm_buf = &dev->dis_shm_buf;
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	if (buf_type == MFCBUF_DRM) {
+	if (buf_type == MFCBUF_DRM)
 		ctx_buf = &dev->ctx_buf_drm;
-		dis_shm_buf = &dev->dis_shm_buf_drm;
-	}
 #endif
 	MFC_WRITEL(ctx_buf->ofs, S5P_FIMV_CONTEXT_MEM_ADDR);
 	MFC_WRITEL(buf_size->dev_ctx, S5P_FIMV_CONTEXT_MEM_SIZE);
-	if (IS_MFCv7X(dev)) {
-		MFC_WRITEL(dis_shm_buf->ofs,
-					S5P_FIMV_DIS_SHARED_MEM_ADDR);
-		mfc_debug(2, "Setting shared memory = 0x%x\n",
-					(unsigned int)dis_shm_buf->ofs);
-	}
 
 	ret = s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_SYS_INIT, NULL);
 

@@ -21,7 +21,4 @@ void s5p_mfc_deinit_hw(struct s5p_mfc_dev *dev);
 int s5p_mfc_sleep(struct s5p_mfc_dev *dev);
 int s5p_mfc_wakeup(struct s5p_mfc_dev *dev);
 
-void s5p_mfc_write_info(struct s5p_mfc_ctx *ctx, unsigned int data, unsigned int ofs);
-unsigned int s5p_mfc_read_info(struct s5p_mfc_ctx *ctx, unsigned int ofs);
-
 #endif /* __S5P_MFC_CTRL_H */

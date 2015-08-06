@@ -280,9 +280,7 @@ struct s5p_mfc_dev {
 
 	/* For 6.x, Added for SYS_INIT context buffer */
 	struct s5p_mfc_extra_buf ctx_buf;
-	struct s5p_mfc_extra_buf dis_shm_buf;
 	struct s5p_mfc_extra_buf ctx_buf_drm;
-	struct s5p_mfc_extra_buf dis_shm_buf_drm;
 
 	struct s5p_mfc_ctx *ctx[MFC_NUM_CONTEXTS];
 	int curr_ctx;
@@ -303,12 +301,10 @@ struct s5p_mfc_dev {
 	int curr_ctx_drm;
 	int fw_status;
 	int num_drm_inst;
-	struct s5p_mfc_extra_buf drm_info;
 	struct s5p_mfc_extra_buf fw_info;
 	struct s5p_mfc_extra_buf drm_fw_info;
 	struct vb2_alloc_ctx *alloc_ctx_fw;
 	struct vb2_alloc_ctx *alloc_ctx_drm_fw;
-	struct vb2_alloc_ctx *alloc_ctx_sh;
 	struct vb2_alloc_ctx *alloc_ctx_drm;
 
 	struct workqueue_struct *sched_wq;
@@ -564,7 +560,6 @@ enum s5p_mfc_ctrl_type {
 enum s5p_mfc_ctrl_mode {
 	MFC_CTRL_MODE_NONE	= 0x0,
 	MFC_CTRL_MODE_SFR	= 0x1,
-	MFC_CTRL_MODE_SHM	= 0x2,
 	MFC_CTRL_MODE_CST	= 0x4,
 };
 
@@ -875,7 +870,6 @@ struct s5p_mfc_ctx {
 	/* Extra Buffers */
 	unsigned int ctx_buf_size;
 	struct s5p_mfc_extra_buf ctx;
-	struct s5p_mfc_extra_buf shm;
 
 	struct s5p_mfc_dec *dec_priv;
 	struct s5p_mfc_enc *enc_priv;

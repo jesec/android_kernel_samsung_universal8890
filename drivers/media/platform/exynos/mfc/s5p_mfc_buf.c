@@ -23,21 +23,6 @@
 #define CPB_GAP			512
 #define set_strm_size_max(cpb_max)	((cpb_max) - CPB_GAP)
 
-void s5p_mfc_write_shm(struct s5p_mfc_dev *dev,
-					unsigned int data, unsigned int ofs)
-{
-	mfc_debug(2, "SHM: write data(0x%x) to 0x%x\n", data, ofs);
-	writel(data, (dev->dis_shm_buf.virt + ofs));
-	s5p_mfc_mem_clean_priv(dev->dis_shm_buf.alloc, dev->dis_shm_buf.virt,
-								ofs, 4);
-}
-
-/* Release temproary buffers for decoding */
-void s5p_mfc_release_dec_desc_buffer(struct s5p_mfc_ctx *ctx)
-{
-	/* NOP */
-}
-
 /* Allocate codec buffers */
 int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 {
@@ -530,48 +515,6 @@ void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 	mfc_debug_leave();
 }
 
-/* Allocate display shared buffer for SYS_INIT */
-static int alloc_dev_dis_shared_buffer(struct s5p_mfc_dev *dev, void *alloc_ctx,
-					enum mfc_buf_usage_type buf_type)
-{
-	struct s5p_mfc_extra_buf *dis_shm_buf;
-
-	dis_shm_buf = &dev->dis_shm_buf;
-
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	if (buf_type == MFCBUF_DRM) {
-		dis_shm_buf = &dev->dis_shm_buf_drm;
-		alloc_ctx = dev->alloc_ctx_sh;
-	}
-#endif
-
-	dis_shm_buf->alloc =
-			s5p_mfc_mem_alloc_priv(alloc_ctx, PAGE_SIZE);
-	if (IS_ERR(dis_shm_buf->alloc)) {
-		mfc_err_dev("Allocating Display shared buffer failed.\n");
-		return PTR_ERR(dis_shm_buf->alloc);
-	}
-
-	dis_shm_buf->ofs = s5p_mfc_mem_daddr_priv(dis_shm_buf->alloc);
-	dis_shm_buf->virt = s5p_mfc_mem_vaddr_priv(dis_shm_buf->alloc);
-	if (!dis_shm_buf->virt) {
-		s5p_mfc_mem_free_priv(dis_shm_buf->alloc);
-		dis_shm_buf->alloc = NULL;
-		dis_shm_buf->ofs = 0;
-
-		mfc_err_dev("Get vaddr for dis_shared is failed\n");
-		return -ENOMEM;
-	}
-
-	if (buf_type == MFCBUF_NORMAL) {
-		memset((void *)dis_shm_buf->virt, 0, PAGE_SIZE);
-		s5p_mfc_mem_clean_priv(dis_shm_buf->alloc, dis_shm_buf->virt, 0,
-				PAGE_SIZE);
-	}
-
-	return 0;
-}
-
 /* Allocation for internal usage */
 static int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 					enum mfc_buf_usage_type buf_type)
@@ -606,17 +549,6 @@ static int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 	ctx_buf->virt = 0;
 	ctx_buf->ofs = fw_ofs + firmware_size;
 
-	if (IS_MFCv7X(dev) && !IS_MFCv78(dev)) {
-		if (alloc_dev_dis_shared_buffer(dev, alloc_ctx, buf_type) < 0) {
-			s5p_mfc_mem_free_priv(ctx_buf->alloc);
-			ctx_buf->alloc = NULL;
-			ctx_buf->ofs = 0;
-
-			mfc_err_dev("Alloc shared memory failed.\n");
-			return -ENOMEM;
-		}
-	}
-
 	mfc_debug_leave();
 
 	return 0;
@@ -639,25 +571,6 @@ int s5p_mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev)
 #endif
 
 	return ret;
-}
-
-/* Release display shared buffers for SYS_INIT */
-static void release_dev_dis_shared_buffer(struct s5p_mfc_dev *dev,
-					enum mfc_buf_usage_type buf_type)
-{
-	struct s5p_mfc_extra_buf *dis_shm_buf;
-
-	dis_shm_buf = &dev->dis_shm_buf;
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	if (buf_type == MFCBUF_DRM)
-		dis_shm_buf = &dev->dis_shm_buf_drm;
-#endif
-	if (dis_shm_buf->virt) {
-		s5p_mfc_mem_free_priv(dis_shm_buf->alloc);
-		dis_shm_buf->alloc = NULL;
-		dis_shm_buf->ofs = 0;
-		dis_shm_buf->virt = NULL;
-	}
 }
 
 /* Release context buffers for SYS_INIT */
@@ -689,9 +602,6 @@ static void mfc_release_dev_context_buffer(struct s5p_mfc_dev *dev,
 		if (ctx_buf->ofs)
 			ctx_buf->ofs = 0;
 	}
-
-	if (IS_MFCv7X(dev))
-		release_dev_dis_shared_buffer(dev, buf_type);
 }
 
 /* Release context buffers for SYS_INIT */
@@ -1134,59 +1044,6 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 		set_linear_stride_size(ctx, ctx->src_fmt);
 }
 
-/* Set display buffer through shared memory at INIT_BUFFER */
-static int mfc_set_dec_dis_buffer(struct s5p_mfc_ctx *ctx,
-						struct list_head *buf_queue)
-{
-	struct s5p_mfc_dec *dec = ctx->dec_priv;
-	struct s5p_mfc_dev *dev = ctx->dev;
-	struct s5p_mfc_raw_info *raw = &ctx->raw_buf;
-	struct s5p_mfc_buf *buf;
-	int i, j;
-
-	/* Do not setting DPB */
-	if (dec->is_dynamic_dpb) {
-		for (i = 0; i < raw->num_planes; i++) {
-			s5p_mfc_write_shm(dev, raw->plane_size[i],
-					D_FIRST_DIS_SIZE + (i * 4));
-			/* Stride should be multiple of 16 */
-			s5p_mfc_write_shm(dev, raw->stride[i],
-					D_FIRST_DIS_STRIDE + (i * 4));
-			mfc_debug(2, "DIS plane%d.size = %d, stride = %d\n", i,
-				raw->plane_size[i], raw->stride[i]);
-		}
-
-		return 0;
-	}
-
-	i = 0;
-	list_for_each_entry(buf, buf_queue, list) {
-		for (j = 0; j < raw->num_planes; j++) {
-			mfc_debug(2, "# DIS plane%d addr = %llx\n",
-				j, (unsigned long long)buf->planes.raw[j]);
-			s5p_mfc_write_shm(dev, buf->planes.raw[j],
-					D_FIRST_DIS0 + (j * 0x100) + i * 4);
-		}
-		i++;
-	}
-
-	mfc_debug(2, "# number of display buffer = %d\n", dec->total_dpb_count);
-	s5p_mfc_write_shm(dev, dec->total_dpb_count, D_NUM_DIS);
-
-	for (i = 0; i < raw->num_planes; i++) {
-		s5p_mfc_write_shm(dev, raw->plane_size[i],
-						D_FIRST_DIS_SIZE + (i * 4));
-		/* Stride should be multiple of 16 */
-		s5p_mfc_write_shm(dev, raw->stride[i],
-						D_FIRST_DIS_STRIDE + (i * 4));
-		mfc_debug(2, "# DIS plane%d.size = %d, stride = %d\n", i,
-			raw->plane_size[i], raw->stride[i]);
-	}
-
-	return 0;
-}
-
-/* Set display buffer through shared memory at INIT_BUFFER */
 static int mfc_set_dec_stride_buffer(struct s5p_mfc_ctx *ctx, struct list_head *buf_queue)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
@@ -1381,11 +1238,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		}
 	}
 
-	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
-		mfc_set_dec_dis_buffer(ctx, buf_queue);
-	else if (IS_MFCV8(dev))
-		mfc_set_dec_stride_buffer(ctx, buf_queue);
-
+	mfc_set_dec_stride_buffer(ctx, buf_queue);
 	if (IS_MFCv10X(dev) && dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
 		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
 			MFC_WRITEL(raw->stride_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_STRIDE_SIZE + (i * 4));

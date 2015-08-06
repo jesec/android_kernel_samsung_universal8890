@@ -2684,10 +2684,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			continue;
 
 		/* read old vlaue */
-		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			value = MFC_READL(buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
+		value = MFC_READL(buf_ctrl->addr);
 
 		/* save old value for recovery */
 		if (buf_ctrl->is_volatile)
@@ -2696,21 +2693,13 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		/* write new value */
 		value &= ~(buf_ctrl->mask << buf_ctrl->shft);
 		value |= ((buf_ctrl->val & buf_ctrl->mask) << buf_ctrl->shft);
-
-		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			MFC_WRITEL(value, buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			s5p_mfc_write_info(ctx, value, buf_ctrl->addr);
+		MFC_WRITEL(value, buf_ctrl->addr);
 
 		/* set change flag bit */
 		if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SFR) {
 			value = MFC_READL(buf_ctrl->flag_addr);
 			value |= (1 << buf_ctrl->flag_shft);
 			MFC_WRITEL(value, buf_ctrl->flag_addr);
-		} else if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SHM) {
-			value = s5p_mfc_read_info(ctx, buf_ctrl->flag_addr);
-			value |= (1 << buf_ctrl->flag_shft);
-			s5p_mfc_write_info(ctx, value, buf_ctrl->flag_addr);
 		}
 
 		buf_ctrl->has_new = 0;
@@ -2873,8 +2862,6 @@ static int enc_get_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
 			value = MFC_READL(buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
 		else if (buf_ctrl->mode == MFC_CTRL_MODE_CST)
 			value = call_bop(buf_ctrl, read_cst, ctx, buf_ctrl);
 
@@ -2906,8 +2893,6 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
 			value = MFC_READL(buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
 
 		value &= ~(buf_ctrl->mask << buf_ctrl->shft);
 		value |= ((buf_ctrl->old_val & buf_ctrl->mask)
@@ -2915,18 +2900,12 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 
 		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
 			MFC_WRITEL(value, buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			s5p_mfc_write_info(ctx, value, buf_ctrl->addr);
 
 		/* clear change flag bit */
 		if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SFR) {
 			value = MFC_READL(buf_ctrl->flag_addr);
 			value &= ~(1 << buf_ctrl->flag_shft);
 			MFC_WRITEL(value, buf_ctrl->flag_addr);
-		} else if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SHM) {
-			value = s5p_mfc_read_info(ctx, buf_ctrl->flag_addr);
-			value &= ~(1 << buf_ctrl->flag_shft);
-			s5p_mfc_write_info(ctx, value, buf_ctrl->flag_addr);
 		}
 
 		mfc_debug(8, "Recover buffer control "\

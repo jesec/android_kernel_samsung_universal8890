@@ -996,10 +996,7 @@ static int dec_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			continue;
 
 		/* read old vlaue */
-		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			value = MFC_READL(buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
+		value = MFC_READL(buf_ctrl->addr);
 
 		/* save old vlaue for recovery */
 		if (buf_ctrl->is_volatile)
@@ -1008,21 +1005,13 @@ static int dec_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		/* write new value */
 		value &= ~(buf_ctrl->mask << buf_ctrl->shft);
 		value |= ((buf_ctrl->val & buf_ctrl->mask) << buf_ctrl->shft);
-
-		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			MFC_WRITEL(value, buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			s5p_mfc_write_info(ctx, value, buf_ctrl->addr);
+		MFC_WRITEL(value, buf_ctrl->addr);
 
 		/* set change flag bit */
 		if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SFR) {
 			value = MFC_READL(buf_ctrl->flag_addr);
 			value |= (1 << buf_ctrl->flag_shft);
 			MFC_WRITEL(value, buf_ctrl->flag_addr);
-		} else if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SHM) {
-			value = s5p_mfc_read_info(ctx, buf_ctrl->flag_addr);
-			value |= (1 << buf_ctrl->flag_shft);
-			s5p_mfc_write_info(ctx, value, buf_ctrl->flag_addr);
 		}
 
 		buf_ctrl->has_new = 0;
@@ -1049,11 +1038,7 @@ static int dec_get_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		if (!(buf_ctrl->type & MFC_CTRL_TYPE_GET))
 			continue;
 
-		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			value = MFC_READL(buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
-
+		value = MFC_READL(buf_ctrl->addr);
 		value = (value >> buf_ctrl->shft) & buf_ctrl->mask;
 
 		buf_ctrl->val = value;
@@ -1079,28 +1064,16 @@ static int dec_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *
 			|| !buf_ctrl->updated)
 			continue;
 
-		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			value = MFC_READL(buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			value = s5p_mfc_read_info(ctx, buf_ctrl->addr);
-
+		value = MFC_READL(buf_ctrl->addr);
 		value &= ~(buf_ctrl->mask << buf_ctrl->shft);
 		value |= ((buf_ctrl->old_val & buf_ctrl->mask) << buf_ctrl->shft);
-
-		if (buf_ctrl->mode == MFC_CTRL_MODE_SFR)
-			MFC_WRITEL(value, buf_ctrl->addr);
-		else if (buf_ctrl->mode == MFC_CTRL_MODE_SHM)
-			s5p_mfc_write_info(ctx, value, buf_ctrl->addr);
+		MFC_WRITEL(value, buf_ctrl->addr);
 
 		/* clear change flag bit */
 		if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SFR) {
 			value = MFC_READL(buf_ctrl->flag_addr);
 			value &= ~(1 << buf_ctrl->flag_shft);
 			MFC_WRITEL(value, buf_ctrl->flag_addr);
-		} else if (buf_ctrl->flag_mode == MFC_CTRL_MODE_SHM) {
-			value = s5p_mfc_read_info(ctx, buf_ctrl->flag_addr);
-			value &= ~(1 << buf_ctrl->flag_shft);
-			s5p_mfc_write_info(ctx, value, buf_ctrl->flag_addr);
 		}
 
 		mfc_debug(8, "Recover buffer control "\
@@ -1473,8 +1446,6 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		}
 		/* Free resources */
 		s5p_mfc_release_instance_buffer(ctx);
-		s5p_mfc_release_dec_desc_buffer(ctx);
-
 		s5p_mfc_change_state(ctx, MFCINST_INIT);
 	}
 
@@ -1534,7 +1505,6 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 			S5P_FIMV_R2H_CMD_OPEN_INSTANCE_RET)) {
 		s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		s5p_mfc_release_instance_buffer(ctx);
-		s5p_mfc_release_dec_desc_buffer(ctx);
 		return -EIO;
 	}
 	mfc_debug(2, "Got instance number: %d\n", ctx->inst_no);
@@ -2247,13 +2217,14 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 
 void s5p_mfc_dec_store_crop_info(struct s5p_mfc_ctx *ctx)
 {
+	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	u32 left, right, top, bottom;
 
-	left = s5p_mfc_read_info(ctx, S5P_FIMV_D_DISPLAY_CROP_INFO1);
+	left = MFC_READL(S5P_FIMV_D_DISPLAY_CROP_INFO1);
 	right = left >> S5P_FIMV_SHARED_CROP_RIGHT_SHIFT;
 	left = left & S5P_FIMV_SHARED_CROP_LEFT_MASK;
-	top = s5p_mfc_read_info(ctx, S5P_FIMV_D_DISPLAY_CROP_INFO2);
+	top = MFC_READL(S5P_FIMV_D_DISPLAY_CROP_INFO2);
 	bottom = top >> S5P_FIMV_SHARED_CROP_BOTTOM_SHIFT;
 	top = top & S5P_FIMV_SHARED_CROP_TOP_MASK;
 

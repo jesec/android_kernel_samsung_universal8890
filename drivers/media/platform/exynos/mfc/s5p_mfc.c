@@ -2166,8 +2166,6 @@ static int s5p_mfc_release(struct file *file)
 
 	s5p_mfc_release_codec_buffers(ctx);
 	s5p_mfc_release_instance_buffer(ctx);
-	if (ctx->type == MFCINST_DECODER)
-		s5p_mfc_release_dec_desc_buffer(ctx);
 
 	if (ctx->type == MFCINST_DECODER) {
 		dec_cleanup_user_shared_handle(ctx);
@@ -2636,30 +2634,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(dev->alloc_ctx_drm_fw);
 		goto alloc_ctx_drm_fw_fail;
 	}
-	if (FW_NEED_SHARED_MEMORY(dev)) {
-		dev->alloc_ctx_sh = (struct vb2_alloc_ctx *)
-			vb2_ion_create_context(&pdev->dev, SZ_4K,
-				VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCSH);
-		if (IS_ERR(dev->alloc_ctx_sh)) {
-			mfc_err_dev("failed to prepare shared allocation context\n");
-			ret = PTR_ERR(dev->alloc_ctx_sh);
-			goto alloc_ctx_sh_fail;
-		}
-
-		dev->drm_info.alloc = s5p_mfc_mem_alloc_priv(dev->alloc_ctx_sh,
-							PAGE_SIZE);
-		if (IS_ERR(dev->drm_info.alloc)) {
-			mfc_err_dev("failed to allocate shared region\n");
-			ret = PTR_ERR(dev->drm_info.alloc);
-			goto shared_alloc_fail;
-		}
-		dev->drm_info.virt = s5p_mfc_mem_vaddr_priv(dev->drm_info.alloc);
-		if (!dev->drm_info.virt) {
-			mfc_err_dev("failed to get vaddr for shared region\n");
-			ret = -ENOMEM;
-			goto shared_vaddr_fail;
-		}
-	}
 	dev->alloc_ctx_drm = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			SZ_4K,
@@ -2667,10 +2641,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	if (IS_ERR(dev->alloc_ctx_drm)) {
 		mfc_err_dev("failed to prepare DRM allocation context\n");
 		ret = PTR_ERR(dev->alloc_ctx_drm);
-			if (FW_NEED_SHARED_MEMORY(dev))
-				goto alloc_ctx_drm_fail;
-			else
-				goto alloc_ctx_sh_fail;
+		goto alloc_ctx_sh_fail;
 	}
 #endif
 
@@ -2714,11 +2685,6 @@ err_qos_cnt:
 #endif
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	vb2_ion_destroy_context(dev->alloc_ctx_drm);
-alloc_ctx_drm_fail:
-shared_vaddr_fail:
-	s5p_mfc_mem_free_priv(dev->drm_info.alloc);
-shared_alloc_fail:
-	vb2_ion_destroy_context(dev->alloc_ctx_sh);
 alloc_ctx_sh_fail:
 	vb2_ion_destroy_context(dev->alloc_ctx_drm_fw);
 alloc_ctx_drm_fw_fail:
@@ -2785,8 +2751,6 @@ static int s5p_mfc_remove(struct platform_device *pdev)
 	remove_proc_entry(MFC_PROC_INSTANCE_NUMBER, mfc_proc_entry);
 	remove_proc_entry(MFC_PROC_ROOT, NULL);
 	vb2_ion_destroy_context(dev->alloc_ctx_drm);
-	s5p_mfc_mem_free_priv(dev->drm_info.alloc);
-	vb2_ion_destroy_context(dev->alloc_ctx_sh);
 #endif
 	vb2_ion_destroy_context(dev->alloc_ctx_fw);
 #ifdef CONFIG_ION_EXYNOS
