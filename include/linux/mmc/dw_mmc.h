@@ -175,6 +175,7 @@ struct dw_mci {
 	void			*priv;
 	struct clk		*biu_clk;
 	struct clk		*ciu_clk;
+	struct clk		*gate_clk;
 	atomic_t		biu_clk_cnt;
 	atomic_t		ciu_clk_cnt;
 	atomic_t		biu_en_win;
@@ -203,6 +204,12 @@ struct dw_mci {
 	bool			vqmmc_enabled;
 	unsigned long		irq_flags; /* IRQ flags */
 	int			irq;
+
+	/* Save request status */
+#define DW_MMC_REQ_IDLE		0
+#define DW_MMC_REQ_BUSY		1
+	unsigned int		req_state;
+
 };
 
 /* DMA ops for Internal/External DMAC interface */
@@ -276,6 +283,12 @@ struct dw_mci_board {
 	struct dma_pdata *data;
 	struct block_settings *blk_settings;
 	unsigned int sw_timeout;
+
+	bool use_gate_clock;
+	bool use_biu_gate_clock;
+	bool enable_cclk_on_suspend;
+	bool on_suspend;
+
 };
 
 #endif /* LINUX_MMC_DW_MMC_H */

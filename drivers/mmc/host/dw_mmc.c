@@ -118,11 +118,18 @@ do {	\
 
 static int dw_mci_ciu_clk_en(struct dw_mci *host, bool force_gating)
 {
-	int ret = 1;
+	int ret = 0;
 
-	if (!atomic_read(&host->ciu_clk_cnt)) {
+	if (!host->pdata->use_gate_clock && !force_gating)
+		return 0;
+
+	if (!host->ciu_clk) {
+		dev_err(host->dev, "no available CIU gating clock\n");
+		return 1;
+	}
+
+	if (!atomic_cmpxchg(&host->ciu_clk_cnt, 0, 1)) {
 		ret = clk_prepare_enable(host->ciu_clk);
-		atomic_inc_return(&host->ciu_clk_cnt);
 		if (ret)
 			dev_err(host->dev, "failed to enable ciu clock\n");
 	}
@@ -132,15 +139,32 @@ static int dw_mci_ciu_clk_en(struct dw_mci *host, bool force_gating)
 
 static void dw_mci_ciu_clk_dis(struct dw_mci *host)
 {
-	if (atomic_read(&host->ciu_clk_cnt)) {
-		clk_disable_unprepare(host->ciu_clk);
-		atomic_dec_return(&host->ciu_clk_cnt);
+
+	if (!host->pdata->use_gate_clock)
+		return;
+
+	if (host->pdata->enable_cclk_on_suspend && host->pdata->on_suspend)
+		return;
+
+	if (atomic_read(&host->ciu_en_win)) {
+		dev_err(host->dev, "Not available CIU off: %d\n",
+				atomic_read(&host->ciu_en_win));
+		return;
 	}
+
+	if (host->req_state == DW_MMC_REQ_BUSY)
+		return;
+
+	if (atomic_cmpxchg(&host->ciu_clk_cnt, 1, 0))
+		clk_disable_unprepare(host->ciu_clk);
 }
 
 static int dw_mci_biu_clk_en(struct dw_mci *host, bool force_gating)
 {
-	int ret = 1;
+	int ret = 0;
+
+	if (!host->pdata->use_biu_gate_clock && !force_gating)
+		return 0;
 
 	if (!atomic_read(&host->biu_clk_cnt)) {
 		ret = clk_prepare_enable(host->biu_clk);
@@ -154,6 +178,21 @@ static int dw_mci_biu_clk_en(struct dw_mci *host, bool force_gating)
 
 static void dw_mci_biu_clk_dis(struct dw_mci *host)
 {
+	if (!host->pdata->use_biu_gate_clock)
+		return;
+
+	if (host->pdata->enable_cclk_on_suspend && host->pdata->on_suspend)
+		return;
+
+	if (atomic_read(&host->biu_en_win)) {
+		dev_dbg(host->dev, "Not available BIU off: %d\n",
+				atomic_read(&host->biu_en_win));
+		return;
+	}
+
+	if (host->req_state == DW_MMC_REQ_BUSY)
+		return;
+
 	if (atomic_read(&host->biu_clk_cnt)) {
 		clk_disable_unprepare(host->biu_clk);
 		atomic_dec_return(&host->biu_clk_cnt);
@@ -1178,6 +1217,8 @@ static void dw_mci_start_request(struct dw_mci *host,
 	struct mmc_request *mrq = slot->mrq;
 	struct mmc_command *cmd;
 
+	host->req_state = DW_MMC_REQ_BUSY;
+
 	cmd = mrq->sbc ? mrq->sbc : mrq->cmd;
 	__dw_mci_start_request(host, slot, cmd);
 }
@@ -1242,6 +1283,7 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	const struct dw_mci_drv_data *drv_data = slot->host->drv_data;
 	u32 regs;
 	int ret;
+	bool cclk_request_turn_off = 0;
 
 	switch (ios->bus_width) {
 	case MMC_BUS_WIDTH_4:
@@ -1279,6 +1321,9 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * core ios update when finding the minimum.
 	 */
 	slot->clock = ios->clock;
+
+	if(!ios->clock)
+		cclk_request_turn_off = 1;
 
 	if (drv_data && drv_data->set_ios)
 		drv_data->set_ios(slot->host, ios);
@@ -1323,12 +1368,19 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			slot->host->vqmmc_enabled = false;
 		}
 
+		cclk_request_turn_off = 0;
 		regs = mci_readl(slot->host, PWREN);
 		regs &= ~(1 << slot->id);
 		mci_writel(slot->host, PWREN, regs);
 		break;
 	default:
 		break;
+	}
+
+	if (cclk_request_turn_off) {
+		dw_mci_ciu_clk_dis(slot->host);
+		if (!IS_ERR(slot->host->biu_clk))
+			dw_mci_biu_clk_dis(slot->host);
 	}
 }
 
@@ -1541,6 +1593,8 @@ static void dw_mci_request_end(struct dw_mci *host, struct mmc_request *mrq)
 	WARN_ON(host->cmd || host->data);
 
 	del_timer(&host->timer);
+
+	host->req_state = DW_MMC_REQ_IDLE;
 
 	host->cur_slot->mrq = NULL;
 	host->mrq = NULL;
@@ -2575,7 +2629,9 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
 	slot->mmc = mmc;
 	slot->host = host;
 	host->slot[id] = slot;
-
+#ifdef CONFIG_MMC_CLKGATE
+	mmc->clkgate_delay = 10;
+#endif
 	slot->quirks = dw_mci_of_get_slot_quirks(host->dev, slot->id);
 
 	mmc->ops = &dw_mci_ops;
@@ -2914,6 +2970,10 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 
 	if (of_find_property(np, "supports-highspeed", NULL))
 		pdata->caps |= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED;
+
+	if (of_find_property(np, "clock-gate", NULL))
+		pdata->use_gate_clock = true;
+
 
 	return pdata;
 }
