@@ -172,10 +172,25 @@
 
 /* 64-bit FIFO access macros */
 #ifdef readq
+#ifdef CONFIG_MMC_DW_FORCE_32BIT_SFR_RW
+#define mci_readq(dev, reg) ({\
+		u64 __ret = 0;\
+		u32* ptr = (u32*)&__ret;\
+		*ptr++ = __raw_readl((dev)->regs + SDMMC_##reg);\
+		*ptr = __raw_readl((dev)->regs + SDMMC_##reg + 0x4);\
+		__ret;\
+	})
+#define mci_writeq(dev, reg, value) ({\
+		u32 *ptr = (u32*)&(value);\
+		__raw_writel(*ptr++, (dev)->regs + SDMMC_##reg);\
+		__raw_writel(*ptr, (dev)->regs + SDMMC_##reg + 0x4);\
+	})
+#else
 #define mci_readq(dev, reg)			\
 	__raw_readq((dev)->regs + SDMMC_##reg)
 #define mci_writeq(dev, reg, value)			\
 	__raw_writeq((value), (dev)->regs + SDMMC_##reg)
+#endif /* CONFIG_MMC_DW_FORCE_32BIT_SFR_RW */
 #else
 /*
  * Dummy readq implementation for architectures that don't define it.

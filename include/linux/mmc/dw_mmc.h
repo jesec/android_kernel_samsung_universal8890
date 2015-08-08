@@ -54,6 +54,7 @@ struct mmc_data;
  *	transfer is in progress.
  * @use_dma: Whether DMA channel is initialized or not.
  * @using_dma: Whether DMA is in use for the current transfer.
+ * @dma_64bit_address: Whether DMA supports 64-bit address mode or not.
  * @sg_dma: Bus address of DMA buffer.
  * @sg_cpu: Virtual address of DMA buffer.
  * @dma_ops: Pointer to platform-specific DMA callbacks.
@@ -140,6 +141,7 @@ struct dw_mci {
 	/* DMA interface members*/
 	int			use_dma;
 	int			using_dma;
+	int			dma_64bit_address;
 
 	dma_addr_t		sg_dma;
 	void			*sg_cpu;
@@ -189,6 +191,9 @@ struct dw_mci {
 
 	/* Workaround flags */
 	u32			quirks;
+
+	/* S/W reset timer */
+	struct timer_list       timer;
 
 	bool			vqmmc_enabled;
 	unsigned long		irq_flags; /* IRQ flags */
@@ -255,6 +260,7 @@ struct dw_mci_board {
 	struct dw_mci_dma_ops *dma_ops;
 	struct dma_pdata *data;
 	struct block_settings *blk_settings;
+	unsigned int sw_timeout;
 };
 
 #endif /* LINUX_MMC_DW_MMC_H */
