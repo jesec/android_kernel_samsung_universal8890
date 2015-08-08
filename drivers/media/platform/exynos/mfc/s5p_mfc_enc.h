@@ -13,12 +13,6 @@
 #ifndef __S5P_MFC_ENC_H
 #define __S5P_MFC_ENC_H __FILE__
 
-#define MFC_ENC_AVG_FPS_MODE
-
-#define ENC_HIGH_FPS	(70000)
-#define ENC_MAX_FPS	(120000)
-#define ENC_AVG_FRAMES	(10)
-
 #include "s5p_mfc_common.h"
 
 const struct v4l2_ioctl_ops *get_enc_v4l2_ioctl_ops(void);
