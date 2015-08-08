@@ -603,10 +603,7 @@ static void s5p_mfc_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx)
 	dec = ctx->dec_priv;
 	dev = ctx->dev;
 
-	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
-		dec_y_addr = mfc_get_dec_first_addr();
-	else
-		dec_y_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
+	dec_y_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 
 	if (dec->is_dynamic_dpb)
 		dst_queue_addr = &dec->ref_queue;
@@ -678,16 +675,10 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 		ctx->sequence++;
 	}
 
-	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
-		dspl_y_addr = mfc_get_disp_first_addr();
-	else
-		dspl_y_addr = s5p_mfc_get_disp_y_addr();
+	dspl_y_addr = s5p_mfc_get_disp_y_addr();
 
 	if (dec->immediate_display == 1) {
-		if (IS_MFCv7X(dev) && dec->is_dual_dpb)
-			dspl_y_addr = mfc_get_dec_first_addr();
-		else
-			dspl_y_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
+		dspl_y_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 		frame_type = s5p_mfc_get_dec_frame_type();
 	}
 
@@ -956,10 +947,7 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 
 	dec_buf = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
 
-	if (IS_MFCv7X(dev) && dec->is_dual_dpb)
-		dec_addr = mfc_get_dec_first_addr();
-	else
-		dec_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
+	dec_addr = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 	buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
 
 	if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
@@ -1151,10 +1139,7 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			/* Run MFC again on the same buffer */
 			mfc_debug(2, "Running again the same buffer.\n");
 
-			if (IS_MFCv7X(dev) && dec->is_dual_dpb)
-				dec->y_addr_for_pb = mfc_get_dec_first_addr();
-			else
-				dec->y_addr_for_pb = (dma_addr_t)s5p_mfc_get_dec_y_addr();
+			dec->y_addr_for_pb = (dma_addr_t)s5p_mfc_get_dec_y_addr();
 
 			spin_unlock_irqrestore(&dev->irqlock, flags);
 			stream_vir = vb2_plane_vaddr(&src_buf->vb, 0);
@@ -1445,15 +1430,9 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 				ctx->img_height = s5p_mfc_get_img_height();
 			}
 
-			if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
-				ctx->dpb_count = s5p_mfc_get_dis_count();
-				dec->tiled_buf_cnt = s5p_mfc_get_dpb_count();
-				mfc_debug(2, "Dual DPB : disp = %d, ref = %d\n",
-					ctx->dpb_count, dec->tiled_buf_cnt);
-			} else {
-				ctx->dpb_count = s5p_mfc_get_dpb_count();
-				ctx->scratch_buf_size = s5p_mfc_get_scratch_size();
-			}
+			ctx->dpb_count = s5p_mfc_get_dpb_count();
+			ctx->scratch_buf_size = s5p_mfc_get_scratch_size();
+
 			dec->internal_dpb = 0;
 			s5p_mfc_dec_store_crop_info(ctx);
 			dec->mv_count = s5p_mfc_get_mv_count();

@@ -97,10 +97,6 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 	if (ctx->codec_mode == S5P_FIMV_CODEC_VC1RCV_DEC)
 		reg |= (0x1 << S5P_FIMV_D_OPT_DISCARD_RCV_HEADER);
 
-	/* Set dual DPB mode */
-	if (dec->is_dual_dpb)
-		reg |= (0x1 << S5P_FIMV_D_OPT_DISPLAY_LINEAR_EN);
-
 	/* conceal control to specific color */
 	if (FW_HAS_CONCEAL_CONTROL(dev))
 		reg |= (0x3 << S5P_FIMV_D_OPT_CONCEAL_CONTROL);
@@ -126,7 +122,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		pix_val = 1;
 		break;
 	case V4L2_PIX_FMT_YVU420M:
-		if ((IS_MFCv7X(dev) && dec->is_dual_dpb) || (IS_MFCV8(dev))) {
+		if (IS_MFCV8(dev)) {
 			pix_val = 2;
 		} else {
 			pix_val = 0;
@@ -134,7 +130,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		}
 		break;
 	case V4L2_PIX_FMT_YUV420M:
-		if ((IS_MFCv7X(dev) && dec->is_dual_dpb) || (IS_MFCV8(dev))) {
+		if (IS_MFCV8(dev)) {
 			pix_val = 3;
 		} else {
 			pix_val = 0;

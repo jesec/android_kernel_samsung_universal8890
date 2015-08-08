@@ -731,7 +731,6 @@ struct s5p_mfc_dec {
 	int remained;
 
 	/* For 7.x */
-	int is_dual_dpb;
 	int tiled_buf_cnt;
 	struct s5p_mfc_raw_info tiled_ref;
 

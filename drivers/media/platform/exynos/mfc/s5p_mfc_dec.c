@@ -1610,7 +1610,7 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 		ctx->wait_state = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC_SET_DUAL_DPB_MODE:
-		dec->is_dual_dpb = ctrl->value;
+		mfc_err("not supported CID: 0x%x\n",ctrl->id);
 		break;
 	case V4L2_CID_MPEG_VIDEO_QOS_RATIO:
 		if (ctrl->value > 150)
@@ -2462,7 +2462,6 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	dec->is_interlaced = 0;
 	dec->immediate_display = 0;
 	dec->is_dts_mode = 0;
-	dec->is_dual_dpb = 0;
 	dec->tiled_buf_cnt = 0;
 
 	dec->is_dynamic_dpb = 0;

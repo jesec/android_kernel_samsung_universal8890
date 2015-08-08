@@ -29,7 +29,6 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_dec *dec;
 	struct s5p_mfc_enc *enc;
-	struct s5p_mfc_raw_info *tiled_ref;
 	unsigned int mb_width, mb_height;
 	unsigned int lcu_width = 0, lcu_height = 0;
 	void *alloc_ctx;
@@ -60,13 +59,6 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 					i, ctx->raw_buf.plane_size[i]);
 		mfc_debug(2, "MV size: %d, Totals bufs: %d\n",
 				ctx->mv_size, dec->total_dpb_count);
-		if (dec->is_dual_dpb) {
-			tiled_ref = &dec->tiled_ref;
-			add_size0 = DEC_V72_ADD_SIZE_0(mb_width);
-			add_size1 = dec->tiled_buf_cnt *
-					(tiled_ref->plane_size[0] +
-					 tiled_ref->plane_size[1]);
-		}
 	} else if (ctx->type == MFCINST_ENCODER) {
 		if (!IS_MFCv78(dev) || !IS_MFCv10X(dev)) {
 			enc->tmv_buffer_size =
@@ -134,8 +126,6 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	switch (ctx->codec_mode) {
 	case S5P_FIMV_CODEC_H264_DEC:
 	case S5P_FIMV_CODEC_H264_MVC_DEC:
-		if (dec->is_dual_dpb && dec->mv_count < dec->tiled_buf_cnt)
-			dec->mv_count = dec->tiled_buf_cnt;
 		if (mfc_version(dev) == 0x61)
 			ctx->scratch_buf_size =
 				DEC_V61_H264_SCRATCH_SIZE(mb_width, mb_height);
@@ -1099,13 +1089,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	mfc_debug(2, "Total DPB COUNT: %d\n", dec->total_dpb_count);
 	mfc_debug(2, "Setting display delay to %d\n", dec->display_delay);
 
-	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
-		MFC_WRITEL(dec->tiled_buf_cnt, S5P_FIMV_D_NUM_DPB);
-		MFC_WRITEL(tiled_ref->plane_size[0], S5P_FIMV_D_FIRST_PLANE_DPB_SIZE);
-		MFC_WRITEL(tiled_ref->plane_size[1], S5P_FIMV_D_SECOND_PLANE_DPB_SIZE);
-		mfc_debug(2, "Tiled Plane size : 0 = %d, 1 = %d\n",
-			tiled_ref->plane_size[0], tiled_ref->plane_size[1]);
-	} else if (IS_MFCV8(dev)) {
+	if (IS_MFCV8(dev)) {
 		MFC_WRITEL(dec->total_dpb_count, S5P_FIMV_D_NUM_DPB);
 		mfc_debug(2, "raw->num_planes %d\n", raw->num_planes);
 		for (i = 0; i < raw->num_planes; i++) {
@@ -1174,19 +1158,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	else
 		buf_queue = &dec->dpb_queue;
 
-	if (IS_MFCv7X(dev) && dec->is_dual_dpb) {
-		for (i = 0; i < dec->tiled_buf_cnt; i++) {
-			mfc_debug(2, "Tiled Luma %zu\n", buf_addr1);
-			MFC_WRITEL(buf_addr1, S5P_FIMV_D_FIRST_PLANE_DPB0 + i * 4);
-			buf_addr1 += tiled_ref->plane_size[0];
-			buf_size1 -= tiled_ref->plane_size[0];
-
-			mfc_debug(2, "\tTiled Chroma %zu\n", buf_addr1);
-			MFC_WRITEL(buf_addr1, S5P_FIMV_D_SECOND_PLANE_DPB0 + i * 4);
-			buf_addr1 += tiled_ref->plane_size[1];
-			buf_size1 -= tiled_ref->plane_size[1];
-		}
-	} else if (IS_MFCV8(dev)) {
+	if (IS_MFCV8(dev)) {
 		i = 0;
 		list_for_each_entry(buf, buf_queue, list) {
 			/* Do not setting DPB */
