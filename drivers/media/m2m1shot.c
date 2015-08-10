@@ -830,6 +830,15 @@ static long m2m1shot_compat_ioctl32(struct file *filp,
 			return -EFAULT;
 		}
 
+		if ((data.buf_out.num_planes > M2M1SHOT_MAX_PLANES) ||
+			(data.buf_cap.num_planes > M2M1SHOT_MAX_PLANES)) {
+			dev_err(m21dev->dev,
+				"%s: Invalid plane number (out %u/cap %u)\n",
+				__func__, data.buf_out.num_planes,
+				data.buf_cap.num_planes);
+			return -EINVAL;
+		}
+
 		task.task.fmt_out.fmt = data.fmt_out.fmt;
 		task.task.fmt_out.width = data.fmt_out.width;
 		task.task.fmt_out.height = data.fmt_out.height;
