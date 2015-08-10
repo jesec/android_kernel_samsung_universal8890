@@ -210,6 +210,8 @@ struct dw_mci {
 #define DW_MMC_REQ_BUSY		1
 	unsigned int		req_state;
 
+	/* HWACG q-active ctrl check */
+	unsigned int qactive_check;
 };
 
 /* DMA ops for Internal/External DMAC interface */
@@ -241,6 +243,8 @@ struct dw_mci_dma_ops {
 #define DW_MCI_QUIRK_BYPASS_SMU                 BIT(6)
 /* Use fixed IO voltage */
 #define DW_MMC_QUIRK_FIXED_VOLTAGE		BIT(7)
+/* Card init W/A HWACG ctrl */
+#define DW_MCI_QUIRK_HWACG_CTRL			BIT(8)
 
 /* Slot level quirks */
 /* This slot has no write protect */

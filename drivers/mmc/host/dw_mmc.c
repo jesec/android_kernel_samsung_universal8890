@@ -2930,6 +2930,9 @@ static struct dw_mci_of_quirks {
 	}, {
 		.quirk  = "fixed_voltage",
 		.id	= DW_MMC_QUIRK_FIXED_VOLTAGE,
+	}, {
+		.quirk  = "card-init-hwacg-ctrl",
+		.id	= DW_MCI_QUIRK_HWACG_CTRL,
 	},
 };
 
@@ -3073,6 +3076,8 @@ int dw_mci_probe(struct dw_mci *host)
 
 	host->quirks = host->pdata->quirks;
 
+	if (host->quirks & DW_MCI_QUIRK_HWACG_CTRL)
+		host->qactive_check = HWACG_Q_ACTIVE_EN;
 	if (host->pdata->quirks & DW_MCI_QUIRK_BYPASS_SMU)
 		drv_data->cfg_smu(host);
 

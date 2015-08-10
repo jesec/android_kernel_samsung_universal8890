@@ -243,6 +243,23 @@ static int dw_mci_exynos_resume_noirq(struct device *dev)
 #define dw_mci_exynos_resume_noirq	NULL
 #endif /* CONFIG_PM_SLEEP */
 
+static void dw_mci_card_int_hwacg_ctrl(struct dw_mci *host, u32 flag)
+{
+	u32 reg;
+
+	if(host->qactive_check != flag ) {
+		reg = mci_readl(host, FORCE_CLK_STOP);
+		if (flag == HWACG_Q_ACTIVE_EN) {
+			reg |= MMC_HWACG_CONTROL;
+			host->qactive_check = HWACG_Q_ACTIVE_EN;
+		} else {
+			reg &= ~(MMC_HWACG_CONTROL);
+			host->qactive_check = HWACG_Q_ACTIVE_DIS;
+		}
+		mci_writel(host, FORCE_CLK_STOP, reg);
+	}
+}
+
 static void dw_mci_exynos_prepare_command(struct dw_mci *host, u32 *cmdr)
 {
 	/*
@@ -350,6 +367,13 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 		break;
 	default:
 		clksel = priv->sdr_timing;
+	}
+
+	if (host->pdata->quirks & DW_MCI_QUIRK_HWACG_CTRL) {
+		if (host->current_speed > 400*1000)
+			dw_mci_card_int_hwacg_ctrl(host, HWACG_Q_ACTIVE_EN);
+		else
+			dw_mci_card_int_hwacg_ctrl(host, HWACG_Q_ACTIVE_DIS);
 	}
 
 	/* Set clock timing for the requested speed mode*/
