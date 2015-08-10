@@ -2922,6 +2922,9 @@ static struct dw_mci_of_quirks {
 	}, {
 		.quirk	= "disable-wp",
 		.id	= DW_MCI_QUIRK_NO_WRITE_PROTECT,
+	}, {
+		.quirk  = "bypass-smu",
+		.id	= DW_MCI_QUIRK_BYPASS_SMU,
 	},
 };
 
@@ -3064,6 +3067,9 @@ int dw_mci_probe(struct dw_mci *host)
 	}
 
 	host->quirks = host->pdata->quirks;
+
+	if (host->pdata->quirks & DW_MCI_QUIRK_BYPASS_SMU)
+		drv_data->cfg_smu(host);
 
 	spin_lock_init(&host->lock);
 	INIT_LIST_HEAD(&host->queue);
@@ -3303,6 +3309,7 @@ EXPORT_SYMBOL(dw_mci_suspend);
 
 int dw_mci_resume(struct dw_mci *host)
 {
+	const struct dw_mci_drv_data *drv_data = host->drv_data;
 	int i, ret;
 
 	ret = dw_mci_ciu_clk_en(host, false);
@@ -3319,6 +3326,8 @@ int dw_mci_resume(struct dw_mci *host)
 	if (host->use_dma && host->dma_ops->init)
 		host->dma_ops->init(host);
 
+	if (host->pdata->quirks & DW_MCI_QUIRK_BYPASS_SMU)
+		drv_data->cfg_smu(host);
 	/*
 	 * Restore the initial value at FIFOTH register
 	 * And Invalidate the prev_blksz with zero

@@ -237,6 +237,9 @@ struct dw_mci_dma_ops {
 #define DW_MCI_QUIRK_NO_WRITE_PROTECT		BIT(4)
 /* No detect end bit during read */
 #define DW_MCI_QUIRK_NO_DETECT_EBIT		BIT(5)
+/* Bypass the security management unit */
+#define DW_MCI_QUIRK_BYPASS_SMU                 BIT(6)
+
 /* Slot level quirks */
 /* This slot has no write protect */
 #define DW_MCI_SLOT_QUIRK_NO_WRITE_PROTECT	BIT(0)

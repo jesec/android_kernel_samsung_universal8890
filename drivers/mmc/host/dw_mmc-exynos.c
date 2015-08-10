@@ -161,6 +161,21 @@ static int dw_mci_exynos_priv_init(struct dw_mci *host)
 	return 0;
 }
 
+/*
+ * By-pass Security Management Unit
+ */
+void dw_mci_exynos_cfg_smu(struct dw_mci *host)
+{
+	volatile unsigned int reg;
+	reg = __raw_readl(host->regs + SDMMC_MPSECURITY);
+	mci_writel(host, MPSECURITY, reg | DWMCI_MPSECURITY_PROTBYTZPC |\
+			DWMCI_MPSECURITY_FMP_ENC_ON | DWMCI_MPSECURITY_DESCTYPE(3));
+	mci_writel(host, MPSECURITY,reg &=~DWMCI_MPSECURITY_MMC_SFR_PROT_ON );
+	mci_writel(host, MPSBEGIN0, 0);
+	mci_writel(host, MPSEND0, DWMCI_BLOCK_NUM);
+	mci_writel(host, MPSCTRL0, DWMCI_MPSCTRL_BYPASS);
+}
+
 static void dw_mci_exynos_set_clksel_timing(struct dw_mci *host, u32 timing)
 {
 	u32 clksel;
@@ -973,6 +988,7 @@ static const struct dw_mci_drv_data exynos_drv_data = {
 	.set_ios		= dw_mci_exynos_set_ios,
 	.parse_dt		= dw_mci_exynos_parse_dt,
 	.execute_tuning		= dw_mci_exynos_execute_tuning,
+	.cfg_smu                = dw_mci_exynos_cfg_smu,
 };
 
 static const struct of_device_id dw_mci_exynos_match[] = {

@@ -273,6 +273,7 @@ struct dw_mci_tuning_data {
  * @set_ios: handle bus specific extensions.
  * @parse_dt: parse implementation specific device tree properties.
  * @execute_tuning: implementation specific tuning procedure.
+ * @cfg_smu: to configure security management unit
  *
  * Provide controller implementation specific extensions. The usage of this
  * data structure is fully optional and usage of each member in this structure
@@ -287,5 +288,6 @@ struct dw_mci_drv_data {
 	int		(*parse_dt)(struct dw_mci *host);
 	int		(*execute_tuning)(struct dw_mci_slot *slot, u32 opcode,
 					struct dw_mci_tuning_data *tuning_data);
+	void            (*cfg_smu)(struct dw_mci *host);
 };
 #endif /* _DW_MMC_H_ */
