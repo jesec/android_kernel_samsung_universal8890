@@ -1414,22 +1414,24 @@ static int dw_mci_switch_voltage(struct mmc_host *mmc, struct mmc_ios *ios)
 	 */
 	uhs = mci_readl(host, UHS_REG);
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
-		min_uv = 2700000;
-		max_uv = 3600000;
+		min_uv = 2800000;
+		max_uv = 2800000;
 		uhs &= ~v18;
 	} else {
-		min_uv = 1700000;
-		max_uv = 1950000;
+		min_uv = 1800000;
+		max_uv = 1800000;
 		uhs |= v18;
 	}
-	if (!IS_ERR(mmc->supply.vqmmc)) {
-		ret = regulator_set_voltage(mmc->supply.vqmmc, min_uv, max_uv);
+	if (!(host->quirks & DW_MMC_QUIRK_FIXED_VOLTAGE)) {
+		if (!IS_ERR(mmc->supply.vqmmc)) {
+			ret = regulator_set_voltage(mmc->supply.vqmmc, min_uv, max_uv);
 
-		if (ret) {
-			dev_err(&mmc->class_dev,
-					 "Regulator set error %d: %d - %d\n",
-					 ret, min_uv, max_uv);
-			return ret;
+			if (ret) {
+				dev_err(&mmc->class_dev,
+						 "Regulator set error %d: %d - %d\n",
+						 ret, min_uv, max_uv);
+				return ret;
+			}
 		}
 	}
 	mci_writel(host, UHS_REG, uhs);
@@ -2925,6 +2927,9 @@ static struct dw_mci_of_quirks {
 	}, {
 		.quirk  = "bypass-smu",
 		.id	= DW_MCI_QUIRK_BYPASS_SMU,
+	}, {
+		.quirk  = "fixed_voltage",
+		.id	= DW_MMC_QUIRK_FIXED_VOLTAGE,
 	},
 };
 

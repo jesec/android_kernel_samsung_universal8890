@@ -239,6 +239,8 @@ struct dw_mci_dma_ops {
 #define DW_MCI_QUIRK_NO_DETECT_EBIT		BIT(5)
 /* Bypass the security management unit */
 #define DW_MCI_QUIRK_BYPASS_SMU                 BIT(6)
+/* Use fixed IO voltage */
+#define DW_MMC_QUIRK_FIXED_VOLTAGE		BIT(7)
 
 /* Slot level quirks */
 /* This slot has no write protect */
