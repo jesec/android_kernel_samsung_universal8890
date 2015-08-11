@@ -116,15 +116,6 @@ static void exynos_set_idle_ip_mask(enum sys_powerdown mode)
 	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
 }
 
-static void idle_ip_unmask(int mode, int reg_index, int index)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&idle_ip_mask_lock, flags);
-	pm_info->idle_ip_mask[mode][reg_index] &= ~(0x1 << index);
-	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
-}
-
 /**
  * There are 4 IDLE_IP registers in PMU, IDLE_IP therefore supports 128 index,
  * 0 from 127. To access the IDLE_IP register, convert_idle_ip_index() converts
@@ -142,33 +133,50 @@ static int convert_idle_ip_index(int *ip_index)
 	return reg_index;
 }
 
+static void idle_ip_unmask(int mode, int ip_index)
+{
+	int reg_index = convert_idle_ip_index(&ip_index);
+	unsigned long flags;
+
+	spin_lock_irqsave(&idle_ip_mask_lock, flags);
+	pm_info->idle_ip_mask[mode][reg_index] &= ~(0x1 << ip_index);
+	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
+}
+
+static int is_idle_ip_index_used(struct device_node *node, int ip_index)
+{
+	int proplen;
+	int ref_idle_ip[IDLE_IP_MAX_INDEX];
+	int i;
+
+	proplen = of_property_count_u32_elems(node, "ref-idle-ip");
+
+	if (!proplen)
+		return false;
+
+	if (!of_property_read_u32_array(node, "ref-idle-ip",
+					ref_idle_ip, proplen)) {
+		for (i = 0; i < proplen; i++)
+			if (ip_index == ref_idle_ip[i])
+				return true;
+	}
+
+	return false;
+}
+
 static void exynos_create_idle_ip_mask(int ip_index)
 {
 	struct device_node *root = of_find_node_by_path("/exynos-powermode/idle_ip_mask");
 	struct device_node *node;
-	char prop_ref_mask[20] = "ref-mask-idle-ip";
-	char buf[2];
-	int reg_index;
-
-	reg_index = convert_idle_ip_index(&ip_index);
-
-	/* Make string as ref-mask-idle-ipx (x = idle_ip register index) */
-	snprintf(buf, 2, "%d", reg_index);
-	strcat(prop_ref_mask, buf);
 
 	for_each_child_of_node(root, node) {
-		int mode, ref_mask;
-		const __be32 *val;
+		int mode;
 
 		if (of_property_read_u32(node, "mode-index", &mode))
 			continue;
 
-		val = of_get_property(node, prop_ref_mask, NULL);
-		if (val) {
-			ref_mask = be32_to_cpup(val);
-			if (ref_mask & (0x1 << ip_index))
-				idle_ip_unmask(mode, reg_index, ip_index);
-		}
+		if (is_idle_ip_index_used(node, ip_index))
+			idle_ip_unmask(mode, ip_index);
 	}
 }
 
