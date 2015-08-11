@@ -978,6 +978,12 @@ static ssize_t esa_write(struct file *file, const char *buffer,
 		esa_debug("%s: use ibuf1\n", __func__);
 	}
 
+	if (size > rtd->ibuf_size) {
+		esa_err("%s: copy size is bigger than buffer size\n",
+				__func__);
+		goto err;
+	}
+
 	/* receive stream data from user */
 	if (copy_from_user(ibuf, buffer, size)) {
 		esa_err("%s: failed to copy_from_user\n", __func__);
@@ -1772,6 +1778,12 @@ static ssize_t esa_write(struct file *file, const char *buffer,
 	if (!si.fx_work_buf) {
 		esa_debug("%s: fx buf not ready\n", __func__);
 		ret = -EBUSY;
+		goto out;
+	}
+
+	if (size > FX_BUF_SIZE) {
+		esa_err("%s: copy size is bigger than buffer size\n",
+				__func__);
 		goto out;
 	}
 
