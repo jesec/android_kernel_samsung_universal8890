@@ -1363,7 +1363,7 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 					struct subsys_interface *sif)
 {
 	unsigned int cpu = dev->id, cpus;
-	int ret;
+	int ret = 0;
 	unsigned long flags;
 	struct cpufreq_policy *policy;
 
@@ -1377,6 +1377,8 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 	if (cpufreq_suspended)
 		per_cpu(cpufreq_cpu_data_fallback, cpu) = policy;
 
+	policy->hcpus_count++;
+
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	if (!policy) {
@@ -1385,7 +1387,9 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 	}
 
 	if (has_target()) {
-		ret = __cpufreq_governor(policy, CPUFREQ_GOV_STOP);
+		if (policy->hcpus_count == 1)
+			ret = __cpufreq_governor(policy, CPUFREQ_GOV_STOP);
+
 		if (ret) {
 			pr_err("%s: Failed to stop governor\n", __func__);
 			return ret;
@@ -1438,6 +1442,8 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 	write_lock_irqsave(&cpufreq_driver_lock, flags);
 	policy = per_cpu(cpufreq_cpu_data, cpu);
 	per_cpu(cpufreq_cpu_data, cpu) = NULL;
+
+	policy->hcpus_count--;
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	if (!policy) {
@@ -1483,6 +1489,9 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 		if (!cpufreq_suspended)
 			cpufreq_policy_free(policy);
 	} else if (has_target()) {
+		if (policy->hcpus_count)
+			return 0;
+
 		ret = __cpufreq_governor(policy, CPUFREQ_GOV_START);
 		if (!ret)
 			ret = __cpufreq_governor(policy, CPUFREQ_GOV_LIMITS);

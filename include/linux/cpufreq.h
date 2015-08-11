@@ -85,6 +85,8 @@ struct cpufreq_policy {
 	void			*governor_data;
 	bool			governor_enabled; /* governor start/stop flag */
 
+	unsigned int		hcpus_count; /* number of core to be offed */
+
 	struct work_struct	update; /* if update_policy() needs to be
 					 * called, but you're in IRQ context */
 
