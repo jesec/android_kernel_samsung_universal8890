@@ -538,7 +538,9 @@ static void mfc_check_ref_frame(struct s5p_mfc_ctx *ctx,
 {
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	struct s5p_mfc_buf *ref_buf, *tmp_buf;
+	struct list_head *dst_list;
 	int index;
+	int found = 0;
 
 	list_for_each_entry_safe(ref_buf, tmp_buf, ref_list, list) {
 		index = ref_buf->vb.v4l2_buf.index;
@@ -554,7 +556,24 @@ static void mfc_check_ref_frame(struct s5p_mfc_ctx *ctx,
 			clear_bit(index, &dec->dpb_status);
 			mfc_debug(2, "Move buffer[%d], fd[%d] to dst queue\n",
 					index, dec->assigned_fd[index]);
+			found = 1;
 			break;
+		}
+	}
+
+	if (is_h264(ctx) && !found) {
+		dst_list = &ctx->dst_queue;
+		list_for_each_entry_safe(ref_buf, tmp_buf, dst_list, list) {
+			index = ref_buf->vb.v4l2_buf.index;
+			if (index == ref_index && ref_buf->already) {
+				dec->assigned_fd[index] =
+					ref_buf->vb.v4l2_planes[0].m.fd;
+				clear_bit(index, &dec->dpb_status);
+				mfc_debug(2, "re-assigned buffer[%d], fd[%d] for H264\n",
+						index, dec->assigned_fd[index]);
+				found = 1;
+				break;
+			}
 		}
 	}
 }
