@@ -704,7 +704,7 @@ static int dw_mci_idmac_init(struct dw_mci *host)
 	if (host->dma_64bit_address == true) {
 		struct idmac_desc_64addr *p;
 		/* Number of descriptors in the ring buffer */
-		host->ring_size = PAGE_SIZE / sizeof(struct idmac_desc_64addr);
+		host->ring_size = host->desc_sz * PAGE_SIZE / sizeof(struct idmac_desc_64addr);
 
 		/* Forward link the descriptor list */
 		for (i = 0, p = host->sg_cpu; i < host->ring_size - 1;
@@ -722,7 +722,7 @@ static int dw_mci_idmac_init(struct dw_mci *host)
 	} else {
 		struct idmac_desc *p;
 		/* Number of descriptors in the ring buffer */
-		host->ring_size = PAGE_SIZE / sizeof(struct idmac_desc);
+		host->ring_size = host->desc_sz * PAGE_SIZE / sizeof(struct idmac_desc);
 
 		/* Forward link the descriptor list */
 		for (i = 0, p = host->sg_cpu; i < host->ring_size - 1; i++, p++) {
@@ -2688,9 +2688,9 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
 #ifdef CONFIG_MMC_DW_IDMAC
 		mmc->max_segs = host->ring_size;
 		mmc->max_blk_size = 65536;
-		mmc->max_blk_count = host->ring_size;
 		mmc->max_seg_size = 0x1000;
-		mmc->max_req_size = mmc->max_seg_size * mmc->max_blk_count;
+		mmc->max_req_size = mmc->max_seg_size * host->ring_size;
+		mmc->max_blk_count = mmc->max_req_size / 512;
 #else
 		mmc->max_segs = 64;
 		mmc->max_blk_size = 65536; /* BLKSIZ is 16 bits */
@@ -2749,8 +2749,13 @@ static void dw_mci_init_dma(struct dw_mci *host)
 		dev_info(host->dev, "IDMAC supports 32-bit address mode.\n");
 	}
 
+	if (host->pdata->desc_sz)
+		host->desc_sz = host->pdata->desc_sz;
+	 else
+		 host->desc_sz = 1;
+
 	/* Alloc memory for sg translation */
-	host->sg_cpu = dmam_alloc_coherent(host->dev, PAGE_SIZE,
+	host->sg_cpu = dmam_alloc_coherent(host->dev, host->desc_sz * PAGE_SIZE,
 					  &host->sg_dma, GFP_KERNEL);
 	if (!host->sg_cpu) {
 		dev_err(host->dev, "%s: could not alloc DMA memory\n",
@@ -2969,6 +2974,7 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 				"value of FIFOTH register as default\n");
 
 	of_property_read_u32(np, "card-detect-delay", &pdata->detect_delay_ms);
+	of_property_read_u32(np, "desc-size", &pdata->desc_sz);
 
 	if (!of_property_read_u32(np, "clock-frequency", &clock_frequency))
 		pdata->bus_hz = clock_frequency;

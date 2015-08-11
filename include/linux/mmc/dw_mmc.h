@@ -151,6 +151,7 @@ struct dw_mci {
 #else
 	struct dw_mci_dma_data	*dma_data;
 #endif
+	unsigned int            desc_sz;
 	u32			cmd_status;
 	u32			data_status;
 	u32			stop_cmdr;
@@ -298,6 +299,8 @@ struct dw_mci_board {
 	bool enable_cclk_on_suspend;
 	bool on_suspend;
 
+	/* Number of descriptors */
+	unsigned int desc_sz;
 };
 
 #endif /* LINUX_MMC_DW_MMC_H */
