@@ -122,8 +122,10 @@
 				 (mfc_version(dev) == 0x78))
 #define IS_MFCv8X(dev)		(mfc_version(dev) == 0x80)
 #define IS_MFCv9X(dev)		(mfc_version(dev) == 0x90)
-#define IS_MFCv10X(dev)		(mfc_version(dev) == 0xA0)
+#define IS_MFCv10X(dev)		((mfc_version(dev) == 0xA0) || \
+				 (mfc_version(dev) == 0xA01))
 #define IS_MFCv78(dev)		(mfc_version(dev) == 0x78)
+#define IS_MFCv101(dev)		(mfc_version(dev) == 0xA01)
 #define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) ||	\
 				IS_MFCv8X(dev) || IS_MFCv9X(dev) ||	\
 				IS_MFCv10X(dev))
@@ -224,13 +226,14 @@ static inline unsigned int mfc_linear_buf_size(unsigned int version)
 	case 0x51:
 	case 0x61:
 	case 0x65:
+	case 0xA0:
+	case 0xA01:
 		size = 0;
 		break;
 	case 0x72:
 	case 0x723:
 	case 0x80:
 	case 0x90:
-	case 0xA0:
 		size = 256;
 		break;
 	default:
@@ -277,6 +280,9 @@ static inline unsigned int mfc_version(struct s5p_mfc_dev *dev)
 		break;
 	case IP_VER_MFC_8J_0:
 		version = 0xA0;
+		break;
+	case IP_VER_MFC_8J_1:
+		version = 0xA01;
 		break;
 	}
 

@@ -52,6 +52,7 @@ enum mfc_ip_version {
 	IP_VER_MFC_8I_0,
 	IP_VER_MFC_6I_0,
 	IP_VER_MFC_8J_0,
+	IP_VER_MFC_8J_1,
 };
 
 struct s5p_mfc_platdata {

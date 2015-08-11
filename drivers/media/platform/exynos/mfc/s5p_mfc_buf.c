@@ -18,7 +18,7 @@
 #include "s5p_mfc_mem.h"
 
 /* Scratch buffer size for MFC v9.0 */
-#define DEC_V90_STATIC_BUFFER_SIZE	16384
+#define DEC_V90_STATIC_BUFFER_SIZE	20480
 
 #define CPB_GAP			512
 #define set_strm_size_max(cpb_max)	((cpb_max) - CPB_GAP)
@@ -93,16 +93,28 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			lcu_height = enc_lcu_height(ctx->img_height);
 			if (ctx->codec_mode != S5P_FIMV_CODEC_HEVC_ENC &&
 				ctx->codec_mode != S5P_FIMV_CODEC_VP9_ENC) {
-				enc->luma_dpb_size =
-					ALIGN((((mb_width * 16) + 63) / 64)
-						* 64 * (mb_height * 16) + 64, 64);
+				if (IS_MFCv101(dev))
+					enc->luma_dpb_size =
+						ALIGN((((mb_width * 16) + 63) / 64) * 64
+							* (((mb_height * 16) + 31) / 32)
+							* 32 + 64, 64);
+				else
+					enc->luma_dpb_size =
+						ALIGN((((mb_width * 16) + 63) / 64) * 64
+							* (mb_height * 16) + 64, 64);
 				enc->chroma_dpb_size =
 					ALIGN((((mb_width * 16) + 63) / 64)
-						* 64 * (mb_height * 8) + 64, 64);
+							* 64 * (mb_height * 8) + 64, 64);
 			} else {
-				enc->luma_dpb_size =
-					ALIGN((((lcu_width * 32) + 63) / 64)
-						* 64 * (lcu_height * 32) + 64, 64);
+				if (IS_MFCv101(dev))
+					enc->luma_dpb_size =
+						ALIGN((((lcu_width * 32 ) + 63 ) / 64) * 64
+							* (((lcu_height * 32) + 31) / 32)
+							* 32 + 64, 64);
+				else
+					enc->luma_dpb_size =
+						ALIGN((((lcu_width * 32) + 63) / 64) * 64
+							* (lcu_height * 32) + 64, 64);
 				enc->chroma_dpb_size =
 					ALIGN((((lcu_width * 32) + 63) / 64)
 						* 64 * (lcu_height * 16) + 64, 64);
@@ -911,15 +923,21 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 
 	mfc_debug(2, "Buf1: %p (%ld)\n", (void *)buf_addr1, buf_size1);
 
+	/* start address of per buffer is aligned */
 	for (i = 0; i < ctx->dpb_count; i++) {
 		MFC_WRITEL(buf_addr1, S5P_FIMV_E_LUMA_DPB + (4 * i));
 		buf_addr1 += enc->luma_dpb_size;
+		buf_size1 -= enc->luma_dpb_size;
+	}
+	for (i = 0; i < ctx->dpb_count; i++) {
 		MFC_WRITEL(buf_addr1, S5P_FIMV_E_CHROMA_DPB + (4 * i));
 		buf_addr1 += enc->chroma_dpb_size;
+		buf_size1 -= enc->chroma_dpb_size;
+	}
+	for (i = 0; i < ctx->dpb_count; i++) {
 		MFC_WRITEL(buf_addr1, S5P_FIMV_E_ME_BUFFER + (4 * i));
 		buf_addr1 += enc->me_buffer_size;
-		buf_size1 -= (enc->luma_dpb_size + enc->chroma_dpb_size +
-			enc->me_buffer_size);
+		buf_size1 -= enc->me_buffer_size;
 	}
 
 	MFC_WRITEL(buf_addr1, S5P_FIMV_E_SCRATCH_BUFFER_ADDR);
