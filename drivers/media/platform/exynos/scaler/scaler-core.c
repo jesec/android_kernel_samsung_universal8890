@@ -270,6 +270,8 @@ static const struct sc_fmt sc_formats[] = {
 /* must specify in revers order of SCALER_VERSION(xyz) */
 static const u32 sc_version_table[][2] = {
 	{ 0x80060007, SCALER_VERSION(4, 2, 0) }, /* SC_BI */
+	{ 0xA0000013, SCALER_VERSION(4, 0, 1) },
+	{ 0xA0000012, SCALER_VERSION(4, 0, 1) },
 	{ 0x80050007, SCALER_VERSION(4, 0, 0) }, /* SC_POLY */
 	{ 0xA000000B, SCALER_VERSION(3, 0, 2) },
 	{ 0xA000000A, SCALER_VERSION(3, 0, 2) },
@@ -301,6 +303,27 @@ static const struct sc_variant sc_variant[] = {
 		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
 		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
 		.blending		= 1,
+		.prescale		= 0,
+		.ratio_20bit		= 1,
+		.initphase		= 1,
+	}, {
+		.limit_input = {
+			.min_w		= 16,
+			.min_h		= 16,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.limit_output = {
+			.min_w		= 4,
+			.min_h		= 4,
+			.max_w		= 8192,
+			.max_h		= 8192,
+		},
+		.version		= SCALER_VERSION(4, 0, 1),
+		.sc_up_max		= SCALE_RATIO_CONST(1, 8),
+		.sc_down_min		= SCALE_RATIO_CONST(4, 1),
+		.sc_down_swmin		= SCALE_RATIO_CONST(16, 1),
+		.blending		= 0,
 		.prescale		= 0,
 		.ratio_20bit		= 1,
 		.initphase		= 1,

@@ -26,6 +26,8 @@
 #define SCALER_CFG_BL_DIV_ALPHA_EN	(1 << 17)
 #define SCALER_CFG_BLEND_EN		(1 << 16)
 #define SCALER_CFG_CSC_Y_OFFSET_SRC	(1 << 10)
+#define SCALER_CFG_BURST_WR		(1 << 8)
+#define SCALER_CFG_BURST_RD		(1 << 7)
 #define SCALER_CFG_CSC_Y_OFFSET_DST	(1 << 9)
 #define SCALER_CFG_SOFT_RST		(1 << 1)
 #define SCALER_CFG_START_CMD		(1 << 0)
@@ -35,6 +37,7 @@
 #define SCALER_INT_EN_FRAME_END		(1 << 0)
 #define SCALER_INT_EN_ALL		0x807fffff
 #define SCALER_INT_EN_ALL_v3		0x82ffffff
+#define SCALER_INT_EN_ALL_v4		0xb2ffffff
 #define SCALER_INT_OK(status)		((status) == SCALER_INT_EN_FRAME_END)
 
 #define SCALER_INT_STATUS		0x0c
@@ -233,9 +236,16 @@ static inline void sc_hwset_flip_rotation(struct sc_dev *sc, u32 flip_rot_cfg)
 
 static inline void sc_hwset_int_en(struct sc_dev *sc)
 {
-	__raw_writel((sc->version < SCALER_VERSION(3, 0, 0)) ?
-				SCALER_INT_EN_ALL : SCALER_INT_EN_ALL_v3,
-			sc->regs + SCALER_INT_EN);
+	unsigned int val;
+
+	if (sc->version < SCALER_VERSION(3, 0, 0))
+		val = SCALER_INT_EN_ALL;
+	else if (sc->version < SCALER_VERSION(4, 0, 1) ||
+			sc->version == SCALER_VERSION(4, 2, 0))
+		val = SCALER_INT_EN_ALL_v3;
+	else
+		val = SCALER_INT_EN_ALL_v4;
+	__raw_writel(val, sc->regs + SCALER_INT_EN);
 }
 
 static inline void sc_clear_aux_power_cfg(struct sc_dev *sc)
@@ -260,6 +270,15 @@ static inline void sc_hwset_init(struct sc_dev *sc)
 		__raw_writel(
 			__raw_readl(sc->regs + SCALER_CFG) | SCALER_CFG_DRCG_EN,
 			sc->regs + SCALER_CFG);
+	if (sc->version >= SCALER_VERSION(4, 0, 1) &&
+			sc->version != SCALER_VERSION(4, 2, 0)) {
+		__raw_writel(
+			__raw_readl(sc->regs + SCALER_CFG) | SCALER_CFG_BURST_RD,
+			sc->regs + SCALER_CFG);
+		__raw_writel(
+			__raw_readl(sc->regs + SCALER_CFG) & ~SCALER_CFG_BURST_WR,
+			sc->regs + SCALER_CFG);
+	}
 }
 
 static inline void sc_hwset_soft_reset(struct sc_dev *sc)

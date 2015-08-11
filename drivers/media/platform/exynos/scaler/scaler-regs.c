@@ -590,6 +590,13 @@ void sc_hwset_pre_multi_format(struct sc_dev *sc, bool src, bool dst)
 {
 	unsigned long cfg = readl(sc->regs + SCALER_SRC_CFG);
 
+	if (sc->version == SCALER_VERSION(4, 0, 1)) {
+		if (src != dst)
+			dev_err(sc->dev,
+			"pre-multi fmt should be same between src and dst\n");
+		return;
+	}
+
 	if (src && ((cfg & SCALER_CFG_FMT_MASK) == SCALER_CFG_FMT_ARGB8888)) {
 		cfg &= ~SCALER_CFG_FMT_MASK;
 		cfg |= SCALER_CFG_FMT_P_ARGB8888;
@@ -1025,6 +1032,8 @@ const static char *sc_irq_err_status[] = {
 	[21] = "illigal dst height",
 	[23] = "illigal scaling ratio",
 	[25] = "illigal pre-scaler width/height",
+	[28] = "AXI Write Error Response",
+	[29] = "AXI Read Error Response",
 	[31] = "timeout",
 };
 
