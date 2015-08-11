@@ -216,9 +216,6 @@ static inline void vpp_select_format(struct vpp_dev *vpp,
 	vi->yuv = is_yuv(config);
 	vi->yuv422 = is_yuv422(config);
 	vi->yuv420 = is_yuv420(config);
-	vi->pre_none = 1;
-	vi->pre_12 = 0;
-	vi->pre_14 = 0;
 	vi->wb = is_wb(vpp);
 }
 

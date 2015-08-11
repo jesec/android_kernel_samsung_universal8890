@@ -506,17 +506,9 @@ void vpp_constraints_params(struct vpp_size_constraints *vc,
 			vc->src_mul_x = RGB_SRC_OFFSET_MULTIPLE;
 			vc->src_mul_y = RGB_SRC_OFFSET_MULTIPLE;
 			vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+			vc->img_mul_w = PRE_RGB_WIDTH;
+			vc->img_mul_h = PRE_RGB_HEIGHT;
 
-			if (vi->pre_none) {
-				vc->img_mul_w = PRE_RGB_WIDTH;
-				vc->img_mul_h = PRE_RGB_HEIGHT;
-			} else if (vi->pre_12) {
-				vc->img_mul_w = PRE12_RGB_WIDTH;
-				vc->img_mul_h = PRE12_RGB_HEIGHT;
-			} else if (vi->pre_14) {
-				vc->img_mul_w = PRE14_RGB_WIDTH;
-				vc->img_mul_h = PRE14_RGB_HEIGHT;
-			}
 			if (!vi->rot) {
 				vc->src_w_min = ROT1_RGB_SRC_WIDTH_MIN;
 				vc->src_h_min = ROT1_RGB_SRC_HEIGHT_MIN;
@@ -572,49 +564,17 @@ void vpp_constraints_params(struct vpp_size_constraints *vc,
 			}
 			if (vi->yuv422) {
 				vc->src_mul_h = YUV_SRC_SIZE_MUL_HEIGHT;
-				if (vi->pre_none) {
-					vc->img_mul_w = PRE_YUV_WIDTH;
-					if (!vi->rot)
-						vc->img_mul_h = PRE_ROT1_YUV_HEIGHT;
-					else
-						vc->img_mul_h = PRE_YUV_HEIGHT;
+				vc->img_mul_w = PRE_YUV_WIDTH;
+				if (!vi->rot)
+					vc->img_mul_h = PRE_ROT1_YUV_HEIGHT;
+				else
+					vc->img_mul_h = PRE_YUV_HEIGHT;
 
-				} else if (vi->pre_12) {
-					vc->img_mul_w = PRE12_YUV_WIDTH;
-					if (!vi->rot)
-						vc->img_mul_h = PRE12_ROT1_YUV_HEIGHT;
-					else
-						vc->img_mul_h = PRE12_YUV_HEIGHT;
-				} else if (vi->pre_14) {
-					vc->img_mul_w = PRE14_YUV_WIDTH;
-					if (!vi->rot) {
-						vc->img_mul_h = PRE14_ROT1_YUV_HEIGHT;
-					} else {
-						vc->img_mul_h = PRE14_YUV_HEIGHT;
-
-					}
-					if (!vi->rot) {
-						vc->src_mul_y = SRC_ROT2_MUL_Y;
-						vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
-					} else {
-						vc->src_mul_y = SRC_ROT1_MUL_Y;
-						vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
-					}
-				} else {
-					vc->src_mul_h = YUV_SRC_SIZE_MULTIPLE;
-					vc->src_mul_y = YUV_SRC_OFFSET_MULTIPLE;
-					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
-					if (vi->pre_none) {
-						vc->img_mul_w = PRE_YUV_WIDTH;
-						vc->img_mul_h = PRE_YUV_HEIGHT;
-					} else if (vi->pre_12) {
-						vc->img_mul_w = PRE12_YUV_WIDTH;
-						vc->img_mul_h = PRE12_YUV_HEIGHT;
-					} else if (vi->pre_14) {
-						vc->img_mul_w = PRE14_YUV_WIDTH;
-						vc->img_mul_h = PRE14_YUV_HEIGHT;
-					}
-				}
+				vc->src_mul_h = YUV_SRC_SIZE_MULTIPLE;
+				vc->src_mul_y = YUV_SRC_OFFSET_MULTIPLE;
+				vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
+				vc->img_mul_w = PRE_YUV_WIDTH;
+				vc->img_mul_h = PRE_YUV_HEIGHT;
 			}
 		}
 	} else { /* write-back case */

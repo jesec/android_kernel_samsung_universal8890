@@ -86,16 +86,6 @@
 #define PRE_YUV_WIDTH		2
 #define PRE_YUV_HEIGHT		2
 #define PRE_ROT1_YUV_HEIGHT	1
-#define PRE12_RGB_WIDTH		2
-#define PRE12_RGB_HEIGHT	2
-#define PRE12_YUV_WIDTH		4
-#define PRE12_ROT1_YUV_HEIGHT	2
-#define PRE12_YUV_HEIGHT	4
-#define PRE14_RGB_WIDTH		4
-#define PRE14_RGB_HEIGHT	4
-#define PRE14_YUV_WIDTH		8
-#define PRE14_YUV_HEIGHT	8
-#define PRE14_ROT1_YUV_HEIGHT	4
 
 #define SRC_SIZE_MULTIPLE	2
 #define SRC_ROT1_MUL_Y		1
@@ -152,9 +142,6 @@ struct vpp_size_constraints {
 struct vpp_img_format {
 	u32		vgr;
 	u32		normal;
-	u32		pre_none;
-	u32		pre_12;
-	u32		pre_14;
 	u32		rot;
 	u32		scale;
 	u32		yuv;
