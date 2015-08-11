@@ -1185,11 +1185,20 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 	/********************************************/
 	set_batcher_enable(i2c);
 
-	/* Set HSI2C Timing Parameters */
-	write_batcher(i2c, ((10 << 24)|(10 << 16)|(10 << 8)|(10)), HSI2C_TIMING_HS1);
-	write_batcher(i2c, ((0xF << 16)|(5 << 24)|(10 << 8)|(2)), HSI2C_TIMING_HS2);
-	write_batcher(i2c, ((0x0)|(0 << 16)|(12)), HSI2C_TIMING_HS3);
-	write_batcher(i2c, ((0x0)|(5)), HSI2C_TIMING_SLA);
+	if (i2c->hs_clock == 3000000) {
+		/* Set HSI2C Timing Parameters for 3.0Mhz */
+		write_batcher(i2c, ((7 << 24)|(7 << 16)|(7 << 8)|(7)), HSI2C_TIMING_HS1);
+		write_batcher(i2c, ((0xF << 16)|(3 << 24)|(7 << 8)|(1)), HSI2C_TIMING_HS2);
+		write_batcher(i2c, ((0x0)|(0 << 16)|(8)), HSI2C_TIMING_HS3);
+		write_batcher(i2c, ((0x0)|(3)), HSI2C_TIMING_SLA);
+	} else if (i2c->hs_clock == 2500000) {
+		/* Set HSI2C Timing Parameters for 2.5Mhz */
+		write_batcher(i2c, ((10 << 24)|(10 << 16)|(10 << 8)|(10)), HSI2C_TIMING_HS1);
+		write_batcher(i2c, ((0xF << 16)|(5 << 24)|(10 << 8)|(2)), HSI2C_TIMING_HS2);
+		write_batcher(i2c, ((0x0)|(0 << 16)|(12)), HSI2C_TIMING_HS3);
+		write_batcher(i2c, ((0x0)|(5)), HSI2C_TIMING_SLA);
+	}
+
 	write_batcher(i2c, ((0x0)|(38 << 24)|(38 << 16)|(38 << 8)), HSI2C_TIMING_FS1);
 	write_batcher(i2c, ((0xF << 16)|(19 << 24)|(38 << 8)|(38)), HSI2C_TIMING_FS2);
 	write_batcher(i2c, ((0x0)|(1 << 16)|(76)), HSI2C_TIMING_FS3);
