@@ -490,6 +490,8 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	}
 
 	vpp_reg_wait_pingpong_clear(vpp->id);
+
+	vpp_set_initial_phase(vpp);
 	vpp_to_scale_params(vpp, &p);
 	ret = vpp_set_scale_info(vpp, &p);
 	if (ret)
@@ -507,8 +509,6 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	ret = vpp_reg_set_in_format(vpp->id, &vi);
 	if (ret)
 		goto err;
-
-	vpp_set_initial_phase(vpp);
 
 	ret = vpp_check_size(vpp, &vi);
 	if (ret)
