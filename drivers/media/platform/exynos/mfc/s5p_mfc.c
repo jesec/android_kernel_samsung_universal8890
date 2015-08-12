@@ -1806,30 +1806,27 @@ static int s5p_mfc_open(struct file *file)
 				mfc_err_ctx("DRM F/W buffer is not allocated.\n");
 				dev->drm_fw_status = 0;
 			} else {
-				phys_addr_t nfw_base, fw_base;
+				phys_addr_t drm_fw_base, normal_fw_base;
 #if (!IS_ENABLED(CONFIG_EXYNOS_IOMMU_V6))
 				phys_addr_t sectbl_base;
 #endif
-				uint32_t nfw_start, fw_start, offset;
-				size_t fw_size, size;
+				size_t drm_fw_size, normal_fw_size;
 
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &nfw_base, &size);
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &fw_base, &fw_size);
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &normal_fw_base, &normal_fw_size);
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &drm_fw_base, &drm_fw_size);
 #if (!IS_ENABLED(CONFIG_EXYNOS_IOMMU_V6))
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_SECTBL, &sectbl_base, &size);
+				ion_exynos_contig_heap_info(ION_EXYNOS_ID_SECTBL, &sectbl_base, &normal_fw_size);
 
-				ret = exynos_smc(SMC_DRM_SECMEM_INFO, sectbl_base, fw_base, fw_size);
+				ret = exynos_smc(SMC_DRM_SECMEM_INFO, sectbl_base, drm_fw_base, drm_fw_size);
 #else
-				ret = exynos_smc(SMC_DRM_SECMEM_INFO, 0, fw_base, fw_size);
+				ret = exynos_smc(SMC_DRM_SECMEM_INFO, 0, drm_fw_base, drm_fw_size);
 				if (ret < 0) {
 					mfc_err("Fail to pass secure page table base address. ret = %d\n", ret);
 					dev->drm_fw_status = 0;
 				}
 #endif
-				offset = dev->drm_fw_info.ofs - fw_base;
-				nfw_start = nfw_base + offset;
-				fw_start = fw_base + offset;
-				ret = exynos_smc(SMC_DRM_FW_LOADING, fw_start, nfw_start, dev->fw_size);
+				ret = exynos_smc(SMC_DRM_FW_LOADING,
+						drm_fw_base, normal_fw_base, dev->fw_size);
 				if (ret) {
 					mfc_err_ctx("MFC DRM F/W(%x) is skipped\n", ret);
 					dev->drm_fw_status = 0;
@@ -2608,7 +2605,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->alloc_ctx_drm_fw = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
-			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCFW);
+			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_MFCFW | VB2ION_CTX_IOMMU);
 	if (IS_ERR(dev->alloc_ctx_drm_fw)) {
 		mfc_err_dev("failed to prepare F/W allocation context\n");
 		ret = PTR_ERR(dev->alloc_ctx_drm_fw);
@@ -2617,7 +2614,7 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	dev->alloc_ctx_drm = (struct vb2_alloc_ctx *)
 		vb2_ion_create_context(&pdev->dev,
 			SZ_4K,
-			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_VIDEO);
+			VB2ION_CTX_UNCACHED | VB2ION_CTX_DRM_VIDEO | VB2ION_CTX_IOMMU);
 	if (IS_ERR(dev->alloc_ctx_drm)) {
 		mfc_err_dev("failed to prepare DRM allocation context\n");
 		ret = PTR_ERR(dev->alloc_ctx_drm);
@@ -2655,6 +2652,8 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 		exynos_mfc_sysmmu_fault_handler, dev);
 
 	g_mfc_dev[dev->id] = dev;
+
+	vb2_ion_attach_iommu(dev->alloc_ctx);
 
 	pr_debug("%s--\n", __func__);
 	return 0;

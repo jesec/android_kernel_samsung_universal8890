@@ -98,16 +98,6 @@ int s5p_mfc_mem_flush_vb(struct vb2_buffer *vb, u32 num_planes)
 	return 0;
 }
 
-void s5p_mfc_mem_suspend(void *alloc_ctx)
-{
-	vb2_ion_detach_iommu(alloc_ctx);
-}
-
-int s5p_mfc_mem_resume(void *alloc_ctx)
-{
-	return vb2_ion_attach_iommu(alloc_ctx);
-}
-
 /* Allocate firmware */
 int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 {
