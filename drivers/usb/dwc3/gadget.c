@@ -38,6 +38,12 @@
 #include "io.h"
 
 /**
+ * ISR for DWC3 gadget was changed because of RNDIS performance.
+ * However, previous ISR code was not removed to track the history.
+ */
+#undef DWC3_GADGET_IRQ_ORG
+
+/**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes
  * @dwc: pointer to our context structure
  * @mode: the mode to set (J, K SE0 NAK, Force Enable)
@@ -1699,8 +1705,11 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	return ret;
 }
 
+#if IS_ENABLED(DWC3_GADGET_IRQ_ORG)
+static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc);
+#else
 static irqreturn_t dwc3_interrupt(int irq, void *_dwc);
-//static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc);
+#endif
 
 static int dwc3_gadget_start(struct usb_gadget *g,
 		struct usb_gadget_driver *driver)
@@ -2734,10 +2743,7 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 	evt->count = 0;
 	ret = IRQ_HANDLED;
 
-	/* To improve the performance of RNDIS, thread_irq is not used.
-	 * However, to track the history, it is not removed.
-	 */
-#if 0
+#if IS_ENABLED(DWC3_GADGET_IRQ_ORG)
 	/* Unmask interrupt */
 	reg = dwc3_readl(dwc->regs, DWC3_GEVNTSIZ(buf));
 	reg &= ~DWC3_GEVNTSIZ_INTMASK;
@@ -2745,7 +2751,8 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 #endif
 	return ret;
 }
-#if 0
+
+#if IS_ENABLED(DWC3_GADGET_IRQ_ORG)
 static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 {
 	struct dwc3 *dwc = _dwc;
