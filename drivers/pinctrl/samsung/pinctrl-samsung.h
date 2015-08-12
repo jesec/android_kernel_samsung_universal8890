@@ -198,7 +198,6 @@ struct samsung_pin_ctrl {
  * @nr_groups: number of such pin groups.
  * @pmx_functions: list of pin functions available to the driver.
  * @nr_function: number of such pin functions.
- * @eint_flt_config: flags to configure external interrupt filter.
  */
 struct samsung_pinctrl_drv_data {
 	struct list_head		node;
@@ -214,7 +213,6 @@ struct samsung_pinctrl_drv_data {
 	unsigned int			nr_groups;
 	const struct samsung_pmx_func	*pmx_functions;
 	unsigned int			nr_functions;
-	bool				eint_flt_config;
 };
 
 /**
