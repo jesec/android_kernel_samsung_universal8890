@@ -200,6 +200,17 @@ int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle);
  */
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 
+/**
+ * ion_cached_needsync_dmabuf() - check if a dmabuf is cacheable
+ * @dmabuf: a pointer to dma_buf
+ *
+ * Given a dma-buf that is exported by ION, check if the buffer is allocated
+ * with ION_FLAG_CACHED and ION_FLAG_CACHED_NEED_SYNC. If the flags are set
+ * the function returns 1. If it is unset, 0. If the given dmabuf is not
+ * exported by ION, -error is returned.
+ */
+int ion_cached_needsync_dmabuf(struct dma_buf *dmabuf);
+
 #include <linux/dma-direction.h>
 #include <linux/dma-buf.h>
 

@@ -1544,6 +1544,18 @@ end:
 }
 EXPORT_SYMBOL(ion_import_dma_buf);
 
+int ion_cached_needsync_dmabuf(struct dma_buf *dmabuf)
+{
+	struct ion_buffer *buffer = dmabuf->priv;
+	unsigned long cacheflag = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
+
+	if (dmabuf->ops != &dma_buf_ops)
+		return -EINVAL;
+
+	return ((buffer->flags & cacheflag) == cacheflag) ? 1 : 0;
+}
+EXPORT_SYMBOL(ion_cached_needsync_dmabuf);
+
 static int ion_sync_for_device(struct ion_client *client, int fd)
 {
 	struct dma_buf *dmabuf;
