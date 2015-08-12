@@ -92,7 +92,7 @@ static int exynos_usbdrd_clk_get(struct exynos_usbdrd_phy *phy_drd)
 	int		i;
 
 	switch (phy_drd->drv_data->cpu_type) {
-	case TYPE_EXYNOS8:
+	case TYPE_EXYNOS8890:
 		clk_ids = exynos8_usbdrd_clk_names;
 		clk_count = (int)ARRAY_SIZE(exynos8_usbdrd_clk_names);
 		break;
@@ -137,7 +137,7 @@ static unsigned int exynos_rate_to_clk(struct exynos_usbdrd_phy *phy_drd)
 	int ret;
 
 	switch (phy_drd->drv_data->cpu_type) {
-	case TYPE_EXYNOS8:
+	case TYPE_EXYNOS8890:
 	default:
 		phy_drd->ref_clk = devm_clk_get(phy_drd->dev, "ext_xtal");
 		break;
@@ -412,7 +412,7 @@ static struct phy_ops exynos_usbdrd_phy_ops = {
 	.owner		= THIS_MODULE,
 };
 
-static const struct exynos_usbdrd_phy_config phy_cfg_exynos8[] = {
+static const struct exynos_usbdrd_phy_config phy_cfg_exynos8890[] = {
 	{
 		.id		= EXYNOS_DRDPHY_UTMI,
 		.phy_isol	= exynos_usbdrd_utmi_phy_isol,
@@ -429,16 +429,16 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8[] = {
 	},
 };
 
-static const struct exynos_usbdrd_phy_drvdata exynos8_usbdrd_phy = {
-	.phy_cfg		= phy_cfg_exynos8,
+static const struct exynos_usbdrd_phy_drvdata exynos8890_usbdrd_phy = {
+	.phy_cfg		= phy_cfg_exynos8890,
 	.pmu_offset_usbdrd0_phy	= EXYNOS5_USBDRD_PHY_CONTROL,
-	.cpu_type		= TYPE_EXYNOS8,
+	.cpu_type		= TYPE_EXYNOS8890,
 };
 
 static const struct of_device_id exynos_usbdrd_phy_of_match[] = {
 	{
-		.compatible = "samsung,exynos8-usbdrd-phy",
-		.data = &exynos8_usbdrd_phy
+		.compatible = "samsung,exynos8890-usbdrd-phy",
+		.data = &exynos8890_usbdrd_phy
 	},
 	{ },
 };
