@@ -292,6 +292,7 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		fimg2d_pm_qos_update(ctrl, FIMG2D_QOS_ON);
 
 		if (bltcmd->blt.use_fence) {
+			mmput(mm);
 			user_blt = (struct fimg2d_blit __user *)arg;
 			for (i = 0; i < MAX_SRC; i++) {
 				img = &bltcmd->image_src[i];
@@ -312,17 +313,16 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		ret = fimg2d_request_bitblt(ctrl, bltcmd);
 		if (ret) {
+			/* actually dead code */
 			fimg2d_info("request bitblit not allowed\n");
 			fimg2d_info("so passing to s/w fallback.\n");
 			g2d_unlock(&ctrl->drvlock);
-			mmput(mm);
+			if (!bltcmd->blt.use_fence)
+				mmput(mm);
 			return -EBUSY;
 		}
 
 		g2d_unlock(&ctrl->drvlock);
-
-		if (!bltcmd->mm)
-			mmput(mm);
 
 		break;
 
@@ -332,6 +332,9 @@ static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (ret)
 			fimg2d_err("Failed to wait, ret = %d\n", ret);
 		fimg2d_debug("End of sync ctx %p\n", ctx);
+
+		/* assumes fence user does not call this ioctl */
+		mmput(ctx->mm);
 		break;
 
 	default:

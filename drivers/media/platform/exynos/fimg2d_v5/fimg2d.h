@@ -526,7 +526,7 @@ struct fimg2d_bltcmd {
 	struct fimg2d_dma_group dma_dst;
 	struct fimg2d_context *ctx;
 	struct fimg2d_memops *memops;
-	struct mm_struct *mm;
+	struct mm_struct *mm;	/* deprecated */
 };
 
 /**
