@@ -154,19 +154,24 @@ static int vpp_wait_for_framedone(struct vpp_dev *vpp)
 }
 
 static void vpp_separate_fraction_value(struct vpp_dev *vpp,
-			int *integer, u32 *fract_val)
+		int *integer, u32 *fract_val)
 {
-	/*
-	 * [30:15] : fraction val, [14:0] : integer val.
-	 */
-	*fract_val = (*integer >> 15) << 4;
-	if (*fract_val & ~VG_POSITION_F_MASK) {
-		dev_warn(DEV, "%d is unsupported value",
+	struct decon_win_config *config = vpp->config;
+	if (is_vpp_rgb32(config) || is_yuv420(config)) {
+		/*
+		 * [30:15] : fraction val, [14:0] : integer val.
+		 */
+		*fract_val = (*integer >> 15) << 4;
+		if (*fract_val & ~VG_POSITION_F_MASK) {
+			dev_warn(DEV, "%d is unsupported value",
 					*fract_val);
-		*fract_val &= VG_POSITION_F_MASK;
-	}
+			*fract_val &= VG_POSITION_F_MASK;
+		}
 
-	*integer = (*integer & 0x7fff);
+		*integer = (*integer & 0x7fff);
+	} else
+		dev_err(DEV, "0x%x format did not support fraction\n",
+				config->format);
 }
 
 static void vpp_set_initial_phase(struct vpp_dev *vpp)
@@ -177,12 +182,12 @@ static void vpp_set_initial_phase(struct vpp_dev *vpp)
 
 	if (is_fraction(src->x)) {
 		vpp_separate_fraction_value(vpp, &src->x, &fr->y_x);
-		fr->c_x = fr->y_x >> 1;
+		fr->c_x = is_yuv(config) ? fr->y_x / 2 : fr->y_x;
 	}
 
 	if (is_fraction(src->y)) {
 		vpp_separate_fraction_value(vpp, &src->y, &fr->y_y);
-		fr->c_y = fr->y_y >> 1;
+		fr->c_y = is_yuv(config) ? fr->y_y / 2 : fr->y_y;
 	}
 
 	if (is_fraction(src->w)) {
@@ -228,9 +233,13 @@ static int vpp_check_size(struct vpp_dev *vpp, struct vpp_img_format *vi)
 	return 0;
 err:
 	dev_err(DEV, "offset x : %d, offset y: %d\n", src->x, src->y);
+	dev_err(DEV, "src_mul_x : %d, src_mul_y : %d\n", vc.src_mul_x, vc.src_mul_y);
 	dev_err(DEV, "src f_w : %d, src f_h: %d\n", src->f_w, src->f_h);
+	dev_err(DEV, "src_mul_w : %d, src_mul_h : %d\n", vc.src_mul_w, vc.src_mul_h);
 	dev_err(DEV, "src w : %d, src h: %d\n", src->w, src->h);
+	dev_err(DEV, "img_mul_w : %d, img_mul_h : %d\n", vc.img_mul_w, vc.img_mul_h);
 	dev_err(DEV, "dst w : %d, dst h: %d\n", dst->w, dst->h);
+	dev_err(DEV, "sca_mul_w : %d, sca_mul_h : %d\n", vc.sca_mul_w, vc.sca_mul_h);
 	dev_err(DEV, "rotation : %d, color_format : %d\n",
 				config->vpp_parm.rot, config->format);
 

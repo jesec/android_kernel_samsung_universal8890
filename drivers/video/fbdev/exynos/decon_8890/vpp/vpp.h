@@ -44,6 +44,8 @@
 #define is_rgb(config) ((config->format >= DECON_PIXEL_FORMAT_ARGB_8888) \
 			&& (config->format <= DECON_PIXEL_FORMAT_RGB_565))
 #define is_rgb16(config) ((config->format == DECON_PIXEL_FORMAT_RGB_565))
+#define is_vpp_rgb32(config) ((config->format >= DECON_PIXEL_FORMAT_ARGB_8888) \
+		&& (config->format <= DECON_PIXEL_FORMAT_BGRX_8888))
 #define is_ayv12(config) (config->format == DECON_PIXEL_FORMAT_YVU420)
 #define is_fraction(x) ((x) >> 15)
 #define is_vpp0_series(vpp) ((vpp->id == 0 || vpp->id == 1 \

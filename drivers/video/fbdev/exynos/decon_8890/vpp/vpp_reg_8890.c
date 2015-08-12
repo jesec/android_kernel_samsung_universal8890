@@ -563,6 +563,7 @@ void vpp_constraints_params(struct vpp_size_constraints *vc,
 			vc->sca_h_max = SCALED_HEIGHT_MAX;
 			vc->src_mul_x = SRC_SIZE_MULTIPLE;
 			vc->sca_mul_w = SCALED_SIZE_MULTIPLE;
+			vc->img_mul_w = PRE_YUV_WIDTH;
 
 			if (!vi->rot) {
 				vc->src_w_min = ROT1_YUV_SRC_WIDTH_MIN;
@@ -584,17 +585,22 @@ void vpp_constraints_params(struct vpp_size_constraints *vc,
 			}
 			if (vi->yuv422) {
 				vc->src_mul_h = YUV_SRC_SIZE_MUL_HEIGHT;
-				vc->img_mul_w = PRE_YUV_WIDTH;
-				if (!vi->rot)
+				vc->img_mul_h = PRE_YUV_HEIGHT;
+				if (!vi->rot) {
 					vc->img_mul_h = PRE_ROT1_YUV_HEIGHT;
-				else
+					vc->src_mul_y = YUV_SRC_SIZE_MUL_HEIGHT;
+					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
+				} else {
+					vc->src_mul_y = YUV_SRC_OFFSET_MULTIPLE;
 					vc->img_mul_h = PRE_YUV_HEIGHT;
+					vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
+				}
 
+			} else {
 				vc->src_mul_h = YUV_SRC_SIZE_MULTIPLE;
+				vc->img_mul_h = PRE_YUV_HEIGHT;
 				vc->src_mul_y = YUV_SRC_OFFSET_MULTIPLE;
 				vc->sca_mul_h = SCALED_SIZE_MULTIPLE;
-				vc->img_mul_w = PRE_YUV_WIDTH;
-				vc->img_mul_h = PRE_YUV_HEIGHT;
 			}
 		}
 	} else { /* write-back case */
