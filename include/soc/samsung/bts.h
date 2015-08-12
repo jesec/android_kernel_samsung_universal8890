@@ -21,7 +21,7 @@
 #define BUS_WIDTH		16
 #define SIZE_FACTOR(a)		a = ((a) * 16 / 10)
 #define FULLHD_SRC		1920 * 1080
-#else
+#elif defined(CONFIG_EXYNOS7420_BTS) || defined(CONFIG_EXYNOS7890_BTS)
 #define DECON_NOCNT		10
 #define VPP_ROT			4
 #define CAM_FACTOR		3
@@ -34,6 +34,8 @@
 #define NO_CNT_TH		100
 #define BUS_WIDTH		16
 #define SIZE_FACTOR(a)		a = ((a) * 16 / 10)
+#define FULLHD_SRC		1920 * 1080
+#else
 #define FULLHD_SRC		1920 * 1080
 #endif
 
