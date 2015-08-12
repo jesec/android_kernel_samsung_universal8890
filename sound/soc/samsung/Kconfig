@@ -289,6 +289,33 @@ config SND_SOC_SAMSUNG_UNIVERSAL8890_DUMMY
 	help
 	  Say Y if you want to add support for SoC audio on the UNIVERSAL8890.
 
+config SND_SOC_SAMSUNG_ZERO_CLEARWATER
+	tristate "SoC I2S Audio support for Clearwater on Zero"
+	depends on SND_SOC_SAMSUNG
+	select SND_SOC_CLEARWATER
+	select MFD_CLEARWATER
+	select MFD_ARIZONA_DEFERRED_RESUME
+	select SND_SOC_SAMSUNG_ARIZONA
+	help
+	  Say Y if you want to add support for SoC audio on the Pacific.
+
+config SND_SOC_SAMSUNG_ARIZONA
+        tristate "Audio support for arizona platform on the Exynos7420"
+        depends on SND_SOC_SAMSUNG
+        select SND_SAMSUNG_I2S
+        select SND_SAMSUNG_AUDSS
+        select SND_SAMSUNG_IOMMU
+        select SND_SOC_DUMMY_CODEC
+        select MFD_ARIZONA
+        select MFD_ARIZONA_SPI
+        select REGULATOR_ARIZONA
+        select GPIO_ARIZONA
+        select SWITCH
+        select SWITCH_ARIZONA
+        select SND_DYNAMIC_MINORS
+        help
+                Say Y if you want to add support for Arizona Platform on the Exynos7420.
+
 config SND_SOC_I2S_TXSLOT_NUMBER
 	int "Number of tx slots including audio sample"
 	depends on SND_SAMSUNG_I2S && SND_SAMSUNG_AUDSS

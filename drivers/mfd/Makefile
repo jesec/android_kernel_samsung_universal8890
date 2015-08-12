@@ -39,14 +39,17 @@ obj-$(CONFIG_MFD_ARIZONA)	+= arizona-core.o
 obj-$(CONFIG_MFD_ARIZONA)	+= arizona-irq.o
 obj-$(CONFIG_MFD_ARIZONA_I2C)	+= arizona-i2c.o
 obj-$(CONFIG_MFD_ARIZONA_SPI)	+= arizona-spi.o
-ifneq ($(CONFIG_MFD_WM5102),n)
+ifeq ($(CONFIG_MFD_WM5102),y)
 obj-$(CONFIG_MFD_ARIZONA)	+= wm5102-tables.o
 endif
-ifneq ($(CONFIG_MFD_WM5110),n)
+ifeq ($(CONFIG_MFD_WM5110),y)
 obj-$(CONFIG_MFD_ARIZONA)	+= wm5110-tables.o
 endif
-ifneq ($(CONFIG_MFD_WM8997),n)
+ifeq ($(CONFIG_MFD_WM8997),y)
 obj-$(CONFIG_MFD_ARIZONA)	+= wm8997-tables.o
+endif
+ifeq ($(CONFIG_MFD_CLEARWATER),y)
+obj-$(CONFIG_MFD_ARIZONA)       += clearwater-tables.o
 endif
 obj-$(CONFIG_MFD_WM8400)	+= wm8400-core.o
 wm831x-objs			:= wm831x-core.o wm831x-irq.o wm831x-otp.o
