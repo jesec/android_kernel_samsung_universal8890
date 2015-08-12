@@ -119,6 +119,7 @@ enum dw_mci_exynos_type {
 	DW_MCI_TYPE_EXYNOS5420,
 	DW_MCI_TYPE_EXYNOS5420_SMU,
 	DW_MCI_TYPE_EXYNOS8890,
+	DW_MCI_TYPE_EXYNOS7870,
 };
 
 static struct dw_mci_exynos_compatible {
@@ -143,6 +144,9 @@ static struct dw_mci_exynos_compatible {
 	}, {
 		.compatible	= "samsung,exynos8890-dw-mshc",
 		.ctrl_type	= DW_MCI_TYPE_EXYNOS8890,
+	}, {
+		.compatible	= "samsung,exynos7870-dw-mshc",
+		.ctrl_type	= DW_MCI_TYPE_EXYNOS7870,
 	},
 };
 
@@ -1025,6 +1029,8 @@ static const struct of_device_id dw_mci_exynos_match[] = {
 	{ .compatible = "samsung,exynos5420-dw-mshc-smu",
 			.data = &exynos_drv_data, },
 	{ .compatible = "samsung,exynos8890-dw-mshc",
+			.data = &exynos_drv_data, },
+	{ .compatible = "samsung,exynos7870-dw-mshc",
 			.data = &exynos_drv_data, },
 	{},
 };
