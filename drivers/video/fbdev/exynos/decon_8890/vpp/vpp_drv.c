@@ -110,27 +110,6 @@ void vpp_op_timer_handler(unsigned long arg)
 	dev_info(DEV, "VPP[%d] irq hasn't been occured", vpp->id);
 }
 
-static int vpp_wait_for_update(struct vpp_dev *vpp)
-{
-	int update_cnt;
-	int ret;
-
-	if (test_bit(VPP_POWER_ON, &vpp->state)) {
-		update_cnt = vpp->update_cnt_prev;
-		ret = wait_event_interruptible_timeout(vpp->update_queue,
-				(update_cnt != vpp->update_cnt),
-				msecs_to_jiffies(17));
-		if (ret == 0) {
-			dev_err(DEV, "timeout of shadow update(%d, %d)\n",
-				update_cnt, vpp->update_cnt);
-			return -ETIMEDOUT;
-		}
-		DISP_SS_EVENT_LOG(DISP_EVT_VPP_UPDATE_DONE,
-						vpp->sd, ktime_set(0, 0));
-	}
-	return 0;
-}
-
 static int vpp_wait_for_framedone(struct vpp_dev *vpp)
 {
 	int done_cnt;
@@ -140,13 +119,12 @@ static int vpp_wait_for_framedone(struct vpp_dev *vpp)
 		done_cnt = vpp->done_count;
 		dev_dbg(DEV, "%s (%d, %d)\n", __func__,
 				done_cnt, vpp->done_count);
-		ret = wait_event_interruptible_timeout(vpp->update_queue,
+		ret = wait_event_interruptible_timeout(vpp->framedone_wq,
 				(done_cnt != vpp->done_count),
 				msecs_to_jiffies(17));
 		if (ret == 0) {
-			dev_err(DEV, "timeout of frame done(st:%d, up:%d, %d, do:%d)\n",
-				vpp->start_count, vpp->update_cnt, done_cnt,
-				vpp->done_count);
+			dev_err(DEV, "timeout of frame done(st:%d, %d, do:%d)\n",
+				vpp->start_count, done_cnt, vpp->done_count);
 			return -ETIMEDOUT;
 		}
 	}
@@ -553,7 +531,6 @@ static int vpp_set_config(struct vpp_dev *vpp)
 
 	vpp->start_count++;
 
-	vpp->update_cnt_prev = vpp->update_cnt;
 	DISP_SS_EVENT_LOG(DISP_EVT_VPP_WINCON, vpp->sd, ktime_set(0, 0));
 	return 0;
 err:
@@ -624,10 +601,6 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
 	case VPP_SET_ROT_MIF:
 		vpp->config = (struct decon_win_config *)arg;
 		call_bts_ops(vpp, bts_set_rot_mif, vpp);
-		break;
-
-	case VPP_WAIT_FOR_UPDATE:
-		vpp_wait_for_update(vpp);
 		break;
 
 	case VPP_DUMP:
@@ -784,14 +757,8 @@ static irqreturn_t vpp_irq_handler(int irq, void *priv)
 
 	if (vpp_irq & VG_IRQ_FRAMEDONE) {
 		vpp->done_count++;
+		wake_up_interruptible_all(&vpp->framedone_wq);
 		DISP_SS_EVENT_LOG(DISP_EVT_VPP_FRAMEDONE, vpp->sd, start);
-	}
-
-	if (vpp_irq & VG_IRQ_SFR_UPDATE_DONE) {
-		vpp->update_cnt++;
-		wake_up_interruptible_all(&vpp->update_queue);
-		DISP_SS_EVENT_LOG(DISP_EVT_VPP_SHADOW_UPDATE,
-						vpp->sd, ktime_set(0, 0));
 	}
 
 	dev_dbg(DEV, "irq status : 0x%x\n", vpp_irq);
@@ -1001,7 +968,7 @@ static int vpp_probe(struct platform_device *pdev)
 	vpp_clk_info(vpp);
 
 	init_waitqueue_head(&vpp->stop_queue);
-	init_waitqueue_head(&vpp->update_queue);
+	init_waitqueue_head(&vpp->framedone_wq);
 
 	platform_set_drvdata(pdev, vpp);
 	pm_runtime_enable(dev);

@@ -184,7 +184,6 @@ void vpp_reg_set_realtime_path(u32 id);
 void vpp_reg_set_framedone_irq(u32 id, u32 enable);
 void vpp_reg_set_deadlock_irq(u32 id, u32 enable);
 void vpp_reg_set_read_slave_err_irq(u32 id, u32 enable);
-void vpp_reg_set_sfr_update_done_irq(u32 id, u32 enable);
 void vpp_reg_set_hw_reset_done_mask(u32 id, u32 enable);
 void vpp_reg_set_lookup_table(u32 id);
 void vpp_reg_set_enable_interrupt(u32 id);

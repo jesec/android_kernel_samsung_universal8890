@@ -117,13 +117,11 @@ struct vpp_dev {
 	struct clk			*gate_clk;
 	struct vpp_resources		res;
 	wait_queue_head_t		stop_queue;
-	wait_queue_head_t		update_queue;
+	wait_queue_head_t		framedone_wq;
 	struct timer_list		op_timer;
 	u32				start_count;
 	u32				done_count;
-	u32				update_cnt;
-	u32				update_cnt_prev;
-	struct decon_win_config	*config;
+	struct decon_win_config		*config;
 	struct pm_qos_request		*vpp_disp_qos;
 	struct pm_qos_request		*vpp_int_qos;
 	struct pm_qos_request		vpp_mif_qos;

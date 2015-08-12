@@ -35,12 +35,10 @@
 #define VG_IRQ_DEADLOCK_STATUS_MASK		(1 << 2)
 #define VG_IRQ_READ_SLAVE_ERROR_MASK		(1 << 4)
 #define VG_IRQ_HW_RESET_DONE_MASK		(1 << 5)
-#define VG_IRQ_SFR_UPDATE_DONE_MASK		(1 << 6)
 #define VG_IRQ_FRAMEDONE			(1 << 16)
 #define VG_IRQ_DEADLOCK_STATUS			(1 << 17)
 #define VG_IRQ_READ_SLAVE_ERROR			(1 << 19)
 #define VG_IRQ_HW_RESET_DONE			(1 << 20)
-#define VG_IRQ_SFR_UPDATE_DONE			(1 << 21)
 
 /* IDMA_VG(R)x_IN_CON */
 #define VG_IN_CON				(0x08)

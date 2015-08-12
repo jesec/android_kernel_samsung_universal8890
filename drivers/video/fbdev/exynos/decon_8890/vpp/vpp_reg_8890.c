@@ -116,12 +116,6 @@ void vpp_reg_set_read_slave_err_irq(u32 id, u32 enable)
 	vpp_write_mask(id, VG_IRQ, val, VG_IRQ_READ_SLAVE_ERROR_MASK);
 }
 
-void vpp_reg_set_sfr_update_done_irq(u32 id, u32 enable)
-{
-	u32 val = enable ? ~0 : 0;
-	vpp_write_mask(id, VG_IRQ, val, VG_IRQ_SFR_UPDATE_DONE_MASK);
-}
-
 void vpp_reg_set_sfr_update_force(u32 id)
 {
 	vpp_write_mask(id, VG_ENABLE, ~0, VG_ENABLE_SFR_UPDATE_FORCE);
@@ -455,9 +449,8 @@ void vpp_reg_set_dynamic_clock_gating(u32 id)
 int vpp_reg_get_irq_status(u32 id)
 {
 	u32 cfg = vpp_read(id, VG_IRQ);
-	cfg &= (VG_IRQ_SFR_UPDATE_DONE | VG_IRQ_HW_RESET_DONE |
-			VG_IRQ_READ_SLAVE_ERROR | VG_IRQ_DEADLOCK_STATUS |
-			VG_IRQ_FRAMEDONE);
+	cfg &= (VG_IRQ_HW_RESET_DONE | VG_IRQ_READ_SLAVE_ERROR |
+		       VG_IRQ_DEADLOCK_STATUS |	VG_IRQ_FRAMEDONE);
 	return cfg;
 }
 
@@ -634,7 +627,6 @@ void vpp_reg_init(u32 id)
 	vpp_reg_set_deadlock_irq(id, false);
 	vpp_reg_set_read_slave_err_irq(id, false);
 	vpp_reg_set_hw_reset_done_mask(id, false);
-	vpp_reg_set_sfr_update_done_irq(id, false);
 	vpp_reg_set_enable_interrupt(id);
 	vpp_reg_set_lookup_table(id);
 	vpp_reg_set_dynamic_clock_gating(id);
@@ -652,7 +644,6 @@ void vpp_reg_deinit(u32 id, u32 reset_en)
 	vpp_reg_set_deadlock_irq(id, true);
 	vpp_reg_set_read_slave_err_irq(id, true);
 	vpp_reg_set_hw_reset_done_mask(id, true);
-	vpp_reg_set_sfr_update_done_irq(id, true);
 	if (reset_en)
 		vpp_reg_set_sw_reset(id);
 }

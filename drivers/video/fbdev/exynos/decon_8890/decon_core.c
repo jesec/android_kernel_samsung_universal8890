@@ -1900,21 +1900,6 @@ static void decon_check_vpp_used(struct decon_device *decon,
 	}
 }
 
-void decon_vpp_wait_for_update(struct decon_device *decon,
-		struct decon_reg_data *regs)
-{
-	int i = 0;
-	struct v4l2_subdev *sd = NULL;
-
-	for (i = 0; i < MAX_VPP_SUBDEV; i++) {
-		if (decon->vpp_used[i] && (!(decon->vpp_usage_bitmask & (1 << i)))) {
-			sd = decon->mdev->vpp_sd[i];
-			v4l2_subdev_call(sd, core, ioctl,
-					VPP_WAIT_FOR_UPDATE, NULL);
-		}
-	}
-}
-
 void decon_vpp_wait_wb_framedone(struct decon_device *decon)
 {
 	struct v4l2_subdev *sd = NULL;
