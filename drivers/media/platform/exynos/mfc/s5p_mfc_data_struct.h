@@ -268,9 +268,6 @@ struct s5p_mfc_dev {
 	unsigned int int_err;
 	wait_queue_head_t queue;
 
-	size_t port_a;
-	size_t port_b;
-
 	unsigned long hw_lock;
 
 	/*
@@ -293,7 +290,7 @@ struct s5p_mfc_dev {
 	struct workqueue_struct *watchdog_wq;
 	struct work_struct watchdog_work;
 
-	struct vb2_alloc_ctx **alloc_ctx;
+	struct vb2_alloc_ctx *alloc_ctx;
 
 	unsigned long clk_state;
 
@@ -838,15 +835,10 @@ struct s5p_mfc_ctx {
 	int mv_size;
 
 	/* Buffers */
-	void *port_a_buf;
-	size_t port_a_phys;
-	size_t port_a_size;
-	void *port_a_virt;
-
-	void *port_b_buf;
-	size_t port_b_phys;
-	size_t port_b_size;
-	void *port_b_virt;
+	void *codec_buf;
+	size_t codec_buf_phys;
+	size_t codec_buf_size;
+	void *codec_buf_virt;
 
 	enum s5p_mfc_queue_state capture_state;
 	enum s5p_mfc_queue_state output_state;

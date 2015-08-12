@@ -32,7 +32,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	unsigned int mb_width, mb_height;
 	unsigned int lcu_width = 0, lcu_height = 0;
 	void *alloc_ctx;
-	int i, add_size0 = 0, add_size1 = 0;
+	int i;
 
 	mfc_debug_enter();
 	if (!ctx) {
@@ -46,7 +46,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 	}
 	dec = ctx->dec_priv;
 	enc = ctx->enc_priv;
-	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx;
 
 	mb_width = mb_width(ctx->img_width);
 	mb_height = mb_height(ctx->img_height);
@@ -138,10 +138,9 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->scratch_buf_size =
 				DEC_V65_H264_SCRATCH_SIZE(mb_width, mb_height);
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size +
 			(dec->mv_count * ctx->mv_size);
-		ctx->port_a_size += add_size1;
 		break;
 	case S5P_FIMV_CODEC_MPEG4_DEC:
 	case S5P_FIMV_CODEC_FIMV1_DEC:
@@ -160,10 +159,8 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->scratch_buf_size =
 				DEC_V65_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
 
-		ctx->scratch_buf_size += add_size0;
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size = ctx->scratch_buf_size;
-		ctx->port_a_size += add_size1;
+		ctx->codec_buf_size = ctx->scratch_buf_size;
 		break;
 	case S5P_FIMV_CODEC_VC1RCV_DEC:
 	case S5P_FIMV_CODEC_VC1_DEC:
@@ -176,8 +173,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->scratch_buf_size =
 				DEC_V65_VC1_SCRATCH_SIZE(mb_width, mb_height);
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size = ctx->scratch_buf_size;
-		ctx->port_a_size += add_size1;
+		ctx->codec_buf_size = ctx->scratch_buf_size;
 		break;
 	case S5P_FIMV_CODEC_MPEG2_DEC:
 		if (mfc_version(dev) == 0x61)
@@ -188,11 +184,8 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		else
 			ctx->scratch_buf_size =
 				DEC_V65_MPEG2_SCRATCH_SIZE(mb_width, mb_height);
-		ctx->scratch_buf_size += add_size0;
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size = ctx->scratch_buf_size;
-		ctx->port_a_size += add_size1;
-		ctx->port_b_size = 0;
+		ctx->codec_buf_size = ctx->scratch_buf_size;
 		break;
 	case S5P_FIMV_CODEC_H263_DEC:
 		if (mfc_version(dev) == 0x61)
@@ -207,8 +200,7 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->scratch_buf_size =
 				DEC_V65_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size = ctx->scratch_buf_size;
-		ctx->port_a_size += add_size1;
+		ctx->codec_buf_size = ctx->scratch_buf_size;
 		break;
 	case S5P_FIMV_CODEC_VP8_DEC:
 		if (mfc_version(dev) == 0x61)
@@ -223,26 +215,23 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->scratch_buf_size =
 				DEC_V65_VP8_SCRATCH_SIZE(mb_width, mb_height);
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size = ctx->scratch_buf_size;
-		ctx->port_a_size += add_size1;
+		ctx->codec_buf_size = ctx->scratch_buf_size;
 		break;
 	case S5P_FIMV_CODEC_VP9_DEC:
 		if (IS_MFCv9X(dev) || IS_MFCv10X(dev))
 			mfc_debug(2, "Use min scratch buffer size \n");
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size +
 			DEC_V90_STATIC_BUFFER_SIZE;
-		ctx->port_a_size += add_size1;
 		break;
 	case S5P_FIMV_CODEC_HEVC_DEC:
 		if (IS_MFCv9X(dev) || IS_MFCv10X(dev))
 			mfc_debug(2, "Use min scratch buffer size \n");
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size +
 			(dec->mv_count * ctx->mv_size);
-		ctx->port_a_size += add_size1;
 		break;
 	case S5P_FIMV_CODEC_H264_ENC:
 		if (mfc_version(dev) == 0x61) {
@@ -262,11 +251,10 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 				ENC_V65_H264_SCRATCH_SIZE(mb_width, mb_height);
 		}
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size + enc->tmv_buffer_size +
 			(ctx->dpb_count * (enc->luma_dpb_size +
 			enc->chroma_dpb_size + enc->me_buffer_size));
-		ctx->port_b_size = 0;
 
 		ctx->scratch_buf_size = max(ctx->scratch_buf_size, ctx->min_scratch_buf_size);
 		ctx->min_scratch_buf_size = 0;
@@ -287,11 +275,10 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 				ENC_V65_MPEG4_SCRATCH_SIZE(mb_width, mb_height);
 		}
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size + enc->tmv_buffer_size +
 			(ctx->dpb_count * (enc->luma_dpb_size +
 			enc->chroma_dpb_size + enc->me_buffer_size));
-		ctx->port_b_size = 0;
 		break;
 	case S5P_FIMV_CODEC_VP8_ENC:
 		if (IS_MFCv8X(dev)) {
@@ -309,11 +296,10 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		}
 
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size + enc->tmv_buffer_size +
 			(ctx->dpb_count * (enc->luma_dpb_size +
 			enc->chroma_dpb_size + enc->me_buffer_size));
-		ctx->port_b_size = 0;
 		break;
 	case S5P_FIMV_CODEC_VP9_ENC:
 		if (IS_MFCv9X(dev)) {
@@ -329,11 +315,10 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		}
 
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size + enc->tmv_buffer_size +
 			(ctx->dpb_count * (enc->luma_dpb_size +
 			enc->chroma_dpb_size + enc->me_buffer_size));
-		ctx->port_b_size = 0;
 		break;
 	case S5P_FIMV_CODEC_HEVC_ENC:
 		if (IS_MFCv9X(dev)) {
@@ -348,11 +333,10 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			break;
 		}
 		ctx->scratch_buf_size = ALIGN(ctx->scratch_buf_size, 256);
-		ctx->port_a_size =
+		ctx->codec_buf_size =
 			ctx->scratch_buf_size + enc->tmv_buffer_size +
 			(ctx->dpb_count * (enc->luma_dpb_size +
 			enc->chroma_dpb_size + enc->me_buffer_size));
-		ctx->port_b_size = 0;
 		break;
 	default:
 		break;
@@ -362,21 +346,21 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		alloc_ctx = dev->alloc_ctx_drm;
 
 	/* Allocate only if memory from bank 1 is necessary */
-	if (ctx->port_a_size > 0) {
-		ctx->port_a_buf = s5p_mfc_mem_alloc_priv(
-				alloc_ctx, ctx->port_a_size);
-		if (IS_ERR(ctx->port_a_buf)) {
-			ctx->port_a_buf = 0;
+	if (ctx->codec_buf_size > 0) {
+		ctx->codec_buf = s5p_mfc_mem_alloc_priv(
+				alloc_ctx, ctx->codec_buf_size);
+		if (IS_ERR(ctx->codec_buf)) {
+			ctx->codec_buf = 0;
 			printk(KERN_ERR
 			       "Buf alloc for decoding failed (port A).\n");
 			return 0;
 		}
-		ctx->port_a_phys = s5p_mfc_mem_daddr_priv(ctx->port_a_buf);
-		ctx->port_a_virt = s5p_mfc_mem_vaddr_priv(ctx->port_a_buf);
-		if (!ctx->port_a_virt) {
-			s5p_mfc_mem_free_priv(ctx->port_a_buf);
-			ctx->port_a_buf = NULL;
-			ctx->port_a_phys = 0;
+		ctx->codec_buf_phys = s5p_mfc_mem_daddr_priv(ctx->codec_buf);
+		ctx->codec_buf_virt = s5p_mfc_mem_vaddr_priv(ctx->codec_buf);
+		if (!ctx->codec_buf_virt) {
+			s5p_mfc_mem_free_priv(ctx->codec_buf);
+			ctx->codec_buf = NULL;
+			ctx->codec_buf_phys = 0;
 
 			mfc_err_ctx("Get vaddr for codec buffer failed.\n");
 			return 0;
@@ -395,11 +379,11 @@ void s5p_mfc_release_codec_buffers(struct s5p_mfc_ctx *ctx)
 		mfc_err("no mfc context to run\n");
 		return;
 	}
-	if (ctx->port_a_buf) {
-		s5p_mfc_mem_free_priv(ctx->port_a_buf);
-		ctx->port_a_buf = 0;
-		ctx->port_a_phys = 0;
-		ctx->port_a_size = 0;
+	if (ctx->codec_buf) {
+		s5p_mfc_mem_free_priv(ctx->codec_buf);
+		ctx->codec_buf = 0;
+		ctx->codec_buf_phys = 0;
+		ctx->codec_buf_size = 0;
 	}
 }
 
@@ -421,7 +405,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 		return -EINVAL;
 	}
 	buf_size = dev->variant->buf_size->buf;
-	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx;
 
 	switch (ctx->codec_mode) {
 	case S5P_FIMV_CODEC_H264_DEC:
@@ -521,7 +505,7 @@ static int mfc_alloc_dev_context_buffer(struct s5p_mfc_dev *dev,
 		return -EINVAL;
 	}
 	buf_size = dev->variant->buf_size->buf;
-	alloc_ctx = dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx;
 	ctx_buf = &dev->ctx_buf;
 	fw_ofs = dev->fw_info.ofs;
 
@@ -916,14 +900,14 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
-	size_t buf_addr1;
-	long buf_size1;
+	dma_addr_t buf_addr1;
+	size_t buf_size1;
 	int i;
 
 	mfc_debug_enter();
 
-	buf_addr1 = ctx->port_a_phys;
-	buf_size1 = ctx->port_a_size;
+	buf_addr1 = ctx->codec_buf_phys;
+	buf_size1 = ctx->codec_buf_size;
 
 	mfc_debug(2, "Buf1: %p (%ld)\n", (void *)buf_addr1, buf_size1);
 
@@ -951,8 +935,8 @@ int s5p_mfc_set_enc_ref_buffer(struct s5p_mfc_ctx *ctx)
 		buf_size1 -= enc->tmv_buffer_size;
 	}
 
-	mfc_debug(2, "Buf1: %zu, buf_size1: %ld (ref frames %d)\n",
-			buf_addr1, buf_size1, ctx->dpb_count);
+	mfc_debug(2, "Buf1: %p, buf_size1: %ld (ref frames %d)\n",
+			(void *)buf_addr1, buf_size1, ctx->dpb_count);
 	if (buf_size1 < 0) {
 		mfc_debug(2, "Not enough memory has been allocated.\n");
 		return -ENOMEM;
@@ -1055,8 +1039,8 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_dec *dec;
 	unsigned int i, frame_size_mv;
-	size_t buf_addr1;
-	long buf_size1;
+	dma_addr_t buf_addr1;
+	size_t buf_size1;
 	int align_gap;
 	struct s5p_mfc_buf *buf;
 	struct s5p_mfc_raw_info *raw, *tiled_ref;
@@ -1082,8 +1066,8 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 
 	raw = &ctx->raw_buf;
 	tiled_ref = &dec->tiled_ref;
-	buf_addr1 = ctx->port_a_phys;
-	buf_size1 = ctx->port_a_size;
+	buf_addr1 = ctx->codec_buf_phys;
+	buf_size1 = ctx->codec_buf_size;
 
 	mfc_debug(2, "Buf1: %p (%ld)\n", (void *)buf_addr1, buf_size1);
 	mfc_debug(2, "Total DPB COUNT: %d\n", dec->total_dpb_count);
@@ -1231,15 +1215,15 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 			align_gap = buf_addr1 - align_gap;
 			buf_size1 -= align_gap;
 
-			mfc_debug(2, "\tBuf1: %zu, size: %ld\n", buf_addr1, buf_size1);
+			mfc_debug(2, "\tBuf1: %p, size: %ld\n", (void *)buf_addr1, buf_size1);
 			MFC_WRITEL(buf_addr1, S5P_FIMV_D_MV_BUFFER0 + i * 4);
 			buf_addr1 += frame_size_mv;
 			buf_size1 -= frame_size_mv;
 		}
 	}
 
-	mfc_debug(2, "Buf1: %zu, buf_size1: %ld (frames %d)\n",
-			buf_addr1, buf_size1, dec->total_dpb_count);
+	mfc_debug(2, "Buf1: %p, buf_size1: %ld (frames %d)\n",
+			(void *)buf_addr1, buf_size1, dec->total_dpb_count);
 	if (buf_size1 < 0) {
 		mfc_debug(2, "Not enough memory has been allocated.\n");
 		return -ENOMEM;

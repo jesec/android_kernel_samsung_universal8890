@@ -22,11 +22,6 @@
 *  while mmaping */
 #define DST_QUEUE_OFF_BASE      (TASK_SIZE / 2)
 
-#define MFC_BANK_A_ALLOC_CTX	0
-#define MFC_BANK_B_ALLOC_CTX	1
-
-#define MFC_FW_ALLOC_CTX	MFC_BANK_A_ALLOC_CTX
-
 static inline dma_addr_t s5p_mfc_mem_plane_addr(
 	struct s5p_mfc_ctx *c, struct vb2_buffer *v, unsigned int n)
 {
@@ -81,8 +76,6 @@ static inline void s5p_mfc_mem_finish(struct vb2_buffer *vb)
 }
 
 struct vb2_mem_ops *s5p_mfc_mem_ops(void);
-void **s5p_mfc_mem_init_multi(struct device *dev, unsigned int ctx_num);
-void s5p_mfc_mem_cleanup_multi(void **alloc_ctxes, unsigned int ctx_num);
 
 void s5p_mfc_mem_set_cacheable(void *alloc_ctx, bool cacheable);
 void s5p_mfc_mem_clean_priv(void *vb_priv, void *start, off_t offset,

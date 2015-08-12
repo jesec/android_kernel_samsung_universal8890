@@ -23,46 +23,6 @@ struct vb2_mem_ops *s5p_mfc_mem_ops(void)
 	return (struct vb2_mem_ops *)&vb2_ion_memops;
 }
 
-void **s5p_mfc_mem_init_multi(struct device *dev, unsigned int ctx_num)
-{
-
-	struct s5p_mfc_dev *m_dev = platform_get_drvdata(to_platform_device(dev));
-	void **alloc_ctxes;
-	unsigned int i;
-
-	alloc_ctxes = kmalloc(sizeof(*alloc_ctxes) * ctx_num, GFP_KERNEL);
-	if (!alloc_ctxes)
-		return NULL;
-
-	for (i = 0; i < ctx_num; i++) {
-		alloc_ctxes[i] = vb2_ion_create_context(dev,
-				IS_MFCV6(m_dev) ? SZ_4K : SZ_128K,
-				VB2ION_CTX_VMCONTIG |
-				VB2ION_CTX_IOMMU |
-				VB2ION_CTX_UNCACHED);
-		if (IS_ERR(alloc_ctxes[i]))
-			break;
-	}
-
-	if (i < ctx_num) {
-		while (i-- > 0)
-			vb2_ion_destroy_context(alloc_ctxes[i]);
-
-		kfree(alloc_ctxes);
-		alloc_ctxes = NULL;
-	}
-
-	return alloc_ctxes;
-}
-
-void s5p_mfc_mem_cleanup_multi(void **alloc_ctxes, unsigned int ctx_num)
-{
-	while (ctx_num-- > 0)
-		vb2_ion_destroy_context(alloc_ctxes[ctx_num]);
-
-	kfree(alloc_ctxes);
-}
-
 void s5p_mfc_mem_set_cacheable(void *alloc_ctx, bool cacheable)
 {
 	vb2_ion_set_cached(alloc_ctx, cacheable);
@@ -166,7 +126,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	buf_size = dev->variant->buf_size->buf;
 	base_align = dev->variant->buf_align->mfc_base_align;
 	firmware_size = dev->variant->buf_size->firmware_code;
-	alloc_ctx = dev->alloc_ctx[MFC_FW_ALLOC_CTX];
+	alloc_ctx = dev->alloc_ctx;
 
 	if (dev->fw_info.alloc)
 		return 0;
@@ -204,11 +164,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 		return -EIO;
 	}
 
-	dev->port_a = dev->fw_info.ofs;
-	dev->port_b = dev->fw_info.ofs;
-
-	mfc_debug(2, "Port A: %08zu Port B: %08zu (FW: %08lx size: %08zu)\n",
-			dev->port_a, dev->port_b,
+	mfc_debug(2, "FW: %08lx size: %08zu\n",
 			dev->fw_info.ofs,
 			firmware_size);
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION

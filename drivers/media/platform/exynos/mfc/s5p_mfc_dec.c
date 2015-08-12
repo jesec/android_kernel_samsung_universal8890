@@ -988,8 +988,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		if (ctx->is_drm)
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		else
-			alloc_ctx =
-				ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+			alloc_ctx = ctx->dev->alloc_ctx;
 
 		/* Can only request buffers after
 		   an instance has been opened.*/
@@ -1036,9 +1035,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		if (ctx->is_drm) {
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		} else {
-			alloc_ctx = (!IS_MFCV6(dev)) ?
-				ctx->dev->alloc_ctx[MFC_BANK_B_ALLOC_CTX] :
-				ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+			alloc_ctx = ctx->dev->alloc_ctx;
 		}
 
 		if (ctx->capture_state != QUEUE_FREE) {
@@ -1789,8 +1786,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_dec *dec;
 	struct s5p_mfc_raw_info *raw;
-	void *alloc_ctx1;
-	void *alloc_ctx2;
+	void *alloc_ctx;
 	void *capture_ctx;
 	int i;
 
@@ -1818,8 +1814,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 	}
 
 	raw = &ctx->raw_buf;
-	alloc_ctx1 = ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
-	alloc_ctx2 = ctx->dev->alloc_ctx[MFC_BANK_B_ALLOC_CTX];
+	alloc_ctx = ctx->dev->alloc_ctx;
 
 	/* Video output for decoding (source)
 	 * this can be set after getting an instance */
@@ -1857,16 +1852,12 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		if (ctx->is_drm)
 			capture_ctx = ctx->dev->alloc_ctx_drm;
 		else
-			capture_ctx = alloc_ctx1;
+			capture_ctx = alloc_ctx;
 
 		for (i = 0; i < raw->num_planes; i++) {
 			psize[i] = raw->plane_size[i];
 			allocators[i] = capture_ctx;
 		}
-
-		/* For MFC 5.x only, first allocator should be alloc_ctx2 */
-		if (!ctx->is_drm && IS_MFCv5X(dev))
-			allocators[0] = alloc_ctx2;
 
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
 		   ctx->state == MFCINST_GOT_INST) {
@@ -1875,7 +1866,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		if (ctx->is_drm)
 			allocators[0] = ctx->dev->alloc_ctx_drm;
 		else
-			allocators[0] = alloc_ctx1;
+			allocators[0] = alloc_ctx;
 
 	} else {
 		mfc_err_ctx("Currently only decoding is supported. Decoding not initalised.\n");

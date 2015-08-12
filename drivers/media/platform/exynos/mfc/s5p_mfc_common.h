@@ -101,9 +101,6 @@
 #define MFC_VER_MAJOR(dev)	((mfc_version(dev) >> 4) & 0xF)
 #define MFC_VER_MINOR(dev)	(mfc_version(dev) & 0xF)
 
-#define IS_TWOPORT(dev)		(mfc_version(dev) == 0x51)
-#define NUM_OF_PORT(dev)	(IS_TWOPORT(dev) ? 2 : 1)
-#define NUM_OF_ALLOC_CTX(dev)	(NUM_OF_PORT(dev) + 1)
 /*
  * Version Description
  *

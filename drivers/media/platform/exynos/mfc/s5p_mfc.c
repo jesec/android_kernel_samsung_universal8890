@@ -2336,7 +2336,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 	struct video_device *vfd;
 	struct resource *res;
 	int ret = -ENOENT;
-	unsigned int alloc_ctx_num;
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	int i;
 #endif
@@ -2565,10 +2564,12 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 #endif
 
 	/* default FW alloc is added */
-	alloc_ctx_num = NUM_OF_ALLOC_CTX(dev);
-	dev->alloc_ctx = (struct vb2_alloc_ctx **)
-			s5p_mfc_mem_init_multi(&pdev->dev, alloc_ctx_num);
-
+	dev->alloc_ctx = (struct vb2_alloc_ctx *)
+		vb2_ion_create_context(&pdev->dev,
+			IS_MFCV6(dev) ? SZ_4K : SZ_128K,
+			VB2ION_CTX_VMCONTIG |
+			VB2ION_CTX_IOMMU |
+			VB2ION_CTX_UNCACHED);
 	if (IS_ERR(dev->alloc_ctx)) {
 		mfc_err_dev("Couldn't prepare allocator ctx.\n");
 		ret = PTR_ERR(dev->alloc_ctx);
@@ -2676,8 +2677,7 @@ err_ion_client:
 #endif
 	destroy_workqueue(dev->sched_wq);
 err_wq_sched:
-	s5p_mfc_mem_cleanup_multi((void **)dev->alloc_ctx,
-			alloc_ctx_num);
+	vb2_ion_destroy_context(dev->alloc_ctx);
 alloc_ctx_fail:
 	destroy_workqueue(dev->watchdog_wq);
 err_wq_watchdog:
@@ -2737,8 +2737,7 @@ static int s5p_mfc_remove(struct platform_device *pdev)
 #endif
 	mfc_debug(2, "Will now deinit HW\n");
 	s5p_mfc_deinit_hw(dev);
-	s5p_mfc_mem_cleanup_multi((void **)dev->alloc_ctx,
-					NUM_OF_ALLOC_CTX(dev));
+	vb2_ion_destroy_context(dev->alloc_ctx);
 	free_irq(dev->irq, dev);
 	iounmap(dev->regs_base);
 	release_mem_region(dev->mfc_mem->start, resource_size(dev->mfc_mem));

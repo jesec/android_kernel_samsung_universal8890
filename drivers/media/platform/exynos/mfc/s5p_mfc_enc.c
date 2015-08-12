@@ -1480,8 +1480,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		if (ctx->is_drm)
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		else
-			alloc_ctx =
-				ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+			alloc_ctx = ctx->dev->alloc_ctx;
 
 		if (ctx->capture_state != QUEUE_FREE) {
 			mfc_err_ctx("invalid capture state: %d\n", ctx->capture_state);
@@ -1521,9 +1520,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 		if (ctx->is_drm) {
 			alloc_ctx = ctx->dev->alloc_ctx_drm;
 		} else {
-			alloc_ctx = (!IS_MFCV6(dev)) ?
-				ctx->dev->alloc_ctx[MFC_BANK_B_ALLOC_CTX] :
-				ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
+			alloc_ctx = ctx->dev->alloc_ctx;
 		}
 
 		if (ctx->output_state != QUEUE_FREE) {
@@ -2833,11 +2830,9 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 {
 	struct s5p_mfc_ctx *ctx = vq->drv_priv;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
-	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_raw_info *raw;
 	int i;
-	void *alloc_ctx1 = ctx->dev->alloc_ctx[MFC_BANK_A_ALLOC_CTX];
-	void *alloc_ctx2 = ctx->dev->alloc_ctx[MFC_BANK_B_ALLOC_CTX];
+	void *alloc_ctx = ctx->dev->alloc_ctx;
 	void *output_ctx;
 
 	mfc_debug_enter();
@@ -2868,7 +2863,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		if (ctx->is_drm)
 			allocators[0] = ctx->dev->alloc_ctx_drm;
 		else
-			allocators[0] = alloc_ctx1;
+			allocators[0] = alloc_ctx;
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		raw = &ctx->raw_buf;
 
@@ -2885,10 +2880,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		if (ctx->is_drm) {
 			output_ctx = ctx->dev->alloc_ctx_drm;
 		} else {
-			if (IS_MFCV6(dev))
-				output_ctx = alloc_ctx1;
-			else
-				output_ctx = alloc_ctx2;
+			output_ctx = alloc_ctx;
 		}
 
 		for (i = 0; i < *plane_count; i++) {

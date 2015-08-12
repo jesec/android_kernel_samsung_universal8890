@@ -137,25 +137,11 @@ void s5p_mfc_init_memctrl(struct s5p_mfc_dev *dev,
 
 	fw_info = &dev->fw_info;
 
-	if (IS_MFCV6(dev)) {
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-		if (buf_type == MFCBUF_DRM)
-			fw_info = &dev->drm_fw_info;
+	if (buf_type == MFCBUF_DRM)
+		fw_info = &dev->drm_fw_info;
 
-		MFC_WRITEL(fw_info->ofs, S5P_FIMV_RISC_BASE_ADDRESS);
-		mfc_info_dev("[%d] Base Address : %08lx\n", buf_type, fw_info->ofs);
-#else
-		MFC_WRITEL(dev->port_a, S5P_FIMV_RISC_BASE_ADDRESS);
-		mfc_debug(2, "Base Address : %08zu\n", dev->port_a);
-#endif
-	} else {
-		/* channelA, port0 */
-		MFC_WRITEL(dev->port_a, S5P_FIMV_MC_DRAMBASE_ADR_A);
-		/* channelB, port1 */
-		MFC_WRITEL(dev->port_b, S5P_FIMV_MC_DRAMBASE_ADR_B);
-
-		mfc_debug(2, "Port A: %08zu, Port B: %08zu\n", dev->port_a, dev->port_b);
-	}
+	MFC_WRITEL(fw_info->ofs, S5P_FIMV_RISC_BASE_ADDRESS);
+	mfc_info_dev("[%d] Base Address : %08lx\n", buf_type, fw_info->ofs);
 }
 
 int s5p_mfc_check_int_cmd(struct s5p_mfc_dev *dev)

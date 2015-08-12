@@ -99,7 +99,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 		mfc_debug(3, "End: enable protection\n");
 		spin_unlock_irqrestore(&dev->pm.clklock, flags);
 	} else {
-		ret = s5p_mfc_mem_resume(dev->alloc_ctx[0]);
+		ret = s5p_mfc_mem_resume(dev->alloc_ctx);
 		if (ret < 0) {
 			dev->pm.clock_on_steps |= 0x1 << 4;
 			clk_disable(dev->pm.clock);
@@ -205,7 +205,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
 		} else {
 			dev->pm.clock_off_steps |= 0x1 << 7;
-			s5p_mfc_mem_suspend(dev->alloc_ctx[0]);
+			s5p_mfc_mem_suspend(dev->alloc_ctx);
 		}
 		dev->pm.clock_off_steps |= 0x1 << 8;
 		clk_disable(dev->pm.clock);
