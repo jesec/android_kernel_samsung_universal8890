@@ -11,6 +11,95 @@
 #ifndef __EXYNOS_BTS_H_
 #define __EXYNOS_BTS_H_
 
+#if defined(CONFIG_EXYNOS5422_BTS) || defined(CONFIG_EXYNOS5433_BTS)	\
+	|| defined(CONFIG_EXYNOS7420_BTS) || defined(CONFIG_EXYNOS7890_BTS) \
+	|| defined(CONFIG_EXYNOS8890_BTS)
+enum bts_scen_type {
+	TYPE_MFC_UD_ENCODING = 0,
+	TYPE_MFC_UD_DECODING,
+	TYPE_LAYERS,
+	TYPE_G3D_FREQ,
+	TYPE_G3D_SCENARIO,
+	TYPE_ROTATION,
+};
+
+void bts_scen_update(enum bts_scen_type type, unsigned int val);
+#else
+#define bts_scen_update(a, b) do {} while(0)
+#endif
+
+#ifdef CONFIG_EXYNOS8890_BTS_OPTIMIZATION
+#define MULTI_FACTOR 		(1 << 10)
+#define MIF_UTIL		70
+#define INT_UTIL		70
+#define BUS_WIDTH		16
+
+#define RGB_FACTOR 		40
+#define RGB16_FACTOR 		20
+#define YUV_FACTOR 		15
+#define PIXEL_BUFFER		28000
+#define RGBBUF_FACTOR		20
+#define RGB16BUF_FACTOR		28
+#define YUVBUF_FACTOR		36
+#define PEAK_FACTOR		12
+#define FPS			60
+#define VBI_FACTOR		16000
+#define ROT_FACTOR		1
+
+enum bts_media_type {
+	TYPE_VPP0 = 0,
+	TYPE_VPP1,
+	TYPE_VPP2,
+	TYPE_VPP3,
+	TYPE_VPP4,
+	TYPE_VPP5,
+	TYPE_VPP6,
+	TYPE_VPP7,
+	TYPE_VPP8,
+	TYPE_CAM,
+	TYPE_MFC,
+};
+
+enum bts_ip_type {
+	IP_VPP = 0,
+	IP_CAM,
+	IP_MFC,
+	IP_NUM,
+};
+
+struct bts_hw {
+	enum bts_media_type *ip_type;
+};
+
+struct bts_vpp_info {
+	struct bts_hw	hw;
+	unsigned int	src_h;
+	unsigned int	src_w;
+	unsigned int	dst_h;
+	unsigned int	dst_w;
+	unsigned int	bpp;
+	bool		is_rotation;
+
+	u64		cur_bw;
+	u64		peak_bw;
+};
+
+#define to_bts_vpp(_hw)	container_of(_hw, struct bts_vpp_info, hw)
+
+#if defined(CONFIG_EXYNOS8890_BTS)
+void exynos_update_bw(enum bts_media_type ip_type,
+		unsigned int sum_bw, unsigned int peak_bw);
+void bts_ext_scenario_set(enum bts_media_type ip_type,
+				enum bts_scen_type scen_type, bool on);
+struct bts_vpp_info *exynos_bw_calc(enum bts_media_type ip_type, struct bts_hw *bw);
+#else
+#define exynos_update_bw(a, b, c) do {} while (0)
+#define bts_ext_scenario_set(a, b, c) do {} while (0)
+#define exynos_bw_calc(a, b) do {} while (0)
+#endif
+
+#else /* BTS_OPTIMIZATION */
+
 #if defined(CONFIG_EXYNOS8890_BTS)
 #define CAM_FACTOR		3
 #define MIF_UTIL		50
@@ -71,6 +160,8 @@ void exynos_update_media_scenario(enum bts_media_type media_type,
 #define exynos_update_media_scenario(a, b, c) do {} while (0)
 #endif
 
+#endif /* BTS_OPTIMIZATION */
+
 #if defined(CONFIG_EXYNOS7420_BTS) || defined(CONFIG_EXYNOS7890_BTS)
 void exynos7_update_media_scenario(enum bts_media_type media_type,
 		unsigned int bw, int bw_type);
@@ -108,22 +199,6 @@ void exynos5_bts_show_mo_status(void);
 void bts_otf_initialize(unsigned int id, bool on);
 #else
 #define bts_otf_initialize(a, b) do {} while (0)
-#endif
-
-#if defined(CONFIG_EXYNOS5422_BTS) || defined(CONFIG_EXYNOS5433_BTS)	\
-	|| defined(CONFIG_EXYNOS7420_BTS) || defined(CONFIG_EXYNOS7890_BTS) \
-	|| defined(CONFIG_EXYNOS8890_BTS)
-enum bts_scen_type {
-	TYPE_MFC_UD_ENCODING = 0,
-	TYPE_MFC_UD_DECODING,
-	TYPE_LAYERS,
-	TYPE_G3D_FREQ,
-	TYPE_G3D_SCENARIO,
-};
-
-void bts_scen_update(enum bts_scen_type type, unsigned int val);
-#else
-#define bts_scen_update(a, b) do {} while(0)
 #endif
 
 #endif

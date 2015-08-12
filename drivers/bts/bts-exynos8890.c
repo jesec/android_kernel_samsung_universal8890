@@ -28,9 +28,13 @@
 #define MIF_BLK_NUM		4
 #define TREX_SCI_NUM		2
 
+#define BTS_DISP		(BTS_TREX_DISP0_0 | BTS_TREX_DISP0_1 | \
+				BTS_TREX_DISP1_0 | BTS_TREX_DISP1_1)
 #define BTS_RT			(BTS_TREX_DISP0_0 | BTS_TREX_DISP0_1 | \
 				BTS_TREX_DISP1_0 | BTS_TREX_DISP1_1 | \
 				BTS_TREX_ISP0 | BTS_TREX_CAM0 | BTS_TREX_CP)
+
+#define update_rot_scen(a)	(pr_state.rot_scen = a)
 
 #ifdef BTS_DBGGEN
 #define BTS_DBG(x...) 		pr_err(x)
@@ -78,6 +82,7 @@ enum bts_index {
 enum exynos_bts_scenario {
 	BS_DISABLE,
 	BS_DEFAULT,
+	BS_ROTATION,
 	BS_DEBUG,
 	BS_MAX,
 };
@@ -134,11 +139,19 @@ struct bts_info {
 	enum exynos_bts_scenario top_scen;
 };
 
+struct bts_scen_status {
+	bool rot_scen;
+};
+
 struct bts_scenario {
 	const char *name;
 	u64 ip;
 	enum exynos_bts_scenario id;
 	struct bts_info *head;
+};
+
+struct bts_scen_status pr_state = {
+	.rot_scen = false,
 };
 
 struct clk_info {
@@ -151,15 +164,20 @@ static void __iomem *base_smc[MIF_BLK_NUM];
 static void __iomem *base_trex[TREX_SCI_NUM];
 
 static DEFINE_MUTEX(media_mutex);
+
+#ifdef CONFIG_EXYNOS8890_BTS_OPTIMIZATION
+static unsigned int prev_mo;
+static unsigned int vpp_rot[VPP_MAX];
+#else
 static unsigned int vpp_bw[VPP_STAT][VPP_MAX];
 static unsigned int cam_bw, sum_rot_bw, total_bw;
 static enum vpp_bw_type vpp_status[VPP_MAX];
+static unsigned int mif_freq, int_freq;
+#endif
 static struct pm_qos_request exynos8_mif_bts_qos;
 static struct pm_qos_request exynos8_int_bts_qos;
 static struct srcu_notifier_head exynos_media_notifier;
 static struct clk_info clk_table[0];
-
-static unsigned int mif_freq, int_freq;
 
 static struct bts_info exynos8_bts[] = {
 	[BTS_IDX_TREX_DISP0_0] = {
@@ -172,6 +190,11 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_ROTATION].fn = BF_SETTREXQOS_MO_RT,
+		.table[BS_ROTATION].priority = 0x0000000A,
+		.table[BS_ROTATION].mo = 0x20,
+		.table[BS_ROTATION].timeout = 0x40,
+		.table[BS_ROTATION].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -187,6 +210,11 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_ROTATION].fn = BF_SETTREXQOS_MO_RT,
+		.table[BS_ROTATION].priority = 0x0000000A,
+		.table[BS_ROTATION].mo = 0x20,
+		.table[BS_ROTATION].timeout = 0x40,
+		.table[BS_ROTATION].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -202,6 +230,11 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_ROTATION].fn = BF_SETTREXQOS_MO_RT,
+		.table[BS_ROTATION].priority = 0x0000000A,
+		.table[BS_ROTATION].mo = 0x20,
+		.table[BS_ROTATION].timeout = 0x40,
+		.table[BS_ROTATION].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -217,6 +250,11 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x40,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_ROTATION].fn = BF_SETTREXQOS_MO_RT,
+		.table[BS_ROTATION].priority = 0x0000000A,
+		.table[BS_ROTATION].mo = 0x20,
+		.table[BS_ROTATION].timeout = 0x40,
+		.table[BS_ROTATION].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -403,6 +441,11 @@ static struct bts_scenario bts_scen[] = {
 	[BS_DEFAULT] = {
 		.name = "bts_default",
 		.id = BS_DEFAULT,
+	},
+	[BS_ROTATION] = {
+		.name = "bts_rotation",
+		.ip = BTS_DISP,
+		.id = BS_ROTATION,
 	},
 	[BS_DEBUG] = {
 		.name = "bts_dubugging_ip",
@@ -625,6 +668,13 @@ void bts_scen_update(enum bts_scen_type type, unsigned int val)
 	spin_lock(&bts_lock);
 
 	switch (type) {
+	case TYPE_ROTATION:
+		on = val ? true : false;
+		scen = BS_ROTATION;
+		bts = &exynos8_bts[BTS_IDX_TREX_DISP0_0];
+		BTS_DBG("[BTS] ROTATION: %s\n", bts_scen[scen].name);
+		update_rot_scen(val);
+		break;
 	default:
 		spin_unlock(&bts_lock);
 		return;
@@ -759,6 +809,182 @@ static int exynos_bts_notifier_event(struct notifier_block *this,
 static struct notifier_block exynos_bts_notifier = {
 	.notifier_call = exynos_bts_notifier_event,
 };
+
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+unsigned int ip_sum_bw[IP_NUM];
+unsigned int ip_peak_bw[IP_NUM];
+
+void exynos_update_bw(enum bts_media_type ip_type,
+		unsigned int sum_bw, unsigned int peak_bw)
+{
+	unsigned int ip_sum, ip_peak;
+	unsigned int int_freq;
+	unsigned int mif_freq;
+	int i;
+
+	mutex_lock(&media_mutex);
+
+	switch (ip_type) {
+	case TYPE_VPP0:
+	case TYPE_VPP1:
+	case TYPE_VPP2:
+	case TYPE_VPP3:
+	case TYPE_VPP4:
+	case TYPE_VPP5:
+	case TYPE_VPP6:
+	case TYPE_VPP7:
+	case TYPE_VPP8:
+		ip_sum_bw[IP_VPP] = sum_bw;
+		ip_peak_bw[IP_VPP] = peak_bw;
+		break;
+	case TYPE_CAM:
+		ip_sum_bw[IP_CAM] = sum_bw;
+		ip_peak_bw[IP_CAM] = peak_bw;
+		break;
+	case TYPE_MFC:
+		ip_sum_bw[IP_MFC] = sum_bw;
+		ip_peak_bw[IP_MFC] = peak_bw;
+		break;
+	default:
+		pr_err("BTS : unsupported ip type - %u", ip_type);
+		break;
+	}
+
+	ip_sum = 0;
+	ip_peak = ip_peak_bw[0];
+	for (i = 0; i < IP_NUM; i++) {
+		ip_sum += ip_sum_bw[i];
+		if (ip_peak < ip_peak_bw[i])
+			ip_peak = ip_peak_bw[i];
+	}
+	BTS_DBG("[BTS BW]: TOTAL SUM: %u, PEAK: %u\n", ip_sum, ip_peak);
+
+	mif_freq = (ip_sum * 100000) / (MIF_UTIL * BUS_WIDTH);
+	int_freq = (ip_peak * 100000) / (INT_UTIL * BUS_WIDTH);
+
+	if (mif_freq < 4 * int_freq)
+		mif_freq = 4 * int_freq;
+	else
+		int_freq = mif_freq / 4;
+	BTS_DBG("[BTS FREQ]: MIF: %uMHz, INT: %uMHz\n", mif_freq, int_freq);
+
+	if (pm_qos_request_active(&exynos8_mif_bts_qos))
+		pm_qos_update_request(&exynos8_mif_bts_qos, mif_freq);
+	if (pm_qos_request_active(&exynos8_int_bts_qos))
+		pm_qos_update_request(&exynos8_int_bts_qos, int_freq);
+
+	mutex_unlock(&media_mutex);
+}
+
+struct bts_vpp_info *exynos_bw_calc(enum bts_media_type ip_type, struct bts_hw *hw)
+{
+	u64 s_ratio_h, s_ratio_v = 0;
+	u64 s_ratio = 0;
+	u8 df, bpl = 0;
+	struct bts_vpp_info *vpp = to_bts_vpp(hw);
+
+	switch (ip_type) {
+	case TYPE_VPP0:
+	case TYPE_VPP1:
+	case TYPE_VPP2:
+	case TYPE_VPP3:
+	case TYPE_VPP4:
+	case TYPE_VPP5:
+	case TYPE_VPP6:
+	case TYPE_VPP7:
+	case TYPE_VPP8:
+		s_ratio_h = MULTI_FACTOR * vpp->src_w / vpp->dst_w;
+		s_ratio_v = MULTI_FACTOR * vpp->src_h / vpp->dst_h;
+
+		s_ratio = PIXEL_BUFFER * s_ratio_h * s_ratio_v
+			/ (MULTI_FACTOR * MULTI_FACTOR);
+
+		bpl = vpp->bpp * 10 / 8;
+
+		if (vpp->bpp == 32)
+			df = 20;
+		else if (vpp->bpp == 12)
+			df = 36;
+		else if (vpp->bpp == 16)
+			df = 28;
+
+		vpp->cur_bw = vpp->src_h * vpp->src_w * bpl * s_ratio_h * s_ratio_v
+			* 72 / (MULTI_FACTOR * MULTI_FACTOR * 10)
+			/ (MULTI_FACTOR * MULTI_FACTOR);
+
+		if (vpp->is_rotation)
+			vpp->peak_bw = (s_ratio + df * vpp->src_h) * bpl * PEAK_FACTOR
+				* (FPS * vpp->dst_h) / VBI_FACTOR
+				/ 100 / MULTI_FACTOR;
+		else
+			vpp->peak_bw = (s_ratio + 4 * vpp->src_w + 1000) * bpl * PEAK_FACTOR
+				* (FPS * vpp->dst_h) / VBI_FACTOR
+				/ 100 / MULTI_FACTOR;
+
+		BTS_DBG("%s[%i] cur_bw: %llu peak_bw: %llu\n", __func__, (int)ip_type, vpp->cur_bw, vpp->peak_bw);
+
+		break;
+	case TYPE_CAM:
+	case TYPE_MFC:
+	default:
+		pr_err("%s: BW calculation unsupported - %u", __func__, ip_type);
+		break;
+	}
+
+	return vpp;
+}
+
+void bts_ext_scenario_set(enum bts_media_type ip_type,
+				enum bts_scen_type scen_type, bool on)
+{
+	int i = 0;
+	unsigned int cur_mo;
+
+	switch (ip_type) {
+	case TYPE_VPP0:
+	case TYPE_VPP1:
+	case TYPE_VPP2:
+	case TYPE_VPP3:
+	case TYPE_VPP4:
+	case TYPE_VPP5:
+	case TYPE_VPP6:
+	case TYPE_VPP7:
+	case TYPE_VPP8:
+		if (scen_type == TYPE_ROTATION) {
+			if (on)
+				vpp_rot[ip_type - TYPE_VPP0] = 16;
+			else
+				vpp_rot[ip_type - TYPE_VPP0] = 8;
+
+			cur_mo = 8;
+			for (i = 0; i < VPP_MAX; i++) {
+				if (cur_mo < vpp_rot[i])
+						cur_mo = vpp_rot[i];
+			}
+
+			if (cur_mo == 16 && cur_mo != prev_mo) {
+				bts_scen_update(scen_type, 1);
+				prev_mo = 16;
+			} else if (cur_mo == prev_mo) {
+				return;
+			} else {
+				bts_scen_update(scen_type, 0);
+				prev_mo = 8;
+			}
+		}
+		break;
+
+	case TYPE_CAM:
+	case TYPE_MFC:
+	default:
+		pr_err("BTS : unsupported rotation ip - %u", ip_type);
+		break;
+	}
+
+	return;
+}
+
+#else /* BTS_OPTIMIZATION */
 
 void exynos_update_media_scenario(enum bts_media_type media_type,
 		unsigned int bw, int bw_type)
@@ -921,6 +1147,7 @@ void exynos_update_media_scenario(enum bts_media_type media_type,
 
 	mutex_unlock(&media_mutex);
 }
+#endif /* BTS_OPT */
 
 #ifdef CONFIG_CPU_IDLE
 static int exynos8_bts_lpa_event(struct notifier_block *nb,
