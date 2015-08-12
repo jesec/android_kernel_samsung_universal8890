@@ -94,10 +94,10 @@ struct m2m1shot2_context_format {
  * @fmt		: image format information given by the userspace
  * @memory	: memory type of all buffers in @plane
  * @plane	: buffer information of all planes of the image
- * @acquire_fence_sync: waiter object of @acquire_fence of the image to support
- *		 for asynchronous fence waiter
- * @acquire_fence: acquire fence of the image. The image processing deos not
- *		  start until @acquire_fence is signaled.
+ * @fence_waiter: waiter object of @fence of the image to support for
+ *		  asynchronous fence waiter
+ * @fence	: acquire fence of the image. The image processing deos not
+ *		  start until @fence is signaled.
  */
 struct m2m1shot2_context_image {
 	unsigned int			index;
@@ -208,7 +208,7 @@ struct m2m1shot2_context {
 	unsigned long			state;
 	struct kref			starter;
 	struct m2m1shot2_device		*m21dev;
-	void *priv;
+	void				*priv;
 	struct mutex			mutex;
 	struct completion		complete;
 
