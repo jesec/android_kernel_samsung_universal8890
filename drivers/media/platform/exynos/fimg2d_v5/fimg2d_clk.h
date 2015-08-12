@@ -13,13 +13,15 @@
 #ifndef __FIMG2D_CLK_H__
 #define __FIMG2D_CLK_H__
 
+#include <linux/clk-provider.h>
+
 int fimg2d_clk_setup(struct fimg2d_control *ctrl);
 void fimg2d_clk_release(struct fimg2d_control *ctrl);
 void fimg2d_clk_on(struct fimg2d_control *ctrl);
 void fimg2d_clk_off(struct fimg2d_control *ctrl);
 
 #ifndef CONFIG_PM_RUNTIME
-static int fimg2d5x_get_clk_cnt(struct clk *clk)
+static inline int fimg2d5x_get_clk_cnt(struct clk *clk)
 {
 	return __clk_is_enabled(clk);
 }
