@@ -279,6 +279,7 @@ struct exynos5_i2c {
 	unsigned int		cmd_pointer;
 	unsigned int		desc_pointer;
 	unsigned int		batcher_read_addr;
+	int			need_cs_enb;
 #ifdef CONFIG_PWRCAL_TEMP
 	int			idle_ip_index;
 #endif
@@ -1203,6 +1204,11 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 	write_batcher(i2c, ((0xF << 16)|(19 << 24)|(38 << 8)|(38)), HSI2C_TIMING_FS2);
 	write_batcher(i2c, ((0x0)|(1 << 16)|(76)), HSI2C_TIMING_FS3);
 
+	if (i2c->need_cs_enb) {
+		/* Set HSI2C CTL[0] CS_ENB as 1 for 2.5Mhz SCL frequency */
+		i2c_ctl |= HSI2C_CS_ENB;
+	}
+
 	/* Set HSI2C Trailing Register */
 	write_batcher(i2c, BATCHER_TRAILING_COUNT, HSI2C_TRAILIG_CTL);
 
@@ -1240,9 +1246,6 @@ static int exynos5_i2c_xfer_batcher(struct exynos5_i2c *i2c,
 
 	/* Set HSI2C Control Register */
 	i2c_ctl |= HSI2C_MASTER;
-
-	/* Set HSI2C CTL[0] CS_ENB as 1 for 2.5Mhz SCL frequency */
-	i2c_ctl |= HSI2C_CS_ENB;
 
 	if (msgs->flags & I2C_M_RD) {
 		i2c_ctl &= ~HSI2C_TXCHON;
@@ -1622,6 +1625,11 @@ static int exynos5_i2c_probe(struct platform_device *pdev)
 		i2c->cmd_buffer = HSI2C_BATCHER_INIT_CMD;
 	} else
 		i2c->support_hsi2c_batcher = 0;
+
+	if (of_get_property(np, "samsung,need-cs-enb", NULL)) {
+		i2c->need_cs_enb = 1;
+	} else
+		i2c->need_cs_enb = 0;
 
 #ifdef CONFIG_PWRCAL_TEMP
 	i2c->idle_ip_index = exynos_get_idle_ip_index(dev_name(&pdev->dev));
