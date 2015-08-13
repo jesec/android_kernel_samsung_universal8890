@@ -1082,6 +1082,10 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		return -EINVAL;
 	}
 
+	/* only 2 plane is supported for HEVC 10bit */
+	if (dec->is_10bit)
+		MFC_WRITEL(0, S5P_FIMV_PIXEL_FORMAT);
+
 	raw = &ctx->raw_buf;
 	tiled_ref = &dec->tiled_ref;
 	buf_addr1 = ctx->codec_buf_phys;

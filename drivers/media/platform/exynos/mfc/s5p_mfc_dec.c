@@ -675,6 +675,15 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 	if (ctx->state >= MFCINST_HEAD_PARSED &&
 	    ctx->state < MFCINST_ABORT) {
 		/* This is run on CAPTURE (deocde output) */
+
+		/* only 2 plane is supported for HEVC 10bit */
+		if (ctx->raw_buf.num_planes == 3 && dec->is_10bit) {
+			ctx->dst_fmt = (struct s5p_mfc_fmt *)&formats[4];
+			ctx->raw_buf.num_planes = 2;
+			mfc_info_ctx("HEVC 10bit : format is changed to 0x%x\n",
+							ctx->dst_fmt->fourcc);
+		}
+
 		raw = &ctx->raw_buf;
 		/* Width and height are set to the dimensions
 		   of the movie, the buffer is bigger and
@@ -696,7 +705,11 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 		pix_mp->pixelformat = ctx->dst_fmt->fourcc;
 		for (i = 0; i < raw->num_planes; i++) {
 			pix_mp->plane_fmt[i].bytesperline = raw->stride[i];
-			pix_mp->plane_fmt[i].sizeimage = raw->plane_size[i];
+			if (dec->is_10bit)
+				pix_mp->plane_fmt[i].sizeimage = raw->plane_size[i]
+							+ raw->plane_size_2bits[i];
+			else
+				pix_mp->plane_fmt[i].sizeimage = raw->plane_size[i];
 		}
 	}
 
