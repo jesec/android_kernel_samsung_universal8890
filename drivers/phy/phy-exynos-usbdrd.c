@@ -459,6 +459,53 @@ static int exynos_usbdrd_phy_tune(struct phy *phy, int phy_state)
 	return 0;
 }
 
+static void exynos_usbdrd_pipe3_set(struct exynos_usbdrd_phy *phy_drd,
+						int option, void *info)
+{
+	switch (option) {
+	case SET_DPPULLUP_ENABLE:
+		samsung_exynos_cal_usb3phy_enable_dp_pullup(
+					&phy_drd->usbphy_info);
+		break;
+	case SET_DPPULLUP_DISABLE:
+		samsung_exynos_cal_usb3phy_disable_dp_pullup(
+					&phy_drd->usbphy_info);
+		break;
+	case SET_DPDM_PULLDOWN:
+		samsung_exynos_cal_usb3phy_config_host_mode(
+					&phy_drd->usbphy_info);
+	default:
+		break;
+	}
+}
+
+static void exynos_usbdrd_utmi_set(struct exynos_usbdrd_phy *phy_drd,
+						int option, void *info)
+{
+	return;
+}
+
+static int exynos_usbdrd_phy_set(struct phy *phy, int option, void *info)
+{
+	struct phy_usb_instance *inst = phy_get_drvdata(phy);
+	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
+
+	switch (option) {
+	case SET_DPPULLUP_ENABLE:
+	case SET_DPPULLUP_DISABLE:
+	case SET_DPDM_PULLDOWN:
+		if (!phy_drd->usbphy_info.not_used_vbus_pad)
+			return 0;
+		break;
+	default:
+		break;
+	}
+
+	inst->phy_cfg->phy_set(phy_drd, option, info);
+
+	return 0;
+}
+
 static int exynos_usbdrd_phy_power_on(struct phy *phy)
 {
 	int ret;
@@ -514,6 +561,7 @@ static struct phy_ops exynos_usbdrd_phy_ops = {
 	.init		= exynos_usbdrd_phy_init,
 	.exit		= exynos_usbdrd_phy_exit,
 	.tune		= exynos_usbdrd_phy_tune,
+	.set		= exynos_usbdrd_phy_set,
 	.power_on	= exynos_usbdrd_phy_power_on,
 	.power_off	= exynos_usbdrd_phy_power_off,
 	.owner		= THIS_MODULE,
@@ -526,6 +574,7 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8890[] = {
 		.phy_init	= exynos_usbdrd_utmi_init,
 		.phy_exit	= exynos_usbdrd_utmi_exit,
 		.phy_tune	= exynos_usbdrd_utmi_tune,
+		.phy_set	= exynos_usbdrd_utmi_set,
 		.set_refclk	= exynos_usbdrd_utmi_set_refclk,
 	},
 	{
@@ -534,6 +583,7 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8890[] = {
 		.phy_init	= exynos_usbdrd_pipe3_init,
 		.phy_exit	= exynos_usbdrd_pipe3_exit,
 		.phy_tune	= exynos_usbdrd_pipe3_tune,
+		.phy_set	= exynos_usbdrd_pipe3_set,
 		.set_refclk	= exynos_usbdrd_pipe3_set_refclk,
 	},
 };

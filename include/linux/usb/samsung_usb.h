@@ -25,4 +25,10 @@ enum samsung_cpu_type {
 	TYPE_EXYNOS8890,
 };
 
+enum samsung_phy_set_option {
+	SET_DPPULLUP_ENABLE,
+	SET_DPPULLUP_DISABLE,
+	SET_DPDM_PULLDOWN,
+};
+
 #endif	/* __LINUX_USB_SAMSUNG_USB_H */
