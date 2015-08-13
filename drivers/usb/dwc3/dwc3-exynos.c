@@ -46,8 +46,11 @@
 static const char *dwc3_exynos5_clk_names[] = {"aclk", "aclk_axius", "sclk_ref",
 	"sclk", "oscclk_phy", "phyclock", "pipe_pclk", "aclk_ahb_usblinkh", NULL};
 
-static const char *dwc3_exynos8_clk_names[] = {"aclk", "sclk",
+static const char *dwc3_exynos8890_clk_names[] = {"aclk", "sclk",
 				"phyclock", "pipe_pclk", NULL};
+
+static const char *dwc2_exynos8890_clk_names[] = {"aclk", "sclk",
+				"phyclock", "phy_ref", NULL};
 
 /**
  * Structures for Samsung Exynos DWC3 glue layer
@@ -61,6 +64,7 @@ struct dwc3_exynos_rsw {
 
 struct dwc3_exynos_drvdata {
 	int cpu_type;
+	int ip_type;
 };
 
 struct dwc3_exynos {
@@ -92,6 +96,12 @@ static struct dwc3_exynos_drvdata dwc3_exynos5 = {
 
 static struct dwc3_exynos_drvdata dwc3_exynos8890 = {
 	.cpu_type	= TYPE_EXYNOS8890,
+	.ip_type	= TYPE_USB3DRD,
+};
+
+static struct dwc3_exynos_drvdata dwc2_exynos8890 = {
+	.cpu_type	= TYPE_EXYNOS8890,
+	.ip_type	= TYPE_USB2HOST,
 };
 
 static const struct of_device_id exynos_dwc3_match[] = {
@@ -104,6 +114,9 @@ static const struct of_device_id exynos_dwc3_match[] = {
 	}, {
 		.compatible = "samsung,exynos8890-dwusb3",
 		.data = &dwc3_exynos8890,
+	}, {
+		.compatible = "samsung,exynos8890-dwusb2",
+		.data = &dwc2_exynos8890,
 	},
 	{},
 };
@@ -586,8 +599,13 @@ static int dwc3_exynos_clk_get(struct dwc3_exynos *exynos)
 	/* fallback to separate clock control */
 	switch (exynos->drv_data->cpu_type) {
 	case TYPE_EXYNOS8890:
-		clk_ids = dwc3_exynos8_clk_names;
-		clk_count = ARRAY_SIZE(dwc3_exynos8_clk_names);
+		if (exynos->drv_data->ip_type == TYPE_USB3DRD) {
+			clk_ids = dwc3_exynos8890_clk_names;
+			clk_count = ARRAY_SIZE(dwc3_exynos8890_clk_names);
+		} else {
+			clk_ids = dwc2_exynos8890_clk_names;
+			clk_count = ARRAY_SIZE(dwc2_exynos8890_clk_names);
+		}
 		break;
 	case TYPE_EXYNOS5:
 		clk_ids = dwc3_exynos5_clk_names;
