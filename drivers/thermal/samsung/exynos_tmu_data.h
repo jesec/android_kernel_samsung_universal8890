@@ -269,7 +269,7 @@ extern struct exynos_tmu_init_data const exynos7580_default_tmu_data;
 #endif
 
 #if defined(CONFIG_SOC_EXYNOS8890)
-extern struct exynos_tmu_init_data const exynos8890_default_tmu_data;
+extern struct exynos_tmu_init_data exynos8890_default_tmu_data;
 #define EXYNOS8890_TMU_DRV_DATA (&exynos8890_default_tmu_data)
 #else
 #define EXYNOS8890_TMU_DRV_DATA (NULL)

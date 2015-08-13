@@ -831,7 +831,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
 			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME),
 
-struct exynos_tmu_init_data const exynos8890_default_tmu_data = {
+struct exynos_tmu_init_data exynos8890_default_tmu_data = {
 	.tmu_data = {
 		{ EXYNOS8890_TMU_DATA_MNGS } ,
 		{ EXYNOS8890_TMU_DATA_APOLLO } ,
