@@ -17,6 +17,8 @@
 #include <asm/page.h>
 #include <linux/mm_types.h>
 
+#define IOMMU_PFNMAP	(1 << 5) /* VM_PFNMAP is set */
+
 struct scatterlist;
 struct device;
 
@@ -161,6 +163,12 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova);
 #define iovmm_map(dev, sg, offset, size, direction, prot) (-ENOSYS)
 #define iovmm_unmap(dev, iova)		do { } while (0)
 #define get_domain_from_dev(dev)	NULL
+static inline dma_addr_t exynos_iovmm_map_userptr(struct device *dev,
+			unsigned long vaddr, size_t size, int prot)
+{
+}
+#define exynos_iovmm_unmap_userptr(dev, iova) do { } while (0)
+
 #endif /* CONFIG_EXYNOS_IOVMM */
 
 #if defined(CONFIG_EXYNOS_IOMMU)
@@ -219,6 +227,16 @@ int exynos_sysmmu_unmap_user_pages(struct device *dev,
 					unsigned long vaddr,
 					exynos_iova_t iova,
 					size_t size);
+
+/**
+ * TODO: description
+ */
+dma_addr_t exynos_iovmm_map_userptr(struct device *dev, unsigned long vaddr,
+				    size_t size, int prot);
+/**
+ * TODO: description
+ */
+void exynos_iovmm_unmap_userptr(struct device *dev, dma_addr_t iova);
 
 /*
  * The handle_pte_fault() is called by exynos_sysmmu_map_user_pages().

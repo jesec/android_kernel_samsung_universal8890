@@ -266,6 +266,9 @@ extern const char *ppc_event_name[];
 #define set_lv1ent_shareable(sent) (*(sent) |= (1 << 6))
 #define set_lv2ent_shareable(pent) (*(pent) |= (1 << 4))
 
+#define mk_lv2ent_pfnmap(pent) (*(pent) |= (1 << 5)) /* unused field */
+#define lv2ent_pfnmap(pent) ((*(pent) & (1 << 5)) == (1 << 5))
+
 #define PGSIZE_BITMAP (DSECT_SIZE | SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE)
 
 void __sysmmu_show_status(struct sysmmu_drvdata *drvdata);
@@ -395,6 +398,12 @@ irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id);
 void __sysmmu_tlb_invalidate_entry(void __iomem *sfrbase, dma_addr_t iova);
 void __sysmmu_tlb_invalidate(struct sysmmu_drvdata *drvdata,
 				dma_addr_t iova, size_t size);
+
+int exynos_iommu_map_userptr(struct iommu_domain *dom, unsigned long addr,
+			      dma_addr_t iova, size_t size, int prot);
+void exynos_iommu_unmap_userptr(struct iommu_domain *dom,
+				dma_addr_t iova, size_t size);
+
 void dump_sysmmu_tlb_pb(void __iomem *sfrbase);
 
 #if defined(CONFIG_EXYNOS_IOVMM)

@@ -503,6 +503,171 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova)
 	}
 }
 
+/*
+ * NOTE:
+ * exynos_iovmm_map_userptr() should be called under current->mm.mmap_sem held.
+ */
+dma_addr_t exynos_iovmm_map_userptr(struct device *dev, unsigned long vaddr,
+				    size_t size, int prot)
+{
+	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
+	unsigned long eaddr = vaddr + size;
+	off_t offset = offset_in_page(vaddr);
+	int ret = -EINVAL;
+	struct vm_area_struct *vma;
+	dma_addr_t start;
+	struct exynos_vm_region *region;
+
+	vma = find_vma(current->mm, vaddr);
+	if (vaddr < vma->vm_start) {
+		dev_err(dev, "%s: invalid address %#lx\n", __func__, vaddr);
+		goto err;
+	}
+
+	if (!!(vma->vm_flags & VM_PFNMAP))
+		prot |= IOMMU_PFNMAP;
+
+	while (eaddr > vma->vm_end) {
+		if (!!(vma->vm_flags & VM_PFNMAP)) {
+			dev_err(dev, "%s: non-linear pfnmap is not supported\n",
+				__func__);
+			goto err;
+		}
+
+		if ((vma->vm_next == NULL) ||
+				(vma->vm_end != vma->vm_next->vm_start)) {
+			dev_err(dev, "%s: invalid size %zu\n", __func__, size);
+			goto err;
+		}
+
+		vma = vma->vm_next;
+	}
+
+	size = PAGE_ALIGN(size + offset);
+	start = alloc_iovm_region(vmm, size, 0, offset);
+	if (!start) {
+		spin_lock(&vmm->vmlist_lock);
+		dev_err(dev, "%s: Not enough IOVM space to allocate %#zx\n",
+				__func__, size);
+		dev_err(dev, "%s: Total %#zx, Allocated %#zx , Chunks %d\n",
+				__func__, vmm->iovm_size[0],
+				vmm->allocated_size[0], vmm->num_areas[0]);
+		spin_unlock(&vmm->vmlist_lock);
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = exynos_iommu_map_userptr(vmm->domain, vaddr - offset,
+					start - offset, size, prot);
+	if (ret < 0)
+		goto err_map;
+
+	region = find_iovm_region(vmm, start);
+	BUG_ON(!region);
+
+	SYSMMU_EVENT_LOG_IOVMM_MAP(IOVMM_TO_LOG(vmm), start, start + size,
+					region->size - size);
+	return start;
+err_map:
+	free_iovm_region(vmm, remove_iovm_region(vmm, start));
+err:
+	return (dma_addr_t)ret;
+}
+
+void exynos_iovmm_unmap_userptr(struct device *dev, dma_addr_t iova)
+{
+	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
+	struct exynos_vm_region *region;
+
+	region = remove_iovm_region(vmm, iova);
+	if (region) {
+		u32 start = region->start + region->section_off;
+		u32 size = region->size - region->dummy_size;
+
+		/* clear page offset */
+		if (WARN_ON(start != iova)) {
+			dev_err(dev, "IOVMM: "
+			   "iova %pa and region %#x(+%#x)@%#x(-%#x) mismatch\n",
+				&iova, region->size, region->dummy_size,
+				region->start, region->section_off);
+			show_iovm_regions(vmm);
+			/* reinsert iovm region */
+			add_iovm_region(vmm, region->start, region->size);
+			kfree(region);
+			return;
+		}
+
+		exynos_iommu_unmap_userptr(vmm->domain,
+					   start & SPAGE_MASK, size);
+
+		free_iovm_region(vmm, region);
+	} else {
+		dev_err(dev, "IOVMM: No IOVM region %pa to free.\n", &iova);
+	}
+}
+
+int iovmm_map_oto(struct device *dev, phys_addr_t phys, size_t size)
+{
+	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
+	int ret;
+
+	BUG_ON(!IS_ALIGNED(phys, PAGE_SIZE));
+	BUG_ON(!IS_ALIGNED(size, PAGE_SIZE));
+
+	if (vmm == NULL) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return -EINVAL;
+	}
+
+	if (WARN_ON((phys + size) >= IOVA_START_V6)) {
+		dev_err(dev,
+			"Unable to create one to one mapping for %#zx @ %pa\n",
+			size, &phys);
+		return -EINVAL;
+	}
+
+	if (!add_iovm_region(vmm, (dma_addr_t)phys, size))
+		return -EADDRINUSE;
+
+	ret = iommu_map(vmm->domain, (dma_addr_t)phys, phys, size, 0);
+	if (ret < 0)
+		free_iovm_region(vmm,
+				remove_iovm_region(vmm, (dma_addr_t)phys));
+
+	return ret;
+}
+
+void iovmm_unmap_oto(struct device *dev, phys_addr_t phys)
+{
+	struct exynos_iovmm *vmm = exynos_get_iovmm(dev);
+	struct exynos_vm_region *region;
+	size_t unmap_size;
+
+	/* This function must not be called in IRQ handlers */
+	BUG_ON(in_irq());
+	BUG_ON(!IS_ALIGNED(phys, PAGE_SIZE));
+
+	if (vmm == NULL) {
+		dev_err(dev, "%s: IOVMM not found\n", __func__);
+		return;
+	}
+
+	region = remove_iovm_region(vmm, (dma_addr_t)phys);
+	if (region) {
+		unmap_size = iommu_unmap(vmm->domain, (dma_addr_t)phys,
+							region->size);
+		WARN_ON(unmap_size != region->size);
+
+		exynos_sysmmu_tlb_invalidate(vmm->domain, (dma_addr_t)phys,
+					     region->size);
+
+		free_iovm_region(vmm, region);
+
+		TRACE_LOG_DEV(dev, "IOVMM: Unmapped %#x bytes from %#x.\n",
+						unmap_size, phys);
+	}
+}
+
 static struct dentry *exynos_iovmm_debugfs_root;
 static struct dentry *exynos_iommu_debugfs_root;
 
