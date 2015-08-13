@@ -86,18 +86,26 @@ static int exynos_check_idle_ip_stat(int mode, int reg_index)
 		 * To know what IP blocks to enter system power mode, suppose
 		 * below example: (express only 8 bits)
 		 *
-		 * idle_ip : 0 0 1 1 0 0 1 0
-		 * mask    : 1 1 0 0 1 0 0 1
+		 * idle-ip  : 1 0 1 1 0 0 1 0
+		 * mask     : 1 1 0 0 1 0 0 1
+		 *
+		 * First, clear masked idle-ip bit.
+		 *
+		 * idle-ip  : 1 0 1 1 0 0 1 0
+		 * ~mask    : 0 0 1 1 0 1 1 0
+		 * -------------------------- (AND)
+		 * idle-ip' : 0 0 1 1 0 0 1 0
 		 *
 		 * In upper case, only idle-ip[2] is not in idle. Calculates
 		 * as follows, then we can get the non-idle IP easily.
 		 *
-		 * idle_ip : 0 0 1 1 0 0 1 0
-		 * ~mask   : 0 0 1 1 0 1 1 0
+		 * idle-ip' : 0 0 1 1 0 0 1 0
+		 * ~mask    : 0 0 1 1 0 1 1 0
 		 *--------------------------- (XOR)
-		 *           0 0 0 0 0 1 0 0
+		 *            0 0 0 0 0 1 0 0
 		 */
-		cpuidle_profile_collect_idle_ip(mode, reg_index, (val ^ ~mask));
+		cpuidle_profile_collect_idle_ip(mode, reg_index,
+				((val & ~mask) ^ ~mask));
 	}
 
 	return ret;
