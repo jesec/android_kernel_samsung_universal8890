@@ -432,17 +432,29 @@ static int exynos_usbdrd_phy_exit(struct phy *phy)
 	return 0;
 }
 
-static int exynos_usbdrd_phy_tune(struct phy *phy, int phy_state)
+static void exynos_usbdrd_pipe3_tune(struct exynos_usbdrd_phy *phy_drd,
+							int phy_state)
 {
-	struct phy_usb_instance *inst = phy_get_drvdata(phy);
-	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
-
 	if (phy_state >= OTG_STATE_A_IDLE)
 		/* for host mode */
 		samsung_exynos_cal_usb3phy_tune_host(&phy_drd->usbphy_info);
 	else
 		/* for device mode */
 		samsung_exynos_cal_usb3phy_tune_dev(&phy_drd->usbphy_info);
+}
+
+static void exynos_usbdrd_utmi_tune(struct exynos_usbdrd_phy *phy_drd,
+							int phy_state)
+{
+	return;
+}
+
+static int exynos_usbdrd_phy_tune(struct phy *phy, int phy_state)
+{
+	struct phy_usb_instance *inst = phy_get_drvdata(phy);
+	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
+
+	inst->phy_cfg->phy_tune(phy_drd, phy_state);
 
 	return 0;
 }
@@ -513,6 +525,7 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8890[] = {
 		.phy_isol	= exynos_usbdrd_utmi_phy_isol,
 		.phy_init	= exynos_usbdrd_utmi_init,
 		.phy_exit	= exynos_usbdrd_utmi_exit,
+		.phy_tune	= exynos_usbdrd_utmi_tune,
 		.set_refclk	= exynos_usbdrd_utmi_set_refclk,
 	},
 	{
@@ -520,6 +533,7 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8890[] = {
 		.phy_isol	= exynos_usbdrd_pipe3_phy_isol,
 		.phy_init	= exynos_usbdrd_pipe3_init,
 		.phy_exit	= exynos_usbdrd_pipe3_exit,
+		.phy_tune	= exynos_usbdrd_pipe3_tune,
 		.set_refclk	= exynos_usbdrd_pipe3_set_refclk,
 	},
 };

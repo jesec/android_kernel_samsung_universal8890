@@ -104,6 +104,7 @@ struct exynos_usbdrd_phy_config {
 	void (*phy_isol)(struct phy_usb_instance *inst, u32 on);
 	void (*phy_init)(struct exynos_usbdrd_phy *phy_drd);
 	void (*phy_exit)(struct exynos_usbdrd_phy *phy_drd);
+	void (*phy_tune)(struct exynos_usbdrd_phy *phy_drd, int);
 	unsigned int (*set_refclk)(struct phy_usb_instance *inst);
 };
 
