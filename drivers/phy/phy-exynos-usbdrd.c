@@ -280,6 +280,101 @@ exynos_usbdrd_utmi_set_refclk(struct phy_usb_instance *inst)
 	return reg;
 }
 
+static void exynos_usbdrd_fill_hstune(struct exynos_usbdrd_phy *phy_drd,
+				struct exynos_usbphy_hs_tune *hs_tune)
+{
+	switch (phy_drd->drv_data->cpu_type) {
+	case TYPE_EXYNOS8890:
+		hs_tune->tx_vref	 = 0x3;
+		hs_tune->tx_pre_emp	 = 0x2;
+		hs_tune->tx_pre_emp_plus = 0x0;
+		hs_tune->tx_res		 = 0x2;
+		hs_tune->tx_rise	 = 0x3;
+		hs_tune->tx_hsxv	 = 0x0;
+		hs_tune->tx_fsls	 = 0x3;
+		hs_tune->rx_sqrx	 = 0x7;
+		hs_tune->compdis	 = 0x0;
+		hs_tune->otg		 = 0x4;
+		hs_tune->enalbe_user_imp = false;
+		hs_tune->utim_clk	 = USBPHY_UTMI_PHYCLOCK;
+		break;
+	default:
+		break;
+	}
+}
+
+static void exynos_usbdrd_fill_sstune(struct exynos_usbdrd_phy *phy_drd,
+				struct exynos_usbphy_ss_tune *ss_tune)
+{
+	switch (phy_drd->drv_data->cpu_type) {
+	case TYPE_EXYNOS8890:
+		ss_tune->tx_boost_level	= 0x4;
+		ss_tune->tx_swing_level	= 0x1;
+		ss_tune->tx_swing_full	= 0x7F;
+		ss_tune->tx_swing_low	= 0x7F;
+		ss_tune->tx_deemphasis_mode	= 0x1;
+		ss_tune->tx_deemphasis_3p5db	= 0x18;
+		ss_tune->tx_deemphasis_6db	= 0x18;
+		ss_tune->enable_ssc	= 0x1; /* TRUE */
+		ss_tune->ssc_range	= 0x0;
+		ss_tune->los_bias	= 0x5;
+		ss_tune->los_mask_val	= 0x104;
+		ss_tune->enable_fixed_rxeq_mode	= 0x0;
+		ss_tune->fix_rxeq_value	= 0x4;
+		break;
+	default:
+		break;
+	}
+}
+
+static int exynos_usbdrd_get_phyinfo(struct exynos_usbdrd_phy *phy_drd)
+{
+	struct device *dev = phy_drd->dev;
+	struct device_node *node = dev->of_node;
+
+	switch (phy_drd->drv_data->cpu_type) {
+	case TYPE_EXYNOS8890:
+		phy_drd->usbphy_info.version	= EXYNOS_USBCON_VER_01_0_1;
+		phy_drd->usbphy_info.refclk	= phy_drd->extrefclk;
+		phy_drd->usbphy_info.refsel	= USBPHY_REFSEL_DIFF_INTERNAL;
+		phy_drd->usbphy_info.use_io_for_ovc	 = true;
+		phy_drd->usbphy_info.common_block_enable = false;
+		phy_drd->usbphy_info.regs_base	= phy_drd->reg_phy;
+		break;
+	default:
+		dev_err(phy_drd->dev, "%s: unknown cpu type\n", __func__);
+		return -EINVAL;
+	}
+
+	phy_drd->usbphy_info.not_used_vbus_pad = of_property_read_bool(node,
+							"is_not_vbus_pad");
+
+	phy_drd->usbphy_info.hs_tune = devm_kmalloc(phy_drd->dev,
+			sizeof(struct exynos_usbphy_hs_tune), GFP_KERNEL);
+	if (!phy_drd->usbphy_info.hs_tune) {
+		dev_err(phy_drd->dev, "%s: failed to alloc for hs tune\n",
+								__func__);
+		return -ENOMEM;
+	}
+
+	phy_drd->usbphy_info.ss_tune = devm_kmalloc(phy_drd->dev,
+			sizeof(struct exynos_usbphy_ss_tune), GFP_KERNEL);
+	if (!phy_drd->usbphy_info.ss_tune) {
+		dev_err(phy_drd->dev, "%s: failed to alloc for ss tune\n",
+				__func__);
+
+		return -ENOMEM;
+	}
+
+	exynos_usbdrd_fill_hstune(phy_drd, phy_drd->usbphy_info.hs_tune);
+	exynos_usbdrd_fill_sstune(phy_drd, phy_drd->usbphy_info.ss_tune);
+
+	dev_info(phy_drd->dev, "usbphy info: version:0x%x, refclk:0x%x\n",
+		phy_drd->usbphy_info.version, phy_drd->usbphy_info.refclk);
+
+	return 0;
+}
+
 static void exynos_usbdrd_pipe3_init(struct exynos_usbdrd_phy *phy_drd)
 {
 	int ret;
@@ -454,7 +549,7 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	const struct exynos_usbdrd_phy_drvdata *drv_data;
 	struct regmap *reg_pmu;
-	u32 pmu_offset, tmp_version;
+	u32 pmu_offset;
 	int i, ret;
 	int channel;
 
@@ -517,19 +612,9 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 
 	dev_vdbg(dev, "Creating usbdrd_phy phy\n");
 
-	/* For PHY CAL code */
-	ret = of_property_read_u32(node, "version", &tmp_version);
-	if (ret) {
-		dev_err(dev, "cannot get usbphy version!!!\n");
-		phy_drd->usbphy_info.version = 0x0100;
-	} else {
-		phy_drd->usbphy_info.version = tmp_version;
-	}
-	phy_drd->usbphy_info.refclk = phy_drd->extrefclk;
-	phy_drd->usbphy_info.regs_base = phy_drd->reg_phy;
-
-	dev_info(dev, "usbphy info: version:0x%x, refclk:0x%x\n",
-		phy_drd->usbphy_info.version, phy_drd->usbphy_info.refclk);
+	ret = exynos_usbdrd_get_phyinfo(phy_drd);
+	if (ret)
+		goto err1;
 
 	for (i = 0; i < EXYNOS_DRDPHYS_NUM; i++) {
 		struct phy *phy = devm_phy_create(dev, NULL,

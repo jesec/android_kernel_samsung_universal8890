@@ -9,6 +9,7 @@
 #ifndef __PHY_EXYNOS_USBDRD_H__
 #define __PHY_EXYNOS_USBDRD_H__
 
+#include "phy-samsung-usb-cal.h"
 #include "phy-samsung-usb3-cal.h"
 
 /* Exynos USB PHY registers */
@@ -43,6 +44,7 @@
 
 #define PHYCLKRST_MPLL_MULTIPLIER_MASK		(0x7f << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_100MHZ_REF	(0x19 << 11)
+#define PHYCLKRST_MPLL_MULTIPLIER_50M_REF	(0x32 << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_24MHZ_REF	(0x68 << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_20MHZ_REF	(0x7d << 11)
 #define PHYCLKRST_MPLL_MULTIPLIER_19200KHZ_REF	(0x02 << 11)
