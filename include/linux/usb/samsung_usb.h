@@ -25,6 +25,13 @@ enum samsung_cpu_type {
 	TYPE_EXYNOS8890,
 };
 
+enum samsung_usb_ip_type {
+	TYPE_USB3DRD = 0,
+	TYPE_USB3HOST,
+	TYPE_USB2DRD,
+	TYPE_USB2HOST,
+};
+
 enum samsung_phy_set_option {
 	SET_DPPULLUP_ENABLE,
 	SET_DPPULLUP_DISABLE,

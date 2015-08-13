@@ -31,8 +31,11 @@
 
 #include "phy-exynos-usbdrd.h"
 
-static const char *exynos8_usbdrd_clk_names[] = {"aclk", "sclk", "phyclock",
+static const char *exynos8890_usbdrd_clk_names[] = {"aclk", "sclk", "phyclock",
 						"pipe_pclk", NULL};
+
+static const char *exynos8890_usbhost_clk_names[] = {"aclk", "sclk", "phyclock",
+						"phy_ref", NULL};
 
 static int exynos_usbdrd_clk_prepare(struct exynos_usbdrd_phy *phy_drd)
 {
@@ -93,8 +96,15 @@ static int exynos_usbdrd_clk_get(struct exynos_usbdrd_phy *phy_drd)
 
 	switch (phy_drd->drv_data->cpu_type) {
 	case TYPE_EXYNOS8890:
-		clk_ids = exynos8_usbdrd_clk_names;
-		clk_count = (int)ARRAY_SIZE(exynos8_usbdrd_clk_names);
+		if (phy_drd->drv_data->ip_type == TYPE_USB3DRD) {
+			clk_ids = exynos8890_usbdrd_clk_names;
+			clk_count =
+				(int)ARRAY_SIZE(exynos8890_usbdrd_clk_names);
+		} else {
+			clk_ids = exynos8890_usbhost_clk_names;
+			clk_count =
+				(int)ARRAY_SIZE(exynos8890_usbhost_clk_names);
+		}
 		break;
 	default:
 		dev_err(phy_drd->dev, "couldn't get clock : unknown cpu type\n");
@@ -134,10 +144,22 @@ struct exynos_usbdrd_phy *to_usbdrd_phy(struct phy_usb_instance *inst)
  */
 static unsigned int exynos_rate_to_clk(struct exynos_usbdrd_phy *phy_drd)
 {
-	int ret;
+	const char **clk_ids;
+	int ret, i;
 
 	switch (phy_drd->drv_data->cpu_type) {
 	case TYPE_EXYNOS8890:
+		if (phy_drd->drv_data->ip_type == TYPE_USB2HOST) {
+			clk_ids = exynos8890_usbhost_clk_names;
+			for (i = 0; clk_ids[i] != NULL; i++) {
+				if (!strcmp("phy_ref", clk_ids[i])) {
+					phy_drd->ref_clk = phy_drd->clocks[i];
+					break;
+				}
+			}
+			phy_drd->extrefclk = EXYNOS_FSEL_12MHZ;
+			return 0;
+		}
 	default:
 		phy_drd->ref_clk = devm_clk_get(phy_drd->dev, "ext_xtal");
 		break;
@@ -190,21 +212,21 @@ static unsigned int exynos_rate_to_clk(struct exynos_usbdrd_phy *phy_drd)
 }
 
 static void exynos_usbdrd_pipe3_phy_isol(struct phy_usb_instance *inst,
-						unsigned int on)
+					unsigned int on, unsigned int mask)
 {
 	unsigned int val;
 
 	if (!inst->reg_pmu)
 		return;
 
-	val = on ? 0 : EXYNOS5_PHY_ENABLE;
+	val = on ? 0 : mask;
 
 	regmap_update_bits(inst->reg_pmu, inst->pmu_offset,
-			   EXYNOS5_PHY_ENABLE, val);
+			   mask, val);
 }
 
 static void exynos_usbdrd_utmi_phy_isol(struct phy_usb_instance *inst,
-						unsigned int on)
+					unsigned int on, unsigned int mask)
 {
 	return;
 }
@@ -285,18 +307,20 @@ static void exynos_usbdrd_fill_hstune(struct exynos_usbdrd_phy *phy_drd,
 {
 	switch (phy_drd->drv_data->cpu_type) {
 	case TYPE_EXYNOS8890:
-		hs_tune->tx_vref	 = 0x3;
-		hs_tune->tx_pre_emp	 = 0x2;
-		hs_tune->tx_pre_emp_plus = 0x0;
-		hs_tune->tx_res		 = 0x2;
-		hs_tune->tx_rise	 = 0x3;
-		hs_tune->tx_hsxv	 = 0x0;
-		hs_tune->tx_fsls	 = 0x3;
-		hs_tune->rx_sqrx	 = 0x7;
-		hs_tune->compdis	 = 0x0;
-		hs_tune->otg		 = 0x4;
-		hs_tune->enalbe_user_imp = false;
-		hs_tune->utim_clk	 = USBPHY_UTMI_PHYCLOCK;
+		if (phy_drd->drv_data->ip_type == TYPE_USB3DRD) {
+			hs_tune->tx_vref	 = 0x3;
+			hs_tune->tx_pre_emp	 = 0x2;
+			hs_tune->tx_pre_emp_plus = 0x0;
+			hs_tune->tx_res		 = 0x2;
+			hs_tune->tx_rise	 = 0x3;
+			hs_tune->tx_hsxv	 = 0x0;
+			hs_tune->tx_fsls	 = 0x3;
+			hs_tune->rx_sqrx	 = 0x7;
+			hs_tune->compdis	 = 0x0;
+			hs_tune->otg		 = 0x4;
+			hs_tune->enalbe_user_imp = false;
+			hs_tune->utim_clk	 = USBPHY_UTMI_PHYCLOCK;
+		}
 		break;
 	default:
 		break;
@@ -308,19 +332,21 @@ static void exynos_usbdrd_fill_sstune(struct exynos_usbdrd_phy *phy_drd,
 {
 	switch (phy_drd->drv_data->cpu_type) {
 	case TYPE_EXYNOS8890:
-		ss_tune->tx_boost_level	= 0x4;
-		ss_tune->tx_swing_level	= 0x1;
-		ss_tune->tx_swing_full	= 0x7F;
-		ss_tune->tx_swing_low	= 0x7F;
-		ss_tune->tx_deemphasis_mode	= 0x1;
-		ss_tune->tx_deemphasis_3p5db	= 0x18;
-		ss_tune->tx_deemphasis_6db	= 0x18;
-		ss_tune->enable_ssc	= 0x1; /* TRUE */
-		ss_tune->ssc_range	= 0x0;
-		ss_tune->los_bias	= 0x5;
-		ss_tune->los_mask_val	= 0x104;
-		ss_tune->enable_fixed_rxeq_mode	= 0x0;
-		ss_tune->fix_rxeq_value	= 0x4;
+		if (phy_drd->drv_data->ip_type == TYPE_USB3DRD) {
+			ss_tune->tx_boost_level	= 0x4;
+			ss_tune->tx_swing_level	= 0x1;
+			ss_tune->tx_swing_full	= 0x7F;
+			ss_tune->tx_swing_low	= 0x7F;
+			ss_tune->tx_deemphasis_mode	= 0x1;
+			ss_tune->tx_deemphasis_3p5db	= 0x18;
+			ss_tune->tx_deemphasis_6db	= 0x18;
+			ss_tune->enable_ssc	= 0x1; /* TRUE */
+			ss_tune->ssc_range	= 0x0;
+			ss_tune->los_bias	= 0x5;
+			ss_tune->los_mask_val	= 0x104;
+			ss_tune->enable_fixed_rxeq_mode	= 0x0;
+			ss_tune->fix_rxeq_value	= 0x4;
+		}
 		break;
 	default:
 		break;
@@ -334,20 +360,36 @@ static int exynos_usbdrd_get_phyinfo(struct exynos_usbdrd_phy *phy_drd)
 
 	switch (phy_drd->drv_data->cpu_type) {
 	case TYPE_EXYNOS8890:
-		phy_drd->usbphy_info.version	= EXYNOS_USBCON_VER_01_0_1;
-		phy_drd->usbphy_info.refclk	= phy_drd->extrefclk;
-		phy_drd->usbphy_info.refsel	= USBPHY_REFSEL_DIFF_INTERNAL;
-		phy_drd->usbphy_info.use_io_for_ovc	 = true;
-		phy_drd->usbphy_info.common_block_enable = false;
-		phy_drd->usbphy_info.regs_base	= phy_drd->reg_phy;
+		if (phy_drd->drv_data->ip_type == TYPE_USB3DRD) {
+			phy_drd->usbphy_info.version = EXYNOS_USBCON_VER_01_0_1;
+			phy_drd->usbphy_info.refsel =
+						USBPHY_REFSEL_DIFF_INTERNAL;
+			phy_drd->usbphy_info.use_io_for_ovc = true;
+			phy_drd->usbphy_info.common_block_enable = false;
+		} else {
+			phy_drd->usbphy_info.version = EXYNOS_USBCON_VER_02_1_1;
+			phy_drd->usbphy_info.refsel =
+						USBPHY_REFCLK_EXT_12MHZ;
+			phy_drd->usbphy_info.use_io_for_ovc = false;
+			phy_drd->usbphy_info.common_block_enable = false;
+		}
 		break;
 	default:
 		dev_err(phy_drd->dev, "%s: unknown cpu type\n", __func__);
 		return -EINVAL;
 	}
 
+	phy_drd->usbphy_info.refclk = phy_drd->extrefclk;
+	phy_drd->usbphy_info.regs_base = phy_drd->reg_phy;
 	phy_drd->usbphy_info.not_used_vbus_pad = of_property_read_bool(node,
 							"is_not_vbus_pad");
+
+	if (phy_drd->drv_data->cpu_type == TYPE_EXYNOS8890 &&
+		phy_drd->drv_data->ip_type == TYPE_USB2HOST) {
+		phy_drd->usbphy_info.ss_tune = NULL;
+		phy_drd->usbphy_info.hs_tune = NULL;
+		goto done;
+	}
 
 	phy_drd->usbphy_info.hs_tune = devm_kmalloc(phy_drd->dev,
 			sizeof(struct exynos_usbphy_hs_tune), GFP_KERNEL);
@@ -369,6 +411,7 @@ static int exynos_usbdrd_get_phyinfo(struct exynos_usbdrd_phy *phy_drd)
 	exynos_usbdrd_fill_hstune(phy_drd, phy_drd->usbphy_info.hs_tune);
 	exynos_usbdrd_fill_sstune(phy_drd, phy_drd->usbphy_info.ss_tune);
 
+done:
 	dev_info(phy_drd->dev, "usbphy info: version:0x%x, refclk:0x%x\n",
 		phy_drd->usbphy_info.version, phy_drd->usbphy_info.refclk);
 
@@ -490,17 +533,6 @@ static int exynos_usbdrd_phy_set(struct phy *phy, int option, void *info)
 	struct phy_usb_instance *inst = phy_get_drvdata(phy);
 	struct exynos_usbdrd_phy *phy_drd = to_usbdrd_phy(inst);
 
-	switch (option) {
-	case SET_DPPULLUP_ENABLE:
-	case SET_DPPULLUP_DISABLE:
-	case SET_DPDM_PULLDOWN:
-		if (!phy_drd->usbphy_info.not_used_vbus_pad)
-			return 0;
-		break;
-	default:
-		break;
-	}
-
 	inst->phy_cfg->phy_set(phy_drd, option, info);
 
 	return 0;
@@ -524,7 +556,17 @@ static int exynos_usbdrd_phy_power_on(struct phy *phy)
 	}
 
 	/* Power-on PHY*/
-	inst->phy_cfg->phy_isol(inst, 0);
+	switch (phy_drd->drv_data->cpu_type) {
+	case TYPE_EXYNOS8890:
+		if (phy_drd->drv_data->ip_type == TYPE_USB3DRD)
+			inst->phy_cfg->phy_isol(inst, 0, EXYNOS_USBDRD_ENABLE);
+		else
+			inst->phy_cfg->phy_isol(inst, 0, EXYNOS_USBHOST_ENABLE);
+		break;
+	default:
+		inst->phy_cfg->phy_isol(inst, 0, EXYNOS5_PHY_ENABLE);
+		break;
+	}
 
 	return 0;
 }
@@ -537,7 +579,17 @@ static int exynos_usbdrd_phy_power_off(struct phy *phy)
 	dev_dbg(phy_drd->dev, "Request to power_off usbdrd_phy phy\n");
 
 	/* Power-off the PHY */
-	inst->phy_cfg->phy_isol(inst, 1);
+	switch (phy_drd->drv_data->cpu_type) {
+	case TYPE_EXYNOS8890:
+		if (phy_drd->drv_data->ip_type == TYPE_USB3DRD)
+			inst->phy_cfg->phy_isol(inst, 1, EXYNOS_USBDRD_ENABLE);
+		else
+			inst->phy_cfg->phy_isol(inst, 1, EXYNOS_USBHOST_ENABLE);
+		break;
+	default:
+		inst->phy_cfg->phy_isol(inst, 1, EXYNOS5_PHY_ENABLE);
+		break;
+	}
 
 	/* Disable VBUS supply */
 	if (phy_drd->vbus)
@@ -590,14 +642,25 @@ static const struct exynos_usbdrd_phy_config phy_cfg_exynos8890[] = {
 
 static const struct exynos_usbdrd_phy_drvdata exynos8890_usbdrd_phy = {
 	.phy_cfg		= phy_cfg_exynos8890,
-	.pmu_offset_usbdrd0_phy	= EXYNOS5_USBDRD_PHY_CONTROL,
+	.pmu_offset_usbdrd0_phy	= EXYNOS_USBDEV_PHY_CONTROL,
 	.cpu_type		= TYPE_EXYNOS8890,
+	.ip_type		= TYPE_USB3DRD,
+};
+
+static const struct exynos_usbdrd_phy_drvdata exynos8890_usbhost_phy = {
+	.phy_cfg		= phy_cfg_exynos8890,
+	.pmu_offset_usbdrd0_phy	= EXYNOS_USBDEV_PHY_CONTROL,
+	.cpu_type		= TYPE_EXYNOS8890,
+	.ip_type		= TYPE_USB2HOST,
 };
 
 static const struct of_device_id exynos_usbdrd_phy_of_match[] = {
 	{
 		.compatible = "samsung,exynos8890-usbdrd-phy",
 		.data = &exynos8890_usbdrd_phy
+	}, {
+		.compatible = "samsung,exynos8890-usbhost-phy",
+		.data = &exynos8890_usbhost_phy
 	},
 	{ },
 };

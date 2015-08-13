@@ -12,6 +12,11 @@
 #include "phy-samsung-usb-cal.h"
 #include "phy-samsung-usb3-cal.h"
 
+/* PMU register offset for USB */
+#define EXYNOS_USBDEV_PHY_CONTROL	(0x704)
+#define EXYNOS_USBDRD_ENABLE		BIT(0)
+#define EXYNOS_USBHOST_ENABLE		BIT(1)
+
 /* Exynos USB PHY registers */
 #define EXYNOS_FSEL_9MHZ6		0x0
 #define EXYNOS_FSEL_10MHZ		0x1
@@ -101,7 +106,7 @@ struct exynos_usbdrd_phy;
 
 struct exynos_usbdrd_phy_config {
 	u32 id;
-	void (*phy_isol)(struct phy_usb_instance *inst, u32 on);
+	void (*phy_isol)(struct phy_usb_instance *inst, u32 on, unsigned int);
 	void (*phy_init)(struct exynos_usbdrd_phy *phy_drd);
 	void (*phy_exit)(struct exynos_usbdrd_phy *phy_drd);
 	void (*phy_tune)(struct exynos_usbdrd_phy *phy_drd, int);
@@ -114,6 +119,7 @@ struct exynos_usbdrd_phy_drvdata {
 	u32 pmu_offset_usbdrd0_phy;
 	u32 pmu_offset_usbdrd1_phy;
 	u32 cpu_type;
+	u32 ip_type;
 };
 
 /**
