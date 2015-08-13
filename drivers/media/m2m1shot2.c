@@ -29,6 +29,27 @@
 #define M2M1SHOT2_FENCE_MASK (M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE |		\
 					M2M1SHOT2_IMGFLAG_RELEASE_FENCE)
 
+/*
+ * STATE TRANSITION of m2m1shot2_context:
+ * - PROCESSING:
+ *     # set in m2m1shot2_start_processing() after the context is moved to
+ *       active_contexts.
+ *     # clear in __m2m1shot2_finish_context() inside m2m1shot2_finish_context()
+ *       that is called by the client driver when IRQ occurs.
+ * - PENDING:
+ *     # set in m2m1shot2_start_context() along with PROCESSING.
+ *     # clear in m2m1shot2_schedule() before calling .device_run().
+ * - WAITING:
+ *     # set at the entry of m2m1shot2_wait_process()
+ *     # clear in m2m1shot2_ioctl() before returning to user
+ * - PROCESSED:
+ *     # set in __m2m1shot2_finish_context() along with clearing PROCESSING.
+ *     # clear in m2m1shot2_ioctl() before returning to user
+ * - ERROR:
+ *     # set in __m2m1shot2_finish_context() on an error
+ *     # clear in m2m1shot2_ioctl() before returning to user
+ */
+
 static int m2m1shot2_open(struct inode *inode, struct file *filp)
 {
 	struct m2m1shot2_device *m21dev = container_of(filp->private_data,
@@ -93,11 +114,6 @@ struct m2m1shot2_context *m2m1shot2_current_context(
 	return m21dev->current_ctx;
 }
 
-
-void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success)
-{
-}
-
 static void m2m1shot2_put_userptr(struct m2m1shot2_dma_buffer *plane)
 {
 	/* TODO: implement */
@@ -156,19 +172,199 @@ static void m2m1shot2_put_images(struct m2m1shot2_context *ctx)
 	m2m1shot2_put_image(&ctx->target);
 }
 
+static void __m2m1shot2_finish_context(struct m2m1shot2_context *ctx,
+					bool success)
+{
+	struct m2m1shot2_device *m21dev = ctx->m21dev;
+	unsigned long flags;
+
+	spin_lock_irqsave(&m21dev->lock_ctx, flags);
+
+	/* effective only to the current processing context */
+	if (WARN_ON(ctx != m21dev->current_ctx)) {
+		spin_unlock_irqrestore(&m21dev->lock_ctx, flags);
+		return;
+	}
+
+	m21dev->current_ctx = NULL;
+	list_add_tail(&ctx->node, &m21dev->contexts);
+
+	spin_unlock_irqrestore(&m21dev->lock_ctx, flags);
+
+	if (!success)
+		set_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state);
+
+	set_bit(M2M1S2_CTXSTATE_PROCESSED, &ctx->state);
+	clear_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
+
+	complete_all(&ctx->complete);
+}
+
+/**
+ * m2m1shot2_schedule() - pick a context to process
+ *
+ * pick a context that is at the front of m2m1shot2_device.active_contexts
+ * and provide it to the client to process that context.
+ * If the client returns error then pick the next context.
+ */
+static void m2m1shot2_schedule(struct m2m1shot2_device *m21dev)
+{
+	struct m2m1shot2_context *ctx;
+	unsigned long flags;
+
+retry:
+	spin_lock_irqsave(&m21dev->lock_ctx, flags);
+
+	if (m21dev->current_ctx != NULL) {
+		/* the client is currently processing a context */
+		spin_unlock_irqrestore(&m21dev->lock_ctx, flags);
+		return;
+	}
+
+	if (list_empty(&m21dev->active_contexts)) {
+		/* no context to process */
+		spin_unlock_irqrestore(&m21dev->lock_ctx, flags);
+		return;
+	}
+
+	ctx = list_first_entry(&m21dev->active_contexts,
+				struct m2m1shot2_context, node);
+	m21dev->current_ctx = ctx;
+	list_del_init(&ctx->node);
+
+	spin_unlock_irqrestore(&m21dev->lock_ctx, flags);
+
+	clear_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
+
+	if (m21dev->ops->device_run(ctx) < 0) {
+		__m2m1shot2_finish_context(ctx, false);
+		goto retry;
+	}
+}
+
+/*
+ * m2m1shot2_wait_process() - wait until processing the context is finished
+ *
+ * This function should be called under ctx->mutex held.
+ */
+static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
+				   struct m2m1shot2_context *ctx)
+{
+	set_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
+
+	if (wait_for_completion_interruptible(&ctx->complete) == -ERESTARTSYS) {
+		bool current_ctx = false;
+		unsigned long flags;
+
+		spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
+		if (list_empty(&ctx->node)) {
+			current_ctx = true;
+			BUG_ON(ctx->m21dev->current_ctx != ctx);
+		} else {
+			list_move_tail(&ctx->node, &m21dev->contexts);
+		}
+		spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
+
+		/* The client driver should guarantee that this task wakes up */
+		if (current_ctx) {
+			wait_for_completion(&ctx->complete);
+		} else {
+			/* The client driver never calls
+			 * m2m1shot2_finish_context() for this context because
+			 * the framework won't call device_run for this context
+			 */
+			clear_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
+			clear_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
+
+			/* the pending task is canced by a signal */
+			set_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state);
+			set_bit(M2M1S2_CTXSTATE_PROCESSED, &ctx->state);
+		}
+	}
+
+	sw_sync_timeline_inc(ctx->timeline, 1);
+
+	m2m1shot2_put_images(ctx);
+}
+
+/**
+ * m2m1shot2_start_context() - add a context to the queue
+ *
+ * Given a valid context ready for processing, add it to
+ * m2m1shot2_device.active_list that is the queue of ready contexts.
+ * The state of the given context becomes PROCESSING|PENDING.
+ * Then pick the next context to process from the queue. If there was no context
+ * in the queue before this function call, the given context will be pick for
+ * the context to process.
+ */
+static void m2m1shot2_start_context(struct m2m1shot2_device *m21dev,
+				    struct m2m1shot2_context *ctx)
+{
+	unsigned long flags;
+
+	reinit_completion(&ctx->complete);
+
+	spin_lock_irqsave(&m21dev->lock_ctx, flags);
+
+	BUG_ON(list_empty(&ctx->node));
+
+	/* move ctx from m21dev->contexts to m21dev->active_contexts */
+	list_move_tail(&ctx->node, &m21dev->active_contexts);
+
+	set_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
+	set_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
+
+	spin_unlock_irqrestore(&m21dev->lock_ctx, flags);
+
+	m2m1shot2_schedule(m21dev);
+}
+
+void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success)
+{
+	struct m2m1shot2_device *m21dev = ctx->m21dev;
+
+	__m2m1shot2_finish_context(ctx, success);
+	/* NOTE that ctx may be being freed during finishing ctx */
+	m2m1shot2_schedule(m21dev);
+}
+
 static void m2m1shot2_cancel_context(struct m2m1shot2_context *ctx)
 {
 	unsigned long flags;
+	bool need_to_wait;
 
 	/* signal all possible release fences */
 	sw_sync_timeline_inc(ctx->timeline, 1);
 
+	mutex_lock(&ctx->mutex);
+	/*
+	 * wait until the H/W finishes the processing about the context if
+	 * the context is being serviced by H/W. This should be the only waiter
+	 * for the context.
+	 */
 	spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
-	WARN_ON(ctx->state != 0);
-	list_del_init(&ctx->node);
+
+	if (list_empty(&ctx->node)) {
+		need_to_wait = true;
+		BUG_ON(ctx->m21dev->current_ctx != ctx);
+	} else {
+		list_del_init(&ctx->node);
+	}
+
 	spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
 
+	if (need_to_wait) {
+		m2m1shot2_wait_process(ctx->m21dev, ctx);
+		clear_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
+	}
+
+	/* to confirm if no reference to a resource exists */
 	m2m1shot2_put_images(ctx);
+
+	WARN(!M2M1S2_CTXSTATE_IDLE(ctx),
+		"state should be IDLE but %#lx\n", ctx->state);
+
+	mutex_unlock(&ctx->mutex);
 }
 
 /*
@@ -675,10 +871,7 @@ static long m2m1shot2_ioctl(struct file *filp,
 			break;
 		}
 
-		set_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
-		set_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
-
-		if (copy_from_user(&data, (void __user *)arg, sizeof(data))) {
+		if (copy_from_user(&data, uptr, sizeof(data))) {
 			dev_err(ctx->m21dev->dev,
 				"%s: Failed to read userdata\n", __func__);
 			ret = -EFAULT;
@@ -698,19 +891,34 @@ static long m2m1shot2_ioctl(struct file *filp,
 			}
 		}
 
-		/* TODO: process user's request */
-		/* TODO: if processing fails,
-		   then free all file descriptors related o the rlease fence */
+		m2m1shot2_start_context(ctx->m21dev, ctx);
+
 		if (!(data.flags & M2M1SHOT2_FLAG_NONBLOCK)) {
-			clear_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
-			clear_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
+			m2m1shot2_wait_process(ctx->m21dev, ctx);
+
+			BUG_ON(ctx->state &
+				((1 << M2M1S2_CTXSTATE_PENDING) |
+				 (1 << M2M1S2_CTXSTATE_PROCESSING)));
+			BUG_ON(!(ctx->state &
+					(1 << M2M1S2_CTXSTATE_PROCESSED)));
+
 			clear_bit(M2M1S2_CTXSTATE_PROCESSED, &ctx->state);
 			clear_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
-			/* TODO: inform user error
+
 			if (test_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state)) {
+				data.flags |= M2M1SHOT2_FLAG_ERROR;
+				ret = put_user(data.flags, &uptr->flags);
+
+				clear_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state);
+			} else {
+				unsigned int i;
+
+				for (i = 0; i < ctx->target.num_planes; i++) {
+					ret = put_user(
+						ctx->target.plane[i].payload,
+						&uptr->target.plane[i].payload);
+				}
 			}
-			*/
-			clear_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state);
 		}
 
 		break;
@@ -804,6 +1012,8 @@ struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 
 	m21dev->dev = dev;
 	m21dev->ops = ops;
+
+	dev_info(dev, "registered as m2m1shot2 device");
 
 	return m21dev;
 
