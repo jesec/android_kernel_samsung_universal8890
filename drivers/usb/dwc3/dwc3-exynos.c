@@ -90,8 +90,8 @@ static struct dwc3_exynos_drvdata dwc3_exynos5 = {
 	.cpu_type	= TYPE_EXYNOS5,
 };
 
-static struct dwc3_exynos_drvdata dwc3_exynos8 = {
-	.cpu_type	= TYPE_EXYNOS8,
+static struct dwc3_exynos_drvdata dwc3_exynos8890 = {
+	.cpu_type	= TYPE_EXYNOS8890,
 };
 
 static const struct of_device_id exynos_dwc3_match[] = {
@@ -102,8 +102,8 @@ static const struct of_device_id exynos_dwc3_match[] = {
 		.compatible = "samsung,exynos5-dwusb3",
 		.data = &dwc3_exynos5,
 	}, {
-		.compatible = "samsung,exynos8-dwusb3",
-		.data = &dwc3_exynos8,
+		.compatible = "samsung,exynos8890-dwusb3",
+		.data = &dwc3_exynos8890,
 	},
 	{},
 };
@@ -585,7 +585,7 @@ static int dwc3_exynos_clk_get(struct dwc3_exynos *exynos)
 
 	/* fallback to separate clock control */
 	switch (exynos->drv_data->cpu_type) {
-	case TYPE_EXYNOS8:
+	case TYPE_EXYNOS8890:
 		clk_ids = dwc3_exynos8_clk_names;
 		clk_count = ARRAY_SIZE(dwc3_exynos8_clk_names);
 		break;
@@ -654,7 +654,7 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 	if (!exynos->drv_data)
 		dev_info(exynos->dev, "driver data is not available\n");
 
-	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8) {
+	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8890) {
 		exynos->idle_ip_index = exynos_get_idle_ip_index(dev_name(dev));
 		exynos_update_ip_idle_status(exynos->idle_ip_index, 0);
 	}
@@ -758,7 +758,7 @@ static int dwc3_exynos_runtime_suspend(struct device *dev)
 	dwc3_exynos_clk_disable(exynos);
 
 	/* inform what USB state is idle to IDLE_IP */
-	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8)
+	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8890)
 		exynos_update_ip_idle_status(exynos->idle_ip_index, 1);
 
 	return 0;
@@ -772,7 +772,7 @@ static int dwc3_exynos_runtime_resume(struct device *dev)
 	dev_dbg(dev, "%s\n", __func__);
 
 	/* inform what USB state is not idle to IDLE_IP */
-	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8)
+	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8890)
 		exynos_update_ip_idle_status(exynos->idle_ip_index, 0);
 
 	ret = dwc3_exynos_clk_enable(exynos);
