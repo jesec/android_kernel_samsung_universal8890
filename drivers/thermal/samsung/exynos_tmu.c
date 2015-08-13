@@ -930,7 +930,6 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 							* gpu_idx_num, GFP_KERNEL);
 		if (table_ptr == NULL) {
 			pr_err("%s: failed to allocate for cpufreq_dvfs_table\n", __func__);
-			kfree(table_ptr);
 			return -ENODEV;
 		}
 
@@ -952,9 +951,8 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 	ret = of_property_read_u32(pdev->dev.of_node, "isp_idx_num", &isp_idx_num);
 	if (isp_idx_num) {
 		isp_table_ptr = kzalloc(sizeof(struct isp_fps_table) * isp_idx_num, GFP_KERNEL);
-		if (table_ptr == NULL) {
+		if (isp_table_ptr == NULL) {
 			pr_err("%s: failed to allocate for isp_fps_table\n", __func__);
-			kfree(table_ptr);
 			return -ENODEV;
 		}
 
