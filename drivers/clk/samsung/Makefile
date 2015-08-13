@@ -11,7 +11,11 @@ obj-$(CONFIG_SOC_EXYNOS5420)	+= clk-exynos5420.o
 obj-$(CONFIG_SOC_EXYNOS5440)	+= clk-exynos5440.o
 ifeq ($(CONFIG_SOC_EXYNOS8890), y)
 	obj-y				+= composite.o
+ifeq ($(CONFIG_SOC_EXYNOS8890_EVT1), y)
 	obj-y				+= clk-exynos8890.o
+else
+	obj-y				+= clk-exynos8890_evt0.o
+endif
 else
 	obj-$(CONFIG_COMMON_CLK)	+= clk.o clk-pll.o
 endif
