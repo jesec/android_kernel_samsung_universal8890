@@ -57,7 +57,7 @@ static dma_addr_t alloc_iovm_region(struct exynos_iovmm *vmm, size_t size,
 	u32 vsize;
 	unsigned long end, i;
 	struct exynos_vm_region *region;
-	size_t align = SZ_16M;
+	size_t align = SZ_1M;
 
 	BUG_ON(page_offset >= PAGE_SIZE);
 
