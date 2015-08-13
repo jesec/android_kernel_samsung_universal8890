@@ -29,6 +29,7 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/samsung_usb.h>
 #include <linux/phy/phy.h>
 
 #include "debug.h"
@@ -1697,6 +1698,13 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 			phy_tune(dwc->usb2_generic_phy, 0);
 			phy_tune(dwc->usb3_generic_phy, 0);
 		}
+
+		/**
+		 * In case there is not a resistance to detect VBUS,
+		 * DP/DM controls by S/W are needed at this point.
+		 */
+		phy_set(dwc->usb2_generic_phy, SET_DPPULLUP_DISABLE, NULL);
+		phy_set(dwc->usb3_generic_phy, SET_DPPULLUP_DISABLE, NULL);
 	}
 
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);
@@ -2502,6 +2510,13 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	 *
 	 * In both cases reset values should be sufficient.
 	 */
+
+	/**
+	 * In case there is not a resistance to detect VBUS,
+	 * DP/DM controls by S/W are needed at this point.
+	 */
+	phy_set(dwc->usb2_generic_phy, SET_DPPULLUP_ENABLE, NULL);
+	phy_set(dwc->usb3_generic_phy, SET_DPPULLUP_ENABLE, NULL);
 }
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)

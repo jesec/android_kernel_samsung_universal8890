@@ -22,6 +22,8 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
+#include <linux/usb/samsung_usb.h>
+#include <linux/phy/phy.h>
 
 #include "core.h"
 #include "otg.h"
@@ -210,6 +212,14 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 					__func__);
 			goto err1;
 		}
+
+		/**
+		 * In case there is not a resistance to detect VBUS,
+		 * DP/DM controls by S/W are needed at this point.
+		 */
+		phy_set(dwc->usb2_generic_phy, SET_DPDM_PULLDOWN, NULL);
+		phy_set(dwc->usb3_generic_phy, SET_DPDM_PULLDOWN, NULL);
+
 		dwc3_otg_set_host_mode(dotg);
 		ret = platform_device_add(dwc->xhci);
 		if (ret) {
