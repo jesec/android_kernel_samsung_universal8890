@@ -468,7 +468,8 @@ static unsigned long umux_get(struct vclk *vclk)
 	unsigned long ret = 0;
 
 	umux = to_umux(vclk);
-	ret = (unsigned long)pwrcal_clk_get_rate(umux->umux);
+	if (umux->umux != CLK_NONE)
+		ret = (unsigned long)pwrcal_clk_get_rate(umux->umux);
 
 	return ret;
 }
@@ -478,7 +479,8 @@ static int umux_enable(struct vclk *vclk)
 	struct pwrcal_vclk_umux *umux;
 
 	umux = to_umux(vclk);
-	pwrcal_mux_set_src(umux->umux, 1);
+	if (umux->umux != CLK_NONE)
+		pwrcal_mux_set_src(umux->umux, 1);
 
 	return 0;
 }
@@ -488,8 +490,8 @@ static int umux_disable(struct vclk *vclk)
 	struct pwrcal_vclk_umux *umux;
 
 	umux = to_umux(vclk);
-
-	pwrcal_mux_set_src(umux->umux, 0);
+	if (umux->umux != CLK_NONE)
+		pwrcal_mux_set_src(umux->umux, 0);
 
 	return 0;
 }
