@@ -116,7 +116,25 @@ struct m2m1shot2_context *m2m1shot2_current_context(
 
 static void m2m1shot2_put_userptr(struct m2m1shot2_dma_buffer *plane)
 {
-	/* TODO: implement */
+	struct vm_area_struct *vma = plane->userptr.vma;
+
+	BUG_ON((vma == NULL) || (plane->userptr.addr == 0));
+
+	while (vma) {
+		struct vm_area_struct *tvma;
+
+		if (vma->vm_ops && vma->vm_ops->close)
+			vma->vm_ops->close(vma);
+
+		if (vma->vm_file)
+			fput(vma->vm_file);
+
+		tvma = vma;
+		vma = vma->vm_next;
+
+		kfree(tvma);
+	}
+
 	plane->userptr.vma = NULL;
 	plane->userptr.addr = 0;
 }
@@ -402,8 +420,88 @@ static int m2m1shot2_get_userptr(struct device *dev,
 				 struct m2m1shot2_dma_buffer *plane,
 				 unsigned long addr, u32 length)
 {
-	/* TODO: implement */
-	return -EFAULT;
+	unsigned long end = addr + length;
+	struct vm_area_struct *vma;
+	struct vm_area_struct *tvma;
+	int ret = -EINVAL;
+
+	/*
+	 * release the previous buffer whatever the userptr is previously used.
+	 * the pages mapped to the given user addr can be different even though
+	 * the user addr is the same if the addr is mmapped again.
+	 */
+	if (plane->userptr.vma != NULL)
+		m2m1shot2_put_userptr(plane);
+
+	down_read(&current->mm->mmap_sem);
+
+	vma = find_vma(current->mm, addr);
+	if (addr < vma->vm_start) {
+		dev_err(dev, "%s: invalid address %#lx\n", __func__, addr);
+		goto err_novma;
+	}
+
+	tvma = kmemdup(vma, sizeof(*vma), GFP_KERNEL);
+	if (!tvma) {
+		dev_err(dev, "%s: failed to allocate vma\n", __func__);
+		ret = -ENOMEM;
+		goto err_novma;
+	}
+
+	plane->userptr.vma = tvma;
+
+	tvma->vm_next = NULL;
+	tvma->vm_prev = NULL;
+
+	while (end > vma->vm_end) {
+		if (!!(vma->vm_flags & VM_PFNMAP)) {
+			dev_err(dev, "%s: non-linear pfnmap is not supported\n",
+				__func__);
+			goto err_vma;
+		}
+
+		if ((vma->vm_next == NULL) ||
+				(vma->vm_end != vma->vm_next->vm_start)) {
+			dev_err(dev, "%s: invalid size %u\n", __func__, length);
+			goto err_vma;
+		}
+
+		vma = vma->vm_next;
+		tvma->vm_next = kmemdup(vma, sizeof(*vma), GFP_KERNEL);
+		if (tvma->vm_next == NULL) {
+			dev_err(dev, "%s: failed to allocate vma\n", __func__);
+			ret = -ENOMEM;
+			goto err_vma;
+		}
+		tvma->vm_next->vm_prev = tvma;
+		tvma->vm_next->vm_next = NULL;
+		tvma = tvma->vm_next;
+	}
+
+	for (vma = plane->userptr.vma; vma != NULL; vma = vma->vm_next) {
+		if (vma->vm_file)
+			get_file(vma->vm_file);
+		if (vma->vm_ops && vma->vm_ops->open)
+			vma->vm_ops->open(vma);
+	}
+
+	up_read(&current->mm->mmap_sem);
+
+	plane->userptr.addr = addr;
+	plane->userptr.length = length;
+
+	return 0;
+err_vma:
+	while (tvma) {
+		vma = tvma;
+		tvma = tvma->vm_prev;
+		kfree(vma);
+	}
+
+	plane->userptr.vma = NULL;
+err_novma:
+	up_read(&current->mm->mmap_sem);
+	return ret;
 }
 
 static int m2m1shot2_get_dmabuf(struct device *dev,
