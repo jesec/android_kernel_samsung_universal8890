@@ -81,10 +81,10 @@ static void pscdc_trans(unsigned int sci_rate,
 	pwrcal_writel(PSCDC_CTRL_CCORE,	0x00000001);
 	pwrcal_writel(PSCDC_CTRL1,	(sci_rate << 16) | aclk_mif_rate);
 	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON0,	0x80000000 | (top_mux_bus_pll << 12));
-	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON1,	0x80010000 | (top_div_bus_pll));
-	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON2,	0x80020000 | (mif_mux_mif_pll << 12));
-	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON3,	0x80030000 | (mif_mux_bus_pll << 12));
-	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON4,	0x80040000 | (mif_mux_aclk_mif_pll << 12));
+	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON1,	0x80020000 | (mif_mux_mif_pll << 12));
+	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON2,	0x80030000 | (mif_mux_bus_pll << 12));
+	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON3,	0x80040000 | (mif_mux_aclk_mif_pll << 12));
+	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON4,	0x00000000);
 	pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON0,	0x80000000 | (top_mux_ccore << 12));
 	pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON1,	0x80010000 | (top_div_ccore));
 	pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON2,	0x80020000 | (ccore_mux_user << 12));
@@ -172,7 +172,6 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	int lv_to, lv_switch;
 	unsigned int rate_sci, rate_smc;	/* unit size : MHZ */
 	unsigned int mux_value, div_value;
-	unsigned int mux_switch;
 
 	lv_switch = dfs_get_lv(rate_switch, table) - 1;
 	if (lv_switch < 0)
@@ -207,10 +206,9 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	/* 3-3 */
 	mux_value = rate_table_aclk_ccore_800[lv_to].mux;
 	div_value = rate_table_aclk_ccore_800[lv_to].div;
-	mux_switch = (rate_switch >= 936000) ? 3 : 4;
 	rate_sci = rate_table_aclk_ccore_800[lv_to].sci_ratio;
 	rate_smc = rate_table_aclk_ccore_800[lv_to].smc_ratio;
-	pscdc_trans(rate_sci, rate_smc, mux_switch, 0, 1, 1, 0, mux_value, div_value, 1, 1);
+	pscdc_trans(rate_sci, rate_smc, 0, 0, 1, 1, 0, mux_value, div_value, 1, 1);
 
 	/* 3-4 */
 	if (table->switch_post)
