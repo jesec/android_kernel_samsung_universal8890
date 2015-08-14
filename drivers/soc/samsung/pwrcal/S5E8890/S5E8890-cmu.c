@@ -20,7 +20,7 @@ struct pwrcal_clk *mux_type_list[NUM_OF_MUX_TYPE];
 struct pwrcal_clk *div_type_list[NUM_OF_DIV_TYPE];
 struct pwrcal_clk *gate_type_list[NUM_OF_GATE_TYPE];
 
-#define ADD_CLK_TO_LIST(to, x)	to[clk_##x.clk.id & 0xFFFF] = &(clk_##x.clk)
+#define ADD_CLK_TO_LIST(to, x)	to[clk_##x.clk.id & 0xFFF] = &(clk_##x.clk)
 
 CLK_PLL(14160,	MNGS_PLL,	0,	MNGS_PLL_LOCK,	MNGS_PLL_CON0,	NULL,	MNGS_MUX_MNGS_PLL,	&pll141xx_ops);
 CLK_PLL(14170,	APOLLO_PLL,	0,	APOLLO_PLL_LOCK,	APOLLO_PLL_CON0,	NULL,	APOLLO_MUX_APOLLO_PLL,	&pll141xx_ops);
