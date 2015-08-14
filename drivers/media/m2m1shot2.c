@@ -33,6 +33,8 @@
 #define M2M1SHOT2_FENCE_MASK (M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE |		\
 					M2M1SHOT2_IMGFLAG_RELEASE_FENCE)
 
+static void m2m1shot2_fence_callback(struct sync_fence *fence,
+					struct sync_fence_waiter *waiter);
 /*
  * STATE TRANSITION of m2m1shot2_context:
  * - PROCESSING:
@@ -53,7 +55,6 @@
  *     # set in __m2m1shot2_finish_context() on an error
  *     # clear in m2m1shot2_ioctl() before returning to user
  */
-
 static int m2m1shot2_open(struct inode *inode, struct file *filp)
 {
 	struct m2m1shot2_device *m21dev = container_of(filp->private_data,
@@ -74,7 +75,6 @@ static int m2m1shot2_open(struct inode *inode, struct file *filp)
 	}
 
 	INIT_LIST_HEAD(&ctx->node);
-	kref_init(&ctx->starter);
 
 	spin_lock_irqsave(&m21dev->lock_ctx, flags);
 	list_add_tail(&ctx->node, &m21dev->contexts);
@@ -87,13 +87,16 @@ static int m2m1shot2_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = ctx;
 
-	for (ret = 0; ret < M2M1SHOT2_MAX_IMAGES; ret++)
+	for (ret = 0; ret < M2M1SHOT2_MAX_IMAGES; ret++) {
 		ctx->source[ret].img.index = ret;
-
+		sync_fence_waiter_init(&ctx->source[ret].img.waiter,
+					m2m1shot2_fence_callback);
+	}
 	ctx->target.index = M2M1SHOT2_MAX_IMAGES;
+	sync_fence_waiter_init(&ctx->target.waiter, m2m1shot2_fence_callback);
 
 	ret = m21dev->ops->init_context(ctx);
-	if (ret) /* kref_put() is not called not to call .free_context() */
+	if (ret)
 		goto err_init;
 
 	return 0;
@@ -420,6 +423,48 @@ static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
 	m2m1shot2_put_images(ctx);
 }
 
+static void m2m1shot2_schedule_context(struct kref *kref)
+{
+	struct m2m1shot2_context *ctx = container_of(kref,
+					struct m2m1shot2_context, starter);
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
+
+	BUG_ON(list_empty(&ctx->node));
+
+	/* move ctx from m21dev->contexts to m21dev->active_contexts */
+	list_move_tail(&ctx->node, &ctx->m21dev->active_contexts);
+
+	set_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
+	set_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
+
+	spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
+
+	m2m1shot2_schedule(ctx->m21dev);
+}
+
+/* NOTE that this function is under irq disabled context */
+static void m2m1shot2_fence_callback(struct sync_fence *fence,
+					struct sync_fence_waiter *waiter)
+{
+	struct m2m1shot2_context_image *img =
+		container_of(waiter, struct m2m1shot2_context_image, waiter);
+	unsigned long ptr = (unsigned long)img;
+	struct m2m1shot2_context *ctx;
+
+	BUG_ON(img->index > M2M1SHOT2_MAX_IMAGES);
+
+	sync_fence_put(img->fence);
+	img->fence = NULL;
+
+	ptr -= sizeof(struct m2m1shot2_source_image) * img->index;
+	ptr -= offsetof(struct m2m1shot2_context, source);
+	ctx = (struct m2m1shot2_context *)ptr;
+
+	kref_put(&ctx->starter, m2m1shot2_schedule_context);
+}
+
 /**
  * m2m1shot2_start_context() - add a context to the queue
  *
@@ -433,25 +478,15 @@ static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
 static void m2m1shot2_start_context(struct m2m1shot2_device *m21dev,
 				    struct m2m1shot2_context *ctx)
 {
-	unsigned long flags;
-
 	m2m1shot2_map_images(ctx);
 
 	reinit_completion(&ctx->complete);
 
-	spin_lock_irqsave(&m21dev->lock_ctx, flags);
-
-	BUG_ON(list_empty(&ctx->node));
-
-	/* move ctx from m21dev->contexts to m21dev->active_contexts */
-	list_move_tail(&ctx->node, &m21dev->active_contexts);
-
-	set_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
-	set_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
-
-	spin_unlock_irqrestore(&m21dev->lock_ctx, flags);
-
-	m2m1shot2_schedule(m21dev);
+	/*
+	 * m2m1shot2_schedule_context() will be called immediately if there is
+	 * no fence to wait.
+	 */
+	kref_put(&ctx->starter, m2m1shot2_schedule_context);
 }
 
 void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success)
@@ -466,12 +501,23 @@ void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success)
 static void m2m1shot2_cancel_context(struct m2m1shot2_context *ctx)
 {
 	unsigned long flags;
-	bool need_to_wait;
+	unsigned int i;
+	bool need_to_wait = false;
 
 	/* signal all possible release fences */
 	sw_sync_timeline_inc(ctx->timeline, 1);
 
 	mutex_lock(&ctx->mutex);
+
+	for (i = 0; i < M2M1SHOT2_MAX_IMAGES; i++) {
+		/* sync_fence_put() is called later */
+		if (ctx->source[i].img.fence)
+			sync_fence_cancel_async(ctx->source[i].img.fence,
+						&ctx->source[i].img.waiter);
+	}
+
+	if (ctx->target.fence)
+		sync_fence_cancel_async(ctx->target.fence, &ctx->target.waiter);
 	/*
 	 * wait until the H/W finishes the processing about the context if
 	 * the context is being serviced by H/W. This should be the only waiter
@@ -531,17 +577,16 @@ static void m2m1shot2_cancel_context(struct m2m1shot2_context *ctx)
 }
 
 /*
- * m2m1shot2_destroy_context() may be called during the context to be destroyed
- * is ready for processing or currently waiting for completion of processing due
- * to the non-blocking interface. Therefore it should remove the context from
+ * m2m1shot2_release() may be called during the context to be destroyed is ready
+ * for processing or currently waiting for completion of processing due to the
+ * non-blocking interface. Therefore it should remove the context from
  * m2m1shot2_device.active_contexts if the context is in the list. If it is
  * currently being processed by H/W, this function should wait until the H/W
  * finishes.
  */
-static void m2m1shot2_destroy_context(struct kref *kref)
+static int m2m1shot2_release(struct inode *inode, struct file *filp)
 {
-	struct m2m1shot2_context *ctx = container_of(kref,
-					struct m2m1shot2_context, starter);
+	struct m2m1shot2_context *ctx = filp->private_data;
 
 	m2m1shot2_cancel_context(ctx);
 
@@ -550,13 +595,6 @@ static void m2m1shot2_destroy_context(struct kref *kref)
 	ctx->m21dev->ops->free_context(ctx);
 
 	kfree(ctx);
-}
-
-static int m2m1shot2_release(struct inode *inode, struct file *filp)
-{
-	struct m2m1shot2_context *ctx = filp->private_data;
-
-	kref_put(&ctx->starter, m2m1shot2_destroy_context);
 
 	return 0;
 }
@@ -795,6 +833,39 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 	return 0;
 }
 
+/*
+ * check fence_count fences configured in the previous images in the same
+ * context. if it does not find the same fence with the given, register the
+ * fence waiter.
+ */
+static void m2m1shot2_check_fence_wait(struct m2m1shot2_context *ctx,
+					unsigned int fence_count,
+					struct sync_fence *fence,
+					struct sync_fence_waiter *waiter)
+{
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < fence_count; i++) {
+		if (!!(ctx->source[i].img.flags &
+			M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE) &&
+				(ctx->source[i].img.fence == fence))
+			return;
+	}
+
+	ret = sync_fence_wait_async(fence, waiter);
+	if (ret < 0) {
+		dev_err(ctx->m21dev->dev,
+				"Error occurred in an acquire fence\n");
+		/* just ignore this fence */
+		return;
+	}
+
+	/* ret == 1: fence already signaled */
+	if (ret != 1)
+		kref_get(&ctx->starter);
+}
+
 static int m2m1shot2_get_source(struct m2m1shot2_context *ctx,
 				unsigned int index,
 				struct m2m1shot2_source_image *img,
@@ -896,6 +967,9 @@ static int m2m1shot2_get_sources(struct m2m1shot2_context *ctx,
 				m2m1shot2_put_image(ctx, &image[i].img);
 				goto err;
 			}
+
+			m2m1shot2_check_fence_wait(ctx, i,
+				image[i].img.fence, &image[i].img.waiter);
 		}
 	}
 
@@ -989,6 +1063,20 @@ static int m2m1shot2_get_target(struct m2m1shot2_context *ctx,
 	ret = m2m1shot2_get_buffer(ctx, img, dst, payload, DMA_FROM_DEVICE);
 	if (ret)
 		return ret;
+
+	if (!!(dst->flags & M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE)) {
+		img->fence = sync_fence_fdget(dst->fence);
+		if (img->fence == NULL) {
+			dev_err(dev, "%s: invalid acquire fence %d\n",
+				__func__, dst->fence);
+			m2m1shot2_put_buffer(ctx, dst->memory,
+						img->plane, img->num_planes);
+			return -EINVAL;
+		}
+
+		m2m1shot2_check_fence_wait(ctx, ctx->num_sources,
+					   img->fence, &img->waiter);
+	}
 
 	img->flags = dst->flags;
 
@@ -1191,6 +1279,8 @@ static long m2m1shot2_ioctl(struct file *filp,
 			ret = -EFAULT;
 			break;
 		}
+
+		kref_init(&ctx->starter);
 
 		ret = m2m1shot2_get_userdata(ctx, &data);
 		if (ret < 0)
