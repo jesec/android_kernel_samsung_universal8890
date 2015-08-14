@@ -119,15 +119,16 @@ static void disp0_prev(int enable)
 		pwrcal_setbit(QCH_CTRL_CMU_DISP0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PMU_DISP0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SYSREG_DISP0, 0, 1);
-		pwrcal_setbit(QCH_CTRL_DECON0, 0, 0); /* BJ : changed */
-		pwrcal_setbit(QCH_CTRL_VPP0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_DECON0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_VPP0_G0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_VPP0_G1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_DSIM0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_DSIM1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_DSIM2, 0, 1);
 		pwrcal_setbit(QCH_CTRL_HDMI, 0, 1);
 		pwrcal_setbit(QCH_CTRL_DP, 0, 1);
-		pwrcal_setbit(QCH_CTRL_PPMU_DISP0_0, 0, 0);
-		pwrcal_setbit(QCH_CTRL_PPMU_DISP0_1, 0, 0);
+		pwrcal_setbit(QCH_CTRL_PPMU_DISP0_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PPMU_DISP0_1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SMMU_DISP0_0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SMMU_DISP0_1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SFW_DISP0_0, 0, 1);
@@ -200,11 +201,12 @@ static void disp1_prev(int enable)
 		pwrcal_setbit(QCH_CTRL_CMU_DISP1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PMU_DISP1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SYSREG_DISP1, 0, 1);
-		pwrcal_setbit(QCH_CTRL_VPP1, 0, 1);
-		pwrcal_setbit(QCH_CTRL_DECON1_PCLK_0, 0, 0); /* BJ: changed*/
-		pwrcal_setbit(QCH_CTRL_DECON1_PCLK_1, 0, 0); /* BJ: changed*/
-		pwrcal_setbit(QCH_CTRL_PPMU_DISP1_0, 0, 0);
-		pwrcal_setbit(QCH_CTRL_PPMU_DISP1_1, 0, 0);
+		pwrcal_setbit(QCH_CTRL_VPP1_G2, 0, 1);
+		pwrcal_setbit(QCH_CTRL_VPP1_G3, 0, 1);
+		pwrcal_setbit(QCH_CTRL_DECON1_PCLK_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_DECON1_PCLK_1, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PPMU_DISP1_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PPMU_DISP1_1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SMMU_DISP1_0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SMMU_DISP1_1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SFW_DISP1_0, 0, 1);
@@ -269,10 +271,6 @@ static void fsys0_prev(int enable)
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_RX0_SYMBOL,	0xFFFFFFFF);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBHOST20_PHYCLOCK,	0xFFFFFFFF);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBHOST20_FREECLK,	0xFFFFFFFF);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBHOST20_CLK48MOHCI,	0xFFFFFFFF);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_RX_PWM_CLK,	0xFFFFFFFF);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_TX_PWM_CLK,	0xFFFFFFFF);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_REFCLK_OUT_SOC,	0xFFFFFFFF);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_PROMISE_FSYS0,	0xFFFFFFFF);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_USBHOST20PHY_REF_CLK,	0xFFFFFFFF);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_EMBEDDED_CFG,	0xFFFFFFFF);
@@ -284,14 +282,16 @@ static void fsys0_prev(int enable)
 		pwrcal_setbit(QCH_CTRL_CMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SYSREG_FSYS0, 0, 1);
-		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 0);
+		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 1);
 		pwrcal_setbit(QCH_CTRL_MMC0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_UFS_LINK_EMBEDDED, 0, 1);
 		pwrcal_setbit(QCH_CTRL_USBHOST20, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PDMA0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PDMAS, 0, 1);
-		pwrcal_setbit(QCH_CTRL_PPMU_FSYS0, 0, 0);
-		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 0);
+		pwrcal_setbit(QCH_CTRL_PPMU_FSYS0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_USBDRD30_PHYCTRL, 0, 1);
+		pwrcal_setbit(QCH_CTRL_USBHOST20_PHYCTRL, 0, 1);
 
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBDRD30_UDRD30_PHYCLOCK_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBDRD30_UDRD30_PHYCLOCK_USER, 27, 1);
@@ -303,18 +303,6 @@ static void fsys0_prev(int enable)
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_RX0_SYMBOL_USER, 27, 1);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_PHYCLOCK_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_PHYCLOCK_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_FREECLK_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_FREECLK_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_CLK48MOHCI_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_CLK48MOHCI_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20PHY_REF_CLK, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20PHY_REF_CLK, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_RX_PWM_CLK_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_RX_PWM_CLK_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_TX_PWM_CLK_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_TX_PWM_CLK_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_REFCLK_OUT_SOC_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_REFCLK_OUT_SOC_USER, 27, 1);
 
 		pwrcal_setbit(CLK_CON_MUX_ACLK_FSYS0_200_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_SCLK_FSYS0_USBDRD30_USER, 12, 0);
@@ -322,8 +310,8 @@ static void fsys0_prev(int enable)
 		pwrcal_setbit(CLK_CON_MUX_SCLK_FSYS0_UFSUNIPRO_EMBEDDED_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_SCLK_FSYS0_UFSUNIPRO_EMBEDDED_CFG_USER, 12, 0);
 
-		pwrcal_setbit(RESET_SLEEP_FSYS0_SYS_PWR_REG, 0, 1);
-		pwrcal_setbit(RESET_CMU_FSYS0_SYS_PWR_REG, 0, 1);
+		pwrcal_setf(RESET_SLEEP_FSYS0_SYS_PWR_REG, 0, 0x3, 0x3);
+		pwrcal_setf(RESET_CMU_FSYS0_SYS_PWR_REG, 0, 0x3, 0x3);
 	}
 }
 
@@ -342,8 +330,6 @@ static void fsys1_prev(int enable)
 		pwrcal_writel(QSTATE_CTRL_PCIE_PHY_FSYS1_WIFI1,	HWACG_QSTATE_CLOCK_ENABLE);
 		pwrcal_writel(QSTATE_CTRL_UFS_LINK_SDCARD,	HWACG_QSTATE_CLOCK_ENABLE);
 
-		pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI0, 0, 1);
-		pwrcal_setbit(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_AXI_LH_ASYNC_MI_TOP_FSYS1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_CMU_FSYS1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PMU_FSYS1, 0, 1);
@@ -352,9 +338,10 @@ static void fsys1_prev(int enable)
 		pwrcal_setbit(QCH_CTRL_UFS_LINK_SDCARD, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PPMU_FSYS1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS1, 0, 1);
-		pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI0, 0, 0x3, 0x1);
-		pwrcal_setf(QSTATE_CTRL_PCIE_RC_LINK_WIFI1, 0, 0x3, 0x1);
-
+		pwrcal_setbit(QCH_CTRL_PCIE_RC_LINK_WIFI0_SLV, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PCIE_RC_LINK_WIFI0_DBI, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PCIE_RC_LINK_WIFI1_SLV, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PCIE_RC_LINK_WIFI1_DBI, 0, 1);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_TX0_SYMBOL_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_TX0_SYMBOL_USER, 27, 1);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_RX0_SYMBOL_USER, 12, 0);
@@ -371,20 +358,34 @@ static void fsys1_prev(int enable)
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI0_DIG_REFCLK_USER, 27, 1);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI1_DIG_REFCLK_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI1_DIG_REFCLK_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_RX_PWM_CLK_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_RX_PWM_CLK_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_TX_PWM_CLK_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_TX_PWM_CLK_USER, 27, 1);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_REFCLK_OUT_SOC_USER, 12, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_REFCLK_OUT_SOC_USER, 27, 1);
 
-		pwrcal_setbit(RESET_SLEEP_FSYS1_SYS_PWR_REG, 0, 1);
-		pwrcal_setbit(RESET_CMU_FSYS1_SYS_PWR_REG, 0, 1);
+		pwrcal_setf(RESET_SLEEP_FSYS1_SYS_PWR_REG, 0, 0x3, 0x3);
+		pwrcal_setf(RESET_CMU_FSYS1_SYS_PWR_REG, 0, 0x3, 0x3);
 	}
 }
 
 static void mscl_prev(int enable)
 {
+	if (enable == 0) {
+		pwrcal_setbit(QCH_CTRL_LH_ASYNC_MI_MSCLSFR, 0, 1);
+		pwrcal_setbit(QCH_CTRL_CMU_MSCL, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PMU_MSCL, 0, 1);
+		pwrcal_setbit(QCH_CTRL_SYSREG_MSCL, 0, 1);
+		pwrcal_setbit(QCH_CTRL_MSCL_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_MSCL_1, 0, 1);
+		pwrcal_setbit(QCH_CTRL_JPEG, 0, 1);
+		pwrcal_setbit(QCH_CTRL_G2D, 0, 1);
+		pwrcal_setbit(QCH_CTRL_SMMU_MSCL_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_SMMU_MSCL_1, 0, 1);
+		pwrcal_setbit(QCH_CTRL_SMMU_JPEG, 0, 1);
+		pwrcal_setbit(QCH_CTRL_SMMU_G2D, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PPMU_MSCL_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PPMU_MSCL_1, 0, 1);
+		pwrcal_setbit(QCH_CTRL_SFW_MSCL_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_SFW_MSCL_1, 0, 1);
+		pwrcal_setbit(QCH_CTRL_LH_ASYNC_SI_MSCL_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_LH_ASYNC_SI_MSCL_1, 0, 1);
+	}
 }
 
 static void mfc_prev(int enable)
@@ -396,6 +397,7 @@ static void mfc_prev(int enable)
 		pwrcal_setbit(QCH_CTRL_PMU_MFC, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SYSREG_MFC, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PPMU_MFC_0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_PPMU_MFC_1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SFW_MFC_0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SFW_MFC_1, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SMMU_MFC_0, 0, 1);
@@ -497,13 +499,13 @@ static void disp0_post(int enable)
 	if (enable == 1) {
 		pwrcal_writel(DISP0_DRCG_EN, 0x3f);
 
-		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_0_400,	0x00000020);
-		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_1_400,	0x00000020);
+		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_0_400,	0);
+		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_1_400,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_0_400_SECURE_SFW_DISP0_0,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP0_1_400_SECURE_SFW_DISP0_1,	0);
-		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133,	0x00018000);
+		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133_HPM_APBIF_DISP0,	0);
-		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133_SECURE_DECON0,	0x00000001);
+		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133_SECURE_DECON0,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133_SECURE_VPP0,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133_SECURE_SFW_DISP0_0,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP0_0_133_SECURE_SFW_DISP0_1,	0);
@@ -524,15 +526,16 @@ static void disp0_post(int enable)
 		pwrcal_writel(QCH_CTRL_CMU_DISP0,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_PMU_DISP0,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SYSREG_DISP0,	HWACG_QCH_ENABLE);
-		pwrcal_writel(QCH_CTRL_DECON0,	HWACG_QCH_DISABLE);
-		pwrcal_writel(QCH_CTRL_VPP0,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_DECON0,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_VPP0_G0,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_VPP0_G1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_DSIM0,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_DSIM1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_DSIM2,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_HDMI,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_DP,	HWACG_QCH_ENABLE);
-		pwrcal_writel(QCH_CTRL_PPMU_DISP0_0,	HWACG_QCH_DISABLE);
-		pwrcal_writel(QCH_CTRL_PPMU_DISP0_1,	HWACG_QCH_DISABLE);
+		pwrcal_writel(QCH_CTRL_PPMU_DISP0_0,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_PPMU_DISP0_1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SMMU_DISP0_0,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SMMU_DISP0_1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SFW_DISP0_0,	HWACG_QCH_ENABLE);
@@ -637,39 +640,28 @@ static void aud_post(int enable)
 static void fsys0_post(int enable)
 {
 	if (enable == 1) {
-		pwrcal_writel(FSYS0_DRCG_EN, 0x7FF);
-
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBDRD30_UDRD30_PHYCLOCK_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBDRD30_UDRD30_PIPE_PCLK_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_TX0_SYMBOL_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_RX0_SYMBOL_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_PHYCLOCK_USER, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_FREECLK_USER, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20_CLK48MOHCI_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_USBHOST20PHY_REF_CLK, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_RX_PWM_CLK_USER, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_TX_PWM_CLK_USER, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_REFCLK_OUT_SOC_USER, 27, 0);
 
-		pwrcal_writel(CG_CTRL_MAN_ACLK_FSYS0_200,	0x80080030);
+		pwrcal_writel(CG_CTRL_MAN_ACLK_FSYS0_200,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_HPM_APBIF_FSYS0,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_USBDRD30_SUSPEND_CLK,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_MMC0,	0);
-		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_EMBEDDED,	1);
+		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_EMBEDDED,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_USBDRD30_REF_CLK,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBDRD30_UDRD30_PHYCLOCK,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBDRD30_UDRD30_PIPE_PCLK,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_TX0_SYMBOL,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_RX0_SYMBOL,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBHOST20_PHYCLOCK,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBHOST20_FREECLK,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_USBHOST20_CLK48MOHCI,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_RX_PWM_CLK,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_TX_PWM_CLK,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_REFCLK_OUT_SOC,	0);
+		pwrcal_writel(CG_CTRL_MAN_SCLK_USBHOST20_REF_CLK,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_PROMISE_FSYS0,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_USBHOST20PHY_REF_CLK,	0);
-		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_EMBEDDED_CFG,	1);
+		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_EMBEDDED_CFG,	0);
 
 		pwrcal_writel(QCH_CTRL_AXI_LH_ASYNC_MI_TOP_FSYS0,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_AXI_LH_ASYNC_MI_ETR_USB_FSYS0,	HWACG_QCH_ENABLE);
@@ -686,6 +678,8 @@ static void fsys0_post(int enable)
 		pwrcal_writel(QCH_CTRL_PDMAS,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_PPMU_FSYS0,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_USBDRD30_PHYCTRL,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_USBHOST20_PHYCTRL,	HWACG_QCH_ENABLE);
 
 		pwrcal_writel(QSTATE_CTRL_USBDRD30,	HWACG_QSTATE_CLOCK_ENABLE);
 		pwrcal_writel(QSTATE_CTRL_UFS_LINK_EMBEDDED,	HWACG_QSTATE_CLOCK_ENABLE);
@@ -715,6 +709,7 @@ static void isp0_post(int enable)
 		pwrcal_gate_disable(CLK(ISP0_GATE_PCLK_FIMC_ISP0));
 		pwrcal_gate_disable(CLK(ISP0_GATE_ACLK_FIMC_TPU));
 		pwrcal_gate_disable(CLK(ISP0_GATE_PCLK_FIMC_TPU));
+		pwrcal_gate_disable(CLK(ISP0_GATE_ACLK_ISP0_PXL_ASBS_IS_C_FROM_IS_D));
 	}
 }
 static void isp1_post(int enable)
@@ -765,11 +760,11 @@ static void disp1_post(int enable)
 	if (enable == 1) {
 		pwrcal_writel(DISP1_DRCG_EN, 0x7F);
 
-		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_0_400,	0x00000008);
-		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_1_400,	0x00000008);
+		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_0_400,	0);
+		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_1_400,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_0_400_SECURE_SFW_DISP1_0,	0);
 		pwrcal_writel(CG_CTRL_MAN_ACLK_DISP1_1_400_SECURE_SFW_DISP1_1,	0);
-		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP1_0_133,	0x00006C00);
+		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP1_0_133,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP1_0_133_HPM_APBIF_DISP1,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP1_0_133_SECURE_SFW_DISP1_0,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_DISP1_0_133_SECURE_SFW_DISP1_1,	0);
@@ -781,11 +776,12 @@ static void disp1_post(int enable)
 		pwrcal_writel(QCH_CTRL_CMU_DISP1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_PMU_DISP1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SYSREG_DISP1,	HWACG_QCH_ENABLE);
-		pwrcal_writel(QCH_CTRL_VPP1,	HWACG_QCH_ENABLE);
-		pwrcal_writel(QCH_CTRL_DECON1_PCLK_0,	HWACG_QCH_DISABLE);
-		pwrcal_writel(QCH_CTRL_DECON1_PCLK_1,	HWACG_QCH_DISABLE);
-		pwrcal_writel(QCH_CTRL_PPMU_DISP1_0,	HWACG_QCH_DISABLE);
-		pwrcal_writel(QCH_CTRL_PPMU_DISP1_1,	HWACG_QCH_DISABLE);
+		pwrcal_writel(QCH_CTRL_VPP1_G2,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_VPP1_G3,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_DECON1_PCLK_0,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_DECON1_PCLK_1,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_PPMU_DISP1_0,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_PPMU_DISP1_1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SMMU_DISP1_0,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SMMU_DISP1_1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_SFW_DISP1_0,	HWACG_QCH_ENABLE);
@@ -802,8 +798,6 @@ static void disp1_post(int enable)
 static void fsys1_post(int enable)
 {
 	if (enable == 1) {
-		pwrcal_writel(FSYS1_DRCG_EN, 0x1F);
-
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_TX0_SYMBOL_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_RX0_SYMBOL_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI0_TX0_USER, 27, 0);
@@ -812,20 +806,14 @@ static void fsys1_post(int enable)
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI1_RX0_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI0_DIG_REFCLK_USER, 27, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_PCIE_WIFI1_DIG_REFCLK_USER, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_RX_PWM_CLK_USER, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_TX_PWM_CLK_USER, 27, 0);
-		pwrcal_setbit(CLK_CON_MUX_PHYCLK_UFS_LINK_SDCARD_REFCLK_OUT_SOC_USER, 27, 0);
 
-		pwrcal_writel(CG_CTRL_MAN_ACLK_FSYS1_200,	0x80000032);
+		pwrcal_writel(CG_CTRL_MAN_ACLK_FSYS1_200,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_HPM_APBIF_FSYS1,	0);
 		pwrcal_writel(CG_CTRL_MAN_PCLK_COMBO_PHY_WIFI,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_MMC2,	0);
-		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_SDCARD,	1);
-		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_SDCARD_CFG,	1);
+		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_SDCARD,	0);
+		pwrcal_writel(CG_CTRL_MAN_SCLK_UFSUNIPRO_SDCARD_CFG,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_FSYS1_PCIE0_PHY,	0);
-		pwrcal_writel(CG_CTRL_MAN_SCLK_FSYS1_PCIE1_PHY,	0);
-		pwrcal_writel(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI0,	0);
-		pwrcal_writel(CG_CTRL_MAN_SCLK_PCIE_LINK_WIFI1,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_LINK_SDCARD_TX0_SYMBOL,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_LINK_SDCARD_RX0_SYMBOL,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_PCIE_WIFI0_TX0,	0);
@@ -834,9 +822,6 @@ static void fsys1_post(int enable)
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_PCIE_WIFI1_RX0,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_PCIE_WIFI0_DIG_REFCLK,	0);
 		pwrcal_writel(CG_CTRL_MAN_PHYCLK_PCIE_WIFI1_DIG_REFCLK,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_LINK_SDCARD_RX_PWM_CLK,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_LINK_SDCARD_TX_PWM_CLK,	0);
-		pwrcal_writel(CG_CTRL_MAN_PHYCLK_UFS_LINK_SDCARD_REFCLK_OUT_SOC,	0);
 		pwrcal_writel(CG_CTRL_MAN_SCLK_PROMISE_FSYS1,	0);
 
 		pwrcal_writel(QCH_CTRL_AXI_LH_ASYNC_MI_TOP_FSYS1,	HWACG_QCH_ENABLE);
@@ -847,6 +832,10 @@ static void fsys1_post(int enable)
 		pwrcal_writel(QCH_CTRL_UFS_LINK_SDCARD,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_PPMU_FSYS1,	HWACG_QCH_ENABLE);
 		pwrcal_writel(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS1,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_PCIE_RC_LINK_WIFI0_SLV,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_PCIE_RC_LINK_WIFI0_DBI,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_PCIE_RC_LINK_WIFI1_SLV,	HWACG_QCH_ENABLE);
+		pwrcal_writel(QCH_CTRL_PCIE_RC_LINK_WIFI1_DBI,	HWACG_QCH_ENABLE);
 
 		pwrcal_writel(QSTATE_CTRL_SROMC_FSYS1,	HWACG_QSTATE_CLOCK_ENABLE);
 		pwrcal_writel(QSTATE_CTRL_GPIO_FSYS1,	HWACG_QSTATE_CLOCK_ENABLE);
