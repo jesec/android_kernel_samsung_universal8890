@@ -25,6 +25,7 @@
 #include <linux/sched.h>
 
 #include <linux/ion.h>
+#include <linux/exynos_ion.h>
 #include <linux/exynos_iovmm.h>
 
 #include <media/m2m1shot2.h>
@@ -269,6 +270,109 @@ retry:
 	}
 }
 
+static void m2m1shot2_unmap_image(struct m2m1shot2_device *m21dev,
+				struct m2m1shot2_context_image *img,
+				enum dma_data_direction dir)
+{
+	unsigned int i;
+
+	if (img->memory == M2M1SHOT2_BUFTYPE_USERPTR) {
+		for (i = 0; i < img->num_planes; i++)
+			exynos_iommu_sync_for_cpu(m21dev->dev,
+						img->plane[i].dma_addr,
+						img->plane[i].payload, dir);
+	} else if (img->memory == M2M1SHOT2_BUFTYPE_DMABUF) {
+		for (i = 0; i < img->num_planes; i++) {
+			exynos_ion_sync_dmabuf_for_cpu(m21dev->dev,
+						img->plane[i].dmabuf.dmabuf,
+						img->plane[i].payload, dir);
+			dma_buf_unmap_attachment(
+					img->plane[i].dmabuf.attachment,
+					img->plane[i].sgt, dir);
+		}
+	}
+}
+
+static void m2m1shot2_unmap_images(struct m2m1shot2_context *ctx)
+{
+	unsigned int i;
+
+	for (i = 0; i < ctx->num_sources; i++)
+		m2m1shot2_unmap_image(ctx->m21dev,
+					&ctx->source[i].img, DMA_TO_DEVICE);
+
+	m2m1shot2_unmap_image(ctx->m21dev,
+				&ctx->target, DMA_FROM_DEVICE);
+}
+
+static int m2m1shot2_map_image(struct m2m1shot2_device *m21dev,
+				struct m2m1shot2_context_image *img,
+				enum dma_data_direction dir)
+{
+	unsigned int i;
+
+	if (img->memory == M2M1SHOT2_BUFTYPE_USERPTR) {
+		for (i = 0; i < img->num_planes; i++)
+			exynos_iommu_sync_for_device(m21dev->dev,
+					img->plane[i].dma_addr,
+					img->plane[i].payload, dir);
+		return 0;
+	} else if (img->memory == M2M1SHOT2_BUFTYPE_EMPTY) {
+		/* the target buffer never be EMPTY */
+		BUG_ON(dir == DMA_FROM_DEVICE);
+		return 0;
+	}
+
+	BUG_ON(img->memory != M2M1SHOT2_BUFTYPE_DMABUF);
+
+	for (i = 0; i < img->num_planes; i++) {
+		img->plane[i].sgt = dma_buf_map_attachment(
+					img->plane[i].dmabuf.attachment, dir);
+		if (IS_ERR(img->plane[i].sgt)) {
+			int ret = PTR_ERR(img->plane[i].sgt);
+
+			dev_err(m21dev->dev, "failed to map dmabuf-attachment");
+			while (i-- > 0)
+				dma_buf_unmap_attachment(
+						img->plane[i].dmabuf.attachment,
+						img->plane[i].sgt, dir);
+			return ret;
+		}
+
+		exynos_ion_sync_dmabuf_for_device(m21dev->dev,
+					img->plane[i].dmabuf.dmabuf,
+					img->plane[i].payload, dir);
+	}
+
+	return 0;
+}
+
+static int m2m1shot2_map_images(struct m2m1shot2_context *ctx)
+{
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < ctx->num_sources; i++) {
+		ret = m2m1shot2_map_image(ctx->m21dev,
+					&ctx->source[i].img, DMA_TO_DEVICE);
+		if (ret) {
+			while (i-- > 0)
+				m2m1shot2_unmap_image(ctx->m21dev,
+					&ctx->source[i].img, DMA_TO_DEVICE);
+			return ret;
+		}
+	}
+
+	ret = m2m1shot2_map_image(ctx->m21dev, &ctx->target, DMA_FROM_DEVICE);
+	if (ret) {
+		for (i = 0; i < ctx->num_sources; i++)
+			m2m1shot2_unmap_image(ctx->m21dev,
+					&ctx->source[i].img, DMA_TO_DEVICE);
+	}
+
+	return ret;
+}
+
 /*
  * m2m1shot2_wait_process() - wait until processing the context is finished
  *
@@ -311,7 +415,7 @@ static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
 
 	sw_sync_timeline_inc(ctx->timeline, 1);
 
-	/* TODO: sync source and target */
+	m2m1shot2_unmap_images(ctx);
 
 	m2m1shot2_put_images(ctx);
 }
@@ -330,6 +434,8 @@ static void m2m1shot2_start_context(struct m2m1shot2_device *m21dev,
 				    struct m2m1shot2_context *ctx)
 {
 	unsigned long flags;
+
+	m2m1shot2_map_images(ctx);
 
 	reinit_completion(&ctx->complete);
 
@@ -894,9 +1000,6 @@ static int m2m1shot2_get_userdata(struct m2m1shot2_context *ctx,
 	ret = m2m1shot2_get_target(ctx, &data->target);
 	if (ret)
 		goto err;
-
-	/* TODO: sync sources */
-	/* TODO: sync target */
 
 	return 0;
 err:
