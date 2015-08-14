@@ -206,6 +206,8 @@ static void __m2m1shot2_finish_context(struct m2m1shot2_context *ctx,
 	struct m2m1shot2_device *m21dev = ctx->m21dev;
 	unsigned long flags;
 
+	sw_sync_timeline_inc(ctx->timeline, 1);
+
 	spin_lock_irqsave(&m21dev->lock_ctx, flags);
 
 	/* effective only to the current processing context */
@@ -413,8 +415,6 @@ static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
 		}
 	}
 
-	sw_sync_timeline_inc(ctx->timeline, 1);
-
 	m2m1shot2_unmap_images(ctx);
 
 	m2m1shot2_put_images(ctx);
@@ -491,7 +491,35 @@ static void m2m1shot2_cancel_context(struct m2m1shot2_context *ctx)
 	if (need_to_wait) {
 		m2m1shot2_wait_process(ctx->m21dev, ctx);
 		clear_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
+		/*
+		 * this context is added to m2m1shot2_device.contexts by
+		 * m2m1shot2_finish_context() called by the client device driver
+		 */
+		spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
+		list_del_init(&ctx->node);
+		spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
+	} else {
+		/*
+		 * if the context is removed from
+		 * m2m1shot2_device.active_contexts, the following flags should
+		 * also be cleared.
+		 */
+		clear_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
+		clear_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
+		/*
+		 * confirm unmap if the context is removed
+		 * from m2m1shot2_device.active_contexts
+		 */
+		m2m1shot2_unmap_images(ctx);
 	}
+
+	/*
+	 * PROCESSED state may not be cleared
+	 * if a user does not waited for the processing
+	 */
+	clear_bit(M2M1S2_CTXSTATE_PROCESSED, &ctx->state);
+
+	BUG_ON(!list_empty(&ctx->node));
 
 	/* to confirm if no reference to a resource exists */
 	m2m1shot2_put_images(ctx);
@@ -1099,6 +1127,42 @@ err:
 	return ret;
 }
 
+static int m2m1shot2_wait_put_user(struct m2m1shot2_context *ctx,
+				   struct m2m1shot2 __user *uptr, u32 userflag)
+{
+	int ret = 0;
+
+	m2m1shot2_wait_process(ctx->m21dev, ctx);
+
+	if ((ctx->state & ((1 << M2M1S2_CTXSTATE_PENDING) |
+				 (1 << M2M1S2_CTXSTATE_PROCESSING)))) {
+		pr_err("m2m1shot finish state : %lx\n", ctx->state);
+		BUG();
+	}
+
+	BUG_ON(ctx->state & ((1 << M2M1S2_CTXSTATE_PENDING) |
+				 (1 << M2M1S2_CTXSTATE_PROCESSING)));
+	BUG_ON(!(ctx->state & (1 << M2M1S2_CTXSTATE_PROCESSED)));
+
+	clear_bit(M2M1S2_CTXSTATE_PROCESSED, &ctx->state);
+	clear_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
+
+	if (test_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state)) {
+		userflag |= M2M1SHOT2_FLAG_ERROR;
+		ret = put_user(userflag, &uptr->flags);
+
+		clear_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state);
+	} else {
+		unsigned int i;
+
+		for (i = 0; i < ctx->target.num_planes; i++)
+			ret = put_user(ctx->target.plane[i].payload,
+					&uptr->target.plane[i].payload);
+	}
+
+	return ret;
+}
+
 static long m2m1shot2_ioctl(struct file *filp,
 			    unsigned int cmd, unsigned long arg)
 {
@@ -1143,39 +1207,32 @@ static long m2m1shot2_ioctl(struct file *filp,
 
 		m2m1shot2_start_context(ctx->m21dev, ctx);
 
-		if (!(data.flags & M2M1SHOT2_FLAG_NONBLOCK)) {
-			m2m1shot2_wait_process(ctx->m21dev, ctx);
-
-			BUG_ON(ctx->state &
-				((1 << M2M1S2_CTXSTATE_PENDING) |
-				 (1 << M2M1S2_CTXSTATE_PROCESSING)));
-			BUG_ON(!(ctx->state &
-					(1 << M2M1S2_CTXSTATE_PROCESSED)));
-
-			clear_bit(M2M1S2_CTXSTATE_PROCESSED, &ctx->state);
-			clear_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
-
-			if (test_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state)) {
-				data.flags |= M2M1SHOT2_FLAG_ERROR;
-				ret = put_user(data.flags, &uptr->flags);
-
-				clear_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state);
-			} else {
-				unsigned int i;
-
-				for (i = 0; i < ctx->target.num_planes; i++) {
-					ret = put_user(
-						ctx->target.plane[i].payload,
-						&uptr->target.plane[i].payload);
-				}
-			}
-		}
+		if (!(data.flags & M2M1SHOT2_FLAG_NONBLOCK))
+			ret = m2m1shot2_wait_put_user(ctx, uptr, data.flags);
 
 		break;
 	}
 	case M2M1SHOT2_IOC_WAIT_PROCESS:
 	{
-		ret = -ENOTTY;
+		struct m2m1shot2 __user *uptr = (void __user *)arg;
+		struct m2m1shot2 data;
+
+		if (M2M1S2_CTXSTATE_IDLE(ctx)) {
+			dev_err(ctx->m21dev->dev,
+				"%s: nothing to wait for\n", __func__);
+			ret = -EAGAIN;
+			break;
+		}
+
+		if (copy_from_user(&data, uptr, sizeof(data))) {
+			dev_err(ctx->m21dev->dev,
+				"%s: Failed to read userdata\n", __func__);
+			ret = -EFAULT;
+			break;
+		}
+
+		ret = m2m1shot2_wait_put_user(ctx, uptr, data.flags);
+
 		break;
 	}
 	default:
