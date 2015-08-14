@@ -49,22 +49,22 @@ struct pwrcal_clk *cal_get_clk(unsigned int id)
 
 	switch (id & mask_of_type) {
 	case pll_type:
-		ret = &((&clk_pll_start)[id & 0x0000FFFF].clk);
+		ret = &((&clk_pll_start)[id & 0x00000FFF].clk);
 		break;
 	case fixed_rate_type:
-		ret = &((&clk_fixed_rate_start)[id & 0x0000FFFF].clk);
+		ret = &((&clk_fixed_rate_start)[id & 0x00000FFF].clk);
 		break;
 	case fixed_factor_type:
-		ret = &((&clk_fixed_factor_start)[id & 0x0000FFFF].clk);
+		ret = &((&clk_fixed_factor_start)[id & 0x00000FFF].clk);
 		break;
 	case mux_type:
-		ret = &((&clk_mux_start)[id & 0x0000FFFF].clk);
+		ret = &((&clk_mux_start)[id & 0x00000FFF].clk);
 		break;
 	case div_type:
-		ret = &((&clk_div_start)[id & 0x0000FFFF].clk);
+		ret = &((&clk_div_start)[id & 0x00000FFF].clk);
 		break;
 	case gate_type:
-		ret = &((&clk_gate_start)[id & 0x0000FFFF].clk);
+		ret = &((&clk_gate_start)[id & 0x00000FFF].clk);
 		break;
 	default:
 		break;
