@@ -6,13 +6,13 @@
 #include "S5E8890-vclk.h"
 #include "S5E8890-vclk-internal.h"
 
-#include <soc/samsung/ect_parser.h>
-
 #ifdef PWRCAL_TARGET_LINUX
 #include <linux/io.h>
 #include <asm/map.h>
+#include <soc/samsung/ect_parser.h>
 #endif
 #ifdef PWRCAL_TARGET_FW
+#include <mach/ect_parser.h>
 #define S5P_VA_APM_SRAM			((void *)0x11200000)
 #endif
 
@@ -137,51 +137,129 @@ static void asv_set_tablever(unsigned int version)
 	return;
 }
 
-static struct freq_limit {
-	unsigned int big_max;
-	unsigned int little_max;
-	unsigned int g3d_max;
-	unsigned int mif_max;
-	unsigned int int_max;
-	unsigned int cam_max;
-	unsigned int disp_max;
-} freq_limit_policy[] = {
-	[0] = {
-		.big_max = 1872000,
-		.little_max = 1378000,
-		.g3d_max = 600000,
-		.mif_max = 1539000,
-	},
-	[1] = {
-		.big_max = 1872000,
-		.little_max = 1378000,
-		.g3d_max = 600000,
-		.mif_max = 1539000,
-	},
-};
+static int get_max_freq_lv(struct ect_voltage_domain *domain, unsigned int version)
+{
+	int i;
+	int ret = -1;
+
+	for (i = 0; i < domain->num_of_level; i++) {
+		if (domain->table_list[version].level_en[i]) {
+			ret = i;
+			break;
+		}
+	}
+
+	return ret;
+}
+static int get_min_freq_lv(struct ect_voltage_domain *domain, unsigned int version)
+{
+	int i;
+	int ret = -1;
+
+	for (i = domain->num_of_level - 1; i >= 0; i--) {
+		if (domain->table_list[version].level_en[i]) {
+			ret = i;
+			break;
+		}
+	}
+
+	return ret;
+}
 static void asv_set_freq_limit(void)
 {
-	if (!asv_tbl_info.fused_grp) {
-		asv_dvfs_big->table->max_freq = 728000;
-		asv_dvfs_little->table->max_freq = 1274000;
-		asv_dvfs_g3d->table->max_freq = 260000;
-		asv_dvfs_mif->table->max_freq = 1144000;
-	} else {
-		if (freq_limit_policy[asv_tbl_info.asv_table_ver].big_max)
-			asv_dvfs_big->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].big_max;
-		if (freq_limit_policy[asv_tbl_info.asv_table_ver].little_max)
-			asv_dvfs_little->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].little_max;
-		if (freq_limit_policy[asv_tbl_info.asv_table_ver].g3d_max)
-			asv_dvfs_g3d->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].g3d_max;
-		if (freq_limit_policy[asv_tbl_info.asv_table_ver].mif_max)
-			asv_dvfs_mif->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].mif_max;
-		if (freq_limit_policy[asv_tbl_info.asv_table_ver].int_max)
-			asv_dvfs_int->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].int_max;
-		if (freq_limit_policy[asv_tbl_info.asv_table_ver].cam_max)
-			asv_dvfs_cam->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].cam_max;
-		if (freq_limit_policy[asv_tbl_info.asv_table_ver].disp_max)
-			asv_dvfs_disp->table->max_freq = freq_limit_policy[asv_tbl_info.asv_table_ver].disp_max;
-	}
+	void *asv_block;
+	struct ect_voltage_domain *domain;
+	int lv;
+
+	asv_block = ect_get_block("ASV");
+	if (asv_block == NULL)
+		BUG();
+
+	if (!asv_tbl_info.fused_grp)
+		goto notfused;
+
+	domain = ect_asv_get_domain(asv_block, "dvfs_big");
+	if (!domain)
+		BUG();
+	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_big->table->max_freq = domain->level_list[lv] * 1000;
+	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_big->table->min_freq = domain->level_list[lv] * 1000;
+
+	domain = ect_asv_get_domain(asv_block, "dvfs_little");
+	if (!domain)
+		BUG();
+	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_little->table->max_freq = domain->level_list[lv] * 1000;
+	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_little->table->min_freq = domain->level_list[lv] * 1000;
+
+	domain = ect_asv_get_domain(asv_block, "dvfs_g3d");
+	if (!domain)
+		BUG();
+	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_g3d->table->max_freq = domain->level_list[lv] * 1000;
+	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_g3d->table->min_freq = domain->level_list[lv] * 1000;
+
+	domain = ect_asv_get_domain(asv_block, "dvfs_mif");
+	if (!domain)
+		BUG();
+	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_mif->table->max_freq = domain->level_list[lv] * 1000;
+	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_mif->table->min_freq = domain->level_list[lv] * 1000;
+
+	domain = ect_asv_get_domain(asv_block, "dvfs_int");
+	if (!domain)
+		BUG();
+	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_int->table->max_freq = domain->level_list[lv] * 1000;
+	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_int->table->min_freq = domain->level_list[lv] * 1000;
+
+	domain = ect_asv_get_domain(asv_block, "dvfs_disp");
+	if (!domain)
+		BUG();
+	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_disp->table->max_freq = domain->level_list[lv] * 1000;
+	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_disp->table->min_freq = domain->level_list[lv] * 1000;
+
+	domain = ect_asv_get_domain(asv_block, "dvfs_cam");
+	if (!domain)
+		BUG();
+	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_cam->table->max_freq = domain->level_list[lv] * 1000;
+	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
+	if (lv >= 0)
+		asv_dvfs_cam->table->min_freq = domain->level_list[lv] * 1000;
+
+
+	return;
+
+
+notfused:
+
+#ifdef PWRCAL_TARGET_LINUX
+	asv_dvfs_big->table->max_freq = 728000;
+	asv_dvfs_little->table->max_freq = 1274000;
+	asv_dvfs_g3d->table->max_freq = 260000;
+	asv_dvfs_mif->table->max_freq = 1539000;
+#endif
 	return;
 }
 
@@ -239,8 +317,8 @@ static void asv_get_asvinfo(void)
 		asv_tbl_info.disp_ssa11 = 0;
 		asv_tbl_info.disp_ssa0 = 0;
 
-		asv_tbl_info.asv_table_ver = 0;
-		asv_tbl_info.fused_grp = 0;
+		asv_tbl_info.asv_table_ver = 3;
+		asv_tbl_info.fused_grp = 1;
 		asv_tbl_info.reserved_0 = 0;
 		asv_tbl_info.g3d_mcs0 = 0;
 		asv_tbl_info.g3d_mcs1 = 0;
@@ -603,15 +681,13 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 				if (table->voltages != NULL)
 					asv_entry->voltage[k] = table->voltages[j * domain->num_of_group + k];
 				else if (table->voltages_step != NULL)
-					asv_entry->voltage[k] = table->voltages_step[j * domain->num_of_group + k]
-									* table->volt_step;
+					asv_entry->voltage[k] = table->voltages_step[j * domain->num_of_group + k] * table->volt_step;
 
 				if (margin_domain != NULL) {
 					if (margin_domain->offset != NULL)
 						asv_entry->voltage[k] += margin_domain->offset[j * margin_domain->num_of_group + k];
 					else
-						asv_entry->voltage[k] += margin_domain->offset_compact[j * margin_domain->num_of_group + k]
-										* margin_domain->volt_step;
+						asv_entry->voltage[k] += margin_domain->offset_compact[j * margin_domain->num_of_group + k] * margin_domain->volt_step;
 				}
 			}
 		}

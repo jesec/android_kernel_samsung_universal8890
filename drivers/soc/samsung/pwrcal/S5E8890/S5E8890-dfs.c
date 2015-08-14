@@ -9,7 +9,16 @@
 #include "S5E8890-cmu.h"
 #include "S5E8890-vclk-internal.h"
 
+#ifdef PWRCAL_TARGET_LINUX
 #include <soc/samsung/ect_parser.h>
+#else
+#include <mach/ect_parser.h>
+#endif
+
+/* If MIF frequency is higher than 1600Mhz,
+   ACLK_CCORE_800 needs 936Mhz(from BUS3_PLL)
+   because of PSCDC clock constraints. */
+#define BUS3_PLL_ENABLE_THRESHOLD	1600000
 
 
 extern int offset_percent;

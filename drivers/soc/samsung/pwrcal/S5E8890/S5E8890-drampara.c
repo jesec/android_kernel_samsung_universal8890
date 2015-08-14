@@ -3,7 +3,11 @@
 #include "S5E8890-sfrbase.h"
 #include "S5E8890-vclk-internal.h"
 
+#ifdef PWRCAL_TARGET_LINUX
 #include <soc/samsung/ect_parser.h>
+#else
+#include <mach/ect_parser.h>
+#endif
 
 #ifndef MHZ
 #define MHZ		((unsigned long long)1000000)

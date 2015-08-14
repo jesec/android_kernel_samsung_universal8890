@@ -7,7 +7,11 @@
 #include "S5E8890-pmusfr.h"
 #include "S5E8890-cmu.h"
 
+#ifdef PWRCAL_TARGET_LINUX
 #include <soc/samsung/ect_parser.h>
+#else
+#include <mach/ect_parser.h>
+#endif
 
 extern struct pwrcal_pll_ops pll141xx_ops;
 extern struct pwrcal_pll_ops pll1419x_ops;
