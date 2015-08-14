@@ -115,6 +115,7 @@ int fimg2d_check_image(struct fimg2d_image *img)
 	/* 8192: COMP max width & height */
 	switch (img->fmt) {
 	case CF_COMP_RGB8888:
+	case CF_COMP_RGB565:
 		if (w > 8192 || h > 8192)
 			return -1;
 		break;
@@ -233,6 +234,7 @@ static void fimg2d_fixup_params(struct fimg2d_bltcmd *cmd)
 
 		switch (img->fmt) {
 		case CF_COMP_RGB8888:
+		case CF_COMP_RGB565:
 			if (!IS_ALIGNED(img->width, FIMG2D_COMP_ALIGN_WIDTH)) {
 				fimg2d_info("SRC[%d], COMP format width(%d)",
 								i, img->width);

@@ -162,6 +162,11 @@ static inline u32 fimg2d_src_color_mode(struct fimg2d_image *s)
 		cfg |= FIMG2D_LAYER_DATA_FORMAT_8888;
 		cfg |= FIMG2D_LAYER_COMP_FORMAT;
 		break;
+	case CF_COMP_RGB565:
+		channel = &src_order_table[s->order];
+		cfg |= FIMG2D_LAYER_DATA_FORMAT_565;
+		cfg |= FIMG2D_LAYER_COMP_FORMAT;
+		break;
 	default:
 		channel = &src_order_table[FMT_NONE];
 		break;
@@ -183,6 +188,7 @@ void fimg2d5x_set_src_image(struct fimg2d_control *ctrl,
 
 	switch (s->fmt) {
 	case CF_COMP_RGB8888:
+	case CF_COMP_RGB565:
 		/* Header and payload are stored in the successive address */
 		cfg = FIMG2D_ADDR(dma->base.iova);
 		if (!IS_ALIGNED(cfg, FIMG2D_COMP_ALIGN_ADDR)) {
