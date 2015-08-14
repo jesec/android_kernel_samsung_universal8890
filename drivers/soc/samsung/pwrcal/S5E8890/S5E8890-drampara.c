@@ -62,7 +62,7 @@
 #define DramDerateTiming1_1		((void *)(__SMC_ALL + 0x013C))
 #define Dimm0AutoRefTiming1_1	((void *)(__SMC_ALL + 0x014C))
 #define Dimm1AutoRefTiming1_1	((void *)(__SMC_ALL + 0x0154))
-#define AutoRefTiming2_1		((void *)(__SMC_ALL + 0x0168))
+#define AutoRefTiming2_1		((void *)(__SMC_ALL + 0x0158))
 #define PwrMgmtTiming0_1		((void *)(__SMC_ALL + 0x0168))
 #define PwrMgmtTiming1_1		((void *)(__SMC_ALL + 0x016C))
 #define PwrMgmtTiming2_1		((void *)(__SMC_ALL + 0x0170))
@@ -228,23 +228,6 @@ static struct dram_dfs_table *g_dram_dfs_table;
 static unsigned long long *mif_freq_to_level;
 static int num_mif_freq_to_level;
 
-static const struct smc_dfs_table g_smc_dfs_table_switch[] = {
-	/* DramTiming0__n,	DramTiming1__n,	DramTiming2__n,	DramTiming3__n,	DramTiming4__n,	DramTiming5__n,	DramTiming6__n,	DramTiming7__n,	DramTiming8__n,	DramTiming9__n,	DramDerateTiming0__n,	DramDerateTiming1__n,	Dimm0AutoRefTiming1__n,	Dimm1AutoRefTiming1__n,	AutoRefTiming2__n,	PwmMgmtTiming0_n,	PwmMgmtTiming1__n,	PwmMgmtTiming2__n,	PwmMgmtTiming3__n,	TmrTrnIntvl,	DFIDelay1,	DFIDelay2,	DvfsTrnCtl,	TrnTiming0,	TrnTiming1,	TrnTiming2 */
-/* BUS3_PLL SW 936 */	{ 0x00050a09,	0x09041e14,	0x05000013,	0x00000100,	0x09050500,	0x00110805,	0x00070004,	0x00070004,	0x00001004,	0x0a132811,	0x20150b0a,	0x00000a06,	0x002b0055,	0x002b0055,	0x00000005,	0x04020604,	0x00000404,	0x0000005a,	0x00000492,	0x00000000,	0x00010510,	0x00001004,	0x00000303,	0x25180875,	0x16250f18,	0x00000014 },
-/* BUS0_PLL SW 468 */	{ 0x00030505,	0x05040f0a,	0x0400000a,	0x00000100,	0x05040400,	0x000a0605,	0x00070004,	0x00070004,	0x00000c04,	0x0a101c0a,	0x100b0605,	0x00000504,	0x0016002b,	0x0016002b,	0x00000004,	0x03020403,	0x00000404,	0x0000002e,	0x00000249,	0x00000000,	0x00010309,	0x00000902,	0x00000000,	0x1e18043b,	0x101e0c18,	0x00000014 }
-};
-
-static const struct phy_dfs_table g_phy_dfs_table_switch[] = {
-	/* DVFSn_CON0,	DVFSn_CON1,	DVFSn_CON2,	DVFSn_CON3,	DVFSn_CON4 */
-/* BUS3_PLL SW 936 */	{ 0x3a859800,	0x80100000,	0x4001a070,	0x7df3ffff,	0x00003f3f },
-/* BUS0_PLL SW 468 */	{ 0x1d430800,	0x80100000,	0x00004051,	0x7df3ffff,	0x00003f3f }
-};
-
-static const struct dram_dfs_table g_dram_dfs_table_switch[] = {
-	/* MR1OP,	MR2OP,	MR3OP,	MR11OP,	MR12OP,	MR14OP,	MR22OP */
-/* BUS3_PLL SW 936 */	{ 0x3e,	0x1b,	0xf1,	0x04,	0x5d,	0x17,	0x26 },
-/* BUS0_PLL SW 468 */	{ 0x16,	0x09,	0xf1,	0x04,	0x5d,	0x17,	0x26 }
-};
 
 static const unsigned long long mif_freq_to_level_switch[] = {
 /* BUS3_PLL SW 936 */	936 * MHZ,
@@ -296,6 +279,8 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 	target_mif_level_idx = convert_to_level(target_mif_freq);
 
 	target_mif_level_switch_idx = convert_to_level_switch(target_mif_freq);
+
+	target_mif_level_switch_idx += num_mif_freq_to_level;
 
 	/* 1. Configure parameter */
 	if (timing_set_idx == MIF_TIMING_SET_0) {
@@ -354,53 +339,53 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 	} else if (timing_set_idx == MIF_TIMING_SET_1) {
 		pwrcal_writel(DMC_MISC_CON1, 0x1);	//timing_set_sw_r=0x1
 
-		pwrcal_writel(DramTiming0_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming0);
-		pwrcal_writel(DramTiming1_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming1);
-		pwrcal_writel(DramTiming2_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming2);
-		pwrcal_writel(DramTiming3_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming3);
-		pwrcal_writel(DramTiming4_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming4);
-		pwrcal_writel(DramTiming5_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming5);
-		pwrcal_writel(DramTiming6_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming6);
-		pwrcal_writel(DramTiming7_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming7);
-		pwrcal_writel(DramTiming8_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming8);
-		pwrcal_writel(DramTiming9_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramTiming9);
-		pwrcal_writel(DramDerateTiming0_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramDerateTiming0);
-		pwrcal_writel(DramDerateTiming1_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DramDerateTiming1);
-		pwrcal_writel(Dimm0AutoRefTiming1_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].Dimm0AutoRefTiming1);
-		pwrcal_writel(Dimm1AutoRefTiming1_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].Dimm1AutoRefTiming1);
-		pwrcal_writel(AutoRefTiming2_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].AutoRefTiming2);
-		pwrcal_writel(PwrMgmtTiming0_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].PwrMgmtTiming0);
-		pwrcal_writel(PwrMgmtTiming1_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].PwrMgmtTiming1);
-		pwrcal_writel(PwrMgmtTiming2_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].PwrMgmtTiming2);
-		pwrcal_writel(PwrMgmtTiming3_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].PwrMgmtTiming3);
-		pwrcal_writel(TmrTrnInterval_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].TmrTrnInterval);
-		pwrcal_writel(DFIDelay1_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DFIDelay1);
-		pwrcal_writel(DFIDelay2_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DFIDelay2);
-		pwrcal_writel(DvfsTrnCtl_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].DvfsTrnCtl);
-		pwrcal_writel(TrnTiming0_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].TrnTiming0);
-		pwrcal_writel(TrnTiming1_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].TrnTiming1);
-		pwrcal_writel(TrnTiming2_1, g_smc_dfs_table_switch[target_mif_level_switch_idx].TrnTiming2);
+		pwrcal_writel(DramTiming0_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming0);
+		pwrcal_writel(DramTiming1_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming1);
+		pwrcal_writel(DramTiming2_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming2);
+		pwrcal_writel(DramTiming3_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming3);
+		pwrcal_writel(DramTiming4_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming4);
+		pwrcal_writel(DramTiming5_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming5);
+		pwrcal_writel(DramTiming6_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming6);
+		pwrcal_writel(DramTiming7_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming7);
+		pwrcal_writel(DramTiming8_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming8);
+		pwrcal_writel(DramTiming9_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming9);
+		pwrcal_writel(DramDerateTiming0_1, g_smc_dfs_table[target_mif_level_switch_idx].DramDerateTiming0);
+		pwrcal_writel(DramDerateTiming1_1, g_smc_dfs_table[target_mif_level_switch_idx].DramDerateTiming1);
+		pwrcal_writel(Dimm0AutoRefTiming1_1, g_smc_dfs_table[target_mif_level_switch_idx].Dimm0AutoRefTiming1);
+		pwrcal_writel(Dimm1AutoRefTiming1_1, g_smc_dfs_table[target_mif_level_switch_idx].Dimm1AutoRefTiming1);
+		pwrcal_writel(AutoRefTiming2_1, g_smc_dfs_table[target_mif_level_switch_idx].AutoRefTiming2);
+		pwrcal_writel(PwrMgmtTiming0_1, g_smc_dfs_table[target_mif_level_switch_idx].PwrMgmtTiming0);
+		pwrcal_writel(PwrMgmtTiming1_1, g_smc_dfs_table[target_mif_level_switch_idx].PwrMgmtTiming1);
+		pwrcal_writel(PwrMgmtTiming2_1, g_smc_dfs_table[target_mif_level_switch_idx].PwrMgmtTiming2);
+		pwrcal_writel(PwrMgmtTiming3_1, g_smc_dfs_table[target_mif_level_switch_idx].PwrMgmtTiming3);
+		pwrcal_writel(TmrTrnInterval_1, g_smc_dfs_table[target_mif_level_switch_idx].TmrTrnInterval);
+		pwrcal_writel(DFIDelay1_1, g_smc_dfs_table[target_mif_level_switch_idx].DFIDelay1);
+		pwrcal_writel(DFIDelay2_1, g_smc_dfs_table[target_mif_level_switch_idx].DFIDelay2);
+		pwrcal_writel(DvfsTrnCtl_1, g_smc_dfs_table[target_mif_level_switch_idx].DvfsTrnCtl);
+		pwrcal_writel(TrnTiming0_1, g_smc_dfs_table[target_mif_level_switch_idx].TrnTiming0);
+		pwrcal_writel(TrnTiming1_1, g_smc_dfs_table[target_mif_level_switch_idx].TrnTiming1);
+		pwrcal_writel(TrnTiming2_1, g_smc_dfs_table[target_mif_level_switch_idx].TrnTiming2);
 
 		uReg = pwrcal_readl(PHY_DVFS_CON_CH0);
 		uReg &= ~(0x3<<30);
 		uReg |= (0x2<<30);	//0x2 = DVFS 2 mode
 		pwrcal_writel(PHY_DVFS_CON, uReg);
 
-		pwrcal_writel(PHY_DVFS1_CON0, g_phy_dfs_table_switch[target_mif_level_switch_idx].DVFSn_CON0);
-		pwrcal_writel(PHY_DVFS1_CON1, g_phy_dfs_table_switch[target_mif_level_switch_idx].DVFSn_CON1);
-		pwrcal_writel(PHY_DVFS1_CON2, g_phy_dfs_table_switch[target_mif_level_switch_idx].DVFSn_CON2);
-		pwrcal_writel(PHY_DVFS1_CON3, g_phy_dfs_table_switch[target_mif_level_switch_idx].DVFSn_CON3);
-		pwrcal_writel(PHY_DVFS1_CON4, g_phy_dfs_table_switch[target_mif_level_switch_idx].DVFSn_CON4);
+		pwrcal_writel(PHY_DVFS1_CON0, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON0);
+		pwrcal_writel(PHY_DVFS1_CON1, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON1);
+		pwrcal_writel(PHY_DVFS1_CON2, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON2);
+		pwrcal_writel(PHY_DVFS1_CON3, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON3);
+		pwrcal_writel(PHY_DVFS1_CON4, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON4);
 
 		mr13 = (0x0<<7)|(0x1<<6)|(0x0<<5)|(0x1<<3);	//FSP-OP=0x0, FSP-WR=0x1, DMD=0x0, VRCG=0x1
 		smc_mode_register_write(DRAM_MR13, mr13);
-		smc_mode_register_write(DRAM_MR1, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR1);
-		smc_mode_register_write(DRAM_MR2, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR2);
-		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR3);
-		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR11);
-		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR12);
-		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR14);
-		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table_switch[target_mif_level_switch_idx].DirectCmd_MR22);
+		smc_mode_register_write(DRAM_MR1, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR1);
+		smc_mode_register_write(DRAM_MR2, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR2);
+		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR3);
+		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR11);
+		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR12);
+		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR14);
+		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR22);
 
 		mr13 &= ~(0x1<<7);	// clear FSP-OP[7]
 		mr13 |= (0x1<<7);	// set FSP-OP[7]=0x1
