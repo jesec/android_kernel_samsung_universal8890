@@ -24,6 +24,9 @@
 #include <linux/vmalloc.h>
 #include <linux/sched.h>
 
+#include <linux/ion.h>
+#include <linux/exynos_iovmm.h>
+
 #include <media/m2m1shot2.h>
 
 #define M2M1SHOT2_FENCE_MASK (M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE |		\
@@ -114,11 +117,14 @@ struct m2m1shot2_context *m2m1shot2_current_context(
 	return m21dev->current_ctx;
 }
 
-static void m2m1shot2_put_userptr(struct m2m1shot2_dma_buffer *plane)
+static void m2m1shot2_put_userptr(struct device *dev,
+				 struct m2m1shot2_dma_buffer *plane)
 {
 	struct vm_area_struct *vma = plane->userptr.vma;
 
 	BUG_ON((vma == NULL) || (plane->userptr.addr == 0));
+
+	exynos_iovmm_unmap_userptr(dev, plane->dma_addr);
 
 	while (vma) {
 		struct vm_area_struct *tvma;
@@ -141,13 +147,15 @@ static void m2m1shot2_put_userptr(struct m2m1shot2_dma_buffer *plane)
 
 static void m2m1shot2_put_dmabuf(struct m2m1shot2_dma_buffer *plane)
 {
+	ion_iovmm_unmap(plane->dmabuf.attachment,
+			plane->dma_addr - plane->dmabuf.offset);
 	dma_buf_detach(plane->dmabuf.dmabuf, plane->dmabuf.attachment);
 	dma_buf_put(plane->dmabuf.dmabuf);
 	plane->dmabuf.dmabuf = NULL;
 	plane->dmabuf.attachment = NULL;
 }
 
-static void m2m1shot2_put_buffer(u32 memory,
+static void m2m1shot2_put_buffer(struct m2m1shot2_context *ctx, u32 memory,
 				 struct m2m1shot2_dma_buffer plane[],
 				 unsigned int num_planes)
 {
@@ -158,18 +166,19 @@ static void m2m1shot2_put_buffer(u32 memory,
 			m2m1shot2_put_dmabuf(&plane[i]);
 	} else if (memory == M2M1SHOT2_BUFTYPE_USERPTR) {
 		for (i = 0; i < num_planes; i++)
-			m2m1shot2_put_userptr(&plane[i]);
+			m2m1shot2_put_userptr(ctx->m21dev->dev, &plane[i]);
 	}
 }
 
-static void m2m1shot2_put_image(struct m2m1shot2_context_image *img)
+static void m2m1shot2_put_image(struct m2m1shot2_context *ctx,
+				struct m2m1shot2_context_image *img)
 {
 	if (img->fence) {
 		sync_fence_put(img->fence);
 		img->fence = NULL;
 	}
 
-	m2m1shot2_put_buffer(img->memory, img->plane, img->num_planes);
+	m2m1shot2_put_buffer(ctx, img->memory, img->plane, img->num_planes);
 
 	img->memory = M2M1SHOT2_BUFTYPE_NONE;
 }
@@ -179,7 +188,7 @@ static void m2m1shot2_put_source_images(struct m2m1shot2_context *ctx)
 	unsigned int i;
 
 	for (i = 0; i < ctx->num_sources; i++)
-		m2m1shot2_put_image(&ctx->source[i].img);
+		m2m1shot2_put_image(ctx, &ctx->source[i].img);
 
 	ctx->num_sources = 0;
 }
@@ -187,7 +196,7 @@ static void m2m1shot2_put_source_images(struct m2m1shot2_context *ctx)
 static void m2m1shot2_put_images(struct m2m1shot2_context *ctx)
 {
 	m2m1shot2_put_source_images(ctx);
-	m2m1shot2_put_image(&ctx->target);
+	m2m1shot2_put_image(ctx, &ctx->target);
 }
 
 static void __m2m1shot2_finish_context(struct m2m1shot2_context *ctx,
@@ -301,6 +310,8 @@ static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
 	}
 
 	sw_sync_timeline_inc(ctx->timeline, 1);
+
+	/* TODO: sync source and target */
 
 	m2m1shot2_put_images(ctx);
 }
@@ -418,12 +429,18 @@ static int m2m1shot2_release(struct inode *inode, struct file *filp)
 
 static int m2m1shot2_get_userptr(struct device *dev,
 				 struct m2m1shot2_dma_buffer *plane,
-				 unsigned long addr, u32 length)
+				 unsigned long addr, u32 length,
+				 enum dma_data_direction dir)
 {
 	unsigned long end = addr + length;
 	struct vm_area_struct *vma;
 	struct vm_area_struct *tvma;
 	int ret = -EINVAL;
+	int prot = IOMMU_READ;
+
+	/* TODO: IOMMU_CACHE handling for shareable device */
+	if (dir != DMA_TO_DEVICE)
+		prot |= IOMMU_WRITE;
 
 	/*
 	 * release the previous buffer whatever the userptr is previously used.
@@ -431,7 +448,7 @@ static int m2m1shot2_get_userptr(struct device *dev,
 	 * the user addr is the same if the addr is mmapped again.
 	 */
 	if (plane->userptr.vma != NULL)
-		m2m1shot2_put_userptr(plane);
+		m2m1shot2_put_userptr(dev, plane);
 
 	down_read(&current->mm->mmap_sem);
 
@@ -485,12 +502,25 @@ static int m2m1shot2_get_userptr(struct device *dev,
 			vma->vm_ops->open(vma);
 	}
 
+	plane->dma_addr = exynos_iovmm_map_userptr(dev, addr, length, prot);
+	if (IS_ERR_VALUE(plane->dma_addr))
+		goto err_map;
+
 	up_read(&current->mm->mmap_sem);
 
 	plane->userptr.addr = addr;
 	plane->userptr.length = length;
 
 	return 0;
+err_map:
+	plane->dma_addr = 0;
+
+	for (vma = plane->userptr.vma; vma != NULL; vma = vma->vm_next) {
+		if (vma->vm_file)
+			fput(vma->vm_file);
+		if (vma->vm_ops && vma->vm_ops->close)
+			vma->vm_ops->close(vma);
+	}
 err_vma:
 	while (tvma) {
 		vma = tvma;
@@ -506,7 +536,8 @@ err_novma:
 
 static int m2m1shot2_get_dmabuf(struct device *dev,
 				struct m2m1shot2_dma_buffer *plane,
-				int fd, u32 offset, size_t payload)
+				int fd, u32 off, size_t payload,
+				enum dma_data_direction dir)
 {
 	struct dma_buf *dmabuf = dma_buf_get(fd);
 	int ret = -EINVAL;
@@ -517,15 +548,15 @@ static int m2m1shot2_get_dmabuf(struct device *dev,
 		return PTR_ERR(dmabuf);
 	}
 
-	if (dmabuf->size < offset) {
+	if (dmabuf->size < off) {
 		dev_err(dev, "%s: too large offset %u for dmabuf of %zu\n",
-				__func__, offset, dmabuf->size);
+				__func__, off, dmabuf->size);
 		goto err;
 	}
 
-	if ((dmabuf->size - offset) < payload) {
+	if ((dmabuf->size - off) < payload) {
 		dev_err(dev, "%s: too small dmabuf %zu/%u but reqiured %zu\n",
-			__func__, dmabuf->size, offset, payload);
+			__func__, dmabuf->size, off, payload);
 		goto err;
 	}
 
@@ -548,9 +579,20 @@ static int m2m1shot2_get_dmabuf(struct device *dev,
 		goto err;
 	}
 
+	/* NOTE: ion_iovmm_map() ignores offset in the second argument */
+	plane->dma_addr = ion_iovmm_map(plane->dmabuf.attachment,
+					0, payload, dir, 0);
+	if (IS_ERR_VALUE(plane->dma_addr))
+		goto err_map;
+
 	plane->dmabuf.dmabuf = dmabuf;
+	plane->dma_addr += off;
 
 	return 0;
+err_map:
+	dma_buf_detach(dmabuf, plane->dmabuf.attachment);
+	plane->dma_addr = 0;
+	plane->dmabuf.attachment = NULL;
 err:
 	dma_buf_put(dmabuf);
 	return ret;
@@ -559,14 +601,16 @@ err:
 static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 				struct m2m1shot2_context_image *img,
 				struct m2m1shot2_image *src,
-				size_t payload[])
+				size_t payload[],
+				enum dma_data_direction dir)
 {
 	unsigned int num_planes = src->num_planes;
 	int ret = 0;
 	unsigned int i;
 
 	if (src->memory != img->memory)
-		m2m1shot2_put_buffer(img->memory, img->plane, img->num_planes);
+		m2m1shot2_put_buffer(ctx, img->memory,
+					img->plane, img->num_planes);
 
 	img->memory = M2M1SHOT2_BUFTYPE_NONE;
 
@@ -574,7 +618,7 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 		for (i = 0; i < src->num_planes; i++) {
 			ret = m2m1shot2_get_dmabuf(ctx->m21dev->dev,
 					&img->plane[i], src->plane[i].fd,
-					src->plane[i].offset, payload[i]);
+					src->plane[i].offset, payload[i], dir);
 			if (ret) {
 				while (i-- > 0)
 					m2m1shot2_put_dmabuf(&img->plane[i]);
@@ -593,12 +637,13 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 			} else {
 				ret = m2m1shot2_get_userptr(ctx->m21dev->dev,
 					&img->plane[i], src->plane[i].userptr,
-					src->plane[i].length);
+					src->plane[i].length, dir);
 			}
 
 			if (ret) {
 				while (i-- > 0)
-					m2m1shot2_put_userptr(&img->plane[i]);
+					m2m1shot2_put_userptr(ctx->m21dev->dev,
+								&img->plane[i]);
 				return ret;
 			}
 
@@ -646,7 +691,7 @@ static int m2m1shot2_get_source(struct m2m1shot2_context *ctx,
 	img->img.flags = src->flags;
 
 	if (src->memory == M2M1SHOT2_BUFTYPE_EMPTY) {
-		m2m1shot2_put_image(&img->img);
+		m2m1shot2_put_image(ctx, &img->img);
 		img->img.memory = src->memory;
 		img->img.num_planes = 0;
 		/* no buffer, no fence */
@@ -672,7 +717,8 @@ static int m2m1shot2_get_source(struct m2m1shot2_context *ctx,
 		}
 	}
 
-	return m2m1shot2_get_buffer(ctx, &img->img, src, payload);
+	return m2m1shot2_get_buffer(ctx, &img->img,
+				    src, payload, DMA_TO_DEVICE);
 }
 
 static int m2m1shot2_get_sources(struct m2m1shot2_context *ctx,
@@ -713,7 +759,7 @@ static int m2m1shot2_get_sources(struct m2m1shot2_context *ctx,
 				dev_err(dev, "%s: invalid acquire fence %d\n",
 					__func__, source.fence);
 				ret = -EINVAL;
-				m2m1shot2_put_image(&image[i].img);
+				m2m1shot2_put_image(ctx, &image[i].img);
 				goto err;
 			}
 		}
@@ -722,7 +768,7 @@ static int m2m1shot2_get_sources(struct m2m1shot2_context *ctx,
 	return 0;
 err:
 	while (i-- > 0)
-		m2m1shot2_put_image(&ctx->source[i].img);
+		m2m1shot2_put_image(ctx, &ctx->source[i].img);
 
 	ctx->num_sources = 0;
 
@@ -806,7 +852,7 @@ static int m2m1shot2_get_target(struct m2m1shot2_context *ctx,
 		}
 	}
 
-	ret = m2m1shot2_get_buffer(ctx, img, dst, payload);
+	ret = m2m1shot2_get_buffer(ctx, img, dst, payload, DMA_FROM_DEVICE);
 	if (ret)
 		return ret;
 
@@ -848,6 +894,9 @@ static int m2m1shot2_get_userdata(struct m2m1shot2_context *ctx,
 	ret = m2m1shot2_get_target(ctx, &data->target);
 	if (ret)
 		goto err;
+
+	/* TODO: sync sources */
+	/* TODO: sync target */
 
 	return 0;
 err:
