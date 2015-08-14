@@ -1762,6 +1762,7 @@ void vclk_unused_disable(void)
 	vclk_disable(VCLK(gate_peric0_hsi2c9));
 	vclk_disable(VCLK(gate_peric0_hsi2c10));
 	vclk_disable(VCLK(gate_peric0_hsi2c11));
+#if 0
 	vclk_disable(VCLK(gate_peric0_uart0));
 	vclk_disable(VCLK(gate_peric0_adcif));
 	vclk_disable(VCLK(gate_peric0_pwm));
@@ -1793,7 +1794,6 @@ void vclk_unused_disable(void)
 	vclk_disable(VCLK(gate_peris_sfr_apbif_hdmi_cec));
 	vclk_disable(VCLK(gate_peris_hpm));
 	vclk_disable(VCLK(gate_peris_tmu));
-
 	vclk_disable(VCLK(sclk_decon0_eclk0));
 	vclk_disable(VCLK(sclk_decon0_vclk0));
 	vclk_disable(VCLK(sclk_decon0_vclk1));
@@ -1836,6 +1836,7 @@ void vclk_unused_disable(void)
 	vclk_disable(VCLK(sclk_decon0_vclk1_local));
 	vclk_disable(VCLK(sclk_decon1_eclk0_local));
 	vclk_disable(VCLK(sclk_decon1_eclk1_local));
+#endif
 
 	vclk_disable(VCLK(p1_disp_pll));
 	vclk_disable(VCLK(p1_aud_pll));
