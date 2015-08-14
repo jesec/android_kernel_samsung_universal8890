@@ -106,6 +106,10 @@ static struct pwrcal_clk_set pxmxdx_isp0_trex_grp[] = {
 	{CLK(ISP0_DIV_PCLK_ISP0_TREX_132),	1,	-1},
 	{CLK_NONE,				0,	0},
 };
+static struct pwrcal_clk_set pxmxdx_isp0_pxl_asbs_grp[] = {
+	{CLK(ISP0_MUX_ACLK_ISP0_PXL_ASBS_IS_C_FROM_IS_D_USER),	1,	0},
+	{CLK_NONE,				0,	0},
+};
 static struct pwrcal_clk_set pxmxdx_isp1_isp1_grp[] = {
 	{CLK(ISP1_MUX_ACLK_ISP1_468_USER),	1,	0},
 	{CLK(ISP1_DIV_PCLK_ISP1_234),		1,	-1},
@@ -177,7 +181,6 @@ static struct pwrcal_clk_set pxmxdx_cam1_csis3_grp[] = {
 };
 static struct pwrcal_clk_set pxmxdx_cam1_scl_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_SCL_566_USER),	1,	0},
-	{CLK(CAM1_DIV_PCLK_CAM1_SCL_283),	1,	-1},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_oscclk_nfc_grp[] = {
@@ -194,6 +197,10 @@ static struct pwrcal_clk_set pxmxdx_oscclk_aud_grp[] = {
 	{CLK(CLKOUT_CLKOUT0_DISABLE),		0,	1},
 	{CLK_NONE,				0,	0},
 };
+static struct pwrcal_clk_set pxmxdx_fsys0_usb_qch_grp[] = {
+	{CLK(FSYS0_HWACG_QCH_USBDRD30),			0,	1},
+	{CLK_NONE,					0,	0},
+};
 
 
 PXMXDX(pxmxdx_top,	0,	pxmxdx_top_grp);
@@ -209,6 +216,7 @@ PXMXDX(pxmxdx_aud_cp,	0,	pxmxdx_aud_cp_grp);
 PXMXDX(pxmxdx_isp0_isp0,	gate_bus0_cam,	pxmxdx_isp0_isp0_grp);
 PXMXDX(pxmxdx_isp0_tpu,	gate_bus0_cam,	pxmxdx_isp0_tpu_grp);
 PXMXDX(pxmxdx_isp0_trex,	gate_bus0_cam,	pxmxdx_isp0_trex_grp);
+PXMXDX(pxmxdx_isp0_pxl_asbs,	gate_bus0_cam,	pxmxdx_isp0_pxl_asbs_grp);
 PXMXDX(pxmxdx_isp1_isp1,	gate_bus0_cam,	pxmxdx_isp1_isp1_grp);
 PXMXDX(pxmxdx_cam0_csis0,	gate_bus0_cam,	pxmxdx_cam0_csis0_grp);
 PXMXDX(pxmxdx_cam0_csis1,	gate_bus0_cam,	pxmxdx_cam0_csis1_grp);
@@ -227,6 +235,7 @@ PXMXDX(pxmxdx_cam1_csis3,	gate_bus0_cam,	pxmxdx_cam1_csis3_grp);
 PXMXDX(pxmxdx_cam1_scl,	gate_bus0_cam,	pxmxdx_cam1_scl_grp);
 PXMXDX(pxmxdx_oscclk_nfc,	0,	pxmxdx_oscclk_nfc_grp);
 PXMXDX(pxmxdx_oscclk_aud,	0,	pxmxdx_oscclk_aud_grp);
+PXMXDX(pxmxdx_fsys0_qch_usbdrd30,	0,	pxmxdx_fsys0_usb_qch_grp);
 
 M1D1G1(sclk_decon0_eclk0,	0,	TOP_MUX_SCLK_DISP0_DECON0_ECLK0,	TOP_DIV_SCLK_DISP0_DECON0_ECLK0,	TOP_GATE_SCLK_DISP0_DECON0_ECLK0,	DISP0_MUX_SCLK_DISP0_DECON0_ECLK0_USER);
 M1D1G1(sclk_decon0_vclk0,	0,	TOP_MUX_SCLK_DISP0_DECON0_VCLK0,	TOP_DIV_SCLK_DISP0_DECON0_VCLK0,	TOP_GATE_SCLK_DISP0_DECON0_VCLK0,	DISP0_MUX_SCLK_DISP0_DECON0_VCLK0_USER);
@@ -321,12 +330,12 @@ UMUX(umux_fsys0_phyclk_usbdrd30_udrd30_pipe_pclk_user,	0,	FSYS0_MUX_PHYCLK_USBDR
 UMUX(umux_fsys0_phyclk_ufs_tx0_symbol_user,	0,	FSYS0_MUX_PHYCLK_UFS_TX0_SYMBOL_USER);
 UMUX(umux_fsys0_phyclk_ufs_rx0_symbol_user,	0,	FSYS0_MUX_PHYCLK_UFS_RX0_SYMBOL_USER);
 UMUX(umux_fsys0_phyclk_usbhost20_phyclock_user,	0,	FSYS0_MUX_PHYCLK_USBHOST20_PHYCLOCK_USER);
-UMUX(umux_fsys0_phyclk_usbhost20_freeclk_user,	0,	FSYS0_MUX_PHYCLK_USBHOST20_FREECLK_USER);
-UMUX(umux_fsys0_phyclk_usbhost20_clk48mohci_user,	0,	FSYS0_MUX_PHYCLK_USBHOST20_CLK48MOHCI_USER);
+UMUX(umux_fsys0_phyclk_usbhost20_freeclk_user,	0,	0);
+UMUX(umux_fsys0_phyclk_usbhost20_clk48mohci_user,	0,	0);
 UMUX(umux_fsys0_phyclk_usbhost20phy_ref_clk,	0,	FSYS0_MUX_PHYCLK_USBHOST20PHY_REF_CLK);
-UMUX(umux_fsys0_phyclk_ufs_rx_pwm_clk_user,	0,	FSYS0_MUX_PHYCLK_UFS_RX_PWM_CLK_USER);
-UMUX(umux_fsys0_phyclk_ufs_tx_pwm_clk_user,	0,	FSYS0_MUX_PHYCLK_UFS_TX_PWM_CLK_USER);
-UMUX(umux_fsys0_phyclk_ufs_refclk_out_soc_user,	0,	FSYS0_MUX_PHYCLK_UFS_REFCLK_OUT_SOC_USER);
+UMUX(umux_fsys0_phyclk_ufs_rx_pwm_clk_user,	0,	0);
+UMUX(umux_fsys0_phyclk_ufs_tx_pwm_clk_user,	0,	0);
+UMUX(umux_fsys0_phyclk_ufs_refclk_out_soc_user,	0,	0);
 UMUX(umux_fsys1_phyclk_ufs_link_sdcard_tx0_symbol_user,	0,	FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_TX0_SYMBOL_USER);
 UMUX(umux_fsys1_phyclk_ufs_link_sdcard_rx0_symbol_user,	0,	FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_RX0_SYMBOL_USER);
 UMUX(umux_fsys1_phyclk_pcie_wifi0_tx0_user,	0,	FSYS1_MUX_PHYCLK_PCIE_WIFI0_TX0_USER);
@@ -335,10 +344,9 @@ UMUX(umux_fsys1_phyclk_pcie_wifi1_tx0_user,	0,	FSYS1_MUX_PHYCLK_PCIE_WIFI1_TX0_U
 UMUX(umux_fsys1_phyclk_pcie_wifi1_rx0_user,	0,	FSYS1_MUX_PHYCLK_PCIE_WIFI1_RX0_USER);
 UMUX(umux_fsys1_phyclk_pcie_wifi0_dig_refclk_user,	0,	FSYS1_MUX_PHYCLK_PCIE_WIFI0_DIG_REFCLK_USER);
 UMUX(umux_fsys1_phyclk_pcie_wifi1_dig_refclk_user,	0,	FSYS1_MUX_PHYCLK_PCIE_WIFI1_DIG_REFCLK_USER);
-UMUX(umux_fsys1_phyclk_ufs_link_sdcard_rx_pwm_clk_user,	0,	FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_RX_PWM_CLK_USER);
-UMUX(umux_fsys1_phyclk_ufs_link_sdcard_tx_pwm_clk_user,	0,	FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_TX_PWM_CLK_USER);
-UMUX(umux_fsys1_phyclk_ufs_link_sdcard_refclk_out_soc_user,	0,	FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_REFCLK_OUT_SOC_USER);
-
+UMUX(umux_fsys1_phyclk_ufs_link_sdcard_rx_pwm_clk_user,	0,	0);
+UMUX(umux_fsys1_phyclk_ufs_link_sdcard_tx_pwm_clk_user,	0,	0);
+UMUX(umux_fsys1_phyclk_ufs_link_sdcard_refclk_out_soc_user,	0,	0);
 
 
 static struct pwrcal_clk *gategrp_apollo_ppmu[] = {
@@ -418,35 +426,21 @@ static struct pwrcal_clk *gategrp_aud_sclk_slimbus[] = {
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_bus0_display[] = {
-	CLK(BUS0_GATE_ACLK_LH_DISP00),
-	CLK(BUS0_GATE_ACLK_LH_DISP01),
-	CLK(BUS0_GATE_ACLK_LH_DISP10),
-	CLK(BUS0_GATE_ACLK_LH_DISP11),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_bus0_cam[] = {
-	CLK(BUS0_GATE_ACLK_LH_CAM0),
-	CLK(BUS0_GATE_ACLK_LH_CAM1),
-	CLK(BUS0_GATE_ACLK_LH_ISP0),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_bus0_fsys1[] = {
-	CLK(BUS0_GATE_ACLK_LH_FSYS1),
-	CLK(BUS0_GATE_ACLK_ACE_FSYS1),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_bus1_mfc[] = {
-	CLK(BUS1_GATE_ACLK_LH_MFC0),
-	CLK(BUS1_GATE_ACLK_LH_MFC1),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_bus1_mscl[] = {
-	CLK(BUS1_GATE_ACLK_LH_MSCL0),
-	CLK(BUS1_GATE_ACLK_LH_MSCL1),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_bus1_fsys0[] = {
-	CLK(BUS1_GATE_ACLK_LH_FSYS0),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_cam0_common[] = {
@@ -884,27 +878,21 @@ static struct pwrcal_clk *gategrp_fsys0_phyclk_usbhost20_phyclock[] = {
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys0_phyclk_usbhost20_freeclk[] = {
-	CLK(FSYS0_MUX_PHYCLK_USBHOST20_FREECLK_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys0_phyclk_usbhost20_clk48mohci[] = {
-	CLK(FSYS0_MUX_PHYCLK_USBHOST20_CLK48MOHCI_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys0_phyclk_usbhost20phy_ref_clk[] = {
-	CLK(FSYS0_MUX_PHYCLK_USBHOST20PHY_REF_CLK),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys0_phyclk_ufs_rx_pwm_clk[] = {
-	CLK(FSYS0_MUX_PHYCLK_UFS_RX_PWM_CLK_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys0_phyclk_ufs_tx_pwm_clk[] = {
-	CLK(FSYS0_MUX_PHYCLK_UFS_TX_PWM_CLK_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys0_phyclk_ufs_refclk_out_soc[] = {
-	CLK(FSYS0_MUX_PHYCLK_UFS_REFCLK_OUT_SOC_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys1_common[] = {
@@ -980,15 +968,12 @@ static struct pwrcal_clk *gategrp_fsys1_phyclk_pcie_wifi1_dig_refclk[] = {
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys1_phyclk_ufs_link_sdcard_rx_pwm_clk[] = {
-	CLK(FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_RX_PWM_CLK_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys1_phyclk_ufs_link_sdcard_tx_pwm_clk[] = {
-	CLK(FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_TX_PWM_CLK_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_fsys1_phyclk_ufs_link_sdcard_refclk_out_soc[] = {
-	CLK(FSYS1_MUX_PHYCLK_UFS_LINK_SDCARD_REFCLK_OUT_SOC_USER),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_g3d_common[] = {
@@ -1074,6 +1059,7 @@ static struct pwrcal_clk *gategrp_isp0_common[] = {
 	CLK(ISP0_GATE_PCLK_HPM_APBIF_ISP0),
 	CLK(ISP0_GATE_PCLK_TREX_C),
 	CLK(ISP0_GATE_PCLK_SysMMU601),
+	CLK(ISP0_GATE_ACLK_ISP0_PXL_ASBS_IS_C_FROM_IS_D),
 	CLK_NONE,
 };
 static struct pwrcal_clk *gategrp_isp0_fimc_isp0[] = {
@@ -1872,6 +1858,7 @@ void vclk_unused_disable(void)
 	vclk_disable(VCLK(pxmxdx_isp0_isp0));
 	vclk_disable(VCLK(pxmxdx_isp0_tpu));
 	vclk_disable(VCLK(pxmxdx_isp0_trex));
+	vclk_disable(VCLK(pxmxdx_isp0_pxl_asbs));
 	vclk_disable(VCLK(pxmxdx_isp1_isp1));
 	vclk_disable(VCLK(pxmxdx_cam0_csis0));
 	vclk_disable(VCLK(pxmxdx_cam0_csis1));
@@ -2203,6 +2190,7 @@ void vclk_init(void)
 	ADD_LIST(vclk_d1_list, d1_sclk_cp_i2s);
 	ADD_LIST(vclk_d1_list, d1_sclk_asrc);
 
+	ADD_LIST(vclk_pxmxdx_list, pxmxdx_fsys0_qch_usbdrd30);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_top);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_mfc);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_mscl);
@@ -2216,6 +2204,7 @@ void vclk_init(void)
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_isp0_isp0);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_isp0_tpu);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_isp0_trex);
+	ADD_LIST(vclk_pxmxdx_list, pxmxdx_isp0_pxl_asbs);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_isp1_isp1);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_cam0_csis0);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_cam0_csis1);
