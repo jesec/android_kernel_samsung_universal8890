@@ -96,6 +96,10 @@ config MEDIA_M2M1SHOT2
 	  Enables support for the extended non-steaming m2m media processing API
 	  for some device drivers like FIMG2D.
 
+config MEDIA_M2M1SHOT2_TESTDEV
+	depends on MEDIA_M2M1SHOT2
+	bool "Test driver for the m2m1shot2 media processing API"
+
 #
 # Media controller
 #	Selectable only for webcam/grabbers, as other drivers don't use it
