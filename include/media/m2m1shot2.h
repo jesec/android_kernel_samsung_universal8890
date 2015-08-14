@@ -26,6 +26,7 @@
 #include <linux/dma-direction.h>
 #include <linux/kref.h>
 #include <linux/completion.h>
+#include <linux/dma-buf.h>
 
 #include <uapi/linux/m2m1shot2.h>
 
@@ -269,6 +270,59 @@ struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 					const char *nodename, int id);
 void m2m1shot2_destroy_device(struct m2m1shot2_device *m21dev);
 void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success);
+
+static inline u32 m2m1shot2_get_payload(struct m2m1shot2_context *ctx,
+					unsigned int index, unsigned int plane)
+{
+	BUG_ON(index >= M2M1SHOT2_MAX_IMAGES);
+	BUG_ON(plane >= ctx->source[index].img.num_planes);
+
+	return ctx->source[index].img.plane[plane].payload;
+}
+
+static inline void m2m1shot2_set_payload(struct m2m1shot2_context *ctx,
+					unsigned int plane, u32 payload)
+{
+	BUG_ON(plane >= ctx->target.num_planes);
+	BUG_ON((ctx->target.memory == M2M1SHOT2_BUFTYPE_DMABUF)
+		&& (payload > ctx->target.plane[plane].dmabuf.dmabuf->size));
+	BUG_ON((ctx->target.memory == M2M1SHOT2_BUFTYPE_USERPTR)
+		&& (payload > ctx->target.plane[plane].userptr.length));
+
+	ctx->target.plane[plane].payload = payload;
+}
+
+static inline dma_addr_t m2m1shot2_src_dma_addr(struct m2m1shot2_context *ctx,
+					unsigned int index, unsigned int plane)
+{
+	BUG_ON(index >= M2M1SHOT2_MAX_IMAGES);
+	BUG_ON(plane >= ctx->source[index].img.num_planes);
+
+	return ctx->source[index].img.plane[plane].dma_addr;
+}
+
+static inline dma_addr_t m2m1shot2_dst_dma_addr(struct m2m1shot2_context *ctx,
+						unsigned int plane)
+{
+	BUG_ON(plane >= ctx->target.num_planes);
+
+	return ctx->target.plane[plane].dma_addr;
+}
+
+static inline struct m2m1shot2_context_format *m2m1shot2_src_format(
+			struct m2m1shot2_context *ctx, unsigned int index)
+{
+	BUG_ON(index >= M2M1SHOT2_MAX_IMAGES);
+
+	return &ctx->source[index].img.fmt;
+}
+
+static inline struct m2m1shot2_context_format *m2m1shot2_dst_format(
+					struct m2m1shot2_context *ctx)
+{
+	return &ctx->target.fmt;
+}
+
 #else /* !CONFIG_MEDIA_M2M1SHOT2 */
 static inline struct m2m1shot2_context *m2m1shot2_current_context(
 				const struct m2m1shot2_device *m21dev)
@@ -283,6 +337,24 @@ static inline struct m2m1shot2_device *m2m1shot2_create_device(
 }
 #define m2m1shot2_destroy_device(m21dev)		do { } while (0)
 #define m2m1shot2_finish_context(ctx, success)		do { } while (0)
+static inline u32 m2m1shot2_get_payload(struct m2m1shot2_context *ctx,
+					unsigned int index, unsigned int plane)
+{
+	return 0;
+}
+
+#define m2m1shot2_set_payload(ctx, plane, payload)	do { } while (0)
+static inline dma_addr_t m2m1shot2_src_dma_addr(struct m2m1shot2_context *ctx,
+					unsigned int index, unsigned int plane)
+{
+	return 0;
+}
+
+static inline dma_addr_t m2m1shot2_dst_dma_addr(struct m2m1shot2_context *ctx,
+						unsigned int plane)
+{
+	return 0;
+}
 #endif /* CONFIG_MEDIA_M2M1SHOT2 */
 
 #endif /* _M2M1SHOT2_H_ */
