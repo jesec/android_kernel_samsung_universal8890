@@ -49,7 +49,7 @@
 
 /* firmware file information */
 #define fw_checksum	61921
-char *firmware_file = "apm_8890_v6.h";
+char *firmware_file = "apm_8890_evt1.h";
 void __iomem *sram_base;
 void __iomem *exynos_mailbox_reg;
 struct regmap *cortexm3_pmu_regmap;
@@ -138,6 +138,79 @@ static int firmware_update(struct device *dev)
 }
 
 #ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
+static int samsung_mbox_startup(struct mbox_chan *chan)
+{
+	return 0;
+}
+#else
+static int samsung_mbox_startup(struct mbox_chan *chan) { return 0;}
+#endif
+
+static int samsung_mbox_send_data(struct mbox_chan *chan, void *msg)
+{
+	struct samsung_mlink *samsung_link = to_samsung_mchan(chan);
+	u32 *msg_data = (u32 *)msg;
+	u32 i, status, limit_cnt = 0;
+
+	samsung_link->data = msg_data;
+
+	/* Check rx interrupt status */
+	/* rx interrupt is clear, and then main core send message */
+	do {
+		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0) & CM3_INTERRPUT_SHIFT;
+		limit_cnt++;
+		if (limit_cnt > CM3_COUNT_MAX)
+			return -1;
+	} while (status);
+
+	/* Insert apm debug buffer */
+	tx.buf[tx.cnt][G3D_STATUS] = (exynos_cortexm3_pmu_read(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
+	tx.name[tx.cnt] = protocol_name;
+
+	limit_cnt = 0;
+	/* Check Tx interrupt status */
+	do {
+		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_IRQ0) & CM3_INTERRPUT_SHIFT;
+		limit_cnt++;
+		if (limit_cnt > CM3_COUNT_MAX)
+			return -1;
+	} while (status);
+
+	/* Save information and data to mailbox SFR */
+	for (i = 0; i < MAILBOX_REG_CNT; i++) {
+		writel(msg_data[i], exynos_mailbox_reg + EXYNOS_MAILBOX_TX_MSG(i));
+		tx.buf[tx.cnt][i] = readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_MSG(i));
+		/* Save a time and message information */
+		tx.time[tx.cnt] = ktime_to_ms(ktime_get());
+	}
+	/* Send tx interrupt */
+	writel(msg_data[4], exynos_mailbox_reg + EXYNOS_MAILBOX_TX_IRQ0);
+
+#ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
+	tx.vol[rx.cnt][0] = atl_in_voltage;
+	tx.vol[rx.cnt][1] = apo_in_voltage;
+	tx.vol[rx.cnt][2] = g3d_in_voltage;
+	tx.vol[rx.cnt][3] = mif_in_voltage;
+	exynos_ss_mailbox(msg_data, 0, protocol_name, tx.vol[rx.cnt]);
+#else
+	exynos_ss_mailbox(msg_data, 0, protocol_name, default_vol);
+#endif
+
+	tx.cnt++;
+	if (tx.cnt == DEBUG_COUNT) tx.cnt = 0;
+
+	return 0;
+}
+
+#ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
+static void samsung_mbox_shutdown(struct mbox_chan *chan)
+{
+}
+#else
+static void samsung_mbox_shutdown(struct mbox_chan *chan) {}
+#endif
+
+#ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
 static irqreturn_t samsung_ipc_handler(int irq, void *p)
 {
 	struct samsung_mlink *plink = p;
@@ -147,20 +220,22 @@ static irqreturn_t samsung_ipc_handler(int irq, void *p)
 	mbox_link_txdone(&plink->link, MBOX_OK);
 
 	/* Acknowledge the interrupt by clearing the interrupt register */
-	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
+	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0);
 	tmp &= ~RX_INT_CLEAR;
-	__raw_writel(tmp, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
+	__raw_writel(tmp, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0);
 
 	/* Debug information */
 	rx.buf[rx.cnt][G3D_STATUS] = (exynos_cortexm3_pmu_read(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
 	rx.name[rx.cnt] = protocol_name;
 	for (i = 0; i < MAILBOX_REG_CNT; i++) {
 		rx.time[rx.cnt] = ktime_to_ms(ktime_get());
-		rx.buf[rx.cnt][i] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(i));
+		rx.buf[rx.cnt][i] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG(i));
 	}
+	rx.buf[rx.cnt][INT_STATUS] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0);
+
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 	/* Debug register clear */
-	__raw_writel(0x0, exynos_mailbox_reg + EXYNOS_MAILBOX_RX(0));
+	__raw_writel(0x0, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG0);
 
 	/* Check firmware setting voltage */
 	rx.atl_value = ((rx.buf[rx.cnt][0] >> ATL_VOL_SHIFT) & VOL_MASK);
@@ -189,78 +264,6 @@ static irqreturn_t samsung_ipc_handler(int irq, void *p)
 }
 #endif
 
-#ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
-static int samsung_mbox_startup(struct mbox_chan *chan)
-{
-	return 0;
-}
-#else
-static int samsung_mbox_startup(struct mbox_chan *chan) { return 0;}
-#endif
-
-static int samsung_mbox_send_data(struct mbox_chan *chan, void *msg)
-{
-	struct samsung_mlink *samsung_link = to_samsung_mchan(chan);
-	u32 *msg_data = (u32 *)msg;
-	u32 i, status, limit_cnt = 0, tmp;
-
-	samsung_link->data = msg_data;
-
-	/* Check cortex m3 hardware status */
-	tmp = exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_STATUS);
-	status = (((tmp >> STANDBYWFI) & STANDBYWFI_MASK) & (tmp & APM_STATUS_MASK));
-	if (status)
-		return -1;
-
-	/* Check rx interrupt status */
-	do {
-		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(3)) & CM3_INTERRPUT_SHIFT;
-		limit_cnt++;
-		if (limit_cnt > CM3_COUNT_MAX) return -1;
-	} while (status);
-
-	tx.buf[tx.cnt][G3D_STATUS] = (exynos_cortexm3_pmu_read(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
-	tx.name[tx.cnt] = protocol_name;
-
-	limit_cnt = 0;
-	/* Check Tx interrupt status */
-	do {
-		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX(3)) & CM3_INTERRPUT_SHIFT;
-		limit_cnt++;
-		if (limit_cnt > CM3_COUNT_MAX) return -1;
-	} while (status);
-
-	/* Save information and data to mailbox SFR */
-	for (i = 0; i < MAILBOX_REG_CNT; i++) {
-		writel(msg_data[i], exynos_mailbox_reg + EXYNOS_MAILBOX_TX(i));
-		tx.buf[tx.cnt][i] = readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX(i));
-		/* Save a time and message information */
-		tx.time[tx.cnt] = ktime_to_ms(ktime_get());
-	}
-#ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
-	tx.vol[rx.cnt][0] = atl_in_voltage;
-	tx.vol[rx.cnt][1] = apo_in_voltage;
-	tx.vol[rx.cnt][2] = g3d_in_voltage;
-	tx.vol[rx.cnt][3] = mif_in_voltage;
-	exynos_ss_mailbox(msg_data, 0, protocol_name, tx.vol[rx.cnt]);
-#else
-	exynos_ss_mailbox(msg_data, 0, protocol_name, default_vol);
-#endif
-
-	tx.cnt++;
-	if (tx.cnt == DEBUG_COUNT) tx.cnt = 0;
-
-	return 0;
-}
-
-#ifdef CONFIG_EXYNOS_MBOX_INTERRUPT
-static void samsung_mbox_shutdown(struct mbox_chan *chan)
-{
-}
-#else
-static void samsung_mbox_shutdown(struct mbox_chan *chan) {}
-#endif
-
 int samsung_mbox_last_tx_done(struct mbox_chan *chan)
 {
 	unsigned int status, limit_cnt = 0, tmp, i;
@@ -271,27 +274,32 @@ int samsung_mbox_last_tx_done(struct mbox_chan *chan)
 			usleep_range(28, 30);
 		}
 
-		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT) & CM3_POLLING_SHIFT;
+		status = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0) & CM3_POLLING_SHIFT;
 
 		limit_cnt++;
-		if (limit_cnt > 100) return -EIO;
+
+		/* RX interrupt timeout check */
+		if (limit_cnt > 100)
+			return -EIO;
 	} while(!status);
 
 	/* Acknowledge the interrupt by clearing the interrupt register */
-	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
+	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0);
 	tmp &= ~RX_INT_CLEAR;
-	__raw_writel(tmp, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_INT);
+	__raw_writel(tmp, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0);
 
 	/* Debug information */
 	rx.buf[rx.cnt][G3D_STATUS] = (exynos_cortexm3_pmu_read(EXYNOS_PMU_G3D_STATUS) & G3D_STATUS_MASK);
 	rx.name[rx.cnt] = protocol_name;
 	for (i = 0; i < MAILBOX_REG_CNT; i++) {
 		rx.time[rx.cnt] = ktime_to_ms(ktime_get());
-		rx.buf[rx.cnt][i] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(i));
+		rx.buf[rx.cnt][i] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG(i));
 	}
+	rx.buf[rx.cnt][INT_STATUS] = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0);
+
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 	/* Debug register clear */
-	__raw_writel(0x0, exynos_mailbox_reg + EXYNOS_MAILBOX_RX(0));
+	__raw_writel(0x0, exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG0);
 
 	/* Check firmware setting voltage */
 	rx.atl_value = ((rx.buf[rx.cnt][0] >> ATL_VOL_SHIFT) & VOL_MASK);
@@ -330,18 +338,16 @@ static struct mbox_chan_ops samsung_mbox_ops = {
  * [DEBUG] Check mailbox related register and TX/RX data history
  */
 int data_history(void) {
-#if 0
-	int count;
-#endif
-
-	pr_info("EXYNOS_MAILBOX_TX_CON : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_CON));
-	pr_info("EXYNOS_MAILBOX_TX_ADDR : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_ADDR));
-	pr_info("EXYNOS_MAILBOX_TX_DATA : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_DATA));
-	pr_info("EXYNOS_MAILBOX_TX_INT : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_INT));
-	pr_info("EXYNOS_MAILBOX_RX(0) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(0)));
-	pr_info("EXYNOS_MAILBOX_RX(1) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(1)));
-	pr_info("EXYNOS_MAILBOX_RX(2) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(2)));
-	pr_info("EXYNOS_MAILBOX_RX(3) : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX(3)));
+	pr_info("EXYNOS_MAILBOX_TX_MSG0 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_MSG0));
+	pr_info("EXYNOS_MAILBOX_TX_MSG1 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_MSG1));
+	pr_info("EXYNOS_MAILBOX_TX_MSG2 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_MSG2));
+	pr_info("EXYNOS_MAILBOX_TX_MSG3 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_MSG3));
+	pr_info("EXYNOS_MAILBOX_TX_IRQ0 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_TX_IRQ0));
+	pr_info("EXYNOS_MAILBOX_RX_MSG0 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG0));
+	pr_info("EXYNOS_MAILBOX_RX_MSG1 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG1));
+	pr_info("EXYNOS_MAILBOX_RX_MSG2 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG2));
+	pr_info("EXYNOS_MAILBOX_RX_MSG3 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG3));
+	pr_info("EXYNOS_MAILBOX_RX_IRQ0 : %8.0x \n", __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_IRQ0));
 	pr_info("EXYNOS_CORTEXM3_APM_CONFIGURATION : %8.0x \n",
 		exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_CONFIGURATION));
 	pr_info("EXYNOS_CORTEXM3_APM_STATUS : %8.0x \n",
@@ -349,16 +355,6 @@ int data_history(void) {
 	pr_info("EXYNOS_CORTEXM3_APM_OPTION : %8.0x \n",
 		exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_OPTION));
 
-#if 0
-	for (count = 0; count < DEBUG_COUNT; count++) {
-		pr_info("[%lld ms]TX data : %8.x %8.x %8.x %8.x %8.x\n", tx.time[count], tx.buf[count][0],
-				tx.buf[count][1], tx.buf[count][2], tx.buf[count][3], tx.buf[count][4]);
-	}
-	for (count = 0; count < DEBUG_COUNT; count++) {
-		pr_info("[%lld ms]RX data : %8.x %8.x %8.x %8.x %8.x\n", rx.time[count], rx.buf[count][0],
-				rx.buf[count][1], rx.buf[count][2], rx.buf[count][3], rx.buf[count][4]);
-	}
-#endif
 	return 0;
 }
 
@@ -627,6 +623,9 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 		/* Get of cl dvfs related information to DT */
 		switch (exynos_get_table_ver()) {
 		case 0 :
+		case 1 :
+		case 2 :
+		case 3 :
 			ret = of_property_read_u32_index(node, "asv_v0_atlas_margin", 0, &cl_init.atlas_margin);
 			if (ret) {
 				dev_err(&pdev->dev, "atlas_margin do not set, Set to default 0mV Value\n");
@@ -714,8 +713,10 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 	exynos_update_ip_idle_status(idle_ip_index, 1);
 
 	/* Write rcc table to apm sram area */
+/*
 	cal_asv_set_rcc_table();
 	cal_rcc_print_info();
+*/
 
 #if (defined(CONFIG_EXYNOS_CL_DVFS_CPU) || defined(CONFIG_EXYNOS_CL_DVFS_G3D) || defined(CONFIG_EXYNOS_CL_DVFS_MIF))
 	cl_init.cl_status = CL_ON;

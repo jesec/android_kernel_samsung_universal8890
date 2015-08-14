@@ -68,19 +68,14 @@ void exynos8890_apm_reset_release(void)
 	unsigned int tmp;
 
 	/* Cortex M3 Interrupt bit clear */
-	exynos_mailbox_reg_write(0x0, EXYNOS_MAILBOX_TX_INT);
-	exynos_mailbox_reg_write(0x0, EXYNOS_MAILBOX_RX_INT);
+	exynos_mailbox_reg_write(0x0, EXYNOS_MAILBOX_TX_IRQ0);
+	exynos_mailbox_reg_write(0x0, EXYNOS_MAILBOX_RX_IRQ0);
 
 	/* Set APM device enable */
 	tmp = exynos_cortexm3_pmu_read(EXYNOS_PMU_CORTEXM3_APM_OPTION);
 	tmp &= ~ENABLE_APM;
 	tmp |= ENABLE_APM;
 	exynos_cortexm3_pmu_write(tmp, EXYNOS_PMU_CORTEXM3_APM_OPTION);
-
-	tmp = exynos_mailbox_reg_read(EXYNOS_MAILBOX_MRX_SEM);
-	tmp &= ~MRX_SEM_ENABLE;
-	tmp |= MRX_SEM_ENABLE;
-	exynos_mailbox_reg_write(tmp, EXYNOS_MAILBOX_MRX_SEM);
 }
 
 
@@ -91,13 +86,13 @@ void exynos8890_apm_reset_release(void)
 static int check_rx_data(void *msg)
 {
 	u8 i;
-	u32 buf[5] = {0, 0, 0, 0, 0};
+	u32 buf[MSG_LEN] = {0, 0, 0, 0, 0};
 
 	for (i = 0; i < MBOX_LEN; i++)
-		buf[i] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX(i));
+		buf[i] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX_MSG(i));
 
 	/* Check return command */
-	buf[4] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_TX(0));
+	buf[4] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_TX_MSG0);
 
 	/* Check apm device return value */
 	if (buf[1] == APM_GPIO_ERR)
@@ -170,7 +165,7 @@ static int exynos_send_message(struct mbox_client *mbox_cl, void *msg)
 		}
 	} else {
 		pr_err("%s : Mailbox timeout\n", __func__);
-		pr_err("POLLING status: 0x%x\n", exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX_INT));
+		pr_err("POLLING status: 0x%x\n", exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX_IRQ0));
 		apm_wfi_prepare = APM_ON;
 		mbox_free_channel(chan);
 		return ERR_TIMEOUT;
@@ -215,7 +210,7 @@ return 0;
 static int exynos8890_do_cl_dvfs_setup(unsigned int atlas_cl_limit, unsigned int apollo_cl_limit,
 					unsigned int g3d_cl_limit, unsigned int mif_cl_limit, unsigned int cl_period)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret;
 
 	mutex_lock(&cl_mutex);
@@ -231,7 +226,7 @@ static int exynos8890_do_cl_dvfs_setup(unsigned int atlas_cl_limit, unsigned int
 	msg[0] = (NONE << COMMAND_SHIFT) | (INIT_SET << INIT_MODE_SHIFT);
 	msg[1] = (atlas_cl_limit << ATLAS_SHIFT) | (apollo_cl_limit << APOLLO_SHIFT)
 		| (g3d_cl_limit << G3D_SHIFT) | (mif_cl_limit << MIF_SHIFT) | (cl_period << PERIOD_SHIFT);
-	msg[3] = TX_INTERRUPT_ENABLE;
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	ret = exynos_send_message(&cl, msg);
 	if (ret == ERR_TIMEOUT || ret == ERR_OUT) {
@@ -257,7 +252,7 @@ EXPORT_SYMBOL_GPL(exynos8890_do_cl_dvfs_setup);
 
 static int exynos8890_do_cl_dvfs_start(unsigned int cl_domain)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret;
 
 	mutex_lock(&cl_mutex);
@@ -271,7 +266,8 @@ static int exynos8890_do_cl_dvfs_start(unsigned int cl_domain)
 
 	/* CL-DVFS[29] start, command mode none */
 	msg[0] = CL_DVFS | (NONE << COMMAND_SHIFT);
-	msg[3] = ((cl_domain + 1) << CL_DOMAIN_SHIFT) | TX_INTERRUPT_ENABLE;
+	msg[3] = ((cl_domain + 1) << CL_DOMAIN_SHIFT);
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	if (cl_domain == ID_CL1)
 		protocol_name = "cl_start(ATL)--";
@@ -306,7 +302,7 @@ EXPORT_SYMBOL_GPL(exynos8890_do_cl_dvfs_start);
 
 static int exynos8890_do_cl_dvfs_mode_enable(void)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret = 0;
 
 	mutex_lock(&cl_mutex);
@@ -321,7 +317,7 @@ static int exynos8890_do_cl_dvfs_mode_enable(void)
 
 	/* CL-DVFS[29] stop, command mode none */
 	msg[0] = (1 << CL_ALL_START_SHIFT);
-	msg[3] = (TX_INTERRUPT_ENABLE);
+	msg[4] = (TX_INTERRUPT_ENABLE);
 
 	ret = exynos_send_message(&cl, msg);
 	if (ret == ERR_TIMEOUT || ret == ERR_OUT) {
@@ -347,7 +343,7 @@ EXPORT_SYMBOL_GPL(exynos8890_do_cl_dvfs_mode_enable);
 
 static int exynos8890_do_cl_dvfs_mode_disable(void)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret = 0;
 
 	mutex_lock(&cl_mutex);
@@ -362,7 +358,7 @@ static int exynos8890_do_cl_dvfs_mode_disable(void)
 
 	/* CL-DVFS[29] stop, command mode none */
 	msg[0] = (1 << CL_ALL_STOP_SHIFT);
-	msg[3] = (TX_INTERRUPT_ENABLE);
+	msg[4] = (TX_INTERRUPT_ENABLE);
 
 	ret = exynos_send_message(&cl, msg);
 	if (ret == ERR_TIMEOUT || ret == ERR_OUT) {
@@ -388,7 +384,7 @@ EXPORT_SYMBOL_GPL(exynos8890_do_cl_dvfs_mode_disable);
 
 static int exynos8890_do_cl_dvfs_stop(unsigned int cl_domain, unsigned int level)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret = 0;
 
 	mutex_lock(&cl_mutex);
@@ -409,7 +405,8 @@ static int exynos8890_do_cl_dvfs_stop(unsigned int cl_domain, unsigned int level
 	/* CL-DVFS[29] stop, command mode none */
 	msg[0] = (CL_DVFS_OFF << CL_DVFS_SHIFT) | (NONE << COMMAND_SHIFT);
 	msg[1] = level;
-	msg[3] = ((cl_domain + 1) << CL_DOMAIN_SHIFT) | (TX_INTERRUPT_ENABLE);
+	msg[3] = ((cl_domain + 1) << CL_DOMAIN_SHIFT);
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	if (cl_domain == ID_CL1)
 		protocol_name = "cl_stop(ATL)++";
@@ -444,7 +441,7 @@ EXPORT_SYMBOL_GPL(exynos8890_do_cl_dvfs_stop);
 
 static int exynos8890_do_g3d_power_on_noti_apm(void)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret = 0;
 
 	mutex_lock(&cl_mutex);
@@ -458,7 +455,8 @@ static int exynos8890_do_g3d_power_on_noti_apm(void)
 	protocol_name = "g3d_power_on";
 
 	/* CL-DVFS[29] stop, command mode none */
-	msg[3] = TX_INTERRUPT_ENABLE | (1 << 13);
+	msg[3] = (1 << 13);
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	ret = exynos_send_message(&cl, msg);
 	if (ret == ERR_TIMEOUT || ret == ERR_OUT) {
@@ -483,7 +481,7 @@ EXPORT_SYMBOL_GPL(exynos8890_do_g3d_power_on_noti_apm);
 
 static int exynos8890_do_g3d_power_down_noti_apm(void)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[5] = {0, 0, 0, 0, 0};
 	int ret = 0;
 
 	mutex_lock(&cl_mutex);
@@ -497,7 +495,8 @@ static int exynos8890_do_g3d_power_down_noti_apm(void)
 	protocol_name = "g3d_power_off";
 
 	/* CL-DVFS[29] stop, command mode none */
-	msg[3] = TX_INTERRUPT_ENABLE | (1 << 12);
+	msg[3] = (1 << 12);
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	ret = exynos_send_message(&cl, msg);
 	if (ret == ERR_TIMEOUT || ret == ERR_OUT) {
@@ -525,7 +524,7 @@ EXPORT_SYMBOL_GPL(exynos8890_do_g3d_power_down_noti_apm);
  */
 int exynos8890_apm_enter_wfi(void)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	struct mbox_chan *chan;
 
 	mutex_lock(&cl_mutex);
@@ -540,7 +539,7 @@ int exynos8890_apm_enter_wfi(void)
 
 	/* CL-DVFS[29] stop, command mode none */
 	msg[0] = 1 << 23;
-	msg[3] = TX_INTERRUPT_ENABLE;
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	chan = mbox_request_channel(&cl, 0);
 	if (IS_ERR(chan)) {
@@ -570,7 +569,7 @@ EXPORT_SYMBOL_GPL(exynos8890_apm_enter_wfi);
 int exynos8890_apm_update_bits(unsigned int type, unsigned int reg,
 					unsigned int mask, unsigned int value)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret;
 
 	mutex_lock(&cl_mutex);
@@ -581,7 +580,7 @@ int exynos8890_apm_update_bits(unsigned int type, unsigned int reg,
 	msg[0] = ((type << PM_SECTION_SHIFT) | (MASK << MASK_SHIFT) | (mask));
 	msg[1] = reg;
 	msg[2] = value;
-	msg[3] = TX_INTERRUPT_ENABLE;
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	ret = exynos_send_message(&cl, msg);
 	if (ret == ERR_TIMEOUT || ret == ERR_OUT) {
@@ -615,7 +614,7 @@ EXPORT_SYMBOL_GPL(exynos8890_apm_update_bits);
  */
 int exynos8890_apm_write(unsigned int type, unsigned int reg, unsigned int value)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	int ret;
 
 	mutex_lock(&cl_mutex);
@@ -626,7 +625,7 @@ int exynos8890_apm_write(unsigned int type, unsigned int reg, unsigned int value
 	msg[0] = (type << PM_SECTION_SHIFT);
 	msg[1] = reg;
 	msg[2] = value;
-	msg[3] = TX_INTERRUPT_ENABLE;
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 	if (reg == PMIC_MIF_OUT) {
@@ -673,7 +672,7 @@ EXPORT_SYMBOL_GPL(exynos8890_apm_write);
  */
 int exynos8890_apm_bulk_write(unsigned int type, unsigned char reg, unsigned char *buf, unsigned int count)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	unsigned int i;
 	int ret;
 
@@ -689,7 +688,7 @@ int exynos8890_apm_bulk_write(unsigned int type, unsigned char reg, unsigned cha
 		else
 			msg[2] |= buf[i] << BYTE_SHIFT * (i - BYTE_4);
 	}
-	msg[3] = TX_INTERRUPT_ENABLE;
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	ret = exynos_send_message(&cl, msg);
 	if (ret == ERR_TIMEOUT || ret == ERR_OUT) {
@@ -724,7 +723,7 @@ EXPORT_SYMBOL_GPL(exynos8890_apm_bulk_write);
 
 int exynos8890_apm_read(unsigned int type, unsigned int reg, unsigned int *val)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	struct mbox_chan *chan;
 
 	mutex_lock(&cl_mutex);
@@ -734,7 +733,7 @@ int exynos8890_apm_read(unsigned int type, unsigned int reg, unsigned int *val)
 	/* CL-DVFS[29] stop, command mode read(0x1) */
 	msg[0] = (READ_MODE << COMMAND_SHIFT) | (type << PM_SECTION_SHIFT);
 	msg[1] = reg;
-	msg[3] = TX_INTERRUPT_ENABLE;
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	chan = mbox_request_channel(&cl, 0);
 	if (IS_ERR(chan)) {
@@ -783,7 +782,7 @@ EXPORT_SYMBOL_GPL(exynos8890_apm_read);
  */
 int exynos8890_apm_bulk_read(unsigned int type, unsigned char reg, unsigned char *buf, unsigned int count)
 {
-	u32 msg[MBOX_LEN] = {0, 0, 0, 0};
+	u32 msg[MSG_LEN] = {0, 0, 0, 0, 0};
 	u32 result[2] = {0, 0};
 	unsigned int ret, i;
 
@@ -793,7 +792,7 @@ int exynos8890_apm_bulk_read(unsigned int type, unsigned char reg, unsigned char
 
 	msg[0] = (READ_MODE << COMMAND_SHIFT) | (type << PM_SECTION_SHIFT)
 			| ((count-1) << MULTI_BYTE_CNT_SHIFT) | (reg);
-	msg[3] = TX_INTERRUPT_ENABLE;
+	msg[4] = TX_INTERRUPT_ENABLE;
 
 	ret = exynos_send_message_bulk_read(&cl, msg);
 	if (ret == ERR_TIMEOUT) {
@@ -801,8 +800,8 @@ int exynos8890_apm_bulk_read(unsigned int type, unsigned char reg, unsigned char
 		goto timeout;
 	}
 
-	result[0] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX(1));
-	result[1] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX(2));
+	result[0] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX_MSG(1));
+	result[1] = exynos_mailbox_reg_read(EXYNOS_MAILBOX_RX_MSG(2));
 
 	for (i = 0; i < count; i++) {
 		if (i < BYTE_4)

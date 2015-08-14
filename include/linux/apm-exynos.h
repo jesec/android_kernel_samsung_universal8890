@@ -97,6 +97,7 @@
 #define RETRY_ERR				(-0xFF)
 
 /* apm related variables */
+#define MSG_LEN					(5)
 #define G3D_LV_OFFSET				(3)
 #define MBOX_LEN				(4)
 #define TIMEOUT					(500)		/* timeout 500 msec */
@@ -156,7 +157,7 @@ struct cl_ops {
 };
 
 struct debug_data {
-	u32 buf[DEBUG_COUNT][5];
+	u32 buf[DEBUG_COUNT][6];
 	s64 time[DEBUG_COUNT];
 	char* name[DEBUG_COUNT];
 	unsigned int cnt;
