@@ -248,13 +248,25 @@ extern const char *ppc_event_name[];
 #define PG_ENT_SHIFT 4 /* 36bit PA, 32bit VA */
 #define lv1ent_fault(sent) ((*(sent) & 7) == 0)
 #define lv1ent_page(sent) ((*(sent) & 7) == 1)
-#define lv1ent_section(sent) ((*(sent) & 7) == 2)
-#define lv1ent_dsection(sent) ((*(sent) & 7) == 4)
-#define lv1ent_spsection(sent) ((*(sent) & 7) == 6)
-#define lv2ent_fault(pent) ((*(pent) & 3) == 0 || \
+
+#define FLPD_FLAG_MASK	7
+#define SLPD_FLAG_MASK	3
+
+#define SPSECT_FLAG	6
+#define DSECT_FLAG	4
+#define SECT_FLAG	2
+#define SLPD_FLAG	1
+
+#define LPAGE_FLAG	1
+#define SPAGE_FLAG	2
+
+#define lv1ent_section(sent) ((*(sent) & FLPD_FLAG_MASK) == SECT_FLAG)
+#define lv1ent_dsection(sent) ((*(sent) & FLPD_FLAG_MASK) == DSECT_FLAG)
+#define lv1ent_spsection(sent) ((*(sent) & FLPD_FLAG_MASK) == SPSECT_FLAG)
+#define lv2ent_fault(pent) ((*(pent) & SLPD_FLAG_MASK) == 0 || \
 			   (PGBASE_TO_PHYS(*(pent) & SPAGE_ENT_MASK) == fault_page))
-#define lv2ent_small(pent) ((*(pent) & 2) == 2)
-#define lv2ent_large(pent) ((*(pent) & 3) == 1)
+#define lv2ent_small(pent) ((*(pent) & SLPD_FLAG_MASK) == SPAGE_FLAG)
+#define lv2ent_large(pent) ((*(pent) & SLPD_FLAG_MASK) == LPAGE_FLAG)
 #define dsection_phys(sent) PGBASE_TO_PHYS(*(sent) & DSECT_ENT_MASK)
 #define dsection_offs(iova) ((iova) & (DSECT_SIZE - 1))
 #define mk_lv1ent_spsect(pa) ((sysmmu_pte_t) ((pa) >> PG_ENT_SHIFT) | 6)

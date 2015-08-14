@@ -227,6 +227,27 @@ int exynos_sysmmu_unmap_user_pages(struct device *dev,
 					unsigned long vaddr,
 					exynos_iova_t iova,
 					size_t size);
+/**
+ * exynos_iommu_sync_for_device()
+ *			- maintain cache lines on the given area before DMA
+ * @dev:	The device that is about to see the area
+ * @iova:	The start DMA address of @dev to maintain
+ * @len:	The length of the area
+ * @dir:	Indicate whether @dev read from or write to the area
+ */
+void exynos_iommu_sync_for_device(struct device *dev, dma_addr_t iova,
+				  size_t len, enum dma_data_direction dir);
+
+/**
+ * exynos_iommu_sync_for_cpu()
+ *			- maintain cache lines on the given area after DMA
+ * @dev:	The device that is about to see the area
+ * @iova:	The start DMA address of @dev to maintain
+ * @len:	The length of the area
+ * @dir:	Indicate whether @dev read from or write to the area
+ */
+void exynos_iommu_sync_for_cpu(struct device *dev, dma_addr_t iova, size_t len,
+				enum dma_data_direction dir);
 
 /**
  * TODO: description
@@ -313,5 +334,9 @@ static inline bool exynos_sysmmu_disable(struct device *owner)
 #define exynos_sysmmu_show_ppc_event(dev) do { } while (0)
 #define exynos_sysmmu_set_ppc_event(dev, event) do { } while (0)
 #define iovmm_set_fault_handler(dev, handler, token) do { } while(0)
+
+#define exynos_iommu_sync_for_device(dev, iova, len, dir) do { } while (0)
+#define exynos_iommu_sync_for_cpu(dev, iova, len, dir) do { } while (0)
+
 #endif
 #endif /*__ASM_PLAT_IOVMM_H*/

@@ -20,6 +20,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
 
+#include <linux/highmem.h>
+
 #include <asm/cacheflush.h>
 #include <asm/pgtable.h>
 
@@ -3104,4 +3106,112 @@ void exynos_iommu_unmap_userptr(struct iommu_domain *dom,
 		iova += lv2ents << SPAGE_ORDER;
 		sent++;
 	}
+}
+
+typedef void (*syncop)(const void *, size_t, int);
+
+static size_t sysmmu_dma_sync_page(phys_addr_t phys, off_t off,
+				  size_t pgsize, size_t size,
+				  syncop op, enum dma_data_direction dir)
+{
+	size_t len;
+	size_t skip_pages = off >> PAGE_SHIFT;
+	struct page *page;
+
+	off = off & ~PAGE_MASK;
+	page = phys_to_page(phys) + skip_pages;
+	len = min(pgsize - off, size);
+	size = len;
+
+	while (len > 0) {
+		size_t sz;
+
+		sz = min(PAGE_SIZE, len + off) - off;
+		op(kmap(page) + off, sz, dir);
+		kunmap(page++);
+		len -= sz;
+		off = 0;
+	}
+
+	return size;
+}
+
+static void exynos_iommu_sync(sysmmu_pte_t *pgtable, dma_addr_t iova,
+			size_t len, syncop op, enum dma_data_direction dir)
+{
+	while (len > 0) {
+		sysmmu_pte_t *entry;
+		size_t done;
+
+		entry = section_entry(pgtable, iova);
+		switch (*entry & FLPD_FLAG_MASK) {
+		case SPSECT_FLAG:
+			done = sysmmu_dma_sync_page(spsection_phys(entry),
+					spsection_offs(iova), SPSECT_SIZE,
+					len, op, dir);
+
+			break;
+		case DSECT_FLAG:
+			done = sysmmu_dma_sync_page(dsection_phys(entry),
+					dsection_offs(iova), DSECT_SIZE,
+					len, op, dir);
+			break;
+		case SECT_FLAG:
+			done = sysmmu_dma_sync_page(section_phys(entry),
+					section_offs(iova), SECT_SIZE,
+					len, op, dir);
+			break;
+		case SLPD_FLAG:
+			entry = page_entry(entry, iova);
+			switch (*entry & SLPD_FLAG_MASK) {
+			case LPAGE_FLAG:
+				done = sysmmu_dma_sync_page(lpage_phys(entry),
+						lpage_offs(iova), LPAGE_SIZE,
+						len, op, dir);
+				break;
+			case SPAGE_FLAG:
+				done = sysmmu_dma_sync_page(spage_phys(entry),
+						spage_offs(iova), SPAGE_SIZE,
+						len, op, dir);
+				break;
+			default: /* fault */
+				return;
+			}
+			break;
+		default: /* fault */
+			return;
+		}
+
+		iova += done;
+		len -= done;
+	}
+}
+
+static sysmmu_pte_t *sysmmu_get_pgtable(struct device *dev)
+{
+	struct exynos_iommu_owner *owner = dev->archdata.iommu;
+	struct device *sysmmu = list_first_entry(&owner->mmu_list,
+					struct sysmmu_list_data, node)->sysmmu;
+	struct sysmmu_drvdata *data = dev_get_drvdata(sysmmu);
+	struct iommu_domain *dom = data->domain;
+	struct exynos_iommu_domain *domain = dom->priv;
+
+	return domain->pgtable;
+}
+
+void exynos_iommu_sync_for_device(struct device *dev, dma_addr_t iova,
+				  size_t len, enum dma_data_direction dir)
+{
+	exynos_iommu_sync(sysmmu_get_pgtable(dev),
+			iova, len, __dma_map_area, dir);
+}
+
+void exynos_iommu_sync_for_cpu(struct device *dev, dma_addr_t iova, size_t len,
+				enum dma_data_direction dir)
+{
+	if (dir != DMA_TO_DEVICE)
+		return;
+
+	exynos_iommu_sync(sysmmu_get_pgtable(dev),
+			iova, len, __dma_unmap_area, dir);
 }
