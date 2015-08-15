@@ -894,6 +894,7 @@ static int m2m1shot2_get_source(struct m2m1shot2_context *ctx,
 	}
 
 	img->img.flags = src->flags;
+	img->ext = src->ext;
 
 	if (src->memory == M2M1SHOT2_BUFTYPE_EMPTY) {
 		m2m1shot2_put_image(ctx, &img->img);
@@ -957,6 +958,12 @@ static int m2m1shot2_get_sources(struct m2m1shot2_context *ctx,
 		ret = m2m1shot2_get_source(ctx, i, &image[i], &source);
 		if (ret)
 			goto err;
+
+		ret = ctx->m21dev->ops->prepare_source(ctx, i, &image[i]);
+		if (ret) {
+			m2m1shot2_put_image(ctx, &image[i].img);
+			goto err;
+		}
 
 		if (!!(image[i].img.flags & M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE)) {
 			image[i].img.fence = sync_fence_fdget(source.fence);
