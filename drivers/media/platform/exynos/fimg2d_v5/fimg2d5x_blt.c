@@ -288,8 +288,8 @@ static void fimg2d5x_stop(struct fimg2d_control *ctrl)
 {
 	if (fimg2d5x_is_blit_done(ctrl)) {
 		fimg2d_debug("blit done\n");
-		fimg2d5x_disable_irq(ctrl);
 		fimg2d5x_clear_irq(ctrl);
+		fimg2d5x_disable_irq(ctrl);
 		atomic_set(&ctrl->busy, 0);
 		wake_up(&ctrl->wait_q);
 	}
