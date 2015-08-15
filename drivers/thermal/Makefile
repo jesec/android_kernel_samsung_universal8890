@@ -35,8 +35,6 @@ obj-$(CONFIG_KIRKWOOD_THERMAL)  += kirkwood_thermal.o
 obj-y				+= samsung/
 
 obj-$(CONFIG_DOVE_THERMAL)	+= dove_thermal.o
->>>>>>> 7255052... [COMMON] thermal: Add thermal framework for exynos
-obj-$(CONFIG_DOVE_THERMAL)  	+= dove_thermal.o
 obj-$(CONFIG_DB8500_THERMAL)	+= db8500_thermal.o
 obj-$(CONFIG_ARMADA_THERMAL)	+= armada_thermal.o
 obj-$(CONFIG_IMX_THERMAL)	+= imx_thermal.o
