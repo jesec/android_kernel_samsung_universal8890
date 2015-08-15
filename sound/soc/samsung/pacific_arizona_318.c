@@ -835,20 +835,25 @@ int pacific_set_media_clocking(struct arizona_machine_priv *priv)
 				 "Unable to set ASYNCCLK to FLL2: %d\n", ret);
 
 	/* AIF1 from SYSCLK, AIF2 and 3 from ASYNCCLK */
-	ret = snd_soc_dai_set_sysclk(priv->aif[0], ARIZONA_CLK_SYSCLK, 0, 0);
-	if (ret < 0)
-		dev_err(card->dev, "Can't set AIF1 to SYSCLK: %d\n", ret);
+	if (priv->aif[0]) {
+		ret = snd_soc_dai_set_sysclk(priv->aif[0], ARIZONA_CLK_SYSCLK, 0, 0);
+		if (ret < 0)
+			dev_err(card->dev, "Can't set AIF1 to SYSCLK: %d\n", ret);
+	}
 
-	ret = snd_soc_dai_set_sysclk(priv->aif[1], ARIZONA_CLK_ASYNCCLK, 0, 0);
-	if (ret < 0)
-		dev_err(card->dev, "Can't set AIF2 to ASYNCCLK: %d\n", ret);
+	if (priv->aif[1]) {
+		ret = snd_soc_dai_set_sysclk(priv->aif[1], ARIZONA_CLK_ASYNCCLK, 0, 0);
+		if (ret < 0)
+			dev_err(card->dev, "Can't set AIF2 to ASYNCCLK: %d\n", ret);
+	}
 
-	ret = snd_soc_dai_set_sysclk(priv->aif[2],
-			ARIZONA_CLK_SYSCLK_2, 0, 0);
-
-	if (ret < 0)
-		dev_err(card->dev,
-			"Can't set AIF3 to ASYNCCLK_2/SYSCLK_2: %d\n", ret);
+	if (priv->aif[2]) {
+		ret = snd_soc_dai_set_sysclk(priv->aif[2],
+				ARIZONA_CLK_SYSCLK_2, 0, 0);
+		if (ret < 0)
+			dev_err(card->dev,
+				"Can't set AIF3 to ASYNCCLK_2/SYSCLK_2: %d\n", ret);
+	}
 
 	return 0;
 }
@@ -1337,15 +1342,7 @@ static struct snd_soc_dai_link pacific_wm1840_dai[] = {
 		.codec_dai_name = "clearwater-aif1",
 		.ops = &pacific_aif1_ops,
 	},
-	{ /* voice call */
-		.name = "baseband",
-		.stream_name = "pacific-ext voice call",
-		.cpu_dai_name = "pacific-ext voice call",
-		.platform_name = "snd-soc-dummy",
-		.codec_dai_name = "clearwater-aif2",
-		.ops = &pacific_aif2_ops,
-		.ignore_suspend = 1,
-	},
+#if 0
 	{ /* bluetooth sco */
 		.name = "bluetooth sco",
 		.stream_name = "pacific-ext bluetooth sco",
@@ -1355,6 +1352,7 @@ static struct snd_soc_dai_link pacific_wm1840_dai[] = {
 		.ops = &pacific_aif3_ops,
 		.ignore_suspend = 1,
 	},
+#endif
 	{ /* deep buffer playback */
 		.name = "playback-sec",
 		.stream_name = "i2s0-sec",
@@ -1363,6 +1361,16 @@ static struct snd_soc_dai_link pacific_wm1840_dai[] = {
 		.codec_dai_name = "clearwater-aif1",
 		.ops = &pacific_aif1_ops,
 	},
+	{ /* voice call */
+		.name = "baseband",
+		.stream_name = "pacific-ext voice call",
+		.cpu_dai_name = "pacific-ext voice call",
+		.platform_name = "snd-soc-dummy",
+		.codec_dai_name = "clearwater-aif2",
+		.ops = &pacific_aif2_ops,
+		.ignore_suspend = 1,
+	},
+#if 0
 	{
 		.name = "CPU-DSP Voice Control",
 		.stream_name = "CPU-DSP Voice Control",
@@ -1379,6 +1387,7 @@ static struct snd_soc_dai_link pacific_wm1840_dai[] = {
 		.codec_dai_name = "clearwater-dsp-trace",
 		.codec_name = "clearwater-codec",
 	},
+#endif
 	{ /* eax0 playback */
 		.name = "playback-eax0",
 		.stream_name = "eax0",
@@ -1606,15 +1615,23 @@ static int pacific_late_probe(struct snd_soc_card *card)
 	struct snd_soc_dai *codec_dai = card->rtd[0].codec_dai;
 	struct snd_soc_dai *cpu_dai = card->rtd[0].cpu_dai;
 	struct arizona_machine_priv *priv = card->drvdata;
-	int i, ret;
+	int ret, index;
 
 	priv->codec = codec;
 	the_codec = codec;
 
 	pacific_of_get_pdata(card);
 
-	for (i = 0; i < PACIFIC_AIF_MAX; i++)
-		priv->aif[i] = card->rtd[i].codec_dai;
+	/* build audio interface & dai link mapping */
+	ret = of_property_read_u32(card->dev->of_node, "aif1-setup-index", &index);
+	if (ret == 0)
+		priv->aif[0] = card->rtd[index].codec_dai;
+	ret = of_property_read_u32(card->dev->of_node, "aif2-setup-index", &index);
+	if (ret == 0)
+		priv->aif[1] = card->rtd[index].codec_dai;
+	ret = of_property_read_u32(card->dev->of_node, "aif3-setup-index", &index);
+	if (ret == 0)
+		priv->aif[2] = card->rtd[index].codec_dai;
 
 	codec_dai->driver->playback.channels_max =
 				cpu_dai->driver->playback.channels_max;
