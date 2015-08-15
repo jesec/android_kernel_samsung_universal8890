@@ -967,7 +967,7 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 			pr_info("[ISP TMU] index : %d, fps : %d \n", isp_fps_table[i].driver_data, isp_fps_table[i].fps);
 		}
 
-		kfree(table_ptr);
+		kfree(isp_table_ptr);
 	}
 
 	data->pdata = pdata;
