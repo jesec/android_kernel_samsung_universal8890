@@ -140,10 +140,7 @@ int decon_set_par(struct fb_info *info)
 	info->fix.xpanstep = fb_panstep(var->xres, var->xres_virtual);
 	info->fix.ypanstep = fb_panstep(var->yres, var->yres_virtual);
 
-	if (decon_reg_is_win_enabled(decon->id, win_no))
-		win_regs.wincon = WIN_CONTROL_EN_F;
-	else
-		win_regs.wincon = 0;
+	win_regs.wincon = WIN_CONTROL_EN_F;
 
 	win_regs.wincon |= wincon(var->transp.length, 0, 0xFF,
 				0xFF, DECON_BLENDING_NONE);
