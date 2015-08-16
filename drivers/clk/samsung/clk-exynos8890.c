@@ -50,7 +50,7 @@ enum exynos8890_clks {
 	gate_gpio_nfc, gate_gpio_touch, gate_gpio_fp, gate_gpio_ese, promise_int, promise_disp, ap2cp_mif_pll_out, gate_i2s1, gate_pcm1, gate_spdif,
 
 	/* number for isp0 driver starts from 400 */
-	gate_fimc_isp0 = 400, gate_fimc_tpu, isp0, isp0_tpu, isp0_trex, isp0_ppmu, isp0_bts,
+	gate_fimc_isp0 = 400, gate_fimc_tpu, isp0, isp0_tpu, isp0_trex, isp0_ppmu, isp0_bts, pxmxdx_isp0_pxl,
 
 	/* number for isp1 driver starts from 450 */
 	gate_fimc_isp1 = 450, isp1, isp1_ppmu, isp1_bts,
@@ -254,6 +254,7 @@ static struct init_vclk exynos8890_isp0_vclks[] __initdata = {
 	VCLK(CLK_VCLK_SYSMMU_ISP0, gate_isp0_sysmmu, "gate_isp0_sysmmu", 0, 0, NULL),
 	VCLK(isp0_ppmu, gate_isp0_ppmu, "gate_isp0_ppmu", 0, 0, NULL),
 	VCLK(isp0_bts, gate_isp0_bts, "gate_isp0_bts", 0, 0, NULL),
+	VCLK(pxmxdx_isp0_pxl, pxmxdx_isp0_pxl_asbs, "pxmxdx_isp0_pxl_asbs", 0, 0, NULL),
 };
 
 static struct init_vclk exynos8890_isp1_vclks[] __initdata = {
