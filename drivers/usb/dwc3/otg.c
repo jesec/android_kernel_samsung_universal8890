@@ -217,8 +217,12 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 		 * In case there is not a resistance to detect VBUS,
 		 * DP/DM controls by S/W are needed at this point.
 		 */
-		phy_set(dwc->usb2_generic_phy, SET_DPDM_PULLDOWN, NULL);
-		phy_set(dwc->usb3_generic_phy, SET_DPDM_PULLDOWN, NULL);
+		if (dwc->is_not_vbus_pad) {
+			phy_set(dwc->usb2_generic_phy,
+					SET_DPDM_PULLDOWN, NULL);
+			phy_set(dwc->usb3_generic_phy,
+					SET_DPDM_PULLDOWN, NULL);
+		}
 
 		dwc3_otg_set_host_mode(dotg);
 		ret = platform_device_add(dwc->xhci);
@@ -269,6 +273,8 @@ static int dwc3_otg_start_gadget(struct otg_fsm *fsm, int on)
 			goto err2;
 		}
 	} else {
+		if (dwc->is_not_vbus_pad)
+			dwc3_gadget_disconnect_proc(dwc);
 		/* avoid missing disconnect interrupt */
 		wait_for_completion_timeout(&dwc->disconnect,
 				msecs_to_jiffies(200));

@@ -1703,8 +1703,12 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 		 * In case there is not a resistance to detect VBUS,
 		 * DP/DM controls by S/W are needed at this point.
 		 */
-		phy_set(dwc->usb2_generic_phy, SET_DPPULLUP_DISABLE, NULL);
-		phy_set(dwc->usb3_generic_phy, SET_DPPULLUP_DISABLE, NULL);
+		if (dwc->is_not_vbus_pad) {
+			phy_set(dwc->usb2_generic_phy,
+					SET_DPPULLUP_ENABLE, NULL);
+			phy_set(dwc->usb3_generic_phy,
+					SET_DPPULLUP_ENABLE, NULL);
+		}
 	}
 
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);
@@ -2515,8 +2519,10 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	 * In case there is not a resistance to detect VBUS,
 	 * DP/DM controls by S/W are needed at this point.
 	 */
-	phy_set(dwc->usb2_generic_phy, SET_DPPULLUP_ENABLE, NULL);
-	phy_set(dwc->usb3_generic_phy, SET_DPPULLUP_ENABLE, NULL);
+	if (dwc->is_not_vbus_pad) {
+		phy_set(dwc->usb2_generic_phy, SET_DPPULLUP_DISABLE, NULL);
+		phy_set(dwc->usb3_generic_phy, SET_DPPULLUP_DISABLE, NULL);
+	}
 }
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
@@ -3009,4 +3015,26 @@ err1:
 
 err0:
 	return ret;
+}
+
+void dwc3_gadget_disconnect_proc(struct dwc3 *dwc)
+{
+	int			reg;
+
+	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+	reg &= ~DWC3_DCTL_INITU1ENA;
+	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+
+	reg &= ~DWC3_DCTL_INITU2ENA;
+	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+
+	if (dwc->gadget_driver && dwc->gadget_driver->disconnect)
+		dwc->gadget_driver->disconnect(&dwc->gadget);
+
+	dwc->start_config_issued = false;
+
+	dwc->gadget.speed = USB_SPEED_UNKNOWN;
+	dwc->setup_packet_pending = false;
+
+	complete(&dwc->disconnect);
 }

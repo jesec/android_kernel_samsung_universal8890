@@ -904,6 +904,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 		dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
 		dwc->adj_sof_accuracy = of_property_read_bool(node, "adj-sof-accuracy");
+		dwc->is_not_vbus_pad = of_property_read_bool(node, "is_not_vbus_pad");
 		dwc->dr_mode = of_usb_get_dr_mode(node);
 		dwc->suspend_clk_freq = of_usb_get_suspend_clk_freq(node);
 	} else if (pdata) {
@@ -911,6 +912,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 		dwc->needs_fifo_resize = pdata->tx_fifo_resize;
 		dwc->adj_sof_accuracy = pdata->adj_sof_accuracy;
+		dwc->is_not_vbus_pad = pdata->is_not_vbus_pad;
 		dwc->dr_mode = pdata->dr_mode;
 	}
 
