@@ -197,11 +197,6 @@ static struct pwrcal_clk_set pxmxdx_oscclk_aud_grp[] = {
 	{CLK(CLKOUT_CLKOUT0_DISABLE),		0,	1},
 	{CLK_NONE,				0,	0},
 };
-static struct pwrcal_clk_set pxmxdx_fsys0_usb_qch_grp[] = {
-	{CLK(FSYS0_HWACG_QCH_USBDRD30),			0,	1},
-	{CLK_NONE,					0,	0},
-};
-
 
 PXMXDX(pxmxdx_top,	0,	pxmxdx_top_grp);
 PXMXDX(pxmxdx_mfc,	gate_bus1_mfc,	pxmxdx_mfc_grp);
@@ -235,7 +230,6 @@ PXMXDX(pxmxdx_cam1_csis3,	gate_bus0_cam,	pxmxdx_cam1_csis3_grp);
 PXMXDX(pxmxdx_cam1_scl,	gate_bus0_cam,	pxmxdx_cam1_scl_grp);
 PXMXDX(pxmxdx_oscclk_nfc,	0,	pxmxdx_oscclk_nfc_grp);
 PXMXDX(pxmxdx_oscclk_aud,	0,	pxmxdx_oscclk_aud_grp);
-PXMXDX(pxmxdx_fsys0_qch_usbdrd30,	0,	pxmxdx_fsys0_usb_qch_grp);
 
 M1D1G1(sclk_decon0_eclk0,	0,	TOP_MUX_SCLK_DISP0_DECON0_ECLK0,	TOP_DIV_SCLK_DISP0_DECON0_ECLK0,	TOP_GATE_SCLK_DISP0_DECON0_ECLK0,	DISP0_MUX_SCLK_DISP0_DECON0_ECLK0_USER);
 M1D1G1(sclk_decon0_vclk0,	0,	TOP_MUX_SCLK_DISP0_DECON0_VCLK0,	TOP_DIV_SCLK_DISP0_DECON0_VCLK0,	TOP_GATE_SCLK_DISP0_DECON0_VCLK0,	DISP0_MUX_SCLK_DISP0_DECON0_VCLK0_USER);
@@ -2191,7 +2185,6 @@ void vclk_init(void)
 	ADD_LIST(vclk_d1_list, d1_sclk_cp_i2s);
 	ADD_LIST(vclk_d1_list, d1_sclk_asrc);
 
-	ADD_LIST(vclk_pxmxdx_list, pxmxdx_fsys0_qch_usbdrd30);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_top);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_mfc);
 	ADD_LIST(vclk_pxmxdx_list, pxmxdx_mscl);
