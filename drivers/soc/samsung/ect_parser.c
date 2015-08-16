@@ -1902,6 +1902,8 @@ int ect_parse_binary_header(void)
 	ect_parse_integer(&address, &ect_header->total_size);
 	ect_parse_integer(&address, &ect_header->num_of_header);
 
+	pr_info("~~~~~~~~~~~~ %d %d\n", *(int *)ect_signature, *(int *)ect_header->sign);
+
 	if (memcmp(ect_header->sign, ect_signature, sizeof(ect_signature) - 1))
 		return -EINVAL;
 
