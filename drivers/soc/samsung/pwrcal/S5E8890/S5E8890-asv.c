@@ -317,8 +317,8 @@ static void asv_get_asvinfo(void)
 		asv_tbl_info.disp_ssa11 = 0;
 		asv_tbl_info.disp_ssa0 = 0;
 
-		asv_tbl_info.asv_table_ver = 3;
-		asv_tbl_info.fused_grp = 1;
+		asv_tbl_info.asv_table_ver = 0;
+		asv_tbl_info.fused_grp = 0;
 		asv_tbl_info.reserved_0 = 0;
 		asv_tbl_info.g3d_mcs0 = 0;
 		asv_tbl_info.g3d_mcs1 = 0;
