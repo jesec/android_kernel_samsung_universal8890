@@ -74,6 +74,7 @@ enum decon_win_func {
 	PD_FUNC_XOR			= 0xb,
 	PD_FUNC_PLUS			= 0xc,
 	PD_FUNC_LEGACY			= 0xd,
+	PD_FUNC_LEGACY2			= 0xe,
 };
 
 enum decon_win_alpha_sel {

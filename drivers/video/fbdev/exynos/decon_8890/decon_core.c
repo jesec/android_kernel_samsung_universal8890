@@ -140,9 +140,6 @@ static void decon_win_conig_to_regs_param
 		alpha1 = 0;
 		if (!transp_length && (win_config->blending == DECON_BLENDING_PREMULT))
 			win_config->blending = DECON_BLENDING_COVERAGE;
-
-		if (transp_length && (win_config->blending == DECON_BLENDING_PREMULT))
-			decon_err("%s: (DECON_BLENDING_PREMULT + Plane Alpha) not supported", __func__);
 	} else {
 		alpha0 = 0xFF;
 		alpha1 = 0xff;
@@ -205,7 +202,7 @@ u32 wincon(u32 transp_len, u32 a0, u32 a1,
 			data |= WIN_CONTROL_FUNC_F(PD_FUNC_SOURCE_OVER);
 		} else {
 			/* need to check the eq: it is SPEC-OUT */
-			data |= WIN_CONTROL_FUNC_F(PD_FUNC_SOURCE_A_TOP);
+			data |= WIN_CONTROL_FUNC_F(PD_FUNC_LEGACY2);
 		}
 		break;
 
