@@ -453,6 +453,7 @@ static int pwm_samsung_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	chan->period_ns = period_ns;
 	chan->tin_ns = tin_ns;
 	chan->duty_ns = duty_ns;
+	chan->duty_cycle = duty_cycle;
 
 	spin_unlock_irqrestore(&samsung_pwm_lock, flags);
 out:
