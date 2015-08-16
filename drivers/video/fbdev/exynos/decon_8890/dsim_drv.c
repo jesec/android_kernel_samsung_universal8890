@@ -547,40 +547,6 @@ end:
 
 #endif
 
-static void dsim_write_test(struct dsim_device *dsim)
-{
-	int ret = 0, re_try = 4, i = 0;
-	u32 test_data[2] = {0xaa, 0xaa};
-
-	for (i = 0; i < re_try; i++) {
-		ret = dsim_write_data(dsim, MIPI_DSI_GENERIC_SHORT_WRITE_2_PARAM,
-				test_data[0], test_data[1]);
-		if (ret < 0)
-			dsim_dbg("%s: Failed to write test data!\n",
-				(dsim->pktgo == DSIM_PKTGO_ENABLED) ? "PKT-GO mode" : "Non PKT-GO mode");
-		else
-			dsim_dbg("%s: Succeeded to write test data!\n",
-				(dsim->pktgo == DSIM_PKTGO_ENABLED) ? "PKT-GO mode" : "Non PKT-GO mode");
-	}
-}
-
-static void dsim_read_test(struct dsim_device *dsim)
-{
-	int ret = 0;
-	int count = 3;
-	u8 buf[4];
-	u32 rd_addr = 0x04;
-
-	ret = dsim_read_data(dsim, MIPI_DSI_DCS_READ, rd_addr, count, buf);
-
-	if (ret < 0)
-		dsim_dbg("%s: Failed to read test data!\n",
-				(dsim->pktgo == DSIM_PKTGO_ENABLED) ? "PKT-GO mode" : "Non PKT-GO mode");
-	else
-		dsim_dbg("%s: Succeeded to read test data! test data[0] = %#x, test data[1] = %#x, test data[2] = %#x\n",
-				((dsim->pktgo == DSIM_PKTGO_ENABLED) ? "PKT-GO mode" : "Non PKT-GO mode"), buf[0], buf[1], buf[3]);
-}
-
 static irqreturn_t dsim_interrupt_handler(int irq, void *dev_id)
 {
 	unsigned int int_src;
@@ -1078,13 +1044,49 @@ static int dsim_register_entity(struct dsim_device *dsim)
 	return 0;
 }
 
-static ssize_t dsim_rw_test_show(struct device *dev,
+static int dsim_cmd_sysfs_write(struct dsim_device *dsim, bool on)
+{
+	int ret = 0;
+
+	if ( on )
+		ret = dsim_write_data(dsim, MIPI_DSI_DCS_SHORT_WRITE,
+			MIPI_DCS_SET_DISPLAY_ON, 0);
+	else
+		ret = dsim_write_data(dsim, MIPI_DSI_DCS_SHORT_WRITE,
+			MIPI_DCS_SET_DISPLAY_OFF, 0);
+	if (ret < 0)
+		dsim_err("Failed to write test data!\n");
+	else
+		dsim_dbg("Succeeded to write test data!\n");
+
+	return ret;
+}
+
+static int dsim_cmd_sysfs_read(struct dsim_device *dsim)
+{
+	int ret = 0;
+	unsigned int id;
+	u8 buf[4];
+
+	/* dsim sends the request for the lcd id and gets it buffer */
+	ret = dsim_read_data(dsim, MIPI_DSI_DCS_READ,
+		MIPI_DCS_GET_DISPLAY_ID, DSIM_DDI_ID_LEN, buf);
+	id = *(unsigned int *)buf;
+	if (ret < 0)
+		dsim_err("Failed to read panel id!\n");
+	else
+		dsim_info("Suceeded to read panel id : 0x%08x\n", id);
+
+	return ret;
+}
+
+static ssize_t dsim_cmd_sysfs_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	return 0;
 }
 
-static ssize_t decon_rw_test_store(struct device *dev,
+static ssize_t dsim_cmd_sysfs_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	int ret;
@@ -1096,27 +1098,40 @@ static ssize_t decon_rw_test_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	ret = -ENXIO;
-
-	if (cmd == 0x1) {
-		dsim_info("Dsim is trying to do write test\n");
-		dsim_write_test(dsim);
-	} else {
-		dsim_info("Dsim is trying to do read test\n");
-		dsim_read_test(dsim);
+	switch (cmd) {
+	case 1:
+		ret = dsim_cmd_sysfs_read(dsim);
+		if (ret)
+			return ret;
+		break;
+	case 2:
+		ret = dsim_cmd_sysfs_write(dsim, true);
+		dsim_info("Dsim write command, display on!!\n");
+		if (ret)
+			return ret;
+		break;
+	case 3:
+		ret = dsim_cmd_sysfs_write(dsim, false);
+		dsim_info("Dsim write command, display off!!\n");
+		if (ret)
+			return ret;
+		break;
+	default :
+		dsim_info("unsupportable command\n");
+		break;
 	}
 
-	return ret;
+	return count;
 }
-static DEVICE_ATTR(rw_test, 0644, dsim_rw_test_show, decon_rw_test_store);
+static DEVICE_ATTR(cmd_rw, 0644, dsim_cmd_sysfs_show, dsim_cmd_sysfs_store);
 
-int dsim_create_rw_test_sysfs(struct dsim_device *dsim)
+int dsim_create_cmd_rw_sysfs(struct dsim_device *dsim)
 {
 	int ret = 0;
 
-	ret = device_create_file(dsim->dev, &dev_attr_rw_test);
+	ret = device_create_file(dsim->dev, &dev_attr_cmd_rw);
 	if (ret)
-		dsim_err("failed to create read & write test sysfs\n");
+		dsim_err("failed to create command read & write sysfs\n");
 
 	return ret;
 }
@@ -1342,7 +1357,7 @@ dsim_init_done:
 
 	dsim_clocks_info(dsim);
 
-	dsim_create_rw_test_sysfs(dsim);
+	dsim_create_cmd_rw_sysfs(dsim);
 
 	dev_info(dev, "mipi-dsi driver(%s mode) has been probed.\n",
 		dsim->lcd_info.mode == DECON_MIPI_COMMAND_MODE ? "CMD" : "VIDEO");

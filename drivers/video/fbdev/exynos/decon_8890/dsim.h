@@ -30,6 +30,7 @@
 
 #define DSIM_PAD_SINK		0
 #define DSIM_PADS_NUM		1
+#define DSIM_DDI_ID_LEN		3
 
 #define DSIM_RX_FIFO_READ_DONE	(0x30800002)
 #define DSIM_MAX_RX_FIFO	(64)
