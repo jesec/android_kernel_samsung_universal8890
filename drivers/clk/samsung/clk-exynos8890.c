@@ -74,7 +74,7 @@ enum exynos8890_clks {
 
 	/* number for fsys0 driver starts from 700 */
 	gate_usbdrd30 = 700, gate_usbhost20, usbdrd30 = 703, sclk_fsys0_mmc0, ufsunipro20, phy24m, ufsunipro_cfg, gate_udrd30_phyclock, gate_udrd30_pipe, gate_ufs_tx0,
-	gate_ufs_rx0, usbhost20_phyclock, usbhost20_freeclk, usbhost20_clk48, usbhost20phy_ref, ufs_rx_pwm, ufs_tx_pwm, ufs_refclk_out, fsys_200, fsys0_etr_usb, gate_mmc, gate_pdma0, gate_pdmas, gate_ufs_linkemedded,
+	gate_ufs_rx0, usbhost20_phyclock, usbhost20phy_ref = 715, ufs_rx_pwm, ufs_tx_pwm, ufs_refclk_out, fsys_200, fsys0_etr_usb, gate_mmc, gate_pdma0, gate_pdmas, gate_ufs_linkemedded,
 
 	/* number for fsys1 driver starts from 750 */
 	gate_ufs20_sdcard = 750, fsys1_hpm, fsys1_sclk_mmc2, ufsunipro20_sdcard, pcie_phy, sclk_ufsunipro_sdcard, ufs_link_sdcard_tx0, ufs_link_sdcard_rx0,
@@ -379,8 +379,6 @@ static struct init_vclk exynos8890_fsys0_vclks[] __initdata = {
 	VCLK(gate_ufs_tx0, umux_fsys0_phyclk_ufs_tx0_symbol_user, "umux_fsys0_phyclk_ufs_tx0_symbol_user", 0, 0, NULL),
 	VCLK(gate_ufs_rx0, umux_fsys0_phyclk_ufs_rx0_symbol_user, "umux_fsys0_phyclk_ufs_rx0_symbol_user", 0, 0, NULL),
 	VCLK(usbhost20_phyclock, umux_fsys0_phyclk_usbhost20_phyclock_user, "umux_fsys0_phyclk_usbhost20_phyclock_user", 0, 0, NULL),
-	VCLK(usbhost20_freeclk, umux_fsys0_phyclk_usbhost20_freeclk_user, "umux_fsys0_phyclk_usbhost20_freeclk_user", 0, 0, NULL),
-	VCLK(usbhost20_clk48, umux_fsys0_phyclk_usbhost20_clk48mohci_user, "umux_fsys0_phyclk_usbhost20_clk48mohci_user", 0, 0, NULL),
 	VCLK(usbhost20phy_ref, umux_fsys0_phyclk_usbhost20phy_ref_clk, "umux_fsys0_phyclk_usbhost20phy_ref_clk", 0, 0, NULL),
 	VCLK(ufs_rx_pwm, umux_fsys0_phyclk_ufs_rx_pwm_clk_user, "umux_fsys0_phyclk_ufs_rx_pwm_clk_user", 0, 0, NULL),
 	VCLK(ufs_tx_pwm, umux_fsys0_phyclk_ufs_tx_pwm_clk_user, "umux_fsys0_phyclk_ufs_tx_pwm_clk_user", 0, 0, NULL),
