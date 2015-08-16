@@ -6,7 +6,7 @@
 #include "S5E8890-vclk.h"
 #include "S5E8890-vclk-internal.h"
 
-#include <soc/samsung/ap_param_parser.h>
+#include <soc/samsung/ect_parser.h>
 
 #ifdef PWRCAL_TARGET_LINUX
 #include <linux/io.h>
@@ -560,18 +560,18 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 {
 	int i, j, k;
 	void *asv_block, *margin_block;
-	struct ap_param_voltage_domain *domain;
-	struct ap_param_voltage_table *table;
+	struct ect_voltage_domain *domain;
+	struct ect_voltage_table *table;
 	struct asv_table_entry *asv_entry;
-	struct ap_param_margin_domain *margin_domain = NULL;
+	struct ect_margin_domain *margin_domain = NULL;
 
-	asv_block = ap_param_get_block("ASV");
+	asv_block = ect_get_block("ASV");
 	if (asv_block == NULL)
 		return;
 
-	margin_block = ap_param_get_block("MARGIN");
+	margin_block = ect_get_block("MARGIN");
 
-	domain = ap_param_asv_get_domain(asv_block, dfs->vclk.name);
+	domain = ect_asv_get_domain(asv_block, dfs->vclk.name);
 	if (domain == NULL)
 		return;
 
@@ -579,7 +579,7 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 		BUG();
 
 	if (margin_block)
-		margin_domain = ap_param_margin_get_domain(margin_block, dfs->vclk.name);
+		margin_domain = ect_margin_get_domain(margin_block, dfs->vclk.name);
 
 	*asv_table = kzalloc(sizeof(struct asv_table_list) * domain->num_of_table, GFP_KERNEL);
 	if (*asv_table == NULL)
@@ -613,15 +613,15 @@ static void asv_rcc_init_table(struct asv_table_list **rcc_table, struct pwrcal_
 {
 	int i, j, k;
 	void *rcc_block;
-	struct ap_param_rcc_domain *domain;
-	struct ap_param_rcc_table *table;
+	struct ect_rcc_domain *domain;
+	struct ect_rcc_table *table;
 	struct asv_table_entry *rcc_entry;
 
-	rcc_block = ap_param_get_block("RCC");
+	rcc_block = ect_get_block("RCC");
 	if (rcc_block == NULL)
 		return;
 
-	domain = ap_param_rcc_get_domain(rcc_block, dfs->vclk.name);
+	domain = ect_rcc_get_domain(rcc_block, dfs->vclk.name);
 	if (domain == NULL)
 		return;
 
