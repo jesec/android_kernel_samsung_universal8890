@@ -144,6 +144,8 @@ void samsung_exynos_cal_usb3phy_enable(struct exynos_usbphy_info *usbphy_info)
 		phy_resume |= PHYRESUME_DIS_ID0_QACT;
 		phy_resume |= PHYRESUME_DIS_VBUSVALID_QACT;
 		phy_resume |= PHYRESUME_DIS_BVALID_QACT;
+		phy_resume |= PHYRESUME_DIS_LINKGATE_QACT;
+		phy_resume |= PHYRESUME_DIS_BUSPEND_QACT;
 		phy_resume &= ~PHYRESUME_FORCE_QACT;
 		writel(phy_resume, regs_base + EXYNOS_USBCON_PHYRESUME);
 
@@ -202,11 +204,6 @@ void samsung_exynos_cal_usb3phy_enable(struct exynos_usbphy_info *usbphy_info)
 	phyutmi &= ~PHYUTMI_DRVVBUS;
 	phyutmi &= ~PHYUTMI_OTGDISABLE;
 	writel(phyutmi, regs_base + EXYNOS_USBCON_PHYUTMI);
-
-	/* Select UTMI CLOCK 0 : PHY CLOCK, 1 : FREE CLOCK */
-	phypipe = readl(regs_base + EXYNOS_USBCON_PHYPIPE);
-	phypipe |= PHY_CLOCK_SEL;
-	writel(phypipe, regs_base + EXYNOS_USBCON_PHYPIPE);
 
 	/* set phy clock & control HS phy */
 	phyclkrst = readl(regs_base + EXYNOS_USBCON_PHYCLKRST);
@@ -300,12 +297,22 @@ void samsung_exynos_cal_usb3phy_enable(struct exynos_usbphy_info *usbphy_info)
 			phyreg0 &= ~PHYREG0_SSC_RANGE_MASK;
 			phyreg0 |= PHYREG0_SSC_RAMGE(0x0);
 		}
+
+		/* Select UTMI CLOCK 0 : PHY CLOCK, 1 : FREE CLOCK */
+		phypipe = readl(regs_base + EXYNOS_USBCON_PHYPIPE);
+		phypipe |= PHY_CLOCK_SEL;
+		writel(phypipe, regs_base + EXYNOS_USBCON_PHYPIPE);
+
 		if (version >= EXYNOS_USBCON_VER_01_0_1)
 			writel(phyreg0, regs_base + EXYNOS_USBCON_PHYREG0);
 	} else if ((EXYNOS_USBCON_VER_02_0_0 <= version)
 			&& (version <= EXYNOS_USBCON_VER_02_MAX)) {
 		u32 hsphyplltune = readl(
 				regs_base + EXYNOS_USBCON_HSPHYPLLTUNE);
+		if ((version & 0xf0) >= 0x10) {
+			/* Disable Common block control by link */
+			phyclkrst &= ~PHYCLKRST_EN_UTMISUSPEND;
+		}
 		if (refclkfreq == USBPHY_REFCLK_EXT_24MHZ)
 			hsphyplltune |= HSPHYPLLTUNE_PLL_B_TUNE;
 		else
@@ -385,6 +392,8 @@ void samsung_exynos_cal_usb3phy_disable(struct exynos_usbphy_info *usbphy_info)
 		phy_resume |= PHYRESUME_DIS_ID0_QACT;
 		phy_resume |= PHYRESUME_DIS_VBUSVALID_QACT;
 		phy_resume |= PHYRESUME_DIS_BVALID_QACT;
+		phy_resume |= PHYRESUME_DIS_LINKGATE_QACT;
+		phy_resume |= PHYRESUME_DIS_BUSPEND_QACT;
 		writel(phy_resume, regs_base + EXYNOS_USBCON_PHYRESUME);
 	}
 }
