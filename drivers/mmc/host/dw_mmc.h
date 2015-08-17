@@ -213,6 +213,21 @@
 	(*(volatile u64 __force *)((dev)->regs + SDMMC_##reg) = (value))
 #endif
 
+/*
+ * platform-dependent miscellaneous control
+ *
+ * Input arguments for platform-dependent control may be different
+ * for each one, respectively. If we would add functions like them
+ * whenever we need to do that, this common header file(dw_mmc.h)
+ * will be modified so frequently.
+ * The following enumeration type is to minimize an amount of changes
+ * of common files.
+ */
+
+enum dw_mci_misc_control {
+	CTRL_RESTORE_CLKSEL = 0,
+};
+
 extern int dw_mci_probe(struct dw_mci *host);
 extern void dw_mci_remove(struct dw_mci *host);
 #ifdef CONFIG_PM_SLEEP
@@ -289,5 +304,7 @@ struct dw_mci_drv_data {
 	int		(*execute_tuning)(struct dw_mci_slot *slot, u32 opcode,
 					struct dw_mci_tuning_data *tuning_data);
 	void            (*cfg_smu)(struct dw_mci *host);
+	int             (*misc_control)(struct dw_mci *host,
+				enum dw_mci_misc_control control, void *priv);
 };
 #endif /* _DW_MMC_H_ */

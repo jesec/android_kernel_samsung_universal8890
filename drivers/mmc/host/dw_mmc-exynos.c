@@ -785,8 +785,7 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 
 	/* Short circuit: don't tune again if we already did. */
 	if (host->pdata->tuned) {
-		dw_mci_exynos_set_sample(host, host->pdata->clk_smpl, false);
-		dw_mci_set_fine_tuning_bit(host, host->pdata->is_fine_tuned);
+		host->drv_data->misc_control(host, CTRL_RESTORE_CLKSEL, NULL);
 		mci_writel(host, CDTHRCTL, host->cd_rd_thr << 16 | 1);
 		dev_info(host->dev, "EN_SHIFT 0x %08x CLKSEL 0x %08x\n",
 			mci_readl(host, DDR200_ENABLE_SHIFT),
@@ -977,6 +976,23 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 	return ret;
 }
 
+static int dw_mci_exynos_misc_control(struct dw_mci *host,
+		enum dw_mci_misc_control control, void *priv)
+{
+	int ret = 0;
+
+	switch (control) {
+		case CTRL_RESTORE_CLKSEL:
+			dw_mci_exynos_set_sample(host, host->pdata->clk_smpl, false);
+			dw_mci_set_fine_tuning_bit(host, host->pdata->is_fine_tuned);
+			break;
+		default:
+			dev_err(host->dev, "dw_mmc exynos: wrong case\n");
+			ret = -ENODEV;
+	}
+	return ret;
+}
+
 /* Common capabilities of Exynos4/Exynos5 SoC */
 static unsigned long exynos_dwmmc_caps[4] = {
 	MMC_CAP_1_8V_DDR | MMC_CAP_8_BIT_DATA | MMC_CAP_CMD23,
@@ -994,6 +1010,7 @@ static const struct dw_mci_drv_data exynos_drv_data = {
 	.parse_dt		= dw_mci_exynos_parse_dt,
 	.execute_tuning		= dw_mci_exynos_execute_tuning,
 	.cfg_smu                = dw_mci_exynos_cfg_smu,
+	.misc_control           = dw_mci_exynos_misc_control,
 };
 
 static const struct of_device_id dw_mci_exynos_match[] = {
