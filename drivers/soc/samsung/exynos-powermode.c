@@ -459,7 +459,7 @@ int enter_c2(unsigned int cpu, int index)
 		goto system_idle_clock_down;
 
 	if (is_cpd_available(cpu)) {
-		exynos_cpu_sequencer_ctrl(true);
+		exynos_cpu.cluster_down(cluster);
 		update_cluster_idle_state(true, cpu);
 
 		index = PSCI_CLUSTER_SLEEP;
@@ -492,7 +492,7 @@ void wakeup_from_c2(unsigned int cpu, int early_wakeup)
 	spin_lock(&c2_lock);
 
 	if (check_cluster_idle_state(cpu)) {
-		exynos_cpu_sequencer_ctrl(false);
+		exynos_cpu.cluster_up(get_cluster_id(cpu));
 		update_cluster_idle_state(false, cpu);
 	}
 

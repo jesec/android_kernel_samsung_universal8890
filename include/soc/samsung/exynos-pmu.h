@@ -25,6 +25,8 @@ struct exynos_cpu_power_ops {
         void (*power_up)(unsigned int cpu);
         void (*power_down)(unsigned int cpu);
         int (*power_state)(unsigned int cpu);
+        void (*cluster_up)(unsigned int cluster);
+        void (*cluster_down)(unsigned int cluster);
         int (*cluster_state)(unsigned int cluster);
 };
 extern struct exynos_cpu_power_ops exynos_cpu;
@@ -36,7 +38,6 @@ int exynos_pmu_read(unsigned int offset, unsigned int *val);
 int exynos_pmu_write(unsigned int offset, unsigned int val);
 int exynos_pmu_update(unsigned int offset, unsigned int mask, unsigned int val);
 
-void exynos_cpu_sequencer_ctrl(int enable);
 int exynos_check_cp_status(void);
 
 #endif /* __EXYNOS_PMU_H */

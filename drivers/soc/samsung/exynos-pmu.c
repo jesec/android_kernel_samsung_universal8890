@@ -28,9 +28,8 @@
 #define PMU_CPU_ADDR_OFFSET			0x80
 #define CPU_LOCAL_PWR_CFG			0xF
 
-#define PMU_NONBOOT_CLUSTER_CPUSEQ_OPTION	0x2488
-
 #define PMU_NONCPU_STATUS_BASE			0x2404
+#define PMU_CPUSEQ_OPTION_BASE			0x2488
 #define PMU_L2_STATUS_BASE			0x2604
 #define PMU_CLUSTER_ADDR_OFFSET			0x20
 #define NONCPU_LOCAL_PWR_CFG			0xF
@@ -121,22 +120,38 @@ static int exynos_cluster_state(unsigned int cluster)
 		((noncpu_stat & NONCPU_LOCAL_PWR_CFG) == NONCPU_LOCAL_PWR_CFG);
 }
 
-struct exynos_cpu_power_ops exynos_cpu = {
-	.power_up = exynos_cpu_up,
-	.power_down = exynos_cpu_down,
-	.power_state = exynos_cpu_state,
-	.cluster_state = exynos_cluster_state,
-};
-
 /**
  * While Exynos with multi cluster supports to shutdown down both cluster,
  * there is no benefit in boot cluster. So Exynos-PMU driver supports
  * only non-boot cluster down.
  */
-void exynos_cpu_sequencer_ctrl(int enable)
+void exynos_cpu_sequencer_ctrl(unsigned int cluster, int enable)
 {
-	regmap_update_bits(pmureg, PMU_NONBOOT_CLUSTER_CPUSEQ_OPTION, 1, enable);
+	unsigned int offset;
+
+	offset = cluster * PMU_CLUSTER_ADDR_OFFSET;
+	regmap_update_bits(pmureg, PMU_CPUSEQ_OPTION_BASE + offset, 1, enable);
 }
+
+static void exynos_cluster_up(unsigned int cluster)
+{
+	exynos_cpu_sequencer_ctrl(cluster, false);
+}
+
+static void exynos_cluster_down(unsigned int cluster)
+{
+	exynos_cpu_sequencer_ctrl(cluster, true);
+}
+
+struct exynos_cpu_power_ops exynos_cpu = {
+	.power_up = exynos_cpu_up,
+	.power_down = exynos_cpu_down,
+	.power_state = exynos_cpu_state,
+	.cluster_up = exynos_cluster_up,
+	.cluster_down = exynos_cluster_down,
+	.cluster_state = exynos_cluster_state,
+};
+
 
 int exynos_check_cp_status(void)
 {
