@@ -411,6 +411,41 @@ struct exynos_ufs_tp_mon_table {
 	s32     mif_value;
 };
 
+struct exynos_ufs_clk_info {
+	struct list_head list;
+	struct clk *clk;
+	const char *name;
+	u32 freq;
+};
+
+struct exynos_ufs_misc_log {
+	struct list_head clk_list_head;
+	bool isolation;
+};
+
+struct exynos_ufs_sfr_log {
+	const char* name;
+	const u32 offset;
+#define LOG_STD_HCI_SFR		0xFFFFFFF0
+#define LOG_VS_HCI_SFR		0xFFFFFFF1
+#define LOG_FMP_SFR		0xFFFFFFF2
+#define LOG_UNIPRO_SFR		0xFFFFFFF3
+#define LOG_PMA_SFR		0xFFFFFFF4
+	u32 val;
+};
+
+struct exynos_ufs_attr_log {
+	const u32 offset;
+	u32 res;
+	u32 val;
+};
+
+struct exynos_ufs_debug {
+	struct exynos_ufs_sfr_log* sfr;
+	struct exynos_ufs_attr_log* attr;
+	struct exynos_ufs_misc_log misc;
+};
+
 struct exynos_ufs {
 	struct device *dev;
 	struct ufs_hba *hba;
@@ -469,6 +504,7 @@ struct exynos_ufs {
 	/* for miscellaneous control */
 	u32 misc_flags;
 #define EXYNOS_UFS_MISC_TOGGLE_LOG	BIT(0)
+	struct exynos_ufs_debug debug;
 };
 
 struct phy_tm_parm {
@@ -485,23 +521,5 @@ struct phy_tm_parm {
 	u32 rx_gran_n_val;
 	u32 rx_sleep_cnt;
 	u32 rx_stall_cnt;
-};
-
-
-struct ufs_sfr_log {
-	const char* name;
-	const u32 offset;
-#define LOG_STD_HCI_SFR		0xFFFFFFF0
-#define LOG_VS_HCI_SFR		0xFFFFFFF1
-#define LOG_FMP_SFR		0xFFFFFFF2
-#define LOG_UNIPRO_SFR		0xFFFFFFF3
-#define LOG_PMA_SFR		0xFFFFFFF4
-	u32 val;
-};
-
-struct ufs_attr_log {
-	const u32 offset;
-	u32 res;
-	u32 val;
 };
 #endif /* _UFS_EXYNOS_H_ */

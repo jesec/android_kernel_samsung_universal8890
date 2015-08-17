@@ -109,9 +109,10 @@ static inline void exynos_ufs_ctrl_phy_pwr(struct exynos_ufs *ufs, bool en)
 	writel(!!en, ufs->phy.reg_pmu);
 }
 
-static struct exynos_ufs *ufs_host_backup;
+static struct exynos_ufs *ufs_host_backup[1];
+static int ufs_host_index = 0;
 
-static struct ufs_sfr_log ufs_cfg_log_sfr[] = {
+static struct exynos_ufs_sfr_log ufs_cfg_log_sfr[] = {
 	{"STD HCI SFR"			,	LOG_STD_HCI_SFR,		0},
 
 	{"CAPABILITIES"			,	REG_CONTROLLER_CAPABILITIES,	0},
@@ -417,7 +418,7 @@ static struct ufs_sfr_log ufs_cfg_log_sfr[] = {
 	{},
 };
 
-static struct ufs_attr_log ufs_cfg_log_attr[] = {
+static struct exynos_ufs_attr_log ufs_cfg_log_attr[] = {
 	/* PA Standard */
 	{UIC_ARG_MIB(0x1520),	0, 0},
 	{UIC_ARG_MIB(0x1540),	0, 0},
@@ -616,10 +617,23 @@ static struct ufs_attr_log ufs_cfg_log_attr[] = {
 	{},
 };
 
+static void exynos_ufs_get_misc(struct ufs_hba *hba)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	struct exynos_ufs_clk_info *clki;
+	struct list_head *head = &ufs->debug.misc.clk_list_head;
+
+	list_for_each_entry(clki, head, list) {
+		if (!IS_ERR_OR_NULL(clki->clk))
+			clki->freq = clk_get_rate(clki->clk);
+	}
+	ufs->debug.misc.isolation = readl(ufs->phy.reg_pmu);
+}
+
 static void exynos_ufs_get_sfr(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
-	struct ufs_sfr_log* cfg = ufs_cfg_log_sfr;
+	struct exynos_ufs_sfr_log* cfg = ufs->debug.sfr;
 	int sel_api;
 
 	while(cfg) {
@@ -655,7 +669,7 @@ static void exynos_ufs_get_attr(struct ufs_hba *hba)
 	u32 i;
 	u32 intr_status;
 	u32 intr_enable;
-	struct ufs_attr_log* cfg = ufs_cfg_log_attr;
+	struct exynos_ufs_attr_log* cfg = ufs_cfg_log_attr;
 
 	/* Disable and backup interrupts */
 	intr_enable = ufshcd_readl(hba, REG_INTERRUPT_ENABLE);
@@ -699,9 +713,30 @@ out:
 	ufshcd_writel(hba, intr_enable, REG_INTERRUPT_ENABLE);
 }
 
+static void exynos_ufs_misc_dump(struct ufs_hba *hba)
+{
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	struct exynos_ufs_misc_log* cfg = &ufs->debug.misc;
+	struct exynos_ufs_clk_info *clki;
+	struct list_head *head = &cfg->clk_list_head;
+
+	dev_err(hba->dev, ": --------------------------------------------------- \n");
+	dev_err(hba->dev, ": \t\tMISC DUMP\n");
+	dev_err(hba->dev, ": --------------------------------------------------- \n");
+
+	list_for_each_entry(clki, head, list) {
+		if (!IS_ERR_OR_NULL(clki->clk)) {
+			dev_err(hba->dev, "%s: %d\n",
+					clki->name, clki->freq);
+		}
+	}
+	dev_err(hba->dev, "iso: %d\n", ufs->debug.misc.isolation);
+}
+
 static void exynos_ufs_sfr_dump(struct ufs_hba *hba)
 {
-	struct ufs_sfr_log* cfg = ufs_cfg_log_sfr;
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	struct exynos_ufs_sfr_log* cfg = ufs->debug.sfr;
 
 	dev_err(hba->dev, ": --------------------------------------------------- \n");
 	dev_err(hba->dev, ": \t\tREGISTER DUMP\n");
@@ -722,7 +757,8 @@ static void exynos_ufs_sfr_dump(struct ufs_hba *hba)
 
 static void exynos_ufs_attr_dump(struct ufs_hba *hba)
 {
-	struct ufs_attr_log* cfg = ufs_cfg_log_attr;
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	struct exynos_ufs_attr_log* cfg = ufs->debug.attr;
 
 	dev_err(hba->dev, ": --------------------------------------------------- \n");
 	dev_err(hba->dev, ": \t\tATTRIBUTE DUMP\n");
@@ -750,6 +786,7 @@ static void exynos_ufs_get_debug_info(struct ufs_hba *hba)
 
 	exynos_ufs_get_sfr(hba);
 	exynos_ufs_get_attr(hba);
+	exynos_ufs_get_misc(hba);
 
 	ufs->misc_flags &= ~(EXYNOS_UFS_MISC_TOGGLE_LOG);
 }
@@ -1605,14 +1642,30 @@ static int exynos_ufs_init(struct ufs_hba *hba)
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	struct list_head *head = &hba->clk_list_head;
 	struct ufs_clk_info *clki;
+	struct exynos_ufs_clk_info *exynos_clki;
 
 	exynos_ufs_ctrl_hci_core_clk(ufs, false);
 	exynos_ufs_config_smu(ufs);
+
+	/* setup for debugging */
+	ufs_host_backup[ufs_host_index++] = ufs;
+	ufs->debug.sfr = ufs_cfg_log_sfr;
+	ufs->debug.attr = ufs_cfg_log_attr;
+	INIT_LIST_HEAD(&ufs->debug.misc.clk_list_head);
 
 	if (!head || list_empty(head))
 		goto out;
 
 	list_for_each_entry(clki, head, list) {
+		exynos_clki = devm_kzalloc(hba->dev, sizeof(*exynos_clki), GFP_KERNEL);
+		if (!exynos_clki) {
+			return -ENOMEM;
+		}
+		exynos_clki->clk = clki->clk;
+		exynos_clki->name = clki->name;
+		exynos_clki->freq = 0;
+		list_add_tail(&exynos_clki->list, &ufs->debug.misc.clk_list_head);
+
 		if (!IS_ERR_OR_NULL(clki->clk)) {
 			if (!strcmp(clki->name, "aclk_ufs"))
 				ufs->clk_hci = clki->clk;
@@ -1652,6 +1705,7 @@ static void exynos_ufs_host_reset(struct ufs_hba *hba)
 	dev_err(ufs->dev, "timeout host sw-reset\n");
 
 	exynos_ufs_get_debug_info(hba);
+	exynos_ufs_misc_dump(hba);
 	exynos_ufs_sfr_dump(hba);
 	exynos_ufs_attr_dump(hba);
 }
@@ -2301,8 +2355,6 @@ static int exynos_ufs_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&ufs->tp_mon, exynos_ufs_tp_mon);
 	exynos_ufs_pm_qos_add(ufs);
-
-	ufs_host_backup = ufs;
 
 	return ufshcd_pltfrm_init(pdev, match->data);
 }
