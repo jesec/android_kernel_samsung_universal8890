@@ -1811,10 +1811,19 @@ static void exynos_ufs_clock_control_notify(struct ufs_hba *hba, bool on, bool n
 #endif
 			exynos_ufs_ctrl_hci_core_clk(ufs, false);
 			exynos_ufs_gate_clk(ufs, false);
+		} else {
+			phy_pma_writel(ufs, 0xff, PHY_PMA_TRSV_ADDR(0x4e, 0));
+			phy_pma_writel(ufs, 0x3f, PHY_PMA_TRSV_ADDR(0x4f, 0));
+			phy_pma_writel(ufs, 0x78, PHY_PMA_COMN_ADDR(0x15));
+			phy_pma_readl(ufs, PHY_PMA_COMN_ADDR(0x15));
 		}
 		break;
 	case POST_CHANGE:
-		if (!on) {
+		if (on) {
+			phy_pma_writel(ufs, 0x00, PHY_PMA_COMN_ADDR(0x15));
+			phy_pma_writel(ufs, 0x00, PHY_PMA_TRSV_ADDR(0x4f, 0));
+			phy_pma_writel(ufs, 0x80, PHY_PMA_TRSV_ADDR(0x4e, 0));
+		} else {
 			exynos_ufs_gate_clk(ufs, true);
 			exynos_ufs_ctrl_hci_core_clk(ufs, true);
 #ifdef CONFIG_CPU_IDLE
