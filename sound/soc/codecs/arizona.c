@@ -4148,13 +4148,11 @@ static int arizona_dai_set_sysclk(struct snd_soc_dai *dai,
 	if (clk_id == dai_priv->clk)
 		return 0;
 
-	/*
 	if (dai->active) {
 		dev_err(codec->dev, "Can't change clock on active DAI %d\n",
 			dai->id);
 		return -EBUSY;
 	}
-	*/
 
 	dev_dbg(codec->dev, "Setting AIF%d to %s\n", dai->id + 1,
 		arizona_dai_clk_str(clk_id));
@@ -4890,6 +4888,16 @@ static int arizona_disable_fll_ao(struct arizona_fll *fll)
 			   MOON_FLL_AO_HOLD, 0);
 
 	arizona_wait_for_fll(fll, false);
+
+	/* ctrl_up gates the writes to all fll_ao register,
+	setting it to 0 here ensures that after a runtime
+	suspend/resume cycle when one enables the
+	fllao then ctrl_up is the last bit that is configured
+	by the fllao enable code rather than the cache
+	sync operation which would have updated it
+	much earlier before writing out all fllao registers */
+	regmap_update_bits(arizona->regmap, fll->base + 2,
+			   MOON_FLL_AO_CTRL_UPD_MASK, 0);
 
 	if (change)
 		pm_runtime_put_autosuspend(arizona->dev);

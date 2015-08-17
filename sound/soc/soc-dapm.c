@@ -2483,6 +2483,12 @@ static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 		if (ret != 0)
 			goto err;
 		break;
+	case snd_soc_dapm_demux:
+		ret = dapm_connect_mux(dapm, wsource, wsink, path, control,
+			&wsource->kcontrol_news[0]);
+		if (ret != 0)
+			goto err;
+		break;
 	case snd_soc_dapm_switch:
 	case snd_soc_dapm_mixer:
 	case snd_soc_dapm_mixer_named_ctl:
