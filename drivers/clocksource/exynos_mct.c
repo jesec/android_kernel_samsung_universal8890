@@ -471,7 +471,7 @@ static int exynos4_local_timer_setup(struct clock_event_device *evt)
 
 		if (mct_int_type == MCT_INT_SPI) {
 			/* fill irq_action structure */
-			mevt->irq.flags = IRQF_TIMER | IRQF_NOBALANCING;
+			mevt->irq.flags = IRQF_TIMER | IRQF_NOBALANCING | IRQF_PERCPU;
 			mevt->irq.handler = exynos4_mct_tick_isr;
 			mevt->irq.name = mevt->name;
 			mevt->irq.dev_id = mevt;
