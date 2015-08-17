@@ -48,7 +48,7 @@ extern void release_cpd(void);
 /**
  * Checking cluster idle state
  */
-extern int check_cluster_idle_state(int cpu);
+extern int check_cluster_idle_state(unsigned int cpu);
 
 /**
   IDLE_IP control

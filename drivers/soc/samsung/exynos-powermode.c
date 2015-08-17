@@ -370,9 +370,17 @@ static int is_cpd_available(unsigned int cpu)
 	return true;
 }
 
-static int get_cluster_id(unsigned int cpu)
+static unsigned int get_cluster_id(unsigned int cpu)
 {
 	return MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
+}
+
+static bool is_cpu_boot_cluster(unsigned int cpu)
+{
+	/*
+	 * The cluster included cpu0 is boot cluster
+	 */
+	return (get_cluster_id(0) == get_cluster_id(cpu));
 }
 
 /**
@@ -385,12 +393,12 @@ static int get_cluster_id(unsigned int cpu)
 #define CLUSTER_TYPE_MAX	2
 static int cluster_idle_state[CLUSTER_TYPE_MAX];
 
-int check_cluster_idle_state(int cpu)
+int check_cluster_idle_state(unsigned int cpu)
 {
 	return cluster_idle_state[get_cluster_id(cpu)];
 }
 
-static void update_cluster_idle_state(int idle, int cpu)
+static void update_cluster_idle_state(int idle, unsigned int cpu)
 {
 	cluster_idle_state[get_cluster_id(cpu)] = idle;
 }
@@ -428,14 +436,12 @@ static int is_sicd_available(void)
  */
 int enter_c2(unsigned int cpu, int index)
 {
-	int cluster;
+	unsigned int cluster = get_cluster_id(cpu);
 
 	exynos_cpu.power_down(cpu);
 
 	spin_lock(&c2_lock);
 	update_c2_state(true, cpu);
-
-	cluster = get_cluster_id(cpu);
 
 	/*
 	 * Below sequence determines whether to power down the cluster/enter SICD
@@ -446,10 +452,10 @@ int enter_c2(unsigned int cpu, int index)
 		goto out;
 
 	/*
-	 * Power down of LITTLE cluster have nothing to gain power consumption,
-	 * so it is not supported. For you reference, cluster id "1" indicates LITTLE.
+	 * Power down of boot cluster have nothing to gain power consumption,
+	 * so it is not supported.
 	 */
-	if (cluster)
+	if (is_cpu_boot_cluster(cluster))
 		goto system_idle_clock_down;
 
 	if (is_cpd_available(cpu)) {
@@ -460,7 +466,7 @@ int enter_c2(unsigned int cpu, int index)
 	}
 
 system_idle_clock_down:
-	if (cluster && is_sicd_available()) {
+	if (is_cpu_boot_cluster(cluster) && is_sicd_available()) {
 		if (check_cluster_idle_state(cpu)) {
 			exynos_prepare_sys_powerdown(SYS_SICD_CPD);
 			index = PSCI_SYSTEM_IDLE_CLUSTER_SLEEP;
