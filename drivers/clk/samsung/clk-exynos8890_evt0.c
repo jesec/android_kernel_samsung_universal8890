@@ -15,7 +15,7 @@
 #include <linux/of_address.h>
 
 #include <dt-bindings/clock/exynos8890.h>
-#include "../../soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
+#include "../../soc/samsung/pwrcal/S5E8890_EVT0/S5E8890-vclk.h"
 #include "composite.h"
 
 #if defined(CONFIG_ECT)
