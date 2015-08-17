@@ -113,40 +113,16 @@ void dw_mci_reg_dump(struct dw_mci *host)
 
 /* Variations in Exynos specific dw-mshc controller */
 enum dw_mci_exynos_type {
-	DW_MCI_TYPE_EXYNOS4210,
-	DW_MCI_TYPE_EXYNOS4412,
-	DW_MCI_TYPE_EXYNOS5250,
-	DW_MCI_TYPE_EXYNOS5420,
-	DW_MCI_TYPE_EXYNOS5420_SMU,
-	DW_MCI_TYPE_EXYNOS8890,
-	DW_MCI_TYPE_EXYNOS7870,
+	DW_MCI_TYPE_EXYNOS,
 };
 
 static struct dw_mci_exynos_compatible {
-	char				*compatible;
+	char *compatible;
 	enum dw_mci_exynos_type		ctrl_type;
 } exynos_compat[] = {
 	{
-		.compatible	= "samsung,exynos4210-dw-mshc",
-		.ctrl_type	= DW_MCI_TYPE_EXYNOS4210,
-	}, {
-		.compatible	= "samsung,exynos4412-dw-mshc",
-		.ctrl_type	= DW_MCI_TYPE_EXYNOS4412,
-	}, {
-		.compatible	= "samsung,exynos5250-dw-mshc",
-		.ctrl_type	= DW_MCI_TYPE_EXYNOS5250,
-	}, {
-		.compatible	= "samsung,exynos5420-dw-mshc",
-		.ctrl_type	= DW_MCI_TYPE_EXYNOS5420,
-	}, {
-		.compatible	= "samsung,exynos5420-dw-mshc-smu",
-		.ctrl_type	= DW_MCI_TYPE_EXYNOS5420_SMU,
-	}, {
-		.compatible	= "samsung,exynos8890-dw-mshc",
-		.ctrl_type	= DW_MCI_TYPE_EXYNOS8890,
-	}, {
-		.compatible	= "samsung,exynos7870-dw-mshc",
-		.ctrl_type	= DW_MCI_TYPE_EXYNOS7870,
+		.compatible	= "samsung,exynos-dw-mshc",
+		.ctrl_type	= DW_MCI_TYPE_EXYNOS,
 	},
 };
 
@@ -286,8 +262,6 @@ static void dw_mci_exynos_config_hs400(struct dw_mci *host, u32 timing)
 	 * Not supported to configure register
 	 * related to HS400
 	 */
-	if (priv->ctrl_type < DW_MCI_TYPE_EXYNOS5420)
-		return;
 
 	dqs = priv->saved_dqs_en;
 	strobe = priv->saved_strobe_ctrl;
@@ -1020,17 +994,7 @@ static const struct dw_mci_drv_data exynos_drv_data = {
 };
 
 static const struct of_device_id dw_mci_exynos_match[] = {
-	{ .compatible = "samsung,exynos4412-dw-mshc",
-			.data = &exynos_drv_data, },
-	{ .compatible = "samsung,exynos5250-dw-mshc",
-			.data = &exynos_drv_data, },
-	{ .compatible = "samsung,exynos5420-dw-mshc",
-			.data = &exynos_drv_data, },
-	{ .compatible = "samsung,exynos5420-dw-mshc-smu",
-			.data = &exynos_drv_data, },
-	{ .compatible = "samsung,exynos8890-dw-mshc",
-			.data = &exynos_drv_data, },
-	{ .compatible = "samsung,exynos7870-dw-mshc",
+	{ .compatible = "samsung,exynos-dw-mshc",
 			.data = &exynos_drv_data, },
 	{},
 };
