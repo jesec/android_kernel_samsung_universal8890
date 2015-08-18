@@ -34,7 +34,7 @@
 #define DSIM_M_PLL_CTRL2		0x0
 
 /* M_PLL_CTRL setting value */
-const u32 DSIM_M_PLL_CTRL1[3] = {0x40000000, 0x40000040, 0x40000040};
+const u32 DSIM_M_PLL_CTRL1[3] = {0x40000080, 0x400000c0, 0x400000c0};
 
 /* DPHY timing table */
 const u32 dphy_timing[][10] = {
@@ -1049,7 +1049,7 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 
 	dsim_reg_set_bta_timeout(id);
 	dsim_reg_set_lpdr_timeout(id);
-	dsim_reg_set_hsync_timeout(id, 3);
+	dsim_reg_set_hsync_timeout(id, 0x3f);
 	/*should be adding dsc code*/
 	return ret;
 }
