@@ -203,6 +203,10 @@ static int firmware_update(struct device *dev)
 		memcpy_integer(sram_base, fw->ptr, fw->binary_size);
 		pr_info("OK : Use ect func\n");
 	} else {
+#ifdef CONFIG_ECT
+		pr_info("ECT firmware file is not exist, so do not turn on APM \n");
+		return -1;
+#endif
 		err = request_firmware(&fw_entry, firmware_file, dev);
 		if (err) {
 			dev_err(dev, "FAIL \n");
