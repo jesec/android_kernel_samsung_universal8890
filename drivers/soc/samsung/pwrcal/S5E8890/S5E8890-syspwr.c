@@ -74,16 +74,6 @@ static unsigned int *pmu_cpuoption_sfrlist[] = {
 	APOLLO_CPU2_OPTION,
 	APOLLO_CPU3_OPTION,
 };
-static unsigned int *pmu_cpuduration_sfrlist[] = {
-	MNGS_CPU0_DURATION0,
-	MNGS_CPU1_DURATION0,
-	MNGS_CPU2_DURATION0,
-	MNGS_CPU3_DURATION0,
-	APOLLO_CPU0_DURATION0,
-	APOLLO_CPU1_DURATION0,
-	APOLLO_CPU2_DURATION0,
-	APOLLO_CPU3_DURATION0,
-};
 
 #define EMULATION	(0x1 << 31)
 #define ENABLE_DBGNOPWRDWN	(0x1 << 30)
@@ -154,14 +144,6 @@ static void init_pmu_cpu_option(void)
 		tmp &= ~USE_SC_COUNTER;
 
 		pwrcal_writel(pmu_cpuoption_sfrlist[cpu], tmp);
-	}
-
-	for (cpu = 0; cpu < sizeof(pmu_cpuduration_sfrlist) / sizeof(pmu_cpuduration_sfrlist[0]); cpu++) {
-		tmp = pwrcal_readl(pmu_cpuduration_sfrlist[cpu]);
-		tmp |= DUR_WAIT_RESET;
-		tmp &= ~DUR_SCALL;
-		tmp |= DUR_SCALL_VALUE;
-		pwrcal_writel(pmu_cpuduration_sfrlist[cpu], tmp);
 	}
 }
 
