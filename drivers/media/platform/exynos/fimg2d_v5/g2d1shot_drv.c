@@ -25,20 +25,109 @@
 
 static int m2m1shot2_g2d_init_context(struct m2m1shot2_context *ctx)
 {
+	struct g2d1shot_dev *dev = dev_get_drvdata(ctx->m21dev->dev);
+	struct g2d1shot_ctx *g2d_ctx;
+
+	g2d_ctx = kzalloc(sizeof(*g2d_ctx), GFP_KERNEL);
+	if (!g2d_ctx)
+		return -ENOMEM;
+
+	ctx->priv = g2d_ctx;
+
+	g2d_ctx->g2d_dev = dev;
+
 	return 0;
 }
 
 static int m2m1shot2_g2d_free_context(struct m2m1shot2_context *ctx)
 {
+	struct g2d1shot_ctx *g2d_ctx = ctx->priv;
+
+	kfree(g2d_ctx);
+
 	return 0;
 }
 
-static int m2m1shot2_g2d_prepare_format(struct m2m1shot2_context_format *fmt,
+static const struct g2d1shot_fmt g2d_formats[] = {
+	{
+		.name		= "ABGR8888",
+		.pixelformat	= V4L2_PIX_FMT_ABGR32,	/* [31:0] ABGR */
+		.bpp		= { 32 },
+		.num_planes	= 1,
+	}, {
+		.name		= "XBGR8888",
+		.pixelformat	= V4L2_PIX_FMT_XBGR32,	/* [31:0] XBGR */
+		.bpp		= { 32 },
+		.num_planes	= 1,
+	}, {
+		.name		= "ARGB8888",
+		.pixelformat	= V4L2_PIX_FMT_ARGB32,	/* [31:0] ARGB */
+		.bpp		= { 32 },
+		.num_planes	= 1,
+	}, {
+		.name		= "RGB565",
+		.pixelformat	= V4L2_PIX_FMT_RGB565,	/* [15:0] RGB */
+		.bpp		= { 16 },
+		.num_planes	= 1,
+	},
+};
+
+static const struct g2d1shot_fmt *find_format(bool is_source, u32 fmt)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(g2d_formats); i++) {
+		if (fmt == g2d_formats[i].pixelformat) {
+			/* TODO: check more.. H/W version, source/dest.. */
+			return &g2d_formats[i];
+		}
+	}
+
+	return NULL;
+}
+
+static int m2m1shot2_g2d_prepare_format(
+			struct m2m1shot2_context_format *ctx_fmt,
 			unsigned int index, enum dma_data_direction dir,
 			size_t payload[], unsigned int *num_planes)
 {
-	payload[0] = fmt->fmt.width * fmt->fmt.height * 4;
-	*num_planes = 1;
+	const struct g2d1shot_fmt *g2d_fmt;
+	struct m2m1shot2_format *fmt = &ctx_fmt->fmt;
+	int i;
+
+	g2d_fmt = find_format((dir == DMA_TO_DEVICE), fmt->pixelformat);
+	if (!g2d_fmt) {
+		pr_err("Not supported format (%u)\n", fmt->pixelformat);
+		return -EINVAL;
+	}
+
+	if (fmt->width == 0 || fmt->height == 0 ||
+			fmt->width > G2D_MAX_NORMAL_SIZE ||
+			fmt->height > G2D_MAX_NORMAL_SIZE) {
+		pr_err("Invalid width or height (%u, %u)\n",
+				fmt->width, fmt->height);
+		return -EINVAL;
+	}
+
+	if (fmt->crop.left < 0 || fmt->crop.top < 0 ||
+			(fmt->crop.left + fmt->crop.width > fmt->width) ||
+			(fmt->crop.top + fmt->crop.height > fmt->height)) {
+		pr_err("Invalid range of crop ltwh(%d, %d, %d, %d)\n",
+				fmt->crop.left, fmt->crop.top,
+				fmt->crop.width, fmt->crop.height);
+		pr_err("width/height : %u/%u\n", fmt->width, fmt->height);
+		return -EINVAL;
+	}
+
+	/* TODO: compare between dest rect and clipping rect of each source */
+
+	*num_planes = g2d_fmt->num_planes;
+	for (i = 0; i < g2d_fmt->num_planes; i++) {
+		payload[i] = fmt->width * fmt->height * g2d_fmt->bpp[i];
+		payload[i] /= 8;
+	}
+	ctx_fmt->priv = (void *)g2d_fmt;
+
 	return 0;
 }
 
@@ -50,6 +139,27 @@ static int m2m1shot2_g2d_prepare_source(struct m2m1shot2_context *ctx,
 
 static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 {
+	struct g2d1shot_ctx *g2d_ctx = ctx->priv;
+	struct g2d1shot_dev *g2d_dev = g2d_ctx->g2d_dev;
+
+	/* DUMMY for compile error (unused variable) */
+	if (!g2d_dev)
+		return -EINVAL;
+
+	/* Marking for H/W operation? */
+
+	/* enable power, clock */
+
+	/* H/W initialization */
+
+	/* setting for source */
+
+	/* setting for destination */
+
+	/* setting for common */
+
+	/* run H/W */
+
 	return 0;
 }
 
@@ -64,9 +174,20 @@ static const struct m2m1shot2_devops m2m1shot2_g2d_ops = {
 static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 {
 	struct g2d1shot_dev *g2d_dev = priv;
+	struct m2m1shot2_context *m21ctx;
 
-	if (!g2d_dev)
-		pr_err("Failed!\n");
+	m21ctx = m2m1shot2_current_context(g2d_dev->oneshot2_dev);
+	if (!m21ctx) {
+		dev_err(g2d_dev->dev, "received null in irq handler\n");
+		return IRQ_HANDLED;
+	}
+
+	/* IRQ handling */
+
+	/* Unmark for H/W operation */
+
+	/* How to define success? */
+	m2m1shot2_finish_context(m21ctx, true);
 
 	return IRQ_HANDLED;
 }

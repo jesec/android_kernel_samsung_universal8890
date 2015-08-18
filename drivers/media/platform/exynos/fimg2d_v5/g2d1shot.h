@@ -19,6 +19,22 @@
 #define MODULE_NAME	"exynos-g2d"
 #define NODE_NAME	"fimg2d"
 
+#define	G2D_MAX_PLANES	1
+
+#define G2D_MAX_NORMAL_SIZE	16383
+#define G2D_MAX_COMP_SIZE	8192
+
+/* flags for G2D supported format */
+#define G2D_FMT_FLAG_SUPPORT_COMP	(1 << 0)
+
+struct g2d1shot_fmt {
+	char	*name;
+	u32	pixelformat;
+	u8	bpp[G2D_MAX_PLANES];
+	u8	num_planes;
+	u8	flag;
+};
+
 struct g2d1shot_dev {
 	struct m2m1shot2_device *oneshot2_dev;
 	struct device *dev;
