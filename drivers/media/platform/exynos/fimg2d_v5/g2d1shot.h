@@ -13,6 +13,24 @@
 #ifndef __EXYNOS_G2D1SHOT_H_
 #define __EXYNOS_G2D1SHOT_H_
 
+#include <linux/videodev2.h>
+#include <media/m2m1shot2.h>
+
 #define MODULE_NAME	"exynos-g2d"
+#define NODE_NAME	"fimg2d"
+
+struct g2d1shot_dev {
+	struct m2m1shot2_device *oneshot2_dev;
+	struct device *dev;
+	struct clk *clock;
+	void __iomem *reg;
+
+	u32 version;
+	unsigned long state;
+};
+
+struct g2d1shot_ctx {
+	struct g2d1shot_dev *g2d_dev;
+};
 
 #endif /* __EXYNOS_G2D1SHOT_H_ */
