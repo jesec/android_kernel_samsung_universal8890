@@ -326,7 +326,7 @@ static void show_result(void)
 	pr_info("#cluster     #entry   #early      #time     #ratio\n");
 	for_each_cluster(i) {
 		pr_info("cl_%s   %5u   %5u   %10lluus    %3u%%\n",
-			i == 1 ? "boot   " : "nonboot",
+			i == to_cluster(0) ? "boot   " : "nonboot",
 			cpd_info[i].usage->entry_count,
 			cpd_info[i].usage->early_wakeup_count,
 			cpd_info[i].usage->time,
@@ -524,7 +524,7 @@ static ssize_t show_sysfs_result(struct kobject *kobj,
 	for_each_cluster(i) {
 		ret += snprintf(buf + ret, PAGE_SIZE - ret,
 			"cl_%s   %5u   %5u   %10lluus    %3u%%\n",
-			i == 1 ? "boot   " : "nonboot",
+			i == to_cluster(cpu) ? "boot   " : "nonboot",
 			cpd_info[i].usage->entry_count,
 			cpd_info[i].usage->early_wakeup_count,
 			cpd_info[i].usage->time,
