@@ -37,6 +37,8 @@
 
 #define FIN_HZ_26M		(26*MHZ)
 
+static int mfc_pll_refcount[2] = {1, 1};
+
 static const struct pwrcal_pll_rate_table *_clk_get_pll_settings(
 					struct pwrcal_pll *pll_clk,
 					unsigned long long rate)
@@ -532,6 +534,137 @@ static unsigned long long _clk_pll1419x_get_rate(struct pwrcal_clk *clk)
 	return (unsigned long long)fout;
 }
 
+static int _clk_pll141xx_mfc_is_enabled(struct pwrcal_clk *clk)
+{
+	if (clk->id == MFC_PLL_GATE && mfc_pll_refcount[0])
+		return 1;
+
+	if (clk->id == MFC_PLL_DVFS && mfc_pll_refcount[1])
+		return 1;
+
+	return 0;
+}
+
+static int _clk_pll141xx_mfc_enable(struct pwrcal_clk *clk)
+{
+	int timeout;
+
+	if (clk->id == MFC_PLL_GATE)
+		mfc_pll_refcount[0] = 1;
+
+	if (clk->id == MFC_PLL_DVFS)
+		mfc_pll_refcount[1] = 1;
+
+	if (mfc_pll_refcount[0] + mfc_pll_refcount[1] < 2)
+		return 0;
+
+	if (pwrcal_getbit(clk->offset, PLL141XX_ENABLE))
+		return 0;
+
+	pwrcal_setbit(clk->offset, PLL141XX_ENABLE, 1);
+
+	for (timeout = 0;; timeout++) {
+		if (pwrcal_getbit(clk->offset, PLL141XX_LOCKED))
+			break;
+		if (timeout > CLK_WAIT_CNT)
+			return -1;
+		cpu_relax();
+	}
+
+	if (pwrcal_mux_set_src(CLK(TOP_MUX_MFC_PLL), 1))
+		return -1;
+
+	return 0;
+}
+
+static int _clk_pll141xx_mfc_disable(struct pwrcal_clk *clk)
+{
+	if (clk->id == MFC_PLL_GATE)
+		mfc_pll_refcount[0] = 0;
+
+	if (clk->id == MFC_PLL_DVFS)
+		mfc_pll_refcount[1] = 0;
+
+	if (pwrcal_mux_set_src(CLK(TOP_MUX_MFC_PLL), 0))
+		return -1;
+
+	pwrcal_setbit(clk->offset, PLL141XX_ENABLE, 0);
+
+	return 0;
+}
+
+static int _clk_pll141xx_mfc_set_rate(struct pwrcal_clk *clk,
+					unsigned long long rate)
+{
+	struct pwrcal_pll *pll = to_pll(clk);
+	struct pll_spec *pll_spec;
+	struct pwrcal_pll_rate_table  tmp_rate_table;
+	const struct pwrcal_pll_rate_table  *rate_table;
+
+	if (rate == 0) {
+		if (_clk_pll141xx_mfc_is_enabled(clk) != 0)
+			if (_clk_pll141xx_mfc_disable(clk))
+				goto errorout;
+		return 0;
+	}
+
+	rate_table = _clk_get_pll_settings(pll, rate);
+	if (rate_table == NULL) {
+		pll_spec = clk_pll_get_spec(clk);
+		if (pll_spec == NULL)
+			goto errorout;
+
+		if (_clk_pll141xx_find_pms(pll_spec, &tmp_rate_table, rate)) {
+			pr_err("can't find pms value for rate(%lldHz) of \'%s\'",
+				rate,
+				clk->name);
+			goto errorout;
+		}
+
+		rate_table = &tmp_rate_table;
+
+		pr_warn("not exist in rate table, p(%d), m(%d), s(%d), fout(%lldHz) %s",
+				rate_table->pdiv,
+				rate_table->mdiv,
+				rate_table->sdiv,
+				rate,
+				clk->name);
+	}
+
+	if (_clk_pll141xx_set_pms(clk, rate_table))
+		goto errorout;
+
+	if (rate != 0) {
+		if (_clk_pll141xx_mfc_is_enabled(clk) == 0)
+			_clk_pll141xx_mfc_enable(clk);
+	}
+	return 0;
+
+errorout:
+	return -1;
+}
+
+static unsigned long long _clk_pll141xx_mfc_get_rate(struct pwrcal_clk *clk)
+{
+	unsigned int mdiv, pdiv, sdiv, pll_con0;
+	unsigned long long fout;
+
+	if (_clk_pll141xx_mfc_is_enabled(clk) == 0)
+		return 0;
+	pll_con0 = pwrcal_readl(clk->offset);
+	mdiv = (pll_con0 >> PLL141XX_MDIV_SHIFT) & PLL141XX_MDIV_MASK;
+	pdiv = (pll_con0 >> PLL141XX_PDIV_SHIFT) & PLL141XX_PDIV_MASK;
+	sdiv = (pll_con0 >> PLL141XX_SDIV_SHIFT) & PLL141XX_SDIV_MASK;
+
+	if (pdiv == 0) {
+		pr_err("pdiv is 0, id(%s)", clk->name);
+		return 0;
+	}
+	fout = FIN_HZ_26M * mdiv;
+	do_div(fout, (pdiv << sdiv));
+	return (unsigned long long)fout;
+}
+
 static int _clk_pll1431x_find_pms(struct pll_spec *pll_spec,
 					struct pwrcal_pll_rate_table *rate_table,
 					unsigned long long rate)
@@ -779,6 +912,14 @@ struct pwrcal_pll_ops pll141xx_ops = {
 	.disable = _clk_pll141xx_disable,
 	.set_rate = _clk_pll141xx_set_rate,
 	.get_rate = _clk_pll141xx_get_rate,
+};
+
+struct pwrcal_pll_ops pll141xx_mfc_ops = {
+	.is_enabled = _clk_pll141xx_mfc_is_enabled,
+	.enable = _clk_pll141xx_mfc_enable,
+	.disable = _clk_pll141xx_mfc_disable,
+	.set_rate = _clk_pll141xx_mfc_set_rate,
+	.get_rate = _clk_pll141xx_mfc_get_rate,
 };
 
 struct pwrcal_pll_ops pll1419x_ops = {

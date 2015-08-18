@@ -14,6 +14,7 @@
 #endif
 
 extern struct pwrcal_pll_ops pll141xx_ops;
+extern struct pwrcal_pll_ops pll141xx_mfc_ops;
 extern struct pwrcal_pll_ops pll1419x_ops;
 extern struct pwrcal_pll_ops pll1431x_ops;
 
@@ -35,6 +36,8 @@ CLK_PLL(14180,	BUS1_PLL,	0,	BUS1_PLL_LOCK,	BUS1_PLL_CON0,	NULL,	TOP_MUX_BUS1_PLL
 CLK_PLL(14180,	BUS2_PLL,	0,	BUS2_PLL_LOCK,	BUS2_PLL_CON0,	NULL,	TOP_MUX_BUS2_PLL,	&pll141xx_ops);
 CLK_PLL(14170,	BUS3_PLL,	0,	BUS3_PLL_LOCK,	BUS3_PLL_CON0,	NULL,	TOP_MUX_BUS3_PLL,	&pll141xx_ops);
 CLK_PLL(14180,	MFC_PLL,	0,	MFC_PLL_LOCK,	MFC_PLL_CON0,	NULL,	TOP_MUX_MFC_PLL,	&pll141xx_ops);
+CLK_PLL(14180,	MFC_PLL_GATE,	0,	MFC_PLL_LOCK,	MFC_PLL_CON0,	NULL,	0,	&pll141xx_mfc_ops);
+CLK_PLL(14180,	MFC_PLL_DVFS,	0,	MFC_PLL_LOCK,	MFC_PLL_CON0,	NULL,	0,	&pll141xx_mfc_ops);
 CLK_PLL(14180,	ISP_PLL,	0,	ISP_PLL_LOCK,	ISP_PLL_CON0,	NULL,	TOP_MUX_ISP_PLL,	&pll141xx_ops);
 CLK_PLL(14180,	DISP_PLL,	0,	DISP_PLL_LOCK,	DISP_PLL_CON0,	NULL,	DISP0_MUX_DISP_PLL,	&pll141xx_ops);
 CLK_PLL(14310,	AUD_PLL,	0,	AUD_PLL_LOCK,	AUD_PLL_CON0,	NULL,	AUD_MUX_AUD_PLL_USER,	&pll1431x_ops);
@@ -2288,6 +2291,8 @@ void clk_init(void)
 	ADD_CLK_TO_LIST(pll_type_list, BUS2_PLL);
 	ADD_CLK_TO_LIST(pll_type_list, BUS3_PLL);
 	ADD_CLK_TO_LIST(pll_type_list, MFC_PLL);
+	ADD_CLK_TO_LIST(pll_type_list, MFC_PLL_GATE);
+	ADD_CLK_TO_LIST(pll_type_list, MFC_PLL_DVFS);
 	ADD_CLK_TO_LIST(pll_type_list, ISP_PLL);
 	ADD_CLK_TO_LIST(pll_type_list, DISP_PLL);
 	ADD_CLK_TO_LIST(pll_type_list, AUD_PLL);
@@ -3927,4 +3932,9 @@ void clk_init(void)
 	clk_pll_set_rate_table(&clk_ISP_PLL);
 	clk_pll_set_rate_table(&clk_DISP_PLL);
 	clk_pll_set_rate_table(&clk_AUD_PLL);
+
+	clk_MFC_PLL_DVFS.rate_table = clk_MFC_PLL.rate_table;
+	clk_MFC_PLL_DVFS.rate_count = clk_MFC_PLL.rate_count;
+	clk_MFC_PLL_GATE.rate_table = clk_MFC_PLL.rate_table;
+	clk_MFC_PLL_GATE.rate_count = clk_MFC_PLL.rate_count;
 }
