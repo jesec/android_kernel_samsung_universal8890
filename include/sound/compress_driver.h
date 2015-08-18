@@ -177,7 +177,10 @@ static inline void snd_compr_drain_notify(struct snd_compr_stream *stream)
 	if (snd_BUG_ON(!stream))
 		return;
 
-	stream->runtime->state = SNDRV_PCM_STATE_SETUP;
+	if (stream->runtime->state == SNDRV_PCM_STATE_DRAINING)
+		stream->runtime->state = SNDRV_PCM_STATE_RUNNING;
+	else
+		stream->runtime->state = SNDRV_PCM_STATE_SETUP;
 	wake_up(&stream->runtime->sleep);
 }
 
