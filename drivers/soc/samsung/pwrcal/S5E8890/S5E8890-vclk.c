@@ -55,7 +55,7 @@ static struct pwrcal_clk_set pxmxdx_imem_grp[] = {
 };
 static struct pwrcal_clk_set pxmxdx_fsys0_grp[] = {
 	{CLK(FSYS0_MUX_ACLK_FSYS0_200_USER),	1,	0},
-	{CLK(TOP_MUXGATE_ACLK_FSYS0_200),	1,	0},
+/*	{CLK(TOP_MUXGATE_ACLK_FSYS0_200),	1,	0},	*/
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_fsys1_grp[] = {
