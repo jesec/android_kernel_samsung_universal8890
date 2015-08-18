@@ -210,7 +210,8 @@ struct dw_mci {
 #define DW_MMC_REQ_IDLE		0
 #define DW_MMC_REQ_BUSY		1
 	unsigned int		req_state;
-
+	struct dw_mci_debug_info        *debug_info;    /* debug info */
+	
 	/* HWACG q-active ctrl check */
 	unsigned int qactive_check;
 };

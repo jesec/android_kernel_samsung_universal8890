@@ -275,6 +275,87 @@ struct dw_mci_slot {
 	int			last_detect_state;
 };
 
+/**
+ * struct dw_mci_debug_data - DwMMC debugging infomation
+ * @host_count: a number of all hosts
+ * @info_count: a number of set of debugging information
+ * @info_index: index of debugging information for each host
+ * @host: pointer of each dw_mci structure
+ * @debug_info: debugging information structure
+ */
+
+struct dw_mci_cmd_log {
+	u64	send_time;
+	u64	done_time;
+	u8	cmd;
+	u32	arg;
+	u8	data_size;
+	/* no data CMD = CD, data CMD = DTO */
+	/*
+	 * 0b1000 0000	: new_cmd with without send_cmd
+	 * 0b0000 1000	: error occurs
+	 * 0b0000 0100	: data_done : DTO(Data Transfer Over)
+	 * 0b0000 0010	: resp : CD(Command Done)
+	 * 0b0000 0001	: send_cmd : set 1 only start_command
+	 */
+	u8	seq_status;	/* 0bxxxx xxxx : error data_done resp send */
+#define DW_MCI_FLAG_SEND_CMD	BIT(0)
+#define DW_MCI_FLAG_CD		BIT(1)
+#define DW_MCI_FLAG_DTO		BIT(2)
+#define DW_MCI_FLAG_ERROR	BIT(3)
+#define DW_MCI_FLAG_NEW_CMD_ERR	BIT(7)
+
+	u16	rint_sts;	/* RINTSTS value in case of error */
+	u8	status_count;	/* TBD : It can be changed */
+};
+
+enum dw_mci_req_log_state {
+	STATE_REQ_START = 0,
+	STATE_REQ_CMD_PROCESS,
+	STATE_REQ_DATA_PROCESS,
+	STATE_REQ_END,
+};
+
+struct dw_mci_req_log {
+	u64				timestamp;
+	u32				info0;
+	u32				info1;
+	u32				info2;
+	u32				info3;
+	u32				pending_events;
+	u32				completed_events;
+	enum dw_mci_state		state;
+	enum dw_mci_state		state_cmd;
+	enum dw_mci_state		state_dat;
+	enum dw_mci_req_log_state	log_state;
+};
+
+#define DWMCI_LOG_MAX		0x80
+#define DWMCI_REQ_LOG_MAX	0x40
+struct dw_mci_debug_info {
+	struct dw_mci_cmd_log		cmd_log[DWMCI_LOG_MAX];
+	atomic_t			cmd_log_count;
+	struct dw_mci_req_log		req_log[DWMCI_REQ_LOG_MAX];
+	atomic_t			req_log_count;
+	unsigned char			en_logging;
+#define DW_MCI_DEBUG_ON_CMD	BIT(0)
+#define DW_MCI_DEBUG_ON_REQ	BIT(1)
+};
+
+#define DWMCI_DBG_NUM_HOST	3
+
+#define DWMCI_DBG_NUM_INFO	2			/* configurable */
+#define DWMCI_DBG_MASK_INFO	(BIT(0) | BIT(2))	/* configurable */
+#define DWMCI_DBG_BIT_HOST(x)	BIT(x)
+
+struct dw_mci_debug_data {
+	unsigned char			host_count;
+	unsigned char			info_count;
+	unsigned char			info_index[DWMCI_DBG_NUM_HOST];
+	struct dw_mci			*host[DWMCI_DBG_NUM_HOST];
+	struct dw_mci_debug_info	debug_info[DWMCI_DBG_NUM_INFO];
+};
+
 struct dw_mci_tuning_data {
 	const u8 *blk_pattern;
 	unsigned int blksz;
