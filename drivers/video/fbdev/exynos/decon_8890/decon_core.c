@@ -560,6 +560,9 @@ static int decon_set_win_blocking_mode(struct decon_device *decon, struct decon_
 	if (config->state != DECON_WIN_STATE_BUFFER)
 		return 0;
 
+	if (config->compression)
+		return 0;
+
 	/* Blocking mode is supported for only RGB32 color formats */
 	if (!is_rgb32(config->format))
 		return 0;
