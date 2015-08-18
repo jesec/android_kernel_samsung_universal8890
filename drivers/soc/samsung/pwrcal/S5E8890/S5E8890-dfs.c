@@ -1018,17 +1018,6 @@ void dfs_set_clk_information(struct pwrcal_vclk_dfs *dfs)
 
 	dvfs_table->members[0] = REPRESENT_RATE;
 	for (i = 0; i < dvfs_domain->num_of_clock; ++i) {
-
-	/* HACK : This code is need at bring up step.
-	Current PWRCAL does not have 'MFC_PLL_DVFS' node.
-	It will be updated.
-	*/
-		if (dvfs_domain->list_clock[i][0] == 'M' &&
-			dvfs_domain->list_clock[i][1] == 'F' &&
-			dvfs_domain->list_clock[i][2] == 'C')
-				dvfs_domain->list_clock[i][7] = '\0';
-	/* HACK END */
-
 		dvfs_table->members[i + 1] = clk_find(dvfs_domain->list_clock[i]);
 		if (dvfs_table->members[i] == NULL)
 			return;
