@@ -619,10 +619,26 @@ void cal_asv_set_grp(unsigned int id, unsigned int asvgrp)
 		cal_asv_ops.set_grp(id, asvgrp);
 }
 
+int cal_asv_get_grp(unsigned int id, unsigned int lv)
+{
+	if (cal_asv_ops.get_grp)
+		return cal_asv_ops.get_grp(id, lv);
+
+	return -1;
+}
+
 void cal_asv_set_tablever(unsigned int version)
 {
 	if (cal_asv_ops.set_tablever)
 		cal_asv_ops.set_tablever(version);
+}
+
+int cal_asv_get_tablever(void)
+{
+	if (cal_asv_ops.get_tablever)
+		return cal_asv_ops.get_tablever();
+
+	return -1;
 }
 
 int cal_init(void)
