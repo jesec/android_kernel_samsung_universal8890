@@ -903,11 +903,23 @@ static void rcc_print_info(void)
 	}
 }
 
+static int asv_get_grp(unsigned int id, unsigned int lv)
+{
+	return get_asv_group((enum dvfs_id)id, lv);
+}
+
+static int asv_get_tablever(void)
+{
+	return (int)(asv_tbl_info.asv_table_ver);
+}
+
 struct cal_asv_ops cal_asv_ops = {
 	.print_asv_info = asv_print_info,
 	.print_rcc_info = rcc_print_info,
 	.set_grp = asv_set_grp,
+	.get_grp = asv_get_grp,
 	.set_tablever = asv_set_tablever,
+	.get_tablever = asv_get_tablever,
 	.set_rcc_table = asv_rcc_set_table,
 	.asv_init = asv_init,
 	.asv_pmic_info = asv_get_pmic_info,
