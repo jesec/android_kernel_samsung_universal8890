@@ -11,6 +11,7 @@
  */
 
 #include "s5p_mfc_utils.h"
+#include "s5p_mfc_mem.h"
 
 #define COL_FRAME_RATE		0
 #define COL_FRAME_INTERVAL	1
@@ -73,3 +74,31 @@ void s5p_mfc_cleanup_queue(struct list_head *lh)
 	}
 }
 
+int check_vb_with_fmt(struct s5p_mfc_fmt *fmt, struct vb2_buffer *vb)
+{
+	struct vb2_queue *vq = vb->vb2_queue;
+	struct s5p_mfc_ctx *ctx = vq->drv_priv;
+	int i;
+
+	if (!fmt)
+		return -EINVAL;
+
+	if (fmt->mem_planes != vb->num_planes) {
+		mfc_err("plane number is different (%d != %d)\n",
+				fmt->mem_planes, vb->num_planes);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < vb->num_planes; i++) {
+		if (!s5p_mfc_mem_plane_addr(ctx, vb, i)) {
+			mfc_err("failed to get plane cookie\n");
+			return -ENOMEM;
+		}
+
+		mfc_debug(2, "index: %d, plane[%d] cookie: 0x%08llx",
+				vb->v4l2_buf.index, i,
+				s5p_mfc_mem_plane_addr(ctx, vb, i));
+	}
+
+	return 0;
+}

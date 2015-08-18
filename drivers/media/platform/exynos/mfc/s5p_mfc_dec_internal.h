@@ -22,6 +22,15 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 3,
+		.mem_planes = 3,
+	},
+	{
+		.name = "4:2:0 3 Planes Y/Cb/Cr single",
+		.fourcc = V4L2_PIX_FMT_YUV420N,
+		.codec_mode = MFC_FORMATS_NO_CODEC,
+		.type = MFC_FMT_RAW,
+		.num_planes = 3,
+		.mem_planes = 1,
 	},
 	{
 		.name = "4:2:0 3 Planes Y/Cr/Cb",
@@ -29,6 +38,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 3,
+		.mem_planes = 3,
 	},
 	{
 		.name = "4:2:0 2 Planes 16x16 Tiles",
@@ -36,6 +46,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
 	},
 	{
 		.name = "4:2:0 2 Planes 64x32 Tiles",
@@ -43,6 +54,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
 	},
 	{
 		.name = "4:2:0 2 Planes Y/CbCr",
@@ -50,6 +62,15 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
+	},
+	{
+		.name = "4:2:0 2 Planes Y/CbCr single",
+		.fourcc = V4L2_PIX_FMT_NV12N,
+		.codec_mode = MFC_FORMATS_NO_CODEC,
+		.type = MFC_FMT_RAW,
+		.num_planes = 2,
+		.mem_planes = 1,
 	},
 	{
 		.name = "4:2:0 2 Planes Y/CrCb",
@@ -57,6 +78,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
 	},
 	{
 		.name = "H264 Encoded Stream",
@@ -64,6 +86,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_H264_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	/* MFC 6.x only */
 	{
@@ -72,6 +95,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_H264_MVC_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "H263 Encoded Stream",
@@ -79,6 +103,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_H263_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "MPEG1 Encoded Stream",
@@ -86,6 +111,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_MPEG2_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "MPEG2 Encoded Stream",
@@ -93,6 +119,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_MPEG2_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "MPEG4 Encoded Stream",
@@ -100,6 +127,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_MPEG4_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "FIMV Encoded Stream",
@@ -107,6 +135,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_MPEG4_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "FIMV1 Encoded Stream",
@@ -114,6 +143,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_FIMV1_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "FIMV2 Encoded Stream",
@@ -121,6 +151,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_FIMV2_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "FIMV3 Encoded Stream",
@@ -128,6 +159,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_FIMV3_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "FIMV4 Encoded Stream",
@@ -135,6 +167,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_FIMV4_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "XviD Encoded Stream",
@@ -142,6 +175,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_MPEG4_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "VC1 Encoded Stream",
@@ -149,6 +183,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_VC1_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "VC1 RCV Encoded Stream",
@@ -156,6 +191,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_VC1RCV_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "VP8 Encoded Stream",
@@ -163,6 +199,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_VP8_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "VP9 Encoded Stream",
@@ -170,6 +207,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_VP9_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "HEVC Encoded Stream",
@@ -177,6 +215,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_HEVC_DEC,
 		.type = MFC_FMT_DEC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 };
 

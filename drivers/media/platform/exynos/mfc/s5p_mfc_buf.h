@@ -21,6 +21,7 @@
 #define MFC_NV12MT_HALIGN                 16
 #define MFC_NV12MT_VALIGN                 16
 
+void mfc_fill_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct vb2_buffer *vb);
 int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx);
 int s5p_mfc_set_dec_stream_buffer(struct s5p_mfc_ctx *ctx,
 		dma_addr_t buf_addr,

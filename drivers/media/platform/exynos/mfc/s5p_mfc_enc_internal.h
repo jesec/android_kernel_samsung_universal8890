@@ -31,6 +31,15 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 3,
+		.mem_planes = 3,
+	},
+	{
+		.name = "4:2:0 3 Planes Y/Cb/Cr single",
+		.fourcc = V4L2_PIX_FMT_YUV420N,
+		.codec_mode = MFC_FORMATS_NO_CODEC,
+		.type = MFC_FMT_RAW,
+		.num_planes = 3,
+		.mem_planes = 1,
 	},
 	{
 		.name = "4:2:0 3 Planes Y/Cr/Cb",
@@ -38,6 +47,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 3,
+		.mem_planes = 3,
 	},
 	{
 		.name = "4:2:0 2 Planes 16x16 Tiles",
@@ -45,6 +55,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
 	},
 	{
 		.name = "4:2:0 2 Planes 64x32 Tiles",
@@ -52,6 +63,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
 	},
 	{
 		.name = "4:2:0 2 Planes",
@@ -59,6 +71,15 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
+	},
+	{
+		.name = "4:2:0 2 Planes Y/CbCr single",
+		.fourcc = V4L2_PIX_FMT_NV12N,
+		.codec_mode = MFC_FORMATS_NO_CODEC,
+		.type = MFC_FMT_RAW,
+		.num_planes = 2,
+		.mem_planes = 1,
 	},
 	{
 		.name = "4:2:0 2 Planes Y/CrCb",
@@ -66,6 +87,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 2,
+		.mem_planes = 2,
 	},
 	{
 		.name = "RGB888 1 Plane 24bpp",
@@ -73,6 +95,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "RGB565 1 Plane 16bpp",
@@ -80,6 +103,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "RGBX8888 1 Plane 32bpp",
@@ -87,6 +111,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "BGRA8888 1 Plane 32bpp",
@@ -94,6 +119,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "ARGB8888 1 Plane 32bpp",
@@ -101,6 +127,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = MFC_FORMATS_NO_CODEC,
 		.type = MFC_FMT_RAW,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "H264 Encoded Stream",
@@ -108,6 +135,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_H264_ENC,
 		.type = MFC_FMT_ENC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "MPEG4 Encoded Stream",
@@ -115,6 +143,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_MPEG4_ENC,
 		.type = MFC_FMT_ENC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "H263 Encoded Stream",
@@ -122,6 +151,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_H263_ENC,
 		.type = MFC_FMT_ENC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "VP8 Encoded Stream",
@@ -129,6 +159,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_VP8_ENC,
 		.type = MFC_FMT_ENC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "VP9 Encoded Stream",
@@ -136,6 +167,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_VP9_ENC,
 		.type = MFC_FMT_ENC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 	{
 		.name = "HEVC Encoded Stream",
@@ -143,6 +175,7 @@ static struct s5p_mfc_fmt formats[] = {
 		.codec_mode = S5P_FIMV_CODEC_HEVC_ENC,
 		.type = MFC_FMT_ENC,
 		.num_planes = 1,
+		.mem_planes = 1,
 	},
 };
 

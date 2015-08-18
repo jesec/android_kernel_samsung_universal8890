@@ -614,6 +614,40 @@ static int calc_plane(int width, int height, int is_tiled)
 	return (mbX * 16) * (mbY * 16);
 }
 
+void mfc_fill_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct vb2_buffer *vb)
+{
+	struct s5p_mfc_raw_info *raw;
+	int i;
+	u8 color[3] = { 0x0, 0x80, 0x80 };
+	unsigned char *dpb_vir;
+
+	raw = &ctx->raw_buf;
+	if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_NV12N) {
+		dpb_vir = vb2_plane_vaddr(vb, 0);
+		for (i = 0; i < raw->num_planes; i++) {
+			if (dpb_vir)
+				memset(dpb_vir, color[i], raw->plane_size[i]);
+			dpb_vir += NV12N_CBCR_SIZE(ctx->img_width,
+						ctx->img_height);
+		}
+	} else if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_YUV420N) {
+		dpb_vir = vb2_plane_vaddr(vb, 0);
+		for (i = 0; i < raw->num_planes; i++) {
+			if (dpb_vir)
+				memset(dpb_vir, color[i], raw->plane_size[i]);
+			dpb_vir += YUV420N_CB_SIZE(ctx->img_width,
+						ctx->img_height);
+		}
+	} else {
+		for (i = 0; i < raw->num_planes; i++) {
+			dpb_vir = vb2_plane_vaddr(vb, i);
+			if (dpb_vir)
+				memset(dpb_vir, color[i], raw->plane_size[i]);
+		}
+	}
+	s5p_mfc_mem_clean_vb(vb, vb->num_planes);
+}
+
 static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 				struct s5p_mfc_fmt *fmt)
 {
@@ -624,6 +658,7 @@ static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 
 	switch (fmt->fourcc) {
 	case V4L2_PIX_FMT_YUV420M:
+	case V4L2_PIX_FMT_YUV420N:
 	case V4L2_PIX_FMT_YVU420M:
 		raw->stride[0] = ALIGN(ctx->img_width, 16);
 		raw->stride[1] = ALIGN(raw->stride[0] >> 1, 16);
@@ -632,6 +667,7 @@ static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 	case V4L2_PIX_FMT_NV12MT_16X16:
 	case V4L2_PIX_FMT_NV12MT:
 	case V4L2_PIX_FMT_NV12M:
+	case V4L2_PIX_FMT_NV12N:
 	case V4L2_PIX_FMT_NV21M:
 		raw->stride[0] = ALIGN(ctx->img_width, 16);
 		raw->stride[1] = ALIGN(ctx->img_width, 16);
@@ -700,6 +736,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		raw->plane_size[2] = 0;
 		break;
 	case V4L2_PIX_FMT_NV12M:
+	case V4L2_PIX_FMT_NV12N:
 	case V4L2_PIX_FMT_NV21M:
 		raw->plane_size[0] =
 			calc_plane(ctx->img_width, ctx->img_height, 0);
@@ -708,6 +745,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		raw->plane_size[2] = 0;
 		break;
 	case V4L2_PIX_FMT_YUV420M:
+	case V4L2_PIX_FMT_YUV420N:
 	case V4L2_PIX_FMT_YVU420M:
 		raw->plane_size[0] =
 			calc_plane(ctx->img_width, ctx->img_height, 0);
@@ -745,6 +783,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 
 		switch (ctx->dst_fmt->fourcc) {
 			case V4L2_PIX_FMT_NV12M:
+			case V4L2_PIX_FMT_NV12N:
 			case V4L2_PIX_FMT_NV21M:
 				raw->plane_size[0] += 64;
 				raw->plane_size[1] =
@@ -752,6 +791,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 					*(((ctx->img_height + 15)/16)*8) + 64;
 				break;
 			case V4L2_PIX_FMT_YUV420M:
+			case V4L2_PIX_FMT_YUV420N:
 			case V4L2_PIX_FMT_YVU420M:
 				raw->plane_size[0] += 64;
 				raw->plane_size[1] =
@@ -786,9 +826,12 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		}
 	}
 
-	for (i = 0; i < raw->num_planes; i++)
+	for (i = 0; i < raw->num_planes; i++) {
+		raw->total_plane_size += raw->plane_size[i];
 		mfc_debug(2, "Plane[%d] size = %d, stride = %d\n",
 			i, raw->plane_size[i], raw->stride[i]);
+	}
+	mfc_debug(2, "total plane size: %d\n", raw->total_plane_size);
 
 	if (ctx->codec_mode == S5P_FIMV_CODEC_H264_DEC ||
 			ctx->codec_mode == S5P_FIMV_CODEC_H264_MVC_DEC) {
@@ -991,6 +1034,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 
 	switch (ctx->src_fmt->fourcc) {
 	case V4L2_PIX_FMT_YUV420M:
+	case V4L2_PIX_FMT_YUV420N:
 	case V4L2_PIX_FMT_YVU420M:
 		ctx->raw_buf.plane_size[0] = ALIGN(default_size, 256);
 		ctx->raw_buf.plane_size[1] = ALIGN(default_size >> 2, 256);
@@ -998,6 +1042,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 		break;
 	case V4L2_PIX_FMT_NV12MT_16X16:
 	case V4L2_PIX_FMT_NV12M:
+	case V4L2_PIX_FMT_NV12N:
 	case V4L2_PIX_FMT_NV21M:
 		raw->plane_size[0] = ALIGN(default_size, 256);
 		raw->plane_size[1] = ALIGN(default_size / 2, 256);
@@ -1032,6 +1077,13 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 	for (i = 0; i < raw->num_planes; i++)
 		raw->plane_size[i] += add_size;
 
+	for (i = 0; i < raw->num_planes; i++) {
+		raw->total_plane_size += raw->plane_size[i];
+		mfc_debug(2, "Plane[%d] size = %d, stride = %d\n",
+			i, raw->plane_size[i], raw->stride[i]);
+	}
+	mfc_debug(2, "total plane size: %d\n", raw->total_plane_size);
+
 	if (IS_MFCv7X(dev) || IS_MFCV8(dev))
 		set_linear_stride_size(ctx, ctx->src_fmt);
 }
@@ -1063,9 +1115,8 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_buf *buf;
 	struct s5p_mfc_raw_info *raw, *tiled_ref;
 	struct list_head *buf_queue;
-	unsigned char *dpb_vir;
 	unsigned int reg = 0;
-	unsigned int j;
+	unsigned int num_dpb;
 
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
@@ -1165,54 +1216,19 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		buf_queue = &dec->dpb_queue;
 
 	if (IS_MFCV8(dev)) {
-		i = 0;
+		num_dpb = 0;
 		list_for_each_entry(buf, buf_queue, list) {
 			/* Do not setting DPB */
 			if (dec->is_dynamic_dpb)
 				break;
-			for (j = 0; j < raw->num_planes; j++) {
-				MFC_WRITEL(buf->planes.raw[j],
-					S5P_FIMV_D_FIRST_PLANE_DPB0 + (j*0x100 + i*4));
+			for (i = 0; i < raw->num_planes; i++) {
+				MFC_WRITEL(buf->planes.raw[i],
+					S5P_FIMV_D_FIRST_PLANE_DPB0 + (i*0x100 + num_dpb*4));
 			}
 
-			if ((i == 0) && (!ctx->is_drm)) {
-				int j, color[3] = { 0x0, 0x80, 0x80 };
-				for (j = 0; j < raw->num_planes; j++) {
-					dpb_vir = vb2_plane_vaddr(&buf->vb, j);
-					if (dpb_vir)
-						memset(dpb_vir, color[j],
-							raw->plane_size[j]);
-				}
-				s5p_mfc_mem_clean_vb(&buf->vb, j);
-			}
-			i++;
-		}
-	} else {
-		i = 0;
-		list_for_each_entry(buf, buf_queue, list) {
-			/* Do not setting DPB */
-			if (dec->is_dynamic_dpb)
-				break;
-			mfc_debug(2, "Luma %llx\n",
-				(unsigned long long)buf->planes.raw[0]);
-			MFC_WRITEL(buf->planes.raw[0],
-					S5P_FIMV_D_FIRST_PLANE_DPB0 + (i * 4));
-			mfc_debug(2, "\tChroma %llx\n",
-				(unsigned long long)buf->planes.raw[1]);
-			MFC_WRITEL(buf->planes.raw[1],
-					S5P_FIMV_D_SECOND_PLANE_DPB0 + (i * 4));
-
-			if ((i == 0) && (!ctx->is_drm)) {
-				int j, color[3] = { 0x0, 0x80, 0x80 };
-				for (j = 0; j < raw->num_planes; j++) {
-					dpb_vir = vb2_plane_vaddr(&buf->vb, j);
-					if (dpb_vir)
-						memset(dpb_vir, color[j],
-							raw->plane_size[j]);
-				}
-				s5p_mfc_mem_clean_vb(&buf->vb, j);
-			}
-			i++;
+			if ((num_dpb == 0) && (!ctx->is_drm))
+				mfc_fill_dynamic_dpb(ctx, &buf->vb);
+			num_dpb++;
 		}
 	}
 

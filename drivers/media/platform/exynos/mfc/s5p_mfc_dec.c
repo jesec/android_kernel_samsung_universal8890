@@ -19,7 +19,6 @@
 #include <linux/version.h>
 #include <linux/workqueue.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_media.h>
 #include <media/videobuf2-core.h>
 
 #include "s5p_mfc_dec.h"
@@ -588,9 +587,9 @@ static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool mplane, bool out)
 	int i, j = 0;
 
 	for (i = 0; i < ARRAY_SIZE(formats); ++i) {
-		if (mplane && formats[i].num_planes == 1)
+		if (mplane && formats[i].mem_planes == 1)
 			continue;
-		else if (!mplane && formats[i].num_planes > 1)
+		else if (!mplane && formats[i].mem_planes > 1)
 			continue;
 		if (out && formats[i].type != MFC_FMT_DEC)
 			continue;
@@ -678,7 +677,7 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 
 		/* only 2 plane is supported for HEVC 10bit */
 		if (ctx->raw_buf.num_planes == 3 && dec->is_10bit) {
-			ctx->dst_fmt = (struct s5p_mfc_fmt *)&formats[4];
+			ctx->dst_fmt = (struct s5p_mfc_fmt *)&formats[5];
 			ctx->raw_buf.num_planes = 2;
 			mfc_info_ctx("HEVC 10bit : format is changed to 0x%x\n",
 							ctx->dst_fmt->fourcc);
@@ -693,7 +692,7 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 
 		pix_mp->width = ctx->img_width;
 		pix_mp->height = ctx->img_height;
-		pix_mp->num_planes = raw->num_planes;
+		pix_mp->num_planes = ctx->dst_fmt->mem_planes;
 
 		if (dec->is_interlaced)
 			pix_mp->field = V4L2_FIELD_INTERLACED;
@@ -703,11 +702,13 @@ static int vidioc_g_fmt_vid_cap_mplane(struct file *file, void *priv,
 		/* Set pixelformat to the format in which MFC
 		   outputs the decoded frame */
 		pix_mp->pixelformat = ctx->dst_fmt->fourcc;
-		for (i = 0; i < raw->num_planes; i++) {
+		for (i = 0; i < ctx->dst_fmt->mem_planes; i++) {
 			pix_mp->plane_fmt[i].bytesperline = raw->stride[i];
 			if (dec->is_10bit)
 				pix_mp->plane_fmt[i].sizeimage = raw->plane_size[i]
 							+ raw->plane_size_2bits[i];
+			else if (ctx->dst_fmt->mem_planes == 1)
+				pix_mp->plane_fmt[i].sizeimage = raw->total_plane_size;
 			else
 				pix_mp->plane_fmt[i].sizeimage = raw->plane_size[i];
 		}
@@ -743,7 +744,7 @@ static int vidioc_g_fmt_vid_out_mplane(struct file *file, void *priv,
 	pix_mp->plane_fmt[0].bytesperline = dec->src_buf_size;
 	pix_mp->plane_fmt[0].sizeimage = (unsigned int)(dec->src_buf_size);
 	pix_mp->pixelformat = ctx->src_fmt->fourcc;
-	pix_mp->num_planes = ctx->src_fmt->num_planes;
+	pix_mp->num_planes = ctx->src_fmt->mem_planes;
 
 	mfc_debug_leave();
 
@@ -793,6 +794,13 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		if (IS_MFCV8(dev)) {
 			if (fmt->fourcc == V4L2_PIX_FMT_NV12MT_16X16) {
 				mfc_err_dev("Not supported format.\n");
+				return -EINVAL;
+			}
+		}
+		if (!IS_MFCv10X(dev)) {
+			if (fmt->fourcc == V4L2_PIX_FMT_NV12N ||
+				fmt->fourcc == V4L2_PIX_FMT_YUV420N) {
+				mfc_err_dev("Not supported single plane format.\n");
 				return -EINVAL;
 			}
 		}
@@ -1846,7 +1854,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		   vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		mfc_debug(2, "setting for VIDEO capture\n");
 		/* Output plane count is different by the pixel format */
-		*plane_count = raw->num_planes;
+		*plane_count = ctx->dst_fmt->mem_planes;
 		/* Setup buffer count */
 		if (*buf_count < ctx->dpb_count)
 			*buf_count = ctx->dpb_count;
@@ -1867,9 +1875,14 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		else
 			capture_ctx = alloc_ctx;
 
-		for (i = 0; i < raw->num_planes; i++) {
-			psize[i] = raw->plane_size[i];
-			allocators[i] = capture_ctx;
+		if (ctx->dst_fmt->mem_planes == 1) {
+			psize[0] = raw->total_plane_size;
+			allocators[0] = capture_ctx;
+		} else {
+			for (i = 0; i < ctx->dst_fmt->num_planes; i++) {
+				psize[i] = raw->plane_size[i];
+				allocators[i] = capture_ctx;
+			}
 		}
 
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
@@ -1937,7 +1950,8 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_dec *dec;
 	struct s5p_mfc_buf *buf = vb_to_mfc_buf(vb);
-	int i;
+	dma_addr_t start_raw;
+	int i, ret;
 	unsigned long flags;
 
 	mfc_debug_enter();
@@ -1962,12 +1976,27 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 			mfc_debug_leave();
 			return 0;
 		}
-		for (i = 0; i < ctx->dst_fmt->num_planes; i++) {
-			if (s5p_mfc_mem_plane_addr(ctx, vb, i) == 0) {
-				mfc_err_ctx("Plane mem not allocated.\n");
-				return -EINVAL;
-			}
-			buf->planes.raw[i] = s5p_mfc_mem_plane_addr(ctx, vb, i);
+		ret = check_vb_with_fmt(ctx->dst_fmt, vb);
+		if (ret < 0)
+			return ret;
+
+		start_raw = s5p_mfc_mem_plane_addr(ctx, vb, 0);
+		if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_NV12N) {
+			buf->planes.raw[0] = start_raw;
+			buf->planes.raw[1] = NV12N_CBCR_BASE(start_raw,
+							ctx->img_width,
+							ctx->img_height);
+		} else if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_YUV420N) {
+			buf->planes.raw[0] = start_raw;
+			buf->planes.raw[1] = YUV420N_CB_BASE(start_raw,
+							ctx->img_width,
+							ctx->img_height);
+			buf->planes.raw[2] = YUV420N_CR_BASE(start_raw,
+							ctx->img_width,
+							ctx->img_height);
+		} else {
+			for (i = 0; i < ctx->dst_fmt->mem_planes; i++)
+				buf->planes.raw[i] = s5p_mfc_mem_plane_addr(ctx, vb, i);
 		}
 
 		spin_lock_irqsave(&dev->irqlock, flags);
@@ -1979,10 +2008,10 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 					vb->v4l2_buf.index) < 0)
 			mfc_err_ctx("failed in init_buf_ctrls\n");
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (s5p_mfc_mem_plane_addr(ctx, vb, 0) == 0) {
-			mfc_err_ctx("Plane memory not allocated.\n");
-			return -EINVAL;
-		}
+		ret = check_vb_with_fmt(ctx->src_fmt, vb);
+		if (ret < 0)
+			return ret;
+
 		buf->planes.stream = s5p_mfc_mem_plane_addr(ctx, vb, 0);
 
 		if (call_cop(ctx, init_buf_ctrls, ctx, MFC_CTRL_TYPE_SRC,
@@ -2018,16 +2047,24 @@ static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
 	}
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		raw = &ctx->raw_buf;
-		for (i = 0; i < raw->num_planes; i++) {
-			if (vb2_plane_size(vb, i) < raw->plane_size[i]) {
-				mfc_err_ctx("Capture plane[%d] is too small\n", i);
-				mfc_err_ctx("%lu is smaller than %d\n",
-						vb2_plane_size(vb, i),
-						raw->plane_size[i]);
+		/* check the size per plane */
+		if (ctx->dst_fmt->mem_planes == 1) {
+			mfc_debug(2, "Plane size = %lu, dst size:%d\n",
+					vb2_plane_size(vb, 0),
+					raw->total_plane_size);
+			if (vb2_plane_size(vb, 0) < raw->total_plane_size) {
+				mfc_err_ctx("Capture plane is too small\n");
 				return -EINVAL;
-			} else {
-				mfc_debug(2, "Plane[%d] size = %lu\n",
-						i, vb2_plane_size(vb, i));
+			}
+		} else {
+			for (i = 0; i < ctx->dst_fmt->mem_planes; i++) {
+				mfc_debug(2, "Plane[%d] size: %lu, dst[%d] size: %d\n",
+						i, vb2_plane_size(vb, i),
+						i, raw->plane_size[i]);
+				if (vb2_plane_size(vb, i) < raw->plane_size[i]) {
+					mfc_err_ctx("Capture plane[%d] is too small\n", i);
+					return -EINVAL;
+				}
 			}
 		}
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -2250,21 +2287,6 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 #define mfc_need_to_fill_dpb(ctx, dec, index)						\
 				((dec->is_dynamic_dpb) && (!dec->dynamic_ref_filled)	\
 				 && (!ctx->is_drm) && (index == 0))
-int mfc_fill_dynamic_dpb(struct s5p_mfc_raw_info *raw, struct vb2_buffer *vb)
-{
-	int i;
-	int color[3] = { 0x0, 0x80, 0x80 };
-	unsigned char *dpb_vir;
-
-	for (i = 0; i < raw->num_planes; i++) {
-		dpb_vir = vb2_plane_vaddr(vb, i);
-		if (dpb_vir)
-			memset(dpb_vir, color[i], raw->plane_size[i]);
-	}
-	s5p_mfc_mem_clean_vb(vb, raw->num_planes);
-
-	return 0;
-}
 
 static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 {
@@ -2277,7 +2299,7 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 	struct s5p_mfc_buf *dpb_buf, *tmp_buf;
 	int wait_flag = 0;
 	int remove_flag = 0;
-	int index;
+	int index, i;
 	int skip_add = 0;
 	unsigned char *stream_vir = NULL;
 
@@ -2301,9 +2323,9 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 		buf->used = 0;
 		buf->consumed = 0;
 		mfc_debug(2, "Src queue: %p\n", &ctx->src_queue);
-		mfc_debug(2, "Adding to src: %p (0x%08lx, 0x%08lx)\n", vb,
-			(unsigned long)s5p_mfc_mem_plane_addr(ctx, vb, 0),
-			(unsigned long)buf->planes.stream);
+		mfc_debug(2, "Adding to src: %p (0x%08llx, 0x%08llx)\n", vb,
+				s5p_mfc_mem_plane_addr(ctx, vb, 0),
+				buf->planes.stream);
 		if (ctx->state < MFCINST_HEAD_PARSED && !ctx->is_drm) {
 			stream_vir = vb2_plane_vaddr(vb, 0);
 			s5p_mfc_mem_inv_vb(vb, 1);
@@ -2318,8 +2340,11 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 		buf->already = 0;
 		index = vb->v4l2_buf.index;
 		mfc_debug(2, "Dst queue: %p\n", &ctx->dst_queue);
-		mfc_debug(2, "Adding to dst: %p (0x%08lx)\n", vb,
-			(unsigned long)s5p_mfc_mem_plane_addr(ctx, vb, 0));
+		mfc_debug(2, "Adding to dst: %p (0x%08llx)\n", vb,
+				s5p_mfc_mem_plane_addr(ctx, vb, 0));
+		for (i = 0; i < ctx->dst_fmt->num_planes; i++)
+			mfc_debug(2, "dec dst plane[%d]: %08llx\n",
+					i, buf->planes.raw[i]);
 		mfc_debug(2, "ADDING Flag before: %lx (%d)\n",
 					dec->dpb_status, index);
 		/* Mark destination as available for use by MFC */
@@ -2334,8 +2359,8 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 				}
 			}
 			if (remove_flag == 0) {
-				mfc_err_ctx("Can't find buf(0x%08lx)\n",
-					(unsigned long)buf->planes.raw[0]);
+				mfc_err_ctx("Can't find buf(0x%08llx)\n",
+						buf->planes.raw[0]);
 				spin_unlock_irqrestore(&dev->irqlock, flags);
 				return;
 			}
@@ -2368,7 +2393,7 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 		}
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 		if (mfc_need_to_fill_dpb(ctx, dec, index)) {
-			mfc_fill_dynamic_dpb(&ctx->raw_buf, vb);
+			mfc_fill_dynamic_dpb(ctx, vb);
 			dec->dynamic_ref_filled = 1;
 		}
 		if ((dec->dst_memtype == V4L2_MEMORY_USERPTR || dec->dst_memtype == V4L2_MEMORY_DMABUF) &&

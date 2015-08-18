@@ -452,7 +452,7 @@ static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
 	struct s5p_mfc_dec *dec;
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_buf *dst_buf;
-	int index, is_first = 1;
+	int index, i, is_first = 1;
 	unsigned int interlace_type = 0, is_interlace = 0;
 
 	if (!ctx) {
@@ -481,8 +481,8 @@ static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
 					  dst_buf->vb.v4l2_buf.index);
 		if (interlaced_cond(ctx))
 			is_interlace = s5p_mfc_is_interlace_picture();
-		vb2_set_plane_payload(&dst_buf->vb, 0, 0);
-		vb2_set_plane_payload(&dst_buf->vb, 1, 0);
+		for (i = 0; i < ctx->dst_fmt->mem_planes; i++)
+			vb2_set_plane_payload(&dst_buf->vb, i, 0);
 		list_del(&dst_buf->list);
 		ctx->dst_queue_cnt--;
 		dst_buf->vb.v4l2_buf.sequence = (ctx->sequence++);
@@ -777,9 +777,17 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 			mfc_debug(2, "is_interlace : %d interlace_type : %d\n",
 				is_interlace, interlace_type);
 
-			for (i = 0; i < raw->num_planes; i++)
-				vb2_set_plane_payload(&dst_buf->vb, i,
+			if (ctx->src_fmt->mem_planes == 1) {
+				vb2_set_plane_payload(&dst_buf->vb, 0,
+							raw->total_plane_size);
+				mfc_debug(5, "single plane payload: %d\n",
+							raw->total_plane_size);
+			} else {
+				for (i = 0; i < ctx->src_fmt->mem_planes; i++) {
+					vb2_set_plane_payload(&dst_buf->vb, i,
 							raw->plane_size[i]);
+				}
+			}
 
 			clear_bit(index, &dec->dpb_status);
 

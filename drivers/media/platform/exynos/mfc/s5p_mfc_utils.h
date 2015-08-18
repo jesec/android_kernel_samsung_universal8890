@@ -28,5 +28,6 @@ int get_framerate_by_interval(int interval);
 int get_framerate(struct timeval *to, struct timeval *from);
 
 void s5p_mfc_cleanup_queue(struct list_head *lh);
+int check_vb_with_fmt(struct s5p_mfc_fmt *fmt, struct vb2_buffer *vb);
 
 #endif /* __S5P_MFC_UTILS_H */

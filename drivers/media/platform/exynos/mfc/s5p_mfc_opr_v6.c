@@ -112,6 +112,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 
 	switch (ctx->dst_fmt->fourcc) {
 	case V4L2_PIX_FMT_NV12M:
+	case V4L2_PIX_FMT_NV12N:
 	case V4L2_PIX_FMT_NV12MT_16X16:
 		pix_val = 0;
 		break;
@@ -127,6 +128,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		}
 		break;
 	case V4L2_PIX_FMT_YUV420M:
+	case V4L2_PIX_FMT_YUV420N:
 		if (IS_MFCV8(dev)) {
 			pix_val = 3;
 		} else {
@@ -719,11 +721,15 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 		mfc_debug(2, "Setting ctx->state to FINISHING\n");
 		s5p_mfc_change_state(ctx, MFCINST_FINISHING);
 	}
+
 	for (i = 0; i < raw->num_planes; i++) {
-		src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
-		mfc_debug(2, "enc src[%d] addr: 0x%08lx",
-				i, (unsigned long)src_addr[i]);
+		src_addr[i] = src_mb->planes.raw[i];
+		mfc_debug(2, "enc src[%d] addr: 0x%08llx\n", i, src_addr[i]);
 	}
+	if (src_mb->planes.raw[0] != s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, 0))
+		mfc_err_ctx("enc src yaddr: 0x%08llx != vb2 yaddr: 0x%08llx\n",
+				src_mb->planes.raw[i],
+				s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i));
 
 	s5p_mfc_set_enc_frame_buffer(ctx, &src_addr[0], raw->num_planes);
 

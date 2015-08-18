@@ -677,6 +677,7 @@ struct s5p_mfc_raw_info {
 	int plane_size[3];
 	int stride_2bits[3];
 	int plane_size_2bits[3];
+	unsigned int total_plane_size;
 };
 
 struct mfc_timestamp {
@@ -786,6 +787,7 @@ struct s5p_mfc_fmt {
 	u32 codec_mode;
 	u32 type;
 	u32 num_planes;
+	u32 mem_planes;
 };
 
 /**

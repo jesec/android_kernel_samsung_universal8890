@@ -19,7 +19,6 @@
 #include <linux/version.h>
 #include <linux/workqueue.h>
 #include <linux/videodev2.h>
-#include <linux/videodev2_exynos_media.h>
 #include <media/videobuf2-core.h>
 #include <linux/v4l2-controls.h>
 
@@ -795,18 +794,17 @@ static void cleanup_ref_queue(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	struct s5p_mfc_buf *mb_entry;
-	dma_addr_t mb_addr;
 	int i;
 
 	/* move buffers in ref queue to src queue */
 	while (!list_empty(&enc->ref_queue)) {
 		mb_entry = list_entry((&enc->ref_queue)->next, struct s5p_mfc_buf, list);
 
-		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
-			mb_addr = s5p_mfc_mem_plane_addr(ctx, &mb_entry->vb, i);
-			mfc_debug(2, "enc ref[%d] addr: 0x%08lx", i,
-					(unsigned long)mb_addr);
-		}
+		mfc_debug(2, "enc ref addr: 0x%08llx",
+			s5p_mfc_mem_plane_addr(ctx, &mb_entry->vb, 0));
+		for (i = 0; i < ctx->raw_buf.num_planes; i++)
+			mfc_debug(2, "ref plane[%d] addr: 0x%08llx",
+					i, mb_entry->planes.raw[i]);
 
 		list_del(&mb_entry->list);
 		enc->ref_queue_cnt--;
@@ -902,11 +900,16 @@ static int enc_pre_frame_start(struct s5p_mfc_ctx *ctx)
 	spin_lock_irqsave(&dev->irqlock, flags);
 
 	src_mb = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
+
 	for (i = 0; i < raw->num_planes; i++) {
-		src_addr[i] = s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i);
-		mfc_debug(2, "enc src[%d] addr: 0x%08lx",
-					i, (unsigned long)src_addr[i]);
+		src_addr[i] = src_mb->planes.raw[i];
+		mfc_debug(2, "enc src[%d] addr: 0x%08llx\n", i, src_addr[i]);
 	}
+	if (src_mb->planes.raw[0] != s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, 0))
+		mfc_err_ctx("enc src yaddr: 0x%08llx != vb2 yaddr: 0x%08llx\n",
+				src_mb->planes.raw[i],
+				s5p_mfc_mem_plane_addr(ctx, &src_mb->vb, i));
+
 	s5p_mfc_set_enc_frame_buffer(ctx, &src_addr[0], raw->num_planes);
 
 	dst_mb = list_entry(ctx->dst_queue.next, struct s5p_mfc_buf, list);
@@ -1079,17 +1082,20 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 		s5p_mfc_get_enc_frame_buffer(ctx, &enc_addr[0], raw->num_planes);
 
 		for (i = 0; i < raw->num_planes; i++)
-			mfc_debug(2, "encoded[%d] addr: 0x%08lx", i,
-					(unsigned long)enc_addr[i]);
+			mfc_debug(2, "encoded[%d] addr: 0x%08llx\n",
+						i, enc_addr[i]);
 
 		list_for_each_entry_safe(mb_entry, next_entry,
 						&ctx->src_queue, list) {
 			for (i = 0; i < raw->num_planes; i++) {
-				mb_addr[i] = s5p_mfc_mem_plane_addr(ctx,
-							&mb_entry->vb, i);
-				mfc_debug(2, "enc src[%d] addr: 0x%08lx", i,
-						(unsigned long)mb_addr[i]);
+				mb_addr[i] = mb_entry->planes.raw[i];
+				mfc_debug(2, "enc src[%d] addr: 0x%08llx\n",
+						i, mb_addr[i]);
 			}
+			if (mb_entry->planes.raw[0] != s5p_mfc_mem_plane_addr(ctx, &mb_entry->vb, 0))
+				mfc_err_ctx("enc src yaddr: 0x%08llx != vb2 yaddr: 0x%08llx\n",
+						mb_entry->planes.raw[i],
+						s5p_mfc_mem_plane_addr(ctx, &mb_entry->vb, i));
 
 			if (enc_addr[0] == mb_addr[0]) {
 				index = mb_entry->vb.v4l2_buf.index;
@@ -1107,11 +1113,14 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 
 		list_for_each_entry(mb_entry, &enc->ref_queue, list) {
 			for (i = 0; i < raw->num_planes; i++) {
-				mb_addr[i] = s5p_mfc_mem_plane_addr(ctx,
-						&mb_entry->vb, i);
-				mfc_debug(2, "enc ref[%d] addr: 0x%08lx", i,
-						(unsigned long)mb_addr[i]);
+				mb_addr[i] = mb_entry->planes.raw[i];
+				mfc_debug(2, "enc ref[%d] addr: 0x%08llx\n",
+							i, mb_addr[i]);
 			}
+			if (mb_entry->planes.raw[0] != s5p_mfc_mem_plane_addr(ctx, &mb_entry->vb, 0))
+				mfc_err_ctx("enc ref yaddr: 0x%08llx != vb2 yaddr: 0x%08llx\n",
+						mb_entry->planes.raw[i],
+						s5p_mfc_mem_plane_addr(ctx, &mb_entry->vb, i));
 
 			if (enc_addr[0] == mb_addr[0]) {
 				list_del(&mb_entry->list);
@@ -1202,9 +1211,9 @@ static int vidioc_enum_fmt(struct v4l2_fmtdesc *f, bool mplane, bool out)
 	int j = 0;
 
 	for (i = 0; i < ARRAY_SIZE(formats); ++i) {
-		if (mplane && formats[i].num_planes == 1)
+		if (mplane && formats[i].mem_planes == 1)
 			continue;
-		else if (!mplane && formats[i].num_planes > 1)
+		else if (!mplane && formats[i].mem_planes > 1)
 			continue;
 		if (out && formats[i].type != MFC_FMT_RAW)
 			continue;
@@ -1268,7 +1277,7 @@ static int vidioc_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		pix_fmt_mp->height = 0;
 		pix_fmt_mp->field = V4L2_FIELD_NONE;
 		pix_fmt_mp->pixelformat = ctx->dst_fmt->fourcc;
-		pix_fmt_mp->num_planes = ctx->dst_fmt->num_planes;
+		pix_fmt_mp->num_planes = ctx->dst_fmt->mem_planes;
 
 		pix_fmt_mp->plane_fmt[0].bytesperline = enc->dst_buf_size;
 		pix_fmt_mp->plane_fmt[0].sizeimage = (unsigned int)(enc->dst_buf_size);
@@ -1280,9 +1289,8 @@ static int vidioc_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		pix_fmt_mp->height = ctx->img_height;
 		pix_fmt_mp->field = V4L2_FIELD_NONE;
 		pix_fmt_mp->pixelformat = ctx->src_fmt->fourcc;
-		pix_fmt_mp->num_planes = ctx->src_fmt->num_planes;
-
-		for (i = 0; i < raw->num_planes; i++) {
+		pix_fmt_mp->num_planes = ctx->src_fmt->mem_planes;
+		for (i = 0; i < ctx->src_fmt->mem_planes; i++) {
 			pix_fmt_mp->plane_fmt[i].bytesperline = raw->stride[i];
 			pix_fmt_mp->plane_fmt[i].sizeimage = raw->plane_size[i];
 		}
@@ -1304,12 +1312,12 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		fmt = find_format(f, MFC_FMT_ENC);
 		if (!fmt) {
-			mfc_err("failed to try output format\n");
+			mfc_err("failed to try capture format\n");
 			return -EINVAL;
 		}
 
 		if (pix_fmt_mp->plane_fmt[0].sizeimage == 0) {
-			mfc_err("must be set encoding output size\n");
+			mfc_err("must be set encoding dst size\n");
 			return -EINVAL;
 		}
 
@@ -1322,8 +1330,9 @@ static int vidioc_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			return -EINVAL;
 		}
 
-		if (fmt->num_planes != pix_fmt_mp->num_planes) {
-			mfc_err("failed to try output format\n");
+		if (fmt->mem_planes != pix_fmt_mp->num_planes) {
+			mfc_err("plane number is different (%d != %d)\n",
+				fmt->mem_planes, pix_fmt_mp->num_planes);
 			return -EINVAL;
 		}
 	} else {
@@ -1418,8 +1427,9 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			}
 		}
 
-		if (fmt->num_planes != pix_fmt_mp->num_planes) {
-			mfc_err_ctx("failed to set output format\n");
+		if (fmt->mem_planes != pix_fmt_mp->num_planes) {
+			mfc_err_ctx("plane number is different (%d != %d)\n",
+				fmt->mem_planes, pix_fmt_mp->num_planes);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -2795,34 +2805,6 @@ static const struct v4l2_ioctl_ops s5p_mfc_enc_ioctl_ops = {
 	.vidioc_try_ext_ctrls = vidioc_try_ext_ctrls,
 };
 
-static int check_vb_with_fmt(struct s5p_mfc_fmt *fmt, struct vb2_buffer *vb)
-{
-	struct vb2_queue *vq = vb->vb2_queue;
-	struct s5p_mfc_ctx *ctx = vq->drv_priv;
-	int i;
-
-	if (!fmt)
-		return -EINVAL;
-
-	if (fmt->num_planes != vb->num_planes) {
-		mfc_err("invalid plane number for the format\n");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < fmt->num_planes; i++) {
-		if (!s5p_mfc_mem_plane_addr(ctx, vb, i)) {
-			mfc_err("failed to get plane cookie\n");
-			return -EINVAL;
-		}
-
-		mfc_debug(2, "index: %d, plane[%d] cookie: 0x%08lx",
-			vb->v4l2_buf.index, i,
-			(unsigned long)s5p_mfc_mem_plane_addr(ctx, vb, i));
-	}
-
-	return 0;
-}
-
 static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 				const struct v4l2_format *fmt,
 				unsigned int *buf_count, unsigned int *plane_count,
@@ -2850,7 +2832,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (ctx->dst_fmt)
-			*plane_count = ctx->dst_fmt->num_planes;
+			*plane_count = ctx->dst_fmt->mem_planes;
 		else
 			*plane_count = MFC_ENC_CAP_PLANE_COUNT;
 
@@ -2868,7 +2850,7 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 		raw = &ctx->raw_buf;
 
 		if (ctx->src_fmt)
-			*plane_count = ctx->src_fmt->num_planes;
+			*plane_count = ctx->src_fmt->mem_planes;
 		else
 			*plane_count = MFC_ENC_OUT_PLANE_COUNT;
 
@@ -2883,9 +2865,14 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 			output_ctx = alloc_ctx;
 		}
 
-		for (i = 0; i < *plane_count; i++) {
-			psize[i] = raw->plane_size[i];
-			allocators[i] = output_ctx;
+		if (*plane_count == 1) {
+			psize[0] = raw->total_plane_size;
+			allocators[0] = output_ctx;
+		} else {
+			for (i = 0; i < *plane_count; i++) {
+				psize[i] = raw->plane_size[i];
+				allocators[i] = output_ctx;
+			}
 		}
 	} else {
 		mfc_err_ctx("invalid queue type: %d\n", vq->type);
@@ -2922,6 +2909,7 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 	struct vb2_queue *vq = vb->vb2_queue;
 	struct s5p_mfc_ctx *ctx = vq->drv_priv;
 	struct s5p_mfc_buf *buf = vb_to_mfc_buf(vb);
+	dma_addr_t start_raw;
 	int i, ret;
 
 	mfc_debug_enter();
@@ -2942,8 +2930,28 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 		if (ret < 0)
 			return ret;
 
-		for (i = 0; i < ctx->src_fmt->num_planes; i++)
-			buf->planes.raw[i] = s5p_mfc_mem_plane_addr(ctx, vb, i);
+		start_raw = s5p_mfc_mem_plane_addr(ctx, vb, 0);
+		if (start_raw == 0) {
+			mfc_err_ctx("Plane mem not allocated.\n");
+			return -ENOMEM;
+		}
+		if (ctx->src_fmt->fourcc == V4L2_PIX_FMT_NV12N) {
+			buf->planes.raw[0] = start_raw;
+			buf->planes.raw[1] = NV12N_CBCR_BASE(start_raw,
+							ctx->img_width,
+							ctx->img_height);
+		} else if (ctx->src_fmt->fourcc == V4L2_PIX_FMT_YUV420N) {
+			buf->planes.raw[0] = start_raw;
+			buf->planes.raw[1] = YUV420N_CB_BASE(start_raw,
+							ctx->img_width,
+							ctx->img_height);
+			buf->planes.raw[2] = YUV420N_CR_BASE(start_raw,
+							ctx->img_width,
+							ctx->img_height);
+		} else {
+			for (i = 0; i < ctx->src_fmt->num_planes; i++)
+				buf->planes.raw[i] = s5p_mfc_mem_plane_addr(ctx, vb, i);
+		}
 
 		if (call_cop(ctx, init_buf_ctrls, ctx, MFC_CTRL_TYPE_SRC,
 					vb->v4l2_buf.index) < 0)
@@ -2988,16 +2996,23 @@ static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
 			return ret;
 
 		raw = &ctx->raw_buf;
-		for (i = 0; i < raw->num_planes; i++) {
-			mfc_debug(2, "plane[%d] size: %ld, src[%d] size: %d\n",
-				i, vb2_plane_size(vb, i),
-				i, raw->plane_size[i]);
-			if (vb2_plane_size(vb, i) < raw->plane_size[i]) {
-				mfc_err_ctx("Output plane[%d] is too smalli\n", i);
-				mfc_err_ctx("plane size: %ld, src size: %d\n",
-						vb2_plane_size(vb, i),
-						raw->plane_size[i]);
+		if (ctx->src_fmt->mem_planes == 1) {
+			mfc_debug(2, "Plane size = %lu, src size:%d\n",
+					vb2_plane_size(vb, 0),
+					raw->total_plane_size);
+			if (vb2_plane_size(vb, 0) < raw->total_plane_size) {
+				mfc_err_ctx("Output plane is too small\n");
 				return -EINVAL;
+			}
+		} else {
+			for (i = 0; i < ctx->src_fmt->mem_planes; i++) {
+				mfc_debug(2, "plane[%d] size: %lu, src[%d] size: %d\n",
+						i, vb2_plane_size(vb, i),
+						i, raw->plane_size[i]);
+				if (vb2_plane_size(vb, i) < raw->plane_size[i]) {
+					mfc_err_ctx("Output plane[%d] is too smalli\n", i);
+					return -EINVAL;
+				}
 			}
 		}
 
@@ -3163,9 +3178,9 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		buf->used = 0;
 		mfc_debug(2, "dst queue: %p\n", &ctx->dst_queue);
-		mfc_debug(2, "adding to dst: %p (%08llx, %08llx)\n", vb,
-			(unsigned long long)s5p_mfc_mem_plane_addr(ctx, vb, 0),
-			(unsigned long long)buf->planes.stream);
+		mfc_debug(2, "Adding to dst: %p (%08llx, %08llx)\n", vb,
+				s5p_mfc_mem_plane_addr(ctx, vb, 0),
+				buf->planes.stream);
 
 		/* Mark destination as available for use by MFC */
 		spin_lock_irqsave(&dev->irqlock, flags);
@@ -3175,11 +3190,11 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		buf->used = 0;
 		mfc_debug(2, "src queue: %p\n", &ctx->src_queue);
-
+		mfc_debug(2, "Adding to src: %p (0x%08llx)\n", vb,
+				s5p_mfc_mem_plane_addr(ctx, vb, 0));
 		for (i = 0; i < ctx->src_fmt->num_planes; i++)
-			mfc_debug(2, "adding to src[%d]: %p (%08llx, %08llx)\n", i, vb,
-				(unsigned long long)s5p_mfc_mem_plane_addr(ctx, vb, i),
-				(unsigned long long)buf->planes.raw[i]);
+			mfc_debug(2, "enc src plane[%d]: %08llx\n",
+					i, buf->planes.raw[i]);
 
 		spin_lock_irqsave(&dev->irqlock, flags);
 

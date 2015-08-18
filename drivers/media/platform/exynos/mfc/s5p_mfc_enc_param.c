@@ -122,6 +122,7 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 
 	switch (ctx->src_fmt->fourcc) {
 	case V4L2_PIX_FMT_NV12M:
+	case V4L2_PIX_FMT_NV12N:
 	case V4L2_PIX_FMT_NV12MT_16X16:
 		pix_val = 0;
 		break;
@@ -132,6 +133,7 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 		pix_val = 2;
 		break;
 	case V4L2_PIX_FMT_YUV420M:
+	case V4L2_PIX_FMT_YUV420N:
 		pix_val = 3;
 		break;
 	case V4L2_PIX_FMT_ARGB32:

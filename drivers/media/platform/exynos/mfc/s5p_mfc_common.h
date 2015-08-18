@@ -18,6 +18,7 @@
 
 #include <linux/workqueue.h>
 #include <linux/slab.h>
+#include <linux/videodev2_exynos_media.h>
 
 #include "exynos-mfc.h"
 #include "exynos_mfc_media.h"
