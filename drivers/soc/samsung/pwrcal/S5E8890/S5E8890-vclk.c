@@ -32,6 +32,7 @@ static struct pwrcal_clk_set pxmxdx_top_grp[] = {
 static struct pwrcal_clk_set pxmxdx_mfc_grp[] = {
 	{CLK(MFC_MUX_ACLK_MFC_600_USER),	1,	0},
 	{CLK(MFC_DIV_PCLK_MFC_150),	3,	-1},
+	{CLK(TOP_MUXGATE_ACLK_MFC_600),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_mscl_grp[] = {
@@ -39,21 +40,28 @@ static struct pwrcal_clk_set pxmxdx_mscl_grp[] = {
 	{CLK(MSCL_MUX_ACLK_MSCL1_528_USER),	0,	0},
 	{CLK(MSCL_MUX_ACLK_MSCL1_528),	0,	-1},
 	{CLK(MSCL_DIV_PCLK_MSCL),	3,	-1},
+	{CLK(TOP_MUXGATE_ACLK_MSCL0_528),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_MSCL1_528),	0,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_imem_grp[] = {
 	{CLK(IMEM_MUX_ACLK_IMEM_266_USER),	1,	0},
 	{CLK(IMEM_MUX_ACLK_IMEM_200_USER),	1,	0},
 	{CLK(IMEM_MUX_ACLK_IMEM_100_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_IMEM_266),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_IMEM_200),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_IMEM_100),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_fsys0_grp[] = {
 	{CLK(FSYS0_MUX_ACLK_FSYS0_200_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_FSYS0_200),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_fsys1_grp[] = {
 	{CLK(FSYS1_MUX_ACLK_FSYS1_200_USER),	1,	0},
 	{CLK(FSYS1_DIV_PCLK_COMBO_PHY_WIFI),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_FSYS1_200),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_disp0_grp[] = {
@@ -64,6 +72,8 @@ static struct pwrcal_clk_set pxmxdx_disp0_grp[] = {
 	{CLK(DISP0_MUX_SCLK_DISP0_HDMI_AUDIO),	1,	-1},
 	{CLK(DISP0_DIV_PHYCLK_HDMIPHY_TMDS_20B_CLKO),	1,	-1},
 	{CLK(DISP0_DIV_PHYCLK_HDMIPHY_PIXEL_CLKO),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_DISP0_0_400),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_DISP0_1_400),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_disp1_grp[] = {
@@ -72,6 +82,8 @@ static struct pwrcal_clk_set pxmxdx_disp1_grp[] = {
 	{CLK(DISP1_MUX_ACLK_DISP1_1_400),	0,	0},
 	{CLK(DISP1_DIV_PCLK_DISP1_0_133),	3,	-1},
 	{CLK(DISP1_MUX_SCLK_DISP1_600_USER),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_DISP1_0_400),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_DISP1_1_400),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_aud_grp[] = {
@@ -93,94 +105,114 @@ static struct pwrcal_clk_set pxmxdx_aud_cp_grp[] = {
 static struct pwrcal_clk_set pxmxdx_isp0_isp0_grp[] = {
 	{CLK(ISP0_MUX_ACLK_ISP0_528_USER),	1,	0},
 	{CLK(ISP0_DIV_PCLK_ISP0),		1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_ISP0_ISP0_528),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_isp0_tpu_grp[] = {
 	{CLK(ISP0_MUX_ACLK_ISP0_TPU_400_USER),	1,	0},
 	{CLK(ISP0_DIV_PCLK_ISP0_TPU),		1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_ISP0_TPU_400),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_isp0_trex_grp[] = {
 	{CLK(ISP0_MUX_ACLK_ISP0_TREX_528_USER),	1,	0},
 	{CLK(ISP0_DIV_PCLK_ISP0_TREX_264),	1,	-1},
 	{CLK(ISP0_DIV_PCLK_ISP0_TREX_132),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_ISP0_TREX_528),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_isp0_pxl_asbs_grp[] = {
 	{CLK(ISP0_MUX_ACLK_ISP0_PXL_ASBS_IS_C_FROM_IS_D_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_ISP0_PXL_ASBS_IS_C_FROM_IS_D),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_isp1_isp1_grp[] = {
 	{CLK(ISP1_MUX_ACLK_ISP1_468_USER),	1,	0},
 	{CLK(ISP1_DIV_PCLK_ISP1_234),		1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_ISP1_ISP1_468),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam0_csis0_grp[] = {
 	{CLK(CAM0_MUX_ACLK_CAM0_CSIS0_414_USER),	1,	0},
 	{CLK(CAM0_DIV_PCLK_CAM0_CSIS0_207),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_CAM0_CSIS0_414),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam0_csis1_grp[] = {
 	{CLK(CAM0_MUX_ACLK_CAM0_CSIS1_168_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM0_CSIS1_168),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam0_csis2_grp[] = {
 	{CLK(CAM0_MUX_ACLK_CAM0_CSIS2_234_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM0_CSIS2_234),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam0_csis3_grp[] = {
 	{CLK(CAM0_MUX_ACLK_CAM0_CSIS3_132_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM0_CSIS3_132),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam0_3aa0_grp[] = {
 	{CLK(CAM0_MUX_ACLK_CAM0_3AA0_414_USER),	1,	0},
 	{CLK(CAM0_DIV_PCLK_CAM0_3AA0_207),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_CAM0_3AA0_414),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam0_3aa1_grp[] = {
 	{CLK(CAM0_MUX_ACLK_CAM0_3AA1_414_USER),	1,	0},
 	{CLK(CAM0_DIV_PCLK_CAM0_3AA1_207),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_CAM0_3AA1_414),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam0_trex_grp[] = {
 	{CLK(CAM0_MUX_ACLK_CAM0_TREX_528_USER),	1,	0},
 	{CLK(CAM0_DIV_PCLK_CAM0_TREX_264),	1,	-1},
 	{CLK(CAM0_DIV_PCLK_CAM0_TREX_132),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_CAM0_TREX_528),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_arm_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_ARM_672_USER),	1,	0},
 	{CLK(CAM1_DIV_PCLK_CAM1_ARM_168),	3,	-1},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_ARM_672),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_vra_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_TREX_VRA_528_USER),	1,	0},
 	{CLK(CAM1_DIV_PCLK_CAM1_TREX_VRA_264),		1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_TREX_VRA_528),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_trex_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_TREX_B_528_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_TREX_B_528),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_bus_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_BUS_264_USER),	1,	0},
 	{CLK(CAM1_DIV_PCLK_CAM1_BUS_132),	1,	-1},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_BUS_264),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_peri_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_PERI_84_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_PERI_84),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_csis2_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_CSIS2_414_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_CSIS2_414),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_csis3_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_CSIS3_132_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_CSIS3_132),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_cam1_scl_grp[] = {
 	{CLK(CAM1_MUX_ACLK_CAM1_SCL_566_USER),	1,	0},
+	{CLK(TOP_MUXGATE_ACLK_CAM1_SCL_566),	1,	0},
 	{CLK_NONE,				0,	0},
 };
 static struct pwrcal_clk_set pxmxdx_oscclk_nfc_grp[] = {
