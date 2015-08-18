@@ -93,16 +93,22 @@ int pwrcal_gate_disable(struct pwrcal_clk *clk)
 
 int pwrcal_mux_is_enabled(struct pwrcal_clk *clk)
 {
+	if (clk->enable)
+		return pwrcal_getbit(clk->enable, clk->e_shift);
 	return 1;
 }
 
 int pwrcal_mux_enable(struct pwrcal_clk *clk)
 {
+	if (clk->enable)
+		pwrcal_setbit(clk->enable, clk->e_shift, 1);
 	return 0;
 }
 
 int pwrcal_mux_disable(struct pwrcal_clk *clk)
 {
+	if (clk->enable)
+		pwrcal_setbit(clk->enable, clk->e_shift, 0);
 	return 0;
 }
 
@@ -116,12 +122,19 @@ int pwrcal_mux_set_src(struct pwrcal_clk *clk, unsigned int src)
 	struct pwrcal_mux *mux = to_mux(clk);
 	int timeout;
 	unsigned int mux_stat;
+	int muxgate = 1;
 
 	if (src >= (unsigned int)(mux->num_parents))
 		return -1;
 
 	if (_pwrcal_is_private_mux_set_src(clk))
 		return _pwrcal_private_mux_set_src(clk, src);
+
+	if (mux->gate != CLK_NONE) {
+		muxgate = pwrcal_gate_is_enabled(mux->gate);
+		if (!muxgate)
+			pwrcal_gate_enable(mux->gate);
+	}
 
 	if ((clk->id & user_mux_type) == user_mux_type && src == 1)
 		pwrcal_setbit(clk->offset, 27, 0);
@@ -145,6 +158,9 @@ int pwrcal_mux_set_src(struct pwrcal_clk *clk, unsigned int src)
 			cpu_relax();
 		}
 	}
+
+	if (!muxgate)
+		pwrcal_gate_disable(mux->gate);
 
 	return 0;
 
@@ -197,6 +213,8 @@ int pwrcal_div_set_ratio(struct pwrcal_clk *clk, unsigned int ratio)
 {
 	int timeout;
 	unsigned int div_stat_val;
+	struct pwrcal_div *div = to_div(clk);
+	int divgate = 1;
 
 	if (ratio == 0) {
 		pr_err("ratio is 0. \'%s\'", clk->name);
@@ -209,6 +227,12 @@ int pwrcal_div_set_ratio(struct pwrcal_clk *clk, unsigned int ratio)
 				TO_MASK(clk->width) + 1,
 				clk->name);
 		return -1;
+	}
+
+	if (div->gate != CLK_NONE) {
+		divgate = pwrcal_gate_is_enabled(div->gate);
+		if (!divgate)
+			pwrcal_gate_enable(div->gate);
 	}
 
 	pwrcal_setf(clk->offset, clk->shift, TO_MASK(clk->width), ratio - 1);
@@ -226,6 +250,9 @@ int pwrcal_div_set_ratio(struct pwrcal_clk *clk, unsigned int ratio)
 			cpu_relax();
 		}
 	}
+
+	if (!divgate)
+		pwrcal_gate_disable(div->gate);
 
 	return 0;
 
