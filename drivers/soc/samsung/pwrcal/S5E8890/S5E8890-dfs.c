@@ -542,8 +542,7 @@ static int dfsbig_init_smpl(void)
 
 static int dfsbig_set_smpl(void)
 {
-	pwrcal_setf(PWR_CTRL4_MNGS, 0, 0x3, 0);
-	pwrcal_setf(PWR_CTRL4_MNGS, 0, 0x3, 3);
+	pwrcal_setf(PWR_CTRL4_MNGS, 2, 0x3, 3);
 	return 0;
 }
 
@@ -608,8 +607,7 @@ static int dfslittle_init_smpl(void)
 
 static int dfslittle_set_smpl(void)
 {
-	pwrcal_setf(PWR_CTRL4_APOLLO, 0, 0x3, 0);
-	pwrcal_setf(PWR_CTRL4_APOLLO, 0, 0x3, 3);
+	pwrcal_setf(PWR_CTRL4_APOLLO, 2, 0x3, 3);
 	return 0;
 }
 
