@@ -348,7 +348,7 @@ static struct exynos_pmu_conf exynos8890_pmu_config[] = {
 	{	PWR_DDRPHY_SYS_PWR_REG,					{	0x3 ,	0x3 ,	0x3 ,	0x3 ,	0x0 ,	0x3 ,	0x0 ,	0x3	} },
 	{	PAD_RETENTION_LPDDR4_SYS_PWR_REG,			{	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x0 ,	0x1 ,	0x0 ,	0x0	} },
 	{	PAD_RETENTION_AUD_SYS_PWR_REG,				{	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0	} },
-	{	PAD_RETENTION_JTAG_SYS_PWR_REG,				{	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x0	} },
+	{	PAD_RETENTION_JTAG_SYS_PWR_REG,				{	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x0 ,	0x0 ,	0x1 ,	0x0	} },
 	{	PAD_RETENTION_PCIE_SYS_PWR_REG,				{	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0	} },
 	{	PAD_RETENTION_UFS_CARD_SYS_PWR_REG,			{	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x0 ,	0x0 ,	0x0 ,	0x0	} },
 	{	PAD_RETENTION_MMC2_SYS_PWR_REG,				{	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0 ,	0x0	} },
@@ -583,14 +583,14 @@ static int syspwr_hwacg_control(int mode)
 		pwrcal_setbit(QCH_CTRL_CMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SYSREG_FSYS0, 0, 1);
-		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 0);
+		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 1);
 		pwrcal_setbit(QCH_CTRL_MMC0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_UFS_LINK_EMBEDDED, 0, 1);
 		pwrcal_setbit(QCH_CTRL_USBHOST20, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PDMA0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PDMAS, 0, 1);
-		pwrcal_setbit(QCH_CTRL_PPMU_FSYS0, 0, 0);
-		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 0);
+		pwrcal_setbit(QCH_CTRL_PPMU_FSYS0, 0, 1);
+		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_USBDRD30_PHYCTRL, 0, 1);
 		pwrcal_setbit(QCH_CTRL_USBHOST20_PHYCTRL, 0, 1);
 	}
@@ -616,12 +616,6 @@ static int syspwr_hwacg_control(int mode)
 }
 static int syspwr_hwacg_control_post(int mode)
 {
-	if (pwrcal_getf(FSYS0_STATUS, 0, 0xF) == 0xF) {
-		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 1);
-		pwrcal_setbit(QCH_CTRL_USBHOST20, 0, 1);
-		pwrcal_setbit(QCH_CTRL_PPMU_FSYS0, 0, 1);
-		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 1);
-	}
 	return 0;
 }
 
@@ -2121,8 +2115,8 @@ static void pwrcal_syspwr_prepare(int mode)
 		pwrcal_setbit(FSYS1_OPTION, 31, 0);
 		pwrcal_setbit(FSYS1_OPTION, 30, 0);
 		pwrcal_setbit(FSYS1_OPTION, 29, 0);
-		pwrcal_setbit(G3D_OPTION, 31, 0);
-		pwrcal_setbit(G3D_OPTION, 30, 0);
+		pwrcal_setbit(G3D_OPTION, 31, 1);
+		pwrcal_setbit(G3D_OPTION, 30, 1);
 		pwrcal_setbit(WAKEUP_MASK, 30, 1);
 		set_pmu_central_seq_mif(true);
 		break;
@@ -2151,8 +2145,8 @@ static void pwrcal_syspwr_prepare(int mode)
 		pwrcal_setbit(FSYS1_OPTION, 31, 0);
 		pwrcal_setbit(FSYS1_OPTION, 30, 0);
 		pwrcal_setbit(FSYS1_OPTION, 29, 0);
-		pwrcal_setbit(G3D_OPTION, 31, 1);
-		pwrcal_setbit(G3D_OPTION, 30, 1);
+		pwrcal_setbit(G3D_OPTION, 31, 0);
+		pwrcal_setbit(G3D_OPTION, 30, 0);
 		pwrcal_setbit(WAKEUP_MASK, 30, 1);
 		set_pmu_central_seq_mif(true);
 		break;
@@ -2250,15 +2244,15 @@ static void pwrcal_syspwr_post(int mode)
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 2, 0);
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 1, 0);
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 0, 0);
-		pwrcal_setbit(FSYS0_OPTION, 31, 1);
-		pwrcal_setbit(FSYS0_OPTION, 30, 1);
-		pwrcal_setbit(FSYS0_OPTION, 29, 1);
-		pwrcal_setbit(FSYS1_OPTION, 31, 1);
-		pwrcal_setbit(FSYS1_OPTION, 30, 1);
-		pwrcal_setbit(FSYS1_OPTION, 29, 1);
+		pwrcal_setbit(FSYS0_OPTION, 31, 0);
+		pwrcal_setbit(FSYS0_OPTION, 30, 0);
+		pwrcal_setbit(FSYS0_OPTION, 29, 0);
+		pwrcal_setbit(FSYS1_OPTION, 31, 0);
+		pwrcal_setbit(FSYS1_OPTION, 30, 0);
+		pwrcal_setbit(FSYS1_OPTION, 29, 0);
 		pwrcal_setbit(G3D_OPTION, 31, 0);
 		pwrcal_setbit(G3D_OPTION, 30, 0);
-		pwrcal_setbit(WAKEUP_MASK, 30, 1);
+		pwrcal_setbit(WAKEUP_MASK, 30, 0);
 		set_pmu_central_seq_mif(false);
 		break;
 	default:
@@ -2286,15 +2280,15 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 2, 0);
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 1, 0);
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 0, 0);
-		pwrcal_setbit(FSYS0_OPTION, 31, 1);
-		pwrcal_setbit(FSYS0_OPTION, 30, 1);
-		pwrcal_setbit(FSYS0_OPTION, 29, 1);
-		pwrcal_setbit(FSYS1_OPTION, 31, 1);
-		pwrcal_setbit(FSYS1_OPTION, 30, 1);
-		pwrcal_setbit(FSYS1_OPTION, 29, 1);
+		pwrcal_setbit(FSYS0_OPTION, 31, 0);
+		pwrcal_setbit(FSYS0_OPTION, 30, 0);
+		pwrcal_setbit(FSYS0_OPTION, 29, 0);
+		pwrcal_setbit(FSYS1_OPTION, 31, 0);
+		pwrcal_setbit(FSYS1_OPTION, 30, 0);
+		pwrcal_setbit(FSYS1_OPTION, 29, 0);
 		pwrcal_setbit(G3D_OPTION, 31, 0);
 		pwrcal_setbit(G3D_OPTION, 30, 0);
-		pwrcal_setbit(WAKEUP_MASK, 30, 1);
+		pwrcal_setbit(WAKEUP_MASK, 30, 0);
 		set_pmu_central_seq_mif(false);
 		break;
 	default:
