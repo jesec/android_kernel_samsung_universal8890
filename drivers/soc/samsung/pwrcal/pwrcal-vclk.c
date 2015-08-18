@@ -704,6 +704,14 @@ static int m1d1g1_disable(struct vclk *vclk)
 		}
 	}
 
+	if (m1d1g1->mux != CLK_NONE) {
+		if (pwrcal_mux_is_enabled(m1d1g1->mux) != 0) {
+			ret = pwrcal_mux_disable(m1d1g1->mux);
+			if (ret)
+				goto out;
+		}
+	}
+
 out:
 	if (ret)
 		pr_err("pxmxdx_disable error (%s)\n", vclk->name);
