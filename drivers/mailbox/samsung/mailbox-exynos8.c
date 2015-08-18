@@ -823,11 +823,10 @@ static int cm3_margin_open_show(struct seq_file *buf, void *d)
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 static int cl_voltage_open_show(struct seq_file *buf, void *d)
 {
-	seq_printf(buf, "=========== [input]==[cl_volt]==============\n");
-	seq_printf(buf, "atl_voltage : %d %d\n", atl_in_voltage, atl_voltage);
-	seq_printf(buf, "apo_voltage : %d %d\n", apo_in_voltage, apo_voltage);
-	seq_printf(buf, "g3d_voltage : %d %d\n", g3d_in_voltage, g3d_voltage);
-	seq_printf(buf, "mif_voltage : %d %d\n", mif_in_voltage, mif_voltage);
+	seq_printf(buf, "[Voltage rail][input uV][cl_volt uV]\n");
+	seq_printf(buf, "MNGS : %d %d APO : %d %d GPU : %d %d MIF : %d %d \n",
+		atl_in_voltage, atl_voltage, apo_in_voltage, apo_voltage,
+		g3d_in_voltage, g3d_voltage, mif_in_voltage, mif_voltage);
 
 	return 0;
 }
