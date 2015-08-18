@@ -12,8 +12,20 @@ config VIDEO_EXYNOS_FIMG2D_V5
 	  This is a legacy driver for graphics 2D in Samsung ARM based SoC.
 
 config FIMG2D_CCI_SNOOP
-	bool "Enables CCI snoop control"
-	depends on VIDEO_EXYNOS_FIMG2D_V5
+	bool
+	depends on VIDEO_EXYNOS_FIMG2D_LEGACY
 	default n
-	---help---
-	  This enables a CCI snoop control for cache coherency.
+
+choice
+depends on VIDEO_EXYNOS_FIMG2D_V5
+prompt "FIMG2D version"
+	default VIDEO_EXYNOS_FIMG2D_LEGACY
+config VIDEO_EXYNOS_FIMG2D_LEGACY
+prompt "G2D legacy version"
+	bool
+	select FIMG2D_CCI_SNOOP
+config VIDEO_EXYNOS_FIMG2D_1SHOT2
+prompt "G2D m2m1shot2 version"
+	bool
+	select MEDIA_M2M1SHOT2
+endchoice
