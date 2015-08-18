@@ -122,6 +122,15 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	pwrcal_setbit(TOP0_ROOTCLKEN_ON_GATE, 0, 0);
 	pwrcal_setbit(TOP3_ROOTCLKEN_ON_GATE, 2, 0);
 
+	vclk_enable(VCLK(p1_bus3_pll));
+
+	if (table->switch_src_gate)
+		pwrcal_gate_enable(table->switch_src_gate);
+
+	if (table->switch_src_usermux)
+		if (pwrcal_mux_set_src(table->switch_src_usermux, 1))
+			goto errorout;
+
 	if (table->trans_pre)
 		table->trans_pre(rate_from, rate_switch);
 
@@ -161,6 +170,9 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	if (dfs_trans_div(lv_from, lv_switch, table, TRANS_LOW))
 		goto errorout;
 
+	if (rate_from > BUS3_PLL_ENABLE_THRESHOLD)
+		vclk_disable(VCLK(p1_bus3_pll));
+
 	return 0;
 
 errorout:
@@ -179,6 +191,9 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	lv_to = dfs_get_lv(rate_to, table);
 	if (lv_to < 0)
 		goto errorout;
+
+	if (rate_to > BUS3_PLL_ENABLE_THRESHOLD)
+		vclk_enable(VCLK(p1_bus3_pll));
 
 	/*
 	STEP 2. PLL transition
@@ -221,6 +236,15 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	if (table->trans_post)
 		table->trans_post(rate_switch, rate_to);
 
+	if (table->switch_src_usermux)
+		if (pwrcal_mux_set_src(table->switch_src_usermux, 0))
+			goto errorout;
+
+	if (table->switch_src_gate)
+		pwrcal_gate_disable(table->switch_src_gate);
+
+	vclk_disable(VCLK(p1_bus3_pll));
+
 	return 0;
 
 errorout:
@@ -228,11 +252,12 @@ errorout:
 }
 
 struct dfs_switch dfsbig_switches[] = {
-	{	936000,	3,	1	},
-	{	624000,	3,	2	},
-	{	468000,	3,	3	},
-	{	312000,	3,	5	},
-	{	208000,	3,	8	},
+	{	1056000,	0,	0	},
+	{	528000,	0,	1	},
+	{	352000,	0,	2	},
+	{	264000,	0,	3	},
+	{	176000,	0,	5	},
+	{	96000,	0,	10	},
 };
 
 static struct dfs_table dfsbig_table = {
@@ -269,11 +294,12 @@ struct pwrcal_clk_set dfsbig_en_list[] = {
 };
 
 struct dfs_switch dfslittle_switches[] = {
-	{	936000,	3,	0	},
-	{	468000,	3,	1	},
-	{	312000,	3,	2	},
-	{	234000,	3,	3	},
-	{	117000,	3,	7	},
+	{	1056000,	0,	0	},
+	{	528000,	0,	1	},
+	{	352000,	0,	2	},
+	{	264000,	0,	3	},
+	{	176000,	0,	5	},
+	{	96000,	0,	10	},
 };
 
 static struct dfs_table dfslittle_table = {
@@ -306,12 +332,10 @@ struct pwrcal_clk_set dfslittle_en_list[] = {
 };
 
 struct dfs_switch dfsg3d_switches[] = {
-	{	936000,	3,	0	},
-	{	468000,	3,	1	},
-	{	312000,	3,	2	},
-	{	234000,	3,	3	},
-	{	156000,	3,	5	},
-	{	104000,	3,	8	},
+	{	528000,	0,	0	},
+	{	264000,	0,	1	},
+	{	176000,	0,	2	},
+	{	88000,	0,	5	},
 };
 
 static struct dfs_table dfsg3d_table = {
@@ -355,6 +379,8 @@ static struct dfs_table dfsmif_table = {
 	.switch_mux = CLK_NONE,
 	.switch_use = 0,
 	.switch_notuse = 1,
+	.switch_src_gate = CLK(TOP_GATE_SCLK_BUS_PLL_MIF),
+	.switch_src_usermux = CLK(TOP_MUX_BUS_PLL_MIF),
 	.private_trans = pscdc_trasition,
 	.private_switch = pscdc_switch,
 	.trans_pre = dfsmif_trans_pre,

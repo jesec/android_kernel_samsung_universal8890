@@ -311,6 +311,7 @@ M1D1G1(sclk_decon1_eclk1_local,	0,	DISP1_MUX_SCLK_DISP1_DECON1_ECLK1,	DISP1_DIV_
 P1(p1_disp_pll,	0,	DISP_PLL);
 P1(p1_aud_pll,	0,	AUD_PLL);
 P1(p1_mfc_pll,	gate_bus1_mfc,	MFC_PLL_GATE);
+P1(p1_bus3_pll,	0,	BUS3_PLL);
 
 D1(d1_sclk_i2s_local,	pxmxdx_aud,	AUD_DIV_SCLK_I2S);
 D1(d1_sclk_pcm_local,	pxmxdx_aud,	AUD_DIV_SCLK_PCM);
@@ -2210,6 +2211,7 @@ void vclk_init(void)
 	ADD_LIST(vclk_p1_list, p1_disp_pll);
 	ADD_LIST(vclk_p1_list, p1_aud_pll);
 	ADD_LIST(vclk_p1_list, p1_mfc_pll);
+	ADD_LIST(vclk_p1_list, p1_bus3_pll);
 
 	ADD_LIST(vclk_d1_list, d1_sclk_i2s_local);
 	ADD_LIST(vclk_d1_list, d1_sclk_pcm_local);
@@ -2315,4 +2317,7 @@ void vclk_init(void)
 	ADD_LIST(vclk_dfs_list, dvfs_cam);
 	ADD_LIST(vclk_dfs_list, dvfs_disp);
 
+	/* This code is for reference count sync. Initial state of BUS3_PLL is enabled. */
+	vclk_enable(VCLK(p1_bus3_pll));
+	vclk_enable(VCLK(p1_bus3_pll));
 }
