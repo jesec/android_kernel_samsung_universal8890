@@ -162,12 +162,13 @@ static void dw_mci_exynos_set_clksel_timing(struct dw_mci *host, u32 timing)
 
 	clksel = mci_readl(host, CLKSEL);
 	clksel = (clksel & ~SDMMC_CLKSEL_TIMING_MASK) | timing;
+
 	mci_writel(host, CLKSEL, clksel);
 }
 
 static inline u8 dw_mci_exynos_get_ciu_div(struct dw_mci *host)
 {
-	return SDMMC_CLKSEL_GET_DIV(mci_readl(host, CLKSEL)) + 1;
+	return SDMMC_CLKSEL_GET_DIVRATIO(host->pdata->io_mode);
 }
 
 static int dw_mci_exynos_setup_clock(struct dw_mci *host)
@@ -268,6 +269,27 @@ static void dw_mci_exynos_config_hs400(struct dw_mci *host, u32 timing)
 
 	if (timing == MMC_TIMING_MMC_HS400 ||
 			timing == MMC_TIMING_MMC_HS400_ES) {
+		if(host->pdata->quirks & DW_MCI_QUIRK_ENABLE_ULP)
+		{
+			dqs |= (DWMCI_TXDT_CRC_TIMER_SET(priv->ddr200_tx_t_fastlimit,
+						priv->ddr200_tx_t_initval) |
+					DWMCI_RDDQS_EN | DWMCI_AXI_NON_BLOCKING_WRITE);
+			if (priv->delay_line || priv->tx_delay_line)
+				strobe = DWMCI_WD_DQS_DELAY_CTRL(priv->tx_delay_line) |
+				DWMCI_FIFO_CLK_DELAY_CTRL(0x2) |
+				DWMCI_RD_DQS_DELAY_CTRL(priv->delay_line);
+			else
+				strobe = DWMCI_FIFO_CLK_DELAY_CTRL(0x2) |
+				DWMCI_RD_DQS_DELAY_CTRL(90);
+		} else {
+			dqs |= (DWMCI_RDDQS_EN | DWMCI_AXI_NON_BLOCKING_WRITE);
+			if (priv->delay_line)
+				strobe = DWMCI_FIFO_CLK_DELAY_CTRL(0x2) |
+				DWMCI_RD_DQS_DELAY_CTRL(priv->delay_line);
+			else
+				strobe = DWMCI_FIFO_CLK_DELAY_CTRL(0x2) |
+				DWMCI_RD_DQS_DELAY_CTRL(90);
+		}
 		dqs |= (DATA_STROBE_EN | DWMCI_AXI_NON_BLOCKING_WRITE);
 		strobe = DQS_CTRL_RD_DELAY(strobe, priv->dqs_delay);
 		if (timing == MMC_TIMING_MMC_HS400_ES)
@@ -325,7 +347,6 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 
 	cclkin = clk_tbl[timing];
 	host->pdata->io_mode = timing;
-
 	if(host->bus_hz != cclkin)
 		wanted = cclkin;
 
@@ -333,12 +354,20 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 	case MMC_TIMING_MMC_HS400:
 	case MMC_TIMING_MMC_HS400_ES:
 		/* Update tuned sample timing */
-		clksel = SDMMC_CLKSEL_UP_SAMPLE(
-				priv->ddr200_timing, priv->tuned_sample);
-		clksel &= ~(BIT(19)); /* ultra low powermode off */
+		if(host->pdata->quirks & DW_MCI_QUIRK_ENABLE_ULP){
+			clksel = SDMMC_CLKSEL_UP_SAMPLE(
+					priv->ddr200_ulp_timing,
+					priv->tuned_sample);
+			clksel |= BIT(19); /* ultra low powermode on */
+		} else {
+			clksel = SDMMC_CLKSEL_UP_SAMPLE(
+					priv->ddr200_timing,
+					priv->tuned_sample);
+			clksel &= ~(BIT(19)); /* ultra low powermode off */
+			wanted <<= 1;
+		}
 		if (host->pdata->is_fine_tuned)
 			clksel |= BIT(6);
-		wanted <<= 1;
 		break;
 	case MMC_TIMING_MMC_DDR52:
 		clksel = priv->ddr_timing;

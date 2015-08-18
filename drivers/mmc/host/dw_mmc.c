@@ -3195,6 +3195,9 @@ static struct dw_mci_of_quirks {
 	}, {
 		.quirk  = "card-init-hwacg-ctrl",
 		.id	= DW_MCI_QUIRK_HWACG_CTRL,
+	}, {
+		.quirk  = "enable-ulp-mode",
+		.id	= DW_MCI_QUIRK_ENABLE_ULP,
 	},
 };
 

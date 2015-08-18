@@ -247,6 +247,8 @@ struct dw_mci_dma_ops {
 #define DW_MMC_QUIRK_FIXED_VOLTAGE		BIT(7)
 /* Card init W/A HWACG ctrl */
 #define DW_MCI_QUIRK_HWACG_CTRL			BIT(8)
+/* Enables ultra low power mode */
+#define DW_MCI_QUIRK_ENABLE_ULP			BIT(9)
 
 /* Slot level quirks */
 /* This slot has no write protect */
