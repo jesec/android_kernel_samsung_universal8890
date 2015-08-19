@@ -741,8 +741,6 @@ struct decon_device {
 	u32				disp_prev;
 	struct decon_init_bts		*bts_init_ops;
 
-	int				frame_done_cnt_cur;
-	int				frame_done_cnt_target;
 	int				frame_start_cnt_cur;
 	int				frame_start_cnt_target;
 	wait_queue_head_t		wait_frmdone;

@@ -712,28 +712,11 @@ static inline void decon_win_update_rect_reset(struct decon_device *decon)
 	decon->need_update = true;
 }
 
-static void decon_wait_for_framedone(struct decon_device *decon)
-{
-	int ret;
-	s64 time_ms = ktime_to_ms(ktime_get()) - ktime_to_ms(decon->trig_mask_timestamp);
-
-	if (time_ms < MAX_FRM_DONE_WAIT) {
-		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE_WAIT, &decon->sd, ktime_set(0, 0));
-		ret = wait_event_interruptible_timeout(decon->wait_frmdone,
-				(decon->frame_done_cnt_target <= decon->frame_done_cnt_cur),
-				msecs_to_jiffies(MAX_FRM_DONE_WAIT - time_ms));
-	}
-}
-
 static int decon_reg_ddi_partial_cmd(struct decon_device *decon, struct decon_win_rect *rect)
 {
 	struct decon_win_rect win_rect;
 	int ret;
 
-	decon_wait_for_framedone(decon);
-	/* TODO: need to set DSI_IDX */
-	decon_reg_wait_linecnt_is_zero_timeout(decon->id, 0, 35 * 1000);
-	DISP_SS_EVENT_LOG(DISP_EVT_LINECNT_ZERO, &decon->sd, ktime_set(0, 0));
 	/* Partial Command */
 	win_rect.x = rect->x;
 	win_rect.y = rect->y;
@@ -2489,13 +2472,6 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 
 		/* wait until decon & dsim size matches */
 		decon_wait_until_size_match(decon, decon->pdata->out_idx, 50 * 1000); /* 50ms */
-
-		if (!decon->id) {
-			/* clear I80 Framedone pending interrupt */
-			decon_write_mask(decon->id, INTERRUPT_PENDING, ~0,
-				INTERRUPT_FRAME_DONE_INT_EN);
-			decon->frame_done_cnt_target = decon->frame_done_cnt_cur + 1;
-		}
 
 		if (!decon->sw_te_wa)
 			decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);

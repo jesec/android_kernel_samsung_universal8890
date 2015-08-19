@@ -39,7 +39,6 @@ irqreturn_t decon_s_irq_handler(int irq, void *dev_data)
 	if (irq_sts_reg & INTERRUPT_FRAME_DONE_INT_EN) {
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
 		decon_warn("DECON-ext frame done interrupt shouldn't happen\n");
-		decon->frame_done_cnt_cur++;
 		decon_lpd_trig_reset(decon);
 	}
 	if (irq_sts_reg & INTERRUPT_RESOURCE_CONFLICT_INT_EN)
