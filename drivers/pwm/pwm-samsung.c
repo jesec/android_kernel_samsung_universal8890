@@ -378,6 +378,7 @@ static int pwm_samsung_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	if (our_chip->need_hw_init)
 		pwm_samsung_restore(our_chip);
 
+	clk_get_rate(our_chip->base_clk);
 	/* Check to see if we are changing the clock rate of the PWM. */
 	if (chan->period_ns != period_ns) {
 		unsigned long tin_rate;
