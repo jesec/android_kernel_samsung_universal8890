@@ -22,22 +22,13 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-direction.h>
 
-enum {
-	ION_HEAP_TYPE_EXYNOS_CONTIG = ION_HEAP_TYPE_CUSTOM + 1,
-	ION_HEAP_TYPE_EXYNOS,
-};
-
 #define EXYNOS_ION_HEAP_SYSTEM_ID 0
 #define EXYNOS_ION_HEAP_EXYNOS_CONTIG_ID 4
 #define EXYNOS_ION_HEAP_CARVEOUT_ID EXYNOS_ION_HEAP_EXYNOS_CONTIG_ID
-#define EXYNOS_ION_HEAP_EXYNOS_ID 5
-#define EXYNOS_ION_HEAP_CHUNK_ID 6
 
 #define EXYNOS_ION_HEAP_SYSTEM_MASK	(1 << EXYNOS_ION_HEAP_SYSTEM_ID)
 #define EXYNOS_ION_HEAP_EXYNOS_CONTIG_MASK	\
 				(1 << EXYNOS_ION_HEAP_EXYNOS_CONTIG_ID)
-#define EXYNOS_ION_HEAP_EXYNOS_MASK	(1 << EXYNOS_ION_HEAP_EXYNOS_ID)
-
 #define EXYNOS_ION_HEAP_CARVEOUT_MASK	\
 				(1 << EXYNOS_ION_HEAP_CARVEOUT_ID)
 
@@ -122,29 +113,6 @@ enum {
 
 /* return value of ion_exynos_contig_region_mask() that indicates error */
 #define EXYNOS_CONTIG_REGION_NOMASK ~0
-
-/****** Exynos custom IOCTL ******/
-#define ION_EXYNOS_SYNC_BY_HANDLE	0x01 /* otherwise, by fd */
-#define ION_EXYNOS_SYNC_INV		0x10 /* otherwise, clean */
-
-struct ion_exynos_sync_data {
-	int flags;
-	union { /* for validation of the given buffer */
-		int dmabuf_fd;
-		ion_user_handle_t handle;
-	};
-#ifdef __KERNEL__
-	unsigned long addr;
-#else
-	void *addr;
-#endif
-	size_t size;
-};
-
-#define ION_IOC_EXYNOS_MAGIC 'E'
-
-#define ION_IOC_EXYNOS_SYNC		\
-	_IOW(ION_IOC_EXYNOS_MAGIC, 0, struct ion_exynos_sync_data)
 
 #ifdef __KERNEL__
 
