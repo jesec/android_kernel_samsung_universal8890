@@ -39,6 +39,7 @@
 #include <linux/seq_file.h>
 #include <linux/firmware.h>
 #include <linux/kthread.h>
+#include <linux/exynos_ion.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cachetype.h>
@@ -2005,6 +2006,8 @@ static int esa_resume(struct device *dev)
 static int esa_prepare_buffer(struct device *dev)
 {
 	unsigned long iova;
+	phys_addr_t fw_base;
+	size_t fw_size;
 	int n, ret;
 
 	/* Original firmware */
@@ -2022,16 +2025,42 @@ static int esa_prepare_buffer(struct device *dev)
 		goto err;
 	}
 
+	ion_exynos_contig_heap_info(ION_EXYNOS_ID_AUDIO_FW, &fw_base, &fw_size);
 	/* Firmware for DRAM */
 	for (n = 0; n < FWAREA_NUM; n++) {
-		si.fwarea[n] = dma_alloc_coherent(dev, FWAREA_SIZE,
-					&si.fwarea_pa[n], GFP_KERNEL);
-		esa_info("si.fwarea[%d] v_address : 0x%p p_address : 0x%x\n",
-				n, si.fwarea[n], (int)si.fwarea_pa[n]);
+		int i;
+		unsigned long num_pages = FWAREA_SIZE / PAGE_SIZE;
+		struct page **page_map;
+
+		page_map = vmalloc(num_pages * sizeof(struct page *));
+		if (!page_map) {
+			esa_err("Failed to allocate page map memory\n");
+			goto err;
+		}
+
+		si.fwarea_pa[n] = fw_base + (n * FWAREA_SIZE);
+		if (!si.fwarea_pa[n]) {
+			esa_err("Failed to reserve audio fw buffer\n");
+			vfree(page_map);
+			goto err;
+		}
+
+		for (i = 0; i < num_pages; i++) {
+			page_map[i] = phys_to_page(si.fwarea_pa[n] +
+					(i * PAGE_SIZE));
+		}
+
+		si.fwarea[n] = vmap(page_map, num_pages, VM_MAP,
+				pgprot_writecombine(PAGE_KERNEL));
 		if (!si.fwarea[n]) {
 			esa_err("Failed to alloc fwarea\n");
-			goto err0;
+			vfree(page_map);
+			goto err1;
 		}
+
+		esa_info("si.fwarea[%d] v_address : 0x%p p_address : 0x%x\n",
+				n, si.fwarea[n], (int)si.fwarea_pa[n]);
+		vfree(page_map);
 	}
 
 	for (n = 0, iova = FWAREA_IOVA;
@@ -2040,7 +2069,7 @@ static int esa_prepare_buffer(struct device *dev)
 				si.fwarea_pa[n], FWAREA_SIZE, 0);
 		if (ret) {
 			esa_err("Failed to map iommu\n");
-			goto err1;
+			goto err2;
 		}
 	}
 
@@ -2050,18 +2079,16 @@ static int esa_prepare_buffer(struct device *dev)
 	si.fw_log_buf = si.sram + FW_LOG_ADDR;
 
 	return 0;
-err1:
+err2:
 	for (n = 0, iova = FWAREA_IOVA;
 			n < FWAREA_NUM; n++, iova += FWAREA_SIZE) {
 		iommu_unmap(si.domain, iova, FWAREA_SIZE);
 	}
-err0:
-	for (n = 0; n < FWAREA_NUM; n++) {
-		if (si.fwarea[n])
-			dma_free_coherent(dev, FWAREA_SIZE,
-					si.fwarea[n], si.fwarea_pa[n]);
-	}
+err1:
+	for (n = 0; n < FWAREA_NUM; n++)
+		vunmap(si.fwarea[n]);
 err:
+	esa_err("Failed to prepare buffer\n");
 	return -ENOMEM;
 }
 #endif
@@ -2236,6 +2263,7 @@ static int esa_probe(struct platform_device *pdev)
 	return 0;
 
 err:
+	esa_err("Failed to probe seiren\n");
 	clk_put(si.clk_ca5);
 	return -ENODEV;
 }
