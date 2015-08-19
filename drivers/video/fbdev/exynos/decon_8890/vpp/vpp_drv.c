@@ -418,20 +418,18 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 
 	if (cur_read_order != vpp->prev_read_order) {
 		u32 ipoption[vpp->pbuf_num];
-		ipoption[0] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
-
-		if (is_vgr1(vpp)) {
-			ipoption[3] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
-			ipoption[4] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
-		}
+		int i;
 
 		if (cur_read_order == SYSMMU_PBUFCFG_ASCENDING) {
+			ipoption[0] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
 			ipoption[1] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
-			ipoption[2] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
 		} else {
+			ipoption[0] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
 			ipoption[1] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
-			ipoption[2] = SYSMMU_PBUFCFG_DESCENDING_INPUT;
 		}
+
+		for (i = 2; i < vpp->pbuf_num; i++)
+			ipoption[i] = SYSMMU_PBUFCFG_ASCENDING_INPUT;
 
 		ret = sysmmu_set_prefetch_buffer_property(&vpp->pdev->dev,
 				vpp->pbuf_num, 0, ipoption, NULL);
@@ -870,18 +868,7 @@ static int vpp_probe(struct platform_device *pdev)
 	vpp->id = of_alias_get_id(dev->of_node, "vpp");
 
 	pr_info("###%s:VPP%d probe : start\n", __func__, vpp->id);
-	ret = of_property_read_u32(dev->of_node, "#pb-id-cells",
-			&vpp->pbuf_num);
-	if (ret) {
-		dev_err(DEV, "failed to get PB info\n");
-		return ret;
-	}
-
-	/*
-	 * VGR1 sysmmu uses 6 PB, but there are only 5 axids from master
-	 */
-	if (is_vgr1(vpp))
-		vpp->pbuf_num = 5;
+	of_property_read_u32(dev->of_node, "#ar-id-num", &vpp->pbuf_num);
 
 	vpp->pdev = pdev;
 
