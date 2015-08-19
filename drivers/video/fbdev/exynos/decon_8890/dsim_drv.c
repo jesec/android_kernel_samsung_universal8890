@@ -752,6 +752,7 @@ static int dsim_enable(struct dsim_device *dsim)
 #else
 	dsim_runtime_resume(dsim->dev);
 #endif
+	enable_irq(dsim->irq);
 
 	/* Panel power on */
 	dsim_set_panel_power(dsim, 1);
@@ -793,6 +794,7 @@ static int dsim_disable(struct dsim_device *dsim)
 	mutex_unlock(&dsim_rd_wr_mutex);
 
 	dsim_reg_stop(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane);
+	disable_irq(dsim->irq);
 
 	phy_power_off(dsim->phy);
 	dsim_set_panel_power(dsim, 0);
