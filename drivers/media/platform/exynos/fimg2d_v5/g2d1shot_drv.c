@@ -25,8 +25,9 @@
 
 static int m2m1shot2_g2d_init_context(struct m2m1shot2_context *ctx)
 {
-	struct g2d1shot_dev *dev = dev_get_drvdata(ctx->m21dev->dev);
+	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(ctx->m21dev->dev);
 	struct g2d1shot_ctx *g2d_ctx;
+	int ret;
 
 	g2d_ctx = kzalloc(sizeof(*g2d_ctx), GFP_KERNEL);
 	if (!g2d_ctx)
@@ -34,15 +35,27 @@ static int m2m1shot2_g2d_init_context(struct m2m1shot2_context *ctx)
 
 	ctx->priv = g2d_ctx;
 
-	g2d_ctx->g2d_dev = dev;
+	g2d_ctx->g2d_dev = g2d_dev;
+
+	ret = clk_prepare(g2d_dev->clock);
+	if (ret) {
+		pr_err("Failed to prepare clock (%d)\n", ret);
+		goto err_clk;
+	}
 
 	return 0;
+err_clk:
+	kfree(g2d_ctx);
+
+	return ret;
 }
 
 static int m2m1shot2_g2d_free_context(struct m2m1shot2_context *ctx)
 {
+	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(ctx->m21dev->dev);
 	struct g2d1shot_ctx *g2d_ctx = ctx->priv;
 
+	clk_unprepare(g2d_dev->clock);
 	kfree(g2d_ctx);
 
 	return 0;
@@ -54,21 +67,29 @@ static const struct g2d1shot_fmt g2d_formats[] = {
 		.pixelformat	= V4L2_PIX_FMT_ABGR32,	/* [31:0] ABGR */
 		.bpp		= { 32 },
 		.num_planes	= 1,
+		.src_value	= G2D_DATAFORMAT_RGB8888 | 0x3012,
+		.dst_value	= G2D_DATAFORMAT_RGB8888 | 0x3012,
 	}, {
 		.name		= "XBGR8888",
 		.pixelformat	= V4L2_PIX_FMT_XBGR32,	/* [31:0] XBGR */
 		.bpp		= { 32 },
 		.num_planes	= 1,
+		.src_value	= G2D_DATAFORMAT_RGB8888 | 0x5012,
+		.dst_value	= G2D_DATAFORMAT_RGB8888 | 0x5012,
 	}, {
 		.name		= "ARGB8888",
 		.pixelformat	= V4L2_PIX_FMT_ARGB32,	/* [31:0] ARGB */
 		.bpp		= { 32 },
 		.num_planes	= 1,
+		.src_value	= G2D_DATAFORMAT_RGB8888 | 0x3210,
+		.dst_value	= G2D_DATAFORMAT_RGB8888 | 0x3210,
 	}, {
 		.name		= "RGB565",
 		.pixelformat	= V4L2_PIX_FMT_RGB565,	/* [15:0] RGB */
 		.bpp		= { 16 },
 		.num_planes	= 1,
+		.src_value	= G2D_DATAFORMAT_RGB565 | 0x5210,
+		.dst_value	= G2D_DATAFORMAT_RGB565 | 0x0210,
 	},
 };
 
@@ -119,8 +140,6 @@ static int m2m1shot2_g2d_prepare_format(
 		return -EINVAL;
 	}
 
-	/* TODO: compare between dest rect and clipping rect of each source */
-
 	*num_planes = g2d_fmt->num_planes;
 	for (i = 0; i < g2d_fmt->num_planes; i++) {
 		payload[i] = fmt->width * fmt->height * g2d_fmt->bpp[i];
@@ -134,31 +153,123 @@ static int m2m1shot2_g2d_prepare_format(
 static int m2m1shot2_g2d_prepare_source(struct m2m1shot2_context *ctx,
 			unsigned int index, struct m2m1shot2_source_image *img)
 {
+	/* TODO: compare between dest rect and clipping rect of each source */
+
 	return 0;
+}
+
+static int enable_g2d(struct g2d1shot_dev *g2d_dev)
+{
+	int ret;
+
+	ret = in_irq() ? pm_runtime_get(g2d_dev->dev) :
+			pm_runtime_get_sync(g2d_dev->dev);
+	if (ret < 0) {
+		pr_err("Failed to enable power (%d)\n", ret);
+		return ret;
+	}
+
+	ret = clk_enable(g2d_dev->clock);
+	if (ret) {
+		pr_err("Failed to enable clock (%d)\n", ret);
+		pm_runtime_put(g2d_dev->dev);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void g2d_set_source(struct g2d1shot_dev *g2d_dev,
+		struct m2m1shot2_context *ctx,
+		struct m2m1shot2_source_image *source, int layer_num)
+{
+	struct m2m1shot2_context_format *ctx_fmt =
+				m2m1shot2_src_format(ctx, layer_num);
+	u32 src_type = G2D_LAYER_SELECT_NORMAL;
+	u32 img_flags = source->img.flags;
+	int i;
+
+	if (img_flags & M2M1SHOT2_IMGFLAG_COLORFILL) {
+		g2d_hw_set_source_color(g2d_dev, layer_num,
+						source->ext.fillcolor);
+		src_type = G2D_LAYER_SELECT_CONSTANT_COLOR;
+	} else {
+		/* use composit_mode */
+		g2d_hw_set_source_blending(g2d_dev, layer_num, &source->ext);
+		g2d_hw_set_source_premult(g2d_dev, layer_num, img_flags);
+	}
+
+	/* set source type */
+	g2d_hw_set_source_type(g2d_dev, layer_num, src_type);
+	/* set source rect, dest clip and pixel format */
+	g2d_hw_set_source_format(g2d_dev, layer_num, ctx_fmt);
+	/* set source address */
+	/* TODO: check COMPRESSED and set if it is true */
+	for (i = 0; i < source->img.num_planes; i++) {
+		/* more than 1 planes are not supported yet, but for later. */
+		g2d_hw_set_source_address(g2d_dev, layer_num, i,
+				m2m1shot2_src_dma_addr(ctx, layer_num, i));
+	}
+	/* set repeat mode */
+	g2d_hw_set_source_repeat(g2d_dev, layer_num, &source->ext);
+	/* set scaling mode */
+	if (!(img_flags & M2M1SHOT2_IMGFLAG_NO_RESCALING))
+		g2d_hw_set_source_scale(g2d_dev, layer_num, &source->ext);
+	/* set rotation mode */
+	g2d_hw_set_source_rotate(g2d_dev, layer_num, &source->ext);
+	/* set layer valid */
+	g2d_hw_set_source_valid(g2d_dev, layer_num);
+}
+
+static void g2d_set_target(struct g2d1shot_dev *g2d_dev,
+		struct m2m1shot2_context *ctx,
+		struct m2m1shot2_context_image *target)
+{
+	struct m2m1shot2_context_format *ctx_fmt = m2m1shot2_dst_format(ctx);
+	int i;
+
+	/* more than 1 planes are not supported yet, but for later. */
+	for (i = 0; i < target->num_planes; i++)
+		g2d_hw_set_dest_addr(g2d_dev, i,
+			m2m1shot2_dst_dma_addr(ctx, i));
+
+	/* set dest rect and pixel format */
+	g2d_hw_set_dest_format(g2d_dev, ctx_fmt);
+	/* set dest premult */
+	g2d_hw_set_dest_premult(g2d_dev, target->flags);
+	/* set dither */
+	if (ctx->flags & M2M1SHOT2_FLAG_DITHER)
+		g2d_hw_set_dither(g2d_dev);
 }
 
 static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 {
 	struct g2d1shot_ctx *g2d_ctx = ctx->priv;
 	struct g2d1shot_dev *g2d_dev = g2d_ctx->g2d_dev;
-
-	/* DUMMY for compile error (unused variable) */
-	if (!g2d_dev)
-		return -EINVAL;
+	int ret;
+	int i;
 
 	/* Marking for H/W operation? */
 
 	/* enable power, clock */
+	ret = enable_g2d(g2d_dev);
+	if (ret)
+		return ret;
 
 	/* H/W initialization */
+	g2d_hw_init(g2d_dev);
 
 	/* setting for source */
+	for (i = 0; i < ctx->num_sources; i++)
+		g2d_set_source(g2d_dev, ctx, &ctx->source[i], i);
 
 	/* setting for destination */
+	g2d_set_target(g2d_dev, ctx, &ctx->target);
 
 	/* setting for common */
 
 	/* run H/W */
+	g2d_hw_start(g2d_dev);
 
 	return 0;
 }
@@ -228,7 +339,7 @@ static int g2d_get_hw_version(struct device *dev, struct g2d1shot_dev *g2d_dev)
 
 	ret = clk_prepare_enable(g2d_dev->clock);
 	if (!ret) {
-		g2d_dev->version = __raw_readl(g2d_dev->reg + 0x14);
+		g2d_dev->version = g2d_hw_read_version(g2d_dev);
 		dev_info(dev, "G2D version : %#010x\n", g2d_dev->version);
 
 		clk_disable_unprepare(g2d_dev->clock);
