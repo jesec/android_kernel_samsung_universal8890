@@ -214,7 +214,8 @@ static void g2d_set_source(struct g2d1shot_dev *g2d_dev,
 	g2d_hw_set_source_repeat(g2d_dev, layer_num, &source->ext);
 	/* set scaling mode */
 	if (!(img_flags & M2M1SHOT2_IMGFLAG_NO_RESCALING))
-		g2d_hw_set_source_scale(g2d_dev, layer_num, &source->ext);
+		g2d_hw_set_source_scale(g2d_dev, layer_num,
+				&source->ext, ctx_fmt);
 	/* set rotation mode */
 	g2d_hw_set_source_rotate(g2d_dev, layer_num, &source->ext);
 	/* set layer valid */

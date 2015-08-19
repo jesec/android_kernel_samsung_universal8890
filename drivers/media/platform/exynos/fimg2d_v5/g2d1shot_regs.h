@@ -333,7 +333,8 @@
 #define G2D_LAYER_REPEAT_Y_CLAMP		(3 << 4)
 #define G2D_LAYER_REPEAT_Y_NONE			(4 << 4)
 
-#define G2D_LAYER_REPEAT_Y_SHIFT		(4)
+#define G2D_LAYER_REPEAT_X_SET(val)		((val) & 0x7)
+#define G2D_LAYER_REPEAT_Y_SET(val)		(((val) & 0x7) << 4)
 
 /* G2D_LAYERn_PAD_REG */
 
