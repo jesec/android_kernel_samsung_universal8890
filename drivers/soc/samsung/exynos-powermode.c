@@ -270,7 +270,7 @@ static int is_cpus_busy(unsigned int target_residency,
 	 * If there is even one cpu in "mask" which has the smaller idle time
 	 * than "target_residency", it returns -EBUSY.
 	 */
-	for_each_cpu_and(cpu, cpu_possible_mask, mask) {
+	for_each_cpu_and(cpu, cpu_online_mask, mask) {
 		if (!cpumask_test_cpu(cpu, &pm_info->c2_mask))
 			return -EBUSY;
 
@@ -350,7 +350,7 @@ static int is_sicd_available(void)
 	if (!pm_info->sicd_enabled)
 		return false;
 
-	if (is_cpus_busy(pm_info->sicd_residency, cpu_possible_mask))
+	if (is_cpus_busy(pm_info->sicd_residency, cpu_online_mask))
 		return false;
 
 	if (!exynos_check_cp_status())
