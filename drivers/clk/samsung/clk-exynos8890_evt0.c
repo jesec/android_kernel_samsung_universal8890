@@ -109,6 +109,9 @@ enum exynos8890_clks {
 	 */
 	sysmmu_last = 1149,
 
+	/* number of dfs driver starts from 2000 */
+	dfs_mif = 2000, dfs_mif_sw, dfs_int, dfs_cam, dfs_disp,
+
 	nr_clks,
 };
 
@@ -490,6 +493,15 @@ static struct init_vclk exynos8890_disp1_vclks[] __initdata = {
 	VCLK(disp1_bts, gate_disp1_bts, "gate_disp1_bts", 0, 0, NULL),
 };
 
+static struct init_vclk exynos8890_dfs_vclks[] __initdata = {
+	/* DFS */
+	VCLK(dfs_mif, dvfs_mif, "dvfs_mif", 0, VCLK_DFS, NULL),
+	VCLK(dfs_mif_sw, dvfs_mif, "dvfs_mif_sw", 0, VCLK_DFS_SWITCH, NULL),
+	VCLK(dfs_int, dvfs_int, "dvfs_int", 0, VCLK_DFS, NULL),
+	VCLK(dfs_cam, dvfs_cam, "dvfs_cam", 0, VCLK_DFS, NULL),
+	VCLK(dfs_disp, dvfs_disp, "dvfs_disp", 0, VCLK_DFS, NULL),
+};
+
 void __init exynos8890_clk_init(struct device_node *np)
 {
 	struct samsung_clk_provider *ctx;
@@ -542,6 +554,7 @@ void __init exynos8890_clk_init(struct device_node *np)
 	samsung_register_vclk(ctx, exynos8890_peris_vclks, ARRAY_SIZE(exynos8890_peris_vclks));
 	samsung_register_vclk(ctx, exynos8890_ccore_vclks, ARRAY_SIZE(exynos8890_ccore_vclks));
 	samsung_register_vclk(ctx, exynos8890_clkout_vclks, ARRAY_SIZE(exynos8890_clkout_vclks));
+	samsung_register_vclk(ctx, exynos8890_dfs_vclks, ARRAY_SIZE(exynos8890_dfs_vclks));
 
 	samsung_clk_of_add_provider(np, ctx);
 
