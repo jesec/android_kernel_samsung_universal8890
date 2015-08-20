@@ -293,9 +293,9 @@ static void __ion_buffer_task_remove(struct kref *kref)
 static void ion_buffer_task_remove(struct ion_buffer *buffer,
 					struct device *master)
 {
-	struct ion_task *task;
+	struct ion_task *task, *tmp;
 
-	list_for_each_entry(task, &buffer->master_list, list) {
+	list_for_each_entry_safe(task, tmp, &buffer->master_list, list) {
 		if (task->master == master) {
 			kref_put(&task->ref, __ion_buffer_task_remove);
 			break;
