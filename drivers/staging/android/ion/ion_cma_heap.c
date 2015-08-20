@@ -132,7 +132,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 #endif
 	if (buffer->flags & ION_FLAG_PROTECTED)
-		ion_secure_protect(heap);
+		ion_secure_protect(buffer);
 
 	dev_dbg(dev, "Allocate buffer %p\n", buffer);
 	return 0;
@@ -161,7 +161,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	kfree(info);
 
 	if (buffer->flags & ION_FLAG_PROTECTED)
-		ion_secure_unprotect(buffer->heap);
+		ion_secure_unprotect(buffer);
 }
 
 /* return physical address in addr */

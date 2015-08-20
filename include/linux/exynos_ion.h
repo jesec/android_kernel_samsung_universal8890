@@ -155,8 +155,8 @@ void ion_exynos_contig_heap_deisolate(int region_id);
 #define exynos_ion_sync_vaddr_for_cpu(dev, vaddr, size, offset, dir) \
 							do { } while (0)
 #define exynos_ion_sync_sg_for_cpu(dev, size, sgt, dir) do { } while (0)
-#define ion_secure_protect(heap) do { } while (0)
-#define ion_secure_unprotect(heap) do { } while (0)
+#define ion_secure_protect(buffer) do { } while (0)
+#define ion_secure_unprotect(buffer) do { } while (0)
 #define ion_is_heap_available(heap, flags, data) (1)
 
 static inline int ion_exynos_contig_region_mask(char *region_name)

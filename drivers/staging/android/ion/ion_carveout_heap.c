@@ -130,7 +130,7 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 	buffer->priv_virt = table;
 
 	if (buffer->flags & ION_FLAG_PROTECTED)
-		ion_secure_protect(heap);
+		ion_secure_protect(buffer);
 
 	return 0;
 
@@ -171,7 +171,7 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 	kfree(table);
 
 	if (buffer->flags & ION_FLAG_PROTECTED)
-		ion_secure_unprotect(heap);
+		ion_secure_unprotect(buffer);
 }
 
 static struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,

@@ -219,8 +219,8 @@ dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 			 enum dma_data_direction direction,
 			 int iommu_prot);
 void ion_iovmm_unmap(struct dma_buf_attachment *attachment, dma_addr_t iova);
-int ion_secure_protect(struct ion_heap *heap);
-int ion_secure_unprotect(struct ion_heap *heap);
+int ion_secure_protect(struct ion_buffer *buffer);
+int ion_secure_unprotect(struct ion_buffer *buffer);
 bool ion_is_heap_available(struct ion_heap *heap, unsigned long flags, void *data);
 
 #endif /* _LINUX_ION_H */
