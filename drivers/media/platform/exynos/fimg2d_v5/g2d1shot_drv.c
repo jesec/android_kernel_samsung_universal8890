@@ -179,6 +179,14 @@ static int enable_g2d(struct g2d1shot_dev *g2d_dev)
 	return 0;
 }
 
+static int disable_g2d(struct g2d1shot_dev *g2d_dev)
+{
+	clk_disable(g2d_dev->clock);
+	pm_runtime_put(g2d_dev->dev);
+
+	return 0;
+}
+
 static void g2d_set_source(struct g2d1shot_dev *g2d_dev,
 		struct m2m1shot2_context *ctx,
 		struct m2m1shot2_source_image *source, int layer_num)
@@ -295,6 +303,8 @@ static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 	}
 
 	/* IRQ handling */
+	g2d_hw_stop(g2d_dev);
+	disable_g2d(g2d_dev);
 
 	/* Unmark for H/W operation */
 
