@@ -123,6 +123,8 @@ struct exynos_devfreq_data {
 	struct device				*dev;
 	struct devfreq				*devfreq;
 	struct mutex				lock;
+	struct clk				*clk;
+	struct clk				*sw_clk;
 
 	bool					devfreq_disabled;
 
