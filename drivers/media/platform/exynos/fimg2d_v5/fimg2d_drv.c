@@ -187,11 +187,26 @@ static irqreturn_t fimg2d_irq(int irq, void *dev_id)
 static int fimg2d_request_bitblt(struct fimg2d_control *ctrl,
 		struct fimg2d_bltcmd *cmd)
 {
+	unsigned long flags;
+	wait_queue_head_t *waitq;
+	struct fimg2d_context *ctx = cmd->ctx;
+
 	fimg2d_debug("Request bitblt\n");
+
 	if (cmd->blt.use_fence)
-		wake_up(&ctrl->waiting_waitq);
+		waitq = &ctrl->waiting_waitq;
 	else
-		wake_up(&ctrl->running_waitq);
+		waitq = &ctrl->running_waitq;
+
+	g2d_spin_lock(&ctrl->bltlock, flags);
+	atomic_inc(&ctx->ncmd);
+	fimg2d_enqueue(cmd, ctrl);
+	fimg2d_debug("ctx %p pgd %p ncmd(%d) seq_no(%u)\n", ctx,
+			ctx->mm ? (unsigned long *)ctx->mm->pgd : NULL,
+			atomic_read(&ctx->ncmd), cmd->blt.seq_no);
+	g2d_spin_unlock(&ctrl->bltlock, flags);
+
+	wake_up(waitq);
 
 	return 0;
 }

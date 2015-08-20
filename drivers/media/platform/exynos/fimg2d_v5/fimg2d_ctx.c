@@ -398,12 +398,6 @@ struct fimg2d_bltcmd *fimg2d_add_command(struct fimg2d_control *ctrl,
 		ret = -EPERM;
 		goto err;
 	}
-	atomic_inc(&ctx->ncmd);
-	fimg2d_enqueue(cmd, ctrl);
-	fimg2d_debug("ctx %p pgd %p ncmd(%d) seq_no(%u)\n",
-			cmd->ctx,
-			ctx->mm ? (unsigned long *)ctx->mm->pgd : NULL,
-			atomic_read(&ctx->ncmd), cmd->blt.seq_no);
 	g2d_spin_unlock(&ctrl->bltlock, flags);
 
 	return cmd;
