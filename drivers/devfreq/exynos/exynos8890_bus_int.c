@@ -1,4 +1,4 @@
-/* linux/drivers/devfreq/exynos8890_bus_int.c
+/* linux/drivers/devfreq/exynos/exynos8890_bus_int.c
  *
  * Copyright (c) 2015 Samsung Electronics Co., Ltd.
  *              http://www.samsung.com
@@ -19,6 +19,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/list.h>
+#include <linux/clk.h>
 
 #include <soc/samsung/exynos-devfreq.h>
 
@@ -61,7 +62,7 @@ static u32 exynos8890_devfreq_int_get_target_freq(char *name, u32 freq)
 static int exynos8890_devfreq_int_get_freq(struct device *dev, u32 *cur_freq,
                                         struct exynos_devfreq_data *data)
 {
-	*cur_freq = (u32)cal_dfs_get_rate(dvfs_int);
+	*cur_freq = (u32)clk_get_rate(data->clk);
 	if (*cur_freq == 0) {
 		dev_err(dev, "failed get frequency from CAL\n");
 		return -EINVAL;
@@ -74,7 +75,7 @@ static int exynos8890_devfreq_int_set_freq(struct device *dev,
 					u32 old_freq, u32 new_freq,
 					struct exynos_devfreq_data *data)
 {
-	if (cal_dfs_set_rate(dvfs_int, (unsigned long)new_freq)) {
+	if (clk_set_rate(data->clk, (unsigned long)new_freq)) {
 		dev_err(dev, "failed set frequency to CAL (%uKhz)\n",
 				new_freq);
 		return -EINVAL;
@@ -185,12 +186,20 @@ static int exynos8890_devfreq_int_get_volt_table(struct device *dev, u32 *volt_t
 static int exynos8890_devfreq_int_init(struct device *dev,
 					struct exynos_devfreq_data *data)
 {
+	data->clk = clk_get(dev, "dvfs_int");
+	if (IS_ERR_OR_NULL(data->clk)) {
+		dev_err(dev, "failed get dvfs vclk\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
 static int exynos8890_devfreq_int_exit(struct device *dev,
 					struct exynos_devfreq_data *data)
 {
+	clk_put(data->clk);
+
 	return 0;
 }
 
