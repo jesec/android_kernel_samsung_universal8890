@@ -275,20 +275,27 @@ retry:
 	}
 }
 
+#define is_vma_cached(vma)						      \
+	((pgprot_noncached((vma)->vm_page_prot) != (vma)->vm_page_prot) &&    \
+	   (pgprot_writecombine((vma)->vm_page_prot) != (vma)->vm_page_prot))
+
 static void m2m1shot2_unmap_image(struct m2m1shot2_device *m21dev,
 				struct m2m1shot2_context_image *img,
 				enum dma_data_direction dir)
 {
+	bool inv = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHEINV);
 	unsigned int i;
 
 	if (img->memory == M2M1SHOT2_BUFTYPE_USERPTR) {
 		for (i = 0; i < img->num_planes; i++)
-			exynos_iommu_sync_for_cpu(m21dev->dev,
+			if (is_vma_cached(img->plane[i].userptr.vma) && inv)
+				exynos_iommu_sync_for_cpu(m21dev->dev,
 						img->plane[i].dma_addr,
 						img->plane[i].payload, dir);
 	} else if (img->memory == M2M1SHOT2_BUFTYPE_DMABUF) {
 		for (i = 0; i < img->num_planes; i++) {
-			exynos_ion_sync_dmabuf_for_cpu(m21dev->dev,
+			if (inv)
+				exynos_ion_sync_dmabuf_for_cpu(m21dev->dev,
 						img->plane[i].dmabuf.dmabuf,
 						img->plane[i].payload, dir);
 			dma_buf_unmap_attachment(
@@ -314,11 +321,13 @@ static int m2m1shot2_map_image(struct m2m1shot2_device *m21dev,
 				struct m2m1shot2_context_image *img,
 				enum dma_data_direction dir)
 {
+	bool clean = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHECLEAN);
 	unsigned int i;
 
 	if (img->memory == M2M1SHOT2_BUFTYPE_USERPTR) {
 		for (i = 0; i < img->num_planes; i++)
-			exynos_iommu_sync_for_device(m21dev->dev,
+			if (is_vma_cached(img->plane[i].userptr.vma) && clean)
+				exynos_iommu_sync_for_device(m21dev->dev,
 					img->plane[i].dma_addr,
 					img->plane[i].payload, dir);
 		return 0;
@@ -344,7 +353,8 @@ static int m2m1shot2_map_image(struct m2m1shot2_device *m21dev,
 			return ret;
 		}
 
-		exynos_ion_sync_dmabuf_for_device(m21dev->dev,
+		if (clean)
+			exynos_ion_sync_dmabuf_for_device(m21dev->dev,
 					img->plane[i].dmabuf.dmabuf,
 					img->plane[i].payload, dir);
 	}
