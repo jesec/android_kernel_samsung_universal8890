@@ -23,6 +23,7 @@
 #include <linux/dma-buf.h>
 #include <linux/vmalloc.h>
 #include <linux/sched.h>
+#include <linux/compat.h>
 
 #include <linux/ion.h>
 #include <linux/exynos_ion.h>
@@ -1396,10 +1397,240 @@ static long m2m1shot2_ioctl(struct file *filp,
 }
 
 #ifdef CONFIG_COMPAT
+struct compat_m2m1shot2_buffer {
+	union {
+		compat_ulong_t	userptr;
+		__s32		fd;
+	};
+	__u32		offset;
+	__u32		length;
+	__u32		payload;
+	compat_ulong_t	reserved;
+};
+
+struct compat_m2m1shot2_image {
+	__u32				flags;
+	__s32				fence;
+	__u8				memory;
+	__u8				num_planes;
+	struct compat_m2m1shot2_buffer	plane[M2M1SHOT2_MAX_PLANES];
+	struct m2m1shot2_format		fmt;
+	struct m2m1shot2_extra		ext;
+	__u32				reserved[4];
+};
+
+struct compat_m2m1shot2 {
+	compat_uptr_t			sources;
+	struct compat_m2m1shot2_image	target;
+	__u8				num_sources;
+	__u32				flags;
+	__u32				reserved1;
+	__u32				reserved2;
+	compat_ulong_t			reserved3;
+	compat_ulong_t			reserved4;
+};
+
+#define COMPAT_M2M1SHOT2_IOC_PROCESS	  _IOWR('M', 4, struct compat_m2m1shot2)
+#define COMPAT_M2M1SHOT2_IOC_WAIT_PROCESS _IOR('M', 5, struct compat_m2m1shot2)
+
+static int m2m1shot2_compat_get_imagedata(struct device *dev,
+				struct m2m1shot2_image __user *img,
+				struct compat_m2m1shot2_image __user *cimg)
+{
+	__u32 uw;
+	__s32 sw;
+	__u8 b;
+	compat_ulong_t l;
+	unsigned int i;
+	int ret;
+
+	ret =  get_user(uw, &cimg->flags);
+	ret |= put_user(uw, &img->flags);
+	ret |= get_user(sw, &cimg->fence);
+	ret |= put_user(sw, &img->fence);
+	ret |= get_user(b, &cimg->memory);
+	ret |= put_user(b, &img->memory);
+	ret |= get_user(b, &cimg->num_planes);
+	ret |= put_user(b, &img->num_planes);
+	if (b > M2M1SHOT2_MAX_PLANES) {
+		dev_err(dev, "%s: too many plane count %u\n", __func__, b);
+		return -EINVAL;
+	}
+	for (i = 0; i < b; i++) { /* b contains num_planes */
+		/* userptr is not smaller than fd */
+		ret |= get_user(l, &cimg->plane[i].userptr);
+		ret |= put_user(l, &img->plane[i].userptr);
+		ret |= get_user(uw, &cimg->plane[i].offset);
+		ret |= put_user(uw, &img->plane[i].offset);
+		ret |= get_user(uw, &cimg->plane[i].length);
+		ret |= put_user(uw, &img->plane[i].length);
+		ret |= get_user(uw, &cimg->plane[i].payload);
+		ret |= put_user(uw, &img->plane[i].payload);
+		ret |= get_user(l, &cimg->plane[i].reserved);
+		ret |= put_user(l, &img->plane[i].reserved);
+	}
+
+	ret |= copy_in_user(&img->fmt, &cimg->fmt,
+			sizeof(struct m2m1shot2_format) +
+			sizeof(struct m2m1shot2_extra) + sizeof(__u32) * 4);
+
+	return ret ? -EFAULT : 0;
+}
+
+static int m2m1shot2_compat_put_imagedata(struct m2m1shot2_image __user *img,
+				struct compat_m2m1shot2_image __user *cimg)
+{
+	__u32 uw;
+	__s32 sw;
+	__u8 b;
+	compat_ulong_t l;
+	unsigned int i;
+	int ret;
+
+	ret  = get_user(uw, &img->flags);
+	ret |= put_user(uw, &cimg->flags);
+	if (!!(uw & M2M1SHOT2_IMGFLAG_RELEASE_FENCE)) {
+		ret |= get_user(sw, &img->fence);
+		ret |= put_user(sw, &cimg->fence);
+	}
+	ret |= get_user(b, &img->num_planes);
+	for (i = 0; i < b; i++) { /* b contains num_planes */
+		ret |= get_user(uw, &img->plane[i].payload);
+		ret |= put_user(uw, &cimg->plane[i].payload);
+		ret |= get_user(l, &img->plane[i].reserved);
+		ret |= put_user(l, &cimg->plane[i].reserved);
+	}
+
+	return ret;
+}
+
+static int m2m1shot2_compat_put_fence(struct m2m1shot2_image __user *img,
+				struct compat_m2m1shot2_image __user *cimg)
+{
+	__u32 uw = 0;
+	__s32 sw;
+	int ret;
+
+	ret =  get_user(uw, &img->flags);
+	if (!!(uw & M2M1SHOT2_IMGFLAG_RELEASE_FENCE)) {
+		ret |= get_user(sw, &img->fence);
+		ret |= put_user(sw, &cimg->fence);
+	}
+
+	return ret;
+}
+
 static long m2m1shot2_compat_ioctl32(struct file *filp,
 				unsigned int cmd, unsigned long arg)
 {
-	return -ENXIO;
+	struct m2m1shot2_context *ctx = filp->private_data;
+	struct device *dev = ctx->m21dev->dev;
+	struct compat_m2m1shot2 __user *cdata = compat_ptr(arg);
+	struct m2m1shot2 __user *data;
+	struct m2m1shot2_image __user *src;
+	int ret;
+	compat_ulong_t l;
+	compat_uptr_t sources;
+	__u32 w;
+	__u8 num_sources;
+
+	switch (cmd) {
+	case COMPAT_M2M1SHOT2_IOC_PROCESS:
+		cmd = M2M1SHOT2_IOC_PROCESS;
+		break;
+	case COMPAT_M2M1SHOT2_IOC_WAIT_PROCESS:
+		cmd = M2M1SHOT2_IOC_WAIT_PROCESS;
+		break;
+	default:
+		dev_err(dev, "%s: unknown ioctl command %#x\n", __func__, cmd);
+		return -EINVAL;
+	}
+
+	data = compat_alloc_user_space(sizeof(*data));
+
+	ret  = get_user(num_sources, &cdata->num_sources);
+	ret |= put_user(num_sources, &data->num_sources);
+	ret |= get_user(w, &cdata->flags);
+	ret |= put_user(w, &data->flags);
+	ret |= get_user(w, &cdata->reserved1);
+	ret |= put_user(w, &data->reserved1);
+	ret |= get_user(w, &cdata->reserved2);
+	ret |= put_user(w, &data->reserved2);
+	ret |= get_user(l, &cdata->reserved3);
+	ret |= put_user(l, &data->reserved3);
+	ret |= get_user(l, &cdata->reserved4);
+	ret |= put_user(l, &data->reserved4);
+	ret |= get_user(sources, &cdata->sources);
+	if (ret) {
+		dev_err(dev, "%s: failed to read m2m1shot2 data\n", __func__);
+		return -EFAULT;
+	}
+
+	ret = m2m1shot2_compat_get_imagedata(
+				dev, &data->target, &cdata->target);
+	if (ret) {
+		dev_err(dev, "%s: failed to read the target image data\n",
+			__func__);
+		return ret;
+	}
+
+	if (cmd == M2M1SHOT2_IOC_PROCESS) {
+		struct compat_m2m1shot2_image __user *csc = compat_ptr(sources);
+
+		src = compat_alloc_user_space(
+				sizeof(*data) + sizeof(*src) * num_sources);
+		if (w > M2M1SHOT2_MAX_IMAGES) {
+			dev_err(dev, "%s: too many source images %u\n",
+				__func__, w);
+			return -EINVAL;
+		}
+
+		for (w = 0; w < num_sources; w++) {
+			ret = m2m1shot2_compat_get_imagedata(
+						dev, &src[w], &csc[w]);
+			if (ret) {
+				dev_err(dev,
+				"%s: failed to read %dth source image data\n",
+					__func__, w);
+				return ret;
+			}
+		}
+
+
+		if (put_user(src, &data->sources)) {
+			dev_err(dev, "%s: failed to handle source image data\n",
+				__func__);
+			return -EFAULT;
+		}
+	}
+
+	ret = m2m1shot2_ioctl(filp, cmd, (unsigned long)data);
+	if (ret)
+		return ret;
+
+	ret  = get_user(w, &data->flags);
+	ret |= put_user(w, &cdata->flags);
+	ret |= get_user(w, &data->reserved1);
+	ret |= put_user(w, &cdata->reserved1);
+	ret |= get_user(w, &data->reserved2);
+	ret |= put_user(w, &cdata->reserved2);
+	ret |= get_user(l, &data->reserved3);
+	ret |= put_user(l, &cdata->reserved3);
+	ret |= get_user(l, &data->reserved4);
+	ret |= put_user(l, &cdata->reserved4);
+	ret |= m2m1shot2_compat_put_imagedata(&data->target, &cdata->target);
+
+	if (cmd == M2M1SHOT2_IOC_PROCESS) {
+		struct compat_m2m1shot2_image __user *csc = compat_ptr(sources);
+
+		for (w = 0; w < num_sources; w++)
+			ret |= m2m1shot2_compat_put_fence(&src[w], &csc[w]);
+	}
+
+	if (ret)
+		dev_err(dev, "%s: failed to write userdata\n", __func__);
+
+	return ret;
 }
 #endif
 
