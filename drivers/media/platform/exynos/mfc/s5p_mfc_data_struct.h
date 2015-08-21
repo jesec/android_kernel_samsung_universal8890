@@ -745,6 +745,8 @@ struct s5p_mfc_dec {
 
 	int profile;
 	int is_10bit;
+
+	unsigned int err_sync_flag;
 };
 
 struct s5p_mfc_enc {
