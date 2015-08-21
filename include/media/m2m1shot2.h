@@ -212,6 +212,7 @@ struct m2m1shot2_context {
 	void				*priv;
 	struct mutex			mutex;
 	struct completion		complete;
+	struct work_struct		work;
 
 	unsigned int			flags;
 	unsigned int			num_sources;
@@ -247,6 +248,10 @@ struct m2m1shot2_context {
  *		  and @current_task.
  * @ops		: callback functions that the client device driver must
  *                implement according to the events.
+ * @schedule_workqueue: queue of work to schedule a image processing task.
+ *		  An workqueue is needed to run m2m1shot2_schedule() in a
+ *		  process context when the task need to wait for a fence because
+ *		  the callback of the fence waiter is in IRQ disabled context.
  *
  * LIFECYCLE of m2m1shot2_context:
  * - added to @contexts on creation
@@ -264,6 +269,7 @@ struct m2m1shot2_device {
 	struct m2m1shot2_context	*current_ctx;
 	spinlock_t			lock_ctx;
 	const struct m2m1shot2_devops	*ops;
+	struct workqueue_struct		*schedule_workqueue;
 };
 
 #ifdef CONFIG_MEDIA_M2M1SHOT2

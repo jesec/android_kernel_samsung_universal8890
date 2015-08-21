@@ -435,10 +435,8 @@ static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
 	m2m1shot2_put_images(ctx);
 }
 
-static void m2m1shot2_schedule_context(struct kref *kref)
+static void m2m1shot2_schedule_context(struct m2m1shot2_context *ctx)
 {
-	struct m2m1shot2_context *ctx = container_of(kref,
-					struct m2m1shot2_context, starter);
 	unsigned long flags;
 
 	spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
@@ -456,7 +454,32 @@ static void m2m1shot2_schedule_context(struct kref *kref)
 	m2m1shot2_schedule(ctx->m21dev);
 }
 
-/* NOTE that this function is under irq disabled context */
+static void m2m1shot2_context_schedule_work(struct work_struct *work)
+{
+	m2m1shot2_schedule_context(
+			container_of(work, struct m2m1shot2_context, work));
+}
+
+static void m2m1shot2_context_schedule_start(struct kref *kref)
+{
+	m2m1shot2_schedule_context(
+			container_of(kref, struct m2m1shot2_context, starter));
+}
+
+static void m2m1shot2_schedule_queuework(struct kref *kref)
+{
+	struct m2m1shot2_context *ctx =
+			container_of(kref, struct m2m1shot2_context, starter);
+	bool failed;
+
+	INIT_WORK(&ctx->work, m2m1shot2_context_schedule_work);
+
+	failed = !queue_work(ctx->m21dev->schedule_workqueue, &ctx->work);
+
+	BUG_ON(failed);
+}
+
+/* NOTE that this function is called under irq disabled context */
 static void m2m1shot2_fence_callback(struct sync_fence *fence,
 					struct sync_fence_waiter *waiter)
 {
@@ -474,7 +497,7 @@ static void m2m1shot2_fence_callback(struct sync_fence *fence,
 	ptr -= offsetof(struct m2m1shot2_context, source);
 	ctx = (struct m2m1shot2_context *)ptr;
 
-	kref_put(&ctx->starter, m2m1shot2_schedule_context);
+	kref_put(&ctx->starter, m2m1shot2_schedule_queuework);
 }
 
 /**
@@ -495,10 +518,10 @@ static void m2m1shot2_start_context(struct m2m1shot2_device *m21dev,
 	reinit_completion(&ctx->complete);
 
 	/*
-	 * m2m1shot2_schedule_context() will be called immediately if there is
-	 * no fence to wait.
+	 * if there is no fence to wait for, workqueue is not used to push a
+	 * task
 	 */
-	kref_put(&ctx->starter, m2m1shot2_schedule_context);
+	kref_put(&ctx->starter, m2m1shot2_context_schedule_start);
 }
 
 void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success)
@@ -1437,6 +1460,14 @@ struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 	if (ret)
 		goto err_misc;
 
+	m21dev->schedule_workqueue =
+		create_singlethread_workqueue("name-schedule_workqueue");
+	if (!m21dev->schedule_workqueue) {
+		dev_err(dev, "failed to create workqueue for scheduling\n");
+		ret = -ENOMEM;
+		goto err_workqueue;
+	}
+
 	spin_lock_init(&m21dev->lock_ctx);
 	INIT_LIST_HEAD(&m21dev->contexts);
 	INIT_LIST_HEAD(&m21dev->active_contexts);
@@ -1448,7 +1479,8 @@ struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 	dev_info(dev, "registered as m2m1shot2 device");
 
 	return m21dev;
-
+err_workqueue:
+	misc_deregister(&m21dev->misc);
 err_misc:
 	kfree(m21dev);
 err_m21dev:
@@ -1460,6 +1492,7 @@ EXPORT_SYMBOL(m2m1shot2_create_device);
 
 void m2m1shot2_destroy_device(struct m2m1shot2_device *m21dev)
 {
+	destroy_workqueue(m21dev->schedule_workqueue);
 	misc_deregister(&m21dev->misc);
 	kfree(m21dev->misc.name);
 	kfree(m21dev);
