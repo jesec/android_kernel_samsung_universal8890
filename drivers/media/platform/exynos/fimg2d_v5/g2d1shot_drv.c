@@ -23,11 +23,49 @@
 
 #include "g2d1shot.h"
 
+/*
+ * g2d_debug value:
+ *	0: no print
+ *	1: err
+ *	2: info
+ *	3: perf
+ *	4: oneline (simple)
+ *	5: debug
+ */
+extern int g2d_debug;
+
+enum debug_level {
+	DBG_NO,
+	DBG_ERR,
+	DBG_INFO,
+	DBG_PERF,
+	DBG_ONELINE,
+	DBG_DEBUG,
+};
+
+#define g2d_print(level, fmt, args...)						\
+	do {									\
+		if (g2d_debug >= level)						\
+			pr_info("[%s:%d] " fmt, __func__, __LINE__, ##args);	\
+	} while (0)
+
+#define g2d_err(fmt, args...)	g2d_print(DBG_ERR, fmt, ##args)
+#define g2d_info(fmt, args...)	g2d_print(DBG_INFO, fmt, ##args)
+#define g2d_debug(fmt, args...)	g2d_print(DBG_DEBUG, fmt, ##args)
+#define g2d_dbg_begin()		g2d_print(DBG_DEBUG, "%s\n", "++ begin")
+#define g2d_dbg_end()		g2d_print(DBG_DEBUG, "%s\n", "-- end")
+#define g2d_dbg_end_err()	g2d_print(DBG_DEBUG, "%s\n", "-- end, but err")
+
+int g2d_debug = DBG_INFO;
+module_param(g2d_debug, int, S_IRUGO | S_IWUSR);
+
 static int m2m1shot2_g2d_init_context(struct m2m1shot2_context *ctx)
 {
 	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(ctx->m21dev->dev);
 	struct g2d1shot_ctx *g2d_ctx;
 	int ret;
+
+	g2d_dbg_begin();
 
 	g2d_ctx = kzalloc(sizeof(*g2d_ctx), GFP_KERNEL);
 	if (!g2d_ctx)
@@ -43,9 +81,13 @@ static int m2m1shot2_g2d_init_context(struct m2m1shot2_context *ctx)
 		goto err_clk;
 	}
 
+	g2d_dbg_end();
+
 	return 0;
 err_clk:
 	kfree(g2d_ctx);
+
+	g2d_dbg_end_err();
 
 	return ret;
 }
@@ -55,8 +97,12 @@ static int m2m1shot2_g2d_free_context(struct m2m1shot2_context *ctx)
 	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(ctx->m21dev->dev);
 	struct g2d1shot_ctx *g2d_ctx = ctx->priv;
 
+	g2d_dbg_begin();
+
 	clk_unprepare(g2d_dev->clock);
 	kfree(g2d_ctx);
+
+	g2d_dbg_end();
 
 	return 0;
 }
@@ -116,6 +162,8 @@ static int m2m1shot2_g2d_prepare_format(
 	struct m2m1shot2_format *fmt = &ctx_fmt->fmt;
 	int i;
 
+	g2d_dbg_begin();
+
 	g2d_fmt = find_format((dir == DMA_TO_DEVICE), fmt->pixelformat);
 	if (!g2d_fmt) {
 		pr_err("Not supported format (%u)\n", fmt->pixelformat);
@@ -147,6 +195,8 @@ static int m2m1shot2_g2d_prepare_format(
 	}
 	ctx_fmt->priv = (void *)g2d_fmt;
 
+	g2d_dbg_end();
+
 	return 0;
 }
 
@@ -162,6 +212,8 @@ static int enable_g2d(struct g2d1shot_dev *g2d_dev)
 {
 	int ret;
 
+	g2d_dbg_begin();
+
 	ret = in_irq() ? pm_runtime_get(g2d_dev->dev) :
 			pm_runtime_get_sync(g2d_dev->dev);
 	if (ret < 0) {
@@ -176,13 +228,19 @@ static int enable_g2d(struct g2d1shot_dev *g2d_dev)
 		return ret;
 	}
 
+	g2d_dbg_end();
+
 	return 0;
 }
 
 static int disable_g2d(struct g2d1shot_dev *g2d_dev)
 {
+	g2d_dbg_begin();
+
 	clk_disable(g2d_dev->clock);
 	pm_runtime_put(g2d_dev->dev);
+
+	g2d_dbg_end();
 
 	return 0;
 }
@@ -196,6 +254,8 @@ static void g2d_set_source(struct g2d1shot_dev *g2d_dev,
 	u32 src_type = G2D_LAYER_SELECT_NORMAL;
 	u32 img_flags = source->img.flags;
 	int i;
+
+	g2d_dbg_begin();
 
 	if (img_flags & M2M1SHOT2_IMGFLAG_COLORFILL) {
 		g2d_hw_set_source_color(g2d_dev, layer_num,
@@ -228,6 +288,8 @@ static void g2d_set_source(struct g2d1shot_dev *g2d_dev,
 	g2d_hw_set_source_rotate(g2d_dev, layer_num, &source->ext);
 	/* set layer valid */
 	g2d_hw_set_source_valid(g2d_dev, layer_num);
+
+	g2d_dbg_end();
 }
 
 static void g2d_set_target(struct g2d1shot_dev *g2d_dev,
@@ -236,6 +298,8 @@ static void g2d_set_target(struct g2d1shot_dev *g2d_dev,
 {
 	struct m2m1shot2_context_format *ctx_fmt = m2m1shot2_dst_format(ctx);
 	int i;
+
+	g2d_dbg_begin();
 
 	/* more than 1 planes are not supported yet, but for later. */
 	for (i = 0; i < target->num_planes; i++)
@@ -249,6 +313,8 @@ static void g2d_set_target(struct g2d1shot_dev *g2d_dev,
 	/* set dither */
 	if (ctx->flags & M2M1SHOT2_FLAG_DITHER)
 		g2d_hw_set_dither(g2d_dev);
+
+	g2d_dbg_end();
 }
 
 static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
@@ -257,6 +323,8 @@ static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 	struct g2d1shot_dev *g2d_dev = g2d_ctx->g2d_dev;
 	int ret;
 	int i;
+
+	g2d_dbg_begin();
 
 	/* Marking for H/W operation? */
 
@@ -280,6 +348,8 @@ static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 	/* run H/W */
 	g2d_hw_start(g2d_dev);
 
+	g2d_dbg_end();
+
 	return 0;
 }
 
@@ -296,6 +366,8 @@ static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 	struct g2d1shot_dev *g2d_dev = priv;
 	struct m2m1shot2_context *m21ctx;
 
+	g2d_dbg_begin();
+
 	m21ctx = m2m1shot2_current_context(g2d_dev->oneshot2_dev);
 	if (!m21ctx) {
 		dev_err(g2d_dev->dev, "received null in irq handler\n");
@@ -311,6 +383,8 @@ static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 	/* How to define success? */
 	m2m1shot2_finish_context(m21ctx, true);
 
+	g2d_dbg_end();
+
 	return IRQ_HANDLED;
 }
 
@@ -320,8 +394,12 @@ static int g2d_iommu_fault_handler(
 {
 	struct g2d1shot_dev *g2d_dev = token;
 
+	g2d_dbg_begin();
+
 	if (!g2d_dev)
 		pr_err("Failed!\n");
+
+	g2d_dbg_end();
 
 	return 0;
 }
