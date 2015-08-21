@@ -1462,6 +1462,16 @@ int cal_vclk_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long prate
 	return ret;
 }
 
+unsigned long cal_vclk_dfs_sw_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct samsung_vclk *vclk = to_vclk(hw);
+	unsigned long ret = 0;
+
+	/* Call cal api to recalculate rate */
+	ret = cal_dfs_cached_get_rate(vclk->id);
+
+	return ret;
+}
 unsigned long cal_vclk_dfs_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct samsung_vclk *vclk = to_vclk(hw);
@@ -1537,7 +1547,7 @@ static const struct clk_ops samsung_vclk_dfs_ops = {
 };
 
 static const struct clk_ops samsung_vclk_dfs_sw_ops = {
-	.recalc_rate = cal_vclk_dfs_recalc_rate,
+	.recalc_rate = cal_vclk_dfs_sw_recalc_rate,
 	.round_rate = cal_vclk_round_rate,
 	.set_rate = cal_vclk_dfs_set_rate_switch,
 };
