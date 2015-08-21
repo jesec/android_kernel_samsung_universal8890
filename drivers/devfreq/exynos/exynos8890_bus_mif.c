@@ -217,6 +217,7 @@ static int exynos8890_devfreq_mif_init_freq_table(struct device *dev,
 						struct exynos_devfreq_data *data)
 {
 	u32 max_freq, min_freq, cur_freq;
+	unsigned long tmp_max, tmp_min;
 	struct dev_pm_opp *target_opp;
 	u32 flags = 0;
 	int i, ret;
@@ -239,7 +240,8 @@ static int exynos8890_devfreq_mif_init_freq_table(struct device *dev,
 	if (max_freq < data->max_freq) {
 		rcu_read_lock();
 		flags |= DEVFREQ_FLAG_LEAST_UPPER_BOUND;
-		target_opp = devfreq_recommended_opp(dev, (unsigned long *)&max_freq, flags);
+		tmp_max = (unsigned long)max_freq;
+		target_opp = devfreq_recommended_opp(dev, &tmp_max, flags);
 		if (IS_ERR(target_opp)) {
 			rcu_read_unlock();
 			dev_err(dev, "not found valid OPP for max_freq\n");
@@ -262,7 +264,8 @@ static int exynos8890_devfreq_mif_init_freq_table(struct device *dev,
 	if (min_freq > data->min_freq) {
 		rcu_read_lock();
 		flags &= ~DEVFREQ_FLAG_LEAST_UPPER_BOUND;
-		target_opp = devfreq_recommended_opp(dev, (unsigned long *)&min_freq, flags);
+		tmp_min = (unsigned long)min_freq;
+		target_opp = devfreq_recommended_opp(dev, &tmp_min, flags);
 		if (IS_ERR(target_opp)) {
 			rcu_read_unlock();
 			dev_err(dev, "not found valid OPP for min_freq\n");
