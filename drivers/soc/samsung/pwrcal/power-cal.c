@@ -356,6 +356,38 @@ out:
 	return ret;
 }
 
+unsigned long cal_dfs_cached_get_rate(unsigned int id)
+{
+	struct pwrcal_vclk_dfs *dfs;
+	struct vclk *vclk;
+	unsigned long flag;
+	unsigned long ret = 0;
+	const char *name = "cal_dfs_get_rate";
+
+	vclk = cal_get_vclk(id);
+	if (!vclk)
+		return 0;
+
+	dfs = to_dfs(vclk);
+
+	spin_lock_irqsave(dfs->lock, flag);
+
+	exynos_ss_clk(vclk, name, ESS_FLAG_IN);
+
+	if (!vclk->ref_count) {
+		pr_err("%s : %s reference count is zero \n", __func__, vclk->name);
+		exynos_ss_clk(vclk, name, ESS_FLAG_ON);
+		goto out;
+	}
+
+	ret = vclk->vfreq;
+
+	exynos_ss_clk(vclk, name, ESS_FLAG_OUT);
+out:
+	spin_unlock_irqrestore(dfs->lock, flag);
+	return ret;
+}
+
 unsigned long cal_dfs_get_rate(unsigned int id)
 {
 	struct pwrcal_vclk_dfs *dfs;
