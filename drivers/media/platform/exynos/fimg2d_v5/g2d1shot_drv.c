@@ -22,42 +22,13 @@
 #include <linux/exynos_iovmm.h>
 
 #include "g2d1shot.h"
-
-/*
- * g2d_debug value:
- *	0: no print
- *	1: err
- *	2: info
- *	3: perf
- *	4: oneline (simple)
- *	5: debug
- */
-extern int g2d_debug;
-
-enum debug_level {
-	DBG_NO,
-	DBG_ERR,
-	DBG_INFO,
-	DBG_PERF,
-	DBG_ONELINE,
-	DBG_DEBUG,
-};
-
-#define g2d_print(level, fmt, args...)						\
-	do {									\
-		if (g2d_debug >= level)						\
-			pr_info("[%s:%d] " fmt, __func__, __LINE__, ##args);	\
-	} while (0)
-
-#define g2d_err(fmt, args...)	g2d_print(DBG_ERR, fmt, ##args)
-#define g2d_info(fmt, args...)	g2d_print(DBG_INFO, fmt, ##args)
-#define g2d_debug(fmt, args...)	g2d_print(DBG_DEBUG, fmt, ##args)
-#define g2d_dbg_begin()		g2d_print(DBG_DEBUG, "%s\n", "++ begin")
-#define g2d_dbg_end()		g2d_print(DBG_DEBUG, "%s\n", "-- end")
-#define g2d_dbg_end_err()	g2d_print(DBG_DEBUG, "%s\n", "-- end, but err")
+#include "g2d1shot_helper.h"
 
 int g2d_debug = DBG_INFO;
 module_param(g2d_debug, int, S_IRUGO | S_IWUSR);
+
+int g2d_dump;
+module_param(g2d_dump, int, S_IRUGO | S_IWUSR);
 
 static int m2m1shot2_g2d_init_context(struct m2m1shot2_context *ctx)
 {
@@ -345,6 +316,11 @@ static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 
 	/* setting for common */
 
+	if (g2d_dump) {
+		g2d_disp_info(ctx);
+		g2d_dump_regs(g2d_dev);
+	}
+
 	/* run H/W */
 	g2d_hw_start(g2d_dev);
 
@@ -396,8 +372,7 @@ static int g2d_iommu_fault_handler(
 
 	g2d_dbg_begin();
 
-	if (!g2d_dev)
-		pr_err("Failed!\n");
+	g2d_dump_regs(g2d_dev);
 
 	g2d_dbg_end();
 
