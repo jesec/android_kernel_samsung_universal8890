@@ -470,8 +470,6 @@ static void mscl_post(int enable)
 static void g3d_post(int enable)
 {
 	if (enable == 1) {
-		udelay(40);
-
 		pwrcal_writel(G3D_DRCG_EN, 0x3F);
 
 		pwrcal_gate_disable(CLK(G3D_GATE_ACLK_PPMU_G3D0));
@@ -491,8 +489,6 @@ static void g3d_post(int enable)
 		pwrcal_gate_disable(CLK(G3D_GATE_SCLK_ASYNCAXI_G3D));
 		pwrcal_gate_disable(CLK(G3D_GATE_SCLK_AXI_LH_ASYNC_SI_G3DIRAM));
 	}
-	if (enable == 0)
-		udelay(90);
 }
 static void disp0_post(int enable)
 {
@@ -866,6 +862,9 @@ static void mscl_config(int enable)
 static void g3d_config(int enable)
 {
 	pwrcal_setf(G3D_OPTION, 0, 0xFFFFFFFF, 0x1);
+	pwrcal_setf(G3D_DURATION0, 8, 0xF, 0x3);
+	pwrcal_setf(G3D_DURATION0, 4, 0xF, 0x6);
+	pwrcal_setf(G3D_DURATION0, 0, 0xF, 0x3);
 	pwrcal_setf(MEMORY_G3D_OPTION, 0, 0xFFFFFFFF, 0x1);
 }
 static void disp0_config(int enable)
