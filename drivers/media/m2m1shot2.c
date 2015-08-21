@@ -283,7 +283,8 @@ static void m2m1shot2_unmap_image(struct m2m1shot2_device *m21dev,
 				struct m2m1shot2_context_image *img,
 				enum dma_data_direction dir)
 {
-	bool inv = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHEINV);
+	bool inv = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHEINV) &&
+			!(m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT);
 	unsigned int i;
 
 	if (img->memory == M2M1SHOT2_BUFTYPE_USERPTR) {
@@ -321,7 +322,8 @@ static int m2m1shot2_map_image(struct m2m1shot2_device *m21dev,
 				struct m2m1shot2_context_image *img,
 				enum dma_data_direction dir)
 {
-	bool clean = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHECLEAN);
+	bool clean = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHECLEAN) &&
+			!(m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT);
 	unsigned int i;
 
 	if (img->memory == M2M1SHOT2_BUFTYPE_USERPTR) {
@@ -609,7 +611,7 @@ static int m2m1shot2_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static int m2m1shot2_get_userptr(struct device *dev,
+static int m2m1shot2_get_userptr(struct m2m1shot2_device *m21dev,
 				 struct m2m1shot2_dma_buffer *plane,
 				 unsigned long addr, u32 length,
 				 enum dma_data_direction dir)
@@ -620,29 +622,30 @@ static int m2m1shot2_get_userptr(struct device *dev,
 	int ret = -EINVAL;
 	int prot = IOMMU_READ;
 
-	/* TODO: IOMMU_CACHE handling for shareable device */
 	if (dir != DMA_TO_DEVICE)
 		prot |= IOMMU_WRITE;
-
+	if (!!(m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT))
+		prot |= IOMMU_CACHE;
 	/*
 	 * release the previous buffer whatever the userptr is previously used.
 	 * the pages mapped to the given user addr can be different even though
 	 * the user addr is the same if the addr is mmapped again.
 	 */
 	if (plane->userptr.vma != NULL)
-		m2m1shot2_put_userptr(dev, plane);
+		m2m1shot2_put_userptr(m21dev->dev, plane);
 
 	down_read(&current->mm->mmap_sem);
 
 	vma = find_vma(current->mm, addr);
 	if (addr < vma->vm_start) {
-		dev_err(dev, "%s: invalid address %#lx\n", __func__, addr);
+		dev_err(m21dev->dev,
+			"%s: invalid address %#lx\n", __func__, addr);
 		goto err_novma;
 	}
 
 	tvma = kmemdup(vma, sizeof(*vma), GFP_KERNEL);
 	if (!tvma) {
-		dev_err(dev, "%s: failed to allocate vma\n", __func__);
+		dev_err(m21dev->dev, "%s: failed to allocate vma\n", __func__);
 		ret = -ENOMEM;
 		goto err_novma;
 	}
@@ -654,21 +657,24 @@ static int m2m1shot2_get_userptr(struct device *dev,
 
 	while (end > vma->vm_end) {
 		if (!!(vma->vm_flags & VM_PFNMAP)) {
-			dev_err(dev, "%s: non-linear pfnmap is not supported\n",
+			dev_err(m21dev->dev,
+				"%s: non-linear pfnmap is not supported\n",
 				__func__);
 			goto err_vma;
 		}
 
 		if ((vma->vm_next == NULL) ||
 				(vma->vm_end != vma->vm_next->vm_start)) {
-			dev_err(dev, "%s: invalid size %u\n", __func__, length);
+			dev_err(m21dev->dev, "%s: invalid size %u\n",
+					__func__, length);
 			goto err_vma;
 		}
 
 		vma = vma->vm_next;
 		tvma->vm_next = kmemdup(vma, sizeof(*vma), GFP_KERNEL);
 		if (tvma->vm_next == NULL) {
-			dev_err(dev, "%s: failed to allocate vma\n", __func__);
+			dev_err(m21dev->dev, "%s: failed to allocate vma\n",
+				__func__);
 			ret = -ENOMEM;
 			goto err_vma;
 		}
@@ -684,7 +690,8 @@ static int m2m1shot2_get_userptr(struct device *dev,
 			vma->vm_ops->open(vma);
 	}
 
-	plane->dma_addr = exynos_iovmm_map_userptr(dev, addr, length, prot);
+	plane->dma_addr = exynos_iovmm_map_userptr(
+				m21dev->dev, addr, length, prot);
 	if (IS_ERR_VALUE(plane->dma_addr))
 		goto err_map;
 
@@ -716,28 +723,31 @@ err_novma:
 	return ret;
 }
 
-static int m2m1shot2_get_dmabuf(struct device *dev,
+static int m2m1shot2_get_dmabuf(struct m2m1shot2_device *m21dev,
 				struct m2m1shot2_dma_buffer *plane,
 				int fd, u32 off, size_t payload,
 				enum dma_data_direction dir)
 {
 	struct dma_buf *dmabuf = dma_buf_get(fd);
 	int ret = -EINVAL;
+	int prot = IOMMU_READ;
 
 	if (IS_ERR(dmabuf)) {
-		dev_err(dev, "%s: failed to get dmabuf from fd %d\n",
+		dev_err(m21dev->dev, "%s: failed to get dmabuf from fd %d\n",
 			__func__, fd);
 		return PTR_ERR(dmabuf);
 	}
 
 	if (dmabuf->size < off) {
-		dev_err(dev, "%s: too large offset %u for dmabuf of %zu\n",
-				__func__, off, dmabuf->size);
+		dev_err(m21dev->dev,
+			"%s: too large offset %u for dmabuf of %zu\n",
+			__func__, off, dmabuf->size);
 		goto err;
 	}
 
 	if ((dmabuf->size - off) < payload) {
-		dev_err(dev, "%s: too small dmabuf %zu/%u but reqiured %zu\n",
+		dev_err(m21dev->dev,
+			"%s: too small dmabuf %zu/%u but reqiured %zu\n",
 			__func__, dmabuf->size, off, payload);
 		goto err;
 	}
@@ -750,20 +760,26 @@ static int m2m1shot2_get_dmabuf(struct device *dev,
 		return 0;
 	}
 
+	if (dir != DMA_TO_DEVICE)
+		prot |= IOMMU_WRITE;
+	if (!!(m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT))
+		prot |= IOMMU_CACHE;
+
 	/* release the previous buffer */
 	if (plane->dmabuf.dmabuf != NULL)
 		m2m1shot2_put_dmabuf(plane);
 
-	plane->dmabuf.attachment = dma_buf_attach(dmabuf, dev);
+	plane->dmabuf.attachment = dma_buf_attach(dmabuf, m21dev->dev);
 	if (IS_ERR(plane->dmabuf.attachment)) {
-		dev_err(dev, "%s: failed to attach to dmabuf\n", __func__);
+		dev_err(m21dev->dev,
+			"%s: failed to attach to dmabuf\n", __func__);
 		ret = PTR_ERR(plane->dmabuf.attachment);
 		goto err;
 	}
 
 	/* NOTE: ion_iovmm_map() ignores offset in the second argument */
 	plane->dma_addr = ion_iovmm_map(plane->dmabuf.attachment,
-					0, payload, dir, 0);
+					0, payload, dir, prot);
 	if (IS_ERR_VALUE(plane->dma_addr))
 		goto err_map;
 
@@ -798,7 +814,7 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 
 	if (src->memory == M2M1SHOT2_BUFTYPE_DMABUF) {
 		for (i = 0; i < src->num_planes; i++) {
-			ret = m2m1shot2_get_dmabuf(ctx->m21dev->dev,
+			ret = m2m1shot2_get_dmabuf(ctx->m21dev,
 					&img->plane[i], src->plane[i].fd,
 					src->plane[i].offset, payload[i], dir);
 			if (ret) {
@@ -817,7 +833,7 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 					__func__);
 				ret = -EINVAL;
 			} else {
-				ret = m2m1shot2_get_userptr(ctx->m21dev->dev,
+				ret = m2m1shot2_get_userptr(ctx->m21dev,
 					&img->plane[i], src->plane[i].userptr,
 					src->plane[i].length, dir);
 			}
@@ -1376,7 +1392,8 @@ static const struct file_operations m2m1shot2_fops = {
 
 struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 					const struct m2m1shot2_devops *ops,
-					const char *nodename, int id)
+					const char *nodename, int id,
+					unsigned long attr)
 {
 	struct m2m1shot2_device *m21dev;
 	char *name;
@@ -1426,6 +1443,7 @@ struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 
 	m21dev->dev = dev;
 	m21dev->ops = ops;
+	m21dev->attr = attr;
 
 	dev_info(dev, "registered as m2m1shot2 device");
 

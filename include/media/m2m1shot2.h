@@ -222,10 +222,13 @@ struct m2m1shot2_context {
 	u32				timeline_max;
 };
 
+#define M2M1SHOT2_DEVATTR_COHERENT		(1 << 0)
 /**
  * struct m2m1shot2_device
  *
  * @misc	: misc device desciptor for user-kernel interface
+ * @attr	: attribute flags that describes the characteristics of the
+ *		  client device.
  * @dev		: the client device desciptor
  * @contexts	: list of instances of m2m1shot2_context that are not currently
  *		  under processing request.
@@ -254,6 +257,7 @@ struct m2m1shot2_context {
  */
 struct m2m1shot2_device {
 	struct miscdevice		misc;
+	unsigned long			attr;
 	struct device			*dev;
 	struct list_head		contexts;
 	struct list_head		active_contexts;
@@ -266,8 +270,8 @@ struct m2m1shot2_device {
 struct m2m1shot2_context *m2m1shot2_current_context(
 				const struct m2m1shot2_device *m21dev);
 struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
-					const struct m2m1shot2_devops *ops,
-					const char *nodename, int id);
+				const struct m2m1shot2_devops *ops,
+			const char *nodename, int id, unsigned long attr);
 void m2m1shot2_destroy_device(struct m2m1shot2_device *m21dev);
 void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success);
 
@@ -331,7 +335,7 @@ static inline struct m2m1shot2_context *m2m1shot2_current_context(
 }
 static inline struct m2m1shot2_device *m2m1shot2_create_device(
 		struct device *dev, const struct m2m1shot2_devops *ops,
-		const char *nodename, int id)
+		const char *nodename, int id, unsigned long attr)
 {
 	return NULL;
 }
