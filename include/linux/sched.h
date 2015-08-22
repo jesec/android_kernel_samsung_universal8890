@@ -1187,6 +1187,9 @@ struct sched_entity {
 	/* Per-entity load-tracking */
 	struct sched_avg	avg;
 #endif
+#ifdef CONFIG_HP_EVENT_BIG_THREADS
+	bool big_thread;
+#endif
 };
 
 struct sched_rt_entity {
@@ -1401,6 +1404,12 @@ struct task_struct {
 	struct list_head thread_group;
 	struct list_head thread_node;
 
+#ifdef CONFIG_HP_EVENT_THREAD_GROUP
+	unsigned long thread_group_load;
+	int nr_thread_group;
+	raw_spinlock_t thread_group_lock;
+	bool hp_boost_requested;	/* This task requested hotplug boost */
+#endif
 	struct completion *vfork_done;		/* for vfork() */
 	int __user *set_child_tid;		/* CLONE_CHILD_SETTID */
 	int __user *clear_child_tid;		/* CLONE_CHILD_CLEARTID */

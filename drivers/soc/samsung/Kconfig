@@ -35,4 +35,19 @@ config ECT_DUMP
 config EXYNOS_HOTPLUG_GOVERNOR
 	bool "Enable Exynos dynamic hotplug governor"
 
+config SCHED_HP_EVENT
+	bool "Gathers scheduler events to decide hotplug in/out"
+	depends on EXYNOS_HOTPLUG_GOVERNOR
+	default y
+
+config HP_EVENT_THREAD_GROUP
+	bool "Gathres thread group information"
+	depends on SCHED_HP_EVENT && SCHED_HMP
+	default y
+
+config HP_EVENT_BIG_THREADS
+	bool "Gathres big threads in system"
+	depends on SCHED_HP_EVENT && SCHED_HMP
+	default n
+
 endif #SOC_SAMSUNG

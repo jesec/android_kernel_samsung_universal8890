@@ -1825,7 +1825,15 @@ void __dl_clear_params(struct task_struct *p)
 static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 {
 	p->on_rq			= 0;
-
+#ifdef CONFIG_HP_EVENT_THREAD_GROUP
+	p->thread_group_load		= 0;
+	p->nr_thread_group		= 0;
+	raw_spin_lock_init(&p->thread_group_lock);
+	p->hp_boost_requested		= false;
+#endif
+#ifdef CONFIG_HP_EVENT_BIG_THREADS
+	p->se.big_thread = false;
+#endif
 	p->se.on_rq			= 0;
 	p->se.exec_start		= 0;
 	p->se.sum_exec_runtime		= 0;

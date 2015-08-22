@@ -825,6 +825,63 @@ TRACE_EVENT(sched_wake_idle_without_ipi,
 
 	TP_printk("cpu=%d", __entry->cpu)
 );
+
+TRACE_EVENT(sched_hp_event_thread_group,
+
+	TP_PROTO(struct task_struct *g_tsk, struct task_struct *tsk, unsigned long ratio, unsigned long load_avg_ratio, int nr_thread_gr, int enqueue),
+
+	TP_ARGS(g_tsk, tsk, ratio, load_avg_ratio, nr_thread_gr, enqueue),
+
+	TP_STRUCT__entry(
+		__array(char, comm, TASK_COMM_LEN)
+		__array(char, comm2, TASK_COMM_LEN)
+		__field(pid_t, g_pid)
+		__field(pid_t, pid)
+		__field(unsigned long, ratio)
+		__field(unsigned long, load_avg_ratio)
+		__field(int, nr_thread_gr)
+		__field(int, enqueue)
+	),
+
+	TP_fast_assign(
+	memcpy(__entry->comm, g_tsk->comm, TASK_COMM_LEN);
+	memcpy(__entry->comm2, tsk->comm, TASK_COMM_LEN);
+		__entry->g_pid            = g_tsk->pid;
+		__entry->pid            = tsk->pid;
+		__entry->ratio = ratio;
+		__entry->load_avg_ratio = load_avg_ratio;
+		__entry->nr_thread_gr = nr_thread_gr;
+		__entry->enqueue = enqueue;
+	),
+
+	TP_printk("g_comm %s g_pid = %d comm=%s pid = %d thread_load=%lu avg_ratio : %lu nr_thread_gr = %d, enqueue = %d",
+			__entry->comm, __entry->g_pid, __entry->comm2, __entry->pid,
+			__entry->ratio, __entry->load_avg_ratio,  __entry->nr_thread_gr,__entry->enqueue)
+);
+
+TRACE_EVENT(sched_hp_event_big_threads,
+
+	TP_PROTO(int cpu, int data, char *label),
+
+	TP_ARGS(cpu,data,label),
+
+	TP_STRUCT__entry(
+		__array(char, label, 64)
+		__field(int, cpu)
+		__field(int, data)
+	),
+
+	TP_fast_assign(
+		strncpy(__entry->label, label, 64);
+		__entry->cpu   = cpu;
+		__entry->data = data;
+	),
+
+	TP_printk("cpu=%d data=%d label=%63s",
+		__entry->cpu, __entry->data,
+		__entry->label)
+);
+
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */
