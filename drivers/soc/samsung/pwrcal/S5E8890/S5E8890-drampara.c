@@ -336,7 +336,10 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		while (!((pwrcal_readl(SMC_TrnStatus_CH2) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH2) == 0x0)));
 		while (!((pwrcal_readl(SMC_TrnStatus_CH3) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH3) == 0x0)));
 		//3. Change TmrTrnInterval and TmrTrnCtl for new DVFS level.
-		pwrcal_writel(SMC_TmrTrnCtl, (0x1<<31) | g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl);
+		if (g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl == 0)
+			pwrcal_writel(SMC_TmrTrnCtl, 0x0);
+		else
+			pwrcal_writel(SMC_TmrTrnCtl, (0x1<<31) | g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl);
 
 		pwrcal_writel(DMC_MISC_CON1, 0x0);	//timing_set_sw_r=0x0
 
@@ -400,7 +403,7 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		while (!((pwrcal_readl(SMC_TrnStatus_CH2) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH2) == 0x0)));
 		while (!((pwrcal_readl(SMC_TrnStatus_CH3) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH3) == 0x0)));
 		//3. Change TmrTrnInterval and TmrTrnCtl for new DVFS level.
-		pwrcal_writel(SMC_TmrTrnCtl, (0x0<<31) | g_smc_dfs_table[target_mif_level_switch_idx].DvfsTrnCtl);
+		pwrcal_writel(SMC_TmrTrnCtl, 0x0);	//switching PLL is always periodic training off
 
 		pwrcal_writel(DMC_MISC_CON1, 0x1);	//timing_set_sw_r=0x1
 
