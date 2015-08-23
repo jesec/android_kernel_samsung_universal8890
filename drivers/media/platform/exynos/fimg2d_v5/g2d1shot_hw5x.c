@@ -309,9 +309,9 @@ static inline u32 scale_factor_to_fixed16(u32 n, u32 d)
 	return (u32)(value & 0xffffffff);
 }
 
-/* TODO : calculate scaling ratio between source and dest */
 void g2d_hw_set_source_scale(struct g2d1shot_dev *g2d_dev, int n,
-		struct m2m1shot2_extra *ext, struct m2m1shot2_context_format *ctx_fmt)
+		struct m2m1shot2_extra *ext, u32 flags,
+		struct m2m1shot2_context_format *ctx_fmt)
 {
 	struct v4l2_rect *s = &ctx_fmt->fmt.crop;
 	struct v4l2_rect *d = &ctx_fmt->fmt.window;
@@ -326,8 +326,15 @@ void g2d_hw_set_source_scale(struct g2d1shot_dev *g2d_dev, int n,
 	 */
 
 	/* inversed scaling factor: src is numerator */
-	wcfg = scale_factor_to_fixed16(s->width, d->width);
-	hcfg = scale_factor_to_fixed16(s->height, d->height);
+
+	if (flags & M2M1SHOT2_IMGFLAG_XSCALE_FACTOR)
+		wcfg = ext->horizontal_factor;
+	else
+		wcfg = scale_factor_to_fixed16(s->width, d->width);
+	if (flags & M2M1SHOT2_IMGFLAG_YSCALE_FACTOR)
+		hcfg = ext->vertical_factor;
+	else
+		hcfg = scale_factor_to_fixed16(s->height, d->height);
 
 	if (wcfg == DEFAULT_SCALE_RATIO && hcfg == DEFAULT_SCALE_RATIO)
 		return;
