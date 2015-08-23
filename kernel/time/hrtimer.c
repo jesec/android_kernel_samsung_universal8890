@@ -194,6 +194,12 @@ hrtimer_check_target(struct hrtimer *timer, struct hrtimer_clock_base *new_base)
 /*
  * Switch the timer base to the current CPU when possible.
  */
+
+#ifdef CONFIG_SCHED_HMP
+extern struct cpumask hmp_fast_cpu_mask;
+extern struct cpumask hmp_slow_cpu_mask;
+#endif
+
 static inline struct hrtimer_clock_base *
 switch_hrtimer_base(struct hrtimer *timer, struct hrtimer_clock_base *base,
 		    int pinned)
@@ -203,6 +209,42 @@ switch_hrtimer_base(struct hrtimer *timer, struct hrtimer_clock_base *base,
 	int this_cpu = smp_processor_id();
 	int cpu = get_nohz_timer_target(pinned);
 	int basenum = base->index;
+
+#ifdef CONFIG_SCHED_HMP
+	/* Switch the timer base to boot cluster on HMP */
+	if (timer->bounded_to_boot_cluster &&
+		cpumask_test_cpu(this_cpu, &hmp_fast_cpu_mask) &&
+		!pinned && get_sysctl_timer_migration()) {
+		int bound_cpu = 0;
+
+		if (unlikely(hrtimer_callback_running(timer)))
+			return base;
+
+		/* Use the nearest busy cpu to switch timer base
+		 * from an idle cpu. */
+		for_each_cpu(cpu, &hmp_slow_cpu_mask) {
+			if (!idle_cpu(cpu)) {
+				bound_cpu = cpu;
+				break;
+			}
+		}
+
+		new_cpu_base = &per_cpu(hrtimer_bases, bound_cpu);
+		new_base = &new_cpu_base->clock_base[basenum];
+
+		/* See the comment in lock_timer_base() */
+		timer->base = NULL;
+		raw_spin_unlock(&base->cpu_base->lock);
+		raw_spin_lock(&new_base->cpu_base->lock);
+
+		base = timer->base = new_base;
+
+		raw_spin_unlock(&new_base->cpu_base->lock);
+		raw_spin_lock(&base->cpu_base->lock);
+
+		return new_base;
+	}
+#endif
 
 again:
 	new_cpu_base = &per_cpu(hrtimer_bases, cpu);
