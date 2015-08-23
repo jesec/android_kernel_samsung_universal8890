@@ -1769,7 +1769,6 @@ void vclk_unused_disable(void)
 	vclk_disable(VCLK(gate_peric1_hsi2c14));
 	vclk_disable(VCLK(gate_peric1_uart1));
 	vclk_disable(VCLK(gate_peric1_uart3));
-	vclk_disable(VCLK(gate_peric1_uart4));
 	vclk_disable(VCLK(gate_peric1_uart5));
 	vclk_disable(VCLK(gate_peric1_spi0));
 	vclk_disable(VCLK(gate_peric1_spi1));
@@ -1877,6 +1876,7 @@ void vclk_unused_disable(void)
 #if 0
 	vclk_disable(VCLK(gate_peric0_pwm));
 	vclk_disable(VCLK(gate_peric1_uart2));
+	vclk_disable(VCLK(gate_peric1_uart4));
 	vclk_disable(VCLK(sclk_uart2));
 	vclk_disable(VCLK(p1_mfc_pll));
 	vclk_disable(VCLK(sclk_ap2cp_mif_pll_out));
