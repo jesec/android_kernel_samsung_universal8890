@@ -448,8 +448,6 @@ static void m2m1shot2_wait_process(struct m2m1shot2_device *m21dev,
 	}
 
 	m2m1shot2_unmap_images(ctx);
-
-	m2m1shot2_put_images(ctx);
 }
 
 static void m2m1shot2_schedule_context(struct m2m1shot2_context *ctx)
@@ -1183,6 +1181,11 @@ static int m2m1shot2_get_userdata(struct m2m1shot2_context *ctx,
 	}
 
 	blocking = !(data->flags & M2M1SHOT2_FLAG_NONBLOCK);
+
+	while (ctx->num_sources > data->num_sources) {
+		ctx->num_sources--;
+		m2m1shot2_put_image(ctx, &ctx->source[ctx->num_sources].img);
+	}
 
 	ctx->ctx_private = 0;
 	ctx->num_sources = data->num_sources;
