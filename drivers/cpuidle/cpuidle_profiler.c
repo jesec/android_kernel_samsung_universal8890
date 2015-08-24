@@ -142,6 +142,10 @@ void __cpuidle_profile_start(int cpu, int state, int substate)
 				info = &lpm_info;
 				enter_idle_state(info, LPM_SICD_CPD, now);
 				break;
+			case C2_SICD_AUD:
+				info = &lpm_info;
+				enter_idle_state(info, LPM_SICD_AUD, now);
+				break;
 			}
 		} else if (state == PROFILE_LPM)
 			enter_idle_state(&lpm_info, substate, now);
@@ -244,6 +248,7 @@ static s64 profile_time;
 static char * sys_powerdown_str[NUM_SYS_POWERDOWN] = {
 	"SICD",
 	"SICD_CPD",
+	"SICD_AUD",
 	"AFTR",
 	"STOP",
         "DSTOP",

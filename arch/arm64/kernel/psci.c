@@ -531,6 +531,7 @@ static int psci_suspend_customized_finisher(unsigned long index)
 		state.affinity_level = 1;
 		break;
 	case PSCI_SYSTEM_IDLE:
+	case PSCI_SYSTEM_IDLE_AUDIO:
 		state.id = 1;
 		break;
 	case PSCI_SYSTEM_IDLE_CLUSTER_SLEEP:

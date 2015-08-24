@@ -18,6 +18,7 @@
 enum sys_powerdown {
         SYS_SICD,
         SYS_SICD_CPD,
+        SYS_SICD_AUD,
         SYS_AFTR,
         SYS_STOP,
         SYS_DSTOP,

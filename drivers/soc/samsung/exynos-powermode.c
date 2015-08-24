@@ -412,16 +412,25 @@ static void update_cluster_idle_state(int idle, unsigned int cpu)
 	cluster_idle_state[get_cluster_id(cpu)] = idle;
 }
 
+static bool check_mode_available(unsigned int mode)
+{
+	int index;
+
+	for_each_idle_ip(index)
+		if (exynos_check_idle_ip_stat(mode, index))
+			return false;
+
+	return true;
+}
+
 /**
  * If AP put into SICD, console cannot work normally. For development,
  * support sysfs to enable or disable SICD. Refer below :
  *
  * echo 0/1 > /sys/power/sicd (0:disable, 1:enable)
  */
-static int is_sicd_available(unsigned int cpu)
+static int is_sicd_available(unsigned int cpu, unsigned int *sicd_mode)
 {
-	int index;
-
 	if (!pm_info->sicd_enabled)
 		return false;
 
@@ -439,11 +448,44 @@ static int is_sicd_available(unsigned int cpu)
 	if (!exynos_check_cp_status())
 		return false;
 
-	for_each_idle_ip(index)
-		if (exynos_check_idle_ip_stat(SYS_SICD, index))
-			return false;
+	if (check_mode_available(SYS_SICD_AUD)) {
+		*sicd_mode = SYS_SICD_AUD;
+		return true;
+	}
 
-	return true;
+	if (check_mode_available(SYS_SICD)) {
+		if (check_cluster_idle_state(cpu))
+			*sicd_mode = SYS_SICD_CPD;
+		else
+			*sicd_mode = SYS_SICD;
+
+		return true;
+	}
+
+	return false;
+}
+
+static int get_powermode_psci_state(unsigned int mode)
+{
+	int state;
+
+	switch (mode) {
+	case SYS_SICD:
+		state = PSCI_SYSTEM_IDLE;
+		break;
+	case SYS_SICD_CPD:
+		state = PSCI_SYSTEM_IDLE_CLUSTER_SLEEP;
+		break;
+	case SYS_SICD_AUD:
+		state = PSCI_SYSTEM_IDLE_AUDIO;
+		break;
+	default:
+		pr_err("%s: Invalid power mode %d\n", __func__, mode);
+		state = -EINVAL;
+		break;
+	}
+
+	return state;
 }
 
 /**
@@ -454,6 +496,7 @@ static int is_sicd_available(unsigned int cpu)
 int enter_c2(unsigned int cpu, int index)
 {
 	unsigned int cluster = get_cluster_id(cpu);
+	unsigned int sicd_mode;
 
 	exynos_cpu.power_down(cpu);
 
@@ -475,17 +518,12 @@ int enter_c2(unsigned int cpu, int index)
 		index = PSCI_CLUSTER_SLEEP;
 	}
 
-	if (is_sicd_available(cpu)) {
-		if (check_cluster_idle_state(cpu)) {
-			exynos_prepare_sys_powerdown(SYS_SICD_CPD);
-			index = PSCI_SYSTEM_IDLE_CLUSTER_SLEEP;
-		} else {
-			exynos_prepare_sys_powerdown(SYS_SICD);
-			index = PSCI_SYSTEM_IDLE;
-		}
+	if (is_sicd_available(cpu, &sicd_mode)) {
+		exynos_prepare_sys_powerdown(sicd_mode);
+		index = get_powermode_psci_state(sicd_mode);
 
 		s3c24xx_serial_fifo_wait();
-		pm_info->sicd_entered = true;
+		pm_info->sicd_entered = sicd_mode;
 	}
 out:
 	spin_unlock(&c2_lock);
@@ -505,9 +543,9 @@ void wakeup_from_c2(unsigned int cpu, int early_wakeup)
 		update_cluster_idle_state(false, cpu);
 	}
 
-	if (pm_info->sicd_entered) {
-		exynos_wakeup_sys_powerdown(SYS_SICD, early_wakeup);
-		pm_info->sicd_entered = false;
+	if (pm_info->sicd_entered != -1) {
+		exynos_wakeup_sys_powerdown(pm_info->sicd_entered, early_wakeup);
+		pm_info->sicd_entered = -1;
 	}
 
 	update_c2_state(false, cpu);
@@ -663,12 +701,10 @@ int determine_lpm(void)
 	if (!exynos_check_cp_status())
 		return SYS_AFTR;
 
-	for_each_idle_ip(index) {
-		if (exynos_check_idle_ip_stat(SYS_ALPA, index))
-			return SYS_AFTR;
-	}
+	if (check_mode_available(SYS_ALPA))
+		return SYS_ALPA;
 
-	return SYS_ALPA;
+	return SYS_AFTR;
 }
 
 void exynos_prepare_cp_call(void)
@@ -726,6 +762,8 @@ int __init exynos_powermode_init(void)
 	for_each_syspower_mode(mode)
 		for_each_idle_ip(index)
 			pm_info->idle_ip_mask[mode][index] = 0xFFFFFFFF;
+
+	pm_info->sicd_entered = -1;
 
 	if (sysfs_create_file(power_kobj, &blocking_cpd.attr))
 		pr_err("%s: failed to create sysfs to control CPD\n", __func__);
