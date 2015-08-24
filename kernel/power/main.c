@@ -639,7 +639,6 @@ static int __init pm_init(void)
 	error = sysfs_create_group(power_kobj, &attr_group);
 	if (error)
 		return error;
-	pm_wake_lock("aa");
 	pm_print_times_init();
 	return pm_autosleep_init();
 }
