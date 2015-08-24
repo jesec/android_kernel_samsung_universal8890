@@ -73,10 +73,10 @@ int m2m1shot_dma_addr_map(struct device *dev,
 
 	if (plane->dmabuf) {
 		iova = ion_iovmm_map(plane->attachment, 0,
-					plane->bytes_used, dir);
+					plane->bytes_used, dir, 0);
 	} else {
 		iova = iovmm_map(dev, plane->sgt->sgl, 0,
-					plane->bytes_used, dir);
+					plane->bytes_used, dir, 0);
 	}
 
 	if (IS_ERR_VALUE(iova))

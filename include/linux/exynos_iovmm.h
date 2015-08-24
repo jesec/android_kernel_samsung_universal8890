@@ -111,6 +111,7 @@ struct iommu_domain *get_domain_from_dev(struct device *dev);
  * @size: how much memory to map in bytes. @offset + @size must not exceed
  *        total size of @sg
  * @direction: dma data direction for iova
+ * @prot: iommu mapping property
  *
  * This function returns mapped IO address in the address space of @dev.
  * Returns minus error number if mapping fails.
@@ -122,7 +123,7 @@ struct iommu_domain *get_domain_from_dev(struct device *dev);
  *
  */
 dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
-		size_t size, enum dma_data_direction direction);
+		size_t size, enum dma_data_direction direction, int prot);
 
 /* iovmm_unmap() - unmaps the given IO address
  * @dev: the owner of the IO address space where @iova belongs
@@ -157,7 +158,7 @@ void iovmm_unmap(struct device *dev, dma_addr_t iova);
 #else
 #define iovmm_activate(dev)		(-ENOSYS)
 #define iovmm_deactivate(dev)		do { } while (0)
-#define iovmm_map(dev, sg, offset, size, direction) (-ENOSYS)
+#define iovmm_map(dev, sg, offset, size, direction, prot) (-ENOSYS)
 #define iovmm_unmap(dev, iova)		do { } while (0)
 #define get_domain_from_dev(dev)	NULL
 #endif /* CONFIG_EXYNOS_IOVMM */

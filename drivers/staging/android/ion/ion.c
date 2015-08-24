@@ -2574,7 +2574,7 @@ void __init ion_reserve(struct ion_platform_data *data)
 }
 
 static struct ion_iovm_map *ion_buffer_iova_create(struct ion_buffer *buffer,
-				struct device *dev, enum dma_data_direction dir)
+		struct device *dev, enum dma_data_direction dir, int iommu_prot)
 {
 	/* Must be called under buffer->lock held */
 	struct ion_iovm_map *iovm_map;
@@ -2588,7 +2588,8 @@ static struct ion_iovm_map *ion_buffer_iova_create(struct ion_buffer *buffer,
 	}
 
 	iovm_map->iova = iovmm_map(dev, buffer->sg_table->sgl,
-					0, buffer->size, dir);
+					0, buffer->size, dir,
+					iommu_prot);
 
 	if (iovm_map->iova == (dma_addr_t)-ENOSYS) {
 		size_t len;
@@ -2623,7 +2624,8 @@ static struct ion_iovm_map *ion_buffer_iova_create(struct ion_buffer *buffer,
 
 dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 			 off_t offset, size_t size,
-			 enum dma_data_direction direction)
+			 enum dma_data_direction direction,
+			 int iommu_prot)
 {
 	struct dma_buf *dmabuf = attachment->dmabuf;
 	struct ion_buffer *buffer = dmabuf->priv;
@@ -2650,7 +2652,8 @@ dma_addr_t ion_iovmm_map(struct dma_buf_attachment *attachment,
 		}
 	}
 
-	iovm_map = ion_buffer_iova_create(buffer, attachment->dev, direction);
+	iovm_map = ion_buffer_iova_create(buffer, attachment->dev,
+						direction, iommu_prot);
 	if (IS_ERR(iovm_map)) {
 		mutex_unlock(&buffer->lock);
 		return PTR_ERR(iovm_map);

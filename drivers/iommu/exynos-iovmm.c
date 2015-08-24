@@ -285,7 +285,7 @@ struct iommu_domain *get_domain_from_dev(struct device *dev)
  * function with IS_ERR_VALUE().
  */
 dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
-		     size_t size, enum dma_data_direction direction)
+		     size_t size, enum dma_data_direction direction, int prot)
 {
 	off_t start_off;
 	dma_addr_t addr, start = 0;
@@ -373,7 +373,7 @@ dma_addr_t iovmm_map(struct device *dev, struct scatterlist *sg, off_t offset,
 		if (len > (size - mapped_size))
 			len = size - mapped_size;
 
-		ret = iommu_map(vmm->domain, addr, phys, len, 0);
+		ret = iommu_map(vmm->domain, addr, phys, len, prot);
 		if (ret) {
 			dev_err(dev, "iommu_map failed w/ err: %d\n", ret);
 			break;

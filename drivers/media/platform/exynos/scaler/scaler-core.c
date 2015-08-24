@@ -1164,7 +1164,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->src_addr.y = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.ysize, DMA_TO_DEVICE);
+					frame->addr.ysize, DMA_TO_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.y)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of y (err %pa)",
@@ -1174,7 +1174,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->dst_addr.y = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.ysize, DMA_FROM_DEVICE);
+					frame->addr.ysize, DMA_FROM_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.y)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of y (err %pa)",
@@ -1207,7 +1207,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->src_addr.cb = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.cbsize, DMA_TO_DEVICE);
+					frame->addr.cbsize, DMA_TO_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.cb)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cb (err %pa)",
@@ -1217,7 +1217,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->dst_addr.cb = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.cbsize, DMA_FROM_DEVICE);
+					frame->addr.cbsize, DMA_FROM_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.cb)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cb (err %pa)",
@@ -1250,7 +1250,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->src_addr.cr = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.crsize, DMA_TO_DEVICE);
+					frame->addr.crsize, DMA_TO_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->src_addr.cr)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cr (err %pa)",
@@ -1260,7 +1260,7 @@ static bool initialize_initermediate_frame(struct sc_ctx *ctx)
 		}
 
 		ctx->i_frame->dst_addr.cr = iovmm_map(sc->dev, sgt->sgl, 0,
-					frame->addr.crsize, DMA_FROM_DEVICE);
+					frame->addr.crsize, DMA_FROM_DEVICE, 0);
 		if (IS_ERR_VALUE(ctx->i_frame->dst_addr.cr)) {
 			dev_err(sc->dev,
 				"Failed to allocate iova of cr (err %pa)",

@@ -844,7 +844,7 @@ int fimg2d_map_each_dmabuf_buffer(struct fimg2d_control *ctrl,
 		direction = DMA_FROM_DEVICE;
 
 	base->iova = ion_iovmm_map(dva->attachment, 0, dva->dma_buf->size,
-			direction);
+			direction, 0);
 	if (IS_ERR_VALUE(base->iova)) {
 		fimg2d_err("Failed to iovmm_map: %d\n", base->iova);
 		base->iova = 0;
