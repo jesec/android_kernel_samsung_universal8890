@@ -857,6 +857,7 @@ static int vpp_probe(struct platform_device *pdev)
 	struct vpp_dev *vpp;
 	struct resource *res;
 	int irq;
+	int vpp_irq = 0;
 	int ret = 0;
 
 	vpp = devm_kzalloc(dev, sizeof(*vpp), GFP_KERNEL);
@@ -924,6 +925,32 @@ static int vpp_probe(struct platform_device *pdev)
 		return irq;
 	}
 
+	ret = pm_runtime_get_sync(DEV);
+	if (ret < 0) {
+		dev_err(DEV, "Failed runtime_get(), %d\n", ret);
+		return ret;
+	}
+
+	ret = vpp_clk_enable(vpp);
+	if (ret)
+		return ret;
+
+	vpp_irq = vpp_reg_get_irq_status(vpp->id);
+	vpp_reg_set_clear_irq(vpp->id, vpp_irq);
+
+	ret = vpp_reg_wait_op_status(vpp->id);
+	if (ret < 0) {
+		dev_err(dev, "%s : vpp-%d is working\n",
+				__func__, vpp->id);
+		return ret;
+	}
+
+	vpp_clk_disable(vpp);
+
+	pm_runtime_put_sync(DEV);
+
+	spin_lock_init(&vpp->slock);
+
 	ret = devm_request_irq(dev, irq, vpp_irq_handler,
 				0, pdev->name, vpp);
 	if (ret) {
@@ -974,7 +1001,6 @@ static int vpp_probe(struct platform_device *pdev)
 	pm_qos_add_request(&vpp->vpp_mif_qos, PM_QOS_BUS_THROUGHPUT, 0);
 
 	mutex_init(&vpp->mlock);
-	spin_lock_init(&vpp->slock);
 
 	iovmm_set_fault_handler(dev, vpp_sysmmu_fault_handler, NULL);
 
