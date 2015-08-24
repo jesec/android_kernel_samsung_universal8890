@@ -176,7 +176,7 @@ struct dw_mci {
 	void			*priv;
 	struct clk		*biu_clk;
 	struct clk		*ciu_clk;
-	struct clk		*gate_clk;
+	struct clk		*ciu_gate;
 	atomic_t		biu_clk_cnt;
 	atomic_t		ciu_clk_cnt;
 	atomic_t		biu_en_win;
