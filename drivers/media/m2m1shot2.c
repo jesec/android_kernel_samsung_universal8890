@@ -31,6 +31,9 @@
 
 #include <media/m2m1shot2.h>
 
+#include <asm/cacheflush.h>
+
+#define M2M1SHOT2_NEED_CACHEFLUSH_ALL (10 * SZ_1M)
 #define M2M1SHOT2_FENCE_MASK (M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE |		\
 					M2M1SHOT2_IMGFLAG_RELEASE_FENCE)
 
@@ -282,9 +285,10 @@ retry:
 
 static void m2m1shot2_unmap_image(struct m2m1shot2_device *m21dev,
 				struct m2m1shot2_context_image *img,
-				enum dma_data_direction dir)
+				enum dma_data_direction dir,
+				bool skip_inv)
 {
-	bool inv = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHEINV) &&
+	bool inv = !skip_inv && !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHEINV) &&
 			!(m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT);
 	unsigned int i;
 
@@ -309,21 +313,27 @@ static void m2m1shot2_unmap_image(struct m2m1shot2_device *m21dev,
 
 static void m2m1shot2_unmap_images(struct m2m1shot2_context *ctx)
 {
+	bool flush_all = test_bit(M2M1S2_CTXSTATE_CACHEINVALALL, &ctx->state);
 	unsigned int i;
 
 	for (i = 0; i < ctx->num_sources; i++)
 		m2m1shot2_unmap_image(ctx->m21dev,
-					&ctx->source[i].img, DMA_TO_DEVICE);
+				&ctx->source[i].img, DMA_TO_DEVICE, flush_all);
 
 	m2m1shot2_unmap_image(ctx->m21dev,
-				&ctx->target, DMA_FROM_DEVICE);
+				&ctx->target, DMA_FROM_DEVICE, flush_all);
+
+	if (flush_all && !(ctx->m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT))
+		flush_all_cpu_caches();
 }
 
 static int m2m1shot2_map_image(struct m2m1shot2_device *m21dev,
 				struct m2m1shot2_context_image *img,
-				enum dma_data_direction dir)
+				enum dma_data_direction dir,
+				bool skip_clean)
 {
-	bool clean = !(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHECLEAN) &&
+	bool clean = !skip_clean &&
+			!(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHECLEAN) &&
 			!(m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT);
 	unsigned int i;
 
@@ -367,26 +377,32 @@ static int m2m1shot2_map_image(struct m2m1shot2_device *m21dev,
 
 static int m2m1shot2_map_images(struct m2m1shot2_context *ctx)
 {
+	bool flush_all = test_bit(M2M1S2_CTXSTATE_CACHECLEANALL, &ctx->state);
 	unsigned int i;
 	int ret;
 
 	for (i = 0; i < ctx->num_sources; i++) {
 		ret = m2m1shot2_map_image(ctx->m21dev,
-					&ctx->source[i].img, DMA_TO_DEVICE);
+				&ctx->source[i].img, DMA_TO_DEVICE, flush_all);
 		if (ret) {
 			while (i-- > 0)
 				m2m1shot2_unmap_image(ctx->m21dev,
-					&ctx->source[i].img, DMA_TO_DEVICE);
+					&ctx->source[i].img, DMA_TO_DEVICE,
+					true);
 			return ret;
 		}
 	}
 
-	ret = m2m1shot2_map_image(ctx->m21dev, &ctx->target, DMA_FROM_DEVICE);
+	ret = m2m1shot2_map_image(ctx->m21dev, &ctx->target,
+					DMA_FROM_DEVICE, flush_all);
 	if (ret) {
 		for (i = 0; i < ctx->num_sources; i++)
 			m2m1shot2_unmap_image(ctx->m21dev,
-					&ctx->source[i].img, DMA_TO_DEVICE);
+				&ctx->source[i].img, DMA_TO_DEVICE, true);
 	}
+
+	if (flush_all && !(ctx->m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT))
+		flush_all_cpu_caches();
 
 	return ret;
 }
@@ -848,6 +864,12 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 			}
 
 			img->plane[i].payload = payload[i];
+
+			if (!(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHECLEAN) &&
+				ion_cached_needsync_dmabuf(
+					img->plane[i].dmabuf.dmabuf) > 0)
+				ctx->ctx_private += img->plane[i].payload;
+
 		}
 	} else if (src->memory == M2M1SHOT2_BUFTYPE_USERPTR) {
 		for (i = 0; i < src->num_planes; i++) {
@@ -870,6 +892,10 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 			}
 
 			img->plane[i].payload = payload[i];
+
+			if (!(img->flags & M2M1SHOT2_IMGFLAG_NO_CACHECLEAN) &&
+				is_vma_cached(img->plane[i].userptr.vma))
+				ctx->ctx_private += img->plane[i].payload;
 		}
 	} else {
 		dev_err(ctx->m21dev->dev,
@@ -1145,6 +1171,7 @@ static int m2m1shot2_get_userdata(struct m2m1shot2_context *ctx,
 {
 	struct device *dev = ctx->m21dev->dev;
 	struct m2m1shot2_image __user *usersrc = data->sources;
+	unsigned int len_src, len_dst;
 	bool blocking;
 	int ret;
 
@@ -1157,6 +1184,7 @@ static int m2m1shot2_get_userdata(struct m2m1shot2_context *ctx,
 
 	blocking = !(data->flags & M2M1SHOT2_FLAG_NONBLOCK);
 
+	ctx->ctx_private = 0;
 	ctx->num_sources = data->num_sources;
 	ctx->flags = data->flags;
 
@@ -1170,9 +1198,24 @@ static int m2m1shot2_get_userdata(struct m2m1shot2_context *ctx,
 		goto err;
 	}
 
+	len_src = ctx->ctx_private;
+
 	ret = m2m1shot2_get_target(ctx, &data->target);
 	if (ret)
 		goto err;
+
+	len_dst = ctx->ctx_private - len_src;
+
+	if (ctx->ctx_private < M2M1SHOT2_NEED_CACHEFLUSH_ALL)
+		clear_bit(M2M1S2_CTXSTATE_CACHECLEANALL, &ctx->state);
+	else
+		set_bit(M2M1S2_CTXSTATE_CACHECLEANALL, &ctx->state);
+
+	if (!(ctx->target.flags & M2M1SHOT2_IMGFLAG_NO_CACHEINV) &&
+				(len_dst < M2M1SHOT2_NEED_CACHEFLUSH_ALL))
+		clear_bit(M2M1S2_CTXSTATE_CACHEINVALALL, &ctx->state);
+	else
+		set_bit(M2M1S2_CTXSTATE_CACHEINVALALL, &ctx->state);
 
 	return 0;
 err:

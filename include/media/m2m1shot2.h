@@ -184,6 +184,11 @@ struct m2m1shot2_devops {
 /* A error is occurred during processing the context */
 #define M2M1S2_CTXSTATE_ERROR			9
 
+/* force clean all the caches before DMA for better performance */
+#define M2M1S2_CTXSTATE_CACHECLEANALL		16
+/* force flush all the caches after DMA for better performance */
+#define M2M1S2_CTXSTATE_CACHEINVALALL		17
+
 #define M2M1S2_CTXSTATE_IDLE(ctx)		(((ctx)->state & 0xFFFF) == 0)
 
 /**
@@ -203,6 +208,7 @@ struct m2m1shot2_devops {
  * @timeline	: monotonic timeline of Android sync that signals the release
  *		  fences
  * @timeline_max: the timestamp of the most recent release fence
+ * @ctx_private	: the framework' private use
  */
 struct m2m1shot2_context {
 	struct list_head		node;
@@ -221,6 +227,7 @@ struct m2m1shot2_context {
 
 	struct sw_sync_timeline		*timeline;
 	u32				timeline_max;
+	u32				ctx_private;
 };
 
 #define M2M1SHOT2_DEVATTR_COHERENT		(1 << 0)
