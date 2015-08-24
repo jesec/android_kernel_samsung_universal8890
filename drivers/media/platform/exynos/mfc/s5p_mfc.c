@@ -1233,7 +1233,9 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 		return;
 	}
 
-	mfc_err_ctx("Interrupt Error: %d\n", err);
+	mfc_err_ctx("Interrupt Error: display: %d, decoded: %d\n",
+			s5p_mfc_err_dspl(err), s5p_mfc_err_dec(err));
+	err = s5p_mfc_err_dec(err);
 
 	/* Error recovery is dependent on the state of context */
 	switch (ctx->state) {
