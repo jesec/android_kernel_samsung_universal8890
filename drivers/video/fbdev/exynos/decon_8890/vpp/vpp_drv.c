@@ -925,6 +925,8 @@ static int vpp_probe(struct platform_device *pdev)
 		return irq;
 	}
 
+	pm_runtime_enable(dev);
+
 	ret = pm_runtime_get_sync(DEV);
 	if (ret < 0) {
 		dev_err(DEV, "Failed runtime_get(), %d\n", ret);
@@ -985,7 +987,6 @@ static int vpp_probe(struct platform_device *pdev)
 	init_waitqueue_head(&vpp->framedone_wq);
 
 	platform_set_drvdata(pdev, vpp);
-	pm_runtime_enable(dev);
 
 	ret = iovmm_activate(dev);
 	if (ret < 0) {
