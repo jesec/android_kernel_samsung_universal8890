@@ -58,9 +58,27 @@ extern int check_cluster_idle_state(unsigned int cpu);
 #define IDLE_IP_FIX_INDEX_COUNT		2
 #define IDLE_IP_MAX_CONFIGURABLE_INDEX	(IDLE_IP_MAX_INDEX - IDLE_IP_FIX_INDEX_COUNT)
 
-extern void exynos_update_ip_idle_status(int index, int idle);
-extern int exynos_get_idle_ip_index(const char *name);
-extern void exynos_get_idle_ip_list(char *(*idle_ip_list)[IDLE_IP_REG_SIZE]);
+
+#ifdef CONFIG_CPU_IDLE
+void exynos_update_ip_idle_status(int index, int idle);
+int exynos_get_idle_ip_index(const char *name);
+void exynos_get_idle_ip_list(char *(*idle_ip_list)[IDLE_IP_REG_SIZE]);
+#else
+static inline void exynos_update_ip_idle_status(int index, int idle)
+{
+	return;
+}
+
+static inline int exynos_get_idle_ip_index(const char *name)
+{
+	return 0;
+}
+
+static inline void exynos_get_idle_ip_list(char *(*idle_ip_list)[IDLE_IP_REG_SIZE])
+{
+	return;
+}
+#endif
 
 enum exynos_idle_ip {
 	IDLE_IP0,

@@ -124,6 +124,7 @@ static void exynos_set_idle_ip_mask(enum sys_powerdown mode)
 	spin_unlock_irqrestore(&idle_ip_mask_lock, flags);
 }
 
+#ifdef CONFIG_CPU_IDLE
 /**
  * There are 4 IDLE_IP registers in PMU, IDLE_IP therefore supports 128 index,
  * 0 from 127. To access the IDLE_IP register, convert_idle_ip_index() converts
@@ -283,6 +284,7 @@ void exynos_get_idle_ip_list(char *(*idle_ip_list)[IDLE_IP_REG_SIZE])
 		}
 	}
 }
+#endif
 
 /******************************************************************************
  *                          Local power gating (C2)                           *
