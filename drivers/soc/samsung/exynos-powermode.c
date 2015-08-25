@@ -703,6 +703,9 @@ static int __init dt_init_exynos_powermode(void)
 	if (of_property_read_u32(np, "sicd_residency", &pm_info->sicd_residency))
 		pr_warn("No matching property: sicd_residency\n");
 
+	if (of_property_read_u32(np, "sicd_enabled", &pm_info->sicd_enabled))
+		pr_warn("No matching property: sicd_enabled\n");
+
 	return 0;
 }
 
@@ -715,8 +718,6 @@ int __init exynos_powermode_init(void)
 		pr_err("%s: failed to allocate exynos_powermode_info\n", __func__);
 		return -ENOMEM;
 	}
-
-	pm_info->sicd_enabled = true;
 
 	dt_init_exynos_powermode();
 
