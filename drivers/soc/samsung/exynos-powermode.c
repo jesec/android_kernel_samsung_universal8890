@@ -359,17 +359,6 @@ void release_cpd(void)
 	pm_info->cpd_blocked = false;
 }
 
-static int is_cpd_available(unsigned int cpu)
-{
-	if (pm_info->cpd_blocked)
-		return false;
-
-	if (is_cpus_busy(pm_info->cpd_residency, cpu_coregroup_mask(cpu)))
-		return false;
-
-	return true;
-}
-
 static unsigned int get_cluster_id(unsigned int cpu)
 {
 	return MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
@@ -381,6 +370,24 @@ static bool is_cpu_boot_cluster(unsigned int cpu)
 	 * The cluster included cpu0 is boot cluster
 	 */
 	return (get_cluster_id(0) == get_cluster_id(cpu));
+}
+
+static int is_cpd_available(unsigned int cpu)
+{
+	if (pm_info->cpd_blocked)
+		return false;
+
+	/*
+	 * Power down of boot cluster have nothing to gain power consumption,
+	 * so it is not supported.
+	 */
+	if (is_cpu_boot_cluster(cpu))
+		return false;
+
+	if (is_cpus_busy(pm_info->cpd_residency, cpu_coregroup_mask(cpu)))
+		return false;
+
+	return true;
 }
 
 /**
@@ -409,11 +416,19 @@ static void update_cluster_idle_state(int idle, unsigned int cpu)
  *
  * echo 0/1 > /sys/power/sicd (0:disable, 1:enable)
  */
-static int is_sicd_available(void)
+static int is_sicd_available(unsigned int cpu)
 {
 	int index;
 
 	if (!pm_info->sicd_enabled)
+		return false;
+
+	/*
+	 * When the cpu in non-boot cluster enters SICD, interrupts of
+	 * boot cluster is not blocked. For stability, SICD entry by
+	 * non-boot cluster is not supported.
+	 */
+	if (!is_cpu_boot_cluster(cpu))
 		return false;
 
 	if (is_cpus_busy(pm_info->sicd_residency, cpu_online_mask))
@@ -451,13 +466,6 @@ int enter_c2(unsigned int cpu, int index)
 			min(pm_info->cpd_residency, pm_info->sicd_residency))
 		goto out;
 
-	/*
-	 * Power down of boot cluster have nothing to gain power consumption,
-	 * so it is not supported.
-	 */
-	if (is_cpu_boot_cluster(cluster))
-		goto system_idle_clock_down;
-
 	if (is_cpd_available(cpu)) {
 		exynos_cpu.cluster_down(cluster);
 		update_cluster_idle_state(true, cpu);
@@ -465,8 +473,7 @@ int enter_c2(unsigned int cpu, int index)
 		index = PSCI_CLUSTER_SLEEP;
 	}
 
-system_idle_clock_down:
-	if (is_cpu_boot_cluster(cluster) && is_sicd_available()) {
+	if (is_sicd_available(cpu)) {
 		if (check_cluster_idle_state(cpu)) {
 			exynos_prepare_sys_powerdown(SYS_SICD_CPD);
 			index = PSCI_SYSTEM_IDLE_CLUSTER_SLEEP;
