@@ -1940,6 +1940,7 @@ static const struct file_operations esa_proc_fops = {
 	.read = esa_proc_read,
 };
 
+#ifdef CONFIG_PM_RUNTIME
 static int esa_do_suspend(struct device *dev)
 {
 	esa_fw_shutdown();
@@ -1951,6 +1952,7 @@ static int esa_do_suspend(struct device *dev)
 
 	return 0;
 }
+#endif
 
 static int esa_do_resume(struct device *dev)
 {
