@@ -132,12 +132,14 @@ int decon_set_par(struct fb_info *info)
 	struct decon_window_regs win_regs;
 	int win_no = win->index;
 
-	memset(&win_regs, 0, sizeof(struct decon_window_regs));
-	dev_info(decon->dev, "setting framebuffer parameters\n");
+	dev_info(decon->dev, "%s: state %d\n", __func__, decon->state);
 
-	if (decon->state == DECON_STATE_OFF)
+	if ((decon->pdata->out_type == DECON_OUT_DSI &&
+			decon->state == DECON_STATE_INIT) ||
+			decon->state == DECON_STATE_OFF)
 		return 0;
 
+	memset(&win_regs, 0, sizeof(struct decon_window_regs));
 	decon_lpd_block_exit(decon);
 
 	decon_reg_wait_for_update_timeout(decon->id, SHADOW_UPDATE_TIMEOUT);
@@ -326,17 +328,17 @@ int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	int shift = 0;
 	struct decon_mode_info psr;
 
-	if ((decon->pdata->out_type == DECON_OUT_DSI) &&
-			(decon->state == DECON_STATE_INIT)) {
-		decon_warn("%s: decon%d init state, UNBLANK missed\n",
-				__func__, decon->id);
+	if ((decon->pdata->out_type == DECON_OUT_DSI &&
+			decon->state == DECON_STATE_INIT) ||
+			decon->state == DECON_STATE_OFF) {
+		decon_warn("%s: decon%d state(%d), UNBLANK missed\n",
+				__func__, decon->id, decon->state);
 		return 0;
 	}
 
-	decon_lpd_block_exit(decon);
-
 	decon_set_par(info);
 
+	decon_lpd_block_exit(decon);
 	decon->vpp_usage_bitmask |= (1 << decon->default_idma);
 	decon->vpp_used[decon->default_idma] = true;
 	memset(&config, 0, sizeof(struct decon_win_config));
