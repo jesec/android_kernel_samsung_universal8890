@@ -704,7 +704,7 @@ static void bts_smc_init(void __iomem *base)
 	__raw_writel(0x10101010, base + SCHED_CTRL0);
 	__raw_writel(0x10101010, base + SCHED_CTRL1);
 	__raw_writel(0x20202060, base + SCHED_CTRL2);
-	__raw_writel(0x00000010, base + SCHED_CTRL3);
+	__raw_writel(0x00000110, base + SCHED_CTRL3);
 	return;
 }
 
