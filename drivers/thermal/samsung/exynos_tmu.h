@@ -266,7 +266,11 @@ struct exynos_tmu_registers {
  * This structure is required for configuration of exynos_tmu driver.
  */
 struct exynos_tmu_platform_data {
+	/* ect related variables */
 	char *tmu_name;
+	int ect_hotplug_flag;
+	int ect_hotplug_interval;
+
 	u32 temp_mask;
 	u8 threshold;
 	u8 threshold_falling;

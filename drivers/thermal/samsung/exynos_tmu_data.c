@@ -765,6 +765,8 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_MNGS \
 	.tmu_name = "MNGS",	\
+	.ect_hotplug_flag = 1,	\
+	.ect_hotplug_interval = 5,	\
 	.temp_mask = TYPE_9BIT_MASK,	\
 	.gain = 5, \
 	.reference_voltage = 16, \

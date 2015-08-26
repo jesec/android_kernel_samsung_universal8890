@@ -1003,6 +1003,7 @@ static int exynos_tmu_ect_set_information(struct platform_device *pdev)
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	struct ect_ap_thermal_function *function;
+	int hotplug_threshold = 0, hotplug_flag = 0;
 
 	if (pdata->tmu_name == NULL)
 		return 0;
@@ -1031,8 +1032,24 @@ static int exynos_tmu_ect_set_information(struct platform_device *pdev)
 
 		pdata->freq_tab[i].temp_level = function->range_list[i].lower_bound_temperature;
 		pdata->freq_tab[i].freq_clip_max = function->range_list[i].max_frequency;
+
+		if (function->range_list[i].flag != hotplug_flag) {
+			hotplug_threshold = pdata->freq_tab[i].temp_level;
+			hotplug_flag = function->range_list[i].flag;
+			dev_info(&pdev->dev, "[ECT]hotplug_threshold : %d \n", hotplug_threshold);
+		}
 	}
 	pdata->freq_tab_count = function->num_of_range;
+
+	if (pdata->ect_hotplug_flag && hotplug_threshold != 0) {
+		pdata->hotplug_enable = true;
+		pdata->hotplug_in_threshold = hotplug_threshold
+						- pdata->ect_hotplug_interval;
+		pdata->hotplug_out_threshold = hotplug_threshold;
+		dev_info(&pdev->dev, "[ECT]hotplug_in_threshold : %d \n", pdata->hotplug_in_threshold);
+		dev_info(&pdev->dev, "[ECT]hotplug_out_threshold : %d \n", pdata->hotplug_out_threshold);
+	} else
+		pdata->hotplug_enable = false;
 
 	return 0;
 }
