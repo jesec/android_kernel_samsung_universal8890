@@ -139,6 +139,7 @@ struct vclk_dfs_ops {
 	int (*get_asv_table)(unsigned int *table);
 	int (*set_voltage)(unsigned int uv);
 	int (*cpu_idle_clock_down)(unsigned int enable);
+	int (*ctrl_clk_gate)(unsigned int enable);
 	int (*get_margin_param)(unsigned int id);
 };
 

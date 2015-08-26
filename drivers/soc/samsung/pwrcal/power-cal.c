@@ -509,6 +509,10 @@ int cal_dfs_ext_ctrl(unsigned int id,
 			if (dfsops->cpu_idle_clock_down)
 				return dfsops->cpu_idle_clock_down(para);
 			break;
+		case cal_dfs_ctrl_clk_gate:
+			if (dfsops->ctrl_clk_gate)
+				return dfsops->ctrl_clk_gate(para);
+			break;
 		default:
 			return -1;
 		}
