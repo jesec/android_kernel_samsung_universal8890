@@ -1384,6 +1384,16 @@ static inline u8 ufshcd_scsi_to_upiu_lun(unsigned int scsi_lun)
 		return scsi_lun & UFS_UPIU_MAX_UNIT_NUM_ID;
 }
 
+static inline unsigned int ufshcd_get_scsi_lun(struct scsi_cmnd *cmd)
+{
+	if (cmd->cmnd[0] == SECURITY_PROTOCOL_IN ||
+			cmd->cmnd[0] == SECURITY_PROTOCOL_OUT)
+		return (SCSI_W_LUN_BASE |
+			(UFS_UPIU_RPMB_WLUN & UFS_UPIU_MAX_UNIT_NUM_ID));
+	else
+		return cmd->device->lun;
+}
+
 /**
  * ufshcd_upiu_wlun_to_scsi_wlun - maps UPIU W-LUN id to SCSI W-LUN ID
  * @scsi_lun: UPIU W-LUN id
@@ -1409,6 +1419,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	unsigned long flags;
 	int tag;
 	int err = 0;
+
+	unsigned int scsi_lun;
 
 	hba = shost_priv(host);
 
@@ -1471,7 +1483,9 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	lrbp->sense_bufflen = SCSI_SENSE_BUFFERSIZE;
 	lrbp->sense_buffer = cmd->sense_buffer;
 	lrbp->task_tag = tag;
-	lrbp->lun = ufshcd_scsi_to_upiu_lun(cmd->device->lun);
+
+	scsi_lun = ufshcd_get_scsi_lun(cmd);
+	lrbp->lun = ufshcd_scsi_to_upiu_lun(scsi_lun);
 	lrbp->intr_cmd = false;
 	lrbp->command_type = UTP_CMD_TYPE_SCSI;
 

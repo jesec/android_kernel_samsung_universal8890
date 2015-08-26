@@ -1319,7 +1319,7 @@ static int sd_ioctl(struct block_device *bdev, fmode_t mode,
 	struct scsi_device *sdp = sdkp->device;
 	void __user *p = (void __user *)arg;
 	int error;
-    
+
 	SCSI_LOG_IOCTL(1, sd_printk(KERN_INFO, sdkp, "sd_ioctl: disk=%s, "
 				    "cmd=0x%x\n", disk->disk_name, cmd));
 
@@ -1346,6 +1346,8 @@ static int sd_ioctl(struct block_device *bdev, fmode_t mode,
 	switch (cmd) {
 		case SCSI_IOCTL_GET_IDLUN:
 		case SCSI_IOCTL_GET_BUS_NUMBER:
+		case SCSI_IOCTL_SECURITY_PROTOCOL_IN:
+		case SCSI_IOCTL_SECURITY_PROTOCOL_OUT:
 			error = scsi_ioctl(sdp, cmd, p);
 			break;
 		default:
