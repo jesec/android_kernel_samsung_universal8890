@@ -57,10 +57,8 @@ extern void lpass_put_cpu_hotplug(void);
 
 #ifdef CONFIG_SND_SAMSUNG_AUDSS
 extern int exynos_check_aud_pwr(void);
-void exynos_aud_alpa_notifier(bool on);
 #else
 static inline int exynos_check_aud_pwr(void) { return -1; }
-static void exynos_aud_alpa_notifier(bool on) { return; }
 #endif
 
 

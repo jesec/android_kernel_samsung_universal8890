@@ -35,6 +35,8 @@
 
 #include <sound/exynos.h>
 
+#include <soc/samsung/exynos-pm.h>
+
 #if 0
 #include <mach/map.h>
 #include <mach/regs-pmu.h>
@@ -242,14 +244,6 @@ static inline bool is_running_only(const char *name)
 	}
 
 	return false;
-}
-
-void exynos_aud_alpa_notifier(bool on)
-{
-#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
-	esa_compr_alpa_notifier(on);
-#endif
-	return;
 }
 
 int exynos_check_aud_pwr(void)
@@ -1029,6 +1023,31 @@ static struct notifier_block fb_noti_block = {
 	.notifier_call = lpass_fb_state_chg,
 };
 
+static int exynos_aud_alpa_notifier(struct notifier_block *nb,
+				unsigned long event, void *data)
+{
+	switch (event) {
+	case SICD_ENTER:
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+		esa_compr_alpa_notifier(true);
+#endif
+		break;
+	case SICD_EXIT:
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+		esa_compr_alpa_notifier(false);
+#endif
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block lpass_lpa_nb = {
+	.notifier_call = exynos_aud_alpa_notifier,
+};
+
 static char banner[] =
 	KERN_INFO "Samsung Low Power Audio Subsystem driver, "\
 		  "(c)2013 Samsung Electronics\n";
@@ -1185,6 +1204,9 @@ static int lpass_probe(struct platform_device *pdev)
 	pm_qos_add_request(&lpass.aud_mif_qos, PM_QOS_BUS_THROUGHPUT, 0);
 	pm_qos_add_request(&lpass.aud_int_qos, PM_QOS_DEVICE_THROUGHPUT, 0);
 #endif
+
+	exynos_pm_register_notifier(&lpass_lpa_nb);
+
 	pr_info("%s: LPASS driver was registerd successfully\n", __func__);
 	return 0;
 }
