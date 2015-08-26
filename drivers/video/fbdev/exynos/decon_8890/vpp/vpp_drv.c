@@ -18,6 +18,7 @@
 #include <linux/exynos_iovmm.h>
 #include <linux/smc.h>
 #include <linux/export.h>
+#include <linux/videodev2_exynos_media.h>
 
 #include "vpp.h"
 #include "vpp_common.h"
@@ -439,6 +440,17 @@ static int vpp_set_read_order(struct vpp_dev *vpp)
 	return ret;
 }
 
+void vpp_split_single_plane(struct decon_win_config *config, struct vpp_size_param *p)
+{
+	switch(config->format) {
+	case DECON_PIXEL_FORMAT_NV12N:
+		p->addr1 = NV12N_CBCR_BASE(p->addr0, p->src_fw, p->src_fh);
+		break;
+	default:
+		break;
+	}
+}
+
 static int vpp_set_config(struct vpp_dev *vpp)
 {
 	struct decon_win_config *config = vpp->config;
@@ -515,6 +527,7 @@ static int vpp_set_config(struct vpp_dev *vpp)
 			goto err;
 	}
 
+	vpp_split_single_plane(config, &p);
 	vpp_reg_set_in_buf_addr(vpp->id, &p, &vi);
 	vpp_reg_set_smart_if_pix_num(vpp->id, config->dst.w, config->dst.h);
 
