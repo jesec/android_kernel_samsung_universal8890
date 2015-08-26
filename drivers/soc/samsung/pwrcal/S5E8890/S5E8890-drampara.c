@@ -254,7 +254,7 @@ static const unsigned long long mif_freq_to_level_switch[] = {
 	/* BUS0_PLL SW 468 */	468 * MHZ
 };
 
-void smc_set_qchandis(int enable)
+void smc_set_qchannel(int enable)
 {
 	if (enable == 0)	{
 		pwrcal_setbit(CG_CTRL_VAL_DDRPHY0, 0, 0x1);

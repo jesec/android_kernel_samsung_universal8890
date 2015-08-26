@@ -721,6 +721,12 @@ static int dfsmif_is_dll_on(void)
 {
 	return 0;
 }
+extern void smc_set_qchannel(int enable);
+static int dfsmif_ctrl_clk_gate(unsigned int enable)
+{
+	smc_set_qchannel((int)enable);
+	return 0;
+}
 
 extern void dmc_misc_direct_dmc_enable(int enable);
 extern void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing_set_idx);
@@ -764,6 +770,7 @@ static struct vclk_dfs_ops dfsmif_dfsops = {
 	.get_rate_table = dfsmif_get_rate_table,
 	.is_dll_on = dfsmif_is_dll_on,
 	.get_asv_table = dfsmif_asv_voltage_table,
+	.ctrl_clk_gate = dfsmif_ctrl_clk_gate,
 	.get_margin_param = common_get_margin_param,
 };
 
