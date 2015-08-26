@@ -117,6 +117,29 @@ static int exynos8890_devfreq_cl_dvfs_stop(u32 target_idx,
 	return ret;
 }
 
+static void exynos8890_devfreq_mif_set_voltage_prepare(struct exynos_devfreq_data *data)
+{
+	/*
+	 * The Clock Gate Control should be disable before voltage change.
+	 */
+	if (cal_dfs_ext_ctrl(dvfs_mif, cal_dfs_ctrl_clk_gate, 0)) {
+		dev_err(data->dev, "failed CG control disable\n");
+		BUG_ON(1);
+	}
+}
+
+static void exynos8890_devfreq_mif_set_voltage_post(struct exynos_devfreq_data *data)
+{
+	/*
+	 * The Clock Gate Control should be enable before voltage change,
+	 * if the HWACG is enabled.
+	 */
+	if (cal_dfs_ext_ctrl(dvfs_mif, cal_dfs_ctrl_clk_gate, 1)) {
+		dev_err(data->dev, "failed CG control enable\n");
+		BUG_ON(1);
+	}
+}
+
 static int exynos8890_devfreq_mif_get_switch_freq(u32 cur_freq, u32 new_freq,
 						u32 *switch_freq)
 {
@@ -417,6 +440,8 @@ static int __init exynos8890_devfreq_mif_init_prepare(struct exynos_devfreq_data
 	data->ops.init_freq_table = exynos8890_devfreq_mif_init_freq_table;
 	data->ops.cl_dvfs_start = exynos8890_devfreq_cl_dvfs_start;
 	data->ops.cl_dvfs_stop = exynos8890_devfreq_cl_dvfs_stop;
+	data->ops.set_voltage_prepare = exynos8890_devfreq_mif_set_voltage_prepare;
+	data->ops.set_voltage_post = exynos8890_devfreq_mif_set_voltage_post;
 	data->ops.reboot = exynos8890_devfreq_mif_reboot;
 	data->ops.cmu_dump = exynos8890_devfreq_mif_cmu_dump;
 
