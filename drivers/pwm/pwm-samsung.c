@@ -210,8 +210,8 @@ static void pwm_samsung_init(struct samsung_pwm_chip *chip,
 	unsigned int tcon_chan = to_tcon_channel(pwm->hwpwm);
 	u32 tcon;
 
-	__raw_writel(0, chip->base + REG_TCMPB(tcon_chan));
-	__raw_writel(0, chip->base + REG_TCNTB(tcon_chan));
+	__raw_writel(0, chip->base + REG_TCMPB(pwm->hwpwm));
+	__raw_writel(0, chip->base + REG_TCNTB(pwm->hwpwm));
 
 	tcon = __raw_readl(chip->base + REG_TCON);
 	tcon |= TCON_INVERT(tcon_chan) | TCON_MANUALUPDATE(tcon_chan);
@@ -395,17 +395,17 @@ static int pwm_samsung_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		}
 
 		tin_ns = NSEC_PER_SEC / tin_rate;
-		tcnt = DIV_ROUND_CLOSEST(period_ns, tin_ns);
 	}
+
+	/* Note that counters count down. */
+	tcnt = DIV_ROUND_CLOSEST(period_ns, tin_ns);
+	tcmp = DIV_ROUND_CLOSEST(duty_ns, tin_ns);
 
 	/* Period is too short. */
 	if (tcnt <= 1) {
 		ret = -ERANGE;
 		goto out;
 	}
-
-	/* Note that counters count down. */
-	tcmp = DIV_ROUND_CLOSEST(duty_ns, tin_ns);
 
 	if (tcmp == 0)
 		duty_cycle = DUTY_CYCLE_ZERO;
@@ -527,8 +527,8 @@ static const struct samsung_pwm_variant s3c24xx_variant = {
 };
 
 static const struct samsung_pwm_variant s3c64xx_variant = {
-	.bits		= 32,
-	.div_base	= 0,
+	.bits		= 16,
+	.div_base	= 1,
 	.has_tint_cstat	= true,
 	.tclk_mask	= BIT(7) | BIT(6) | BIT(5),
 };
