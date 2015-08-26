@@ -2042,6 +2042,72 @@ static void sc_clk_power_disable(struct sc_dev *sc)
 	pm_runtime_put(sc->dev);
 }
 
+static int sc_ctrl_protection(struct sc_dev *sc, struct sc_ctx *ctx, bool en)
+{
+	void *cookie;
+	struct vb2_buffer *vb;
+	phys_addr_t addr;
+	int ret;
+	int i;
+
+	vb = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+	for (i = 0; i < ctx->s_frame.sc_fmt->num_planes; i++) {
+		cookie = vb2_plane_cookie(vb, i);
+		if (!cookie)
+			goto err_addr;
+		ret = vb2_ion_phys_address(cookie, &addr);
+		if (ret != 0)
+			goto err_addr;
+		ret = exynos_smc((en ? SMC_DRM_SECBUF_CFW_PROT :
+				SMC_DRM_SECBUF_CFW_UNPROT),
+				(unsigned long)addr,
+				vb2_plane_size(vb, i),
+				SC_SMC_PROTECTION_ID(sc->dev_id));
+		if (ret) {
+			dev_err(sc->dev,
+			"fail to src secbuf cfw protection (%d)\n", ret);
+			goto err_smc;
+		}
+	}
+
+	vb = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
+	for (i = 0; i < ctx->d_frame.sc_fmt->num_planes; i++) {
+		cookie = vb2_plane_cookie(vb, i);
+		if (!cookie)
+			goto err_addr;
+		ret = vb2_ion_phys_address(cookie, &addr);
+		if (ret != 0)
+			goto err_addr;
+
+		ret = exynos_smc((en ? SMC_DRM_SECBUF_CFW_PROT :
+				SMC_DRM_SECBUF_CFW_UNPROT),
+				(unsigned long)addr,
+				vb2_plane_size(vb, i),
+				SC_SMC_PROTECTION_ID(sc->dev_id));
+		if (ret) {
+			dev_err(sc->dev,
+			"fail to dst secbuf cfw protection (%d)\n", ret);
+			goto err_smc;
+		}
+	}
+
+	ret = exynos_smc(SMC_PROTECTION_SET, 0,
+			SC_SMC_PROTECTION_ID(sc->dev_id),
+			(en ? SMC_PROTECTION_ENABLE : SMC_PROTECTION_DISABLE));
+	if (ret != SMC_TZPC_OK) {
+		dev_err(sc->dev,
+			"fail to protection enable (%d)\n", ret);
+		goto err_smc;
+	}
+	return 0;
+
+err_addr:
+	dev_err(sc->dev, "fail to get phys addr (%d)\n", ret);
+err_smc:
+	ret = -EINVAL;
+	return ret;
+}
+
 static int sc_open(struct file *file)
 {
 	struct sc_dev *sc = video_drvdata(file);
@@ -2183,14 +2249,7 @@ static void sc_job_finish(struct sc_dev *sc, struct sc_ctx *ctx)
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 		if (test_bit(DEV_CP, &sc->state)) {
-			int ret;
-			/* m2m1shot never enables contents protection */
-			ret = exynos_smc(SMC_PROTECTION_SET, 0,
-					SC_SMC_PROTECTION_ID(sc->dev_id),
-					SMC_PROTECTION_DISABLE);
-			if (ret != SMC_TZPC_OK)
-				dev_err(sc->dev,
-				"fail to protection disable (%d)\n", ret);
+			sc_ctrl_protection(sc, ctx, false);
 			clear_bit(DEV_CP, &sc->state);
 		}
 #endif
@@ -2579,13 +2638,9 @@ static int sc_run_next_job(struct sc_dev *sc)
 				"fail to set cfw protection (%d)\n", ret);
 	}
 	if (ctx->cp_enabled) {
-		set_bit(DEV_CP, &sc->state);
-		ret = exynos_smc(SMC_PROTECTION_SET, 0,
-			   SC_SMC_PROTECTION_ID(sc->dev_id),
-			   SMC_PROTECTION_ENABLE);
-		if (ret != SMC_TZPC_OK)
-			dev_err(sc->dev,
-				"fail to protection enable (%d)\n", ret);
+		ret = sc_ctrl_protection(sc, ctx, true);
+		if (!ret)
+			set_bit(DEV_CP, &sc->state);
 	}
 #endif
 	sc_hwset_start(sc);
@@ -2632,13 +2687,7 @@ static irqreturn_t sc_irq_handler(int irq, void *priv)
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (test_bit(DEV_CP, &sc->state)) {
-		int ret;
-		ret = exynos_smc(SMC_PROTECTION_SET, 0,
-			   SC_SMC_PROTECTION_ID(sc->dev_id),
-			   SMC_PROTECTION_DISABLE);
-		if (ret != SMC_TZPC_OK)
-			dev_err(sc->dev,
-				"fail to protection disable (%d)\n", ret);
+		sc_ctrl_protection(sc, ctx, false);
 		clear_bit(DEV_CP, &sc->state);
 	}
 #endif
