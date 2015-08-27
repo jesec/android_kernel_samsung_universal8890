@@ -41,6 +41,23 @@
 #define DEVFREQ_MIF_SWITCH_FREQ 	(468000)
 #define SWITCH_CMOS_VOLT_OFFSET		(56250)
 
+static struct pm_qos_request int_pm_qos_from_mif;
+
+static u32 int_min_table[] = {
+	336000,		/* MIF L0  1794MHz, INT L12 */
+	336000,		/* MIF L1  1716MHz, INT L12 */
+	255000,		/* MIF L2  1539MHz, INT L13 */
+	255000,		/* MIF L3  1352MHz, INT L13 */
+	200000,		/* MIF L4  1144MHz, INT L14 */
+	200000,		/* MIF L5  1014MHz, INT L14 */
+	127000,		/* MIF L6   845MHz, INT L16 */
+	127000,		/* MIF L7   676MHz, INT L16 */
+	127000,		/* MIF L8   546MHz, INT L16 */
+	127000,		/* MIF L9   421MHz, INT L16 */
+	127000,		/* MIF L10  286MHz, INT L16 */
+	127000		/* MIF L11  208MHz, INT L16 */
+};
+
 u32 sw_volt_table[2];
 
 int is_dll_on(void)
@@ -172,6 +189,26 @@ static int exynos8890_devfreq_mif_restore_from_switch_freq(struct device *dev,
 				data->new_freq);
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int exynos8890_devfreq_mif_set_freq_prepare(struct device *dev,
+					struct exynos_devfreq_data *data)
+{
+	if (data->old_freq < data->new_freq)
+		pm_qos_update_request(&int_pm_qos_from_mif,
+					int_min_table[data->new_idx]);
+
+	return 0;
+}
+
+static int exynos8890_devfreq_mif_set_freq_post(struct device *dev,
+					struct exynos_devfreq_data *data)
+{
+	if (data->old_freq > data->new_freq)
+		pm_qos_update_request(&int_pm_qos_from_mif,
+					int_min_table[data->new_idx]);
 
 	return 0;
 }
@@ -330,12 +367,17 @@ static int exynos8890_mif_ppmu_unregister(struct device *dev,
 static int exynos8890_devfreq_mif_init(struct device *dev,
 					struct exynos_devfreq_data *data)
 {
+	/* For INT minimum lock through MIF frequncy */
+	pm_qos_add_request(&int_pm_qos_from_mif, PM_QOS_DEVICE_THROUGHPUT, 0);
+
 	return 0;
 }
 
 static int exynos8890_devfreq_mif_exit(struct device *dev,
 					struct exynos_devfreq_data *data)
 {
+	pm_qos_remove_request(&int_pm_qos_from_mif);
+
 	return 0;
 }
 
@@ -351,6 +393,8 @@ static int __init exynos8890_devfreq_mif_init_prepare(struct exynos_devfreq_data
 	data->ops.get_freq = exynos8890_devfreq_mif_get_freq;
 	data->ops.change_to_switch_freq = exynos8890_devfreq_mif_change_to_switch_freq;
 	data->ops.restore_from_switch_freq = exynos8890_devfreq_mif_restore_from_switch_freq;
+	data->ops.set_freq_prepare = exynos8890_devfreq_mif_set_freq_prepare;
+	data->ops.set_freq_post = exynos8890_devfreq_mif_set_freq_post;
 	data->ops.init_freq_table = exynos8890_devfreq_mif_init_freq_table;
 	data->ops.cl_dvfs_start = exynos8890_devfreq_cl_dvfs_start;
 	data->ops.cl_dvfs_stop = exynos8890_devfreq_cl_dvfs_stop;
