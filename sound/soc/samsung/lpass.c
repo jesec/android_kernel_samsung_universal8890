@@ -23,6 +23,7 @@
 #include <linux/pm_qos.h>
 #include <linux/fb.h>
 #include <linux/iommu.h>
+#include <linux/exynos_iovmm.h>
 #include <linux/dma-mapping.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -615,6 +616,8 @@ static void lpass_release_pad(void)
 
 static void ass_enable(void)
 {
+	int ret = 0;
+
 	/* Enable PLL */
 	lpass_enable_pll(true);
 
@@ -626,11 +629,19 @@ static void ass_enable(void)
 	clk_prepare_enable(lpass.clk_dmac);
 	clk_prepare_enable(lpass.clk_timer);
 
-	lpass.enabled = true;
+	ret = iommu_attach_device(lpass.domain, &lpass.pdev->dev);
+	if (ret) {
+		dev_err(&lpass.pdev->dev,
+			"Unable to attach iommu device: %d\n", ret);
+	} else {
+		lpass.enabled = true;
+	}
 }
 
 static void lpass_enable(void)
 {
+	int ret = 0;
+
 	if (!lpass.valid) {
 		pr_debug("%s: LPASS is not available", __func__);
 		return;
@@ -667,7 +678,13 @@ static void lpass_enable(void)
 	/* Clear memory */
 //	memset(lpass.mem, 0, lpass.mem_size);
 
-	lpass.enabled = true;
+	ret = iommu_attach_device(lpass.domain, &lpass.pdev->dev);
+	if (ret) {
+		dev_err(&lpass.pdev->dev,
+			"Unable to attach iommu device: %d\n", ret);
+	} else {
+		lpass.enabled = true;
+	}
 }
 
 static void ass_disable(void)
@@ -680,6 +697,8 @@ static void ass_disable(void)
 		clk_disable_unprepare(lpass.clk_timer);
 
 	lpass_reg_save();
+
+	iommu_detach_device(lpass.domain, &lpass.pdev->dev);
 
 	/* OSC path */
 	lpass_set_mux_osc();
@@ -709,6 +728,8 @@ static void lpass_disable(void)
 		clk_disable_unprepare(lpass.clk_sramc);
 
 	lpass_reg_save();
+
+	iommu_detach_device(lpass.domain, &lpass.pdev->dev);
 
 	/* OSC path */
 	lpass_set_mux_osc();
@@ -1128,17 +1149,10 @@ static int lpass_probe(struct platform_device *pdev)
 	lpass_init_clk_gate();
 
 #ifdef CONFIG_SND_SAMSUNG_IOMMU
-	lpass.domain = iommu_domain_alloc(pdev->dev.bus);
+	lpass.domain = get_domain_from_dev(dev);
 	if (!lpass.domain) {
-		dev_err(dev, "Unable to alloc iommu domain\n");
-		return -ENOMEM;
-	}
-
-	ret = iommu_attach_device(lpass.domain, dev);
-	if (ret) {
-		dev_err(dev, "Unable to attach iommu device: %d\n", ret);
-		iommu_domain_free(lpass.domain);
-		return ret;
+		dev_err(dev, "Unable to get iommu domain\n");
+		return -ENOENT;
 	}
 #else
 	/* Bypass SysMMU */
