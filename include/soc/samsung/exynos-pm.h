@@ -28,6 +28,12 @@ enum exynos_pm_event {
 
 	/* CPU is exiting the LPA state */
 	LPA_EXIT,
+
+	/* CPU is entering the SICD state */
+	SICD_ENTER,
+
+	/* CPU is exiting the SICD state */
+	SICD_EXIT,
 };
 
 #ifdef CONFIG_CPU_IDLE
@@ -35,6 +41,8 @@ int exynos_pm_register_notifier(struct notifier_block *nb);
 int exynos_pm_unregister_notifier(struct notifier_block *nb);
 int exynos_pm_lpa_enter(void);
 int exynos_pm_lpa_exit(void);
+int exynos_pm_sicd_enter(void);
+int exynos_pm_sicd_exit(void);
 #else
 static inline int exynos_pm_register_notifier(struct notifier_block *nb)
 {
@@ -52,6 +60,16 @@ static inline int exynos_pm_lpa_enter(void)
 }
 
 static inline int exynos_pm_lpa_exit(void)
+{
+	return 0;
+}
+
+static inline int exynos_pm_sicd_enter(void)
+{
+	return 0;
+}
+
+static inline int exynos_pm_sicd_exit(void)
 {
 	return 0;
 }

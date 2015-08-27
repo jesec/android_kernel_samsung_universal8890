@@ -174,6 +174,31 @@ int exynos_pm_lpa_exit(void)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(exynos_pm_lpa_exit);
+
+int exynos_pm_sicd_enter(void)
+{
+	int nr_calls;
+	int ret = 0;
+
+	read_lock(&exynos_pm_notifier_lock);
+	ret = exynos_pm_notify(SICD_ENTER, -1, &nr_calls);
+	read_unlock(&exynos_pm_notifier_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(exynos_pm_sicd_enter);
+
+int exynos_pm_sicd_exit(void)
+{
+	int ret;
+
+	read_lock(&exynos_pm_notifier_lock);
+	ret = exynos_pm_notify(SICD_EXIT, -1, NULL);
+	read_unlock(&exynos_pm_notifier_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(exynos_pm_sicd_exit);
 #endif /* CONFIG_CPU_IDLE */
 
 int early_wakeup;

@@ -657,6 +657,9 @@ void exynos_prepare_sys_powerdown(enum sys_powerdown mode)
 	cal_pm_enter(mode);
 
 	switch (mode) {
+	case SYS_SICD_AUD:
+		exynos_pm_sicd_enter();
+		break;
 	case SYS_ALPA:
 		exynos_pm_lpa_enter();
 	case SYS_AFTR:
@@ -681,6 +684,9 @@ void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
 		cal_pm_exit(mode);
 
 	switch (mode) {
+	case SYS_SICD_AUD:
+		exynos_pm_sicd_exit();
+		break;
 	case SYS_ALPA:
 		exynos_pm_lpa_exit();
 	case SYS_AFTR:
