@@ -376,6 +376,8 @@ static bool is_cpu_boot_cluster(unsigned int cpu)
 
 static int is_cpd_available(unsigned int cpu)
 {
+	struct cpumask mask;
+
 	if (pm_info->cpd_blocked)
 		return false;
 
@@ -386,7 +388,8 @@ static int is_cpd_available(unsigned int cpu)
 	if (is_cpu_boot_cluster(cpu))
 		return false;
 
-	if (is_cpus_busy(pm_info->cpd_residency, cpu_coregroup_mask(cpu)))
+	cpumask_and(&mask, cpu_coregroup_mask(cpu), cpu_online_mask);
+	if (is_cpus_busy(pm_info->cpd_residency, &mask))
 		return false;
 
 	return true;
