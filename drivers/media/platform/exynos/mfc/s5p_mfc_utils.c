@@ -10,7 +10,6 @@
  * (at your option) any later version.
  */
 
-#include <linux/smc.h>
 #include "s5p_mfc_utils.h"
 #include "s5p_mfc_mem.h"
 

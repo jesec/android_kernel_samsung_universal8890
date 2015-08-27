@@ -15,6 +15,7 @@
 
 #include <linux/platform_device.h>
 #include <media/videobuf2-ion.h>
+#include <linux/smc.h>
 
 #include "s5p_mfc_common.h"
 

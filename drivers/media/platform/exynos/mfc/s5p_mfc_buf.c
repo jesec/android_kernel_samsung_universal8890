@@ -362,10 +362,9 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		ctx->codec_buf = s5p_mfc_mem_alloc_priv(
 				alloc_ctx, ctx->codec_buf_size);
 		if (IS_ERR(ctx->codec_buf)) {
-			ctx->codec_buf = 0;
-			printk(KERN_ERR
-			       "Buf alloc for decoding failed (port A).\n");
-			return 0;
+			ctx->codec_buf = NULL;
+			mfc_err_ctx("Allocating codec buffer failed.\n");
+			return -ENOMEM;
 		}
 		ctx->codec_buf_phys = s5p_mfc_mem_daddr_priv(ctx->codec_buf);
 		ctx->codec_buf_virt = s5p_mfc_mem_vaddr_priv(ctx->codec_buf);
@@ -375,7 +374,18 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			ctx->codec_buf_phys = 0;
 
 			mfc_err_ctx("Get vaddr for codec buffer failed.\n");
-			return 0;
+			return -ENOMEM;
+		}
+	}
+
+	if (ctx->is_drm) {
+		int ret = 0;
+		phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->codec_buf);
+		ret = exynos_smc(SMC_DRM_SECBUF_CFW_PROT, addr,
+					ctx->codec_buf_size, dev->id);
+		if (ret) {
+			mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+			return ret;
 		}
 	}
 
@@ -387,11 +397,29 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 /* Release buffers allocated for codec */
 void s5p_mfc_release_codec_buffers(struct s5p_mfc_ctx *ctx)
 {
+	struct s5p_mfc_dev *dev;
+
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
 		return;
 	}
+
+	dev = ctx->dev;
+	if (!dev) {
+		mfc_err_ctx("no mfc device to run\n");
+		return;
+	}
+
 	if (ctx->codec_buf) {
+		if (ctx->is_drm) {
+			int ret = 0;
+			phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->codec_buf);
+			ret = exynos_smc(SMC_DRM_SECBUF_CFW_UNPROT, addr,
+					ctx->codec_buf_size, dev->id);
+			if (ret)
+				mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+		}
+
 		s5p_mfc_mem_free_priv(ctx->codec_buf);
 		ctx->codec_buf = 0;
 		ctx->codec_buf_phys = 0;
@@ -461,6 +489,7 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 
 	ctx->ctx.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, ctx->ctx_buf_size);
 	if (IS_ERR(ctx->ctx.alloc)) {
+		ctx->ctx.alloc = NULL;
 		mfc_err_ctx("Allocating context buffer failed.\n");
 		return PTR_ERR(ctx->ctx.alloc);
 	}
@@ -477,6 +506,17 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 		return -ENOMEM;
 	}
 
+	if (ctx->is_drm) {
+		int ret = 0;
+		phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->ctx.alloc);
+		ret = exynos_smc(SMC_DRM_SECBUF_CFW_PROT, addr,
+					ctx->ctx_buf_size, dev->id);
+		if (ret) {
+			mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+			return ret;
+		}
+	}
+
 	mfc_debug_leave();
 
 	return 0;
@@ -485,13 +525,30 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 /* Release instance buffer */
 void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 {
+	struct s5p_mfc_dev *dev;
+
 	mfc_debug_enter();
 	if (!ctx) {
 		mfc_err("no mfc context to run\n");
 		return;
 	}
 
+	dev = ctx->dev;
+	if (!dev) {
+		mfc_err_ctx("no mfc device to run\n");
+		return;
+	}
+
 	if (ctx->ctx.virt) {
+		if (ctx->is_drm) {
+			int ret = 0;
+			phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->ctx.alloc);
+			ret = exynos_smc(SMC_DRM_SECBUF_CFW_UNPROT, addr,
+					ctx->ctx_buf_size, dev->id);
+			if (ret)
+				mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+		}
+
 		s5p_mfc_mem_free_priv(ctx->ctx.alloc);
 		ctx->ctx.alloc = NULL;
 		ctx->ctx.ofs = 0;
