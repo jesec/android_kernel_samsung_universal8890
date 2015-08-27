@@ -862,6 +862,19 @@ static int enc_post_seq_start(struct s5p_mfc_ctx *ctx)
 		vb2_set_plane_payload(&dst_mb->vb, 0, s5p_mfc_get_enc_strm_size());
 		vb2_buffer_done(&dst_mb->vb, VB2_BUF_STATE_DONE);
 
+		/* encoder dst buffer CFW UNPROT */
+		if (ctx->is_drm) {
+			int index = dst_mb->vb.v4l2_buf.index;
+			if (test_bit(index, &ctx->stream_protect_flag)) {
+				if (s5p_mfc_stream_buf_prot(ctx, dst_mb, false))
+					mfc_err_ctx("failed to CFW_PROT\n");
+				else
+					clear_bit(index, &ctx->stream_protect_flag);
+			}
+			mfc_debug(2, "[%d] enc dst buf un-prot_flag: %#lx\n",
+					index, ctx->stream_protect_flag);
+		}
+
 		spin_unlock_irqrestore(&dev->irqlock, flags);
 	}
 
@@ -1059,6 +1072,18 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 				enc->stored_tag);
 
 		vb2_buffer_done(&mb_entry->vb, VB2_BUF_STATE_DONE);
+
+		/* encoder dst buffer CFW UNPROT */
+		if (ctx->is_drm) {
+			if (test_bit(index, &ctx->stream_protect_flag)) {
+				if (s5p_mfc_stream_buf_prot(ctx, mb_entry, false))
+					mfc_err_ctx("failed to CFW_PROT\n");
+				else
+					clear_bit(index, &ctx->stream_protect_flag);
+			}
+			mfc_debug(2, "[%d] enc dst buf un-prot_flag: %#lx\n",
+					index, ctx->stream_protect_flag);
+		}
 	}
 
 	if (enc->in_slice) {
@@ -1107,6 +1132,18 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 				ctx->src_queue_cnt--;
 
 				vb2_buffer_done(&mb_entry->vb, VB2_BUF_STATE_DONE);
+
+				/* encoder src buffer CFW UNPROT */
+				if (ctx->is_drm) {
+					if (test_bit(index, &ctx->raw_protect_flag)) {
+						if (s5p_mfc_raw_buf_prot(ctx, mb_entry, false))
+							mfc_err_ctx("failed to CFW_PROT\n");
+						else
+							clear_bit(index, &ctx->raw_protect_flag);
+					}
+					mfc_debug(2, "[%d] enc src buf un-prot_flag: %#lx\n",
+							index, ctx->raw_protect_flag);
+				}
 				break;
 			}
 		}
@@ -1127,6 +1164,19 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 				enc->ref_queue_cnt--;
 
 				vb2_buffer_done(&mb_entry->vb, VB2_BUF_STATE_DONE);
+
+				/* encoder src buffer CFW UNPROT */
+				if (ctx->is_drm) {
+					index = mb_entry->vb.v4l2_buf.index;
+					if (test_bit(index, &ctx->raw_protect_flag)) {
+						if (s5p_mfc_raw_buf_prot(ctx, mb_entry, false))
+							mfc_err_ctx("failed to CFW_PROT\n");
+						else
+							clear_bit(index, &ctx->raw_protect_flag);
+					}
+					mfc_debug(2, "[%d] enc src buf un-prot_flag: %#lx\n",
+							index, ctx->raw_protect_flag);
+				}
 				break;
 			}
 		}
@@ -1137,6 +1187,19 @@ static int enc_post_frame_start(struct s5p_mfc_ctx *ctx)
 		ctx->src_queue_cnt--;
 
 		vb2_buffer_done(&mb_entry->vb, VB2_BUF_STATE_DONE);
+
+		/* encoder src buffer CFW UNPROT */
+		if (ctx->is_drm) {
+			index = mb_entry->vb.v4l2_buf.index;
+			if (test_bit(index, &ctx->raw_protect_flag)) {
+				if (s5p_mfc_raw_buf_prot(ctx, mb_entry, false))
+					mfc_err_ctx("failed to CFW_PROT\n");
+				else
+					clear_bit(index, &ctx->raw_protect_flag);
+			}
+			mfc_debug(2, "[%d] enc src buf un-prot_flag: %#lx\n",
+					index, ctx->raw_protect_flag);
+		}
 	}
 
 	if (ctx->enc_res_change_re_input)
@@ -3253,6 +3316,8 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	INIT_LIST_HEAD(&ctx->dst_queue);
 	ctx->src_queue_cnt = 0;
 	ctx->dst_queue_cnt = 0;
+	ctx->raw_protect_flag = 0;
+	ctx->stream_protect_flag = 0;
 
 	ctx->framerate = ENC_MAX_FPS;
 	ctx->qos_ratio = 100;

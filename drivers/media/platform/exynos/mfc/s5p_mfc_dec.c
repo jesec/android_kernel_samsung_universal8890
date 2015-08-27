@@ -2162,6 +2162,17 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return 0;
 }
 
+static void cleanup_assigned_dpb(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dec *dec;
+	int i;
+
+	dec = ctx->dec_priv;
+
+	for (i = 0; i < MFC_MAX_DPBS; i++)
+		dec->assigned_dpb[i] = NULL;
+}
+
 static void cleanup_assigned_fd(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dec *dec;
@@ -2236,6 +2247,28 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		dec->consumed = 0;
 		dec->remained_size = 0;
 		dec->y_addr_for_pb = 0;
+
+		if (ctx->is_drm && ctx->raw_protect_flag) {
+			struct s5p_mfc_buf *dst_buf;
+			int i;
+			mfc_debug(2, "raw_protect_flag(%#lx) remained\n",
+					ctx->raw_protect_flag);
+			for (i = 0; i < MFC_MAX_DPBS; i++) {
+				if (ctx->raw_protect_flag & (1 << i)) {
+					dst_buf = dec->assigned_dpb[i];
+					if (test_bit(i, &ctx->raw_protect_flag)) {
+						if (s5p_mfc_raw_buf_prot(ctx, dst_buf, false))
+							mfc_err_ctx("failed to CFW_UNPROT\n");
+						else
+							clear_bit(i, &ctx->raw_protect_flag);
+					}
+					mfc_debug(2, "[%d] dec dst buf un-prot_flag: %#lx\n",
+							i, ctx->raw_protect_flag);
+				}
+			}
+		}
+		ctx->raw_protect_flag = 0;
+		cleanup_assigned_dpb(ctx);
 
 		while (index < MFC_MAX_BUFFERS) {
 			index = find_next_bit(&ctx->dst_ctrls_avail,
@@ -2458,6 +2491,8 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	INIT_LIST_HEAD(&ctx->dst_queue);
 	ctx->src_queue_cnt = 0;
 	ctx->dst_queue_cnt = 0;
+	ctx->raw_protect_flag = 0;
+	ctx->stream_protect_flag = 0;
 
 	for (i = 0; i < MFC_MAX_BUFFERS; i++) {
 		INIT_LIST_HEAD(&ctx->src_ctrls[i]);
@@ -2498,6 +2533,7 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	dec->is_dynamic_dpb = 0;
 	dec->dynamic_used = 0;
 	cleanup_assigned_fd(ctx);
+	cleanup_assigned_dpb(ctx);
 	dec->sh_handle.fd = -1;
 	dec->ref_info = kzalloc(
 		(sizeof(struct dec_dpb_ref_info) * MFC_MAX_DPBS), GFP_KERNEL);
@@ -2507,6 +2543,7 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	}
 	for (i = 0; i < MFC_MAX_BUFFERS; i++)
 		dec->ref_info[i].dpb[0].fd[0] = MFC_INFO_INIT_FD;
+
 	dec->profile = -1;
 
 	/* Init videobuf2 queue for OUTPUT */

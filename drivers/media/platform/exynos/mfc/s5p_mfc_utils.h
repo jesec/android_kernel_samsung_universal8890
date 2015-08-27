@@ -30,4 +30,8 @@ int get_framerate(struct timeval *to, struct timeval *from);
 void s5p_mfc_cleanup_queue(struct list_head *lh);
 int check_vb_with_fmt(struct s5p_mfc_fmt *fmt, struct vb2_buffer *vb);
 
+int s5p_mfc_stream_buf_prot(struct s5p_mfc_ctx *ctx,
+				struct s5p_mfc_buf *buf, bool en);
+int s5p_mfc_raw_buf_prot(struct s5p_mfc_ctx *ctx,
+				struct s5p_mfc_buf *buf, bool en);
 #endif /* __S5P_MFC_UTILS_H */

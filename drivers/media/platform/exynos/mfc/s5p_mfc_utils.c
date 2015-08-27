@@ -10,6 +10,7 @@
  * (at your option) any later version.
  */
 
+#include <linux/smc.h>
 #include "s5p_mfc_utils.h"
 #include "s5p_mfc_mem.h"
 
@@ -101,4 +102,110 @@ int check_vb_with_fmt(struct s5p_mfc_fmt *fmt, struct vb2_buffer *vb)
 	}
 
 	return 0;
+}
+
+int s5p_mfc_stream_buf_prot(struct s5p_mfc_ctx *ctx,
+				struct s5p_mfc_buf *buf, bool en)
+{
+	struct s5p_mfc_dev *dev;
+	struct s5p_mfc_dec *dec = NULL;
+	struct s5p_mfc_enc *enc = NULL;
+	int ret = 0;
+	void *cookie = NULL;
+	phys_addr_t addr = 0;
+	u32 cmd_id;
+
+	dev = ctx->dev;
+	if (!dev) {
+		mfc_err_ctx("no mfc device to run\n");
+		return ret;
+	}
+
+	if (en)
+		cmd_id = SMC_DRM_SECBUF_CFW_PROT;
+	else
+		cmd_id = SMC_DRM_SECBUF_CFW_UNPROT;
+
+	cookie = vb2_plane_cookie(&buf->vb, 0);
+	addr = s5p_mfc_mem_phys_addr(cookie);
+
+	if (ctx->type == MFCINST_DECODER) {
+		dec = ctx->dec_priv;
+		ret = exynos_smc(cmd_id, addr, dec->src_buf_size, dev->id);
+		if (ret)
+			mfc_err_ctx("failed to CFW %sPROT (%d)\n",
+					en ? "" : "UN", ret);
+		mfc_debug(2, "DEC src buf %s, 0x%08llx(0x%08llx) size:%ld\n",
+				en ? "protected" : "un-protected",
+				buf->planes.stream, addr, dec->src_buf_size);
+	} else if (ctx->type == MFCINST_ENCODER) {
+		enc = ctx->enc_priv;
+		ret = exynos_smc(cmd_id, addr, enc->dst_buf_size, dev->id);
+		if (ret)
+			mfc_err_ctx("failed to CFW %sPROT (%d)\n",
+					en ? "" : "UN", ret);
+		mfc_debug(2, "ENC dst buf %s, 0x%08llx(0x%08llx) size:%ld\n",
+				en ? "protected" : "un-protected",
+				buf->planes.stream, addr, enc->dst_buf_size);
+	}
+
+	return ret;
+}
+
+int s5p_mfc_raw_buf_prot(struct s5p_mfc_ctx *ctx,
+				struct s5p_mfc_buf *buf, bool en)
+{
+	struct s5p_mfc_dev *dev;
+	struct s5p_mfc_raw_info *raw = &ctx->raw_buf;
+	int num_planes, i, ret = 0;
+	void *cookie = NULL;
+	phys_addr_t addr = 0;
+	u32 cmd_id;
+
+	dev = ctx->dev;
+	if (!dev) {
+		mfc_err_ctx("no mfc device to run\n");
+		return -EINVAL;
+	}
+
+	if (ctx->type == MFCINST_DECODER)
+		num_planes = ctx->dst_fmt->mem_planes;
+	else if (ctx->type == MFCINST_ENCODER)
+		num_planes = ctx->src_fmt->mem_planes;
+
+	if (!num_planes) {
+		mfc_err_ctx("there is no plane(%d)\n", num_planes);
+		return -EINVAL;
+	}
+
+	if (en)
+		cmd_id = SMC_DRM_SECBUF_CFW_PROT;
+	else
+		cmd_id = SMC_DRM_SECBUF_CFW_UNPROT;
+
+	for (i = 0; i < num_planes; i++) {
+		cookie = vb2_plane_cookie(&buf->vb, i);
+		addr = s5p_mfc_mem_phys_addr(cookie);
+		if (num_planes == 1) {
+			ret = exynos_smc(cmd_id, addr, raw->total_plane_size, dev->id);
+			if (ret)
+				mfc_err_ctx("failed to CFW %sPROT (%d)\n",
+						en ? "" : "UN", ret);
+			mfc_debug(2, "%s buf %s, addr:0x%08llx(0x%08llx) size:%d\n",
+					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",
+					en ? "protected" : "un-protected",
+					buf->planes.raw[0], addr, raw->total_plane_size);
+		} else {
+			ret = exynos_smc(cmd_id, addr, raw->plane_size[i], dev->id);
+			if (ret)
+				mfc_err_ctx("failed to buf[%d] CFW %sPROT (%d)\n",
+						i, en ? "" : "UN", ret);
+			mfc_debug(2, "%s buf %s, addr:0x%08llx(0x%08llx) size:%d\n",
+					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",
+					en ? "protected" : "un-protected",
+					buf->planes.raw[i], addr, raw->plane_size[i]);
+		}
+	}
+
+	return ret;
 }

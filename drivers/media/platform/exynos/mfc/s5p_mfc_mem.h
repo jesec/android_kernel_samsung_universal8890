@@ -33,6 +33,15 @@ static inline dma_addr_t s5p_mfc_mem_plane_addr(
 	return (unsigned long)addr;
 }
 
+static inline phys_addr_t s5p_mfc_mem_phys_addr(void *cookie)
+{
+	phys_addr_t addr = 0;
+
+	BUG_ON(vb2_ion_phys_address(cookie, &addr) != 0);
+
+	return addr;
+}
+
 static inline void *s5p_mfc_mem_alloc_priv(void *alloc_ctx, size_t size)
 {
 	return vb2_ion_private_alloc(alloc_ctx, size);

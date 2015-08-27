@@ -741,6 +741,7 @@ struct s5p_mfc_dec {
 	struct dec_dpb_ref_info *ref_info;
 	int assigned_fd[MFC_MAX_DPBS];
 	struct mfc_user_shared_handle sh_handle;
+	struct s5p_mfc_buf *assigned_dpb[MFC_MAX_DPBS];
 
 	int dynamic_ref_filled;
 
@@ -900,6 +901,9 @@ struct s5p_mfc_ctx {
 	struct list_head ts_list;
 	int ts_count;
 	int ts_is_full;
+
+	unsigned long raw_protect_flag;
+	unsigned long stream_protect_flag;
 };
 
 #endif /* __S5P_MFC_DATA_STRUCT_H */

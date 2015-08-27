@@ -519,6 +519,19 @@ static void s5p_mfc_handle_frame_all_extracted(struct s5p_mfc_ctx *ctx)
 		}
 
 		vb2_buffer_done(&dst_buf->vb, VB2_BUF_STATE_DONE);
+
+		/* decoder dst buffer CFW UNPROT */
+		if (ctx->is_drm) {
+			if (test_bit(index, &ctx->raw_protect_flag)) {
+				if (s5p_mfc_raw_buf_prot(ctx, dst_buf, false))
+					mfc_err_ctx("failed to CFW_UNPROT\n");
+				else
+					clear_bit(index, &ctx->raw_protect_flag);
+			}
+			mfc_debug(2, "[%d] dec dst buf un-prot_flag: %#lx\n",
+					index, ctx->raw_protect_flag);
+		}
+
 		mfc_debug(2, "Cleaned up buffer: %d\n",
 			  dst_buf->vb.v4l2_buf.index);
 	}
@@ -728,6 +741,23 @@ static void s5p_mfc_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err)
 		dst_queue_addr = &dec->ref_queue;
 	else
 		dst_queue_addr = &ctx->dst_queue;
+
+	/* decoder dst buffer CFW UNPROT */
+	if (ctx->is_drm) {
+		for (i = 0; i < MFC_MAX_DPBS; i++) {
+			if (released_flag & (1 << i)) {
+				dst_buf = dec->assigned_dpb[i];
+				if (test_bit(i, &ctx->raw_protect_flag)) {
+					if (s5p_mfc_raw_buf_prot(ctx, dst_buf, false))
+						mfc_err_ctx("failed to CFW_UNPROT\n");
+					else
+						clear_bit(i, &ctx->raw_protect_flag);
+				}
+				mfc_debug(2, "[%d] dec dst buf un-prot_flag: %#lx\n",
+						i, ctx->raw_protect_flag);
+			}
+		}
+	}
 
 	list_for_each_entry(dst_buf, dst_queue_addr, list) {
 		mfc_debug(2, "Listing: %d\n", dst_buf->vb.v4l2_buf.index);
@@ -979,6 +1009,18 @@ static void s5p_mfc_handle_frame_error(struct s5p_mfc_ctx *ctx,
 
 		if (call_cop(ctx, get_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
 			mfc_err_ctx("failed in get_buf_ctrls_val\n");
+
+		/* decoder src buffer CFW UNPROT */
+		if (ctx->is_drm) {
+			if (test_bit(index, &ctx->stream_protect_flag)) {
+				if (s5p_mfc_stream_buf_prot(ctx, src_buf, false))
+					mfc_err_ctx("failed to CFW_UNPROT\n");
+				else
+					clear_bit(index, &ctx->stream_protect_flag);
+			}
+			mfc_debug(2, "[%d] dec src buf un-prot_flag: %#lx\n",
+					index, ctx->stream_protect_flag);
+		}
 
 		vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_ERROR);
 	}
@@ -1235,6 +1277,18 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 
 			if (call_cop(ctx, get_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
 				mfc_err_ctx("failed in get_buf_ctrls_val\n");
+
+			/* decoder src buffer CFW UNPROT */
+			if (ctx->is_drm) {
+				if (test_bit(index, &ctx->stream_protect_flag)) {
+					if (s5p_mfc_stream_buf_prot(ctx, src_buf, false))
+						mfc_err_ctx("failed to CFW_UNPROT\n");
+					else
+						clear_bit(index, &ctx->stream_protect_flag);
+				}
+				mfc_debug(2, "[%d] dec src buf un-prot_flag: %#lx\n",
+						index, ctx->stream_protect_flag);
+			}
 
 			vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_DONE);
 		}
@@ -2060,6 +2114,19 @@ static int s5p_mfc_release(struct file *file)
 	spin_lock_irq(&dev->condlock);
 	clear_bit(ctx->num, &dev->ctx_work_bits);
 	spin_unlock_irq(&dev->condlock);
+
+	if (ctx->is_drm) {
+		if (ctx->stream_protect_flag) {
+			mfc_err_ctx("stream_protect_flag(%#lx) remained\n",
+					ctx->stream_protect_flag);
+			ctx->stream_protect_flag = 0;
+		}
+		if (ctx->stream_protect_flag) {
+			mfc_err_ctx("stream_protect_flag(%#lx) remained\n",
+					ctx->stream_protect_flag);
+			ctx->stream_protect_flag = 0;
+		}
+	}
 
 	/* If instance was initialised then
 	 * return instance and free reosurces */
