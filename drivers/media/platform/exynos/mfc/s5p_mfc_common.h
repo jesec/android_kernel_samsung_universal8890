@@ -73,14 +73,6 @@
 #define vb_to_mfc_buf(x)	\
 	container_of(x, struct s5p_mfc_buf, vb)
 
-#define SMC_FC_ID_MFC_SH(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_SH)
-#define SMC_FC_ID_VIDEO(id)		((id) * 10 + FC_MFC_EXYNOS_ID_VIDEO)
-#define SMC_FC_ID_MFC_FW(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_FW)
-#define SMC_FC_ID_SECTBL(id)		((id) * 10 + FC_MFC_EXYNOS_ID_SECTBL)
-#define SMC_FC_ID_G2D_WFD(id)		((id) * 10 + FC_MFC_EXYNOS_ID_G2D_WFD)
-#define SMC_FC_ID_MFC_NFW(id)		((id) * 10 + FC_MFC_EXYNOS_ID_MFC_NFW)
-#define SMC_FC_ID_VIDEO_EXT(id)		((id) * 10 + FC_MFC_EXYNOS_ID_VIDEO_EXT)
-
 #define	MFC_CTRL_TYPE_GET	(MFC_CTRL_TYPE_GET_SRC | MFC_CTRL_TYPE_GET_DST)
 #define	MFC_CTRL_TYPE_SRC	(MFC_CTRL_TYPE_SET | MFC_CTRL_TYPE_GET_SRC)
 #define	MFC_CTRL_TYPE_DST	(MFC_CTRL_TYPE_GET_DST)

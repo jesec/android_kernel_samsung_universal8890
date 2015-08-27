@@ -1670,76 +1670,6 @@ irq_end:
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-static int s5p_mfc_secmem_isolate_and_protect(uint32_t protect)
-{
-	int ret;
-
-	if (protect) {
-		flush_all_cpu_caches();
-		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 1);
-		if (ret < 0) {
-			mfc_err("Protection failed.\n");
-			goto err_prot_enable;
-		}
-	} else {
-		ret = exynos_smc(SMC_MEM_PROT_SET, 0, 0, 0);
-		if (ret < 0) {
-			mfc_err("Protection disable failed.\n");
-			return ret;
-		}
-	}
-
-	return 0;
-
-err_prot_enable:
-	exynos_smc(SMC_MEM_PROT_SET, 0, 0, 0);
-
-	return ret;
-}
-
-static int s5p_mfc_request_sec_pgtable(struct s5p_mfc_dev *dev)
-{
-	int ret;
-	phys_addr_t base;
-	size_t size;
-
-	ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &base, &size);
-	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_MFC_FW(dev->id), base, size);
-	if (ret)
-		return -1;
-
-	ion_exynos_contig_heap_info(ION_EXYNOS_ID_VIDEO, &base, &size);
-	ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_VIDEO(dev->id), base, size);
-	if (ret)
-		return -1;
-
-	base = 0;
-	ion_exynos_contig_heap_info(ION_EXYNOS_ID_VIDEO_EXT, &base, &size);
-	if (base) {
-		ret = exynos_smc(SMC_DRM_MAKE_PGTABLE, SMC_FC_ID_VIDEO_EXT(dev->id), base, size);
-		if (ret)
-			return -1;
-	} else {
-		mfc_info_dev("VIDEO_EXT region is not used.\n");
-	}
-
-
-	return 0;
-}
-
-static int s5p_mfc_release_sec_pgtable(struct s5p_mfc_dev *dev)
-{
-	int ret;
-
-	ret = exynos_smc(SMC_DRM_CLEAR_PGTABLE, dev->id, 0, 0);
-	if (ret)
-		mfc_err("Failed to clear secure sysmmu page table.\n");
-
-	return -1;
-}
-#endif
-
 static inline int is_decoder_node(enum s5p_mfc_node_type node)
 {
 	if (node == MFCNODE_DECODER || node == MFCNODE_DECODER_DRM)
@@ -1764,9 +1694,7 @@ static int s5p_mfc_open(struct file *file)
 	int ret = 0;
 	enum s5p_mfc_node_type node;
 	struct video_device *vdev = NULL;
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	int prot_flag = 0;
-#endif
+
 	mfc_debug(2, "mfc driver open called\n");
 
 	if (!dev) {
@@ -1861,16 +1789,6 @@ static int s5p_mfc_open(struct file *file)
 
 			mfc_info_ctx("DRM instance is opened [%d:%d]\n",
 					dev->num_drm_inst, dev->num_inst);
-			if (dev->num_drm_inst == 1) {
-				ret = s5p_mfc_secmem_isolate_and_protect(1);
-				if (ret) {
-					ret = -EINVAL;
-					goto err_drm_start;
-				} else {
-					prot_flag = 1;
-				}
-			}
-
 		} else {
 			mfc_err_ctx("Too many instance are opened for DRM\n");
 			ret = -EINVAL;
@@ -1911,13 +1829,12 @@ static int s5p_mfc_open(struct file *file)
 				phys_addr_t drm_fw_base, normal_fw_base;
 				size_t drm_fw_size, normal_fw_size;
 
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &normal_fw_base, &normal_fw_size);
-				ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &drm_fw_base, &drm_fw_size);
-
-				ret = exynos_smc(SMC_DRM_SECMEM_INFO, 0, drm_fw_base, drm_fw_size);
-				if (ret < 0) {
-					mfc_err("Fail to pass secure page table base address. ret = %d\n", ret);
-					dev->drm_fw_status = 0;
+				if (IS_MFCv101(dev)) {
+					normal_fw_base = s5p_mfc_mem_phys_addr(dev->fw_info.alloc);
+					drm_fw_base = s5p_mfc_mem_phys_addr(dev->drm_fw_info.alloc);
+				} else {
+					ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_NFW, &normal_fw_base, &normal_fw_size);
+					ion_exynos_contig_heap_info(ION_EXYNOS_ID_MFC_FW, &drm_fw_base, &drm_fw_size);
 				}
 
 				ret = exynos_smc(SMC_DRM_FW_LOADING,
@@ -1927,12 +1844,6 @@ static int s5p_mfc_open(struct file *file)
 					dev->drm_fw_status = 0;
 				} else {
 					dev->drm_fw_status = 1;
-				}
-
-				ret = s5p_mfc_request_sec_pgtable(dev);
-				if (ret < 0) {
-					mfc_err("Fail to make MFC secure sysmmu page tables. ret = %d\n", ret);
-					dev->drm_fw_status = 0;
 				}
 			}
 		}
@@ -1988,10 +1899,8 @@ err_pwr_enable:
 err_fw_load:
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (dev->drm_fw_status) {
-		if (dev->is_support_smc) {
-			s5p_mfc_release_sec_pgtable(dev);
+		if (dev->is_support_smc)
 			dev->is_support_smc = 0;
-		}
 		dev->drm_fw_status = 0;
 	}
 #endif
@@ -2001,13 +1910,8 @@ err_fw_load:
 err_fw_alloc:
 	del_timer_sync(&dev->watchdog_timer);
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-//err_drm_inst:
-	if (ctx->is_drm) {
+	if (ctx->is_drm)
 		dev->num_drm_inst--;
-		if (prot_flag) {
-			s5p_mfc_secmem_isolate_and_protect(0);
-		}
-	}
 
 err_drm_start:
 #endif
@@ -2033,9 +1937,6 @@ err_vdev:
 err_ctx_alloc:
 	dev->num_inst--;
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-/* err_drm_playback: // unused label */
-#endif
 err_node_type:
 	mfc_info_dev("MFC driver open is failed [%d:%d]\n",
 			dev->num_drm_inst, dev->num_inst);
@@ -2052,9 +1953,6 @@ static int s5p_mfc_release(struct file *file)
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
 	struct s5p_mfc_dev *dev = NULL;
 	struct s5p_mfc_enc *enc = NULL;
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	int ret = 0;
-#endif
 
 	dev = ctx->dev;
 	if (!dev) {
@@ -2167,13 +2065,6 @@ static int s5p_mfc_release(struct file *file)
 				mfc_info_dev("Failed to release MFC inst[%d:%d]\n",
 						dev->num_drm_inst, dev->num_inst);
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-				if (ctx->is_drm && dev->num_drm_inst == 0) {
-					ret = s5p_mfc_secmem_isolate_and_protect(0);
-					if (ret)
-						mfc_err("Failed to unprotect secure memory\n");
-				}
-#endif
 				if (dev->num_inst == 0) {
 					s5p_mfc_deinit_hw(dev);
 					del_timer_sync(&dev->watchdog_timer);
@@ -2188,10 +2079,8 @@ static int s5p_mfc_release(struct file *file)
 					dev->drm_fw_status = 0;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-					if (dev->is_support_smc) {
-						s5p_mfc_release_sec_pgtable(dev);
+					if (dev->is_support_smc)
 						dev->is_support_smc = 0;
-					}
 #endif
 				} else {
 					s5p_mfc_clock_off(dev);
@@ -2214,14 +2103,6 @@ static int s5p_mfc_release(struct file *file)
 		dev->num_drm_inst--;
 	dev->num_inst--;
 
-#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-	if (ctx->is_drm && dev->num_drm_inst == 0) {
-		ret = s5p_mfc_secmem_isolate_and_protect(0);
-		if (ret)
-			mfc_err("Failed to unprotect secure memory\n");
-	}
-#endif
-
 	if (dev->num_inst == 0) {
 		s5p_mfc_deinit_hw(dev);
 		del_timer_sync(&dev->watchdog_timer);
@@ -2235,10 +2116,8 @@ static int s5p_mfc_release(struct file *file)
 		dev->drm_fw_status = 0;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-		if (dev->is_support_smc) {
-			s5p_mfc_release_sec_pgtable(dev);
+		if (dev->is_support_smc)
 			dev->is_support_smc = 0;
-		}
 #endif
 	}
 

@@ -90,7 +90,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 		ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					dev->id, SMC_PROTECTION_ENABLE);
 		dev->pm.clock_on_steps |= 0x1 << 3;
-		if (!ret) {
+		if (ret != SMC_TZPC_OK) {
 			printk("Protection Enable failed! ret(%u)\n", ret);
 			spin_unlock_irqrestore(&dev->pm.clklock, flags);
 			clk_disable(dev->pm.clock);
@@ -187,7 +187,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 			dev->pm.clock_off_steps |= 0x1 << 5;
 			ret = exynos_smc(SMC_PROTECTION_SET, 0,
 					dev->id, SMC_PROTECTION_DISABLE);
-			if (!ret) {
+			if (ret != SMC_TZPC_OK) {
 				printk("Protection Disable failed! ret(%u)\n", ret);
 				spin_unlock_irqrestore(&dev->pm.clklock, flags);
 				clk_disable(dev->pm.clock);
