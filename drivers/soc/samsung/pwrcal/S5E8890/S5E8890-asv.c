@@ -97,6 +97,17 @@ struct asv_tbl_info {
 	unsigned reserved_0:12;
 	unsigned g3d_mcs0:4;
 	unsigned g3d_mcs1:4;
+
+	unsigned mngs_vthr:2;
+	unsigned mngs_delta:2;
+	unsigned apollo_vthr:2;
+	unsigned apollo_delta:2;
+	unsigned reserved_1:4;
+	unsigned int_vthr:2;
+	unsigned int_delta:2;
+	unsigned mif_vthr:2;
+	unsigned mif_delta:2;
+	unsigned reserved_2:10;
 };
 #define ASV_INFO_ADDR_BASE	(0x101E9000)
 #define ASV_INFO_ADDR_CNT	(sizeof(struct asv_tbl_info) / 4)
@@ -261,6 +272,22 @@ notfused:
 	asv_dvfs_mif->table->max_freq = 1539000;
 #endif
 	return;
+}
+
+static unsigned int asv_get_pmic_info(void)
+{
+	unsigned int temp = 0;
+
+	temp = asv_tbl_info.mngs_vthr |
+		asv_tbl_info.mngs_delta << 2 |
+		asv_tbl_info.apollo_vthr << 4 |
+		asv_tbl_info.apollo_delta << 6 |
+		asv_tbl_info.int_vthr << 12 |
+		asv_tbl_info.int_delta << 14 |
+		asv_tbl_info.mif_vthr << 16 |
+		asv_tbl_info.mif_delta << 18;
+
+	return temp;
 }
 
 static void asv_get_asvinfo(void)
@@ -883,4 +910,5 @@ struct cal_asv_ops cal_asv_ops = {
 	.set_tablever = asv_set_tablever,
 	.set_rcc_table = asv_rcc_set_table,
 	.asv_init = asv_init,
+	.asv_pmic_info = asv_get_pmic_info,
 };

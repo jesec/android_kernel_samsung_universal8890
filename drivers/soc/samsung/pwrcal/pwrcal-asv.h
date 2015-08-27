@@ -8,6 +8,7 @@ struct cal_asv_ops {
 	void (*set_tablever)(unsigned int version);
 	int (*set_rcc_table)(void);
 	int (*asv_init)(void);
+	unsigned int (*asv_pmic_info)(void);
 };
 
 extern struct cal_asv_ops cal_asv_ops;

@@ -554,6 +554,14 @@ int cal_dfs_get_rate_asv_table(unsigned int id,
 	return num_of_entry;
 }
 
+unsigned int cal_asv_pmic_info(void)
+{
+	if (cal_asv_ops.asv_pmic_info)
+		return cal_asv_ops.asv_pmic_info();
+
+	return -1;
+}
+
 void cal_asv_print_info(void)
 {
 	if (cal_asv_ops.print_asv_info)
