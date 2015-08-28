@@ -175,6 +175,8 @@ void decon_f_set_clocks(struct decon_device *decon)
 			NULL, clks.decon[CLK_ID_VCLK] * MHZ);
 
 	/* ECLK */
+	decon_clk_set_rate(dev, decon->res.eclk,
+			NULL, clks.decon[CLK_ID_ECLK] * MHZ);
 	decon_clk_set_rate(dev, decon->res.eclk_leaf,
 			NULL, clks.decon[CLK_ID_ECLK] * MHZ);
 

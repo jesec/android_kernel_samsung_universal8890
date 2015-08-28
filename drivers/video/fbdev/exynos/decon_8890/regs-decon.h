@@ -271,8 +271,10 @@
 #define SPLITTER_SIZE_CONTROL_0				0x0244/* DECon_F only */
 #define SPLITTER_HEIGHT_F(_v)				((_v) << 16)
 #define SPLITTER_HEIGHT_MASK				(0x3fff << 16)
+#define SPLITTER_HEIGHT_GET(_v)				(((_v) >> 16) & 0x3fff)
 #define SPLITTER_WIDTH_F(_v)				((_v) << 0)
 #define SPLITTER_WIDTH_MASK				(0x3fff << 0)
+#define SPLITTER_WIDTH_GET(_v)				(((_v) >> 0) & 0x3fff)
 
 #define SPLITTER_SIZE_CONTROL_1				0x0248/* DECon_F only */
 
@@ -281,8 +283,10 @@
 #define FRAME_FIFO_0_SIZE_CONTROL_0			0x0250
 #define FRAME_FIFO_HEIGHT_F(_v)				((_v) << 16)
 #define FRAME_FIFO_HEIGHT_MASK				(0x3fff << 16)
+#define FRAME_FIFO_HEIGHT_GET(_v)			(((_v) >> 16) & 0x3fff)
 #define FRAME_FIFO_WIDTH_F(_v)				((_v) << 0)
 #define FRAME_FIFO_WIDTH_MASK				(0x3fff << 0)
+#define FRAME_FIFO_WIDTH_GET(_v)			(((_v) >> 0) & 0x3fff)
 
 #define FRAME_FIFO_0_SIZE_CONTROL_1			0x0254
 #define FRAME_FIFO_1_SIZE_CONTROL_0			0x0258/* DECon_F only */
@@ -353,7 +357,107 @@
 * <-
 * DSC registers
 */
+#define DSC0_OFFSET					0x2000
+#define DSC1_OFFSET					0x3000
+#define DSC_NUM_EXTRA_MUX_BIT				246
+#define DSC_MIN_SLICE_SIZE				15000
+#define DSC_INIT_TRANSMIT_DELAY				0x200
+#define DSC_INIT_SCALE_VALUE				0x20
+#define DSC_BIT_PER_PIXEL				0x80
+#define DSC_FIRST_LINE_BPG_OFFSET			0xC
+#define DSC_INIT_OFFSET					0x1800
+#define DSC_RC_MODE_SIZE				0x2000
 
+#define DSC_CONTROL0					0x0000
+#define DSC_CONTROL0_SW_RESET				(0x1 << 28)
+#define DSC_CONTROL0_BIT_SWAP_MASK			(0x1 << 10)
+#define DSC_CONTROL0_BIT_SWAP(_v)			((_v) << 10)
+#define DSC_CONTROL0_BYTE_SWAP_MASK			(0x1 << 9)
+#define DSC_CONTROL0_BYTE_SWAP(_v)			((_v) << 9)
+#define DSC_CONTROL0_WORD_SWAP_MASK			(0x1 << 8)
+#define DSC_CONTROL0_WORD_SWAP(_v)			((_v) << 8)
+#define DSC_CONTROL0_FLATNESS_DET_TH_F_MASK		(0xf << 4)
+#define DSC_CONTROL0_FLATNESS_DET_TH_F(_v)		((_v) << 4)
+#define DSC_CONTROL0_SLICE_MODE_CH_F_MASK		(0x1 << 3)
+#define DSC_CONTROL0_SLICE_MODE_CH_F(_v)		((_v) << 3)
+#define DSC_CONTROL0_DSC_BYPASS_F_MASK			(0x1 << 2)
+#define DSC_CONTROL0_DSC_BYPASS_F(_v)			((_v) << 2)
+#define DSC_CONTROL0_DSC_CG_EN_F_MASK			(0x1 << 1)
+#define DSC_CONTROL0_DSC_CG_EN_F(_v)			((_v) << 1)
+#define DSC_CONTROL0_DUAL_SLICE_EN_F_MASK		0x1
+#define DSC_CONTROL0_DUAL_SLICE_EN_F(_v)		(_v)
+
+#define DSC_CONTROL1					0x0004
+#define DSC_CONTROL1_DSC_V_FRONT_F_MASK			(0xFF << 16)
+#define DSC_CONTROL1_DSC_V_FRONT_F(_v)			((_v) << 16)
+#define DSC_CONTROL1_DSC_V_SYNC_F_MASK			(0xFF << 8)
+#define DSC_CONTROL1_DSC_V_SYNC_F(_v)			((_v) << 8)
+#define DSC_CONTROL1_DSC_V_BACK_F_MASK			0xFF
+#define DSC_CONTROL1_DSC_V_BACK_F(_v)			(_v)
+
+#define DSC_CONTROL2					0x0008
+#define DSC_CONTROL2_DSC_H_FRONT_F_MASK			(0xFF << 16)
+#define DSC_CONTROL2_DSC_H_FRONT_F(_v)			((_v) << 16)
+#define DSC_CONTROL2_DSC_H_SYNC_F_MASK			(0xFF << 8)
+#define DSC_CONTROL2_DSC_H_SYNC_F(_v)			((_v) << 8)
+#define DSC_CONTROL2_DSC_H_BACK_F_MASK			0xFF
+#define DSC_CONTROL2_DSC_H_BACK_F(_v)			(_v)
+
+#define DSC_IN_PIXEL_COUNT				0x000C
+#define DSC_COMP_PIXEL_COUNT				0x0010
+
+#define DSC_PPS00_03					0x0020
+#define DSC_PPS00_03_DSC_VER(_v)			(_v << 24)
+#define DSC_PPS00_03_DSC_VER_MASK			(0xFF << 24)
+
+#define DSC_PPS04_07					0x0024
+#define DSC_PPS06_07_PICTURE_HEIGHT_MASK		0xFFFF
+#define DSC_PPS06_07_PICTURE_HEIGHT(_v)			(_v)
+
+#define DSC_PPS08_11					0x0028
+#define DSC_PPS08_9_PICTURE_WIDHT_MASK			(0xFFFF << 16)
+#define DSC_PPS08_9_PICTURE_WIDHT(_v)			((_v) << 16)
+#define DSC_PPS10_11_SLICE_HEIGHT_MASK			0xFFFF
+#define DSC_PPS10_11_SLICE_HEIGHT(_v)			(_v)
+
+#define DSC_PPS12_15					0x002C
+#define DSC_PPS12_13_SLICE_WIDTH_MASK			(0xFFFF << 16)
+#define DSC_PPS12_13_SLICE_WIDTH(_v)			((_v) << 16)
+#define DSC_PPS14_15_CHUNK_SIZE_MASK			0xFFFF
+#define DSC_PPS14_15_CHUNK_SIZE(_v)				(_v)
+
+#define DSC_PPS16_19					0x0030
+#define DSC_PPS16_17_INIT_XMIT_DELAY_MASK		(0x3FF << 16)
+#define DSC_PPS16_17_INIT_XMIT_DELAY(_v)		((_v) << 16)
+#define DSC_PPS16_19_INIT_DEC_DELAY_MASK		(0xFFFF << 0)
+#define DSC_PPS16_19_INIT_DEC_DELAY(_v)			((_v) << 0)
+
+
+#define DSC_PPS20_23					0x0034
+#define DSC_PPS21_INIT_SCALE_VALUE_MASK			(0xFF << 16)
+#define DSC_PPS21_INIT_SCALE_VALUE(_v)			((_v) << 16)
+#define DSC_PPS22_23_SCALE_INCREMENT_INTERVAL_MASK	0xFFFF
+#define DSC_PPS22_23_SCALE_INCREMENT_INTERVAL(_v)	(_v)
+
+#define DSC_PPS24_27					0x0038
+#define DSC_PPS24_25_SCALE_DECREMENT_INTERVAL_MASK	(0xFFFF << 16)
+#define DSC_PPS24_25_SCALE_DECREMENT_INTERVAL(_v)	((_v) << 16)
+#define DSC_PPS27_FIRST_LINE_BPG_OFFSET_MASK		0x1F
+#define DSC_PPS27_FIRST_LINE_BPG_OFFSET(_v)		(_v)
+
+#define DSC_PPS28_31					0x003C
+#define DSC_PPS28_29_NOT_FIRST_LINE_BPG_OFFSET_MASK	(0xFFFF << 16)
+#define DSC_PPS28_29_NOT_FIRST_LINE_BPG_OFFSET(_v)	((_v) << 16)
+#define DSC_PPS30_31_SLICE_BPG_OFFSET_MASK		0xFFFF
+#define DSC_PPS30_31_SLICE_BPG_OFFSET(_v)		(_v)
+
+#define DSC_PPS32_35					0x0040
+#define DSC_PPS32_33_INIT_OFFSET_MASK			(0xFFFF << 16)
+#define DSC_PPS32_33_INIT_OFFSET(_v)			((_v) << 16)
+#define DSC_PPS34_35_FINAL_OFFSET_MASK			0xFFFF
+#define DSC_PPS34_35_FINAL_OFFSET(_v)			(_v)
+
+#define DSC_PPS124_127					0x009C //PPS end register
 
 /*
 * DISPIF2,3 registers

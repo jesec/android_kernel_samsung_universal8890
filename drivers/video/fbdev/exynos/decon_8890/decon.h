@@ -634,10 +634,8 @@ struct decon_device {
 	bool				vpp_err_stat[MAX_VPP_SUBDEV];
 	u32				vpp_usage_bitmask;
 	struct decon_lcd		*lcd_info;
-#ifdef CONFIG_FB_WINDOW_UPDATE
 	struct decon_win_rect		update_win;
 	bool				need_update;
-#endif
 	struct decon_underrun_stat	underrun_stat;
 	void __iomem			*cam_status[2];
 	u32				prev_protection_bitmask;
@@ -716,6 +714,30 @@ static inline void decon_write_mask(u32 id, u32 reg_id, u32 val, u32 mask)
 
 	val = (val & mask) | (old & ~mask);
 	decon_write(id, reg_id, val);
+}
+
+static inline u32 dsc_read(u32 dsc_id, u32 reg_id)
+{
+	struct decon_device *decon = get_decon_drvdata(0);
+	u32 dsc_offset = dsc_id ? DSC1_OFFSET : DSC0_OFFSET;
+
+	return readl(decon->regs + dsc_offset + reg_id);
+}
+
+static inline void dsc_write(u32 dsc_id, u32 reg_id, u32 val)
+{
+	struct decon_device *decon = get_decon_drvdata(0);
+	u32 dsc_offset = dsc_id ? DSC1_OFFSET : DSC0_OFFSET;
+
+	writel(val, decon->regs + dsc_offset + reg_id);
+}
+
+static inline void dsc_write_mask(u32 dsc_id, u32 reg_id, u32 val, u32 mask)
+{
+	u32 old = dsc_read(dsc_id, reg_id);
+
+	val = (val & mask) | (old & ~mask);
+	dsc_write(dsc_id, reg_id, val);
 }
 
 /* common function API */

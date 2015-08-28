@@ -186,20 +186,25 @@
 #define DSIM_CPRS_CTRL_MULI_SLICE_PACKET	(1 << 3)
 #define DSIM_CPRS_CTRL_NUM_OF_SLICE(_x)		((_x) << 0)
 #define DSIM_CPRS_CTRL_NUM_OF_SLICE_MASK	(0x7 << 0)
+#define DSIM_CPRS_CTRL_NUM_OF_SLICE_GET(x)	(((x) >> 0) & 0x7)
 
 /*Slice01 size register*/
 #define DSIM_SLICE01				(0x5C)
 #define DSIM_SLICE01_SIZE_OF_SLICE1(_x)		((_x) << 16)
 #define DSIM_SLICE01_SIZE_OF_SLICE1_MASK	(0x1fff << 16)
+#define DSIM_SLICE01_SIZE_OF_SLICE1_GET(x)	(((x) >> 16) & 0x1fff)
 #define DSIM_SLICE01_SIZE_OF_SLICE0(_x)		((_x) << 0)
 #define DSIM_SLICE01_SIZE_OF_SLICE0_MASK	(0x1fff << 0)
+#define DSIM_SLICE01_SIZE_OF_SLICE0_GET(x)	(((x) >> 0) & 0x1fff)
 
 /*Slice23 size register*/
 #define DSIM_SLICE23				(0x60)
 #define DSIM_SLICE23_SIZE_OF_SLICE3(_x)		((_x) << 16)
 #define DSIM_SLICE23_SIZE_OF_SLICE3_MASK	(0x1fff << 16)
+#define DSIM_SLICE23_SIZE_OF_SLICE3_GET(x)	(((x) >> 16) & 0x1fff)
 #define DSIM_SLICE23_SIZE_OF_SLICE2(_x)		((_x) << 0)
 #define DSIM_SLICE23_SIZE_OF_SLICE2_MASK	(0x1fff << 0)
+#define DSIM_SLICE23_SIZE_OF_SLICE2_GET(x)	(((x) >> 0) & 0x1fff)
 
 /* Command configuration register */
 #define DSIM_CMD_CONFIG				(0x78)

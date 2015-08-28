@@ -64,7 +64,8 @@ struct decon_lcd {
 	unsigned int mic_enabled;
 	enum decon_mic_comp_ratio mic_ratio;
 	unsigned int dsc_enabled;
-	unsigned int dsc_slice;
+	unsigned int dsc_cnt;
+	unsigned int dsc_slice_num;
 	enum mic_ver mic_ver;
 	enum type_of_ddi ddi_type;
 };

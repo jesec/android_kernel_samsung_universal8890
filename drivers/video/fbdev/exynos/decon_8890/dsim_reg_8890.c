@@ -501,6 +501,91 @@ void dsim_reg_enable_dsc(u32 id, u32 en)
 	dsim_write_mask(id, DSIM_CONFIG, val, DSIM_CONFIG_CPRS_EN);
 }
 
+void dsim_reg_set_num_of_slice(u32 id, u32 num_of_slice)
+{
+	u32 val = DSIM_CPRS_CTRL_NUM_OF_SLICE(num_of_slice);
+
+	dsim_write_mask(id, DSIM_CPRS_CTRL, val, DSIM_CPRS_CTRL_NUM_OF_SLICE_MASK);
+}
+
+void dsim_reg_get_num_of_slice(u32 id, u32 *num_of_slice)
+{
+	u32 val = dsim_read(id, DSIM_CPRS_CTRL);
+
+	*num_of_slice = DSIM_CPRS_CTRL_NUM_OF_SLICE_GET(val);
+}
+
+void dsim_reg_set_multi_slice(u32 id, struct decon_lcd *lcd_info)
+{
+	u32 multi_slice, val;
+
+	/* if multi-slice(2~4 slices) DSC compression is used in video mode
+	 * MULTI_SLICE_PACKET configuration must be matched to DDI's configuration */
+	if (lcd_info->mode == DECON_MIPI_COMMAND_MODE)
+		multi_slice = 1;
+	else if (lcd_info->mode == DECON_VIDEO_MODE)
+		multi_slice = lcd_info->dsc_slice_num > 1 ? 1 : 0;
+
+	/* if MULTI_SLICE_PACKET is enabled, only one packet header is transferred
+	 * for multi slice */
+	val = multi_slice ? ~0 : 0;
+	dsim_write_mask(id, DSIM_CPRS_CTRL, val, DSIM_CPRS_CTRL_MULI_SLICE_PACKET);
+}
+
+void dsim_reg_set_size_of_slice(u32 id, struct decon_lcd *lcd_info)
+{
+	u32 slice_w = lcd_info->xres / lcd_info->dsc_slice_num;
+	u32 val_01 = 0, mask_01 = 0;
+	u32 val_23 = 0, mask_23 = 0;
+
+	if (lcd_info->dsc_slice_num == 4) {
+		val_01 = DSIM_SLICE01_SIZE_OF_SLICE1(slice_w) |
+			DSIM_SLICE01_SIZE_OF_SLICE0(slice_w);
+		mask_01 = DSIM_SLICE01_SIZE_OF_SLICE1_MASK |
+			DSIM_SLICE01_SIZE_OF_SLICE0_MASK;
+		val_23 = DSIM_SLICE23_SIZE_OF_SLICE3(slice_w) |
+			DSIM_SLICE23_SIZE_OF_SLICE2(slice_w);
+		mask_23 = DSIM_SLICE23_SIZE_OF_SLICE3_MASK |
+			DSIM_SLICE23_SIZE_OF_SLICE2_MASK;
+	} else if (lcd_info->dsc_slice_num == 2 && lcd_info->dsc_cnt == 2) {
+		val_01 = DSIM_SLICE01_SIZE_OF_SLICE0(slice_w);
+		mask_01 = DSIM_SLICE01_SIZE_OF_SLICE0_MASK;
+		val_23 = DSIM_SLICE23_SIZE_OF_SLICE2(slice_w);
+		mask_23 = DSIM_SLICE23_SIZE_OF_SLICE2_MASK;
+	} else if (lcd_info->dsc_slice_num == 2 && lcd_info->dsc_cnt == 1) {
+		val_01 = DSIM_SLICE01_SIZE_OF_SLICE1(slice_w) |
+			DSIM_SLICE01_SIZE_OF_SLICE0(slice_w);
+		mask_01 = DSIM_SLICE01_SIZE_OF_SLICE1_MASK |
+			DSIM_SLICE01_SIZE_OF_SLICE0_MASK;
+	} else if (lcd_info->dsc_slice_num == 1) {
+		val_01 = DSIM_SLICE01_SIZE_OF_SLICE0(slice_w);
+		mask_01 = DSIM_SLICE01_SIZE_OF_SLICE0_MASK;
+	} else {
+		dsim_err("not supported slice mode. dsc(%d), slice(%d)\n",
+				lcd_info->dsc_cnt, lcd_info->dsc_slice_num);
+	}
+
+	dsim_write_mask(id, DSIM_SLICE01, val_01, mask_01);
+	dsim_write_mask(id, DSIM_SLICE23, val_23, mask_23);
+}
+
+void dsim_reg_print_size_of_slice(u32 id)
+{
+	u32 val;
+	u32 slice0_w, slice1_w, slice2_w, slice3_w;
+
+	val = dsim_read(id, DSIM_SLICE01);
+	slice0_w = DSIM_SLICE01_SIZE_OF_SLICE0_GET(val);
+	slice1_w = DSIM_SLICE01_SIZE_OF_SLICE1_GET(val);
+
+	val = dsim_read(id, DSIM_SLICE23);
+	slice2_w = DSIM_SLICE23_SIZE_OF_SLICE2_GET(val);
+	slice3_w = DSIM_SLICE23_SIZE_OF_SLICE3_GET(val);
+
+	dsim_dbg("dsim%d: slice0 w(%d), slice1 w(%d), slice2 w(%d), slice3(%d)\n",
+			id, slice0_w, slice1_w, slice2_w, slice3_w);
+}
+
 void dsim_reg_disable_hsa(u32 id, u32 en)
 {
 	u32 val = en ? ~0 : 0;
@@ -621,6 +706,8 @@ void dsim_reg_set_hresol(u32 id, u32 hresol, struct decon_lcd *lcd)
 			width = lcd->xres;
 			break;
 		}
+	} else if (lcd->dsc_enabled) {
+		width = lcd->xres / 3;
 	}
 
 	val = DSIM_RESOL_HRESOL(width);
@@ -988,11 +1075,13 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	unsigned int time_te_protect_on;
 	unsigned int time_te_tout;
 	int ret = 0;
+	u32 num_of_slice;
 
 	/*
 	 * DSIM does not need to init, if DSIM is already
 	 * becomes txrequest_hsclk = 1'b1 because of LCD_ON_UBOOT
 	 */
+#if 0
 	if (dsim_read_mask(id, DSIM_CLKCTRL, DSIM_CLKCTRL_TX_REQUEST_HSCLK)) {
 		dsim_info("dsim%d is probed with LCD ON UBOOT\n", id);
 		dsim_reg_init_probe(id, lcd_info, data_lane_cnt, clks);
@@ -1000,6 +1089,7 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 		   then just return. */
 		ret = -EBUSY;
 	}
+#endif
 
 	/* get byte clock */
 	clks->byte_clk = clks->hs_clk / 8;
@@ -1050,7 +1140,17 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	dsim_reg_set_bta_timeout(id);
 	dsim_reg_set_lpdr_timeout(id);
 	dsim_reg_set_hsync_timeout(id, 0x3f);
-	/*should be adding dsc code*/
+	if (lcd_info->dsc_enabled) {
+		dsim_dbg("%s: dsc configuration is set\n", __func__);
+		dsim_reg_set_num_of_slice(id, lcd_info->dsc_slice_num);
+		dsim_reg_set_multi_slice(id, lcd_info); /* multi slice */
+		dsim_reg_set_size_of_slice(id, lcd_info);
+
+		dsim_reg_get_num_of_slice(id, &num_of_slice);
+		dsim_dbg("dsim%d: number of DSC slice(%d)\n", id, num_of_slice);
+		dsim_reg_print_size_of_slice(id);
+	}
+
 	return ret;
 }
 

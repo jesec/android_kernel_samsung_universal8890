@@ -262,6 +262,23 @@ void decon_reg_set_frame_fifo_size(u32 id, enum decon_dsi_mode dsi_mode, u32 wid
 	}
 }
 
+void decon_reg_get_frame_fifo_size(u32 id, int dsi_idx, u32 *w, u32 *h)
+{
+	u32 val;
+
+	if (id == 0) {
+		if (dsi_idx == 0)
+			val = decon_read(id, FRAME_FIFO_0_SIZE_CONTROL_0);
+		else if (dsi_idx == 1)
+			val = decon_read(id, FRAME_FIFO_1_SIZE_CONTROL_0);
+	} else {
+		/* TODO: Other DECON case will be implemented */
+	}
+
+	*w = FRAME_FIFO_WIDTH_GET(val);
+	*h = FRAME_FIFO_HEIGHT_GET(val);
+}
+
 void decon_reg_set_splitter(u32 id, enum decon_dsi_mode dsi_mode, u32 width, u32 height)
 {
 	u32 val;
@@ -300,6 +317,16 @@ void decon_reg_set_splitter(u32 id, enum decon_dsi_mode dsi_mode, u32 width, u32
 			decon_write(id, SPLITTER_SIZE_CONTROL_1, val);
 		}
 	}
+}
+
+void decon_reg_get_splitter_size(u32 id, u32 *w, u32 *h)
+{
+	u32 val;
+
+	val = decon_read(id, SPLITTER_SIZE_CONTROL_0);
+
+	*w = SPLITTER_WIDTH_GET(val);
+	*h = SPLITTER_HEIGHT_GET(val);
 }
 
 void decon_reg_set_dispif_porch(u32 id, int dsi_idx, struct decon_lcd *lcd_info)
@@ -588,6 +615,9 @@ void decon_reg_per_frame_off(u32 id)
 
 void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
 {
+	enum decon_data_path d_path;
+	enum decon_enhance_path e_path;
+
 	decon_reg_set_rgb_order(id, DECON_RGB);
 
 	decon_reg_set_dispif_porch(id, 0, lcd_info);
@@ -604,6 +634,20 @@ void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode, struct decon_
 			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTER_U0FFU1FF_DISP0DISP1, ENHANCEPATH_ENHANCE_ALL_OFF);
 		else
 			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTERBYPASS_U0FF_DISP0, ENHANCEPATH_ENHANCE_ALL_OFF);
+	} else if (lcd_info->dsc_enabled) {
+		if (lcd_info->dsc_cnt == 1)
+			decon_reg_set_data_path(id,
+					DATAPATH_ENC0_SPLITTERBYPASS_U0FF_DISP0,
+					ENHANCEPATH_ENHANCE_ALL_OFF);
+		else if (lcd_info->dsc_cnt == 2)
+			decon_reg_set_data_path(id,
+					DATAPATH_DSCC_ENC0ENC1_U0FFU1FF_MERGER_DISP0,
+					ENHANCEPATH_ENHANCE_ALL_OFF);
+		else
+			decon_err("not supported data path for %d DSC of decon%d",
+					lcd_info->dsc_cnt, id);
+
+		dsc_reg_init(id, lcd_info);
 	} else {
 		decon_reg_set_splitter(id, dsi_mode, lcd_info->xres, lcd_info->yres);
 		decon_reg_set_frame_fifo_size(id, dsi_mode, lcd_info->xres, lcd_info->yres);
@@ -619,6 +663,10 @@ void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode, struct decon_
 
 	decon_reg_set_vclk_freerun(id, 1);
 	decon_reg_direct_on_off(id, 0);
+
+	decon_reg_get_data_path(id, &d_path, &e_path);
+	decon_dbg("%s: decon%d, enhance path(0x%x), data path(0x%x)\n",
+			__func__, id, e_path, d_path);
 }
 
 
@@ -878,6 +926,450 @@ void decon_reg_set_trigger(u32 id, struct decon_mode_info *psr, enum decon_set_t
 	decon_write_mask(id, HW_SW_TRIG_CONTROL, val, mask);
 }
 
+/****************** DSC related functions ********************/
+void dsc_reg_set_reset(u32 encoder_id)
+{
+	u32 reg;
+
+	reg =  dsc_read(encoder_id, DSC_CONTROL0);
+	reg |= DSC_CONTROL0_SW_RESET;
+	dsc_write(encoder_id, DSC_CONTROL0, reg);
+}
+void dsc_reg_set_swap(u32 encoder_id, u32 uBit, u32 uByte, u32 uWord)
+{
+	u32 reg;
+
+	reg =  dsc_read(encoder_id, DSC_CONTROL0);
+	reg &= ~((DSC_CONTROL0_BIT_SWAP_MASK | DSC_CONTROL0_BYTE_SWAP_MASK | DSC_CONTROL0_WORD_SWAP_MASK));
+	reg |= (DSC_CONTROL0_BIT_SWAP(uBit) | DSC_CONTROL0_BYTE_SWAP(uByte) | DSC_CONTROL0_WORD_SWAP(uWord));
+	dsc_write(encoder_id, DSC_CONTROL0, reg);
+}
+void dsc_reg_set_flatness_det_th(u32 encoder_id, u32 uThreshold)
+{
+	u32 reg;
+
+	reg =  dsc_read(encoder_id, DSC_CONTROL0);
+	reg &= ~(DSC_CONTROL0_FLATNESS_DET_TH_F_MASK);
+	reg |= DSC_CONTROL0_FLATNESS_DET_TH_F(uThreshold);
+	dsc_write(encoder_id, DSC_CONTROL0, reg);
+}
+
+void dsc_reg_set_slice_mode_change(u32 encoder_id, u32 uEn)
+{
+	u32 reg;
+
+	reg =  dsc_read(encoder_id, DSC_CONTROL0);
+	reg &= ~(DSC_CONTROL0_SLICE_MODE_CH_F_MASK);
+	reg |= DSC_CONTROL0_SLICE_MODE_CH_F(uEn);
+	dsc_write(encoder_id, DSC_CONTROL0, reg);
+}
+void dsc_reg_set_encoder_bypass(u32 encoder_id, u32 uEn)
+{
+	u32 reg;
+
+	reg =  dsc_read(encoder_id, DSC_CONTROL0);
+	reg &= ~(DSC_CONTROL0_DSC_BYPASS_F_MASK);
+	reg |= DSC_CONTROL0_DSC_BYPASS_F(uEn);
+	dsc_write(encoder_id, DSC_CONTROL0, reg);
+}
+void dsc_reg_set_auto_clock_gating(u32 encoder_id, u32 uEn)
+{
+	u32 reg;
+
+	reg =  dsc_read(encoder_id, DSC_CONTROL0);
+	reg &= ~(DSC_CONTROL0_DSC_CG_EN_F_MASK);
+	reg |= DSC_CONTROL0_DSC_CG_EN_F(uEn);
+	dsc_write(encoder_id, DSC_CONTROL0, reg);
+}
+
+void dsc_reg_set_dual_slice_mode(u32 encoder_id, u32 uEn)
+{
+	u32 reg;
+
+	reg =  dsc_read(encoder_id, DSC_CONTROL0);
+	reg &= ~(DSC_CONTROL0_DUAL_SLICE_EN_F_MASK);
+	reg |= DSC_CONTROL0_DUAL_SLICE_EN_F(uEn);
+	dsc_write(encoder_id, DSC_CONTROL0, reg);
+}
+void dsc_reg_set_vertical_porch(u32 encoder_id, u32 uVFP, u32 uVSW, u32 uVBP)
+{
+	u32 reg;
+
+	reg = (DSC_CONTROL1_DSC_V_FRONT_F(uVFP) | DSC_CONTROL1_DSC_V_SYNC_F(uVSW) | DSC_CONTROL1_DSC_V_BACK_F(uVBP));
+	dsc_write(encoder_id, DSC_CONTROL1, reg);
+}
+void dsc_reg_set_horizontal_porch(u32 encoder_id, u32 uHFP, u32 uHSW, u32 uHBP)
+{
+	u32 reg;
+
+	reg = (DSC_CONTROL2_DSC_H_FRONT_F(uHFP) | DSC_CONTROL2_DSC_H_SYNC_F(uHSW) | DSC_CONTROL2_DSC_H_BACK_F(uHBP));
+	dsc_write(encoder_id, DSC_CONTROL2, reg);
+}
+
+void dsc_reg_set_input_pixel_count(u32 encoder_id, u32 picture_width, u32 picture_height)
+{
+	u32 reg;
+
+	if (encoder_id == 1) {
+		reg = (picture_width*picture_height);
+		dsc_write(encoder_id, DSC_IN_PIXEL_COUNT, reg);
+	}
+}
+void dsc_reg_set_comp_pixel_count(u32 encoder_id)
+{
+	u32 reg;
+	if (encoder_id == 1) {
+		reg = decon_read(0, FRAME_FIFO_0_SIZE_CONTROL_1);
+		dsc_write(encoder_id, DSC_COMP_PIXEL_COUNT, reg);
+	}
+}
+
+/*
+#########################################################################################
+						dsc PPS Configuration
+#########################################################################################
+*/
+u32 dsc_reg_get_num_extra_mux_bits(u32 SliceHeight, u32 chunk_size)
+{
+	u32 uNum_Extra_Mux_Bits;
+	u32 uSliceBits;
+
+	uNum_Extra_Mux_Bits = DSC_NUM_EXTRA_MUX_BIT;
+	uSliceBits = 8*chunk_size*SliceHeight;
+	while ((uSliceBits-uNum_Extra_Mux_Bits)%48)
+		uNum_Extra_Mux_Bits--;
+
+	return	uNum_Extra_Mux_Bits;
+}
+u32 dsc_reg_get_slice_height(u32 picture_height, u32 slice_width)
+{
+
+	u32 slice_height;
+	u32 uMinSliceSize;
+	u32 uQuotient = 1;
+	u32 i, uCnt = 0;
+	u32 uTemp[] = {0,};
+	decon_dbg("\npicture_height:%d", picture_height);
+	decon_dbg("\nslice_width:%d", slice_width);
+
+	while (1) {
+		if ((picture_height%uQuotient) == 0) {
+			uTemp[uCnt] = uQuotient;
+			uCnt++;
+		}
+		uQuotient++;
+		if (picture_height/2 < uQuotient) {
+			uTemp[uCnt-1] = picture_height;
+			break;
+		}
+	}
+	for (i = 0; i < uCnt; i++)
+		decon_dbg("\nQuotient[%d]:%d", i, uTemp[i]);
+	for (i = 0; i < uCnt; i++) {
+		slice_height = uTemp[i];
+		uMinSliceSize = slice_width*slice_height;
+		if (uMinSliceSize > DSC_MIN_SLICE_SIZE)
+			break;
+	}
+
+	decon_dbg("\n SliceHeight: %d", slice_height);
+	return	slice_height;
+}
+
+void dsc_reg_set_pps_0_3_dsc_version(u32 encoder_id, u32 ver)
+{
+	u32 reg;
+
+	reg = dsc_read(encoder_id, DSC_PPS00_03);
+	reg &= ~DSC_PPS00_03_DSC_VER_MASK;
+	reg |= DSC_PPS00_03_DSC_VER(ver);
+	dsc_write(encoder_id, DSC_PPS00_03, reg);
+}
+
+void dsc_reg_set_pps_6_7_picture_height(u32 encoder_id, u32 height)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, DSC_PPS04_07);
+	reg &= ~DSC_PPS06_07_PICTURE_HEIGHT_MASK;
+	reg |= DSC_PPS06_07_PICTURE_HEIGHT(height);
+	dsc_write(encoder_id, DSC_PPS04_07, reg);
+}
+void dsc_reg_set_pps_8_9_picture_width(u32 encoder_id, u32 width)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, DSC_PPS08_11);
+	reg &= ~DSC_PPS08_9_PICTURE_WIDHT_MASK;
+	reg |= DSC_PPS08_9_PICTURE_WIDHT(width);
+	dsc_write(encoder_id, DSC_PPS08_11, reg);
+}
+void dsc_reg_set_pps_10_11_slice_height(u32 encoder_id, u32 height)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, DSC_PPS08_11);
+	reg &= ~(DSC_PPS10_11_SLICE_HEIGHT_MASK);
+	reg |= DSC_PPS10_11_SLICE_HEIGHT(height);
+	dsc_write(encoder_id, DSC_PPS08_11, reg);
+}
+void dsc_reg_set_pps_12_13_slice_width(u32 encoder_id, u32 width)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, DSC_PPS12_15);
+	reg &= ~DSC_PPS12_13_SLICE_WIDTH_MASK;
+	reg |= DSC_PPS12_13_SLICE_WIDTH(width);
+	dsc_write(encoder_id, DSC_PPS12_15, reg);
+}
+void dsc_reg_set_pps_14_15_chunk_size(u32 encoder_id, u32 slice_width)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, DSC_PPS12_15);
+	reg &= ~DSC_PPS14_15_CHUNK_SIZE_MASK;
+	reg |= DSC_PPS14_15_CHUNK_SIZE(slice_width);
+	dsc_write(encoder_id, DSC_PPS12_15, reg);
+}
+
+void dsc_reg_set_pps_16_17_init_xmit_delay(u32 dsc_id)
+{
+	u32 val;
+
+	val = DSC_PPS16_17_INIT_XMIT_DELAY(DSC_INIT_XMIT_DELAY);
+	dsc_write_mask(dsc_id, DSC_PPS16_19, val, DSC_PPS16_17_INIT_XMIT_DELAY_MASK);
+}
+
+void dsc_reg_set_pps_18_19_init_dec_delay(u32 dsc_id, u32 slice_width)
+{
+	int rbs_min, hrd_delay, groups_per_line, init_dec_delay;
+	u32 val;
+
+	groups_per_line = (slice_width + 2) / 3;
+	rbs_min = 6144 + groups_per_line * 12;
+	hrd_delay = (int)(CEIL(rbs_min / 8));
+	init_dec_delay = hrd_delay - 512;
+
+	val = DSC_PPS16_19_INIT_DEC_DELAY(init_dec_delay);
+	dsc_write_mask(dsc_id, DSC_PPS16_19, val, DSC_PPS16_19_INIT_DEC_DELAY_MASK);
+}
+
+void dsc_reg_set_pps_21_initial_scale_value(u32 encoder_id)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, DSC_PPS20_23);
+	reg &= ~DSC_PPS21_INIT_SCALE_VALUE_MASK;
+	reg |= DSC_PPS21_INIT_SCALE_VALUE(DSC_INIT_SCALE_VALUE);
+	dsc_write(encoder_id, DSC_PPS20_23, reg);
+}
+
+void dsc_reg_set_pps_22_23_scale_increment_interval(u32 encoder_id, u32 slice_width, u32 slice_height)
+{
+	u32 reg;
+	u32 uPPS22_ScaleIncrementInterval;
+	u32 uPPS28_NflBpgOffset;
+	u32 uPPS30_SliceBpgOffset;
+	u32 uPPS34_FinalOffset;
+	u32 uFinalScale;
+	u32 uGroupsTotal;
+	u32 uNumExtraMuxBits;
+	u32 chunk_size;
+	u32 val;
+
+#if 1
+	val = (DSC_FIRST_LINE_BPG_OFFSET*2048) / (slice_height-1);
+	uPPS28_NflBpgOffset = (u32)CEIL(val);
+#else
+	uPPS28_NflBpgOffset = (u32)CEIL((double)((DSC_FIRST_LINE_BPG_OFFSET*2048)/(slice_height-1)));
+#endif
+	uPPS28_NflBpgOffset += 1;
+
+	chunk_size = slice_width;
+	uNumExtraMuxBits = dsc_reg_get_num_extra_mux_bits(slice_height, chunk_size);
+	uGroupsTotal = ((slice_width+2)/3)*slice_height;
+	uPPS30_SliceBpgOffset = (u32)CEIL(2048*(DSC_RC_MODE_SIZE-DSC_INIT_OFFSET+uNumExtraMuxBits)/uGroupsTotal);
+
+	uNumExtraMuxBits = dsc_reg_get_num_extra_mux_bits(slice_height, chunk_size);
+	uPPS34_FinalOffset = DSC_RC_MODE_SIZE-((DSC_INIT_TRANSMIT_DELAY*DSC_BIT_PER_PIXEL+8)>>4)+uNumExtraMuxBits;
+
+	uFinalScale	= 8*(DSC_RC_MODE_SIZE/(DSC_RC_MODE_SIZE-uPPS34_FinalOffset));
+
+	uPPS22_ScaleIncrementInterval = (u32)(2048*uPPS34_FinalOffset/((uFinalScale-9)*(uPPS28_NflBpgOffset+uPPS30_SliceBpgOffset)));
+	//decon_info("\nuPPS22_ScaleIncrementInterval=2048x(%d)/((%d-9x)(%d+%d))=(%d)", uPPS34_FinalOffset, uFinalScale, uPPS28_NflBpgOffset, uPPS30_SliceBpgOffset, uPPS22_ScaleIncrementInterval);
+
+	reg  =  dsc_read(encoder_id, DSC_PPS20_23);
+	reg &= ~DSC_PPS22_23_SCALE_INCREMENT_INTERVAL_MASK;
+	reg |= DSC_PPS22_23_SCALE_INCREMENT_INTERVAL(0x04F2);
+	dsc_write(encoder_id, DSC_PPS20_23, reg);
+}
+
+void dsc_reg_set_pps_24_25_scale_decrement_interval(u32 encoder_id, u32 slice_width)
+{
+	u32 reg;
+	u32 uGroupPerLine;
+	u32 uPPS24_ScaleDecrementInterval;
+
+	uGroupPerLine = ((slice_width+2)/3);
+	uPPS24_ScaleDecrementInterval = (uGroupPerLine/(DSC_INIT_SCALE_VALUE-8));
+
+	reg  =  dsc_read(encoder_id, DSC_PPS24_27);
+	reg &= ~DSC_PPS24_25_SCALE_DECREMENT_INTERVAL_MASK;
+	reg |= DSC_PPS24_25_SCALE_DECREMENT_INTERVAL(uPPS24_ScaleDecrementInterval);
+	dsc_write(encoder_id, DSC_PPS24_27, reg);
+}
+
+void dsc_reg_set_pps_27_first_line_bpg_offset(u32 encoder_id)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, DSC_PPS24_27);
+	reg &= ~DSC_PPS27_FIRST_LINE_BPG_OFFSET_MASK;
+	reg |= DSC_PPS27_FIRST_LINE_BPG_OFFSET(DSC_FIRST_LINE_BPG_OFFSET);
+	dsc_write(encoder_id, DSC_PPS24_27, reg);
+}
+void dsc_reg_set_pps_28_29_nfl_bpg_offset(u32 encoder_id, u32 slice_height)												/*Fractional bits*/
+{
+	u32 reg;
+	u32 uPPS28_uNflBpgOffset;
+
+	uPPS28_uNflBpgOffset = (u32)CEIL(((DSC_FIRST_LINE_BPG_OFFSET*2048)/(slice_height-1)));
+	uPPS28_uNflBpgOffset += 1;
+	//decon_info("\nuPPS28_uNflBpgOffset=((%d*2048)/(%d-1))=%d", uPPS27_FirstLineBpgOffset, slice_height, uPPS28_uNflBpgOffset);
+
+	reg  =  dsc_read(encoder_id, DSC_PPS28_31);
+	reg &= ~DSC_PPS28_29_NOT_FIRST_LINE_BPG_OFFSET_MASK;
+	reg |= DSC_PPS28_29_NOT_FIRST_LINE_BPG_OFFSET(uPPS28_uNflBpgOffset);
+	dsc_write(encoder_id, DSC_PPS28_31, reg);
+}
+void dsc_reg_set_pps_30_31_slice_bpg_offset(u32 encoder_id, u32 slice_width, u32 slice_height, u32 chunk_size)			/*Fractional bits*/
+{
+	u32 reg;
+	u32 uPPS30_SliceBpgOffset;
+	u32 uNumExtraMuxBits;
+	u32 uGroupsTotal;
+
+	uNumExtraMuxBits = dsc_reg_get_num_extra_mux_bits(slice_height, chunk_size);
+	uGroupsTotal = ((slice_width+2)/3)*slice_height;
+	uPPS30_SliceBpgOffset = (u32)CEIL(2048*(DSC_RC_MODE_SIZE-DSC_INIT_OFFSET+uNumExtraMuxBits)/uGroupsTotal);
+	//decon_info("\nuNumExtraMuxBits = %d", uNumExtraMuxBits);
+	//decon_info("\nuPPS30_SliceBpgOffset=2048*(%d-%d+%d)/(%d)=(%d)", uPPS38_RCModelSize, uPPS32_InitialOffset, uNumExtraMuxBits, uGroupsTotal, uPPS30_SliceBpgOffset);
+
+	reg  =  dsc_read(encoder_id, (DSC_PPS28_31));
+	reg &= ~DSC_PPS30_31_SLICE_BPG_OFFSET_MASK;
+	reg |= DSC_PPS30_31_SLICE_BPG_OFFSET(0x0263);
+	dsc_write(encoder_id, (DSC_PPS28_31), reg);
+}
+void dsc_reg_set_pps_32_33_initial_offset(u32 encoder_id)
+{
+	u32 reg;
+
+	reg  =  dsc_read(encoder_id, (DSC_PPS32_35));
+	reg &= ~DSC_PPS32_33_INIT_OFFSET_MASK;
+	reg |= DSC_PPS32_33_INIT_OFFSET(DSC_INIT_OFFSET);
+	dsc_write(encoder_id, (DSC_PPS32_35), reg);
+}
+void dsc_reg_set_pps_34_35_final_offset(u32 encoder_id, u32 chunk_size, u32 slice_height)
+{
+	u32 reg;
+	u32 uPPS34_FinalOffset;
+	u32 uNumExtraMuxBits;
+
+	uNumExtraMuxBits = dsc_reg_get_num_extra_mux_bits(slice_height, chunk_size);
+	//decon_info("\nuNumExtraMuxBits = %d", uNumExtraMuxBits);
+	uPPS34_FinalOffset = DSC_RC_MODE_SIZE-((DSC_INIT_TRANSMIT_DELAY*DSC_BIT_PER_PIXEL+8)>>4)+uNumExtraMuxBits;
+
+	reg  =  dsc_read(encoder_id, (DSC_PPS32_35));
+	reg &= ~DSC_PPS34_35_FINAL_OFFSET_MASK;
+	reg |= DSC_PPS34_35_FINAL_OFFSET(uPPS34_FinalOffset);
+	dsc_write(encoder_id, (DSC_PPS32_35), reg);
+}
+
+void dsc_reg_set_pps(u32 encoder_id, struct decon_lcd *lcd_info)
+{
+	u32 picture_w, picture_h;
+	u32 slice_w, slice_h;
+	u32 chunk_size;
+	u32 dual_slice = 0;
+
+	picture_h = lcd_info->yres;
+	slice_w = lcd_info->xres / lcd_info->dsc_slice_num;
+	slice_h = (lcd_info->dsc_slice_num == 4) ? 64 : 16;
+	chunk_size = slice_w;
+
+	if (lcd_info->dsc_cnt == 1) {
+		picture_w = lcd_info->xres;
+	} else if (lcd_info->dsc_cnt == 2) {
+		picture_w = lcd_info->xres >> 1;
+	} else {
+		picture_w = lcd_info->xres;
+		decon_err("DSC max count is %d\n", lcd_info->dsc_cnt);
+	}
+
+	if (lcd_info->dsc_slice_num == 4 ||
+			(lcd_info->dsc_cnt == 1 && lcd_info->dsc_slice_num == 2))
+		dual_slice = 1;
+
+	decon_dbg("DSC%d: picture w(%d) h(%d)\n", encoder_id, picture_w, picture_h);
+	decon_dbg("slice w(%d) h(%d), chunk(%d), dual slice(%d)\n",
+			slice_w, slice_h, chunk_size, dual_slice);
+
+	dsc_reg_set_swap(encoder_id, 0x0, 0x0, 0x0);
+	dsc_reg_set_flatness_det_th(encoder_id, 0x2);
+	dsc_reg_set_auto_clock_gating(encoder_id, 1);
+	dsc_reg_set_dual_slice_mode(encoder_id, dual_slice);
+	dsc_reg_set_encoder_bypass(encoder_id, 0);
+	dsc_reg_set_slice_mode_change(encoder_id, 0);
+	dsc_reg_set_input_pixel_count(encoder_id, picture_w, picture_h);
+	dsc_reg_set_comp_pixel_count(encoder_id);
+
+	dsc_reg_set_pps_0_3_dsc_version(encoder_id, 0x11);
+	dsc_reg_set_pps_6_7_picture_height(encoder_id, picture_h);
+	dsc_reg_set_pps_8_9_picture_width(encoder_id, picture_w);
+	dsc_reg_set_pps_10_11_slice_height(encoder_id, slice_h);
+	dsc_reg_set_pps_12_13_slice_width(encoder_id, slice_w);
+	dsc_reg_set_pps_14_15_chunk_size(encoder_id, slice_w);
+	dsc_reg_set_pps_16_17_init_xmit_delay(encoder_id);
+	dsc_reg_set_pps_18_19_init_dec_delay(encoder_id, slice_w);
+	dsc_reg_set_pps_21_initial_scale_value(encoder_id);
+	dsc_reg_set_pps_22_23_scale_increment_interval(encoder_id, slice_w, slice_h);
+	dsc_reg_set_pps_24_25_scale_decrement_interval(encoder_id, slice_w);
+	dsc_reg_set_pps_27_first_line_bpg_offset(encoder_id);
+	dsc_reg_set_pps_28_29_nfl_bpg_offset(encoder_id, slice_h);
+	dsc_reg_set_pps_30_31_slice_bpg_offset(encoder_id, slice_w, slice_h, chunk_size);
+	dsc_reg_set_pps_32_33_initial_offset(encoder_id);
+	dsc_reg_set_pps_34_35_final_offset(encoder_id, chunk_size, slice_h);
+}
+
+int dsc_reg_init(u32 id, struct decon_lcd *lcd_info)
+{
+	u32 width = lcd_info->xres / 3;
+	u32 fifo_w = width;
+	u32 w, h;
+
+	if (lcd_info->dsc_cnt == 2) {
+		fifo_w = width / 2;
+		decon_reg_set_frame_fifo_size(id, DSI_MODE_DUAL_DSI, fifo_w,
+				lcd_info->yres);
+		dsc_reg_set_pps(1, lcd_info);
+	}
+	decon_reg_set_frame_fifo_size(id, DSI_MODE_SINGLE, fifo_w, lcd_info->yres);
+
+	decon_reg_set_splitter(id, DSI_MODE_SINGLE, width, lcd_info->yres);
+	decon_reg_set_dispif_size(id, 0, width, lcd_info->yres);
+	dsc_reg_set_pps(0, lcd_info);
+
+	decon_reg_get_splitter_size(id, &w, &h);
+	decon_dbg("SPLITTER size: w(%d), h(%d)\n", w, h);
+	decon_reg_get_frame_fifo_size(id, 0, &w, &h);
+	decon_dbg("FIFO0 size: w(%d), h(%d)\n", w, h);
+	decon_reg_get_frame_fifo_size(id, 1, &w, &h);
+	decon_dbg("FIFO1 size: w(%d), h(%d)\n", w, h);
+	decon_reg_get_dispif_size(id, 0, &w, &h);
+	decon_dbg("DISPIF0 size: w(%d), h(%d)\n", w, h);
+
+	return 0;
+}
 
 /***************** CAL APIs implementation *******************/
 int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
@@ -887,6 +1379,7 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 
 	/* DECON does not need to start, if DECON is already
 	 * running(enabled in LCD_ON_UBOOT) */
+#if 0
 	if (decon_reg_get_run_status(id)) {
 		decon_info("decon_reg_init already called by BOOTLOADER\n");
 		decon_reg_init_probe(id, dsi_idx, p);
@@ -894,6 +1387,7 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 			decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
 		return -EBUSY;
 	}
+#endif
 
 	/* Configure a DISP_SS */
 	decon_reg_set_disp_ss_cfg(id, p->disp_ss_regs, dsi_idx, psr);
@@ -962,6 +1456,8 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 {
 	struct decon_lcd *lcd_info = p->lcd_info;
 	struct decon_mode_info *psr = &p->psr;
+	enum decon_data_path d_path;
+	enum decon_enhance_path e_path;
 
 	decon_reg_set_clkgate_mode(id, 1);
 
@@ -1004,6 +1500,20 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTER_U0FFU1FF_DISP0DISP1, ENHANCEPATH_ENHANCE_ALL_OFF);
 		else
 			decon_reg_set_data_path(id, DATAPATH_MIC_SPLITTERBYPASS_U0FF_DISP0, ENHANCEPATH_ENHANCE_ALL_OFF);
+	} else if (lcd_info->dsc_enabled) {
+		if (lcd_info->dsc_cnt == 1)
+			decon_reg_set_data_path(id,
+					DATAPATH_ENC0_SPLITTERBYPASS_U0FF_DISP0,
+					ENHANCEPATH_ENHANCE_ALL_OFF);
+		else if (lcd_info->dsc_cnt == 2)
+			decon_reg_set_data_path(id,
+					DATAPATH_DSCC_ENC0ENC1_U0FFU1FF_MERGER_DISP0,
+					ENHANCEPATH_ENHANCE_ALL_OFF);
+		else
+			decon_err("not supported data path for %d DSC of decon%d",
+					lcd_info->dsc_cnt, id);
+
+		dsc_reg_init(id, lcd_info);
 	} else {
 		decon_reg_set_splitter(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
 		decon_reg_set_frame_fifo_size(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
@@ -1027,6 +1537,10 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 		decon_reg_configure_trigger(id, psr->trig_mode);
 		decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
 	}
+
+	decon_reg_get_data_path(id, &d_path, &e_path);
+	decon_dbg("%s: decon%d, enhance path(0x%x), data path(0x%x)\n",
+			__func__, id, e_path, d_path);
 }
 
 
@@ -1283,11 +1797,13 @@ u32 decon_reg_get_height(u32 id, int dsi_mode)
 }
 
 const unsigned long decon_clocks_table[][CLK_ID_MAX] = {
-	/* VCLK,  ECLK,  ACLK,  PCLK,  DISP_PLL,  resolution,            MIC_ratio, DSC ratio */
-	{    71,   168,   400,    66,        71, 1080 * 1920,     MIC_COMP_BYPASS,         1},
-	{    63,   168,   400,    66,        63, 1440 * 2560,  MIC_COMP_RATIO_1_2,         1},
-	{  41.7, 137.5,   400,    66,      62.5, 1440 * 2560,  MIC_COMP_RATIO_1_3,         1},
-	{   141, 137.5,   400,    66,       141, 1440 * 2560,     MIC_COMP_BYPASS,         1},
+	/* VCLK,  ECLK,  ACLK,  PCLK,  DISP_PLL,  resolution,            MIC_ratio, DSC count */
+	{    71,   168,   400,    66,        71, 1080 * 1920,     MIC_COMP_BYPASS,         0},
+	{    63,   168,   400,    66,        63, 1440 * 2560,  MIC_COMP_RATIO_1_2,         0},
+	{  41.7, 137.5,   400,    66,      62.5, 1440 * 2560,  MIC_COMP_RATIO_1_3,         0},
+	{   141, 137.5,   400,    66,       141, 1440 * 2560,     MIC_COMP_BYPASS,         0},
+	{    42,   337,   400,    66,        42, 1440 * 2560,     MIC_COMP_BYPASS,         1},
+	{    42,   168,   400,    66,        42, 1440 * 2560,     MIC_COMP_BYPASS,         2},
 };
 
 void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_lcd *lcd_info)
@@ -1301,7 +1817,7 @@ void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_lcd *lcd_
 	clks->decon[CLK_ID_PCLK] = decon_clocks_table[0][CLK_ID_PCLK];
 	clks->decon[CLK_ID_DPLL] = decon_clocks_table[0][CLK_ID_DPLL];
 
-	while (i--) {
+	for (; i >= 0; i--) {
 		if (decon_clocks_table[i][CLK_ID_RESOLUTION]
 				!= lcd_info->xres * lcd_info->yres) {
 			continue;
@@ -1321,7 +1837,7 @@ void decon_reg_get_clock_ratio(struct decon_clocks *clks, struct decon_lcd *lcd_
 
 		if (lcd_info->dsc_enabled) {
 			if (decon_clocks_table[i][CLK_ID_DSC_RATIO]
-					!= lcd_info->dsc_slice)
+					!= lcd_info->dsc_cnt)
 				continue;
 		}
 

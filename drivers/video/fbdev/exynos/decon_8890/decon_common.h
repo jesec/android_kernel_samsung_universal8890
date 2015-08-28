@@ -18,6 +18,9 @@
 #define MAX_DECON_WIN		8
 #define MAX_VPP_SUBDEV		9
 #define SHADOW_UPDATE_TIMEOUT	(300 * 1000) /* 300ms */
+#define CEIL(x)			((x-(u32)(x) > 0 ? (u32)(x+1) : (u32)(x)))
+
+#define DSC_INIT_XMIT_DELAY	0x200
 
 enum decon_trig_mode {
 	DECON_HW_TRIG = 0,
@@ -267,6 +270,9 @@ void decon_reg_set_trigger(u32 id, struct decon_mode_info *psr,
 int decon_reg_wait_for_update_timeout(u32 id, unsigned long timeout);
 int decon_reg_wait_for_window_update_timeout(u32 id, u32 win_idx, unsigned long timeout);
 int decon_reg_get_interrupt_and_clear(u32 id);
+
+/* DSC related functions */
+int dsc_reg_init(u32 id, struct decon_lcd *lcd_info);
 
 /* CAL raw functions list */
 void decon_reg_set_disp_ss_cfg(u32 id, void __iomem *disp_ss_regs, u32 dsi_idx, struct decon_mode_info *psr);

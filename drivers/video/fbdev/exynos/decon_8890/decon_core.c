@@ -491,7 +491,6 @@ static inline int rect_height(struct decon_rect *r)
 	return	r->bottom - r->top;
 }
 
-#ifdef CONFIG_FB_WINDOW_UPDATE
 static bool decon_intersect(struct decon_rect *r1, struct decon_rect *r2)
 {
 	return !(r1->left > r2->right || r1->right < r2->left ||
@@ -508,16 +507,6 @@ static int decon_intersection(struct decon_rect *r1,
 	return 0;
 }
 
-static int decon_union(struct decon_rect *r1,
-		struct decon_rect *r2, struct decon_rect *r3)
-{
-	r3->top = min(r1->top, r2->top);
-	r3->bottom = max(r1->bottom, r2->bottom);
-	r3->left = min(r1->left, r2->left);
-	r3->right = max(r1->right, r2->right);
-	return 0;
-}
-
 static bool is_decon_rect_differ(struct decon_rect *r1,
 		struct decon_rect *r2)
 {
@@ -529,8 +518,18 @@ static inline bool does_layer_need_scale(struct decon_win_config *config)
 {
 	return (config->dst.w != config->src.w) || (config->dst.h != config->src.h);
 }
-#endif
 
+#if defined(CONFIG_FB_WINDOW_UPDATE)
+static int decon_union(struct decon_rect *r1,
+		struct decon_rect *r2, struct decon_rect *r3)
+{
+	r3->top = min(r1->top, r2->top);
+	r3->bottom = max(r1->bottom, r2->bottom);
+	r3->left = min(r1->left, r2->left);
+	r3->right = max(r1->right, r2->right);
+	return 0;
+}
+#endif
 
 static inline bool is_decon_opaque_format(int format)
 {

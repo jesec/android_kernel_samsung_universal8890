@@ -182,6 +182,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 	case MIPI_DSI_DCS_SHORT_WRITE:
 	case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
 	case MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE:
+	case MIPI_DSI_DSC_PRA:
 		reinit_completion(&dsim_ph_wr_comp);
 		dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 		dsim_reg_wr_tx_header(dsim->id, data_id, data0, data1);
@@ -240,6 +241,7 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 
 	case MIPI_DSI_GENERIC_LONG_WRITE:
 	case MIPI_DSI_DCS_LONG_WRITE:
+	case MIPI_DSI_DSC_PPS:
 	{
 		unsigned int size;
 
@@ -1211,6 +1213,16 @@ static int dsim_parse_lcd_info(struct dsim_device *dsim)
 	of_property_read_u32(node, "type_of_ddi", &dsim->lcd_info.ddi_type);
 	dsim_dbg("ddi type(%d)\n", dsim->lcd_info.ddi_type);
 
+	of_property_read_u32(node, "dsc_en", &dsim->lcd_info.dsc_enabled);
+	dsim_info("dsc is %s\n", dsim->lcd_info.dsc_enabled ? "enabled" : "disabled");
+
+	if (dsim->lcd_info.dsc_enabled) {
+		of_property_read_u32(node, "dsc_cnt", &dsim->lcd_info.dsc_cnt);
+		dsim_info("dsc count(%d)\n", dsim->lcd_info.dsc_cnt);
+		of_property_read_u32(node, "dsc_slice_num", &dsim->lcd_info.dsc_slice_num);
+		dsim_info("dsc slice count(%d)\n", dsim->lcd_info.dsc_slice_num);
+	}
+
 	return 0;
 }
 
@@ -1294,6 +1306,10 @@ static int dsim_probe(struct platform_device *pdev)
 	dsim->panel_ops = &s6e3hf2_wqhd_mipi_lcd_driver;
 #elif IS_ENABLED(CONFIG_EXYNOS_DECON_LCD_S6E3FA0)
 	dsim->panel_ops = &s6e3fa0_mipi_lcd_driver;
+#elif IS_ENABLED(CONFIG_EXYNOS_DECON_LCD_S6E3HA3)
+	dsim->panel_ops = &s6e3ha3_mipi_lcd_driver;
+#elif IS_ENABLED(CONFIG_EXYNOS_DECON_LCD_S6E3HF4)
+	dsim->panel_ops = &s6e3hf4_mipi_lcd_driver;
 #else
 	dsim->panel_ops = &s6e3ha0_mipi_lcd_driver;
 #endif
