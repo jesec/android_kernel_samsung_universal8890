@@ -115,6 +115,7 @@ err:
 void lpass_enable_pll(bool on)
 {
 	if (on) {
+		void __iomem	*cmu_reg;
 		clk_prepare_enable(lpass_cmu.aud_pll);
 		clk_set_rate(lpass_cmu.aud_pll, 492000000);
 #if 0
@@ -139,8 +140,12 @@ void lpass_enable_pll(bool on)
 			clk_set_rate(lpass_cmu.aud_pll, 492000000);
 		}
 #endif
-
 		clk_prepare_enable(lpass_cmu.aud_lpass);
+		/* FIX ME: This code is related to POWER CAL,
+		   We need to resolve the issue related to Audio DMA */
+		cmu_reg = ioremap(0x114C0000, SZ_4K);
+		writel(0x1f3fff, cmu_reg + 0x804);
+		iounmap(cmu_reg);
 	} else {
 		clk_disable_unprepare(lpass_cmu.aud_lpass);
 		clk_disable_unprepare(lpass_cmu.aud_pll);
