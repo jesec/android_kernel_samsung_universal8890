@@ -946,6 +946,22 @@ int decon_enable(struct decon_device *decon)
 	if (decon->state != DECON_STATE_LPD_EXIT_REQ) {
 		/* In case of resume*/
 		if (decon->pdata->out_type != DECON_OUT_WB) {
+			struct decon_window_regs win_regs;
+			struct decon_lcd *lcd = decon->lcd_info;
+
+			memset(&win_regs, 0, sizeof(struct decon_window_regs));
+			win_regs.wincon = wincon(0x8, 0xFF, 0xFF, 0xFF, DECON_BLENDING_NONE);
+			win_regs.wincon |= WIN_CONTROL_EN_F;
+			win_regs.start_pos = win_start_pos(0, 0);
+			win_regs.end_pos = win_end_pos(0, 0, lcd->xres, lcd->yres);
+			win_regs.colormap = 0x000000;
+			win_regs.pixel_count = lcd->xres * lcd->yres;
+			win_regs.whole_w = lcd->xres;
+			win_regs.whole_h = lcd->yres;
+			win_regs.offset_x = 0;
+			win_regs.offset_y = 0;
+			decon_reg_set_window_control(decon->id, 0, &win_regs, true);
+			decon_reg_update_req_window(decon->id, 0);
 			decon_reg_start(decon->id, &psr);
 			decon_reg_update_req_and_unmask(decon->id, &psr);
 		}
@@ -2546,7 +2562,7 @@ static int decon_set_win_config(struct decon_device *decon,
 	decon_dbg("Total BW = %d Mbits, Max BW per window = %d Mbits\n",
 			bw / (1024 * 1024), MAX_BW_PER_WINDOW / (1024 * 1024));
 
-	if (ret) {
+	if (ret || regs->num_of_window == 0) {
 		for (i = 0; i < decon->pdata->max_win; i++) {
 			decon->windows[i]->fbinfo->fix = decon->windows[i]->prev_fix;
 			decon->windows[i]->fbinfo->var = decon->windows[i]->prev_var;
@@ -3665,7 +3681,7 @@ static int decon_probe(struct platform_device *pdev)
 		if (decon_reg_init(decon->id, decon->pdata->out_idx, &p) < 0)
 			goto decon_init_done;
 
-		memset(&win_regs, 0, sizeof(struct decon_win_config));
+		memset(&win_regs, 0, sizeof(struct decon_window_regs));
 		win_regs.wincon = wincon(0x8, 0xFF, 0xFF, 0xFF, DECON_BLENDING_NONE);
 		win_regs.wincon |= WIN_CONTROL_EN_F;
 		win_regs.start_pos = win_start_pos(0, 0);
