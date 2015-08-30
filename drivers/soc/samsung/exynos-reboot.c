@@ -143,6 +143,8 @@ static void mngs_reset_control(int en)
 
                 reg_val = readl(exynos_pmu_base + EXYNOS_PMU_ATLAS_NONCPU_RESET);
 #ifdef CONFIG_SOC_EXYNOS8890_EVT1
+                reg_val &= ~(RESET_DISABLE_L2RESET | RESET_DISABLE_WDT_L2RESET);
+#else
                 reg_val &= ~(RESET_DISABLE_L2RESET);
 #endif
                 writel(reg_val, exynos_pmu_base + EXYNOS_PMU_ATLAS_NONCPU_RESET);
