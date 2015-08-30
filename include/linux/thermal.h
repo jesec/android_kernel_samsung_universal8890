@@ -223,6 +223,9 @@ struct thermal_zone_device {
 	struct mutex lock;
 	struct list_head node;
 	struct delayed_work poll_queue;
+#ifdef CONFIG_SCHED_HMP
+	unsigned int poll_queue_cpu;
+#endif
 };
 
 /**
