@@ -226,14 +226,14 @@ static inline unsigned int mfc_linear_buf_size(unsigned int version)
 	case 0x51:
 	case 0x61:
 	case 0x65:
-	case 0xA0:
-	case 0xA01:
 		size = 0;
 		break;
 	case 0x72:
 	case 0x723:
 	case 0x80:
 	case 0x90:
+	case 0xA0:
+	case 0xA01:
 		size = 256;
 		break;
 	default:
