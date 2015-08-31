@@ -27,6 +27,8 @@
 
 #include <linux/exynos_iovmm.h>
 
+#include <asm/cacheflush.h>
+
 #define vb2ion_err(dev, fmt, ...) \
 	dev_err(dev, "VB2ION: " pr_fmt(fmt), ##__VA_ARGS__)
 
@@ -504,295 +506,6 @@ static void *vb2_ion_attach_dmabuf(void *alloc_ctx, struct dma_buf *dbuf,
 	return buf;
 }
 
-/***** V4L2_MEMORY_USERPTR support *****/
-
-struct vb2_ion_dmabuf_data {
-	struct sg_table sgt;
-	bool is_pfnmap;
-	int write;
-	void *kva;
-};
-
-static struct sg_table *vb2_ion_map_dmabuf_userptr(
-		struct dma_buf_attachment *attach, enum dma_data_direction dir)
-{
-	struct vb2_ion_dmabuf_data *priv = attach->dmabuf->priv;
-	return &priv->sgt;
-}
-
-static void vb2_ion_unmap_dmabuf_userptr(struct dma_buf_attachment *attach,
-						struct sg_table *sgt,
-						enum dma_data_direction dir)
-{
-}
-
-static void vb2_ion_release_dmabuf_userptr(struct dma_buf *dbuf)
-{
-	struct vb2_ion_dmabuf_data *priv = dbuf->priv;
-	int i;
-	struct scatterlist *sg;
-
-	vfree(priv->kva);
-
-	if (!priv->is_pfnmap) {
-		if (priv->write) {
-			for_each_sg(priv->sgt.sgl, sg,
-					priv->sgt.orig_nents, i) {
-				set_page_dirty_lock(sg_page(sg));
-				put_page(sg_page(sg));
-			}
-		} else {
-			for_each_sg(priv->sgt.sgl, sg,
-						priv->sgt.orig_nents, i)
-				put_page(sg_page(sg));
-		}
-	}
-
-	sg_free_table(&priv->sgt);
-	kfree(priv);
-}
-
-static void *vb2_ion_kmap_dmabuf_userptr(struct dma_buf *dbuf,
-					unsigned long page_num)
-{
-	struct page **pages, **tmp_pages;
-	struct scatterlist *sgl;
-	int num_pages, i;
-	void *vaddr;
-	struct vb2_ion_dmabuf_data *priv = dbuf->priv;
-
-	num_pages = PAGE_ALIGN(
-			offset_in_page(sg_phys(priv->sgt.sgl)) + dbuf->size)
-				>> PAGE_SHIFT;
-
-	pages = vmalloc(sizeof(*pages) * num_pages);
-	if (!pages)
-		return NULL;
-
-	tmp_pages = pages;
-	for_each_sg(priv->sgt.sgl, sgl, priv->sgt.orig_nents, i) {
-		struct page *page = sg_page(sgl);
-		unsigned int n =
-			PAGE_ALIGN(sgl->offset + sg_dma_len(sgl)) >> PAGE_SHIFT;
-
-		for (; n > 0; n--)
-			*(tmp_pages++) = page++;
-	}
-
-	vaddr = vmap(pages, num_pages, VM_USERMAP | VM_MAP, PAGE_KERNEL);
-
-	vfree(pages);
-
-	return (vaddr) ? vaddr + offset_in_page(sg_phys(priv->sgt.sgl)) : 0;
-}
-
-void vb2_ion_kunmap_dmabuf_userptr(struct dma_buf *dbuf, unsigned long page_num,
-								void *vaddr)
-{
-	vunmap((void *)((unsigned long)vaddr & PAGE_MASK));
-}
-
-static int vb2_ion_mmap_dmabuf_userptr(struct dma_buf *dbuf,
-					struct vm_area_struct *vma)
-{
-	return -ENOSYS;
-}
-
-static struct dma_buf_ops vb2_ion_dmabuf_ops = {
-	.map_dma_buf = vb2_ion_map_dmabuf_userptr,
-	.unmap_dma_buf = vb2_ion_unmap_dmabuf_userptr,
-	.release = vb2_ion_release_dmabuf_userptr,
-	.kmap_atomic = vb2_ion_kmap_dmabuf_userptr,
-	.kmap = vb2_ion_kmap_dmabuf_userptr,
-	.kunmap_atomic = vb2_ion_kunmap_dmabuf_userptr,
-	.kunmap = vb2_ion_kunmap_dmabuf_userptr,
-	.mmap = vb2_ion_mmap_dmabuf_userptr,
-};
-
-static int pfnmap_digger(struct sg_table *sgt, unsigned long addr, int nr_pages,
-			off_t offset)
-{
-	/* If the given user address is not normal mapping,
-	   It must be contiguous physical mapping */
-	struct vm_area_struct *vma;
-	unsigned long *pfns;
-	int i, ipfn, pi, ret;
-	struct scatterlist *sg;
-	unsigned int contigs;
-	unsigned long pfn;
-
-	vma = find_vma(current->mm, addr);
-
-	if ((vma == NULL) ||
-			(vma->vm_end < (addr + (nr_pages << PAGE_SHIFT))))
-		return -EINVAL;
-
-	pfns = kmalloc(sizeof(*pfns) * nr_pages, GFP_KERNEL);
-	if (!pfns)
-		return -ENOMEM;
-
-	ret = follow_pfn(vma, addr, &pfns[0]); /* no side effect */
-	if (ret)
-		goto err_follow_pfn;
-
-	if (!pfn_valid(pfns[0])) {
-		ret = -EINVAL;
-		goto err_follow_pfn;
-	}
-
-	addr += PAGE_SIZE;
-
-	/* An element of pfns consists of
-	 * - higher 20 bits: page frame number (pfn)
-	 * - lower  12 bits: number of contiguous pages from the pfn
-	 * Maximum size of a contiguous chunk: 16MB (4096 pages)
-	 * contigs = 0 indicates no adjacent page is found yet.
-	 * Thus, contigs = x means (x + 1) pages are contiguous.
-	 */
-	for (i = 1, pi = 0, ipfn = 0, contigs = 0; i < nr_pages; i++) {
-		ret = follow_pfn(vma, addr, &pfn);
-		if (ret)
-			break;
-
-		if ((pfns[ipfn] == (pfn - (i - pi))) &&
-				!((contigs + 1) & PAGE_MASK)) {
-			contigs++;
-		} else {
-			pfns[ipfn] <<= PAGE_SHIFT;
-			pfns[ipfn] |= contigs;
-			ipfn++;
-			pi = i;
-			contigs = 0;
-			pfns[ipfn] = pfn;
-		}
-
-		addr += PAGE_SIZE;
-	}
-
-	if (i == nr_pages) {
-		pfns[ipfn] <<= PAGE_SHIFT;
-		pfns[ipfn] |= contigs;
-
-		nr_pages = ipfn + 1;
-	} else {
-		ret = -EINVAL;
-		goto err_follow_pfn;
-	}
-
-	ret = sg_alloc_table(sgt, nr_pages, GFP_KERNEL);
-	if (ret)
-		goto err_follow_pfn;
-
-	for_each_sg(sgt->sgl, sg, nr_pages, i) {
-		sg_set_page(sg, phys_to_page(pfns[i]),
-			(((pfns[i] & ~PAGE_MASK) + 1) << PAGE_SHIFT) - offset,
-			offset);
-		offset = 0;
-	}
-err_follow_pfn:
-	kfree(pfns);
-
-	return ret;
-}
-
-static struct dma_buf *vb2_ion_get_user_pages(unsigned long start,
-						   unsigned long len,
-						   int write)
-{
-	size_t last_size = 0;
-	struct page **pages;
-	int nr_pages;
-	int ret = 0, i;
-	off_t start_off;
-	struct vb2_ion_dmabuf_data *priv;
-	struct scatterlist *sgl;
-	struct dma_buf *dbuf;
-
-	last_size = (start + len) & ~PAGE_MASK;
-	if (last_size == 0)
-		last_size = PAGE_SIZE;
-
-	start_off = offset_in_page(start);
-
-	start = round_down(start, PAGE_SIZE);
-
-	nr_pages = PFN_DOWN(PAGE_ALIGN(len + start_off));
-
-	pages = vzalloc(nr_pages * sizeof(*pages));
-	if (!pages)
-		return ERR_PTR(-ENOMEM);
-
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv) {
-		ret = -ENOMEM;
-		goto err_privdata;
-	}
-
-	ret = get_user_pages(current, current->mm, start,
-				nr_pages, write, 0, pages, NULL);
-
-	if (ret < 0) {
-		ret = pfnmap_digger(&priv->sgt, start, nr_pages, start_off);
-		if (ret)
-			goto err_pfnmap;
-
-		priv->is_pfnmap = true;
-	} else {
-		if (ret != nr_pages) {
-			nr_pages = ret;
-			ret = -EFAULT;
-			goto err_alloc_sg;
-		}
-
-		ret = sg_alloc_table(&priv->sgt, nr_pages, GFP_KERNEL);
-		if (ret)
-			goto err_alloc_sg;
-
-		sgl = priv->sgt.sgl;
-
-		sg_set_page(sgl, pages[0],
-				(nr_pages == 1) ? len : PAGE_SIZE - start_off,
-				start_off);
-		sg_dma_address(sgl) = page_to_phys(sg_page(sgl));
-
-		sgl = sg_next(sgl);
-
-		/* nr_pages == 1 if sgl == NULL here */
-		for (i = 1; i < (nr_pages - 1); i++) {
-			sg_set_page(sgl, pages[i], PAGE_SIZE, 0);
-			sg_dma_address(sgl) = page_to_phys(sg_page(sgl));
-			sgl = sg_next(sgl);
-		}
-
-		if (sgl) {
-			sg_set_page(sgl, pages[i], last_size, 0);
-			sg_dma_address(sgl) = page_to_phys(sg_page(sgl));
-		}
-
-		priv->is_pfnmap = false;
-	}
-
-	priv->write = write;
-
-	dbuf = dma_buf_export(priv, &vb2_ion_dmabuf_ops, len, O_RDWR, NULL);
-	if (IS_ERR(dbuf)) {
-		sg_free_table(&priv->sgt);
-		ret = PTR_ERR(dbuf);
-		goto err_alloc_sg;
-	}
-	vfree(pages);
-
-	return dbuf;
-err_alloc_sg:
-	for (i = 0; i < nr_pages; i++)
-		put_page(pages[i]);
-err_pfnmap:
-	kfree(priv);
-err_privdata:
-	vfree(pages);
-	return ERR_PTR(ret);
-}
-
 static void vb2_ion_put_vma(struct vm_area_struct *vma)
 {
 	while (vma) {
@@ -865,6 +578,58 @@ static struct vm_area_struct *vb2_ion_get_vma(struct device *dev,
 	return new_vma;
 }
 
+static void vb2_ion_put_userptr_dmabuf(struct vb2_ion_context *ctx,
+					struct vb2_ion_buf *buf)
+{
+	if (ctx_iommu(ctx))
+		ion_iovmm_unmap(buf->attachment, buf->cookie.ioaddr);
+
+	dma_buf_unmap_attachment(buf->attachment,
+				 buf->cookie.sgt, buf->direction);
+	dma_buf_detach(buf->dma_buf, buf->attachment);
+}
+
+static void *vb2_ion_get_userptr_dmabuf(struct vb2_ion_context *ctx,
+				struct vb2_ion_buf *buf, unsigned long vaddr)
+{
+	void *ret;
+
+	buf->attachment = dma_buf_attach(buf->dma_buf, ctx->dev);
+	if (IS_ERR(buf->attachment)) {
+		dev_err(ctx->dev,
+			"%s: Failed to pin user buffer @ %#lx/%#lx\n",
+			__func__, vaddr, buf->size);
+		return ERR_CAST(buf->attachment);
+	}
+
+	buf->cookie.sgt = dma_buf_map_attachment(buf->attachment,
+						buf->direction);
+	if (IS_ERR(buf->cookie.sgt)) {
+		dev_err(ctx->dev,
+			"%s: Failed to get sgt of user buffer @ %#lx/%#lx\n",
+			__func__, vaddr, buf->size);
+		ret = ERR_CAST(buf->cookie.sgt);
+		goto err_map;
+	}
+
+	if (ctx_iommu(ctx)) {
+		buf->cookie.ioaddr = ion_iovmm_map(buf->attachment, 0,
+					buf->size, buf->direction, 0);
+		if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
+			ret = ERR_PTR(buf->cookie.ioaddr);
+			goto err_iovmm;
+		}
+	}
+
+	return NULL;
+err_iovmm:
+	dma_buf_unmap_attachment(buf->attachment,
+				 buf->cookie.sgt, buf->direction);
+err_map:
+	dma_buf_detach(buf->dma_buf, buf->attachment);
+	return ret;
+}
+
 static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 				unsigned long size, int write)
 {
@@ -872,6 +637,13 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	struct vb2_ion_buf *buf = NULL;
 	struct vm_area_struct *vma;
 	void *p_ret;
+
+	if (ctx->protected) {
+		dev_err(ctx->dev,
+			"%s: protected mode is not supported with userptr\n",
+			__func__);
+		return ERR_PTR(-EINVAL);
+	}
 
 	vma = vb2_ion_get_vma(ctx->dev, vaddr, size);
 	if (!vma) {
@@ -884,25 +656,12 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf) {
 		dev_err(ctx->dev, "%s: Not enough memory\n", __func__);
-		goto err_alloc_buf;
+		goto err_alloc;
 	}
 
-	if (vma->vm_file)
+	if (vma->vm_file) {
+		get_file(vma->vm_file);
 		buf->dma_buf = get_dma_buf_file(vma->vm_file);
-
-	if (!vma->vm_file || !buf->dma_buf) {
-		buf->dma_buf = vb2_ion_get_user_pages(vaddr, size, write);
-
-		if (IS_ERR(buf->dma_buf)) {
-			dev_err(ctx->dev,
-			"%s: User buffer @ %#lx/%#lx is not allocated by ION\n",
-				__func__, vaddr, size);
-			p_ret = buf->dma_buf;
-			goto err_get_user_pages;
-		}
-	} else {
-		buf->cookie.offset = vaddr - vma->vm_start;
-		buf->ion = true;
 	}
 
 	buf->ctx = ctx;
@@ -910,34 +669,24 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	buf->size = size;
 	buf->vma = vma;
 
-	buf->attachment = dma_buf_attach(buf->dma_buf, ctx->dev);
-	if (IS_ERR(buf->attachment)) {
-		dev_err(ctx->dev, "%s: Failed to pin user buffer @ %#lx/%#lx\n",
-				__func__, vaddr, size);
-		p_ret = buf->attachment;
-		goto err_attach;
-	}
+	if (buf->dma_buf) {
+		buf->ion = true;
+		buf->cookie.offset = vaddr - vma->vm_start;
 
-	buf->cookie.sgt = dma_buf_map_attachment(buf->attachment,
-						buf->direction);
-	if (IS_ERR(buf->cookie.sgt)) {
-		dev_err(ctx->dev,
-			"%s: Failed to get sgt of user buffer @ %#lx/%#lx\n",
-			__func__, vaddr, size);
-		p_ret = buf->cookie.sgt;
-		goto err_map_attachment;
-	}
+		p_ret = vb2_ion_get_userptr_dmabuf(ctx, buf, vaddr);
+		if (IS_ERR(p_ret))
+			goto err_map;
+	} else if (ctx_iommu(ctx)) {
+		int prot = IOMMU_READ;
 
-	if (ctx_iommu(ctx))
-		buf->cookie.ioaddr = iovmm_map(ctx->dev, buf->cookie.sgt->sgl,
-				buf->cookie.offset, size, buf->direction, 0);
-
-	if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
-		dev_err(ctx->dev,
-			"%s: Failed to alloc IOVA of user buffer @ %#lx/%#lx\n",
-			__func__, vaddr, size);
-		p_ret = (void *)buf->cookie.ioaddr;
-		goto err_iovmm;
+		if (write)
+			prot |= IOMMU_WRITE;
+		buf->cookie.ioaddr = exynos_iovmm_map_userptr(
+						ctx->dev, vaddr, size, prot);
+		if (IS_ERR_VALUE(buf->cookie.ioaddr)) {
+			p_ret = ERR_PTR(buf->cookie.ioaddr);
+			goto err_map;
+		}
 	}
 
 	if ((pgprot_noncached(buf->vma->vm_page_prot)
@@ -949,17 +698,13 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 		buf->cached = true;
 
 	return buf;
-
-err_iovmm:
-	dma_buf_unmap_attachment(buf->attachment, buf->cookie.sgt,
-				buf->direction);
-err_map_attachment:
-	dma_buf_detach(buf->dma_buf, buf->attachment);
-err_attach:
-	dma_buf_put(buf->dma_buf);
-err_get_user_pages:
+err_map:
+	if (buf->dma_buf)
+		dma_buf_put(buf->dma_buf);
+	if (vma->vm_file)
+		fput(vma->vm_file);
 	kfree(buf);
-err_alloc_buf:
+err_alloc:
 	vb2_ion_put_vma(vma);
 
 	return p_ret;
@@ -969,6 +714,7 @@ static void vb2_ion_put_userptr(void *mem_priv)
 {
 	struct vb2_ion_buf *buf = mem_priv;
 
+	/* TODO: kva with non dmabuf */
 	if (buf->kva) {
 		dma_buf_kunmap(buf->dma_buf, buf->cookie.offset / PAGE_SIZE,
 				buf->kva - (buf->cookie.offset & ~PAGE_SIZE));
@@ -976,14 +722,18 @@ static void vb2_ion_put_userptr(void *mem_priv)
 					buf->size, DMA_FROM_DEVICE);
 	}
 
-	if (ctx_iommu(buf->ctx))
-		iovmm_unmap(buf->ctx->dev, buf->cookie.ioaddr);
+	if (buf->dma_buf)
+		vb2_ion_put_userptr_dmabuf(buf->ctx, buf);
+	else if (ctx_iommu(buf->ctx))
+		exynos_iovmm_unmap_userptr(buf->ctx->dev, buf->cookie.ioaddr);
 
-	dma_buf_unmap_attachment(buf->attachment, buf->cookie.sgt,
-				buf->direction);
+	if (buf->dma_buf)
+		dma_buf_put(buf->dma_buf);
+	if (buf->vma->vm_file)
+		fput(buf->vma->vm_file);
+
 	vb2_ion_put_vma(buf->vma);
-	dma_buf_detach(buf->dma_buf, buf->attachment);
-	dma_buf_put(buf->dma_buf);
+
 	kfree(buf);
 }
 
@@ -1019,13 +769,15 @@ void vb2_ion_sync_for_device(void *cookie, off_t offset, size_t size,
 
 		exynos_ion_sync_vaddr_for_device(buf->ctx->dev,
 						buf->kva, size, offset, dir);
-	} else if (buf->dma_buf && buf->ion) {
+	} else if (buf->dma_buf) {
 		exynos_ion_sync_dmabuf_for_device(buf->ctx->dev,
 						buf->dma_buf, size, dir);
-	} else {
-		if (buf->cached)
-			exynos_ion_sync_sg_for_device(buf->ctx->dev, size,
-						buf->cookie.sgt, dir);
+	} else if (buf->vma && buf->cached) {
+		if (size < CACHE_FLUSH_ALL_SIZE)
+			exynos_iommu_sync_for_device(buf->ctx->dev,
+						buf->cookie.ioaddr, size, dir);
+		else
+			flush_all_cpu_caches();
 	}
 }
 EXPORT_SYMBOL_GPL(vb2_ion_sync_for_device);
@@ -1046,12 +798,15 @@ void vb2_ion_sync_for_cpu(void *cookie, off_t offset, size_t size,
 
 		exynos_ion_sync_vaddr_for_cpu(buf->ctx->dev,
 						buf->kva, size, offset, dir);
-	} else if (buf->dma_buf && buf->ion) {
+	} else if (buf->dma_buf) {
 		exynos_ion_sync_dmabuf_for_cpu(buf->ctx->dev,
 						buf->dma_buf, size, dir);
-	} else {
-		exynos_ion_sync_sg_for_cpu(buf->ctx->dev, size,
-						buf->cookie.sgt, dir);
+	} else if (buf->vma && buf->cached) {
+		if (size < CACHE_FLUSH_ALL_SIZE)
+			exynos_iommu_sync_for_cpu(buf->ctx->dev,
+						buf->cookie.ioaddr, size, dir);
+		else
+			flush_all_cpu_caches();
 	}
 }
 EXPORT_SYMBOL_GPL(vb2_ion_sync_for_cpu);
@@ -1086,8 +841,7 @@ void vb2_ion_buf_finish(struct vb2_buffer *vb)
 	for (i = 0; i < vb->num_planes; i++) {
 		struct vb2_ion_buf *buf = vb->planes[i].mem_priv;
 
-		vb2_ion_sync_for_cpu((void *) &buf->cookie, 0,
-						buf->size, dir);
+		vb2_ion_sync_for_cpu((void *) &buf->cookie, 0, buf->size, dir);
 	}
 }
 EXPORT_SYMBOL_GPL(vb2_ion_buf_finish);
