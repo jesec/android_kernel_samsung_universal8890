@@ -88,6 +88,7 @@ struct exynos_dvfs_info {
 	int (*check_smpl)(void);
 	void (*clear_smpl)(void);
 	int (*init_smpl)(void);
+	int (*deinit_smpl)(void);
 };
 
 struct cpufreq_clkdiv {

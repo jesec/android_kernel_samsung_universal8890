@@ -159,6 +159,9 @@ static int exynos_cpufreq_smpl_warn_notifier_call(
 					struct notifier_block *notifer,
 					unsigned long event, void *v)
 {
+	if (!exynos_info[CL_ONE]->en_smpl)
+		return NOTIFY_OK;
+
 	if (exynos_info[CL_ONE]->clear_smpl)
 		exynos_info[CL_ONE]->clear_smpl();
 
@@ -1159,6 +1162,44 @@ static struct cpufreq_driver exynos_driver = {
 
 /************************** sysfs interface ************************/
 #ifdef CONFIG_PM
+static ssize_t show_cpufreq_smpl_warn_ctrl(struct kobject *kobj,
+				struct attribute *attr, char *buf)
+{
+	ssize_t	nsize = 0;
+	int cluster;
+
+	for (cluster = 0; cluster < CL_END; cluster++)
+		nsize += snprintf(&buf[nsize], 20, "cl[%d]:%d ", cluster, exynos_info[cluster]->en_smpl);
+
+	nsize += snprintf(&buf[nsize], 2, "\n");
+
+	return nsize;
+}
+
+static ssize_t store_cpufreq_smpl_warn_ctrl(struct kobject *kobj, struct attribute *attr,
+					const char *buf, size_t count)
+{
+	int input, cluster;
+
+	if (!sscanf(buf, "%1d %1d", &cluster, &input))
+		return -EINVAL;
+
+	if (!cluster) {
+		pr_err("Do not support smpl_warn for little cluster.\n");
+		return -EBUSY;
+	}
+
+	if (exynos_info[cluster]->check_smpl()) {
+		pr_err("Already happened smpl_warn.\n");
+		return -EBUSY;
+	}
+
+	input ? exynos_info[cluster]->init_smpl() : exynos_info[cluster]->deinit_smpl();
+	exynos_info[cluster]->en_smpl = !!input;
+
+	return count;
+}
+
 static ssize_t show_cpufreq_table(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {
@@ -1508,6 +1549,9 @@ static struct attribute_group mp_attr_group = {
 };
 
 #ifdef CONFIG_PM
+static struct global_attr smpl_warn_ctrl =
+		__ATTR(smpl_warn_ctrl, S_IRUGO | S_IWUSR,
+			show_cpufreq_smpl_warn_ctrl, store_cpufreq_smpl_warn_ctrl);
 static struct global_attr cpufreq_table =
 		__ATTR(cpufreq_table, S_IRUGO, show_cpufreq_table, NULL);
 static struct global_attr cpufreq_min_limit =
@@ -2312,6 +2356,10 @@ static int exynos_mp_cpufreq_probe(struct platform_device *pdev)
 			exynos_info[CL_ONE]->en_smpl = 0;
 			exynos_info[CL_ONE]->check_smpl = NULL;
 			exynos_cpufreq_smpl_warn_unregister_notifier(&exynos_cpufreq_smpl_warn_notifier);
+		} else {
+			ret = sysfs_create_file(power_kobj, &smpl_warn_ctrl.attr);
+			if (ret < 0)
+				pr_err("%s: failed to create smpl_warn_ctrl sysfs interface\n", __func__);
 		}
 	}
 

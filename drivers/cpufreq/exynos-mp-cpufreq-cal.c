@@ -93,6 +93,19 @@ static int exynos_mp_cpufreq_init_smpl(void)
 	return 0;
 }
 
+static int exynos_mp_cpufreq_deinit_smpl(void)
+{
+	int ret;
+
+	ret = cal_dfs_ext_ctrl(dvfs_big, cal_dfs_deinitsmpl, 0);
+	if (ret < 0) {
+		pr_err("CL1 : SMPL_WARN deinit failed.\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int exynos_mp_cpufreq_check_smpl(void)
 {
 	int ret = 0;
@@ -154,6 +167,7 @@ static void exynos_mp_cpufreq_set_cal_ops(cluster_type cluster)
 
 		if (exynos_info[cluster]->en_smpl) {
 			exynos_info[cluster]->init_smpl = exynos_mp_cpufreq_init_smpl;
+			exynos_info[cluster]->deinit_smpl = exynos_mp_cpufreq_deinit_smpl;
 			exynos_info[cluster]->clear_smpl = exynos_mp_cpufreq_clear_smpl;
 			exynos_info[cluster]->check_smpl = exynos_mp_cpufreq_check_smpl;
 		} else {
