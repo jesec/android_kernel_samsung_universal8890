@@ -2619,7 +2619,6 @@ static const struct ufs_hba_variant exynos_ufs_drv_data = {
 	.ops		= &exynos_ufs_ops,
 	.quirks		= UFSHCI_QUIRK_BROKEN_DWORD_UTRD |
 			  UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR |
-			  UFSHCI_QUIRK_USE_OF_HCE |
 			  UFSHCI_QUIRK_SKIP_INTR_AGGR,
 	.vs_data	= &exynos_ufs_soc_data,
 };
