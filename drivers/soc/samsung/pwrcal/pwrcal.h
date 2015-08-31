@@ -52,6 +52,7 @@ enum cal_dfs_ext_ops {
 	cal_dfs_initsmpl		= 0,
 	cal_dfs_setsmpl		= 1,
 	cal_dfs_get_smplstatus	= 2,
+	cal_dfs_deinitsmpl	= 3,
 
 	cal_dfs_dvs = 30,
 

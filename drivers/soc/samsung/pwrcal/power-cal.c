@@ -521,6 +521,10 @@ int cal_dfs_ext_ctrl(unsigned int id,
 			if (dfsops->init_smpl)
 				return dfsops->init_smpl();
 			break;
+		case cal_dfs_deinitsmpl:
+			if (dfsops->deinit_smpl)
+				return dfsops->deinit_smpl();
+			break;
 		case cal_dfs_setsmpl:
 			if (dfsops->set_smpl)
 				return dfsops->set_smpl();
