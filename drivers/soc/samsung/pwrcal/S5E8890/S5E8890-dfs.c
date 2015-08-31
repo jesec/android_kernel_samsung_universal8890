@@ -566,6 +566,12 @@ static int dfsbig_init_smpl(void)
 	return 0;
 }
 
+static int dfsbig_deinit_smpl(void)
+{
+	pwrcal_setf(PWR_CTRL4_MNGS, 0, 0x3, 0);
+	return 0;
+}
+
 static int dfsbig_set_smpl(void)
 {
 	pwrcal_setf(PWR_CTRL4_MNGS, 2, 0x3, 3);
@@ -595,6 +601,7 @@ static int dfsbig_asv_voltage_table(unsigned int *table)
 static struct vclk_dfs_ops dfsbig_dfsops = {
 	.set_ema = dfsbig_set_ema,
 	.init_smpl = dfsbig_init_smpl,
+	.deinit_smpl = dfsbig_deinit_smpl,
 	.set_smpl = dfsbig_set_smpl,
 	.get_smpl = dfsbig_get_smpl,
 	.get_rate_table = dfsbig_get_rate_table,
@@ -631,6 +638,12 @@ static int dfslittle_init_smpl(void)
 	return 0;
 }
 
+static int dfslittle_deinit_smpl(void)
+{
+	pwrcal_setf(PWR_CTRL4_APOLLO, 0, 0x3, 0);
+	return 0;
+}
+
 static int dfslittle_set_smpl(void)
 {
 	pwrcal_setf(PWR_CTRL4_APOLLO, 2, 0x3, 3);
@@ -645,6 +658,7 @@ static int dfslittle_get_smpl(void)
 static struct vclk_dfs_ops dfslittle_dfsops = {
 	.set_ema = dfslittle_set_ema,
 	.init_smpl = dfslittle_init_smpl,
+	.deinit_smpl = dfslittle_deinit_smpl,
 	.set_smpl = dfslittle_set_smpl,
 	.get_smpl = dfslittle_get_smpl,
 	.get_rate_table = dfslittle_get_rate_table,
