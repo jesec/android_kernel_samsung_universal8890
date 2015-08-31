@@ -22,8 +22,6 @@
 #include <soc/samsung/exynos-pmu.h>
 #include <soc/samsung/exynos-powermode.h>
 
-//#include <sound/exynos.h>
-
 #define EXYNOS8890_PA_GPIO_ALIVE	0x10580000
 #define WAKEUP_STAT_EINT                (1 << 0)
 #define WAKEUP_STAT_RTC_ALARM           (1 << 1)
@@ -212,28 +210,16 @@ static int exynos_pm_syscore_suspend(void)
 		return -EINVAL;
 	}
 
-//	is_cp_call = is_cp_aud_enabled();
-	is_cp_call = 0;
-	if (is_cp_call) {
-		psci_index = PSCI_SYSTEM_CP_CALL;
-		exynos_prepare_cp_call();
-		pr_info("%s: Enter ALPA mode for voice call\n",__func__);
-	} else {
-		psci_index = PSCI_SYSTEM_SLEEP;
-		exynos_prepare_sys_powerdown(SYS_SLEEP);
-		pr_info("%s: Enter sleep mode\n",__func__);
-	}
+	psci_index = PSCI_SYSTEM_SLEEP;
+	exynos_prepare_sys_powerdown(SYS_SLEEP);
+	pr_info("%s: Enter sleep mode\n",__func__);
 
 	return 0;
 }
 
 static void exynos_pm_syscore_resume(void)
 {
-	if (is_cp_call)
-		exynos_wakeup_cp_call(early_wakeup);
-	else
-		exynos_wakeup_sys_powerdown(SYS_SLEEP,
-					(bool)early_wakeup);
+	exynos_wakeup_sys_powerdown(SYS_SLEEP, (bool)early_wakeup);
 
 	exynos_show_wakeup_reason((bool)early_wakeup);
 
