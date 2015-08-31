@@ -451,6 +451,10 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 		ret = -ENOMEM;
 		goto err_ref_clk;
 	}
+	if (of_get_property(np, "cd-gpio", NULL))
+		priv->cd_gpio = of_get_named_gpio(np, "cd-gpio", 0);
+	else
+		priv->cd_gpio = -1;
 
 	for (idx_ref = 0; idx_ref < ref_clk_size; idx_ref++, ref_clk++, ciu_clkin_values++) {
 		if (*ciu_clkin_values > MHZ)
@@ -1005,6 +1009,38 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 	return ret;
 }
 
+static int dw_mci_exynos_request_ext_irq(struct dw_mci *host,
+		irq_handler_t func)
+{
+	 struct dw_mci_exynos_priv_data *priv = host->priv;
+	 int ext_cd_irq = 0;
+	 if (gpio_is_valid(priv->cd_gpio) &&
+			 !gpio_request(priv->cd_gpio, "DWMCI_EXT_CD")) {
+		 ext_cd_irq = gpio_to_irq(priv->cd_gpio);
+		 if (ext_cd_irq &&
+				devm_request_irq(host->dev, ext_cd_irq, func,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING |
+					IRQF_ONESHOT,
+					"tflash_det", host) == 0) {
+			 dev_warn(host->dev, "success to request irq for card detect.\n");
+			 enable_irq_wake(ext_cd_irq);
+		 } else
+			 dev_warn(host->dev, "cannot request irq for card detect.\n");
+	 }
+	 return 0;
+}
+
+static int dw_mci_exynos_check_cd(struct dw_mci *host)
+{
+	int ret = -1;
+	struct dw_mci_exynos_priv_data *priv = host->priv;
+
+	if (gpio_is_valid(priv->cd_gpio))
+		 ret = gpio_get_value(priv->cd_gpio) ? 0 : 1;
+	return ret;
+}
+
 static int dw_mci_exynos_set_def_caps(struct dw_mci *host)
 {
 	int id;
@@ -1041,6 +1077,12 @@ static int dw_mci_exynos_misc_control(struct dw_mci *host,
 			break;
 		case CTRL_SET_DEF_CAPS:
 			ret = dw_mci_exynos_set_def_caps(host);
+			break;
+		case CTRL_REQUEST_EXT_IRQ:
+			ret = dw_mci_exynos_request_ext_irq(host, (irq_handler_t)priv);
+			break;
+		case CTRL_CHECK_CD:
+			ret = dw_mci_exynos_check_cd(host);
 			break;
 		default:
 			dev_err(host->dev, "dw_mmc exynos: wrong case\n");

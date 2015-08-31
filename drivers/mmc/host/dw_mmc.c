@@ -1691,10 +1691,12 @@ static int dw_mci_get_ro(struct mmc_host *mmc)
 static int dw_mci_get_cd(struct mmc_host *mmc)
 {
 	int present;
+	int temp;
 	struct dw_mci_slot *slot = mmc_priv(mmc);
 	struct dw_mci_board *brd = slot->host->pdata;
 	struct dw_mci *host = slot->host;
 	int gpio_cd = mmc_gpio_get_cd(mmc);
+	const struct dw_mci_drv_data *drv_data = host->drv_data;
 
 	/* Use platform get_cd function, else try onboard card detect */
 	if (brd->quirks & DW_MCI_QUIRK_BROKEN_CARD_DETECTION)
@@ -1704,6 +1706,12 @@ static int dw_mci_get_cd(struct mmc_host *mmc)
 	else
 		present = (mci_readl(slot->host, CDETECT) & (1 << slot->id))
 			== 0 ? 1 : 0;
+	if (drv_data && drv_data->misc_control) {
+		temp = drv_data->misc_control(host,
+				 CTRL_CHECK_CD, NULL);
+		if (temp != -1)
+			present = temp;
+	}
 
 	spin_lock_bh(&host->lock);
 	if (present) {
@@ -2871,6 +2879,15 @@ static int dw_mci_of_get_slot_quirks(struct device *dev, u8 slot)
 }
 #endif /* CONFIG_OF */
 
+static irqreturn_t dw_mci_detect_interrupt(int irq, void *dev_id)
+{
+	struct dw_mci *host = dev_id;
+
+	queue_work(host->card_workqueue, &host->card_work);
+
+	return IRQ_HANDLED;
+}
+
 static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
 {
 	struct mmc_host *mmc;
@@ -3547,6 +3564,10 @@ int dw_mci_probe(struct dw_mci *host)
 					"but failed on all\n", host->num_slots);
 		goto err_workqueue;
 	}
+
+	 if (drv_data && drv_data->misc_control)
+		 drv_data->misc_control(host, CTRL_REQUEST_EXT_IRQ,
+				 dw_mci_detect_interrupt);
 
 	if (host->quirks & DW_MCI_QUIRK_IDMAC_DTO)
 		dev_info(host->dev, "Internal DMAC interrupt fix enabled.\n");

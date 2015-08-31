@@ -227,6 +227,8 @@
 enum dw_mci_misc_control {
 	CTRL_RESTORE_CLKSEL = 0,
 	CTRL_SET_DEF_CAPS,
+	CTRL_REQUEST_EXT_IRQ,
+	CTRL_CHECK_CD,
 };
 
 extern int dw_mci_probe(struct dw_mci *host);
