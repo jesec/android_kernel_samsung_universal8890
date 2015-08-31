@@ -514,7 +514,7 @@ static void s2m_adc_read_data(struct s2m_rtc_info *info)
 		sec_bulk_read(info->iodev, S2MPS15_REG_ADC_DATA, S2MPS15_MAX_ADC_CHANNEL, info->adc_val);
 		break;
 	case S2MPS16X:
-		sec_reg_write(info->iodev, S2MPS16_REG_ADC_CTRL2, 0xC0);
+		sec_reg_write(info->iodev, S2MPS16_REG_ADC_CTRL2, 0xCF);
 		sec_bulk_read(info->iodev, S2MPS16_REG_ADC_DATA, S2MPS16_MAX_ADC_CHANNEL, info->adc_val);
 		break;
 	}
