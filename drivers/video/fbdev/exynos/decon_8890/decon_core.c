@@ -48,13 +48,6 @@
 #endif
 
 #define SUCCESS_EXYNOS_SMC	2
-#define TRACE_VPP_LOG(d, prot) ({	\
-	d->vpp_log[d->log_cnt].decon_id = d->id;	\
-	d->vpp_log[d->log_cnt].time = sched_clock();	\
-	d->vpp_log[d->log_cnt].protection = prot;	\
-	d->vpp_log[d->log_cnt].line = __LINE__;		\
-	d->log_cnt = ++d->log_cnt >= MAX_VPP_LOG ? 0 : d->log_cnt;	\
-	})
 
 #ifdef CONFIG_OF
 static const struct of_device_id decon_device_table[] = {
@@ -1555,22 +1548,18 @@ static void decon_set_protected_content(struct decon_device *decon,
 				decon->old_info.prot_cnt = 0;
 			}
 			if (change) {
-					struct v4l2_subdev *sd = NULL;
-					sd = decon->mdev->vpp_sd[type];
-					v4l2_subdev_call(sd, core, ioctl,
+				struct v4l2_subdev *sd = NULL;
+				sd = decon->mdev->vpp_sd[type];
+				v4l2_subdev_call(sd, core, ioctl,
 						VPP_WAIT_IDLE, NULL);
-					TRACE_VPP_LOG(decon, prot);
-				pr_info("decon: IP_PROT. en:%d, ip:0x%x\n", prot, type + DECON_TZPC_OFFSET);
 				ret = exynos_smc(SMC_PROTECTION_SET, 0,
 						type + DECON_TZPC_OFFSET, prot);
-				if (ret != SUCCESS_EXYNOS_SMC) {
+				if (ret != SUCCESS_EXYNOS_SMC)
 					WARN(1, "decon%d DMA-%d smc call fail\n",
 							decon->id, type);
-				} else {
-					TRACE_VPP_LOG(decon, prot);
+				else
 					decon_dbg("decon%d DMA-%d protection %s\n",
 							decon->id, type, prot ? "enabled" : "disabled");
-				}
 			}
 		}
 	}

@@ -753,7 +753,6 @@ struct decon_device {
 	struct work_struct		fifo_irq_work;
 	struct workqueue_struct		*fifo_irq_wq;
 	int				fifo_irq_status;
-	struct vpp_drm_log vpp_log[MAX_VPP_LOG];
 	int log_cnt;
 	int sw_te_wa;
 	int prev_win_state;
