@@ -192,6 +192,7 @@ static int s6e3hf4_resume(struct dsim_device *dsim)
 
 static int s6e3hf4_dump(struct dsim_device *dsim)
 {
+	lcd_dump(dsim->id);
 	return 0;
 }
 

@@ -17,8 +17,6 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 
-#define S6E3HF4_ID_REG				0x04
-#define S6E3HF4_ID_LEN				3
 #define S6E3HF4_CODE_REG			0xD6
 #define S6E3HF4_CODE_LEN			5
 

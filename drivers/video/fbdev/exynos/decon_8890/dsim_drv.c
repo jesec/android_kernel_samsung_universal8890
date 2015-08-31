@@ -74,6 +74,8 @@ static void dsim_dump(struct dsim_device *dsim)
 
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
 			dsim->reg_base, 0xC0, false);
+	/* Show panel status */
+	call_panel_ops(dsim, dump, dsim);
 }
 
 static void dsim_long_data_wr(struct dsim_device *dsim, unsigned long data0, unsigned int data1)
@@ -965,8 +967,6 @@ static long dsim_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 #endif
 	case DSIM_IOC_DUMP:
 		dsim_dump(dsim);
-		/* Show panel status */
-		call_panel_ops(dsim, dump, dsim);
 		break;
 	default:
 		dev_err(dsim->dev, "unsupported ioctl");
@@ -1106,6 +1106,7 @@ static ssize_t dsim_cmd_sysfs_store(struct device *dev,
 	switch (cmd) {
 	case 1:
 		ret = dsim_cmd_sysfs_read(dsim);
+		call_panel_ops(dsim, dump, dsim);
 		if (ret)
 			return ret;
 		break;

@@ -117,3 +117,128 @@ void lcd_disable(int id)
 {
 	/* This function needs to implement */
 }
+
+int dsim_write_by_panel(int id, const u8 *cmd, u32 cmd_size)
+{
+	int ret;
+
+	if (cmd_size == 1)
+		ret = dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE,
+				cmd[0], 0);
+	else if (cmd_size == 2)
+		ret = dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE_PARAM,
+				cmd[0], cmd[1]);
+	else
+		ret = dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE,
+				(unsigned long)cmd, cmd_size);
+
+	return ret;
+}
+
+int dsim_read_from_panel(int id, u8 addr, u32 size, u8 *buf)
+{
+	int ret;
+
+	ret = dsim_rd_data(id, MIPI_DSI_DCS_READ, (u32)addr, size, buf);
+
+	return ret;
+}
+
+static int s6e3hf4_wqhd_dump(int dsim)
+{
+	int ret = 0;
+	unsigned char rx_buf[DSIM_DDI_ID_LEN + 1];
+
+	dsim_info(" + %s\n", __func__);
+	ret = dsim_write_by_panel(dsim, SEQ_TEST_KEY_ON_F0, ARRAY_SIZE(SEQ_TEST_KEY_ON_F0));
+	if (ret < 0)
+		dsim_err("%s : fail to write CMD : KEY_ON_F0\n", __func__);
+
+	ret = dsim_write_by_panel(dsim, SEQ_TEST_KEY_ON_FC, ARRAY_SIZE(SEQ_TEST_KEY_ON_FC));
+	if (ret < 0)
+		dsim_err("%s : fail to write CMD : KEY_ON_FC\n", __func__);
+
+	ret = dsim_read_from_panel(dsim, MIPI_DCS_GET_POWER_MODE, DSIM_DDI_ID_LEN, rx_buf);
+	if (ret != DSIM_DDI_ID_LEN) {
+		dsim_err("%s : can't read POWER_MODE Reg\n",__func__);
+		goto dump_exit;
+	}
+
+	dsim_info("=== Panel's POWER_MODE Reg Value : %x ===\n", rx_buf[0]);
+
+	if (rx_buf[0] & 0x80)
+		dsim_info("* Booster Voltage Status : ON\n");
+	else
+		dsim_info("* Booster Voltage Status : OFF\n");
+
+	if (rx_buf[0] & 0x40)
+		dsim_info("* Idle Mode : On\n");
+	else
+		dsim_info("* Idle Mode : OFF\n");
+
+	if (rx_buf[0] & 0x20)
+		dsim_info("* Partial Mode : On\n");
+	else
+		dsim_info("* Partial Mode : OFF\n");
+
+	if (rx_buf[0] & 0x10)
+		dsim_info("* Sleep OUT and Working Ok\n");
+	else
+		dsim_info("* Sleep IN\n");
+
+	if (rx_buf[0] & 0x08)
+		dsim_info("* Normal Mode On and Working Ok\n");
+	else
+		dsim_info("* Sleep IN\n");
+
+	if (rx_buf[0] & 0x04)
+		dsim_info("* Display On and Working Ok\n");
+	else
+		dsim_info("* Display Off\n");
+
+	ret = dsim_read_from_panel(dsim, MIPI_DCS_GET_SIGNAL_MODE, DSIM_DDI_ID_LEN, rx_buf);
+	if (ret != DSIM_DDI_ID_LEN) {
+		dsim_err("%s : can't read SIGNAL_MODE Reg\n",__func__);
+		goto dump_exit;
+	}
+
+	dsim_info("=== Panel's SIGNAL_MODE Reg Value : %x ===\n", rx_buf[0]);
+
+	if (rx_buf[0] & 0x80)
+		dsim_info("* TE On\n");
+	else
+		dsim_info("* TE OFF\n");
+
+	if (rx_buf[0] & 0x40)
+		dsim_info("* TE MODE on\n");
+
+	if (rx_buf[0] & 0x00) {
+		/* get a value of protocal violation error */
+		ret = dsim_read_from_panel(dsim, 0xEA, DSIM_DDI_ID_LEN, rx_buf);
+		if (ret != DSIM_DDI_ID_LEN) {
+			dsim_err("%s : can't read Panel's Protocol\n",__func__);
+			goto dump_exit;
+		}
+
+		dsim_err("* Protocol violation: buf[0] = %x\n", rx_buf[0]);
+		dsim_err("* Protocol violation: buf[1] = %x\n", rx_buf[1]);
+	}
+
+	ret = dsim_write_by_panel(dsim, SEQ_TEST_KEY_OFF_FC, ARRAY_SIZE(SEQ_TEST_KEY_OFF_FC));
+	if (ret < 0)
+		dsim_err("%s : fail to write CMD : KEY_OFF_FC\n", __func__);
+
+	ret = dsim_write_by_panel(dsim, SEQ_TEST_KEY_OFF_F0, ARRAY_SIZE(SEQ_TEST_KEY_OFF_F0));
+	if (ret < 0)
+		dsim_err("%s : fail to write CMD : KEY_OFF_F0\n", __func__);
+dump_exit:
+	dsim_info(" - %s\n", __func__);
+	return ret;
+
+}
+
+int lcd_dump(int id)
+{
+	s6e3hf4_wqhd_dump(id);
+	return 0;
+}
