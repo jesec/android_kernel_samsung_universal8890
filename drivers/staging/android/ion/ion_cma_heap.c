@@ -155,13 +155,14 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	dev_dbg(dev, "Release buffer %p\n", buffer);
 	/* release memory */
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
+
+	if (buffer->flags & ION_FLAG_PROTECTED)
+		ion_secure_unprotect(buffer);
+
 	/* release sg table */
 	sg_free_table(info->table);
 	kfree(info->table);
 	kfree(info);
-
-	if (buffer->flags & ION_FLAG_PROTECTED)
-		ion_secure_unprotect(buffer);
 }
 
 /* return physical address in addr */
