@@ -187,4 +187,6 @@ source "drivers/trace/Kconfig"
 source "drivers/bts/Kconfig"
 
 source "drivers/mailbox/samsung/Kconfig"
+
+source "drivers/gator/Kconfig"
 endmenu
