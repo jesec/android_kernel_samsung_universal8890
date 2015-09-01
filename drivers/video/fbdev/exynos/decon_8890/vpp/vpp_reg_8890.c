@@ -326,6 +326,7 @@ void vpp_reg_set_in_buf_addr(u32 id, struct vpp_size_param *p, struct vpp_img_fo
 {
 	vpp_dbg("y : %llu, cb : %llu, cr : %llu\n",
 			p->addr0, p->addr1, p->addr2);
+
 	vpp_write(id, VG_BASE_ADDR_Y(0), p->addr0);
 	/* When processing the AFBC data, BASE_ADDR_Y and
 	 * BASE_ADDR_CB should be set to the same address.

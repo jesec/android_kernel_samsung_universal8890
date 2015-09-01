@@ -146,6 +146,7 @@ struct vpp_img_format {
 	u32		scale;
 	u32		format;
 	u32		afbc_en;
+	u32		protection;
 	u32		yuv;
 	u32		yuv422;
 	u32		yuv420;
@@ -174,6 +175,12 @@ struct vpp_size_param {
 	u32		block_h;
 	u32		block_x;
 	u32		block_y;
+	u64		phys_addr0;
+	u64		phys_addr1;
+	u64		phys_addr2;
+	u32		phys_addr_len0;
+	u32		phys_addr_len1;
+	u32		phys_addr_len2;
 	u64		addr0;
 	u64		addr1;
 	u64		addr2;

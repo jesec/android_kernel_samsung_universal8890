@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
+#include <linux/smc.h>
 #include <linux/types.h>
 #include <linux/videodev2.h>
 #include <linux/io.h>
@@ -32,6 +33,7 @@
 #include "vpp_common.h"
 
 #define VPP_PADS_NUM	1
+#define VPP_CFW_OFFSET	3
 #define DEV		(&vpp->pdev->dev)
 
 #define is_rotation(config) (config->vpp_parm.rot >= VPP_ROT_90)
@@ -106,6 +108,11 @@ struct vpp_minlock_table {
 	struct vpp_minlock_entry entries[0];
 };
 
+struct vpp_phys_addr {
+	unsigned long phy_addr[MAX_BUF_PLANE_CNT];
+	unsigned int phy_addr_len[MAX_BUF_PLANE_CNT];
+};
+
 struct vpp_dev {
 	int				id;
 	struct platform_device		*pdev;
@@ -129,6 +136,7 @@ struct vpp_dev {
 	u32				h_ratio;
 	u32				v_ratio;
 	struct vpp_fraction		fract_val;
+	struct vpp_phys_addr		*phys_addr;
 	struct mutex			mlock;
 	unsigned int			irq;
 	u32				prev_read_order;
@@ -144,6 +152,7 @@ struct vpp_dev {
 	/* current each VPP's DISP INT level */
 	u64				disp;
 #endif
+	int				protection;
 };
 
 extern struct vpp_dev *vpp0_for_decon;
@@ -221,6 +230,7 @@ static inline void vpp_select_format(struct vpp_dev *vpp,
 	vi->scale = is_scaling(vpp);
 	vi->format = config->format;
 	vi->afbc_en = config->compression;
+	vi->protection = config->protection;
 	vi->yuv = is_yuv(config);
 	vi->yuv422 = is_yuv422(config);
 	vi->yuv420 = is_yuv420(config);
