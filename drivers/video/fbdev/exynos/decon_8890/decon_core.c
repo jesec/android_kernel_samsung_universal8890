@@ -41,7 +41,6 @@
 #include "./panels/lcd_ctrl.h"
 #include "../../../../staging/android/sw_sync.h"
 #include "vpp/vpp.h"
-#include "decon_bts.h"
 
 #ifdef CONFIG_MACH_VELOCE8890
 #define DISP_SYSMMU_DIS
@@ -700,6 +699,10 @@ static void decon_vpp_stop(struct decon_device *decon, bool do_reset)
 				state = VPP_STOP_ERR;
 			v4l2_subdev_call(sd, core, ioctl, VPP_STOP,
 						(unsigned long *)state);
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+			decon->bts2_ops->bts_release_rot_bw(i);
+#endif
+
 			decon->vpp_used[i] = false;
 			decon->vpp_err_stat[i] = false;
 		}
@@ -1040,7 +1043,12 @@ int decon_disable(struct decon_device *decon)
 		decon->state = DECON_STATE_LPD;
 	spin_unlock_irqrestore(&decon->slock, irq_flags);
 
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	decon->bts2_ops->bts_release_bw(decon);
+#else
 	call_init_ops(decon, bts_release_init, decon);
+#endif
+
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_put_sync(decon->dev);
 #else
@@ -1971,6 +1979,7 @@ void decon_vpp_wait_wb_framedone(struct decon_device *decon)
 			VPP_WAIT_FOR_FRAMEDONE, NULL);
 }
 
+#if !defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 static void decon_get_vpp_min_lock(struct decon_device *decon,
 		struct decon_reg_data *regs)
 {
@@ -2090,7 +2099,7 @@ void decon_set_vpp_disp_min_lock(struct decon_device *decon,
 	}
 	decon->disp_cur = disp_max_bw;
 }
-
+#endif
 static void __decon_update_regs(struct decon_device *decon, struct decon_reg_data *regs)
 {
 	unsigned short i, j;
@@ -2283,9 +2292,16 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	}
 
 	decon_check_vpp_used(decon, regs);
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	/* TODO: call BTS API
+	 * calculate bandwidth and update min lock(MIF, INT, DISP) */
+	decon->bts2_ops->bts_calc_bw(decon, regs);
+	decon->bts2_ops->bts_update_bw(decon, regs, 0);
+#else
 	decon_get_vpp_min_lock(decon, regs);
 	decon_set_vpp_disp_min_lock(decon, regs);
 	decon_set_vpp_min_lock_early(decon, regs);
+#endif
 
 	DISP_SS_EVENT_LOG_WINCON(&decon->sd, regs);
 
@@ -2357,7 +2373,14 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	}
 
 	sw_sync_timeline_inc(decon->timeline, 1);
+
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	/* TODO: call BTS API
+	 * update min lock(MIF, INT, DISP) */
+	decon->bts2_ops->bts_update_bw(decon, regs, 1);
+#else
 	decon_set_vpp_min_lock_lately(decon, regs);
+#endif
 	decon_vpp_stop(decon, false);
 }
 
@@ -3605,6 +3628,26 @@ static int decon_probe(struct platform_device *pdev)
 #else
 		decon_runtime_resume(decon->dev);
 #endif
+
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+		if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_2)
+			decon->mic_factor = 2;
+		else if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_3)
+			decon->mic_factor = 3;
+		else
+			decon->mic_factor = 1;
+
+		decon->vclk_factor = clk_get_rate(decon->res.vclk_leaf) *
+			DECON_PIX_PER_CLK / MHZ;
+
+		decon_info("mic factor(%d), pixel per clock(%d), vclk factor(%d)\n",
+				decon->mic_factor, DECON_PIX_PER_CLK,
+				decon->vclk_factor);
+
+		/* register BTS callbacks */
+		decon->bts2_ops = &decon_bts2_control;
+#endif
+
 		if (decon->pdata->psr_mode != DECON_VIDEO_MODE) {
 			if (decon->pinctrl && decon->decon_te_on) {
 				if (pinctrl_select_state(decon->pinctrl, decon->decon_te_on)) {

@@ -114,6 +114,43 @@ void decon_to_init_param(struct decon_device *decon, struct decon_param *p)
 		decon->lcd_info->xres, decon->lcd_info->yres);
 }
 
+u32 decon_get_bpp(enum decon_pixel_format fmt)
+{
+	switch (fmt) {
+	case DECON_PIXEL_FORMAT_ARGB_8888:
+	case DECON_PIXEL_FORMAT_ABGR_8888:
+	case DECON_PIXEL_FORMAT_RGBA_8888:
+	case DECON_PIXEL_FORMAT_BGRA_8888:
+	case DECON_PIXEL_FORMAT_XRGB_8888:
+	case DECON_PIXEL_FORMAT_XBGR_8888:
+	case DECON_PIXEL_FORMAT_RGBX_8888:
+	case DECON_PIXEL_FORMAT_BGRX_8888:
+		return 32;
+
+	case DECON_PIXEL_FORMAT_RGBA_5551:
+	case DECON_PIXEL_FORMAT_RGB_565:
+	case DECON_PIXEL_FORMAT_NV16:
+	case DECON_PIXEL_FORMAT_NV61:
+	case DECON_PIXEL_FORMAT_YVU422_3P:
+		return 16;
+
+	case DECON_PIXEL_FORMAT_NV12:
+	case DECON_PIXEL_FORMAT_NV21:
+	case DECON_PIXEL_FORMAT_NV12M:
+	case DECON_PIXEL_FORMAT_NV21M:
+	case DECON_PIXEL_FORMAT_YUV420:
+	case DECON_PIXEL_FORMAT_YVU420:
+	case DECON_PIXEL_FORMAT_YUV420M:
+	case DECON_PIXEL_FORMAT_YVU420M:
+		return 12;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 /**
 * ----- APIs for DISPLAY_SUBSYSTEM_EVENT_LOG -----
 */

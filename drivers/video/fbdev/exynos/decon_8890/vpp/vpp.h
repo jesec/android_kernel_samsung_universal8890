@@ -25,10 +25,11 @@
 #include <linux/of_address.h>
 #include <linux/exynos_iovmm.h>
 #include <media/exynos_mc.h>
+#include <soc/samsung/bts.h>
 
+#include "../decon.h"
 #include "regs-vpp.h"
 #include "vpp_common.h"
-#include "../decon.h"
 
 #define VPP_PADS_NUM	1
 #define DEV		(&vpp->pdev->dev)
@@ -138,6 +139,9 @@ struct vpp_dev {
 	u32				sc_w;
 	u32				sc_h;
 	struct decon_bts		*bts_ops;
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	struct bts_vpp_info		bts_info;
+#endif
 };
 
 extern struct vpp_dev *vpp0_for_decon;

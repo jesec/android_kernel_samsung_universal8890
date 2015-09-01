@@ -22,11 +22,15 @@
 #define call_bts_ops(q, op, args...)				\
 	(((q)->bts_ops->op) ? ((q)->bts_ops->op(args)) : 0)
 
+#define call_bts2_ops(q, op, args...)				\
+	(((q)->bts2_ops->op) ? ((q)->bts2_ops->op(args)) : 0)
+
 #define call_init_ops(q, op, args...)				\
 		(((q)->bts_init_ops->op) ? ((q)->bts_init_ops->op(args)) : 0)
 
 extern struct decon_bts decon_bts_control;
 extern struct decon_init_bts decon_init_bts_control;
+extern struct decon_bts2 decon_bts2_control;
 
 struct decon_init_bts {
 	void	(*bts_add)(struct decon_device *decon);
@@ -40,6 +44,11 @@ struct decon_bts {
 	void	(*bts_set_calc_bw)(struct vpp_dev *vpp);
 	void	(*bts_set_zero_bw)(struct vpp_dev *vpp);
 	void	(*bts_set_rot_mif)(struct vpp_dev *vpp);
+};
+
+struct decon_bts2 {
+	void (*bts_calc_bw)(struct struct decon_device *decon);
+	void (*bts_update_bw)(struct decon_device *decon);
 };
 
 /* You should sync between enum init value of enum 'VPP0 = 2' and bts_media_type in bts driver */

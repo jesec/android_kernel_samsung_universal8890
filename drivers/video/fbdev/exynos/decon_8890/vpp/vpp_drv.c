@@ -22,7 +22,6 @@
 #include "vpp.h"
 #include "vpp_common.h"
 #include "../decon_helper.h"
-#include "../decon_bts.h"
 
 /*
  * Gscaler constraints

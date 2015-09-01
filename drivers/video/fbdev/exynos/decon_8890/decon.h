@@ -35,6 +35,10 @@ extern struct decon_device *decon_s_drvdata;
 extern struct decon_device *decon_t_drvdata;
 extern int decon_log_level;
 
+extern struct decon_bts decon_bts_control;
+extern struct decon_init_bts decon_init_bts_control;
+extern struct decon_bts2 decon_bts2_control;
+
 #define NUM_DECON_IPS		(3)
 #define DRIVER_NAME		"decon"
 #define MAX_NAME_SIZE		32
@@ -61,6 +65,8 @@ extern int decon_log_level;
 /* BTS driver defines the Threshold */
 #define	NO_CNT_TH		10
 #endif
+
+#define DECON_PIX_PER_CLK	2
 
 #define UNDERRUN_FILTER_INTERVAL_MS    100
 #define UNDERRUN_FILTER_INIT           0
@@ -112,6 +118,13 @@ extern int decon_log_level;
 		if (decon_log_level >= 7)					\
 			pr_info(pr_fmt(fmt), ##__VA_ARGS__);			\
 	} while (0)
+
+#define call_bts_ops(q, op, args...)				\
+	(((q)->bts_ops->op) ? ((q)->bts_ops->op(args)) : 0)
+
+#define call_init_ops(q, op, args...)				\
+		(((q)->bts_init_ops->op) ? ((q)->bts_init_ops->op(args)) : 0)
+
 
 /*
  * DECON_STATE_ON : disp power on, decon/dsim clock on & lcd on
@@ -421,6 +434,30 @@ struct disp_ss_size_info {
 	u32 h_out;
 };
 
+struct decon_init_bts {
+	void	(*bts_add)(struct decon_device *decon);
+	void	(*bts_set_init)(struct decon_device *decon);
+	void	(*bts_release_init)(struct decon_device *decon);
+	void	(*bts_remove)(struct decon_device *decon);
+};
+
+struct vpp_dev;
+
+struct decon_bts {
+	void	(*bts_get_bw)(struct vpp_dev *vpp);
+	void	(*bts_set_calc_bw)(struct vpp_dev *vpp);
+	void	(*bts_set_zero_bw)(struct vpp_dev *vpp);
+	void	(*bts_set_rot_mif)(struct vpp_dev *vpp);
+};
+
+struct decon_bts2 {
+	void (*bts_calc_bw)(struct decon_device *decon, struct decon_reg_data *regs);
+	void (*bts_update_bw)(struct decon_device *decon, struct decon_reg_data *regs,
+			u32 is_after);
+	void (*bts_release_bw)(struct decon_device *decon);
+	void (*bts_release_rot_bw)(enum decon_idma_type type);
+};
+
 #ifdef CONFIG_DECON_EVENT_LOG
 /**
  * Display Subsystem event management status.
@@ -619,6 +656,17 @@ struct decon_device {
 	spinlock_t			slock;
 	struct decon_vsync		vsync_info;
 	enum decon_state		state;
+
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	u32				total_bw;
+	u32				max_peak_bw;
+	u32				prev_total_bw;
+	u32				prev_max_peak_bw;
+	u32				mic_factor;
+	u32				vclk_factor;
+	struct decon_bts2		*bts2_ops;
+#endif
+
 	u32				prev_bw;
 	u32				prev_disp_bw;
 	u32				prev_int_bw;
