@@ -79,6 +79,9 @@ struct bts_vpp_info {
 	unsigned int	dst_w;
 	unsigned int	bpp;
 	bool		is_rotation;
+	unsigned int	mic;
+	unsigned int	pix_per_clk;
+	unsigned int	vclk;
 
 	u64		cur_bw;
 	u64		peak_bw;
