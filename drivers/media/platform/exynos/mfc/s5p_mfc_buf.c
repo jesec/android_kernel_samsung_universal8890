@@ -368,6 +368,8 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		}
 		ctx->codec_buf_phys = s5p_mfc_mem_daddr_priv(ctx->codec_buf);
 		ctx->codec_buf_virt = s5p_mfc_mem_vaddr_priv(ctx->codec_buf);
+		mfc_debug(2, "Codec buf alloc, ctx: %d, size: %ld, addr: 0x%lx\n",
+			ctx->num, ctx->codec_buf_size, ctx->codec_buf_phys);
 		if (!ctx->codec_buf_virt) {
 			s5p_mfc_mem_free_priv(ctx->codec_buf);
 			ctx->codec_buf = NULL;
@@ -496,6 +498,8 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 
 	ctx->ctx.ofs = s5p_mfc_mem_daddr_priv(ctx->ctx.alloc);
 	ctx->ctx.virt = s5p_mfc_mem_vaddr_priv(ctx->ctx.alloc);
+	mfc_debug(2, "Instance buf alloc, ctx: %d, size: %d, addr:0x%lx\n",
+			ctx->num, ctx->ctx_buf_size, ctx->ctx.ofs);
 	if (!ctx->ctx.virt) {
 		s5p_mfc_mem_free_priv(ctx->ctx.alloc);
 		ctx->ctx.alloc = NULL;

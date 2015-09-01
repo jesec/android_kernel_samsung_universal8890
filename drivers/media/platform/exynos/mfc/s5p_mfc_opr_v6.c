@@ -39,6 +39,7 @@
 #include "s5p_mfc_inst.h"
 #include "s5p_mfc_pm.h"
 #include "s5p_mfc_utils.h"
+#include "s5p_mfc_nal_q.h"
 
 /* This value guarantees 375msec ~ 2sec according to MFC clock (533MHz ~ 100MHz)
  * releated with S5P_FIMV_DEC_TIMEOUT_VALUE */
@@ -821,6 +822,10 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 		mfc_debug(2, "[%d] enc dst buf prot_flag: %#lx\n",
 				i, ctx->stream_protect_flag);
 	}
+	mfc_debug(2, "nal start : src index from src_queue:%d\n",
+		src_mb->vb.v4l2_buf.index);
+	mfc_debug(2, "nal start : dst index from dst_queue:%d\n",
+		dst_mb->vb.v4l2_buf.index);
 
 	s5p_mfc_set_enc_stream_buffer(ctx, dst_addr, dst_size);
 
@@ -1061,6 +1066,10 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 	unsigned int ret = 0;
 	int need_cache_flush = 0;
 
+#ifdef NAL_Q_ENABLE
+	nal_queue_handle *nal_q_handle = dev->nal_q_handle;
+	EncoderInputStr *pInStr;
+#endif
 	mfc_debug(1, "Try run dev: %p\n", dev);
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
@@ -1117,14 +1126,20 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 		dev->curr_ctx_drm = ctx->is_drm;
 
 	mfc_debug(2, "need_cache_flush = %d, is_drm = %d\n", need_cache_flush, ctx->is_drm);
-	spin_lock_irq(&dev->condlock);
-	if (!dev->has_job) {
-		spin_unlock_irq(&dev->condlock);
-		s5p_mfc_clock_on(dev);
-	} else {
-		dev->has_job = false;
-		spin_unlock_irq(&dev->condlock);
+#ifdef NAL_Q_ENABLE
+	if (nal_q_handle && nal_q_handle->nal_q_state != NAL_Q_STATE_STARTED) {
+#endif
+		spin_lock_irq(&dev->condlock);
+		if (!dev->has_job) {
+			spin_unlock_irq(&dev->condlock);
+			s5p_mfc_clock_on(dev);
+		} else {
+			dev->has_job = false;
+			spin_unlock_irq(&dev->condlock);
+		}
+#ifdef NAL_Q_ENABLE
 	}
+#endif
 
 	if (need_cache_flush) {
 		if (FW_HAS_BASE_CHANGE(dev)) {
@@ -1144,6 +1159,108 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 			dev->curr_ctx_drm = ctx->is_drm;
 		}
 	}
+
+#ifdef NAL_Q_ENABLE
+	if (nal_q_handle) {
+		switch (nal_q_handle->nal_q_state) {
+		case NAL_Q_STATE_CREATED:
+			s5p_mfc_nal_q_init(dev, nal_q_handle);
+		case NAL_Q_STATE_INITIALIZED:
+			if (s5p_mfc_nal_q_check_single_encoder(ctx) == 1 &&
+					s5p_mfc_nal_q_check_last_frame(ctx) == 0) {
+				/* enable NAL QUEUE */
+				pInStr = s5p_mfc_nal_q_get_free_slot_in_q(dev,
+						nal_q_handle->nal_q_in_handle);
+				if (!pInStr) {
+					mfc_err("NAL Q: there is no available input slot\n");
+					spin_lock_irq(&dev->condlock);
+					clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+					spin_unlock_irq(&dev->condlock);
+					return;
+				}
+				if (s5p_mfc_nal_q_set_in_buf(ctx, pInStr)) {
+					mfc_err("NAL Q: Failed to set input queue\n");
+					spin_lock_irq(&dev->condlock);
+					clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+					spin_unlock_irq(&dev->condlock);
+					return;
+				}
+				if (s5p_mfc_nal_q_queue_in_buf(dev,
+						nal_q_handle->nal_q_in_handle)) {
+					mfc_err("NAL Q: Failed to increase input count\n");
+					spin_lock_irq(&dev->condlock);
+					clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+					spin_unlock_irq(&dev->condlock);
+					return;
+				}
+				mfc_info_ctx("NAL Q: start NAL QUEUE\n");
+				s5p_mfc_nal_q_start(dev, nal_q_handle);
+				spin_lock_irq(&dev->condlock);
+				clear_bit(nal_q_handle->nal_q_ctx, &dev->ctx_work_bits);
+				clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+				spin_unlock_irq(&dev->condlock);
+				if (test_bit(nal_q_handle->nal_q_ctx, &dev->ctx_work_bits))
+					queue_work(dev->sched_wq, &dev->sched_work);
+				return;
+			} else {
+				/* NAL START */
+				break;
+			}
+		case NAL_Q_STATE_STARTED:
+			if (s5p_mfc_nal_q_check_single_encoder(ctx) == 0 ||
+					s5p_mfc_nal_q_check_last_frame(ctx) == 1) {
+				/* disable NAL QUEUE */
+				mfc_info_ctx("NAL Q: stop NAL QUEUE\n");
+				s5p_mfc_clean_dev_int_flags(dev);
+				s5p_mfc_nal_q_stop(dev, nal_q_handle);
+				if (s5p_mfc_wait_for_done_dev(dev,
+						S5P_FIMV_R2H_CMD_COMPLETE_QUEUE_RET)) {
+					mfc_err("NAL Q: Failed to stop queue.\n");
+					s5p_mfc_clean_dev_int_flags(dev);
+				}
+				s5p_mfc_nal_q_cleanup_queue(dev);
+				s5p_mfc_nal_q_init(dev, nal_q_handle);
+				break;
+			} else {
+				/* NAL QUEUE */
+				pInStr = s5p_mfc_nal_q_get_free_slot_in_q(dev,
+						nal_q_handle->nal_q_in_handle);
+				if (!pInStr) {
+					mfc_err("NAL Q: there is no available input slot\n");
+					spin_lock_irq(&dev->condlock);
+					clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+					spin_unlock_irq(&dev->condlock);
+					return;
+				}
+				if (s5p_mfc_nal_q_set_in_buf(ctx, pInStr)) {
+					mfc_err("NAL Q: Failed to set input queue\n");
+					spin_lock_irq(&dev->condlock);
+					clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+					spin_unlock_irq(&dev->condlock);
+					return;
+				}
+				if (s5p_mfc_nal_q_queue_in_buf(dev, nal_q_handle->nal_q_in_handle)) {
+					mfc_err("NAL Q: Failed to increase input count\n");
+					spin_lock_irq(&dev->condlock);
+					clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+					spin_unlock_irq(&dev->condlock);
+					return;
+				}
+				spin_lock_irq(&dev->condlock);
+				clear_bit(nal_q_handle->nal_q_ctx, &dev->ctx_work_bits);
+				clear_hw_bit(dev->ctx[nal_q_handle->nal_q_ctx]);
+				spin_unlock_irq(&dev->condlock);
+				if (test_bit(nal_q_handle->nal_q_ctx, &dev->ctx_work_bits))
+					queue_work(dev->sched_wq, &dev->sched_work);
+				return;
+			}
+		default:
+			mfc_err("NAL Q: Should not be here! nal_q state : %d\n",
+					nal_q_handle->nal_q_state);
+			return;
+		}
+	}
+#endif
 
 	if (ctx->type == MFCINST_DECODER) {
 		switch (ctx->state) {

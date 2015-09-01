@@ -17,9 +17,9 @@ int s5p_mfc_cmd_host2risc(struct s5p_mfc_dev *dev, int cmd,
 {
 	mfc_debug(2, "Issue the command: %d\n", cmd);
 	MFC_TRACE_DEV(">> Issue cmd : %d\n", cmd);
-
-	/* Reset RISC2HOST command */
-	MFC_WRITEL(0x0, S5P_FIMV_RISC2HOST_CMD);
+	/* Reset RISC2HOST command except nal q stop command */
+	if (cmd != S5P_FIMV_CH_STOP_QUEUE)
+		MFC_WRITEL(0x0, S5P_FIMV_RISC2HOST_CMD);
 
 	/* Issue the command */
 	MFC_WRITEL(cmd, S5P_FIMV_HOST2RISC_CMD);

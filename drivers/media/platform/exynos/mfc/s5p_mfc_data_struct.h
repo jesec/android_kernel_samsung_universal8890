@@ -32,6 +32,7 @@
 #endif
 
 #include "exynos_mfc_media.h"
+#include "s5p_mfc_nal_q_struct.h"
 
 #define MFC_NUM_CONTEXTS	32
 #define MFC_MAX_PLANES		3
@@ -333,6 +334,8 @@ struct s5p_mfc_dev {
 	int has_enc_ctx;
 
 	bool has_job;
+
+	nal_queue_handle *nal_q_handle;
 };
 
 /**
@@ -649,6 +652,10 @@ struct s5p_mfc_codec_ops {
 			struct list_head *head);
 	int (*get_buf_update_val) (struct s5p_mfc_ctx *ctx,
 			struct list_head *head, unsigned int id, int value);
+	int (*set_buf_ctrls_val_nal_q) (struct s5p_mfc_ctx *ctx,
+			struct list_head *head, EncoderInputStr *pInStr);
+	int (*get_buf_ctrls_val_nal_q) (struct s5p_mfc_ctx *ctx,
+			struct list_head *head, EncoderOutputStr *pOutStr);
 };
 
 struct stored_dpb_info {
@@ -813,8 +820,14 @@ struct s5p_mfc_ctx {
 	struct list_head src_queue;
 	struct list_head dst_queue;
 
+	struct list_head src_queue_nal_q;
+	struct list_head dst_queue_nal_q;
+
 	unsigned int src_queue_cnt;
 	unsigned int dst_queue_cnt;
+
+	unsigned int src_queue_cnt_nal_q;
+	unsigned int dst_queue_cnt_nal_q;
 
 	enum s5p_mfc_inst_type type;
 	enum s5p_mfc_inst_state state;

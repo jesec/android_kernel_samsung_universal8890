@@ -47,6 +47,7 @@
 #include "s5p_mfc_opr_v10.h"
 #include "s5p_mfc_buf.h"
 #include "s5p_mfc_utils.h"
+#include "s5p_mfc_nal_q.h"
 
 #define S5P_MFC_NAME		"s5p-mfc"
 #define S5P_MFC_DEC_NAME	"s5p-mfc-dec"
@@ -1429,7 +1430,10 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	unsigned int err;
 	unsigned long flags;
 	int new_ctx;
-
+#ifdef NAL_Q_ENABLE
+	nal_queue_handle *nal_q_handle = dev->nal_q_handle;
+	EncoderOutputStr *pOutStr;
+#endif
 	mfc_debug_enter();
 
 	if (!dev) {
@@ -1449,6 +1453,36 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	err = s5p_mfc_get_int_err();
 	mfc_debug(2, "Int reason: %d (err: %d)\n", reason, err);
 	MFC_TRACE_DEV("<< Int reason: %d\n", reason);
+
+#ifdef NAL_Q_ENABLE
+	if (nal_q_handle) {
+		switch (reason) {
+		case S5P_FIMV_R2H_CMD_QUEUE_DONE_RET:
+			pOutStr = s5p_mfc_nal_q_dequeue_out_buf(dev,
+				nal_q_handle->nal_q_out_handle, &reason);
+			if (pOutStr) {
+				if (s5p_mfc_nal_q_get_out_buf(dev, pOutStr))
+					mfc_err("NAL Q: Failed to get out buf\n");
+			} else {
+				mfc_err("NAL Q: pOutStr is NULL\n");
+			}
+			s5p_mfc_clear_int_flags();
+			goto irq_done;
+		case S5P_FIMV_R2H_CMD_COMPLETE_QUEUE_RET:
+			wake_up_dev(dev, reason, err);
+			s5p_mfc_clear_int_flags();
+			goto irq_done;
+		default:
+			if (nal_q_handle->nal_q_state == NAL_Q_STATE_STARTED ||
+				nal_q_handle->nal_q_state == NAL_Q_STATE_STOPPED) {
+				mfc_err("NAL Q: Should not be here! state: %d, int reason : %d\n",
+					nal_q_handle->nal_q_state, reason);
+				s5p_mfc_clear_int_flags();
+				goto irq_end;
+			}
+		}
+	}
+#endif
 
 	switch (reason) {
 	case S5P_FIMV_R2H_CMD_CACHE_FLUSH_RET:
@@ -1882,6 +1916,12 @@ static int s5p_mfc_open(struct file *file)
 			mfc_err_ctx("Failed to init mfc h/w\n");
 			goto err_hw_init;
 		}
+
+#ifdef NAL_Q_ENABLE
+		dev->nal_q_handle = s5p_mfc_nal_q_create(dev);
+		if (dev->nal_q_handle == NULL)
+			mfc_err("NAL Q: Can't create nal q\n");
+#endif
 	}
 
 	mfc_info_ctx("MFC open completed [%d:%d] dev = %p, ctx = %p\n",
@@ -2118,6 +2158,11 @@ static int s5p_mfc_release(struct file *file)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 		if (dev->is_support_smc)
 			dev->is_support_smc = 0;
+#endif
+
+#ifdef NAL_Q_ENABLE
+		if (dev->nal_q_handle)
+			s5p_mfc_nal_q_destroy(dev->nal_q_handle);
 #endif
 	}
 
