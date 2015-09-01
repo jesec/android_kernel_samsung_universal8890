@@ -338,6 +338,21 @@ struct vpp_params {
 	enum vpp_csc_eq eq_mode;
 };
 
+struct decon_phys_addr {
+	unsigned long phy_addr[MAX_BUF_PLANE_CNT];
+	unsigned int phy_addr_len[MAX_BUF_PLANE_CNT];
+};
+
+struct decon_phys_old_info {
+	int vpp_id;
+	int prot_cnt;
+	int pixel_format;
+	int plane;
+	int last_frame;
+	unsigned long int phys_addr[MAX_BUF_PLANE_CNT];
+	unsigned int phys_addr_len[MAX_BUF_PLANE_CNT];
+};
+
 struct decon_frame {
 	int x;
 	int y;
@@ -394,6 +409,7 @@ struct decon_reg_data {
 	struct decon_rect		overlap_rect;
 	struct decon_win_config		vpp_config[MAX_DECON_WIN + 1];
 	struct decon_win_rect		block_rect[MAX_DECON_WIN];
+	struct decon_phys_addr		phys_addr[MAX_DECON_WIN + 1];
 #ifdef CONFIG_FB_WINDOW_UPDATE
 	struct decon_win_rect		update_win;
 	bool				need_update;
@@ -740,6 +756,9 @@ struct decon_device {
 	struct vpp_drm_log vpp_log[MAX_VPP_LOG];
 	int log_cnt;
 	int sw_te_wa;
+	int prev_win_state;
+	int old_protection[MAX_DECON_WIN];
+	struct decon_phys_old_info	old_info;
 };
 
 static inline struct decon_device *get_decon_drvdata(u32 id)
