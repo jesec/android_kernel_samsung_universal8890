@@ -381,6 +381,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 
 	buffer->heap = heap;
 	buffer->flags = flags;
+	buffer->size = len;
 	kref_init(&buffer->ref);
 
 	ret = heap->ops->allocate(heap, buffer, len, align, flags);
@@ -397,7 +398,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	}
 
 	buffer->dev = dev;
-	buffer->size = len;
 
 	table = heap->ops->map_dma(heap, buffer);
 	if (WARN_ONCE(table == NULL,
