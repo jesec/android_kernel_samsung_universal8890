@@ -116,6 +116,7 @@ int vb2_ion_set_alignment(void *ctx, size_t alignment);
  */
 struct vb2_ion_cookie {
 	dma_addr_t ioaddr;
+	dma_addr_t paddr;
 	struct sg_table	*sgt;
 	off_t offset;
 };
@@ -146,10 +147,17 @@ static inline int vb2_ion_phys_address(void *cookie, phys_addr_t *phys_addr)
 	if (WARN_ON(!phys_addr || IS_ERR_OR_NULL(cookie)))
 		return -EINVAL;
 
-	if (vb2cookie->sgt->nents == 1)
-		*phys_addr = sg_phys(vb2cookie->sgt->sgl) + vb2cookie->offset;
-	else
-		return -EINVAL;
+	if (vb2cookie->paddr) {
+		*phys_addr = vb2cookie->paddr;
+	} else {
+		if (vb2cookie->sgt && vb2cookie->sgt->nents == 1) {
+			*phys_addr = sg_phys(vb2cookie->sgt->sgl) +
+						vb2cookie->offset;
+		} else {
+			*phys_addr = 0;
+			return -EINVAL;
+		}
+	}
 
 	return 0;
 }

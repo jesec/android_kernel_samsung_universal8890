@@ -406,7 +406,7 @@ static int vb2_ion_map_dmabuf(void *mem_priv)
 	}
 
 	buf->cookie.offset = 0;
-	/* buf->kva = NULL; */
+	buf->cookie.paddr = sg_phys(buf->cookie.sgt->sgl) + buf->cookie.offset;
 
 	mutex_lock(&ctx->lock);
 	if (ctx_iommu(ctx) && !ctx->protected && buf->cookie.ioaddr == 0) {
