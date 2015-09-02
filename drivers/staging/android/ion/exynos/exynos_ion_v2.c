@@ -369,7 +369,6 @@ DECLARE_EXYNOS_ION_RESERVED_REGION(sectbl);
 DECLARE_EXYNOS_ION_RESERVED_REGION(mfc_fw);
 DECLARE_EXYNOS_ION_RESERVED_REGION(mfc_nfw);
 DECLARE_EXYNOS_ION_RESERVED_REGION(secdma);
-DECLARE_EXYNOS_ION_RESERVED_REGION(audio_fw);
 
 int ion_exynos_contig_heap_info(int region_id, phys_addr_t *phys, size_t *size)
 {
