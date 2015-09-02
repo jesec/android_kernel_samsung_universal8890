@@ -42,6 +42,11 @@ struct g2d1shot_fmt {
 	u32	dst_value;
 };
 
+#define G2D_TIMEOUT_INTERVAL		4000	/* 4 sec */
+#define G2D_STATE_RUNNING		(1 << 0)
+#define G2D_STATE_SUSPENDING		(1 << 1)
+#define G2D_STATE_TIMEOUT		(1 << 2)
+
 struct g2d1shot_dev {
 	struct m2m1shot2_device *oneshot2_dev;
 	struct device *dev;
@@ -50,6 +55,9 @@ struct g2d1shot_dev {
 
 	u32 version;
 	unsigned long state;
+	spinlock_t state_lock;
+	struct timer_list timer;
+
 };
 
 struct g2d1shot_ctx {

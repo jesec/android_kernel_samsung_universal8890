@@ -293,6 +293,7 @@ static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 {
 	struct g2d1shot_ctx *g2d_ctx = ctx->priv;
 	struct g2d1shot_dev *g2d_dev = g2d_ctx->g2d_dev;
+	unsigned long flags;
 	int ret;
 	int i;
 
@@ -322,6 +323,11 @@ static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 		g2d_dump_regs(g2d_dev);
 	}
 
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	g2d_dev->state |= G2D_STATE_RUNNING;
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+	mod_timer(&g2d_dev->timer,
+			jiffies + msecs_to_jiffies(G2D_TIMEOUT_INTERVAL));
 	/* run H/W */
 	g2d_hw_start(g2d_dev);
 
@@ -342,6 +348,7 @@ static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 {
 	struct g2d1shot_dev *g2d_dev = priv;
 	struct m2m1shot2_context *m21ctx;
+	unsigned long flags;
 
 	g2d_dbg_begin();
 
@@ -351,6 +358,22 @@ static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 		return IRQ_HANDLED;
 	}
 
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	if (!(g2d_dev->state & G2D_STATE_RUNNING)) {
+		dev_err(g2d_dev->dev, "interrupt, but no running\n");
+		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+		return IRQ_HANDLED;
+	}
+	g2d_dev->state &= ~G2D_STATE_RUNNING;
+	if (g2d_dev->state & G2D_STATE_TIMEOUT) {
+		dev_err(g2d_dev->dev, "interrupt, but already timedout\n");
+		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+		return IRQ_HANDLED;
+	}
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+
+	/* TODO: check timer is already occurred */
+	del_timer(&g2d_dev->timer);
 	/* IRQ handling */
 	g2d_hw_stop(g2d_dev);
 	disable_g2d(g2d_dev);
@@ -379,6 +402,45 @@ static int g2d_iommu_fault_handler(
 
 	return 0;
 }
+
+static void g2d_timeout_handler(unsigned long arg)
+{
+	struct g2d1shot_dev *g2d_dev = (struct g2d1shot_dev *)arg;
+	struct m2m1shot2_context *m21ctx;
+	unsigned long flags;
+
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	if (!(g2d_dev->state & G2D_STATE_RUNNING)) {
+		dev_err(g2d_dev->dev, "timer is called, but not running state\n");
+		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+		return;
+	}
+
+	g2d_dev->state |= G2D_STATE_TIMEOUT;
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+
+	dev_err(g2d_dev->dev, "G2D timeout is happened.\n");
+
+	m21ctx = m2m1shot2_current_context(g2d_dev->oneshot2_dev);
+	if (!m21ctx) {
+		dev_err(g2d_dev->dev, "received null in timeout handler\n");
+		return;
+	}
+
+	/* display information */
+	g2d_disp_info(m21ctx);
+	g2d_dump_regs(g2d_dev);
+
+	/* uninitialize H/W */
+	g2d_hw_stop(g2d_dev);
+	disable_g2d(g2d_dev);
+
+	/* notify m2m1shot2 with false */
+	m2m1shot2_finish_context(m21ctx, true);
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	g2d_dev->state &= ~G2D_STATE_TIMEOUT;
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+};
 
 static int g2d_init_clock(struct device *dev, struct g2d1shot_dev *g2d_dev)
 {
@@ -469,6 +531,10 @@ static int exynos_g2d_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to activate iommu\n");
 		goto err_hwver;
 	}
+
+	setup_timer(&g2d_dev->timer, g2d_timeout_handler,
+						(unsigned long)g2d_dev);
+	spin_lock_init(&g2d_dev->state_lock);
 
 	platform_set_drvdata(pdev, g2d_dev);
 
