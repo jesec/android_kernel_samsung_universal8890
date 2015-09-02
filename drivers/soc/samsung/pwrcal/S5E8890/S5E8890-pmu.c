@@ -513,6 +513,13 @@ static void mfc_prev(int enable)
 
 static void g3d_prev(int enable)
 {
+	if (enable == 0) {
+		pwrcal_setbit(CLK_CON_MUX_G3D_PLL_USER, 12, 0);
+		while (pwrcal_getbit(CLK_CON_MUX_G3D_PLL_USER, 26));
+		pwrcal_setbit(G3D_PLL_CON0, 31, 0);
+	} else {
+		pwrcal_setbit(G3D_PLL_CON0, 31, 1);
+	}
 }
 
 
@@ -573,6 +580,9 @@ static void mscl_post(int enable)
 static void g3d_post(int enable)
 {
 	if (enable == 1) {
+		pwrcal_setbit(CLK_CON_MUX_G3D_PLL_USER, 12, 1);
+		while (pwrcal_getbit(CLK_CON_MUX_G3D_PLL_USER, 26));
+
 		pwrcal_writel(G3D_DRCG_EN, 0x3F);
 
 		pwrcal_gate_disable(CLK(G3D_GATE_ACLK_PPMU_G3D0));
