@@ -179,19 +179,5 @@ struct cpu_info_alter {
 };
 
 extern cluster_type exynos_boot_cluster;
-#ifdef CONFIG_EXYNOS_DYNAMIC_CPU_HOTPLUG
-extern void force_dynamic_hotplug(bool out_flag, int delay_msec);
-#endif
-#if defined(CONFIG_SCHED_HMP) && defined(CONFIG_EXYNOS_DYNAMIC_CPU_HOTPLUG)
-int cluster1_cores_hotplug(bool out_flag);
-int cluster0_core1_hotplug_in(bool in_flag);
-void event_hotplug_in(void);
-bool is_cluster1_hotplugged(void);
-#else
-static inline int cluster1_cores_hotplug(bool out_flag) {return 0;}
-static inline int cluster0_core1_hotplug_in(bool in_flag) {return 0;}
-static inline void event_hotplug_in(void) {}
-static inline bool is_cluster1_hotplugged(void) {return 0;}
-#endif
 #endif
 #endif /* __ARCH_CPUFREQ_H */
