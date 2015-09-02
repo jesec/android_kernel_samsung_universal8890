@@ -212,7 +212,7 @@ void g2d_hw_set_source_premult(struct g2d1shot_dev *g2d_dev, int n, u32 flags)
 }
 
 void g2d_hw_set_source_format(struct g2d1shot_dev *g2d_dev, int n,
-		struct m2m1shot2_context_format *ctx_fmt)
+		struct m2m1shot2_context_format *ctx_fmt, bool compressed)
 {
 	struct v4l2_rect *s = &ctx_fmt->fmt.crop;
 	struct v4l2_rect *d = &ctx_fmt->fmt.window;
@@ -237,33 +237,43 @@ void g2d_hw_set_source_format(struct g2d1shot_dev *g2d_dev, int n,
 
 	/* set pixel format */
 	cfg = fmt->src_value;
-	/* TODO: Mark COMPRESSED if it is true */
+
+	if (compressed)
+		cfg |= G2D_LAYER_COMP_FORMAT;
 	__raw_writel(cfg, g2d_dev->reg + G2D_LAYERn_COLOR_MODE_REG(n));
 
-	/* if non-compressed */
-	/* set stride */
-	cfg = (fmt->bpp[0] * ctx_fmt->fmt.width / 8);
-	__raw_writel(cfg, g2d_dev->reg + G2D_LAYERn_STRIDE_REG(n));
+	if (compressed) {
+		cfg = ctx_fmt->fmt.width;
+		if (!IS_ALIGNED(cfg, G2D_COMP_ALIGN_WIDTH))
+			cfg = ALIGN(cfg, G2D_COMP_ALIGN_WIDTH);
+		cfg = G2D_COMP_SET_WH(cfg);
+		__raw_writel(cfg,
+			g2d_dev->reg + G2D_LAYERn_COMP_IMAGE_WIDTH_REG(n));
 
-	/* TODO: else if it is compressed, take care of align.
-	cfg = ctx_fmt->fmt.width;
-	__raw_writel(cfg, g2d_dev->reg + G2D_LAYERn_COMP_IMAGE_WIDTH_REG(n));
-
-	cfg = ctx_fmt->fmt.height;
-	__raw_writel(cfg, g2d_dev->reg + G2D_LAYERn_COMP_IMAGE_HEIGHT_REG(n));
-	*/
+		cfg = ctx_fmt->fmt.height;
+		if (!IS_ALIGNED(cfg, G2D_COMP_ALIGN_HEIGHT))
+			cfg = ALIGN(cfg, G2D_COMP_ALIGN_HEIGHT);
+		cfg = G2D_COMP_SET_WH(cfg);
+		__raw_writel(cfg,
+			g2d_dev->reg + G2D_LAYERn_COMP_IMAGE_HEIGHT_REG(n));
+	} else {
+		cfg = (fmt->bpp[0] * ctx_fmt->fmt.width / 8);
+		__raw_writel(cfg, g2d_dev->reg + G2D_LAYERn_STRIDE_REG(n));
+	}
 }
 
 void g2d_hw_set_source_address(struct g2d1shot_dev *g2d_dev, int n,
-		int plane, dma_addr_t addr)
+		int plane, bool compressed, dma_addr_t addr)
 {
-	/* if non-compressed */
-	__raw_writel(addr, g2d_dev->reg + G2D_LAYERn_BASE_ADDR_REG(n));
+	if (compressed) {
+		__raw_writel(addr,
+			g2d_dev->reg + G2D_LAYERn_PAYLOAD_BASE_ADDR_REG(n));
+		__raw_writel(addr,
+			g2d_dev->reg + G2D_LAYERn_HEADER_BASE_ADDR_REG(n));
+	} else {
+		__raw_writel(addr, g2d_dev->reg + G2D_LAYERn_BASE_ADDR_REG(n));
+	}
 
-	/* TODO: else if it is compressed, take care of align.
-	__raw_writel(addr, g2d_dev->reg + G2D_LAYERn_PAYLOAD_BASE_ADDR_REG(n));
-	__raw_writel(addr, g2d_dev->reg + G2D_LAYERn_HEADER_BASE_ADDR_REG(n));
-	 */
 }
 
 void g2d_hw_set_source_repeat(struct g2d1shot_dev *g2d_dev, int n,

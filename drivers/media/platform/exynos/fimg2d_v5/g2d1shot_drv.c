@@ -225,6 +225,7 @@ static void g2d_set_source(struct g2d1shot_dev *g2d_dev,
 	u32 src_type = G2D_LAYER_SELECT_NORMAL;
 	u32 img_flags = source->img.flags;
 	int i;
+	bool compressed = img_flags & M2M1SHOT2_IMGFLAG_COMPRESSED;
 
 	g2d_dbg_begin();
 
@@ -241,12 +242,12 @@ static void g2d_set_source(struct g2d1shot_dev *g2d_dev,
 	/* set source type */
 	g2d_hw_set_source_type(g2d_dev, layer_num, src_type);
 	/* set source rect, dest clip and pixel format */
-	g2d_hw_set_source_format(g2d_dev, layer_num, ctx_fmt);
+	g2d_hw_set_source_format(g2d_dev, layer_num, ctx_fmt, compressed);
 	/* set source address */
 	/* TODO: check COMPRESSED and set if it is true */
 	for (i = 0; i < source->img.num_planes; i++) {
 		/* more than 1 planes are not supported yet, but for later. */
-		g2d_hw_set_source_address(g2d_dev, layer_num, i,
+		g2d_hw_set_source_address(g2d_dev, layer_num, i, compressed,
 				m2m1shot2_src_dma_addr(ctx, layer_num, i));
 	}
 	/* set repeat mode */

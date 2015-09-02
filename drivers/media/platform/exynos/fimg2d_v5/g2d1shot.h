@@ -166,9 +166,9 @@ void g2d_hw_set_source_blending(struct g2d1shot_dev *g2d_dev, int n,
 						struct m2m1shot2_extra *ext);
 void g2d_hw_set_source_premult(struct g2d1shot_dev *g2d_dev, int n, u32 flags);
 void g2d_hw_set_source_format(struct g2d1shot_dev *g2d_dev, int n,
-		struct m2m1shot2_context_format *ctx_fmt);
+		struct m2m1shot2_context_format *ctx_fmt, bool compressed);
 void g2d_hw_set_source_address(struct g2d1shot_dev *g2d_dev, int n,
-		int plane, dma_addr_t addr);
+		int plane, bool compressed, dma_addr_t addr);
 void g2d_hw_set_source_repeat(struct g2d1shot_dev *g2d_dev, int n,
 		struct m2m1shot2_extra *ext);
 void g2d_hw_set_source_scale(struct g2d1shot_dev *g2d_dev, int n,

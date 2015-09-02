@@ -26,6 +26,8 @@
 #define G2D_COMP_SET_WH(v)	((((v) & 0x3fff) - 1))
 
 #define G2D_COMP_ALIGN_ADDR		16
+#define G2D_COMP_ALIGN_WIDTH		16
+#define G2D_COMP_ALIGN_HEIGHT		4
 
 #define LAYER_OFFSET(n)		((0x100) * (n))
 #define LAYER_SET(n, name)	(LAYER_OFFSET(n) + G2D_LAYER0_##name##_REG)
