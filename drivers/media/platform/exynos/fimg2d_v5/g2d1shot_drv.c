@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/exynos_iovmm.h>
+#include <linux/smc.h>
 
 #include "g2d1shot.h"
 #include "g2d1shot_helper.h"
@@ -626,10 +627,26 @@ static int g2d_runtime_suspend(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
+static int g2d_runtime_resume(struct device *dev)
+{
+	int ret;
+
+	ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT,
+			PROT_G2D, 0);
+	if (ret != SMC_TZPC_OK)
+		g2d_err("fail to set cfw protection (%d)\n", ret);
+	else
+		g2d_debug("success to set cfw protection\n");
+
+	return 0;
+}
+#else
 static int g2d_runtime_resume(struct device *dev)
 {
 	return 0;
 }
+#endif
 #endif
 
 static const struct dev_pm_ops exynos_g2d_pm_ops = {
