@@ -5,6 +5,7 @@
 obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-pm.o
 obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-pmu.o
 obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-powermode.o
+obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-cpu_hotplug.o
 
 # CAL
 obj-$(CONFIG_PWRCAL)            += pwrcal/
