@@ -15,6 +15,7 @@
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/slab.h>
+#include <linux/cpu.h>
 #include <linux/cpuidle_profiler.h>
 
 #include <asm/smp_plat.h>
@@ -732,6 +733,35 @@ void exynos_wakeup_cp_call(bool early_wakeup)
 		cal_pm_exit(SYS_ALPA);
 }
 
+/*
+ * In case of non-boot cluster, CPU sequencer should be disabled
+ * even each cpu wake up through hotplug in.
+ */
+static int exynos_cpuidle_hotcpu_callback(struct notifier_block *nfb,
+                                       unsigned long action, void *hcpu)
+{
+       unsigned int cpu = (unsigned long)hcpu;
+       int ret = NOTIFY_OK;
+
+       switch (action) {
+       case CPU_STARTING:
+               spin_lock(&c2_lock);
+
+               if (!is_cpu_boot_cluster(cpu))
+                       exynos_cpu.cluster_up(get_cluster_id(cpu));
+
+               spin_unlock(&c2_lock);
+               break;
+       }
+
+       return ret;
+}
+
+static struct notifier_block __refdata cpuidle_hotcpu_notifier = {
+       .notifier_call = exynos_cpuidle_hotcpu_callback,
+       .priority = INT_MAX,
+};
+
 /******************************************************************************
  *                              Driver initialized                            *
  ******************************************************************************/
@@ -779,6 +809,8 @@ int __init exynos_powermode_init(void)
 
 	if (sysfs_create_file(power_kobj, &sicd.attr))
 		pr_err("%s: failed to create sysfs to control CPD\n", __func__);
+
+	register_hotcpu_notifier(&cpuidle_hotcpu_notifier);
 
 	return 0;
 }
