@@ -573,7 +573,7 @@ int disable_nonboot_cpus(void)
 		}
 	}
 
-#ifdef CONFIG_EXYNOS_DYNAMIC_CPU_HOTPLUG
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
 	if (num_online_cpus() > 1) {
 		error = _cpu_down(nonboot_cluster_first_cpu, 1);
 		if (!error)
