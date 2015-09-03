@@ -454,27 +454,27 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 
 	/* Add reg->buf_vref_otp_reg register condition at EXYNOS8890 */
 	/* Beacuse we read otp data and write this value to control register */
-	if (!reg->buf_vref_otp_reg) {
+	if (!reg->buf_vref_otp_mask) {
 		con &= ~(EXYNOS_TMU_REF_VOLTAGE_MASK << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
 		con |= pdata->reference_voltage << EXYNOS_TMU_REF_VOLTAGE_SHIFT;
 	} else {
 		/* Write to otp save data */
 		con &= ~(EXYNOS_TMU_REF_VOLTAGE_MASK << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
 		otp_fuse = readl(data->base + reg->buf_vref_otp_reg);
-		otp_fuse = (otp_fuse >> reg->buf_slope_otp_shitf) & reg->buf_vref_otp_mask;
+		otp_fuse = (otp_fuse >> reg->buf_vref_otp_shift) & reg->buf_vref_otp_mask;
 		con |= (otp_fuse << EXYNOS_TMU_REF_VOLTAGE_SHIFT);
 	}
 
 	/* Add reg->buf_vref_otp_reg register condition at EXYNOS8890 */
 	/* Beacuse we read otp data and write this value to control register */
-	if (!reg->buf_slope_otp_reg) {
+	if (!reg->buf_slope_otp_mask) {
 		con &= ~(EXYNOS_TMU_BUF_SLOPE_SEL_MASK << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
 		con |= (pdata->gain << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
 	} else {
 		/* Write to otp save data */
 		con &= ~(EXYNOS_TMU_BUF_SLOPE_SEL_MASK << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
 		otp_fuse = readl(data->base + reg->buf_slope_otp_reg);
-		otp_fuse = (otp_fuse >> reg->buf_slope_otp_shitf) & reg->buf_slope_otp_mask;
+		otp_fuse = (otp_fuse >> reg->buf_slope_otp_shift) & reg->buf_slope_otp_mask;
 		con |= (otp_fuse << EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT);
 	}
 
