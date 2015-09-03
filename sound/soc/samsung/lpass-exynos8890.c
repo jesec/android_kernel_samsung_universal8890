@@ -116,6 +116,7 @@ void lpass_enable_pll(bool on)
 {
 	if (on) {
 		void __iomem	*cmu_reg;
+		u32 cfg;
 		clk_prepare_enable(lpass_cmu.aud_pll);
 		clk_set_rate(lpass_cmu.aud_pll, 410000000);
 #if 0
@@ -145,6 +146,15 @@ void lpass_enable_pll(bool on)
 		   We need to resolve the issue related to Audio DMA */
 		cmu_reg = ioremap(0x114C0000, SZ_4K);
 		writel(0x1f3fff, cmu_reg + 0x804);
+
+		cfg = readl(cmu_reg + 0x400) & ~(0xF);
+		cfg |= 0x1; /* CA5: 205MHz */
+		writel(cfg, cmu_reg + 0x400);
+
+		cfg = readl(cmu_reg + 0x404) & ~(0xF);
+		cfg |= 0x1; /* ACLK_AUD: 102.5MHz */
+		writel(cfg, cmu_reg + 0x404);
+
 		iounmap(cmu_reg);
 	} else {
 		clk_disable_unprepare(lpass_cmu.aud_lpass);
