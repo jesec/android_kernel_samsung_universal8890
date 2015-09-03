@@ -58,6 +58,9 @@ struct g2d1shot_dev {
 	spinlock_t state_lock;
 	struct timer_list timer;
 
+	wait_queue_head_t suspend_wait;
+	struct m2m1shot2_context *suspend_ctx;
+	bool suspend_ctx_success;
 };
 
 struct g2d1shot_ctx {

@@ -299,12 +299,23 @@ static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 
 	g2d_dbg_begin();
 
-	/* Marking for H/W operation? */
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	if (g2d_dev->state & G2D_STATE_SUSPENDING) {
+		dev_info(g2d_dev->dev, "G2D is in suspend state.\n");
+		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+		return -EAGAIN;
+	}
+	g2d_dev->state |= G2D_STATE_RUNNING;
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 
 	/* enable power, clock */
 	ret = enable_g2d(g2d_dev);
-	if (ret)
+	if (ret) {
+		spin_lock_irqsave(&g2d_dev->state_lock, flags);
+		g2d_dev->state &= ~G2D_STATE_RUNNING;
+		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 		return ret;
+	}
 
 	/* H/W initialization */
 	g2d_hw_init(g2d_dev);
@@ -323,9 +334,6 @@ static int m2m1shot2_g2d_device_run(struct m2m1shot2_context *ctx)
 		g2d_dump_regs(g2d_dev);
 	}
 
-	spin_lock_irqsave(&g2d_dev->state_lock, flags);
-	g2d_dev->state |= G2D_STATE_RUNNING;
-	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 	mod_timer(&g2d_dev->timer,
 			jiffies + msecs_to_jiffies(G2D_TIMEOUT_INTERVAL));
 	/* run H/W */
@@ -349,6 +357,7 @@ static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 	struct g2d1shot_dev *g2d_dev = priv;
 	struct m2m1shot2_context *m21ctx;
 	unsigned long flags;
+	bool suspending;
 
 	g2d_dbg_begin();
 
@@ -364,24 +373,32 @@ static irqreturn_t exynos_g2d_irq_handler(int irq, void *priv)
 		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 		return IRQ_HANDLED;
 	}
-	g2d_dev->state &= ~G2D_STATE_RUNNING;
 	if (g2d_dev->state & G2D_STATE_TIMEOUT) {
 		dev_err(g2d_dev->dev, "interrupt, but already timedout\n");
+		g2d_dev->state &= ~G2D_STATE_RUNNING;
 		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 		return IRQ_HANDLED;
 	}
+	suspending = g2d_dev->state & G2D_STATE_SUSPENDING;
 	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 
-	/* TODO: check timer is already occurred */
 	del_timer(&g2d_dev->timer);
+
 	/* IRQ handling */
 	g2d_hw_stop(g2d_dev);
 	disable_g2d(g2d_dev);
 
-	/* Unmark for H/W operation */
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	g2d_dev->state &= ~G2D_STATE_RUNNING;
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 
-	/* How to define success? */
-	m2m1shot2_finish_context(m21ctx, true);
+	if (!suspending)
+		m2m1shot2_finish_context(m21ctx, true);
+	else {
+		g2d_dev->suspend_ctx = m21ctx;
+		g2d_dev->suspend_ctx_success = true;
+		wake_up(&g2d_dev->suspend_wait);
+	}
 
 	g2d_dbg_end();
 
@@ -408,10 +425,11 @@ static void g2d_timeout_handler(unsigned long arg)
 	struct g2d1shot_dev *g2d_dev = (struct g2d1shot_dev *)arg;
 	struct m2m1shot2_context *m21ctx;
 	unsigned long flags;
+	bool suspending;
 
 	spin_lock_irqsave(&g2d_dev->state_lock, flags);
 	if (!(g2d_dev->state & G2D_STATE_RUNNING)) {
-		dev_err(g2d_dev->dev, "timer is called, but not running state\n");
+		dev_err(g2d_dev->dev, "timeout, but not processing state\n");
 		spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
 		return;
 	}
@@ -436,10 +454,18 @@ static void g2d_timeout_handler(unsigned long arg)
 	disable_g2d(g2d_dev);
 
 	/* notify m2m1shot2 with false */
-	m2m1shot2_finish_context(m21ctx, true);
 	spin_lock_irqsave(&g2d_dev->state_lock, flags);
 	g2d_dev->state &= ~G2D_STATE_TIMEOUT;
+	suspending = g2d_dev->state & G2D_STATE_SUSPENDING;
 	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+
+	if (!suspending)
+		m2m1shot2_finish_context(m21ctx, false);
+	else {
+		g2d_dev->suspend_ctx = m21ctx;
+		g2d_dev->suspend_ctx_success = false;
+		wake_up(&g2d_dev->suspend_wait);
+	}
 };
 
 static int g2d_init_clock(struct device *dev, struct g2d1shot_dev *g2d_dev)
@@ -535,6 +561,7 @@ static int exynos_g2d_probe(struct platform_device *pdev)
 	setup_timer(&g2d_dev->timer, g2d_timeout_handler,
 						(unsigned long)g2d_dev);
 	spin_lock_init(&g2d_dev->state_lock);
+	init_waitqueue_head(&g2d_dev->suspend_wait);
 
 	platform_set_drvdata(pdev, g2d_dev);
 
@@ -561,11 +588,34 @@ static int exynos_g2d_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int g2d_suspend(struct device *dev)
 {
+	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	g2d_dev->state |= G2D_STATE_SUSPENDING;
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+
+	wait_event(g2d_dev->suspend_wait,
+			!(g2d_dev->state & G2D_STATE_RUNNING));
+
 	return 0;
 }
 
 static int g2d_resume(struct device *dev)
 {
+	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&g2d_dev->state_lock, flags);
+	g2d_dev->state &= ~G2D_STATE_SUSPENDING;
+	spin_unlock_irqrestore(&g2d_dev->state_lock, flags);
+
+	if (g2d_dev->suspend_ctx) {
+		m2m1shot2_finish_context(
+			g2d_dev->suspend_ctx, g2d_dev->suspend_ctx_success);
+		g2d_dev->suspend_ctx = NULL;
+	}
+
 	return 0;
 }
 #endif
