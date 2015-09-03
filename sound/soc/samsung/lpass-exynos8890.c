@@ -117,7 +117,7 @@ void lpass_enable_pll(bool on)
 	if (on) {
 		void __iomem	*cmu_reg;
 		clk_prepare_enable(lpass_cmu.aud_pll);
-		clk_set_rate(lpass_cmu.aud_pll, 492000000);
+		clk_set_rate(lpass_cmu.aud_pll, 410000000);
 #if 0
 		if (lpass_i2s_master_mode()) {
 			void *sfr;
