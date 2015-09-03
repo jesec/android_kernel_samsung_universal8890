@@ -579,7 +579,10 @@ static ssize_t decon_psr_info(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct decon_device *decon = dev_get_drvdata(dev);
-	return scnprintf(buf, PAGE_SIZE, "%d\n", decon->pdata->psr_mode);
+	struct decon_lcd *lcd_info = decon->lcd_info;
+	int dsc_offset = (lcd_info->dsc_enabled)? 4: 0;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", decon->pdata->psr_mode + dsc_offset);
 }
 
 static DEVICE_ATTR(psr_info, S_IRUGO, decon_psr_info, NULL);
