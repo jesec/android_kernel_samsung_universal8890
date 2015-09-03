@@ -34,6 +34,7 @@
 
 #include "i2s.h"
 #include "i2s-regs.h"
+#include "../codecs/florida.h"
 #include "../codecs/clearwater.h"
 #include "../codecs/moon.h"
 
@@ -67,10 +68,10 @@
 
 #define DSP6_XM_BASE 0x320000
 #define DSP6_ZM_BASE 0x360000
-#define EZ2CTRL_WORDID_OFF 0x3f
-#define SENSORY_PID_SVSCORE 0x44
-#define SENSORY_PID_FINALSCORE 0x45
-#define PID_NOISEFLOOR 0x49
+#define EZ2CTRL_WORDID_OFF 0x4A
+#define SENSORY_PID_SVSCORE 0x4F
+#define SENSORY_PID_FINALSCORE 0x50
+#define PID_NOISEFLOOR 0x54
 
 #if defined(CONFIG_MFD_CLEARWATER) || defined(CONFIG_MFD_MOON)
 #define LUCKY_AIF_MAX	4
@@ -109,6 +110,8 @@ struct snd_sysclk_info {
 
 	int fll_ref_id;
 	int fll_ref_src;
+	int fll_ref_in;
+	int fll_ref_out;
 };
 
 struct arizona_machine_priv {
@@ -312,6 +315,11 @@ static void lucky_change_mclk(struct snd_soc_card *card, int rate)
 
 		memcpy(&priv->sysclk.mclk, mclk, sizeof(struct snd_mclk_info));
 		priv->sysclk.rate = sysclk_rate;
+		priv->sysclk.fll_out = sysclk_rate;
+
+		if (priv->asyncclk.fll_ref_src == ARIZONA_FLL_SRC_NONE)
+			memcpy(&priv->asyncclk.mclk, mclk,
+					sizeof(struct snd_mclk_info));
 	} else {
 		dev_dbg(priv->codec->dev,
 				"%s: skipping to change mclk\n", __func__);
@@ -685,7 +693,9 @@ static int lucky_aif1_hw_params(struct snd_pcm_substream *substream,
 
 	/* Set SYSCLK FLL */
 	ret = snd_soc_codec_set_pll(priv->codec, priv->sysclk.fll_ref_id,
-				    priv->sysclk.fll_ref_src, 0, 0);
+				    priv->sysclk.fll_ref_src,
+				    priv->sysclk.fll_ref_in,
+				    priv->sysclk.fll_ref_out);
 	if (ret != 0)
 		dev_err(card->dev, "Failed to start SYSCLK FLL REF: %d\n", ret);
 
@@ -745,9 +755,9 @@ static int lucky_aif1_hw_params(struct snd_pcm_substream *substream,
 
 	/* Set ASYNCCLK FLL  */
 	ret = snd_soc_codec_set_pll(priv->codec, priv->asyncclk.fll_ref_id,
-				    priv->asyncclk.mclk.id,
-				    priv->asyncclk.mclk.rate,
-				    priv->asyncclk.fll_out);
+				    priv->asyncclk.fll_ref_src,
+				    priv->asyncclk.fll_ref_in,
+				    priv->asyncclk.fll_ref_out);
 	if (ret != 0)
 		dev_err(card->dev,
 			 "Failed to start ASYNCCLK FLL REF: %d\n", ret);
@@ -870,14 +880,16 @@ static int lucky_aif2_hw_params(struct snd_pcm_substream *substream,
 
 	/* Set SYSCLK FLL */
 	ret = snd_soc_codec_set_pll(priv->codec, priv->sysclk.fll_ref_id,
-				    priv->sysclk.fll_ref_src, 0, 0);
+				    priv->sysclk.fll_ref_src,
+				    priv->sysclk.fll_ref_in,
+				    priv->sysclk.fll_ref_out);
 	if (ret != 0)
 		dev_err(card->dev, "Failed to start SYSCLK FLL REF: %d\n", ret);
 
 	ret = snd_soc_codec_set_pll(priv->codec, priv->sysclk.fll_id,
 				    priv->sysclk.mclk.id,
 				    priv->sysclk.mclk.rate,
-				    priv->sysclk.rate);
+				    priv->sysclk.fll_out);
 	if (ret != 0)
 		dev_err(card->dev, "Failed to start FLL for SYSCLK: %d\n", ret);
 
@@ -892,18 +904,22 @@ static int lucky_aif2_hw_params(struct snd_pcm_substream *substream,
 	/* Set FLL2 */
 	if (priv->aif_format[1] & SND_SOC_DAIFMT_CBS_CFS) {
 		priv->asyncclk.fll_ref_src = ARIZONA_FLL_SRC_MCLK1;
-		priv->asyncclk.mclk.id = ARIZONA_FLL_SRC_AIF2BCLK,
+		priv->asyncclk.fll_ref_in = priv->sysclk.mclk.rate;
+		priv->asyncclk.fll_ref_out = priv->sysclk.rate;
+		priv->asyncclk.mclk.id = ARIZONA_FLL_SRC_AIF2BCLK;
 		priv->asyncclk.mclk.rate = bclk;
 	} else {
 		priv->asyncclk.fll_ref_src = ARIZONA_FLL_SRC_NONE;
-		memcpy(&priv->asyncclk.mclk, &lucky_mclk_data[0],
+		priv->asyncclk.fll_ref_in = 0;
+		priv->asyncclk.fll_ref_out = 0;
+		memcpy(&priv->asyncclk.mclk, &priv->sysclk.mclk,
 					sizeof(struct snd_mclk_info));
 	}
 
 	ret = snd_soc_codec_set_pll(priv->codec, priv->asyncclk.fll_ref_id,
-				    priv->asyncclk.mclk.id,
-				    priv->asyncclk.mclk.rate,
-				    priv->asyncclk.rate);
+				    priv->asyncclk.fll_ref_src,
+				    priv->asyncclk.fll_ref_in,
+				    priv->asyncclk.fll_ref_out);
 	if (ret != 0)
 		dev_err(card->dev,
 				"Failed to start ASYNCCLK FLL REF: %d\n", ret);
@@ -911,7 +927,7 @@ static int lucky_aif2_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_codec_set_pll(priv->codec, priv->asyncclk.fll_id,
 				    priv->asyncclk.mclk.id,
 				    priv->asyncclk.mclk.rate,
-				    priv->asyncclk.rate);
+				    priv->asyncclk.fll_out);
 	if (ret != 0)
 		dev_err(card->dev, "Failed to start ASYNCCLK FLL: %d\n", ret);
 
@@ -955,11 +971,14 @@ static int lucky_aif2_hw_free(struct snd_pcm_substream *substream)
 			rtd->dai_link->name, substream->stream);
 
 	priv->asyncclk.fll_ref_src = ARIZONA_FLL_SRC_NONE;
+	priv->asyncclk.fll_ref_in = 0;
+	priv->asyncclk.fll_ref_out = 0;
 	memcpy(&priv->asyncclk.mclk, &lucky_mclk_data[0],
 					sizeof(struct snd_mclk_info));
 
 	return 0;
 }
+
 static struct snd_soc_ops lucky_aif2_ops = {
 	.shutdown = lucky_aif_shutdown,
 	.hw_params = lucky_aif2_hw_params,
@@ -1440,7 +1459,7 @@ static int lucky_late_probe(struct snd_soc_card *card)
 	ret = snd_soc_codec_set_pll(codec, priv->sysclk.fll_id,
 				    priv->sysclk.mclk.id,
 				    priv->sysclk.mclk.rate,
-				    priv->sysclk.rate);
+				    priv->sysclk.fll_out);
 	if (ret != 0)
 		dev_err(card->dev, "Failed to start FLL3: %d\n", ret);
 
@@ -1504,6 +1523,11 @@ static int lucky_late_probe(struct snd_soc_card *card)
 		priv->input->name = "voicecontrol";
 		priv->input->dev.parent = card->dev;
 
+		input_set_capability(priv->input, EV_KEY,
+			KEY_VOICE_WAKEUP);
+		input_set_capability(priv->input, EV_KEY,
+			KEY_LPSD_WAKEUP);
+
 		ret = input_register_device(priv->input);
 		if (ret) {
 			dev_err(card->dev,
@@ -1512,6 +1536,7 @@ static int lucky_late_probe(struct snd_soc_card *card)
 		}
 
 		arizona_set_ez2ctrl_cb(codec, ez2ctrl_debug_cb);
+		priv->voice_key_event = KEY_VOICE_WAKEUP;
 	}
 
 	priv->regmap_dsp = arizona_get_regmap_dsp(codec);
@@ -1561,7 +1586,7 @@ static int lucky_start_sysclk(struct snd_soc_card *card)
 	ret = snd_soc_codec_set_pll(priv->codec, priv->sysclk.fll_id,
 				    priv->sysclk.mclk.id,
 				    priv->sysclk.mclk.rate,
-				    priv->sysclk.rate);
+				    priv->sysclk.fll_out);
 	if (ret != 0)
 		dev_err(card->dev, "Failed to start FLL for SYSCLK: %d\n", ret);
 
