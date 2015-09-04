@@ -3646,22 +3646,8 @@ static int decon_probe(struct platform_device *pdev)
 #endif
 
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
-		if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_2)
-			decon->mic_factor = 2;
-		else if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_3)
-			decon->mic_factor = 3;
-		else
-			decon->mic_factor = 1;
-
-		decon->vclk_factor = clk_get_rate(decon->res.vclk_leaf) *
-			DECON_PIX_PER_CLK / MHZ;
-
-		decon_info("mic factor(%d), pixel per clock(%d), vclk factor(%d)\n",
-				decon->mic_factor, DECON_PIX_PER_CLK,
-				decon->vclk_factor);
-
-		/* register BTS callbacks */
 		decon->bts2_ops = &decon_bts2_control;
+		decon->bts2_ops->bts_init(decon);
 #endif
 
 		if (decon->pdata->psr_mode != DECON_VIDEO_MODE) {
@@ -3820,6 +3806,10 @@ static int decon_remove(struct platform_device *pdev)
 {
 	struct decon_device *decon = platform_get_drvdata(pdev);
 	int i;
+
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	decon->bts2_ops->bts_deinit(decon);
+#endif
 
 	pm_runtime_disable(&pdev->dev);
 	decon_put_clocks(decon);

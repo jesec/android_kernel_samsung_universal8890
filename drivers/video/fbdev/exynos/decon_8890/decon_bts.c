@@ -186,6 +186,68 @@ void bts_mif_lock(struct vpp_dev *vpp){ return; }
 #endif
 
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+static void bts2_calc_disp(struct decon_device *decon, struct vpp_dev *vpp,
+		struct decon_win_config *config)
+{
+	struct decon_frame *src = &config->src;
+	struct decon_frame *dst = &config->dst;
+	u64 s_ratio_h, s_ratio_v;
+	u32 src_w = is_rotation(config) ? src->h : src->w;
+	u32 src_h = is_rotation(config) ? src->w : src->h;
+	u32 lcd_width = decon->lcd_info->xres;
+
+	s_ratio_h = (src_w <= dst->w) ? MULTI_FACTOR : MULTI_FACTOR * src_w / dst->w;
+	s_ratio_v = (src_h <= dst->h) ? MULTI_FACTOR : MULTI_FACTOR * src_h / dst->h;
+
+	vpp->disp = decon->vclk_factor * decon->mic_factor * s_ratio_h * s_ratio_v
+		* DISP_FACTOR * KHZ * (MULTI_FACTOR * dst->w / lcd_width)
+		/ (MULTI_FACTOR * MULTI_FACTOR * MULTI_FACTOR) / 2;
+
+	decon_dbg("vpp%d DISP INT level(%llu)\n", vpp->id, vpp->disp);
+	decon_dbg("src w(%d) h(%d), dst w(%d) h(%d)\n",
+			src_w, src_h, dst->w, dst->h);
+}
+
+static void bts2_find_max_disp_ch(struct decon_device *decon)
+{
+	int i;
+	u64 disp_ch[4] = {0, 0, 0, 0};
+	struct v4l2_subdev *sd;
+	struct decon_win *win;
+	struct vpp_dev *vpp;
+
+	for (i = 0; i < decon->pdata->max_win; i++) {
+		win = decon->windows[i];
+		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
+			sd = decon->mdev->vpp_sd[win->vpp_id];
+			vpp = v4l2_get_subdevdata(sd);
+
+			/*
+			 *  VPP0(G0), VPP1(G1), VPP2(VG0), VPP3(VG1),
+			 *  VPP4(G2), VPP5(G3), VPP6(VGR0), VPP7(VGR1), VPP8(WB)
+			 *  vpp_bus_bw[0] = DISP0_0_BW = G0 + VG0;
+			 *  vpp_bus_bw[1] = DISP0_1_BW = G1 + VG1;
+			 *  vpp_bus_bw[2] = DISP1_0_BW = G2 + VGR0;
+			 *  vpp_bus_bw[3] = DISP1_1_BW = G3 + VGR1 + WB;
+			 */
+			if((vpp->id == 0) || (vpp->id == 2))
+				disp_ch[0] += vpp->disp;
+			if((vpp->id == 1) || (vpp->id == 3))
+				disp_ch[1] += vpp->disp;
+			if((vpp->id == 4) || (vpp->id == 6))
+				disp_ch[2] += vpp->disp;
+			if((vpp->id == 5) || (vpp->id == 7) || (vpp->id == 8))
+				disp_ch[3] += vpp->disp;
+		}
+	}
+
+	decon->max_disp_ch = disp_ch[0];
+	for (i = 0; i < 4; i++) {
+		if (decon->max_disp_ch < disp_ch[i])
+			decon->max_disp_ch = disp_ch[i];
+	}
+}
+
 void bts2_calc_bw(struct decon_device *decon, struct decon_reg_data *regs)
 {
 	int i;
@@ -230,11 +292,15 @@ void bts2_calc_bw(struct decon_device *decon, struct decon_reg_data *regs)
 			/* max of each VPP's peak bandwidth */
 			if (decon->max_peak_bw < vpp->bts_info.peak_bw)
 				decon->max_peak_bw = vpp->bts_info.peak_bw;
+
+			bts2_calc_disp(decon, vpp, config);
 		}
 	}
 
-	decon_dbg("total cur bw(%d), max peak bw(%d)\n",
-			decon->total_bw, decon->max_peak_bw);
+	bts2_find_max_disp_ch(decon);
+
+	decon_dbg("total cur bw(%d), max peak bw(%d), max disp int channel(%llu)\n",
+			decon->total_bw, decon->max_peak_bw, decon->max_disp_ch);
 }
 
 void bts2_update_bw(struct decon_device *decon, struct decon_reg_data *regs, u32 is_after)
@@ -266,8 +332,12 @@ void bts2_update_bw(struct decon_device *decon, struct decon_reg_data *regs, u32
 			}
 		}
 
+		if (decon->max_disp_ch < decon->prev_max_disp_ch)
+			pm_qos_update_request(&decon->disp_qos, decon->max_disp_ch);
+
 		decon->prev_total_bw = decon->total_bw;
 		decon->prev_max_peak_bw = decon->max_peak_bw;
+		decon->prev_max_disp_ch = decon->max_disp_ch;
 	} else {
 		if (decon->total_bw > decon->prev_total_bw) {
 			/* don't care 1st param */
@@ -288,6 +358,9 @@ void bts2_update_bw(struct decon_device *decon, struct decon_reg_data *regs, u32
 							is_rotation(config));
 			}
 		}
+
+		if (decon->max_disp_ch > decon->prev_max_disp_ch)
+			pm_qos_update_request(&decon->disp_qos, decon->max_disp_ch);
 	}
 }
 
@@ -296,12 +369,42 @@ void bts2_release_bw(struct decon_device *decon)
 	exynos_update_bw(0, 0, 0);
 
 	decon->prev_total_bw = 0;
-	decon->max_peak_bw = 0;
+	decon->prev_max_peak_bw = 0;
+	decon->prev_max_disp_ch = 0;
 }
 
 void bts2_release_rot_bw(enum decon_idma_type type)
 {
 	bts_ext_scenario_set(type, TYPE_ROTATION, 0);
+}
+
+void bts2_init(struct decon_device *decon)
+{
+	if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_2)
+		decon->mic_factor = 2;
+	else if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_3)
+		decon->mic_factor = 3;
+	else
+		decon->mic_factor = 1;
+
+	if (decon->lcd_info->dsc_enabled)
+		decon->mic_factor = 3;	/* 1/3 compression */
+
+	decon->vclk_factor = clk_get_rate(decon->res.vclk_leaf) *
+		DECON_PIX_PER_CLK / MHZ;
+
+	decon_info("mic factor(%d), pixel per clock(%d), vclk factor(%d)\n",
+			decon->mic_factor, DECON_PIX_PER_CLK,
+			decon->vclk_factor);
+
+	pm_qos_add_request(&decon->disp_qos, PM_QOS_DISPLAY_THROUGHPUT, 0);
+}
+
+void bts2_deinit(struct decon_device *decon)
+{
+	decon_info("%s +\n", __func__);
+	pm_qos_remove_request(&decon->disp_qos);
+	decon_info("%s -\n", __func__);
 }
 #endif
 
@@ -321,9 +424,11 @@ struct decon_bts decon_bts_control = {
 
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 struct decon_bts2 decon_bts2_control = {
+	.bts_init		= bts2_init,
 	.bts_calc_bw		= bts2_calc_bw,
 	.bts_update_bw		= bts2_update_bw,
 	.bts_release_bw		= bts2_release_bw,
 	.bts_release_rot_bw	= bts2_release_rot_bw,
+	.bts_deinit		= bts2_deinit,
 };
 #endif

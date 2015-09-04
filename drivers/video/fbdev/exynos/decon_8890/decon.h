@@ -421,6 +421,7 @@ struct decon_underrun_stat {
 	int	chmap;
 	int	fifo_level;
 	int	underrun_cnt;
+	int	total_underrun_cnt;
 	unsigned long aclk;
 	unsigned long lh_disp0;
 	unsigned long mif_pll;
@@ -451,11 +452,13 @@ struct decon_bts {
 };
 
 struct decon_bts2 {
+	void (*bts_init)(struct decon_device *decon);
 	void (*bts_calc_bw)(struct decon_device *decon, struct decon_reg_data *regs);
 	void (*bts_update_bw)(struct decon_device *decon, struct decon_reg_data *regs,
 			u32 is_after);
 	void (*bts_release_bw)(struct decon_device *decon);
 	void (*bts_release_rot_bw)(enum decon_idma_type type);
+	void (*bts_deinit)(struct decon_device *decon);
 };
 
 #ifdef CONFIG_DECON_EVENT_LOG
@@ -662,6 +665,18 @@ struct decon_device {
 	u32				max_peak_bw;
 	u32				prev_total_bw;
 	u32				prev_max_peak_bw;
+
+	/*
+	 * max current DISP INT channel
+	 *
+	 * ACLK_DISP0_0_400 : G0 + VG0
+	 * ACLK_DISP0_1_400 : G1 + VG1
+	 * ACLK_DISP1_0_400 : G2 + VGR0
+	 * ACLK_DISP1_1_400 : G3 + VGR1
+	 */
+	u64				max_disp_ch;
+	u64				prev_max_disp_ch;
+
 	u32				mic_factor;
 	u32				vclk_factor;
 	struct decon_bts2		*bts2_ops;

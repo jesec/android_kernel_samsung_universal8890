@@ -141,6 +141,8 @@ struct vpp_dev {
 	struct decon_bts		*bts_ops;
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	struct bts_vpp_info		bts_info;
+	/* current each VPP's DISP INT level */
+	u64				disp;
 #endif
 };
 

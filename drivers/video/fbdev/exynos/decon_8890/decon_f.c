@@ -39,7 +39,8 @@ static void decon_oneshot_underrun_log(struct decon_device *decon)
 				decon->underrun_stat.prev_bw,
 				decon->underrun_stat.prev_int_bw,
 				decon->underrun_stat.prev_disp_bw);
-		decon_warn("                  chmap(0x%08x), win(0x%lx), aclk(%ld)\n",
+		decon_warn("    total cnt(%d), chmap(0x%08x), win(0x%lx), aclk(%ld)\n",
+				decon->underrun_stat.total_underrun_cnt,
 				decon->underrun_stat.chmap,
 				decon->underrun_stat.used_windows,
 				decon->underrun_stat.aclk / MHZ);
@@ -88,6 +89,7 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 	}
 
 	if (irq_sts_reg & INTERRUPT_FIFO_LEVEL_INT_EN) {
+		decon->underrun_stat.total_underrun_cnt++;
 		decon->underrun_stat.fifo_level = fifo_level;
 		decon->underrun_stat.prev_bw = decon->prev_bw;
 		decon->underrun_stat.prev_int_bw = decon->prev_int_bw;
