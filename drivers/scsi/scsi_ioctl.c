@@ -194,34 +194,12 @@ static int ioctl_secu_prot_command(struct scsi_device *sdev, char *cmd,
 	}
 	SCSI_LOG_IOCTL(2, printk("Ioctl returned  0x%x\n", result));
 
-	/* Unnecessary Code ??? */
 	if ((driver_byte(result) & DRIVER_SENSE) &&
 	    (scsi_sense_valid(&sshdr))) {
-		switch (sshdr.sense_key) {
-		case ILLEGAL_REQUEST:
-			if (cmd[0] == ALLOW_MEDIUM_REMOVAL)
-				sdev->lockable = 0;
-			else
-				printk(KERN_INFO "ioctl_internal_command: "
-						"ILLEGAL REQUEST asc=0x%x ascq=0x%x\n",
-						sshdr.asc, sshdr.ascq);
-			break;
-		case NOT_READY:	/* This happens if there is no disc in drive */
-			if (sdev->removable)
-				break;
-		case UNIT_ATTENTION:
-			if (sdev->removable) {
-				sdev->changed = 1;
-				result = 0;	/* This is no longer considered an error */
-				break;
-			}
-		default:	/* Fall through for non-removable media */
-			sdev_printk(KERN_INFO, sdev,
-				    "ioctl_internal_command return code = %x\n",
-				    result);
-			scsi_print_sense_hdr("   ", &sshdr);
-			break;
-		}
+		sdev_printk(KERN_INFO, sdev,
+			    "ioctl_secu_prot_command return code = %x\n",
+			    result);
+		scsi_print_sense_hdr("   ", &sshdr);
 	}
 
 err_post_buf_alloc:

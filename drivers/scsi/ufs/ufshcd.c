@@ -213,6 +213,7 @@ static int ufshcd_link_hibern8_ctrl(struct ufs_hba *hba, bool en);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 static irqreturn_t ufshcd_intr(int irq, void *__hba);
 static void ufshcd_command_done(struct request *rq);
+static int ufshcd_send_request_sense(struct ufs_hba *hba, struct scsi_device *sdp) ;
 
 static ssize_t ufshcd_debug_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -4672,7 +4673,6 @@ static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 {
 	int ret = 0;
-	struct scsi_device *sdev_rpmb;
 	struct scsi_device *sdev_boot;
 
 	hba->sdev_ufs_device = __scsi_add_device(hba->host, 0, 0,
@@ -4692,13 +4692,13 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 	}
 	scsi_device_put(sdev_boot);
 
-	sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
+	hba->sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
 		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_RPMB_WLUN), NULL);
-	if (IS_ERR(sdev_rpmb)) {
-		ret = PTR_ERR(sdev_rpmb);
+	if (IS_ERR(hba->sdev_rpmb)) {
+		ret = PTR_ERR(hba->sdev_rpmb);
 		goto remove_sdev_boot;
 	}
-	scsi_device_put(sdev_rpmb);
+	scsi_device_put(hba->sdev_rpmb);
 	goto out;
 
 remove_sdev_boot:
@@ -4804,6 +4804,13 @@ retry:
 		}
 
 		pm_runtime_put_sync(hba->dev);
+	}
+
+	ret = ufshcd_send_request_sense(hba, hba->sdev_rpmb);
+	if (ret) {
+		dev_warn(hba->dev, "%s failed to clear uac on rpmb(w-lu) %d\n",
+			__func__, ret);
+		ret = 0;
 	}
 
 	if (!hba->is_init_prefetch)
