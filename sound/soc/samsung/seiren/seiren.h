@@ -123,6 +123,7 @@
 #define INSTANCE_MAX		(20)
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 #define SRAM_FW_MAX		(0x24000)
+#define SRAM_FW_MEMSET_SIZE	(0x22000)
 #else
 #define SRAM_FW_MAX		(0x3B000)
 #endif

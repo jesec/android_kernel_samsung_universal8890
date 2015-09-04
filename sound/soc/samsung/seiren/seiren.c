@@ -590,7 +590,7 @@ static void esa_fw_download(void)
 			memset(si.fwarea[n], 0, FWAREA_SIZE);
 
 		esa_memset_mailbox();
-		memset(si.sram, 0, SRAM_FW_MAX);	/* for ZI area */
+		memset(si.sram, 0, SRAM_FW_MEMSET_SIZE); /* for ZI area */
 		memcpy(si.sram, si.fwmem, si.fw_sbin_size);
 		memcpy(si.fwarea[0], si.fwmem + si.fw_sbin_size,
 					si.fw_dbin_size);
