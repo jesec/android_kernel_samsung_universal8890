@@ -98,7 +98,7 @@
 	(((c)->c_ops->op) ?					\
 		((c)->c_ops->op(args)) : 0)
 
-#define MFC_VER_MAJOR(dev)	((mfc_version(dev) >> 4) & 0xF)
+#define MFC_VER_MAJOR(dev)	((mfc_version(dev) >> 8) & 0xF)
 #define MFC_VER_MINOR(dev)	(mfc_version(dev) & 0xF)
 
 /*

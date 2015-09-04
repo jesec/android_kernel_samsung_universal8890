@@ -67,10 +67,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 		return -EINVAL;
 	}
 	mfc_debug(2, "InstNo: %d/%d\n", ctx->inst_no, S5P_FIMV_CH_SEQ_HEADER);
-	mfc_debug(2, "BUFs: %08x %08x %08x\n",
-		  MFC_READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
-		  MFC_READL(S5P_FIMV_D_CPB_BUFFER_ADDR),
-		  MFC_READL(S5P_FIMV_D_CPB_BUFFER_ADDR));
+	mfc_debug(2, "BUFs: %08x\n", MFC_READL(S5P_FIMV_D_CPB_BUFFER_ADDR));
 
 	reg |= (dec->idr_decoding << S5P_FIMV_D_OPT_IDR_DECODING_SHFT);
 	/* FMO_ASO_CTRL - 0: Enable, 1: Disable */
