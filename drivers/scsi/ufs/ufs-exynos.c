@@ -1808,6 +1808,7 @@ static void exynos_ufs_hibern8_notify(struct ufs_hba *hba,
 static void exynos_ufs_clock_control_notify(struct ufs_hba *hba, bool on, bool notify)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
+	s32 pm_qos_int_value = ufs->pm_qos_int_value;
 
 	switch (notify) {
 	case PRE_CHANGE:
@@ -1818,6 +1819,8 @@ static void exynos_ufs_clock_control_notify(struct ufs_hba *hba, bool on, bool n
 			exynos_ufs_ctrl_hci_core_clk(ufs, false);
 			exynos_ufs_gate_clk(ufs, false);
 		} else {
+			pm_qos_update_request(&ufs->pm_qos_int, 0);
+
 			phy_pma_writel(ufs, 0xff, PHY_PMA_TRSV_ADDR(0x4e, 0));
 			phy_pma_writel(ufs, 0x3f, PHY_PMA_TRSV_ADDR(0x4f, 0));
 			phy_pma_writel(ufs, 0x78, PHY_PMA_COMN_ADDR(0x15));
@@ -1829,6 +1832,8 @@ static void exynos_ufs_clock_control_notify(struct ufs_hba *hba, bool on, bool n
 			phy_pma_writel(ufs, 0x00, PHY_PMA_COMN_ADDR(0x15));
 			phy_pma_writel(ufs, 0x00, PHY_PMA_TRSV_ADDR(0x4f, 0));
 			phy_pma_writel(ufs, 0x80, PHY_PMA_TRSV_ADDR(0x4e, 0));
+
+			pm_qos_update_request(&ufs->pm_qos_int, pm_qos_int_value);
 		} else {
 			exynos_ufs_gate_clk(ufs, true);
 			exynos_ufs_ctrl_hci_core_clk(ufs, true);
@@ -1874,6 +1879,8 @@ static int __exynos_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 static void exynos_ufs_pm_qos_add(struct exynos_ufs *ufs)
 {
+	pm_qos_add_request(&ufs->pm_qos_int, PM_QOS_DEVICE_THROUGHPUT, 0);
+
 	if (!ufs->tp_mon_tbl)
 		return;
 
@@ -1888,6 +1895,7 @@ static void exynos_ufs_pm_qos_add(struct exynos_ufs *ufs)
 
 static void exynos_ufs_pm_qos_remove(struct exynos_ufs *ufs)
 {
+	pm_qos_remove_request(&ufs->pm_qos_int);
 	if (!ufs->tp_mon_tbl)
 		return;
 
@@ -2235,6 +2243,9 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 			}
 		}
 	}
+
+	if (of_property_read_u32(np, "ufs-pm-qos-int", &ufs->pm_qos_int_value))
+		ufs->pm_qos_int_value = 0;
 out:
 	return ret;
 }

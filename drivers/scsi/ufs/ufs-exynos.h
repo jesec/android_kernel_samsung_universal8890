@@ -497,6 +497,8 @@ struct exynos_ufs {
 	struct pm_qos_request	pm_qos_cluster0;
 	struct pm_qos_request	pm_qos_mif;
 	u32 last_threshold;
+	struct pm_qos_request	pm_qos_int;
+	s32			pm_qos_int_value;
 
 	/* Support system power mode */
 	int idle_ip_index;
