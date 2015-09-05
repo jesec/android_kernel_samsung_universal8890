@@ -272,7 +272,7 @@ int decon_reg_wait_for_window_update_timeout(u32 id, u32 win_idx, unsigned long 
 int decon_reg_get_interrupt_and_clear(u32 id);
 
 /* DSC related functions */
-int dsc_reg_init(u32 id, struct decon_lcd *lcd_info);
+int dsc_reg_init(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info);
 
 /* CAL raw functions list */
 void decon_reg_set_disp_ss_cfg(u32 id, void __iomem *disp_ss_regs, u32 dsi_idx, struct decon_mode_info *psr);

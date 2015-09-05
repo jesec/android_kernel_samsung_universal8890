@@ -647,7 +647,7 @@ void decon_reg_configure_lcd(u32 id, enum decon_dsi_mode dsi_mode, struct decon_
 			decon_err("not supported data path for %d DSC of decon%d",
 					lcd_info->dsc_cnt, id);
 
-		dsc_reg_init(id, lcd_info);
+		dsc_reg_init(id, dsi_mode, lcd_info);
 	} else {
 		decon_reg_set_splitter(id, dsi_mode, lcd_info->xres, lcd_info->yres);
 		decon_reg_set_frame_fifo_size(id, dsi_mode, lcd_info->xres, lcd_info->yres);
@@ -1285,12 +1285,35 @@ void dsc_reg_set_pps_34_35_final_offset(u32 encoder_id, u32 chunk_size, u32 slic
 	dsc_write(encoder_id, (DSC_PPS32_35), reg);
 }
 
-void dsc_reg_set_pps(u32 encoder_id, struct decon_lcd *lcd_info)
+void dsc_reg_set_encoder(u32 encoder_id, struct decon_lcd *lcd_info)
+{
+	u32 dual_slice = 0;
+
+	if (lcd_info->dsc_slice_num == 4 ||
+			(lcd_info->dsc_cnt == 1 && lcd_info->dsc_slice_num == 2))
+		dual_slice = 1;
+
+	decon_dbg("dual slice(%d)\n", dual_slice);
+
+	dsc_reg_set_swap(encoder_id, 0x0, 0x0, 0x0);
+	dsc_reg_set_flatness_det_th(encoder_id, 0x2);
+	dsc_reg_set_auto_clock_gating(encoder_id, 1);
+	dsc_reg_set_dual_slice_mode(encoder_id, dual_slice);
+	dsc_reg_set_encoder_bypass(encoder_id, 0);
+	dsc_reg_set_slice_mode_change(encoder_id, 0);
+
+	dsc_reg_set_pps_0_3_dsc_version(encoder_id, 0x11);
+	dsc_reg_set_pps_16_17_init_xmit_delay(encoder_id);
+	dsc_reg_set_pps_21_initial_scale_value(encoder_id);
+	dsc_reg_set_pps_27_first_line_bpg_offset(encoder_id);
+	dsc_reg_set_pps_32_33_initial_offset(encoder_id);
+}
+
+void dsc_reg_set_pps_size(u32 encoder_id, struct decon_lcd *lcd_info)
 {
 	u32 picture_w, picture_h;
 	u32 slice_w, slice_h;
 	u32 chunk_size;
-	u32 dual_slice = 0;
 
 	picture_h = lcd_info->yres;
 	slice_w = lcd_info->xres / lcd_info->dsc_slice_num;
@@ -1306,58 +1329,63 @@ void dsc_reg_set_pps(u32 encoder_id, struct decon_lcd *lcd_info)
 		decon_err("DSC max count is %d\n", lcd_info->dsc_cnt);
 	}
 
-	if (lcd_info->dsc_slice_num == 4 ||
-			(lcd_info->dsc_cnt == 1 && lcd_info->dsc_slice_num == 2))
-		dual_slice = 1;
-
 	decon_dbg("DSC%d: picture w(%d) h(%d)\n", encoder_id, picture_w, picture_h);
-	decon_dbg("slice w(%d) h(%d), chunk(%d), dual slice(%d)\n",
-			slice_w, slice_h, chunk_size, dual_slice);
+	decon_dbg("slice w(%d) h(%d), chunk(%d)\n",
+			slice_w, slice_h, chunk_size);
 
-	dsc_reg_set_swap(encoder_id, 0x0, 0x0, 0x0);
-	dsc_reg_set_flatness_det_th(encoder_id, 0x2);
-	dsc_reg_set_auto_clock_gating(encoder_id, 1);
-	dsc_reg_set_dual_slice_mode(encoder_id, dual_slice);
-	dsc_reg_set_encoder_bypass(encoder_id, 0);
-	dsc_reg_set_slice_mode_change(encoder_id, 0);
 	dsc_reg_set_input_pixel_count(encoder_id, picture_w, picture_h);
 	dsc_reg_set_comp_pixel_count(encoder_id);
 
-	dsc_reg_set_pps_0_3_dsc_version(encoder_id, 0x11);
 	dsc_reg_set_pps_6_7_picture_height(encoder_id, picture_h);
 	dsc_reg_set_pps_8_9_picture_width(encoder_id, picture_w);
 	dsc_reg_set_pps_10_11_slice_height(encoder_id, slice_h);
 	dsc_reg_set_pps_12_13_slice_width(encoder_id, slice_w);
 	dsc_reg_set_pps_14_15_chunk_size(encoder_id, slice_w);
-	dsc_reg_set_pps_16_17_init_xmit_delay(encoder_id);
 	dsc_reg_set_pps_18_19_init_dec_delay(encoder_id, slice_w);
-	dsc_reg_set_pps_21_initial_scale_value(encoder_id);
 	dsc_reg_set_pps_22_23_scale_increment_interval(encoder_id, slice_w, slice_h);
 	dsc_reg_set_pps_24_25_scale_decrement_interval(encoder_id, slice_w);
-	dsc_reg_set_pps_27_first_line_bpg_offset(encoder_id);
 	dsc_reg_set_pps_28_29_nfl_bpg_offset(encoder_id, slice_h);
 	dsc_reg_set_pps_30_31_slice_bpg_offset(encoder_id, slice_w, slice_h, chunk_size);
-	dsc_reg_set_pps_32_33_initial_offset(encoder_id);
 	dsc_reg_set_pps_34_35_final_offset(encoder_id, chunk_size, slice_h);
 }
 
-int dsc_reg_init(u32 id, struct decon_lcd *lcd_info)
+void decon_reg_config_dsc_size(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
 {
 	u32 width = lcd_info->xres / 3;
 	u32 fifo_w = width;
+
+	/* DSC(pps) -> Splitter -> FF_FIFO -> DISPIF */
+	if (lcd_info->dsc_cnt == 2) {
+		dsc_reg_set_input_pixel_count(1, lcd_info->xres >> 1, lcd_info->yres);
+		dsc_reg_set_comp_pixel_count(1);
+		dsc_reg_set_pps_6_7_picture_height(1, lcd_info->yres);
+	}
+	dsc_reg_set_pps_6_7_picture_height(0, lcd_info->yres);
+
+	decon_reg_set_splitter(id, dsi_mode, width, lcd_info->yres);
+	if (lcd_info->dsc_cnt == 2) {
+		fifo_w = width / 2;
+		decon_reg_set_frame_fifo_size(id, DSI_MODE_DUAL_DSI,
+				fifo_w, lcd_info->yres);
+	} else {
+		decon_reg_set_frame_fifo_size(id, DSI_MODE_SINGLE,
+				fifo_w, lcd_info->yres);
+	}
+	decon_reg_set_dispif_size(id, 0, width, lcd_info->yres);
+}
+
+int dsc_reg_init(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
+{
 	u32 w, h;
 
 	if (lcd_info->dsc_cnt == 2) {
-		fifo_w = width / 2;
-		decon_reg_set_frame_fifo_size(id, DSI_MODE_DUAL_DSI, fifo_w,
-				lcd_info->yres);
-		dsc_reg_set_pps(1, lcd_info);
+		dsc_reg_set_encoder(1, lcd_info);
+		dsc_reg_set_pps_size(1, lcd_info);
 	}
-	decon_reg_set_frame_fifo_size(id, DSI_MODE_SINGLE, fifo_w, lcd_info->yres);
 
-	decon_reg_set_splitter(id, DSI_MODE_SINGLE, width, lcd_info->yres);
-	decon_reg_set_dispif_size(id, 0, width, lcd_info->yres);
-	dsc_reg_set_pps(0, lcd_info);
+	dsc_reg_set_encoder(0, lcd_info);
+	dsc_reg_set_pps_size(0, lcd_info);
+	decon_reg_config_dsc_size(id, dsi_mode, lcd_info);
 
 	decon_reg_get_splitter_size(id, &w, &h);
 	decon_dbg("SPLITTER size: w(%d), h(%d)\n", w, h);
@@ -1513,7 +1541,7 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p)
 			decon_err("not supported data path for %d DSC of decon%d",
 					lcd_info->dsc_cnt, id);
 
-		dsc_reg_init(id, lcd_info);
+		dsc_reg_init(id, psr->dsi_mode, lcd_info);
 	} else {
 		decon_reg_set_splitter(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
 		decon_reg_set_frame_fifo_size(id, psr->dsi_mode, lcd_info->xres, lcd_info->yres);
@@ -1572,7 +1600,10 @@ void decon_reg_set_partial_update(u32 id, enum decon_dsi_mode dsi_mode,
 	if (lcd_info->mic_enabled) {
 		if (id != 0)
 			decon_err("\n   [ERROR!!!] decon.%d doesn't support MIC\n", id);
-		decon_reg_config_mic(id, dsi_mode, lcd_info);
+		/* set compression size */
+		decon_reg_set_comp_size(id, lcd_info->mic_ratio, dsi_mode, lcd_info);
+	} else if (lcd_info->dsc_enabled) {
+		decon_reg_config_dsc_size(id, dsi_mode, lcd_info);
 	} else {
 		decon_reg_set_splitter(id, dsi_mode, lcd_info->xres, lcd_info->yres);
 		decon_reg_set_frame_fifo_size(id, dsi_mode, lcd_info->xres, lcd_info->yres);
