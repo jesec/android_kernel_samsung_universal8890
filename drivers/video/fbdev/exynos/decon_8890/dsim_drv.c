@@ -324,6 +324,8 @@ static int dsim_partial_area_command(struct dsim_device *dsim, void *arg)
 	char data_2b[5];
 	int retry;
 
+	dsim_dbg("%s: (%d, %d, %d,%d)\n", __func__,
+			win_rect->x, win_rect->y, win_rect->w, win_rect->h);
 	/* w is right & h is bottom */
 	data_2a[0] = MIPI_DCS_SET_COLUMN_ADDRESS;
 	data_2a[1] = (win_rect->x >> 8) & 0xff;

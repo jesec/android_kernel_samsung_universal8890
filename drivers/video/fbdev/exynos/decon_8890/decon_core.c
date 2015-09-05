@@ -1798,6 +1798,8 @@ static inline void decon_update_2_full(struct decon_device *decon,
 	decon->update_win.y = 0;
 	decon->update_win.w = lcd_info->xres;
 	decon->update_win.h = lcd_info->yres;
+	regs->update_win.x = 0;
+	regs->update_win.y = 0;
 	regs->update_win.w = lcd_info->xres;
 	regs->update_win.h = lcd_info->yres;
 	decon_win_update_dbg("[WIN_UPDATE]update2org: [%d %d %d %d]\n",
@@ -1821,6 +1823,23 @@ static void decon_calibrate_win_update_size(struct decon_device *decon,
 	r1.top = update_config->dst.y;
 	r1.right = r1.left + update_config->dst.w - 1;
 	r1.bottom = r1.top + update_config->dst.h - 1;
+
+	decon_win_update_dbg("[WIN_UPDATE]get_config: [%d %d %d %d]\n",
+			update_config->dst.x, update_config->dst.y,
+			update_config->dst.w, update_config->dst.h);
+
+	if (decon->lcd_info->dsc_enabled) {
+		/* Case of DSC, minimum slice size is xres(full_width) x 64 */
+		if ((update_config->dst.h % 64 == 0)
+				&& (update_config->dst.y % 64 == 0)) {
+			update_config->dst.x = 0;
+			update_config->dst.w = decon->lcd_info->xres;
+		} else {
+			update_config->state = DECON_WIN_STATE_DISABLED;
+			return;
+		}
+	}
+
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		struct decon_win_config *config = &win_config[i];
 		if (config->state != DECON_WIN_STATE_DISABLED) {
