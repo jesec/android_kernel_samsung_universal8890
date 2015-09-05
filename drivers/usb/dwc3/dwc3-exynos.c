@@ -37,6 +37,7 @@
 #include <linux/io.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/usb/otg-fsm.h>
+#include <linux/pm_qos.h>
 
 #include <soc/samsung/exynos-powermode.h>
 
@@ -82,6 +83,10 @@ struct dwc3_exynos {
 
 	struct dwc3_exynos_rsw	rsw;
 	const struct dwc3_exynos_drvdata *drv_data;
+
+#ifdef CONFIG_PM_DEVFREQ
+	unsigned int int_min_lock;
+#endif
 };
 void dwc3_otg_run_sm(struct otg_fsm *fsm);
 
@@ -121,6 +126,10 @@ static const struct of_device_id exynos_dwc3_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, exynos_dwc3_match);
+
+#ifdef CONFIG_PM_DEVFREQ
+static struct pm_qos_request exynos_usb_int_qos;
+#endif
 
 static inline const struct dwc3_exynos_drvdata
 *dwc3_exynos_get_driver_data(struct platform_device *pdev)
@@ -677,6 +686,13 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 		exynos_update_ip_idle_status(exynos->idle_ip_index, 0);
 	}
 
+#ifdef CONFIG_PM_DEVFREQ
+	if (of_property_read_u32(node, "usb-pm-qos-int", &exynos->int_min_lock))
+		exynos->int_min_lock = 0;
+
+	if (exynos->int_min_lock)
+		pm_qos_add_request(&exynos_usb_int_qos, PM_QOS_DEVICE_THROUGHPUT, 0);
+#endif
 	ret = dwc3_exynos_clk_get(exynos);
 	if (ret)
 		return ret;
@@ -779,6 +795,10 @@ static int dwc3_exynos_runtime_suspend(struct device *dev)
 	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8890)
 		exynos_update_ip_idle_status(exynos->idle_ip_index, 1);
 
+#ifdef CONFIG_PM_DEVFREQ
+	if (exynos->int_min_lock)
+		pm_qos_update_request(&exynos_usb_int_qos, 0);
+#endif
 	return 0;
 }
 
@@ -789,6 +809,11 @@ static int dwc3_exynos_runtime_resume(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
+#ifdef CONFIG_PM_DEVFREQ
+	if (exynos->int_min_lock)
+		pm_qos_update_request(&exynos_usb_int_qos,
+					exynos->int_min_lock);
+#endif
 	/* inform what USB state is not idle to IDLE_IP */
 	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8890)
 		exynos_update_ip_idle_status(exynos->idle_ip_index, 0);
