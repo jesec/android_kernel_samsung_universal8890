@@ -643,6 +643,7 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 	int loop, count, ret = 0;
 	struct resource *res;
 	struct device *dev = &pdev->dev;
+	int asv_table_ver = 0;
 
 	if (!node) {
 		dev_err(&pdev->dev, "driver doesnt support"
@@ -711,7 +712,9 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 		}
 
 		/* Get of cl dvfs related information to DT */
-		switch (exynos_get_table_ver()) {
+		asv_table_ver = cal_asv_get_tablever();
+		pr_info("[mailbox] asv_table_ver : %d \n", asv_table_ver);
+		switch (asv_table_ver) {
 		case 0 :
 		case 1 :
 		case 2 :
@@ -803,10 +806,8 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 	exynos_update_ip_idle_status(idle_ip_index, 1);
 
 	/* Write rcc table to apm sram area */
-/*
 	cal_asv_set_rcc_table();
 	cal_rcc_print_info();
-*/
 
 #if (defined(CONFIG_EXYNOS_CL_DVFS_CPU) || defined(CONFIG_EXYNOS_CL_DVFS_G3D) || defined(CONFIG_EXYNOS_CL_DVFS_MIF))
 	cl_init.cl_status = CL_ON;
