@@ -2361,6 +2361,23 @@ void decon_wait_for_vstatus(struct decon_device *decon, u32 timeout)
 		decon_warn("%s:timeout\n", __func__);
 }
 
+static void __decon_update_clear(struct decon_device *decon, struct decon_reg_data *regs)
+{
+	unsigned short i, j;
+	int plane_cnt;
+
+	for (i = 0; i < decon->pdata->max_win; i++) {
+		/* set plane data */
+		plane_cnt = decon_get_plane_cnt(regs->vpp_config[i].format);
+		for (j = 0; j < plane_cnt; ++j)
+			decon->windows[i]->dma_buf_data[j] = regs->dma_buf_data[i][j];
+
+		decon->windows[i]->plane_cnt = plane_cnt;
+	}
+
+	return;
+}
+
 static void decon_update_regs(struct decon_device *decon, struct decon_reg_data *regs)
 {
 	struct decon_dma_buf_data old_dma_bufs[decon->pdata->max_win][MAX_BUF_PLANE_CNT];
@@ -2426,7 +2443,14 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 #endif /* CONFIG_USE_VSYNC_SKIP */
 
 	decon_to_psr_info(decon, &psr);
-	__decon_update_regs(decon, regs);
+	if (regs->num_of_window) {
+		__decon_update_regs(decon, regs);
+	} else {
+		__decon_update_clear(decon, regs);
+		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
+		goto end;
+	}
+
 	if (decon->pdata->out_type == DECON_OUT_WB) {
 		decon_reg_release_resource(decon->id, &psr);
 		decon_vpp_wait_wb_framedone(decon);
@@ -2458,6 +2482,7 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 			decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
 	}
 
+end:
 	DISP_SS_EVENT_LOG(DISP_EVT_TRIG_MASK, &decon->sd, ktime_set(0, 0));
 	decon->trig_mask_timestamp =  ktime_get();
 	for (i = 0; i < decon->pdata->max_win; i++) {
@@ -2620,10 +2645,16 @@ static int decon_set_win_config(struct decon_device *decon,
 			ret = -EINVAL;
 			break;
 		}
-		if (enabled)
+		if (enabled) {
 			win_regs->wincon |= WIN_CONTROL_EN_F;
-		else
+			/*
+			 * Both of DECON_WIN_STATE_BUFFER and DECON_WIN_STATE_COLOR
+			 * should count number of windows.
+			 */
+			regs->num_of_window++;
+		} else {
 			win_regs->wincon &= ~WIN_CONTROL_EN_F;
+		}
 
 		if (color_map) {
 			win_regs->colormap = color;
@@ -2634,7 +2665,6 @@ static int decon_set_win_config(struct decon_device *decon,
 			bw += decon_calc_bandwidth(config->dst.w, config->dst.h,
 					win->fbinfo->var.bits_per_pixel,
 					win->fps);
-			regs->num_of_window++;
 		}
 	}
 
@@ -2671,10 +2701,15 @@ static int decon_set_win_config(struct decon_device *decon,
 	} else {
 		decon_lpd_block(decon);
 		decon->timeline_max++;
-		pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
-		fence = sync_fence_create("display", pt);
-		sync_fence_install(fence, fd);
-		win_data->fence = fd;
+		if (regs->num_of_window) {
+			pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
+			fence = sync_fence_create("display", pt);
+			sync_fence_install(fence, fd);
+			win_data->fence = fd;
+		} else {
+			win_data->fence = -1;
+			put_unused_fd(fd);
+		}
 		mutex_lock(&decon->update_regs_list_lock);
 		list_add_tail(&regs->list, &decon->update_regs_list);
 		mutex_unlock(&decon->update_regs_list_lock);
