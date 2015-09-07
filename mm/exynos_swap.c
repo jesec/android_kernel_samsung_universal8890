@@ -402,8 +402,8 @@ static int eswap_frontswap_store(unsigned type, pgoff_t offset,
 	/* copy page */
 	src = kmap_atomic(page);
 	ret = eswap.ops->request_compress(eswap.priv, src, &entry->index);
-	kunmap_atomic(src);
 	if (ret < 0) {
+		kunmap_atomic(src);
 		eswap_entry_cache_free(entry);
 		eswap_comp_busy++;
 		goto reject;
@@ -414,6 +414,7 @@ static int eswap_frontswap_store(unsigned type, pgoff_t offset,
 	entry->offset = offset;
 	entry->length = PAGE_SIZE;
 	eswap_set_flag(entry, ESWP_QUEUED);
+	kunmap_atomic(src);
 
 	/* zpool pre-allocate */
 	if (!(entry->index % ZS_PREALLOC_THRESHOLD))
