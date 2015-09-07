@@ -88,9 +88,22 @@ void lcd_init(int id, struct decon_lcd *lcd)
 				SEQ_DSC_EN[1]) < 0)
 		dsim_err("fail to write SEQ_DSC_EN command.\n");
 
-	if (dsim_wr_data(id, MIPI_DSI_DSC_PPS, (unsigned long)SEQ_PPS_SLICE4,
-			ARRAY_SIZE(SEQ_PPS_SLICE4)) < 0)
-		dsim_err("fail to write SEQ_PPS_SLICE4 command.\n");
+	switch (lcd->dsc_slice_num)
+	{
+	case 4:
+		if (dsim_wr_data(id, MIPI_DSI_DSC_PPS, (unsigned long)SEQ_PPS_SLICE4,
+					ARRAY_SIZE(SEQ_PPS_SLICE4)) < 0)
+			dsim_err("fail to write SEQ_PPS_SLICE4 command.\n");
+		break;
+	case 2:
+		if (dsim_wr_data(id, MIPI_DSI_DSC_PPS, (unsigned long)SEQ_PPS_SLICE2,
+					ARRAY_SIZE(SEQ_PPS_SLICE2)) < 0)
+			dsim_err("fail to write SEQ_PPS_SLICE2 command.\n");
+		break;
+	default:
+		dsim_err("fail to set MIPI_DSI_DSC_PPS command(no slice).\n");
+		break;
+	}
 
 	/* Sleep Out(11h) */
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE,
