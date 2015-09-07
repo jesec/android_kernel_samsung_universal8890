@@ -34,6 +34,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/exynos-ss.h>
+#include <linux/pm_qos.h>
 
 #include <soc/samsung/exynos-pm.h>
 #include <soc/samsung/cpufreq.h>
@@ -538,9 +539,15 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 }
 
 #if defined(CONFIG_CPU_THERMAL_IPA)
+struct pm_qos_request ipa_cpu_hotplug_request;
 int ipa_hotplug(bool removecores)
 {
-	return cluster1_cores_hotplug(removecores);
+	if (removecores)
+		pm_qos_update_request(&ipa_cpu_hotplug_request, NR_CLUST1_CPUS);
+	else
+		pm_qos_update_request(&ipa_cpu_hotplug_request, NR_CPUS);
+
+	return 0;
 }
 
 static int exynos_tmu_ipa_temp_read(struct exynos_tmu_data *data)
@@ -1180,6 +1187,11 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 #ifdef CONFIG_CPU_PM
 	if (list_is_singular(&dtm_dev_list))
 		exynos_pm_register_notifier(&exynos_low_pwr_nb);
+#endif
+#if defined(CONFIG_CPU_THERMAL_IPA)
+	if (pdata->d_type == CLUSTER1)
+		pm_qos_add_request(&ipa_cpu_hotplug_request, PM_QOS_CPU_ONLINE_MAX,
+					PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 #endif
 
 	return 0;

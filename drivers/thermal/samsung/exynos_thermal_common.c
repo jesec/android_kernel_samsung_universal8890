@@ -28,6 +28,7 @@
 #include <linux/cpufreq.h>
 #include <linux/suspend.h>
 #include <linux/thermal.h>
+#include <linux/pm_qos.h>
 #include <soc/samsung/cpufreq.h>
 
 #include "exynos_thermal_common.h"
@@ -348,6 +349,7 @@ static int exynos_get_trend(struct thermal_zone_device *thermal,
 	return 0;
 }
 
+struct pm_qos_request thermal_cpu_hotplug_request;
 static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
 {
 	struct exynos_thermal_zone *th_zone = thermal->devdata;
@@ -367,14 +369,9 @@ static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
 			 * If current temperature is lower than low threshold,
 			 * call cluster1_cores_hotplug(false) for hotplugged out cpus.
 			 */
-			ret = cluster1_cores_hotplug(false);
-			if (ret) {
-				pr_err("%s: failed cluster1 cores hotplug in\n",
-							__func__);
-			} else {
-				is_cpu_hotplugged_out = false;
-				cpufreq_device->cpufreq_state = 0;
-			}
+			pm_qos_update_request(&thermal_cpu_hotplug_request, NR_CPUS);
+			is_cpu_hotplugged_out = false;
+			cpufreq_device->cpufreq_state = 0;
 		}
 	} else {
 		if (cur_temp >= data->hotplug_out_threshold) {
@@ -382,12 +379,8 @@ static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
 			 * If current temperature is higher than high threshold,
 			 * call cluster1_cores_hotplug(true) to hold temperature down.
 			 */
-			ret = cluster1_cores_hotplug(true);
-			if (ret)
-				pr_err("%s: failed cluster1 cores hotplug out\n",
-							__func__);
-			else
-				is_cpu_hotplugged_out = true;
+			pm_qos_update_request(&thermal_cpu_hotplug_request, NR_CLUST1_CPUS);
+			is_cpu_hotplugged_out = true;
 		}
 	}
 
@@ -553,9 +546,11 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 	}
 
 	/* Add hotplug function ops */
-	if (sensor_conf->hotplug_enable)
+	if (sensor_conf->hotplug_enable) {
 		dev_ops = &exynos_dev_hotplug_ops;
-	else
+		pm_qos_add_request(&thermal_cpu_hotplug_request, PM_QOS_CPU_ONLINE_MAX,
+					PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
+	} else
 		dev_ops = &exynos_dev_ops;
 
 	th_zone->therm_dev = thermal_zone_device_register(
