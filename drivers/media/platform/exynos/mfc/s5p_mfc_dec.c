@@ -2251,6 +2251,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		if (ctx->is_drm && ctx->raw_protect_flag) {
 			struct s5p_mfc_buf *dst_buf;
 			int i;
+
 			mfc_debug(2, "raw_protect_flag(%#lx) remained\n",
 					ctx->raw_protect_flag);
 			for (i = 0; i < MFC_MAX_DPBS; i++) {

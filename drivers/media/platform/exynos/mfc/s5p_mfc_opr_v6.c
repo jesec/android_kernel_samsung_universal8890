@@ -471,6 +471,7 @@ static inline int s5p_mfc_run_dec_last_frames(struct s5p_mfc_ctx *ctx)
 		/* decoder src buffer CFW PROT */
 		if (ctx->is_drm) {
 			int index = temp_vb->vb.v4l2_buf.index;
+
 			if (!test_bit(index, &ctx->stream_protect_flag)) {
 				if (s5p_mfc_stream_buf_prot(ctx, temp_vb, true))
 					mfc_err_ctx("failed to CFW_PROT\n");
@@ -721,6 +722,7 @@ static inline int s5p_mfc_run_enc_last_frames(struct s5p_mfc_ctx *ctx)
 	/* encoder dst buffer CFW PROT */
 	if (ctx->is_drm) {
 		int index = dst_mb->vb.v4l2_buf.index;
+
 		if (!test_bit(index, &ctx->stream_protect_flag)) {
 			if (s5p_mfc_stream_buf_prot(ctx, dst_mb, true))
 				mfc_err_ctx("failed to CFW_PROT\n");
@@ -881,6 +883,7 @@ static inline int s5p_mfc_run_init_dec(struct s5p_mfc_ctx *ctx)
 		/* decoder src buffer CFW PROT */
 		if (ctx->is_drm) {
 			int index = temp_vb->vb.v4l2_buf.index;
+
 			if (!test_bit(index, &ctx->stream_protect_flag)) {
 				if (s5p_mfc_stream_buf_prot(ctx, temp_vb, true))
 					mfc_err_ctx("failed to CFW_PROT\n");
@@ -928,6 +931,7 @@ static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
 	/* encoder dst buffer CFW PROT */
 	if (ctx->is_drm) {
 		int index = dst_mb->vb.v4l2_buf.index;
+
 		if (!test_bit(index, &ctx->stream_protect_flag)) {
 			if (s5p_mfc_stream_buf_prot(ctx, dst_mb, true))
 				mfc_err_ctx("failed to CFW_PROT\n");

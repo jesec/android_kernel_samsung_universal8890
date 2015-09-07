@@ -1939,8 +1939,7 @@ err_pwr_enable:
 err_fw_load:
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (dev->drm_fw_status) {
-		if (dev->is_support_smc)
-			dev->is_support_smc = 0;
+		dev->is_support_smc = 0;
 		dev->drm_fw_status = 0;
 	}
 #endif
@@ -2054,10 +2053,10 @@ static int s5p_mfc_release(struct file *file)
 	spin_unlock_irq(&dev->condlock);
 
 	if (ctx->is_drm) {
-		if (ctx->stream_protect_flag) {
-			mfc_err_ctx("stream_protect_flag(%#lx) remained\n",
-					ctx->stream_protect_flag);
-			ctx->stream_protect_flag = 0;
+		if (ctx->raw_protect_flag) {
+			mfc_err_ctx("raw_protect_flag(%#lx) remained\n",
+					ctx->raw_protect_flag);
+			ctx->raw_protect_flag = 0;
 		}
 		if (ctx->stream_protect_flag) {
 			mfc_err_ctx("stream_protect_flag(%#lx) remained\n",
@@ -2119,8 +2118,7 @@ static int s5p_mfc_release(struct file *file)
 					dev->drm_fw_status = 0;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-					if (dev->is_support_smc)
-						dev->is_support_smc = 0;
+					dev->is_support_smc = 0;
 #endif
 				} else {
 					s5p_mfc_clock_off(dev);
@@ -2156,8 +2154,7 @@ static int s5p_mfc_release(struct file *file)
 		dev->drm_fw_status = 0;
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-		if (dev->is_support_smc)
-			dev->is_support_smc = 0;
+		dev->is_support_smc = 0;
 #endif
 
 #ifdef NAL_Q_ENABLE

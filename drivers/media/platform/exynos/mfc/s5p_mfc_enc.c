@@ -1088,6 +1088,7 @@ static int enc_post_seq_start(struct s5p_mfc_ctx *ctx)
 		/* encoder dst buffer CFW UNPROT */
 		if (ctx->is_drm) {
 			int index = dst_mb->vb.v4l2_buf.index;
+
 			if (test_bit(index, &ctx->stream_protect_flag)) {
 				if (s5p_mfc_stream_buf_prot(ctx, dst_mb, false))
 					mfc_err_ctx("failed to CFW_PROT\n");
