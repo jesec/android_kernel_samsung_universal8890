@@ -50,7 +50,7 @@
 
 /* firmware file information */
 #define fw_checksum	61921
-char *firmware_file = "apm_8890_evt1.h";
+char *firmware_file = "APMFW";
 void __iomem *sram_base;
 void __iomem *exynos_mailbox_reg;
 struct regmap *cortexm3_pmu_regmap;
