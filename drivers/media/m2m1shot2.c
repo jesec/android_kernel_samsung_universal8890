@@ -462,7 +462,6 @@ static void m2m1shot2_schedule_context(struct m2m1shot2_context *ctx)
 	list_move_tail(&ctx->node, &ctx->m21dev->active_contexts);
 
 	set_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
-	set_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
 
 	spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
 
@@ -532,6 +531,7 @@ static void m2m1shot2_start_context(struct m2m1shot2_device *m21dev,
 
 	reinit_completion(&ctx->complete);
 
+	set_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
 	/*
 	 * if there is no fence to wait for, workqueue is not used to push a
 	 * task
@@ -551,79 +551,53 @@ void m2m1shot2_finish_context(struct m2m1shot2_context *ctx, bool success)
 static void m2m1shot2_cancel_context(struct m2m1shot2_context *ctx)
 {
 	unsigned long flags;
-	unsigned int i;
-	bool need_to_wait = false;
 
-	/* signal all possible release fences */
-	sw_sync_timeline_inc(ctx->timeline, 1);
-
-	mutex_lock(&ctx->mutex);
-
-	for (i = 0; i < M2M1SHOT2_MAX_IMAGES; i++) {
-		/* sync_fence_put() is called later */
-		if (ctx->source[i].img.fence)
-			sync_fence_cancel_async(ctx->source[i].img.fence,
-						&ctx->source[i].img.waiter);
-	}
-
-	if (ctx->target.fence)
-		sync_fence_cancel_async(ctx->target.fence, &ctx->target.waiter);
 	/*
 	 * wait until the H/W finishes the processing about the context if
 	 * the context is being serviced by H/W. This should be the only waiter
-	 * for the context.
+	 * for the context. If nothing is to be waited for,
+	 * m2m1shot2_wait_process() returns immediately.
 	 */
-	spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
+	m2m1shot2_wait_process(ctx->m21dev, ctx);
 
-	if (list_empty(&ctx->node)) {
-		need_to_wait = true;
-		BUG_ON(ctx->m21dev->current_ctx != ctx);
-	} else {
-		list_del_init(&ctx->node);
-	}
-
-	spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
-
-	if (need_to_wait) {
-		m2m1shot2_wait_process(ctx->m21dev, ctx);
-		clear_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
-		/*
-		 * this context is added to m2m1shot2_device.contexts by
-		 * m2m1shot2_finish_context() called by the client device driver
-		 */
-		spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
-		list_del_init(&ctx->node);
-		spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
-	} else {
-		/*
-		 * if the context is removed from
-		 * m2m1shot2_device.active_contexts, the following flags should
-		 * also be cleared.
-		 */
-		clear_bit(M2M1S2_CTXSTATE_PROCESSING, &ctx->state);
-		clear_bit(M2M1S2_CTXSTATE_PENDING, &ctx->state);
-		/*
-		 * confirm unmap if the context is removed
-		 * from m2m1shot2_device.active_contexts
-		 */
-		m2m1shot2_unmap_images(ctx);
-	}
-
-	/*
-	 * PROCESSED state may not be cleared
-	 * if a user does not waited for the processing
-	 */
+	/* PROCESSED and WAITING should be cleared as if a user waited. */
+	clear_bit(M2M1S2_CTXSTATE_WAITING, &ctx->state);
 	clear_bit(M2M1S2_CTXSTATE_PROCESSED, &ctx->state);
 
-	BUG_ON(!list_empty(&ctx->node));
+	/* ERROR is set if the waiting task is signaled */
+	clear_bit(M2M1S2_CTXSTATE_ERROR, &ctx->state);
+
+	/*
+	 * this context is added to m2m1shot2_device.contexts by
+	 * m2m1shot2_finish_context() called by the client device driver
+	 */
+	spin_lock_irqsave(&ctx->m21dev->lock_ctx, flags);
+	BUG_ON(list_empty(&ctx->node));
+	list_del_init(&ctx->node);
+	spin_unlock_irqrestore(&ctx->m21dev->lock_ctx, flags);
+
+	/* signal all possible release fences */
+	sw_sync_timeline_inc(ctx->timeline, 1);
 
 	/* to confirm if no reference to a resource exists */
 	m2m1shot2_put_images(ctx);
 
 	WARN(!M2M1S2_CTXSTATE_IDLE(ctx),
 		"state should be IDLE but %#lx\n", ctx->state);
+}
 
-	mutex_unlock(&ctx->mutex);
+static void m2m1shot2_destroy_context(struct work_struct *work)
+{
+	struct m2m1shot2_context *ctx =
+		container_of(work, struct m2m1shot2_context, dwork);
+
+	m2m1shot2_cancel_context(ctx);
+
+	sync_timeline_destroy(&ctx->timeline->obj);
+
+	ctx->m21dev->ops->free_context(ctx);
+
+	kfree(ctx);
 }
 
 /*
@@ -638,13 +612,18 @@ static int m2m1shot2_release(struct inode *inode, struct file *filp)
 {
 	struct m2m1shot2_context *ctx = filp->private_data;
 
-	m2m1shot2_cancel_context(ctx);
-
-	sync_timeline_destroy(&ctx->timeline->obj);
-
-	ctx->m21dev->ops->free_context(ctx);
-
-	kfree(ctx);
+	if (M2M1S2_CTXSTATE_IDLE(ctx)) {
+		/*
+		 * directly call to the destructor because there is nothing to
+		 * wait for. Otherwise, memory shortage may occur when the
+		 * queued destructors are too much pended.
+		 */
+		m2m1shot2_destroy_context(&ctx->dwork);
+	} else {
+		INIT_WORK(&ctx->dwork, m2m1shot2_destroy_context);
+		/* always success */
+		queue_work(ctx->m21dev->destroy_workqueue, &ctx->dwork);
+	}
 
 	return 0;
 }
@@ -1738,11 +1717,19 @@ struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 		goto err_misc;
 
 	m21dev->schedule_workqueue =
-		create_singlethread_workqueue("name-schedule_workqueue");
+		create_singlethread_workqueue("m2m1shot2-scheduler");
 	if (!m21dev->schedule_workqueue) {
 		dev_err(dev, "failed to create workqueue for scheduling\n");
 		ret = -ENOMEM;
 		goto err_workqueue;
+	}
+
+	m21dev->destroy_workqueue =
+		create_singlethread_workqueue("m2m1shot2-destructor");
+	if (!m21dev->schedule_workqueue) {
+		dev_err(dev, "failed to create workqueue for context destruction\n");
+		ret = -ENOMEM;
+		goto err_workqueue2;
 	}
 
 	spin_lock_init(&m21dev->lock_ctx);
@@ -1756,6 +1743,8 @@ struct m2m1shot2_device *m2m1shot2_create_device(struct device *dev,
 	dev_info(dev, "registered as m2m1shot2 device");
 
 	return m21dev;
+err_workqueue2:
+	destroy_workqueue(m21dev->schedule_workqueue);
 err_workqueue:
 	misc_deregister(&m21dev->misc);
 err_misc:
@@ -1769,6 +1758,7 @@ EXPORT_SYMBOL(m2m1shot2_create_device);
 
 void m2m1shot2_destroy_device(struct m2m1shot2_device *m21dev)
 {
+	destroy_workqueue(m21dev->destroy_workqueue);
 	destroy_workqueue(m21dev->schedule_workqueue);
 	misc_deregister(&m21dev->misc);
 	kfree(m21dev->misc.name);

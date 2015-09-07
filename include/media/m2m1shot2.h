@@ -190,6 +190,8 @@ struct m2m1shot2_devops {
 #define M2M1S2_CTXSTATE_CACHEINVALALL		17
 
 #define M2M1S2_CTXSTATE_IDLE(ctx)		(((ctx)->state & 0xFFFF) == 0)
+/* PROCESSIG | PENDING */
+#define M2M1S2_CTXSTATE_BUSY(ctx)		(((ctx)->state & 0x3) == 0)
 
 /**
  * struct m2m1shot2_context - context of tasks
@@ -201,6 +203,11 @@ struct m2m1shot2_devops {
  * @priv	: private data that is allowed to store client drivers' private
  * @mutex	: serialization of user's requests
  * @complete	: sync point between the waiter and the driver
+ * @work	: work to schedule the context that is scheduled by a fence
+ *		  because asynchronous waiter of an Android fence is invoked
+ *		  with IRQ disabled.
+ * @dwork	: work to schedule the destruction of the context because it
+ *		  is required to wait until a pending context to be finished.
  * @flags	: flags specified in m2m1shot2.flags.
  * @num_sources	: the number of effective elements in @source
  * @source	: source image information
@@ -219,6 +226,7 @@ struct m2m1shot2_context {
 	struct mutex			mutex;
 	struct completion		complete;
 	struct work_struct		work;
+	struct work_struct		dwork;
 
 	unsigned int			flags;
 	unsigned int			num_sources;
@@ -277,6 +285,7 @@ struct m2m1shot2_device {
 	spinlock_t			lock_ctx;
 	const struct m2m1shot2_devops	*ops;
 	struct workqueue_struct		*schedule_workqueue;
+	struct workqueue_struct		*destroy_workqueue;
 };
 
 #ifdef CONFIG_MEDIA_M2M1SHOT2
