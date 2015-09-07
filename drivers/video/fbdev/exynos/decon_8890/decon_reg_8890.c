@@ -1010,18 +1010,14 @@ void dsc_reg_set_input_pixel_count(u32 encoder_id, u32 picture_width, u32 pictur
 {
 	u32 reg;
 
-	if (encoder_id == 1) {
-		reg = (picture_width*picture_height);
-		dsc_write(encoder_id, DSC_IN_PIXEL_COUNT, reg);
-	}
+	reg = (picture_width*picture_height);
+	dsc_write(encoder_id, DSC_IN_PIXEL_COUNT, reg);
 }
 void dsc_reg_set_comp_pixel_count(u32 encoder_id)
 {
 	u32 reg;
-	if (encoder_id == 1) {
-		reg = decon_read(0, FRAME_FIFO_0_SIZE_CONTROL_1);
-		dsc_write(encoder_id, DSC_COMP_PIXEL_COUNT, reg);
-	}
+	reg = decon_read(0, FRAME_FIFO_0_SIZE_CONTROL_1);
+	dsc_write(encoder_id, DSC_COMP_PIXEL_COUNT, reg);
 }
 
 /*
@@ -1189,6 +1185,7 @@ void dsc_reg_set_pps_22_23_scale_increment_interval(u32 encoder_id, u32 slice_wi
 	uNumExtraMuxBits = dsc_reg_get_num_extra_mux_bits(slice_height, chunk_size);
 	uGroupsTotal = ((slice_width+2)/3)*slice_height;
 	uPPS30_SliceBpgOffset = (u32)CEIL(2048*(DSC_RC_MODE_SIZE-DSC_INIT_OFFSET+uNumExtraMuxBits)/uGroupsTotal);
+	uPPS30_SliceBpgOffset += 1;
 
 	uNumExtraMuxBits = dsc_reg_get_num_extra_mux_bits(slice_height, chunk_size);
 	uPPS34_FinalOffset = DSC_RC_MODE_SIZE-((DSC_INIT_TRANSMIT_DELAY*DSC_BIT_PER_PIXEL+8)>>4)+uNumExtraMuxBits;
@@ -1200,7 +1197,7 @@ void dsc_reg_set_pps_22_23_scale_increment_interval(u32 encoder_id, u32 slice_wi
 
 	reg  =  dsc_read(encoder_id, DSC_PPS20_23);
 	reg &= ~DSC_PPS22_23_SCALE_INCREMENT_INTERVAL_MASK;
-	reg |= DSC_PPS22_23_SCALE_INCREMENT_INTERVAL(0x04F2);
+	reg |= DSC_PPS22_23_SCALE_INCREMENT_INTERVAL(uPPS22_ScaleIncrementInterval);
 	dsc_write(encoder_id, DSC_PPS20_23, reg);
 }
 
@@ -1252,6 +1249,7 @@ void dsc_reg_set_pps_30_31_slice_bpg_offset(u32 encoder_id, u32 slice_width, u32
 	uNumExtraMuxBits = dsc_reg_get_num_extra_mux_bits(slice_height, chunk_size);
 	uGroupsTotal = ((slice_width+2)/3)*slice_height;
 	uPPS30_SliceBpgOffset = (u32)CEIL(2048*(DSC_RC_MODE_SIZE-DSC_INIT_OFFSET+uNumExtraMuxBits)/uGroupsTotal);
+	uPPS30_SliceBpgOffset += 1;
 	//decon_info("\nuNumExtraMuxBits = %d", uNumExtraMuxBits);
 	//decon_info("\nuPPS30_SliceBpgOffset=2048*(%d-%d+%d)/(%d)=(%d)", uPPS38_RCModelSize, uPPS32_InitialOffset, uNumExtraMuxBits, uGroupsTotal, uPPS30_SliceBpgOffset);
 
@@ -1317,7 +1315,7 @@ void dsc_reg_set_pps_size(u32 encoder_id, struct decon_lcd *lcd_info)
 
 	picture_h = lcd_info->yres;
 	slice_w = lcd_info->xres / lcd_info->dsc_slice_num;
-	slice_h = (lcd_info->dsc_slice_num == 4) ? 64 : 16;
+	slice_h = (lcd_info->dsc_slice_num == 4) ? 64 : 32;
 	chunk_size = slice_w;
 
 	if (lcd_info->dsc_cnt == 1) {
