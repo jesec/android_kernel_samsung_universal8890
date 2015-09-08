@@ -2473,8 +2473,7 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 		/* wait until decon & dsim size matches */
 		decon_wait_until_size_match(decon, decon->pdata->out_idx, 50 * 1000); /* 50ms */
 
-		if (!decon->sw_te_wa)
-			decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
+		decon_reg_set_trigger(decon->id, &psr, DECON_TRIG_DISABLE);
 	}
 
 end:
@@ -3869,11 +3868,6 @@ decon_init_done:
 			goto fail_update_thread;
 		}
 		pm_stay_awake(decon->dev);
-
-		if (dev->of_node) {
-			of_property_read_u32(dev->of_node, "sw_te_wa",
-					&decon->sw_te_wa);
-		}
 		dev_warn(decon->dev, "pm_stay_awake");
 		cam_stat = of_get_child_by_name(decon->dev->of_node, "cam-stat");
 		if (!cam_stat) {
@@ -3895,7 +3889,6 @@ decon_init_done:
 		decon->vpp_used[i] = false;
 
 	decon->log_cnt = 0;
-
 	decon_info("decon%d registered successfully", decon->id);
 
 	return 0;

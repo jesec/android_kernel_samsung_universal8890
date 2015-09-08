@@ -752,7 +752,6 @@ struct decon_device {
 	struct workqueue_struct		*fifo_irq_wq;
 	int				fifo_irq_status;
 	int log_cnt;
-	int sw_te_wa;
 	int prev_win_state;
 	int old_protection[MAX_DECON_WIN];
 	struct decon_phys_old_info	old_info;

@@ -120,10 +120,6 @@ irqreturn_t decon_f_irq_handler(int irq, void *dev_data)
 		DISP_SS_EVENT_LOG(DISP_EVT_DECON_FRAMEDONE, &decon->sd, ktime_set(0, 0));
 		decon_lpd_trig_reset(decon);
 		wake_up_interruptible_all(&decon->wait_frmdone);
-		if (decon->sw_te_wa) {
-			decon->vsync_info.timestamp = timestamp;
-			wake_up_interruptible_all(&decon->vsync_info.wait);
-		}
 	}
 
 	if (irq_sts_reg & INTERRUPT_RESOURCE_CONFLICT_INT_EN)
