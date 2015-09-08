@@ -34,6 +34,21 @@ static void decon_oneshot_underrun_log(struct decon_device *decon)
 		return;
 
 	if (decon->underrun_stat.underrun_cnt > DECON_UNDERRUN_THRESHOLD) {
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+		decon_warn("[underrun]: (cnt %d), (bw %d,%d) (peak_bw %d,%d) (disp %llu,%llu)\n",
+				decon->underrun_stat.underrun_cnt,
+				decon->total_bw, decon->prev_total_bw,
+				decon->max_peak_bw, decon->prev_max_peak_bw,
+				decon->max_disp_ch, decon->prev_max_disp_ch);
+		decon_warn("    total cnt(%d), chmap(0x%08x), win(0x%lx)\n",
+				decon->underrun_stat.total_underrun_cnt,
+				decon->underrun_stat.chmap,
+				decon->underrun_stat.used_windows);
+		decon_warn("    mif(%lu), int(%lu), disp(%lu)\n",
+				cal_dfs_get_rate(dvfs_mif),
+				cal_dfs_get_rate(dvfs_int),
+				cal_dfs_get_rate(dvfs_disp));
+#else
 		decon_warn("[underrun]: (cnt %d), tot_bw %d, int_bw %d, disp_bw %d\n",
 				decon->underrun_stat.underrun_cnt,
 				decon->underrun_stat.prev_bw,
@@ -44,6 +59,7 @@ static void decon_oneshot_underrun_log(struct decon_device *decon)
 				decon->underrun_stat.chmap,
 				decon->underrun_stat.used_windows,
 				decon->underrun_stat.aclk / MHZ);
+#endif
 		decon->underrun_stat.underrun_cnt = 0;
 	}
 
@@ -175,6 +191,9 @@ void decon_f_set_clocks(struct decon_device *decon)
 			NULL, clks.decon[CLK_ID_DPLL] * MHZ);
 	decon_clk_set_rate(dev, decon->res.vclk_leaf,
 			NULL, clks.decon[CLK_ID_VCLK] * MHZ);
+
+	decon->vclk_factor = clk_get_rate(decon->res.vclk_leaf) *
+		DECON_PIX_PER_CLK / MHZ;
 
 	/* ECLK */
 	decon_clk_set_rate(dev, decon->res.eclk,

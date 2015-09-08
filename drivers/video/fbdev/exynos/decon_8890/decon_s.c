@@ -58,6 +58,9 @@ int decon_s_get_clocks(struct decon_device *decon)
 
 void decon_s_set_clocks(struct decon_device *decon)
 {
+	/* TODO: hard-coded 42 will be changed
+	 * default MIC factor is 3, So default VCLK is 42 for calculating DISP */
+	decon->vclk_factor = 42 * DECON_PIX_PER_CLK;
 }
 
 int decon_s_register_irq(struct platform_device *pdev, struct decon_device *decon)

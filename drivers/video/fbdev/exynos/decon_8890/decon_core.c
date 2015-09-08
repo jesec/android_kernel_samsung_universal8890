@@ -3727,17 +3727,17 @@ static int decon_probe(struct platform_device *pdev)
 
 	call_init_ops(decon, bts_add, decon);
 
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	decon->bts2_ops = &decon_bts2_control;
+	decon->bts2_ops->bts_init(decon);
+#endif
+
 	if (!decon->id && decon->pdata->out_type == DECON_OUT_DSI) {
 		/* Enable only Decon_F during probe */
 #if defined(CONFIG_PM_RUNTIME)
 		pm_runtime_get_sync(decon->dev);
 #else
 		decon_runtime_resume(decon->dev);
-#endif
-
-#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
-		decon->bts2_ops = &decon_bts2_control;
-		decon->bts2_ops->bts_init(decon);
 #endif
 
 		if (decon->pdata->psr_mode != DECON_VIDEO_MODE) {

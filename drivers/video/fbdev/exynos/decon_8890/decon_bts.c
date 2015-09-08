@@ -258,6 +258,7 @@ void bts2_calc_bw(struct decon_device *decon, struct decon_reg_data *regs)
 
 	decon->total_bw = 0;
 	decon->max_peak_bw = 0;
+
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		win = decon->windows[i];
 		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
@@ -380,22 +381,22 @@ void bts2_release_rot_bw(enum decon_idma_type type)
 
 void bts2_init(struct decon_device *decon)
 {
-	if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_2)
-		decon->mic_factor = 2;
-	else if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_3)
+	if (decon->lcd_info != NULL) {
+		if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_2)
+			decon->mic_factor = 2;
+		else if (decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_3)
+			decon->mic_factor = 3;
+		else
+			decon->mic_factor = 3;
+
+		if (decon->lcd_info->dsc_enabled)
+			decon->mic_factor = 3;	/* 1/3 compression */
+	} else {
 		decon->mic_factor = 3;
-	else
-		decon->mic_factor = 1;
+	}
 
-	if (decon->lcd_info->dsc_enabled)
-		decon->mic_factor = 3;	/* 1/3 compression */
-
-	decon->vclk_factor = clk_get_rate(decon->res.vclk_leaf) *
-		DECON_PIX_PER_CLK / MHZ;
-
-	decon_info("mic factor(%d), pixel per clock(%d), vclk factor(%d)\n",
-			decon->mic_factor, DECON_PIX_PER_CLK,
-			decon->vclk_factor);
+	decon_info("mic factor(%d), pixel per clock(%d)\n",
+			decon->mic_factor, DECON_PIX_PER_CLK);
 
 	pm_qos_add_request(&decon->disp_qos, PM_QOS_DISPLAY_THROUGHPUT, 0);
 }
