@@ -1265,6 +1265,12 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 							dec->consumed;
 			/* Do not move src buffer to done_list */
 #endif
+		} else if (s5p_mfc_err_dec(err) == S5P_FIMV_ERR_NON_PAIRED_FIELD) {
+			/*
+			 * For non-paired field, the same buffer need to be
+			 * resubmitted and the consumed stream will be 0
+			 */
+			mfc_debug(2, "Not paired field. Running again the same buffer.\n");
 		} else {
 			index = src_buf->vb.v4l2_buf.index;
 			if (call_cop(ctx, recover_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
