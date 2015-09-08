@@ -295,6 +295,8 @@ DECLARE_EXYNOS_ION_RESERVED_REGION("exynos8890-ion,", vnfw);
 DECLARE_EXYNOS_ION_RESERVED_REGION("exynos8890-ion,", vstream);
 DECLARE_EXYNOS_ION_RESERVED_REGION("exynos8890-ion,", vframe);
 DECLARE_EXYNOS_ION_RESERVED_REGION("exynos8890-ion,", vscaler);
+DECLARE_EXYNOS_ION_RESERVED_REGION("exynos8890-ion,", gpu_crc);
+DECLARE_EXYNOS_ION_RESERVED_REGION("exynos8890-ion,", gpu_buffer);
 
 int ion_exynos_contig_heap_info(int region_id, phys_addr_t *phys, size_t *size)
 {
