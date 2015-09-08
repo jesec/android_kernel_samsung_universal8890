@@ -66,6 +66,11 @@ static struct class *mailbox_class;
 static struct debug_data tx, rx;
 static unsigned int firmware_load_mode;
 
+extern u32 mngs_lv;
+extern u32 apo_lv;
+extern u32 gpu_lv;
+extern u32 mif_lv;
+
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 u32 atl_voltage;
 u32 apo_voltage;
@@ -719,7 +724,8 @@ static int samsung_mbox_probe(struct platform_device *pdev)
 		case 1 :
 		case 2 :
 		case 3 :
-			ret = of_property_read_u32_index(node, "asv_v0_atlas_margin", 0, &cl_init.atlas_margin);
+		case 4 :
+			ret = of_property_read_u32_index(node, "asv_v0_mngs_margin", 0, &cl_init.atlas_margin);
 			if (ret) {
 				dev_err(&pdev->dev, "atlas_margin do not set, Set to default 0mV Value\n");
 				cl_init.atlas_margin = MARGIN_0MV;
@@ -895,6 +901,31 @@ static int mailbox_receive_data_open_show(struct seq_file *buf, void *d)
 	return 0;
 }
 
+static int hpm_read_open_show(struct seq_file *buf, void *d)
+{
+	unsigned int tmp = 0;
+	unsigned int cur_hpm[4] = {0, 0, 0, 0};
+	unsigned int tar_hpm[4] = {0, 0, 0, 0};
+
+	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG3);
+	cur_hpm[0] = tmp & 0xFF;
+	cur_hpm[1] = (tmp >> 8) & 0xFF;
+	cur_hpm[2] = (tmp >> 16) & 0xFF;
+	cur_hpm[3] = (tmp >> 24) & 0xFF;
+
+	tmp = __raw_readl(exynos_mailbox_reg + EXYNOS_MAILBOX_RX_MSG7);
+	tar_hpm[0] = tmp & 0xFF;
+	tar_hpm[1] = (tmp >> 8) & 0xFF;
+	tar_hpm[2] = (tmp >> 16) & 0xFF;
+	tar_hpm[3] = (tmp >> 24) & 0xFF;
+
+	seq_printf(buf,"mngs[%d][%d], apo[%d][%d], gpu[%d][%d], mif[%d][%d]\n",
+			cur_hpm[3], tar_hpm[3], cur_hpm[2], tar_hpm[2],
+			cur_hpm[1], tar_hpm[1], cur_hpm[0], tar_hpm[0]);
+
+	return 0;
+}
+
 static int cm3_margin_open_show(struct seq_file *buf, void *d)
 {
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
@@ -915,9 +946,9 @@ static int cm3_margin_open_show(struct seq_file *buf, void *d)
 static int cl_voltage_open_show(struct seq_file *buf, void *d)
 {
 	seq_printf(buf, "[Voltage rail][input uV][cl_volt uV]\n");
-	seq_printf(buf, "MNGS : %d %d APO : %d %d GPU : %d %d MIF : %d %d \n",
-		atl_in_voltage, atl_voltage, apo_in_voltage, apo_voltage,
-		g3d_in_voltage, g3d_voltage, mif_in_voltage, mif_voltage);
+	seq_printf(buf, "MNGS[L%d] : %d %d APO[L%d] : %d %d GPU[L%d] : %d %d MIF[L%d] : %d %d \n",
+		mngs_lv, atl_in_voltage, atl_voltage, apo_lv, apo_in_voltage, apo_voltage,
+		gpu_lv, g3d_in_voltage, g3d_voltage, mif_lv, mif_in_voltage, mif_voltage);
 
 	return 0;
 }
@@ -1072,6 +1103,11 @@ static int cm3_margin_open(struct inode *inode, struct file *file)
 	return single_open(file, cm3_margin_open_show, inode->i_private);
 }
 
+static int hpm_read_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, hpm_read_open_show, inode->i_private);
+}
+
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 static int cl_voltage_open(struct inode *inode, struct file *file)
 {
@@ -1114,6 +1150,13 @@ static const struct file_operations mode_margin_fops = {
 	.release	= single_release,
 };
 
+static const struct file_operations hpm_fops = {
+	.open		= hpm_read_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 static const struct file_operations cl_voltage_fops = {
 	.open		= cl_voltage_open,
@@ -1146,6 +1189,7 @@ void mailbox_debugfs(void)
 	debugfs_create_file("receive_data", 0644, den, NULL, &receive_status_fops);
 	debugfs_create_file("mode", 0644, den, NULL, &mode_status_fops);
 	debugfs_create_file("cl_dvs_margin", 0644, den, NULL, &mode_margin_fops);
+	debugfs_create_file("hpm", 0644, den, NULL, &hpm_fops);
 #ifdef CONFIG_EXYNOS_APM_VOLTAGE_DEBUG
 	debugfs_create_file("cl_voltage", 0644, den, NULL, &cl_voltage_fops);
 #endif

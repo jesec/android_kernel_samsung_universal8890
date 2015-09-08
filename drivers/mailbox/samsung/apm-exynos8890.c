@@ -37,6 +37,10 @@ u32 atl_in_voltage;
 u32 apo_in_voltage;
 u32 g3d_in_voltage;
 #endif
+u32 mngs_lv;
+u32 apo_lv;
+u32 gpu_lv;
+u32 mif_lv;
 
 struct mbox_client cl;
 
@@ -394,9 +398,22 @@ static int exynos8890_do_cl_dvfs_stop(unsigned int cl_domain, unsigned int level
 		return 0;
 	}
 
-	if (cl_domain == ID_G3D) {
-		/* G3D driver not use level 0, 1 */
+	switch (cl_domain) {
+	case ID_CL1 :
+		mngs_lv = level;
+		break;
+	case ID_CL0 :
+		apo_lv = level;
+		break;
+	case ID_MIF :
+		mif_lv = level;
+		break;
+	case ID_G3D :
 		level = level + G3D_LV_OFFSET;
+		gpu_lv = level;
+		break;
+	default:
+		break;
 	}
 
 	channel_ack_mode(&cl);
