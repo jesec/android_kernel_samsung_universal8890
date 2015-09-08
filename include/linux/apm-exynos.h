@@ -98,7 +98,7 @@
 
 /* apm related variables */
 #define MSG_LEN					(5)
-#define G3D_LV_OFFSET				(3)
+#define G3D_LV_OFFSET				(0)
 #define MBOX_LEN				(4)
 #define TIMEOUT					(500)		/* timeout 500 msec */
 #define TX					(0)
