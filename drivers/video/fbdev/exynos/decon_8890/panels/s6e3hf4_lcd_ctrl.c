@@ -115,10 +115,6 @@ void lcd_init(int id, struct decon_lcd *lcd)
 
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, SEQ_TE_ON[0], 0) < 0)
 		dsim_err("fail to write SEQ_TE_ON init command.\n");
-
-	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TEST_KEY_ON_2A,
-				ARRAY_SIZE(SEQ_TEST_KEY_ON_2A)) < 0);
-		dsim_err("fail to write SEQ_TE_ON command.\n");
 }
 
 void lcd_enable(int id)
