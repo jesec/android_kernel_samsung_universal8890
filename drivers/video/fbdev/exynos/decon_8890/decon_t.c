@@ -112,6 +112,8 @@ void decon_t_set_clocks(struct decon_device *decon)
 	decon_reg_get_clock_ratio(&clks, p.lcd_info);
 
 	/* ECLK */
+	decon_clk_set_rate(dev, decon->res.eclk,
+			NULL, clks.decon[CLK_ID_ECLK] * MHZ);
 	decon_clk_set_rate(dev, decon->res.eclk_leaf,
 			NULL, clks.decon[CLK_ID_ECLK] * MHZ);
 

@@ -155,7 +155,7 @@ enum decon_clk_id {
 };
 
 struct decon_clocks {
-	unsigned long decon[CLK_ID_DPLL + 1];
+	signed long decon[CLK_ID_DPLL + 1];
 };
 
 enum decon_data_path {
