@@ -62,7 +62,6 @@ struct s5p_mfc_platdata {
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 	int num_qos_steps;
 	struct s5p_mfc_qos *qos_table;
-	struct s5p_mfc_qos *qos_extra;
 #endif
 };
 

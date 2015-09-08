@@ -2299,30 +2299,6 @@ static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
 
 	return ret;
 }
-
-static int parse_mfc_qos_extra(struct device_node *np, char *node_name,
-	struct s5p_mfc_qos *pdata)
-{
-	int ret = 0;
-	struct device_node *np_qos;
-
-	np_qos = of_find_node_by_name(np, node_name);
-	if (!np_qos) {
-		/* If there is no extra table, set init value */
-		pdata->thrd_mb = MFC_QOS_FLAG_NODATA;
-		return 0;
-	}
-
-	of_property_read_u32(np_qos, "thrd_mb", &pdata->thrd_mb);
-	if (pdata->thrd_mb != MFC_QOS_FLAG_NODATA) {
-		of_property_read_u32(np_qos, "freq_int", &pdata->freq_int);
-		of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
-		of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
-		of_property_read_u32(np_qos, "freq_kfc", &pdata->freq_kfc);
-	}
-
-	return ret;
-}
 #endif
 
 static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
@@ -2349,15 +2325,6 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 		snprintf(node_name, sizeof(node_name), "mfc_qos_variant_%d", i);
 		parse_mfc_qos_platdata(np, node_name, &pdata->qos_table[i]);
 	}
-
-	pdata->qos_extra = devm_kzalloc(mfc->device,
-			sizeof(struct s5p_mfc_qos) * pdata->num_qos_steps, GFP_KERNEL);
-
-	for (i = 0; i < pdata->num_qos_steps; i++) {
-		snprintf(node_name, sizeof(node_name), "mfc_qos_extra_var_%d", i);
-		parse_mfc_qos_extra(np, node_name, &pdata->qos_extra[i]);
-	}
-
 #endif
 }
 
@@ -2674,11 +2641,6 @@ static int s5p_mfc_probe(struct platform_device *pdev)
 				i,
 				dev->pdata->qos_table[i].freq_int,
 				dev->pdata->qos_table[i].freq_mif);
-		if (dev->pdata->qos_extra[i].thrd_mb != MFC_QOS_FLAG_NODATA)
-			mfc_info_dev(">> Extra[%d] int : %d, mif : %d\n",
-				i,
-				dev->pdata->qos_extra[i].freq_int,
-				dev->pdata->qos_extra[i].freq_mif);
 	}
 #endif
 

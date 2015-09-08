@@ -31,19 +31,6 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 	struct s5p_mfc_platdata *pdata = dev->pdata;
 	struct s5p_mfc_qos *qos_table = pdata->qos_table;
 
-	if (ctx->buf_process_type & MFCBUFPROC_COPY) {
-		if (pdata->qos_extra[idx].thrd_mb != MFC_QOS_FLAG_NODATA) {
-			qos_table = pdata->qos_extra;
-#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
-			mfc_info_ctx("[Replace QOS] int: %d, mif: %d, cpu: %d, kfc: %d\n",
-					qos_table[idx].freq_int,
-					qos_table[idx].freq_mif,
-					qos_table[idx].freq_cpu,
-					qos_table[idx].freq_kfc);
-#endif
-		}
-	}
-
 	switch (opr_type) {
 	case MFC_QOS_ADD:
 		MFC_TRACE_CTX("++ QOS add[%d] (int:%d, mif:%d)\n",
