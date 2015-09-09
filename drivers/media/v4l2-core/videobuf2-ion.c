@@ -582,7 +582,8 @@ static void vb2_ion_put_userptr_dmabuf(struct vb2_ion_context *ctx,
 					struct vb2_ion_buf *buf)
 {
 	if (ctx_iommu(ctx))
-		ion_iovmm_unmap(buf->attachment, buf->cookie.ioaddr);
+		ion_iovmm_unmap(buf->attachment,
+				buf->cookie.ioaddr - buf->cookie.offset);
 
 	dma_buf_unmap_attachment(buf->attachment,
 				 buf->cookie.sgt, buf->direction);
@@ -619,6 +620,8 @@ static void *vb2_ion_get_userptr_dmabuf(struct vb2_ion_context *ctx,
 			ret = ERR_PTR(buf->cookie.ioaddr);
 			goto err_iovmm;
 		}
+
+		buf->cookie.ioaddr += buf->cookie.offset;
 	}
 
 	return NULL;
