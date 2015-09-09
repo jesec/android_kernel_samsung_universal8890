@@ -1824,6 +1824,13 @@ static int s5p_mfc_open(struct file *file)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (is_drm_node(node)) {
 		if (dev->num_drm_inst < MFC_MAX_DRM_CTX) {
+			if (ctx->raw_protect_flag || ctx->stream_protect_flag) {
+				mfc_err_ctx("protect_flag(%#lx/%#lx) remained\n",
+						ctx->raw_protect_flag,
+						ctx->stream_protect_flag);
+				ret = -EINVAL;
+				goto err_drm_start;
+			}
 			dev->num_drm_inst++;
 			ctx->is_drm = 1;
 
@@ -2057,19 +2064,6 @@ static int s5p_mfc_release(struct file *file)
 	spin_lock_irq(&dev->condlock);
 	clear_bit(ctx->num, &dev->ctx_work_bits);
 	spin_unlock_irq(&dev->condlock);
-
-	if (ctx->is_drm) {
-		if (ctx->raw_protect_flag) {
-			mfc_err_ctx("raw_protect_flag(%#lx) remained\n",
-					ctx->raw_protect_flag);
-			ctx->raw_protect_flag = 0;
-		}
-		if (ctx->stream_protect_flag) {
-			mfc_err_ctx("stream_protect_flag(%#lx) remained\n",
-					ctx->stream_protect_flag);
-			ctx->stream_protect_flag = 0;
-		}
-	}
 
 	/* If instance was initialised then
 	 * return instance and free reosurces */

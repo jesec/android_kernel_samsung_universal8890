@@ -3435,6 +3435,24 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	spin_lock_irqsave(&dev->irqlock, flags);
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (ctx->is_drm && ctx->stream_protect_flag) {
+			struct s5p_mfc_buf *dst_buf;
+			int i;
+
+			mfc_debug(2, "stream_protect_flag(%#lx) will be released\n",
+					ctx->stream_protect_flag);
+			list_for_each_entry(dst_buf, &ctx->dst_queue, list) {
+				i = dst_buf->vb.v4l2_buf.index;
+				if (test_bit(i, &ctx->stream_protect_flag)) {
+					if (s5p_mfc_stream_buf_prot(ctx, dst_buf, false))
+						mfc_err_ctx("failed to CFW_UNPROT\n");
+					else
+						clear_bit(i, &ctx->stream_protect_flag);
+				}
+				mfc_debug(2, "[%d] enc dst buf un-prot_flag: %#lx\n",
+						i, ctx->stream_protect_flag);
+			}
+		}
 		s5p_mfc_cleanup_queue(&ctx->dst_queue);
 		INIT_LIST_HEAD(&ctx->dst_queue);
 		ctx->dst_queue_cnt = 0;
@@ -3448,6 +3466,24 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		}
 	} else if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		cleanup_ref_queue(ctx);
+		if (ctx->is_drm && ctx->raw_protect_flag) {
+			struct s5p_mfc_buf *src_buf;
+			int i;
+
+			mfc_debug(2, "raw_protect_flag(%#lx) will be released\n",
+					ctx->raw_protect_flag);
+			list_for_each_entry(src_buf, &ctx->src_queue, list) {
+				i = src_buf->vb.v4l2_buf.index;
+				if (test_bit(i, &ctx->raw_protect_flag)) {
+					if (s5p_mfc_raw_buf_prot(ctx, src_buf, false))
+						mfc_err_ctx("failed to CFW_UNPROT\n");
+					else
+						clear_bit(i, &ctx->raw_protect_flag);
+				}
+				mfc_debug(2, "[%d] enc src buf un-prot_flag: %#lx\n",
+						i, ctx->raw_protect_flag);
+			}
+		}
 
 		s5p_mfc_cleanup_queue(&ctx->src_queue);
 		INIT_LIST_HEAD(&ctx->src_queue);
@@ -3559,8 +3595,6 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	INIT_LIST_HEAD(&ctx->dst_queue_nal_q);
 	ctx->src_queue_cnt = 0;
 	ctx->dst_queue_cnt = 0;
-	ctx->raw_protect_flag = 0;
-	ctx->stream_protect_flag = 0;
 	ctx->src_queue_cnt_nal_q = 0;
 	ctx->dst_queue_cnt_nal_q = 0;
 

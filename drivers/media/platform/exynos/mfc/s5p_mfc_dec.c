@@ -2250,24 +2250,21 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 			struct s5p_mfc_buf *dst_buf;
 			int i;
 
-			mfc_debug(2, "raw_protect_flag(%#lx) remained\n",
+			mfc_debug(2, "raw_protect_flag(%#lx) will be released\n",
 					ctx->raw_protect_flag);
 			for (i = 0; i < MFC_MAX_DPBS; i++) {
-				if (ctx->raw_protect_flag & (1 << i)) {
+				if (test_bit(i, &ctx->raw_protect_flag)) {
 					dst_buf = dec->assigned_dpb[i];
-					if (test_bit(i, &ctx->raw_protect_flag)) {
-						if (s5p_mfc_raw_buf_prot(ctx, dst_buf, false))
-							mfc_err_ctx("failed to CFW_UNPROT\n");
-						else
-							clear_bit(i, &ctx->raw_protect_flag);
-					}
+					if (s5p_mfc_raw_buf_prot(ctx, dst_buf, false))
+						mfc_err_ctx("failed to CFW_UNPROT\n");
+					else
+						clear_bit(i, &ctx->raw_protect_flag);
 					mfc_debug(2, "[%d] dec dst buf un-prot_flag: %#lx\n",
 							i, ctx->raw_protect_flag);
 				}
 			}
+			cleanup_assigned_dpb(ctx);
 		}
-		ctx->raw_protect_flag = 0;
-		cleanup_assigned_dpb(ctx);
 
 		while (index < MFC_MAX_BUFFERS) {
 			index = find_next_bit(&ctx->dst_ctrls_avail,
@@ -2282,6 +2279,25 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 			mfc_debug(2, "Decoding can be started now\n");
 		}
 	} else if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (ctx->is_drm && ctx->stream_protect_flag) {
+			struct s5p_mfc_buf *src_buf;
+			int i;
+
+			mfc_debug(2, "stream_protect_flag(%#lx) will be released\n",
+					ctx->stream_protect_flag);
+			list_for_each_entry(src_buf, &ctx->src_queue, list) {
+				i = src_buf->vb.v4l2_buf.index;
+				if (test_bit(i, &ctx->stream_protect_flag)) {
+					if (s5p_mfc_stream_buf_prot(ctx, src_buf, false))
+						mfc_err_ctx("failed to CFW_UNPROT\n");
+					else
+						clear_bit(i, &ctx->stream_protect_flag);
+				}
+				mfc_debug(2, "[%d] dec src buf un-prot_flag: %#lx\n",
+						i, ctx->stream_protect_flag);
+			}
+		}
+
 		s5p_mfc_cleanup_queue(&ctx->src_queue);
 		INIT_LIST_HEAD(&ctx->src_queue);
 		ctx->src_queue_cnt = 0;
@@ -2490,8 +2506,6 @@ int s5p_mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	INIT_LIST_HEAD(&ctx->dst_queue);
 	ctx->src_queue_cnt = 0;
 	ctx->dst_queue_cnt = 0;
-	ctx->raw_protect_flag = 0;
-	ctx->stream_protect_flag = 0;
 
 	for (i = 0; i < MFC_MAX_BUFFERS; i++) {
 		INIT_LIST_HEAD(&ctx->src_ctrls[i]);
