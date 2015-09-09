@@ -183,7 +183,7 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 	}
 
 	if (ctrlid & LPCLK_CTRLID_LEGACY) {
-		if (active && dram_used == 0)
+		if (active)
 			g_current_power_mode |= LPCLK_CTRLID_LEGACY;
 		else
 			g_current_power_mode &= (~LPCLK_CTRLID_LEGACY);
@@ -194,9 +194,14 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 		else
 			g_current_power_mode &= (~LPCLK_CTRLID_OFFLOAD);
 	}
+	dev_info(dev, "power mode: 0x%02X, dram_used: %d\n",
+		g_current_power_mode, dram_used);
 	switch (g_current_power_mode) {
 	case 0x00:
-		exynos_update_ip_idle_status(g_sicd_index, 1);
+		if (dram_used == 0)
+			exynos_update_ip_idle_status(g_sicd_index, 1);
+		else
+			exynos_update_ip_idle_status(g_sicd_index, 0);
 		exynos_update_ip_idle_status(g_sicd_aud_index, 0);
 		break;
 	case 0x01:
@@ -214,8 +219,6 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 	}
 #endif
 }
-
-
 
 /* Module information */
 MODULE_AUTHOR("Hyunwoong Kim, <khw0178.kim@samsung.com>");
