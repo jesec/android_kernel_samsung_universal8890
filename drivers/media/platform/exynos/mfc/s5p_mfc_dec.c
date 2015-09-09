@@ -1301,10 +1301,8 @@ static int vidioc_streamoff(struct file *file, void *priv,
 		ret = vb2_streamoff(&ctx->vq_src, type);
 	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		ret = vb2_streamoff(&ctx->vq_dst, type);
-		if (!ret) {
-			if (!(ctx->buf_process_type & MFCBUFPROC_COPY))
-				s5p_mfc_qos_off(ctx);
-		}
+		if (!ret)
+			s5p_mfc_qos_off(ctx);
 	} else {
 		mfc_err_ctx("unknown v4l2 buffer type\n");
 	}
