@@ -27,6 +27,18 @@ enum sys_powerdown {
 	num_of_syspwr,
 };
 
+#ifdef PWRCAL_TARGET_LINUX
+extern int is_cp_aud_enabled(void);
+#else
+static inline int is_cp_aud_enabled(void)
+{
+	return 0;
+}
+#endif
+extern void enable_cppll_sharing_bus012_disable(void);
+extern void disable_cppll_sharing_bus012_enable(void);
+static unsigned int mif_use_cp_pll = 0;
+
 /* set_pmu_lpi_mask */
 #define ASATB_MSTIF_MNGS_CAM1		(0x1 << 16)
 #define ASATB_MSTIF_MNGS_AUD			(0x1 << 15)
@@ -2096,6 +2108,7 @@ static void topmux_enable(void)
 	pwrcal_setbit(CLK_CON_MUX_CP2AP_MIF_CLK_USER,	21,	1);
 }
 
+
 static void pwrcal_syspwr_prepare(int mode)
 {
 	save_cmusfr(mode);
@@ -2198,6 +2211,10 @@ static void pwrcal_syspwr_prepare(int mode)
 		pwrcal_setbit(G3D_OPTION, 30, 0);
 		pwrcal_setbit(WAKEUP_MASK, 30, 1);
 		set_pmu_central_seq_mif(true);
+		if (is_cp_aud_enabled()) {
+			mif_use_cp_pll = 1;
+			enable_cppll_sharing_bus012_disable();
+		}
 		break;
 	default:
 		break;
@@ -2238,6 +2255,7 @@ static void pwrcal_syspwr_post(int mode)
 	switch (mode) {
 	case syspwr_sleep:
 		set_pmu_lpi_mask();
+		mif_use_cp_pll = 0;
 	case syspwr_stop:
 	case syspwr_sicd:
 	case syspwr_sicd_cpd:
@@ -2274,6 +2292,11 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 	enable_armidleclockdown();
 
 	switch (mode) {
+	case syspwr_sleep:
+		if (mif_use_cp_pll) {
+			mif_use_cp_pll = 0;
+			disable_cppll_sharing_bus012_enable();
+		}
 	case syspwr_stop:
 	case syspwr_sicd:
 	case syspwr_sicd_cpd:
@@ -2282,7 +2305,6 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 	case syspwr_alpa:
 	case syspwr_lpd:
 	case syspwr_dstop:
-	case syspwr_sleep:
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 2, 0);
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 1, 0);
 		pwrcal_setbit(TOP_BUS_MIF_OPTION, 0, 0);

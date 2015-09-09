@@ -2187,4 +2187,14 @@
 #define PERIC1_DRCG_EN	((void *)(SYSREG_PERIC1_BASE + 0x0200))
 #define PERIS_DRCG_EN	((void *)(SYSREG_PERIS_BASE + 0x0200))
 
+#define AP_TURN 0
+#define CP_TURN 1
+#define AP_FLAG ((void *)(MAILBOX_BASE + 0x0180))
+#define CP_FLAG ((void *)(MAILBOX_BASE + 0x0184))
+#define INIT_TURN       ((void *)(MAILBOX_BASE + 0x0188))
+#define MIF_INIT_DONE   ((void *)(MAILBOX_BASE + 0x004C))
+#define MIF_MUX_DONE    ((void *)(MAILBOX_BASE + 0x018C))
+#define MIF_USE_BUS1_PLL        ((void *)(MAILBOX_BASE + 0x0194))
+#define MIF_INIT_FLAG   0x4
+
 #endif

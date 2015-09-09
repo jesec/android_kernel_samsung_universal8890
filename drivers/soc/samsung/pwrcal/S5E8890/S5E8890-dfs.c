@@ -20,6 +20,7 @@
    because of PSCDC clock constraints. */
 #define BUS3_PLL_ENABLE_THRESHOLD	1600000
 
+static unsigned int dfs_mif_resume_level = 9;
 
 extern int offset_percent;
 extern int set_big_volt;
@@ -250,6 +251,81 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 errorout:
 	return -1;
 }
+
+void enable_cppll_sharing_bus012_disable(void)
+{
+	pwrcal_writel(AP_FLAG, 1);
+	pwrcal_writel(INIT_TURN, CP_TURN);
+	while ((pwrcal_readl(CP_FLAG) == 1) && (pwrcal_readl(INIT_TURN) == CP_TURN));
+
+	pwrcal_mux_set_src(CLK(TOP_MUX_CP2AP_MIF_CLK_USER), 1);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_PSCDC_400), 2);
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_PSCDC_400), 3);
+	pwrcal_gate_enable(CLK(TOP_GATE_SCLK_BUS_PLL_MIF));
+	pwrcal_mux_set_src(CLK(TOP_MUX_BUS_PLL_MIF), 1);
+	pscdc_trans(200, 200, 5, 0, 0, 1, 1, 7, 3, 1, 1);
+
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_528), 4);
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_264), 3);
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_132), 3);
+	pwrcal_mux_set_src(CLK(TOP_MUX_PCLK_CCORE_66), 3);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_528), 2);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_264), 5);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_132), 11);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_PCLK_CCORE_66), 5);
+
+	pwrcal_pll_disable(CLK(MIF_PLL));
+	pwrcal_pll_disable(CLK(BUS0_PLL));
+	pwrcal_pll_disable(CLK(BUS1_PLL));
+	pwrcal_pll_disable(CLK(BUS2_PLL));
+
+	pwrcal_writel(MIF_MUX_DONE, 0);
+
+	pwrcal_writel(AP_FLAG, 0);
+}
+
+void disable_cppll_sharing_bus012_enable(void)
+{
+	unsigned int mux_value;
+	unsigned int div_value;
+	unsigned int rate_sci;
+	unsigned int rate_smc;
+
+	pwrcal_writel(AP_FLAG, 1);
+	pwrcal_writel(INIT_TURN, CP_TURN);
+	while ((pwrcal_readl(CP_FLAG) == 1) && (pwrcal_readl(INIT_TURN) == CP_TURN));
+
+	pwrcal_pll_enable(CLK(MIF_PLL));
+	pwrcal_pll_enable(CLK(BUS0_PLL));
+	pwrcal_pll_enable(CLK(BUS1_PLL));
+	pwrcal_pll_enable(CLK(BUS2_PLL));
+
+	mux_value = rate_table_aclk_ccore_800[dfs_mif_resume_level].mux;
+	div_value = rate_table_aclk_ccore_800[dfs_mif_resume_level].div;
+	rate_sci = rate_table_aclk_ccore_800[dfs_mif_resume_level].sci_ratio;
+	rate_smc = rate_table_aclk_ccore_800[dfs_mif_resume_level].smc_ratio;
+	pscdc_trans(rate_sci, rate_smc, 0, 0, 1, 1, 0, mux_value, div_value, 1, 1);
+
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_528), 3);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_264), 7);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_132), 15);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_PCLK_CCORE_66), 7);
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_528), 0);
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_264), 0);
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_132), 0);
+	pwrcal_mux_set_src(CLK(TOP_MUX_PCLK_CCORE_66), 0);
+
+	pwrcal_mux_set_src(CLK(TOP_MUX_BUS_PLL_MIF), 0);
+	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_PSCDC_400), 1);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_PSCDC_400), 1);
+	pwrcal_gate_disable(CLK(TOP_GATE_SCLK_BUS_PLL_MIF));
+	pwrcal_mux_set_src(CLK(TOP_MUX_CP2AP_MIF_CLK_USER), 0);
+
+	pwrcal_writel(MIF_MUX_DONE, 1);
+
+	pwrcal_writel(AP_FLAG, 0);
+}
+
 
 struct dfs_switch dfsbig_switches[] = {
 	{	1056000,	0,	0	},
@@ -1107,6 +1183,9 @@ void dfs_set_clk_information(struct pwrcal_vclk_dfs *dfs)
 	dvfs_table->num_of_members = dvfs_domain->num_of_clock + 1;
 	dvfs_table->max_freq = dvfs_domain->max_frequency;
 	dvfs_table->min_freq = dvfs_domain->min_frequency;
+
+	if (&vclk_dvfs_mif == dfs)
+		dfs_mif_resume_level = dvfs_domain->resume_level_idx;
 
 	dvfs_table->members = kzalloc(sizeof(struct pwrcal_clk *) * (dvfs_domain->num_of_clock + 1), GFP_KERNEL);
 	if (dvfs_table->members == NULL)
