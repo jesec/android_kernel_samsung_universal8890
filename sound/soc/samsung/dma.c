@@ -370,6 +370,7 @@ static int dma_trigger(struct snd_pcm_substream *substream, int cmd)
 		ret = -EINVAL;
 		break;
 	}
+	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
 
 	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 
