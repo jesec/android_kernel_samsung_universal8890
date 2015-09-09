@@ -2216,6 +2216,15 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	}
 
 	if (decon->pdata->out_type == DECON_OUT_WB) {
+		/* Resizing related with data path */
+		if (decon->lcd_info->xres != regs->vpp_config[ODMA_WB].dst.w
+				|| decon->lcd_info->yres != regs->vpp_config[ODMA_WB].dst.h)
+		{
+			decon->lcd_info->xres = regs->vpp_config[ODMA_WB].dst.w;
+			decon->lcd_info->yres = regs->vpp_config[ODMA_WB].dst.h;
+			decon_reg_set_partial_update(decon->id, 0, decon->lcd_info);
+		}
+
 		decon->vpp_usage_bitmask |= (1 << ODMA_WB);
 		decon->vpp_used[ODMA_WB] = true;
 		sd = decon->mdev->vpp_sd[ODMA_WB];
