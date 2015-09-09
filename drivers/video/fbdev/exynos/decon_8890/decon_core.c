@@ -2677,7 +2677,7 @@ static int decon_set_win_config(struct decon_device *decon,
 	decon_dbg("Total BW = %d Mbits, Max BW per window = %d Mbits\n",
 			bw / (1024 * 1024), MAX_BW_PER_WINDOW / (1024 * 1024));
 
-	if (ret || regs->num_of_window == 0) {
+	if (ret) {
 		for (i = 0; i < decon->pdata->max_win; i++) {
 			decon->windows[i]->fbinfo->fix = decon->windows[i]->prev_fix;
 			decon->windows[i]->fbinfo->var = decon->windows[i]->prev_var;
