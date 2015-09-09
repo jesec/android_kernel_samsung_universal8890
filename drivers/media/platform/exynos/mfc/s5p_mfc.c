@@ -2159,7 +2159,7 @@ static int s5p_mfc_release(struct file *file)
 
 #ifdef NAL_Q_ENABLE
 		if (dev->nal_q_handle)
-			s5p_mfc_nal_q_destroy(dev->nal_q_handle);
+			s5p_mfc_nal_q_destroy(dev, dev->nal_q_handle);
 #endif
 	}
 

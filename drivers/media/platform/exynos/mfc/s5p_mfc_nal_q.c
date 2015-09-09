@@ -212,7 +212,7 @@ nal_queue_handle *s5p_mfc_nal_q_create(struct s5p_mfc_dev *dev)
 	return nal_q_handle;
 }
 
-void s5p_mfc_nal_q_destroy(nal_queue_handle *nal_q_handle)
+void s5p_mfc_nal_q_destroy(struct s5p_mfc_dev *dev, nal_queue_handle *nal_q_handle)
 {
 	mfc_debug_enter();
 
@@ -224,6 +224,7 @@ void s5p_mfc_nal_q_destroy(nal_queue_handle *nal_q_handle)
 	s5p_mfc_nal_q_destroy_in_q(nal_q_handle->nal_q_in_handle);
 
 	kfree(nal_q_handle);
+	dev->nal_q_handle = NULL;
 
 	mfc_debug_leave();
 }
