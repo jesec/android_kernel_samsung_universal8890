@@ -30,6 +30,7 @@
 
 #define BTS_DISP		(BTS_TREX_DISP0_0 | BTS_TREX_DISP0_1 | \
 				BTS_TREX_DISP1_0 | BTS_TREX_DISP1_1)
+#define BTS_MFC		(BTS_TREX_MFC0 | BTS_TREX_MFC1)
 #define BTS_RT			(BTS_TREX_DISP0_0 | BTS_TREX_DISP0_1 | \
 				BTS_TREX_DISP1_0 | BTS_TREX_DISP1_1 | \
 				BTS_TREX_ISP0 | BTS_TREX_CAM0 | BTS_TREX_CP)
@@ -83,6 +84,7 @@ enum exynos_bts_scenario {
 	BS_DISABLE,
 	BS_DEFAULT,
 	BS_ROTATION,
+	BS_HIGHPERF,
 	BS_DEBUG,
 	BS_MAX,
 };
@@ -329,6 +331,10 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].priority = 0x00000004,
 		.table[BS_DEFAULT].mo = 0x8,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_HIGHPERF].fn = BF_SETTREXQOS_MO,
+		.table[BS_HIGHPERF].priority = 0x00000004,
+		.table[BS_HIGHPERF].mo = 0x400,
+		.table[BS_HIGHPERF].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -343,6 +349,10 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].priority = 0x00000004,
 		.table[BS_DEFAULT].mo = 0x8,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_HIGHPERF].fn = BF_SETTREXQOS_MO,
+		.table[BS_HIGHPERF].priority = 0x00000004,
+		.table[BS_HIGHPERF].mo = 0x400,
+		.table[BS_HIGHPERF].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -447,6 +457,11 @@ static struct bts_scenario bts_scen[] = {
 		.name = "bts_rotation",
 		.ip = BTS_DISP,
 		.id = BS_ROTATION,
+	},
+	[BS_HIGHPERF] = {
+		.name = "bts_mfchighperf",
+		.ip = BTS_MFC,
+		.id = BS_HIGHPERF,
 	},
 	[BS_DEBUG] = {
 		.name = "bts_dubugging_ip",
@@ -679,6 +694,12 @@ void bts_scen_update(enum bts_scen_type type, unsigned int val)
 		bts = &exynos8_bts[BTS_IDX_TREX_DISP0_0];
 		BTS_DBG("[BTS] ROTATION: %s\n", bts_scen[scen].name);
 		update_rot_scen(val);
+		break;
+	case TYPE_HIGHPERF:
+		on = val ? true : false;
+		scen = BS_HIGHPERF;
+		bts = &exynos8_bts[BTS_IDX_TREX_MFC0];
+		BTS_DBG("[BTS] MFC PERF: %s\n", bts_scen[scen].name);
 		break;
 	default:
 		spin_unlock(&bts_lock);
@@ -980,7 +1001,15 @@ void bts_ext_scenario_set(enum bts_media_type ip_type,
 		break;
 
 	case TYPE_CAM:
+		break;
 	case TYPE_MFC:
+		if (scen_type == TYPE_HIGHPERF) {
+			if (on)
+				bts_scen_update(scen_type, 1);
+			else
+				bts_scen_update(scen_type, 0);
+		}
+		break;
 	default:
 		pr_err("BTS : unsupported rotation ip - %u", ip_type);
 		break;
