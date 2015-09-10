@@ -115,6 +115,9 @@ extern void lpass_init_clk_gate(void);
 extern void lpass_update_lpclock(u32 ctrlid, bool idle);
 extern void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool idle);
 
+int lpass_get_dram_usage_count(void);
+void lpass_inc_dram_usage_count(void);
+void lpass_dec_dram_usage_count(void);
 extern void update_cp_available(bool);
 extern bool lpass_i2s_master_mode(void);
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD

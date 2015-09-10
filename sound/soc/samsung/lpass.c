@@ -194,6 +194,22 @@ extern int check_esa_compr_state(void);
 static void lpass_update_qos(void);
 
 static bool cp_available;
+static atomic_t dram_usage_cnt;
+
+void lpass_inc_dram_usage_count(void)
+{
+	atomic_inc(&dram_usage_cnt);
+}
+
+void lpass_dec_dram_usage_count(void)
+{
+	atomic_dec(&dram_usage_cnt);
+}
+
+int lpass_get_dram_usage_count(void)
+{
+	return atomic_read(&dram_usage_cnt);
+}
 
 bool lpass_i2s_master_mode(void)
 {

@@ -46,7 +46,6 @@
 #define RX_SRAM_SIZE		(0x2000)	/* 8 KB */
 #define MAX_DEEPBUF_SIZE	(0xA000)	/* 40 KB */
 
-static atomic_t dram_usage_cnt;
 static struct snd_dma_buffer  *sram_rx_buf = NULL;
 static struct snd_dma_buffer  *dram_uhqa_tx_buf = NULL;
 
@@ -80,7 +79,7 @@ struct runtime_data {
 	dma_addr_t dma_end;
 	struct s3c_dma_params *params;
 	struct snd_pcm_hardware hw;
-	bool dram_used;
+	bool cap_dram_used;
 	dma_addr_t irq_pos;
 	u32 irq_cnt;
 };
@@ -106,7 +105,7 @@ static void audio_buffdone(void *data);
  */
 int check_adma_status(void)
 {
-	return atomic_read(&dram_usage_cnt) ? 1 : 0;
+	return lpass_get_dram_usage_count() ? 1 : 0;
 }
 
 /* dma_enqueue
@@ -283,7 +282,7 @@ static int dma_hw_params(struct snd_pcm_substream *substream,
 	prtd->dma_start = runtime->dma_addr;
 	prtd->dma_pos = prtd->dma_start;
 	prtd->dma_end = prtd->dma_start + totbytes;
-	prtd->dram_used = runtime->dma_addr < SRAM_END ? false : true;
+	prtd->cap_dram_used = runtime->dma_addr < SRAM_END ? false : true;
 	while ((totbytes / prtd->dma_period) < PERIOD_MIN)
 		prtd->dma_period >>= 1;
 	spin_unlock_irq(&prtd->lock);
@@ -354,24 +353,24 @@ static int dma_trigger(struct snd_pcm_substream *substream, int cmd)
 		prtd->state |= ST_RUNNING;
 		lpass_dma_enable(true);
 		prtd->params->ops->trigger(prtd->params->ch);
-		if (prtd->dram_used)
-			atomic_inc(&dram_usage_cnt);
+		if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ||
+			(prtd->cap_dram_used))
+			lpass_inc_dram_usage_count();
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 		prtd->state &= ~ST_RUNNING;
 		prtd->params->ops->stop(prtd->params->ch);
 		lpass_dma_enable(false);
-		if (prtd->dram_used)
-			atomic_dec(&dram_usage_cnt);
+		if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ||
+			(prtd->cap_dram_used))
+			lpass_dec_dram_usage_count();
 		break;
 
 	default:
 		ret = -EINVAL;
 		break;
 	}
-	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
-
 	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 
 	spin_unlock(&prtd->lock);
@@ -708,7 +707,7 @@ static void dma_free_dma_buffers(struct snd_pcm *pcm)
 			continue;
 
 		prtd = substream->runtime->private_data;
-		if (prtd->dram_used) {
+		if (prtd->cap_dram_used) {
 			dma_free_coherent(pcm->card->dev, buf->bytes,
 						buf->area, buf->addr);
 		} else {

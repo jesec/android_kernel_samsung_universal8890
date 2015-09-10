@@ -734,13 +734,15 @@ static int eax_dma_trigger(struct snd_pcm_substream *substream, int cmd)
 		prtd->running = true;
 		eax_mixer_trigger(true);
 
+		lpass_inc_dram_usage_count();
 		/* eax always uses dram */
-		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
+		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		prtd->running = false;
 		eax_mixer_trigger(false);
-		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
+		lpass_dec_dram_usage_count();
+		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 		break;
 	default:
 		ret = -EINVAL;
