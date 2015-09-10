@@ -5713,6 +5713,10 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	ufshcd_hba_vreg_set_hpm(hba);
 
+	ret = ufshcd_vreg_set_hpm(hba);
+	if (ret)
+		goto disable_vreg;
+
 	/*
 	 * Call vendor specific resume callback. As these callbacks may access
 	 * vendor specific host controller register space call them when the
@@ -5728,15 +5732,11 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		/* Make sure clocks are enabled before accessing controller */
 		ret = ufshcd_setup_clocks(hba, true);
 		if (ret)
-			goto out;
+			goto disable_vreg;
 	}
 
 	/* enable the host irq as host controller would be active soon */
 	ret = ufshcd_enable_irq(hba);
-	if (ret)
-		goto disable_irq_and_vops_clks;
-
-	ret = ufshcd_vreg_set_hpm(hba);
 	if (ret)
 		goto disable_irq_and_vops_clks;
 
@@ -5786,12 +5786,12 @@ set_old_link_state:
 vendor_suspend:
 	if (hba->vops && hba->vops->suspend)
 		hba->vops->suspend(hba, pm_op);
-disable_vreg:
-	ufshcd_vreg_set_lpm(hba);
 disable_irq_and_vops_clks:
 	ufshcd_disable_irq(hba);
 	if (gating_allowed)
 		ufshcd_setup_clocks(hba, false);
+disable_vreg:
+	ufshcd_vreg_set_lpm(hba);
 out:
 	hba->pm_op_in_progress = 0;
 
