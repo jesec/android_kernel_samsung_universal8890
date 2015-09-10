@@ -13,6 +13,7 @@
  */
 
 #include <soc/samsung/pm_domains-cal.h>
+#include <linux/apm-exynos.h>
 
 static int exynos_pd_status(struct exynos_pm_domain *pd)
 {
@@ -45,11 +46,9 @@ static void exynos_genpd_power_on_post(struct exynos_pm_domain *pd)
 
 static void exynos_genpd_power_off_pre(struct exynos_pm_domain *pd)
 {
-#if 0 // HACK_APM
 	if (!strcmp(pd->name, "pd-g3d")) {
 		exynos_g3d_power_down_noti_apm();
 	}
-#endif
 }
 
 static void exynos_genpd_power_off_post(struct exynos_pm_domain *pd)
