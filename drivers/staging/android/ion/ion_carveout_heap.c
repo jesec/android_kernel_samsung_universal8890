@@ -166,12 +166,12 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 		}
 	}
 #endif
+	if (buffer->flags & ION_FLAG_PROTECTED)
+		ion_secure_unprotect(buffer);
+
 	ion_carveout_free(heap, paddr, buffer->size);
 	sg_free_table(table);
 	kfree(table);
-
-	if (buffer->flags & ION_FLAG_PROTECTED)
-		ion_secure_unprotect(buffer);
 }
 
 static struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,

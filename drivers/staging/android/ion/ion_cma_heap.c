@@ -153,11 +153,12 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 	dev_dbg(dev, "Release buffer %p\n", buffer);
-	/* release memory */
-	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 
 	if (buffer->flags & ION_FLAG_PROTECTED)
 		ion_secure_unprotect(buffer);
+
+	/* release memory */
+	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 
 	/* release sg table */
 	sg_free_table(info->table);
