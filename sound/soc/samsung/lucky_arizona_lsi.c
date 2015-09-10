@@ -155,6 +155,8 @@ struct arizona_machine_priv {
 #endif
 };
 
+extern void update_cp_available(bool cpen);
+
 static struct class *svoice_class;
 static struct device *keyword_dev;
 static unsigned int keyword_type;
@@ -958,6 +960,8 @@ static int lucky_aif2_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
+	update_cp_available(true);
+
 	return 0;
 }
 
@@ -975,6 +979,8 @@ static int lucky_aif2_hw_free(struct snd_pcm_substream *substream)
 	priv->asyncclk.fll_ref_out = 0;
 	memcpy(&priv->asyncclk.mclk, &lucky_mclk_data[0],
 					sizeof(struct snd_mclk_info));
+
+	update_cp_available(false);
 
 	return 0;
 }
