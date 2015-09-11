@@ -34,6 +34,7 @@ struct exynos_ion_platform_heap {
 	bool secure;
 	bool reusable;
 	bool protected;
+	atomic_t secure_ref;
 	struct device dev;
 	struct ion_heap *heap;
 };
@@ -62,27 +63,13 @@ static int __find_platform_heap_id(unsigned int heap_id)
 }
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
-int ion_secure_protect(struct ion_buffer *buffer)
+static int __ion_secure_protect_buffer(struct exynos_ion_platform_heap *pdata,
+					struct ion_buffer *buffer)
 {
 	struct ion_heap *heap = buffer->heap;
-	struct exynos_ion_platform_heap *pdata;
 	ion_phys_addr_t addr;
 	size_t len;
-	int id;
 	int ret;
-
-	id = __find_platform_heap_id(heap->id);
-	if (id < 0) {
-		pr_err("%s: invalid heap id(%d) for %s\n", __func__,
-						heap->id, heap->name);
-		return -EINVAL;
-	}
-
-	pdata = &plat_heaps[id];
-	if (!pdata->secure) {
-		pr_err("%s: heap %s is not secure heap\n", __func__, heap->name);
-		return -EPERM;
-	}
 
 	if (heap->ops->phys(heap, buffer, &addr, &len)) {
 		pr_err("%s: failed to get physical memory info\n", __func__);
@@ -90,22 +77,36 @@ int ion_secure_protect(struct ion_buffer *buffer)
 	}
 
 	ret = exynos_smc(SMC_DRM_SECBUF_PROT, addr, len, pdata->id);
-	if (ret) {
+	if (ret)
 		pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
-		return ret;
-	}
 
-	return 0;
+	return ret;
 }
 
-int ion_secure_unprotect(struct ion_buffer *buffer)
+static int __ion_secure_protect_region(struct exynos_ion_platform_heap *pdata,
+					struct ion_buffer *buffer)
+{
+	int ret;
+
+	if (atomic_inc_return(&pdata->secure_ref) > 1)
+		return 0;
+
+	ret = exynos_smc(SMC_DRM_SECBUF_PROT, pdata->rmem->base,
+				pdata->rmem->size, pdata->id);
+	if (ret)
+		pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
+	else
+		pr_info("%s: region %s protected\n", __func__,
+						pdata->rmem->name);
+
+	return ret;
+}
+
+int ion_secure_protect(struct ion_buffer *buffer)
 {
 	struct ion_heap *heap = buffer->heap;
 	struct exynos_ion_platform_heap *pdata;
-	ion_phys_addr_t addr;
-	size_t len;
 	int id;
-	int ret;
 
 	id = __find_platform_heap_id(heap->id);
 	if (id < 0) {
@@ -120,18 +121,69 @@ int ion_secure_unprotect(struct ion_buffer *buffer)
 		return -EPERM;
 	}
 
+	return (pdata->reusable ? __ion_secure_protect_buffer(pdata, buffer) :
+				__ion_secure_protect_region(pdata, buffer));
+}
+
+static int __ion_secure_unprotect_buffer(struct exynos_ion_platform_heap *pdata,
+					struct ion_buffer *buffer)
+{
+	struct ion_heap *heap = buffer->heap;
+	ion_phys_addr_t addr;
+	size_t len;
+	int ret;
+
 	if (heap->ops->phys(heap, buffer, &addr, &len)) {
 		pr_err("%s: failed to get physical memory info\n", __func__);
 		return -EFAULT;
 	}
 
 	ret = exynos_smc(SMC_DRM_SECBUF_UNPROT, addr, len, pdata->id);
-	if (ret) {
+	if (ret)
 		pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
-		return ret;
+
+	return ret;
+}
+
+static int __ion_secure_unprotect_region(struct exynos_ion_platform_heap *pdata,
+					struct ion_buffer *buffer)
+{
+	int ret = 0;
+
+	if (atomic_dec_and_test(&pdata->secure_ref)) {
+		ret = exynos_smc(SMC_DRM_SECBUF_UNPROT, pdata->rmem->base,
+					pdata->rmem->size, pdata->id);
+		if (ret)
+			pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
+		else
+			pr_info("%s: region %s unprotected\n", __func__,
+							pdata->rmem->name);
 	}
 
-	return 0;
+	return ret;
+}
+
+int ion_secure_unprotect(struct ion_buffer *buffer)
+{
+	struct ion_heap *heap = buffer->heap;
+	struct exynos_ion_platform_heap *pdata;
+	int id;
+
+	id = __find_platform_heap_id(heap->id);
+	if (id < 0) {
+		pr_err("%s: invalid heap id(%d) for %s\n", __func__,
+						heap->id, heap->name);
+		return -EINVAL;
+	}
+
+	pdata = &plat_heaps[id];
+	if (!pdata->secure) {
+		pr_err("%s: heap %s is not secure heap\n", __func__, heap->name);
+		return -EPERM;
+	}
+
+	return (pdata->reusable ? __ion_secure_unprotect_buffer(pdata, buffer) :
+				__ion_secure_unprotect_region(pdata, buffer));
 }
 #else
 int ion_secure_protect(struct ion_buffer *buffer)
@@ -281,6 +333,7 @@ static int __init exynos_ion_reserved_mem_setup(struct reserved_mem *rmem)
 				heap_data->name, (unsigned long)rmem->size);
 	}
 
+	atomic_set(&pdata->secure_ref, 0);
 	nr_heaps++;
 
 	return 0;
