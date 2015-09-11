@@ -49,11 +49,13 @@ static struct lpass_cmu_info {
 	struct clk		*aud_pll;
 } lpass_cmu;
 
+#ifdef CONFIG_CPU_IDLE
 static int g_init_sicd_index;
 static int g_init_sicd_aud_index;
 static int g_sicd_index;
 static int g_sicd_aud_index;
 static int g_current_power_mode;
+#endif
 
 void __iomem *lpass_cmu_save[] = {
 	NULL,	/* endmark */
