@@ -358,7 +358,6 @@ struct seiren_info {
 #ifdef CONFIG_PM_DEVFREQ
 	struct pm_qos_request	ca5_int_qos;
 	struct pm_qos_request	ca5_mif_qos;
-	struct pm_qos_request	ap_cpu_qos;
 	int		mif_qos;
 	int		int_qos;
 #endif
