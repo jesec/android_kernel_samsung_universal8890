@@ -77,10 +77,10 @@ static int __ion_secure_protect_buffer(struct exynos_ion_platform_heap *pdata,
 	}
 
 	ret = exynos_smc(SMC_DRM_SECBUF_PROT, addr, len, pdata->id);
-	if (ret)
+	if (ret != DRMDRV_OK)
 		pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
 
-	return ret;
+	return (ret == DRMDRV_OK ? 0 : -EFAULT);
 }
 
 static int __ion_secure_protect_region(struct exynos_ion_platform_heap *pdata,
@@ -93,13 +93,13 @@ static int __ion_secure_protect_region(struct exynos_ion_platform_heap *pdata,
 
 	ret = exynos_smc(SMC_DRM_SECBUF_PROT, pdata->rmem->base,
 				pdata->rmem->size, pdata->id);
-	if (ret)
+	if (ret != DRMDRV_OK)
 		pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
 	else
 		pr_info("%s: region %s protected\n", __func__,
 						pdata->rmem->name);
 
-	return ret;
+	return (ret == DRMDRV_OK ? 0 : -EFAULT);
 }
 
 int ion_secure_protect(struct ion_buffer *buffer)
@@ -139,10 +139,10 @@ static int __ion_secure_unprotect_buffer(struct exynos_ion_platform_heap *pdata,
 	}
 
 	ret = exynos_smc(SMC_DRM_SECBUF_UNPROT, addr, len, pdata->id);
-	if (ret)
+	if (ret != DRMDRV_OK)
 		pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
 
-	return ret;
+	return (ret == DRMDRV_OK ? 0 : -EFAULT);
 }
 
 static int __ion_secure_unprotect_region(struct exynos_ion_platform_heap *pdata,
@@ -153,7 +153,7 @@ static int __ion_secure_unprotect_region(struct exynos_ion_platform_heap *pdata,
 	if (atomic_dec_and_test(&pdata->secure_ref)) {
 		ret = exynos_smc(SMC_DRM_SECBUF_UNPROT, pdata->rmem->base,
 					pdata->rmem->size, pdata->id);
-		if (ret)
+		if (ret != DRMDRV_OK)
 			pr_crit("%s: smc call failed, err=%d\n", __func__, ret);
 		else
 			pr_info("%s: region %s unprotected\n", __func__,
