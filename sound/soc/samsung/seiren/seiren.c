@@ -44,6 +44,7 @@
 #include <linux/syscalls.h>
 #include <linux/uaccess.h>
 #include <linux/file.h>
+#include <linux/notifier.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cachetype.h>
@@ -110,6 +111,17 @@ int end_index;
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 int esa_compr_running(void);
 #endif
+
+static int
+seiren_fw_panic(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MAX);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block panic_block = {
+	.notifier_call = seiren_fw_panic,
+};
 
 int check_esa_status(void)
 {
@@ -2313,6 +2325,7 @@ static int esa_probe(struct platform_device *pdev)
 		if (sysfs_create_file(seiren_fw_snapshot_kobj, &seiren_fw_dump_attribute.attr))
 			pr_err("%s: failed to create sysfs to control PCM dump\n", __func__);
 	}
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_block);
 
 #endif
 #ifdef CONFIG_PM_DEVFREQ
