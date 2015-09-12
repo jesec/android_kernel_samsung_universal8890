@@ -418,6 +418,7 @@ enum {
 	dvfs_int,
 	dvfs_cam,
 	dvfs_disp,
+	dvs_g3dm,
 	vclk_group_dfs_end,
 	num_of_dfs = vclk_group_dfs_end - 0x0A070000,
 };

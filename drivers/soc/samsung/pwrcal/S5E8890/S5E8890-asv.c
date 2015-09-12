@@ -31,6 +31,7 @@ enum dvfs_id {
 	cal_asv_dvfs_int,
 	cal_asv_dvfs_cam,
 	cal_asv_dvfs_disp,
+	cal_asv_dvs_g3dm,
 	num_of_dvfs,
 };
 
@@ -121,6 +122,7 @@ static struct asv_table_list *pwrcal_mif_asv_table;
 static struct asv_table_list *pwrcal_int_asv_table;
 static struct asv_table_list *pwrcal_cam_asv_table;
 static struct asv_table_list *pwrcal_disp_asv_table;
+static struct asv_table_list *pwrcal_g3dm_asv_table;
 
 static struct asv_table_list *pwrcal_big_rcc_table;
 static struct asv_table_list *pwrcal_little_rcc_table;
@@ -134,7 +136,7 @@ static struct pwrcal_vclk_dfs *asv_dvfs_mif;
 static struct pwrcal_vclk_dfs *asv_dvfs_int;
 static struct pwrcal_vclk_dfs *asv_dvfs_cam;
 static struct pwrcal_vclk_dfs *asv_dvfs_disp;
-
+static struct pwrcal_vclk_dfs *asv_dvs_g3dm;
 
 static void asv_set_grp(unsigned int id, unsigned int asvgrp)
 {
@@ -393,6 +395,10 @@ static int get_asv_group(enum dvfs_id domain, unsigned int lv)
 		asv = asv_tbl_info.disp_asv_group;
 		mod = asv_tbl_info.disp_modified_group;
 		break;
+	case cal_asv_dvs_g3dm:
+		asv = asv_tbl_info.g3d_asv_group;
+		mod = asv_tbl_info.g3d_modified_group;
+		break;
 	default:
 		BUG();	/* Never reach */
 		break;
@@ -476,6 +482,14 @@ static unsigned int get_asv_voltage(enum dvfs_id domain, unsigned int lv)
 		ssa0 = asv_tbl_info.disp_ssa0;
 		subgrp_index = 2;
 		table = pwrcal_disp_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
+		break;
+	case cal_asv_dvs_g3dm:
+		asv = get_asv_group(cal_asv_dvs_g3dm, lv);
+		ssa10 = asv_tbl_info.g3d_ssa10;
+		ssa11 = asv_tbl_info.g3d_ssa11;
+		ssa0 = asv_tbl_info.g3d_ssa0;
+		subgrp_index = 7;
+		table = pwrcal_g3dm_asv_table[asv_tbl_info.asv_table_ver].table[lv].voltage;
 		break;
 	default:
 		BUG();	/* Never reach */
@@ -579,6 +593,18 @@ static int dvfsdisp_get_asv_table(unsigned int *table)
 
 	for (lv = 0; lv < max_lv; lv++)
 		table[lv] = get_asv_voltage(cal_asv_dvfs_disp, lv);
+
+	return max_lv;
+}
+
+static int dvsg3dm_get_asv_table(unsigned int *table)
+{
+	int lv, max_lv;
+
+	max_lv = asv_dvs_g3dm->table->num_of_lv;
+
+	for (lv = 0; lv < max_lv; lv++)
+		table[lv] = get_asv_voltage(cal_asv_dvs_g3dm, lv);
 
 	return max_lv;
 }
@@ -775,6 +801,7 @@ static void asv_voltage_table_init(void)
 	asv_voltage_init_table(&pwrcal_int_asv_table, asv_dvfs_int);
 	asv_voltage_init_table(&pwrcal_cam_asv_table, asv_dvfs_cam);
 	asv_voltage_init_table(&pwrcal_disp_asv_table, asv_dvfs_disp);
+	asv_voltage_init_table(&pwrcal_g3dm_asv_table, asv_dvs_g3dm);
 }
 
 static void asv_rcc_table_init(void)
@@ -821,6 +848,10 @@ static int asv_init(void)
 	asv_dvfs_disp = to_dfs(vclk);
 	asv_dvfs_disp->dfsops->get_asv_table = dvfsdisp_get_asv_table;
 
+	vclk = cal_get_vclk(dvs_g3dm);
+	asv_dvs_g3dm = to_dfs(vclk);
+	asv_dvs_g3dm->dfsops->get_asv_table = dvsg3dm_get_asv_table;
+
 	pwrcal_big_asv_table = NULL;
 	pwrcal_little_asv_table = NULL;
 	pwrcal_g3d_asv_table = NULL;
@@ -828,6 +859,7 @@ static int asv_init(void)
 	pwrcal_int_asv_table = NULL;
 	pwrcal_cam_asv_table = NULL;
 	pwrcal_disp_asv_table = NULL;
+	pwrcal_g3dm_asv_table = NULL;
 
 	pwrcal_big_rcc_table = NULL;
 	pwrcal_little_rcc_table = NULL;
