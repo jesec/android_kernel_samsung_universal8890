@@ -88,7 +88,6 @@ static int msg_submit(struct mbox_chan *chan)
 		chan->msg_count--;
 	} else {
 		pr_err("mailbox: cm3 send fail\n");
-		spin_unlock_irqrestore(&chan->lock, flags);
 		ret = -EIO;
 	}
 exit:
