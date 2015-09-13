@@ -229,6 +229,9 @@ enum v4l2_colorspace {
 
 	/* Raw colorspace: for RAW unprocessed images */
 	V4L2_COLORSPACE_RAW           = 11,
+
+	/* DCI-P3 colorspace, used by cinema projectors */
+	V4L2_COLORSPACE_DCI_P3        = 12,
 };
 
 /*
@@ -249,7 +252,7 @@ enum v4l2_ycbcr_encoding {
 	 * V4L2_COLORSPACE_470_SYSTEM_BG, V4L2_COLORSPACE_ADOBERGB and
 	 * V4L2_COLORSPACE_JPEG: V4L2_YCBCR_ENC_601
 	 *
-	 * V4L2_COLORSPACE_REC709: V4L2_YCBCR_ENC_709
+	 * V4L2_COLORSPACE_REC709 and V4L2_COLORSPACE_DCI_P3: V4L2_YCBCR_ENC_709
 	 *
 	 * V4L2_COLORSPACE_SRGB: V4L2_YCBCR_ENC_SYCC
 	 *
@@ -289,7 +292,8 @@ enum v4l2_ycbcr_encoding {
  * This depends on the colorspace.
  */
 #define V4L2_MAP_YCBCR_ENC_DEFAULT(colsp) \
-	((colsp) == V4L2_COLORSPACE_REC709 ? V4L2_YCBCR_ENC_709 : \
+	(((colsp) == V4L2_COLORSPACE_REC709 || \
+	  (colsp) == V4L2_COLORSPACE_DCI_P3) ? V4L2_YCBCR_ENC_709 : \
 	 ((colsp) == V4L2_COLORSPACE_BT2020 ? V4L2_YCBCR_ENC_BT2020 : \
 	  ((colsp) == V4L2_COLORSPACE_SMPTE240M ? V4L2_YCBCR_ENC_SMPTE240M : \
 	   V4L2_YCBCR_ENC_601)))
