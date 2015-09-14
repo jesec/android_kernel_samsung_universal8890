@@ -141,6 +141,8 @@ static int __set_phy_alone(struct exynos_mipi_phy *state,
 				phy_desc->iso_offset, on);
 
 	}
+	pr_debug("%s: isolation 0x%x, reset 0x%x\n", __func__,
+			phy_desc->iso_offset, phy_desc->rst_bit);
 	spin_unlock_irqrestore(&state->slock, flags);
 
 	return ret;
@@ -181,6 +183,8 @@ static int __set_phy_share(struct exynos_mipi_phy *state,
 					phy_desc->iso_offset, on);
 	}
 
+	pr_debug("%s: isolation 0x%x, reset 0x%x\n", __func__,
+			phy_desc->iso_offset, phy_desc->rst_bit);
 	spin_unlock_irqrestore(&lock_share, flags);
 
 	return ret;
@@ -283,6 +287,17 @@ static int exynos_mipi_phy_power_off(struct phy *phy)
 	return __set_phy_state(state, phy_desc, 0);
 }
 
+static struct phy *exynos_mipi_phy_of_xlate(struct device *dev,
+					struct of_phandle_args *args)
+{
+	struct exynos_mipi_phy *state = dev_get_drvdata(dev);
+
+	if (WARN_ON(args->args[0] >= EXYNOS_MIPI_PHYS_NUM))
+		return ERR_PTR(-ENODEV);
+
+	return state->phys[args->args[0]].phy;
+}
+
 static struct phy_ops exynos_mipi_phy_ops = {
 	.init		= exynos_mipi_phy_init,
 	.power_on	= exynos_mipi_phy_power_on,
@@ -373,7 +388,7 @@ static int exynos_mipi_phy_probe(struct platform_device *pdev)
 	}
 
 	phy_provider = devm_of_phy_provider_register(dev,
-			of_phy_simple_xlate);
+			exynos_mipi_phy_of_xlate);
 
 	if (IS_ERR(phy_provider))
 		dev_err(dev, "failed to create exynos mipi-phy\n");
