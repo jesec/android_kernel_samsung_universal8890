@@ -385,8 +385,8 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 		phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->codec_buf);
 		ret = exynos_smc(SMC_DRM_SECBUF_CFW_PROT, addr,
 					ctx->codec_buf_size, dev->id);
-		if (ret) {
-			mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+		if (ret != DRMDRV_OK) {
+			mfc_err_ctx("failed to CFW PROT (%#x)\n", ret);
 			return ret;
 		}
 	}
@@ -418,8 +418,8 @@ void s5p_mfc_release_codec_buffers(struct s5p_mfc_ctx *ctx)
 			phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->codec_buf);
 			ret = exynos_smc(SMC_DRM_SECBUF_CFW_UNPROT, addr,
 					ctx->codec_buf_size, dev->id);
-			if (ret)
-				mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+			if (ret != DRMDRV_OK)
+				mfc_err_ctx("failed to CFW PROT (%#x)\n", ret);
 		}
 
 		s5p_mfc_mem_free_priv(ctx->codec_buf);
@@ -515,8 +515,8 @@ int s5p_mfc_alloc_instance_buffer(struct s5p_mfc_ctx *ctx)
 		phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->ctx.alloc);
 		ret = exynos_smc(SMC_DRM_SECBUF_CFW_PROT, addr,
 					ctx->ctx_buf_size, dev->id);
-		if (ret) {
-			mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+		if (ret != DRMDRV_OK) {
+			mfc_err_ctx("failed to CFW PROT (%#x)\n", ret);
 			return ret;
 		}
 	}
@@ -549,8 +549,8 @@ void s5p_mfc_release_instance_buffer(struct s5p_mfc_ctx *ctx)
 			phys_addr_t addr = s5p_mfc_mem_phys_addr(ctx->ctx.alloc);
 			ret = exynos_smc(SMC_DRM_SECBUF_CFW_UNPROT, addr,
 					ctx->ctx_buf_size, dev->id);
-			if (ret)
-				mfc_err_ctx("failed to CFW PROT (%d)\n", ret);
+			if (ret != DRMDRV_OK)
+				mfc_err_ctx("failed to CFW PROT (%#x)\n", ret);
 		}
 
 		s5p_mfc_mem_free_priv(ctx->ctx.alloc);

@@ -131,8 +131,8 @@ int s5p_mfc_stream_buf_prot(struct s5p_mfc_ctx *ctx,
 	if (ctx->type == MFCINST_DECODER) {
 		dec = ctx->dec_priv;
 		ret = exynos_smc(cmd_id, addr, dec->src_buf_size, dev->id);
-		if (ret) {
-			mfc_err_ctx("failed to CFW %sPROT (%d)\n",
+		if (ret != DRMDRV_OK) {
+			mfc_err_ctx("failed to CFW %sPROT (%#x)\n",
 					en ? "" : "UN", ret);
 			mfc_err_ctx("DEC src buf, 0x%08llx(0x%08llx) size:%ld\n",
 					buf->planes.stream, addr, dec->src_buf_size);
@@ -140,8 +140,8 @@ int s5p_mfc_stream_buf_prot(struct s5p_mfc_ctx *ctx,
 	} else if (ctx->type == MFCINST_ENCODER) {
 		enc = ctx->enc_priv;
 		ret = exynos_smc(cmd_id, addr, enc->dst_buf_size, dev->id);
-		if (ret) {
-			mfc_err_ctx("failed to CFW %sPROT (%d)\n",
+		if (ret != DRMDRV_OK) {
+			mfc_err_ctx("failed to CFW %sPROT (%#x)\n",
 					en ? "" : "UN", ret);
 			mfc_err_ctx("ENC dst buf, 0x%08llx(0x%08llx) size:%ld\n",
 					buf->planes.stream, addr, enc->dst_buf_size);
@@ -187,8 +187,8 @@ int s5p_mfc_raw_buf_prot(struct s5p_mfc_ctx *ctx,
 		addr = s5p_mfc_mem_phys_addr(cookie);
 		if (num_planes == 1) {
 			ret = exynos_smc(cmd_id, addr, raw->total_plane_size, dev->id);
-			if (ret) {
-				mfc_err_ctx("failed to CFW %sPROT (%d)\n",
+			if (ret != DRMDRV_OK) {
+				mfc_err_ctx("failed to CFW %sPROT (%#x)\n",
 						en ? "" : "UN", ret);
 				mfc_err_ctx("%s buf, addr:0x%08llx(0x%08llx) size:%d\n",
 					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",
@@ -196,8 +196,8 @@ int s5p_mfc_raw_buf_prot(struct s5p_mfc_ctx *ctx,
 			}
 		} else {
 			ret = exynos_smc(cmd_id, addr, raw->plane_size[i], dev->id);
-			if (ret) {
-				mfc_err_ctx("failed to buf[%d] CFW %sPROT (%d)\n",
+			if (ret != DRMDRV_OK) {
+				mfc_err_ctx("failed to buf[%d] CFW %sPROT (%#x)\n",
 						i, en ? "" : "UN", ret);
 				mfc_err_ctx("%s buf, addr:0x%08llx(0x%08llx) size:%d\n",
 					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",

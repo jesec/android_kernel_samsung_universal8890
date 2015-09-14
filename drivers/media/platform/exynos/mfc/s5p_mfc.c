@@ -1865,7 +1865,7 @@ static int s5p_mfc_open(struct file *file)
 
 		/* Check for supporting smc */
 		ret = exynos_smc(SMC_DCPP_SUPPORT, 0, 0, 0);
-		if (ret) {
+		if (ret != DRMDRV_OK) {
 			dev->is_support_smc = 0;
 		} else {
 			dev->is_support_smc = 1;
@@ -1886,7 +1886,7 @@ static int s5p_mfc_open(struct file *file)
 
 				ret = exynos_smc(SMC_DRM_FW_LOADING,
 						drm_fw_base, normal_fw_base, dev->fw_size);
-				if (ret) {
+				if (ret != DRMDRV_OK) {
 					mfc_err_ctx("MFC DRM F/W(%x) is skipped\n", ret);
 					dev->drm_fw_status = 0;
 				} else {
