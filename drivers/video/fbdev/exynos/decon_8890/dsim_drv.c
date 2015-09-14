@@ -148,14 +148,8 @@ static int dsim_wait_for_cmd_fifo_empty(struct dsim_device *dsim, bool must_wait
 		dsim_dbg("%s Waiting for fifo_completion...\n", __func__);
 	}
 
-	/* SFR_PH_FIFO */
-	reinit_completion(&dsim_ph_wr_comp);
-	dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
-	if (dsim_reg_header_fifo_is_empty(dsim->id))
-		return ret;
-
 	if (!wait_for_completion_timeout(&dsim_ph_wr_comp, MIPI_WR_TIMEOUT)) {
-		if (dsim_read_mask(dsim->id, DSIM_INTSRC, DSIM_INTSRC_SFR_PH_FIFO_EMPTY)) {
+		if (dsim_reg_header_fifo_is_empty(dsim->id)) {
 			reinit_completion(&dsim_ph_wr_comp);
 			dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 			return 0;
@@ -221,6 +215,9 @@ int dsim_write_data(struct dsim_device *dsim, unsigned int data_id,
 		goto err_exit;
 	}
 	DISP_SS_EVENT_LOG_CMD(&dsim->sd, data_id, data0);
+
+	reinit_completion(&dsim_ph_wr_comp);
+	dsim_reg_clear_int(dsim->id, DSIM_INTSRC_SFR_PH_FIFO_EMPTY);
 
 	/* Run write-fail dectector */
 	mod_timer(&dsim->cmd_timer, jiffies + MIPI_WR_TIMEOUT);
