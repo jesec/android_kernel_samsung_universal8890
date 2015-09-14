@@ -284,7 +284,7 @@ static int smfc_vb2_buf_prepare(struct vb2_buffer *vb)
 static void smfc_vb2_buf_finish(struct vb2_buffer *vb)
 {
 	if (!(vb->v4l2_buf.flags & V4L2_BUF_FLAG_NO_CACHE_INVALIDATE))
-		vb2_ion_buf_finish(vb);
+		vb2_ion_buf_finish_exact(vb);
 }
 
 static void smfc_vb2_buf_cleanup(struct vb2_buffer *vb)
