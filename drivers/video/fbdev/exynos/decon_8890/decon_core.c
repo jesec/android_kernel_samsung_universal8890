@@ -1294,46 +1294,6 @@ err_buf_map_attach:
 	return 0;
 }
 
-
-
-static int decon_get_plane_cnt(enum decon_pixel_format format)
-{
-	switch (format) {
-	case DECON_PIXEL_FORMAT_ARGB_8888:
-	case DECON_PIXEL_FORMAT_ABGR_8888:
-	case DECON_PIXEL_FORMAT_RGBA_8888:
-	case DECON_PIXEL_FORMAT_BGRA_8888:
-	case DECON_PIXEL_FORMAT_XRGB_8888:
-	case DECON_PIXEL_FORMAT_XBGR_8888:
-	case DECON_PIXEL_FORMAT_RGBX_8888:
-	case DECON_PIXEL_FORMAT_BGRX_8888:
-	case DECON_PIXEL_FORMAT_RGBA_5551:
-	case DECON_PIXEL_FORMAT_RGB_565:
-	case DECON_PIXEL_FORMAT_NV12N:
-		return 1;
-
-	case DECON_PIXEL_FORMAT_NV16:
-	case DECON_PIXEL_FORMAT_NV61:
-	case DECON_PIXEL_FORMAT_NV12:
-	case DECON_PIXEL_FORMAT_NV21:
-	case DECON_PIXEL_FORMAT_NV12M:
-	case DECON_PIXEL_FORMAT_NV21M:
-		return 2;
-
-	case DECON_PIXEL_FORMAT_YVU422_3P:
-	case DECON_PIXEL_FORMAT_YUV420:
-	case DECON_PIXEL_FORMAT_YVU420:
-	case DECON_PIXEL_FORMAT_YUV420M:
-	case DECON_PIXEL_FORMAT_YVU420M:
-		return 3;
-
-	default:
-		decon_err("invalid format(%d)\n", format);
-		return 1;
-	}
-
-}
-
 static u32 get_vpp_src_format(u32 format, int id)
 {
 	switch (format) {
@@ -1427,10 +1387,7 @@ static void decon_save_old_buffer(struct decon_device *decon,
 
 	decon->old_info.vpp_id = regs->vpp_config[win].idma_type;
 	decon->old_info.pixel_format = regs->vpp_config[win].format;
-	if (decon->old_info.pixel_format == DECON_PIXEL_FORMAT_NV12N)
-		decon->old_info.plane = 1;
-	else
-		decon->old_info.plane = 2;
+	decon->old_info.plane = decon_get_plane_cnt(regs->vpp_config[win].format);
 	for (i = 0; i < decon->old_info.plane; i++) {
 		decon->old_info.phys_addr[i] = regs->phys_addr[win].phy_addr[i];
 		decon->old_info.phys_addr_len[i] = regs->phys_addr[win].phy_addr_len[i];

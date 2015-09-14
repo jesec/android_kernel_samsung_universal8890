@@ -151,6 +151,43 @@ u32 decon_get_bpp(enum decon_pixel_format fmt)
 	return 0;
 }
 
+int decon_get_plane_cnt(enum decon_pixel_format format)
+{
+	switch (format) {
+	case DECON_PIXEL_FORMAT_ARGB_8888:
+	case DECON_PIXEL_FORMAT_ABGR_8888:
+	case DECON_PIXEL_FORMAT_RGBA_8888:
+	case DECON_PIXEL_FORMAT_BGRA_8888:
+	case DECON_PIXEL_FORMAT_XRGB_8888:
+	case DECON_PIXEL_FORMAT_XBGR_8888:
+	case DECON_PIXEL_FORMAT_RGBX_8888:
+	case DECON_PIXEL_FORMAT_BGRX_8888:
+	case DECON_PIXEL_FORMAT_RGBA_5551:
+	case DECON_PIXEL_FORMAT_RGB_565:
+	case DECON_PIXEL_FORMAT_NV12N:
+		return 1;
+
+	case DECON_PIXEL_FORMAT_NV16:
+	case DECON_PIXEL_FORMAT_NV61:
+	case DECON_PIXEL_FORMAT_NV12:
+	case DECON_PIXEL_FORMAT_NV21:
+	case DECON_PIXEL_FORMAT_NV12M:
+	case DECON_PIXEL_FORMAT_NV21M:
+		return 2;
+
+	case DECON_PIXEL_FORMAT_YVU422_3P:
+	case DECON_PIXEL_FORMAT_YUV420:
+	case DECON_PIXEL_FORMAT_YVU420:
+	case DECON_PIXEL_FORMAT_YUV420M:
+	case DECON_PIXEL_FORMAT_YVU420M:
+		return 3;
+
+	default:
+		decon_err("invalid format(%d)\n", format);
+		return 1;
+	}
+}
+
 /**
 * ----- APIs for DISPLAY_SUBSYSTEM_EVENT_LOG -----
 */

@@ -455,12 +455,7 @@ void vpp_set_cfw(struct vpp_dev *vpp, struct decon_win_config *config)
 	int ret;
 	int i, plane;
 
-
-	if (config->format == DECON_PIXEL_FORMAT_NV12N)
-		plane = 1;
-	else
-		plane = 2;
-
+	plane = decon_get_plane_cnt(config->format);
 	for (i = 0; i < plane; i++) {
 		ret = exynos_smc(SMC_DRM_SECBUF_CFW_PROT, vpp->phys_addr->phy_addr[i],
 				vpp->phys_addr->phy_addr_len[i], vpp->id + VPP_CFW_OFFSET);
