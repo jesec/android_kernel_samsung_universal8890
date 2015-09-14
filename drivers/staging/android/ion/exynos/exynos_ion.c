@@ -353,13 +353,30 @@ DECLARE_EXYNOS_ION_RESERVED_REGION("exynos8890-ion,", gpu_buffer);
 
 int ion_exynos_contig_heap_info(int region_id, phys_addr_t *phys, size_t *size)
 {
-	WARN(1, "This API is DEPRECATED. DO NOT USE.\n");
+	int i;
 
-	/* dummy value return for backward compatibility */
-	if (phys)
-		*phys = plat_heaps[1].rmem->base;
-	if (size)
-		*size = plat_heaps[1].rmem->size;
+	if (region_id >= nr_heaps) {
+		pr_err("%s: wrong region id %d\n", __func__, region_id);
+		return -EINVAL;
+	}
+
+	for (i = 1; i < nr_heaps; i++) {
+		if (plat_heaps[i].id == region_id) {
+			if (plat_heaps[i].reusable) {
+				pr_err("%s: operation not permitted for the"
+						"cma region %s(%d)\n", __func__,
+						plat_heaps[i].heap_data.name,
+						region_id);
+				return -EPERM;
+			}
+
+			if (phys)
+				*phys = plat_heaps[i].rmem->base;
+			if (size)
+				*size = plat_heaps[i].rmem->size;
+			break;
+		}
+	}
 
 	return 0;
 }
