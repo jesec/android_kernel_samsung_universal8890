@@ -112,6 +112,7 @@ static int qos_max_class[CL_END] = {PM_QOS_CLUSTER0_FREQ_MAX, PM_QOS_CLUSTER1_FR
 static int qos_min_class[CL_END] = {PM_QOS_CLUSTER0_FREQ_MIN, PM_QOS_CLUSTER1_FREQ_MIN};
 //static int qos_max_default_value[CL_END] = {PM_QOS_CLUSTER0_FREQ_MAX_DEFAULT_VALUE, PM_QOS_CLUSTER1_FREQ_MAX_DEFAULT_VALUE};
 static int qos_min_default_value[CL_END] = {PM_QOS_CLUSTER0_FREQ_MIN_DEFAULT_VALUE, PM_QOS_CLUSTER1_FREQ_MIN_DEFAULT_VALUE};
+
 /*
  * CPUFREQ init notifier
  */
@@ -1852,6 +1853,76 @@ static struct notifier_block exynos_cluster0_max_qos_notifier = {
 	.priority = INT_MAX,
 };
 
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+extern struct cpumask hmp_fast_cpu_mask;
+static int big_cpu_cnt;
+static unsigned int big_dual_maxfreq;
+static unsigned int big_quad_maxfreq;
+
+unsigned int get_exynos_quad_maxfreq(cluster_type cluster)
+{
+	return exynos_info[cluster]->freq_table[exynos_info[cluster]->max_quad_support_idx].frequency;
+}
+
+static int cpufreq_policy_notifier(struct notifier_block *nb,
+				    unsigned long event, void *data)
+{
+	struct cpufreq_policy *policy = data;
+	unsigned long max_freq;
+
+	if (event != CPUFREQ_ADJUST)
+		return 0;
+
+	max_freq = (big_cpu_cnt > 0 && big_cpu_cnt <= 2) ? big_dual_maxfreq
+							: big_quad_maxfreq;
+
+	if (policy->max != max_freq)
+		cpufreq_verify_within_limits(policy, 0, max_freq);
+
+	return 0;
+}
+
+/* Notifier for cpufreq policy change */
+static struct notifier_block exynos_cpufreq_policy_nb = {
+	.notifier_call = cpufreq_policy_notifier,
+};
+
+static int is_cpufreq_valid(int cpu)
+{
+	struct cpufreq_policy policy;
+
+	return (!cpufreq_get_policy(&policy, cpu) && policy.user_policy.governor);
+}
+
+static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
+				    unsigned long event, void *data)
+{
+	struct cpumask *cl1_mask = &cluster_cpus[CL_ONE];
+	unsigned int cpuid;
+	struct cpumask mask;
+
+	switch (event) {
+	case CPUS_DOWN_COMPLETE:
+	case CPUS_UP_PREPARE:
+		cpumask_copy(&mask, data);
+		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
+		big_cpu_cnt = cpumask_weight(&mask);
+
+		for_each_cpu(cpuid, cl1_mask) {
+			if (is_cpufreq_valid(cpuid))
+				cpufreq_update_policy(cpuid);
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_cpufreq_cpus_nb = {
+	.notifier_call = exynos_cpufreq_cpus_notifier,
+	.priority = INT_MIN,
+};
+#endif
+
 static int exynos_cpufreq_init(void)
 {
 	int i, ret = -EINVAL;
@@ -1890,6 +1961,7 @@ static int exynos_cpufreq_init(void)
 
 		freq_max[cluster] = exynos_info[cluster]->
 			freq_table[exynos_info[cluster]->max_support_idx].frequency;
+
 		freq_min[cluster] = exynos_info[cluster]->
 			freq_table[exynos_info[cluster]->min_support_idx].frequency;
 
@@ -1941,6 +2013,13 @@ static int exynos_cpufreq_init(void)
 	register_reboot_notifier(&exynos_cpufreq_reboot_notifier);
 #ifdef CONFIG_EXYNOS_THERMAL
 	exynos_tmu_add_notifier(&exynos_tmu_nb);
+#endif
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	big_dual_maxfreq = freq_max[CL_ONE];
+	big_quad_maxfreq = get_exynos_quad_maxfreq(CL_ONE);
+	cpufreq_register_notifier(&exynos_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
+	register_cpus_notifier(&exynos_cpufreq_cpus_nb);
 #endif
 
 	/* block frequency scale before acquire boot lock */
@@ -2102,6 +2181,9 @@ err_cpufreq:
 	unregister_reboot_notifier(&exynos_cpufreq_reboot_notifier);
 	unregister_pm_notifier(&exynos_cpufreq_nb);
 	unregister_hotcpu_notifier(&exynos_cpufreq_cpu_nb);
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	unregister_cpus_notifier(&exynos_cpufreq_cpus_nb);
+#endif
 err_init:
 	for (cluster = 0; cluster < CL_END; cluster++) {
 		/* remove all pm_qos requests */
@@ -2263,6 +2345,11 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 			return -ENODEV;
 		if (of_property_read_u32(np, "cl1_reboot_limit_freq", &ptr->reboot_limit_freq))
 			return -ENODEV;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+		if (of_property_read_u32(np, "cl1_max_quad_support_idx",
+			&ptr->max_quad_support_idx))
+			return -ENODEV;
+#endif
 	}
 
 	cluster_name = (cl ? "cl1_dvfs_table" :  "cl0_dvfs_table");
@@ -2464,6 +2551,10 @@ static int exynos_mp_cpufreq_remove(struct platform_device *pdev)
 	unregister_reboot_notifier(&exynos_cpufreq_reboot_notifier);
 	unregister_pm_notifier(&exynos_cpufreq_nb);
 	unregister_hotcpu_notifier(&exynos_cpufreq_cpu_nb);
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	unregister_cpus_notifier(&exynos_cpufreq_cpus_nb);
+#endif
 
 #ifdef CONFIG_PM
 	sysfs_remove_file(power_kobj, &cpufreq_min_limit.attr);
