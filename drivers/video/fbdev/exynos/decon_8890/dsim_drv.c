@@ -67,12 +67,17 @@ EXPORT_SYMBOL(dsim0_for_decon);
 struct dsim_device *dsim1_for_decon;
 EXPORT_SYMBOL(dsim1_for_decon);
 
+static void __dsim_dump(struct dsim_device *dsim)
+{
+	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
+			dsim->reg_base, 0xC0, false);
+}
+
 static void dsim_dump(struct dsim_device *dsim)
 {
 	dsim_info("=== DSIM SFR DUMP ===\n");
+	__dsim_dump(dsim);
 
-	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 32, 4,
-			dsim->reg_base, 0xC0, false);
 	/* Show panel status */
 	call_panel_ops(dsim, dump, dsim);
 }
@@ -160,7 +165,7 @@ static int dsim_wait_for_cmd_fifo_empty(struct dsim_device *dsim, bool must_wait
 
 	if ((dsim->state == DSIM_STATE_HSCLKEN) && (ret == -ETIMEDOUT)) {
 		dev_err(dsim->dev, "%s have timed out\n", __func__);
-		dsim_dump(dsim);
+		__dsim_dump(dsim);
 		dsim_reg_set_fifo_ctrl(dsim->id, DSIM_FIFOCTRL_INIT_SFR);
 	}
 	return ret;
@@ -377,7 +382,7 @@ int dsim_read_data(struct dsim_device *dsim, u32 data_id,
 		case MIPI_DSI_RX_ACKNOWLEDGE_AND_ERROR_REPORT:
 			ret = dsim_reg_rx_err_handler(dsim->id, rx_fifo);
 			if (ret < 0) {
-				dsim_dump(dsim);
+				__dsim_dump(dsim);
 				goto exit;
 			}
 			break;
@@ -421,7 +426,7 @@ int dsim_read_data(struct dsim_device *dsim, u32 data_id,
 	ret = rx_size;
 	if (!rx_fifo_depth) {
 		dev_err(dsim->dev, "Check DPHY values about HS clk.\n");
-		dsim_dump(dsim);
+		__dsim_dump(dsim);
 		ret = -EBUSY;
 	}
 exit:
@@ -495,7 +500,7 @@ void dsim_cmd_fail_detector(unsigned long arg)
 	}
 
 	dev_err(dsim->dev, "FIFO empty irq hasn't been occured\n");
-	dsim_dump(dsim);
+	__dsim_dump(dsim);
 
 exit:
 	decon_lpd_unblock(decon);
