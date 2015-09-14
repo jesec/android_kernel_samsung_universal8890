@@ -1803,6 +1803,12 @@ static void decon_calibrate_win_update_size(struct decon_device *decon,
 	if (update_config->state != DECON_WIN_STATE_UPDATE)
 		return;
 
+	if ((update_config->dst.x < 0) ||
+			(update_config->dst.y < 0)) {
+		update_config->state = DECON_WIN_STATE_DISABLED;
+		return;
+	}
+
 	r1.left = update_config->dst.x;
 	r1.top = update_config->dst.y;
 	r1.right = r1.left + update_config->dst.w - 1;
