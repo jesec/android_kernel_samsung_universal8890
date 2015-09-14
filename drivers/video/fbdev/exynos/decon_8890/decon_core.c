@@ -1695,6 +1695,7 @@ static int decon_set_win_buffer(struct decon_device *decon, struct decon_win *wi
 err_offset:
 	for (i = 0; i < plane_cnt; ++i)
 		decon_free_dma_buf(decon, &dma_buf_data[i]);
+	goto err_invalid;
 err_map:
 	for (i = 0; i < plane_cnt; ++i)
 		dma_buf_put(buf[i]);
@@ -2677,6 +2678,10 @@ static int decon_set_win_config(struct decon_device *decon,
 			bw / (1024 * 1024), MAX_BW_PER_WINDOW / (1024 * 1024));
 
 	if (ret) {
+#ifdef CONFIG_FB_WINDOW_UPDATE
+		if (regs->need_update)
+			decon_win_update_rect_reset(decon);
+#endif
 		for (i = 0; i < decon->pdata->max_win; i++) {
 			decon->windows[i]->fbinfo->fix = decon->windows[i]->prev_fix;
 			decon->windows[i]->fbinfo->var = decon->windows[i]->prev_var;
@@ -2692,6 +2697,7 @@ static int decon_set_win_config(struct decon_device *decon,
 		}
 		put_unused_fd(fd);
 		kfree(regs);
+		win_data->fence = -1;
 	} else {
 		decon_lpd_block(decon);
 		decon->timeline_max++;
@@ -2703,6 +2709,10 @@ static int decon_set_win_config(struct decon_device *decon,
 		} else {
 			win_data->fence = -1;
 			put_unused_fd(fd);
+#ifdef CONFIG_FB_WINDOW_UPDATE
+			if (regs->need_update)
+				decon_win_update_rect_reset(decon);
+#endif
 		}
 		mutex_lock(&decon->update_regs_list_lock);
 		list_add_tail(&regs->list, &decon->update_regs_list);
