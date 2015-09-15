@@ -543,21 +543,23 @@ int ipa_hotplug(bool removecores)
 	return cluster1_cores_hotplug(removecores);
 }
 
-static int exynos_tmu_max_temp_read(struct exynos_tmu_data *data)
+static int exynos_tmu_ipa_temp_read(struct exynos_tmu_data *data)
 {
-	int max_temp = 0;
+	struct exynos_tmu_platform_data *pdata = data->pdata;
+	const struct exynos_tmu_registers *reg = pdata->registers;
+	int temp = 0;
+	u32 temp_code;
 
-	list_for_each_entry(data, &dtm_dev_list, node) {
-		if (data->temp > max_temp)
-			max_temp = data->temp;
-	}
-	check_switch_ipa_on(max_temp);
+	mutex_lock(&data->lock);
+	temp_code = readl(data->base + reg->tmu_cur_temp);
+	temp = code_to_temp(data, temp_code);
+	mutex_unlock(&data->lock);
 
-	return max_temp;
+	return temp;
 }
 
 static struct ipa_sensor_conf ipa_sensor_conf = {
-	.read_soc_temperature	= (int (*)(void *))exynos_tmu_max_temp_read,
+	.read_soc_temperature	= (int (*)(void *))exynos_tmu_ipa_temp_read,
 };
 #endif
 
@@ -566,7 +568,7 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	const struct exynos_tmu_registers *reg = pdata->registers;
 	u32 temp_code;
-	int temp, max_temp;
+	int temp;
 	char *cool_device_name = "NONE";
 
 	mutex_lock(&data->lock);
@@ -585,12 +587,7 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 		temp_code = readl(data->base + reg->tmu_cur_temp);
 		temp = code_to_temp(data, temp_code);
 	}
-#if defined(CONFIG_CPU_THERMAL_IPA)
-	data->temp = temp;
 
-	if (!(pdata->d_type == ISP))
-		max_temp = exynos_tmu_max_temp_read(data);
-#endif
 	exynos_ss_thermal(pdata, temp, cool_device_name, 0);
 	mutex_unlock(&data->lock);
 
