@@ -59,6 +59,7 @@ enum bts_media_type {
 	TYPE_VPP8,
 	TYPE_CAM,
 	TYPE_MFC,
+	TYPE_G3D,
 };
 
 enum bts_ip_type {

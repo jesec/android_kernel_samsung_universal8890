@@ -31,11 +31,13 @@
 #define BTS_DISP		(BTS_TREX_DISP0_0 | BTS_TREX_DISP0_1 | \
 				BTS_TREX_DISP1_0 | BTS_TREX_DISP1_1)
 #define BTS_MFC		(BTS_TREX_MFC0 | BTS_TREX_MFC1)
+#define BTS_G3D		(BTS_TREX_G3D0 | BTS_TREX_G3D1)
 #define BTS_RT			(BTS_TREX_DISP0_0 | BTS_TREX_DISP0_1 | \
 				BTS_TREX_DISP1_0 | BTS_TREX_DISP1_1 | \
 				BTS_TREX_ISP0 | BTS_TREX_CAM0 | BTS_TREX_CP)
 
 #define update_rot_scen(a)	(pr_state.rot_scen = a)
+#define update_g3d_scen(a)	(pr_state.g3d_scen = a)
 
 #ifdef BTS_DBGGEN
 #define BTS_DBG(x...) 		pr_err(x)
@@ -85,6 +87,7 @@ enum exynos_bts_scenario {
 	BS_DEFAULT,
 	BS_ROTATION,
 	BS_HIGHPERF,
+	BS_G3DFREQ,
 	BS_DEBUG,
 	BS_MAX,
 };
@@ -144,6 +147,7 @@ struct bts_info {
 
 struct bts_scen_status {
 	bool rot_scen;
+	bool g3d_scen;
 };
 
 struct bts_scenario {
@@ -155,6 +159,7 @@ struct bts_scenario {
 
 struct bts_scen_status pr_state = {
 	.rot_scen = false,
+	.g3d_scen = false,
 };
 
 struct clk_info {
@@ -367,6 +372,10 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].priority = 0x00000004,
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_G3DFREQ].fn = BF_SETTREXQOS_MO,
+		.table[BS_G3DFREQ].priority = 0x00000004,
+		.table[BS_G3DFREQ].mo = 0x20,
+		.table[BS_G3DFREQ].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -381,6 +390,10 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].priority = 0x00000004,
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_G3DFREQ].fn = BF_SETTREXQOS_MO,
+		.table[BS_G3DFREQ].priority = 0x00000004,
+		.table[BS_G3DFREQ].mo = 0x20,
+		.table[BS_G3DFREQ].bypass_en = 0,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -462,6 +475,11 @@ static struct bts_scenario bts_scen[] = {
 		.name = "bts_mfchighperf",
 		.ip = BTS_MFC,
 		.id = BS_HIGHPERF,
+	},
+	[BS_G3DFREQ] = {
+		.name = "bts_g3dfreq",
+		.ip = BTS_G3D,
+		.id = BS_G3DFREQ,
 	},
 	[BS_DEBUG] = {
 		.name = "bts_dubugging_ip",
@@ -700,6 +718,12 @@ void bts_scen_update(enum bts_scen_type type, unsigned int val)
 		scen = BS_HIGHPERF;
 		bts = &exynos8_bts[BTS_IDX_TREX_MFC0];
 		BTS_DBG("[BTS] MFC PERF: %s\n", bts_scen[scen].name);
+	case TYPE_G3D_FREQ:
+		on = val ? true : false;
+		scen = BS_G3DFREQ;
+		bts = &exynos8_bts[BTS_IDX_TREX_G3D0];
+		BTS_DBG("[BTS] G3D FREQ: %s\n", bts_scen[scen].name);
+		update_g3d_scen(val);
 		break;
 	default:
 		spin_unlock(&bts_lock);
@@ -1004,6 +1028,14 @@ void bts_ext_scenario_set(enum bts_media_type ip_type,
 		break;
 	case TYPE_MFC:
 		if (scen_type == TYPE_HIGHPERF) {
+			if (on)
+				bts_scen_update(scen_type, 1);
+			else
+				bts_scen_update(scen_type, 0);
+		}
+		break;
+	case TYPE_G3D:
+		if (scen_type == TYPE_G3D_FREQ) {
 			if (on)
 				bts_scen_update(scen_type, 1);
 			else
