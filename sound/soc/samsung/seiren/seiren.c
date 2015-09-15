@@ -110,6 +110,7 @@ int end_index;
 
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 int esa_compr_running(void);
+static void esa_fw_snapshot(void);
 #endif
 
 static int
@@ -266,6 +267,9 @@ int esa_compr_send_buffer(const size_t copy_size, struct audio_processor *ap)
 		esa_err("%s: can't send CMD_COMPR_WRITE (%d)\n",
 			__func__, ret);
 		spin_unlock(&si.compr_lock);
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+		esa_fw_snapshot();
+#endif
 		return ret;
 	}
 	spin_unlock(&si.compr_lock);
@@ -318,6 +322,9 @@ int esa_compr_set_param(struct audio_processor* ap, uint8_t **buffer)
 	if (ret) {
 		esa_err("%s: can't send CMD_COMPR_SET_PARAM (%d)\n",
 			__func__, ret);
+#ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
+		esa_fw_snapshot();
+#endif
 		return ret;
 	}
 
@@ -531,7 +538,6 @@ static void esa_dump_fw_log(void)
 	}
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 	memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MAX);
-	esa_fw_snapshot();
 #endif
 }
 
