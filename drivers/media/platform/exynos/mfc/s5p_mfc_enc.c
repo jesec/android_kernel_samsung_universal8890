@@ -2788,6 +2788,9 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_H264_VUI_RESTRICTION_ENABLE:
 		p->codec.h264.vui_enable = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_PREPEND_SPSPPS_TO_IDR:
+		p->codec.hevc.prepend_sps_pps_to_idr = ctrl->value;
+		break;
 	default:
 		v4l2_err(&dev->v4l2_dev, "Invalid control\n");
 		ret = -EINVAL;

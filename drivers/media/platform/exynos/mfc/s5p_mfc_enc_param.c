@@ -1055,6 +1055,7 @@ int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 	reg |= (p_hevc->intra_pu_split_disable & 0x1) << 16;
 	reg |= (p_hevc->tmv_prediction_disable & 0x1) << 17;
 	reg |= (p_hevc->max_num_merge_mv & 0x7) << 18;
+	reg |= (p_hevc->prepend_sps_pps_to_idr << 26);
 	/* reg |= (1 << 21); always eco mode disable */
 	reg |= (p_hevc->encoding_nostartcode_enable & 0x1) << 22;
 	MFC_WRITEL(reg, S5P_FIMV_E_HEVC_OPTIONS);

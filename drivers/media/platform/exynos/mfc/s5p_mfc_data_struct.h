@@ -514,6 +514,7 @@ struct s5p_mfc_hevc_enc_params {
 	u8 size_of_length_field;
 	u8 user_ref;
 	u8 store_ref;
+	u8 prepend_sps_pps_to_idr;
 };
 
 /**
