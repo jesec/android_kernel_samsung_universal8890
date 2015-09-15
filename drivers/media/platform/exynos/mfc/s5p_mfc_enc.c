@@ -550,7 +550,10 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			buf_ctrl->id
 			== V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH ||
 			buf_ctrl->id
-			== V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH) {
+			== V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH ||
+			buf_ctrl->id
+			== V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_CH) {
+
 			memcpy(&temporal_LC,
 				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
 
@@ -963,7 +966,9 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 		if (buf_ctrl->id
 			== V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH ||
 			buf_ctrl->id
-			== V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH) {
+			== V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH ||
+			buf_ctrl->id
+			== V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_CH) {
 			MFC_WRITEL(buf_ctrl->old_val2, S5P_FIMV_E_NUM_T_LAYER);
 			/* clear RC_BIT_RATE_CHANGE */
 			value = MFC_READL(buf_ctrl->flag_addr);
@@ -2691,17 +2696,37 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.hevc.hier_qp_enable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_TYPE:
-		p->codec.hevc.hier_qp_type = ctrl->value;
+		p->codec.hevc.hier_qp_type =
+		(enum v4l2_mpeg_video_hevc_hierarchical_coding_type)(ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER:
-		p->codec.hevc.num_hier_layer = ctrl->value;
+		p->codec.hevc.num_hier_layer = ctrl->value & 0x7;
+		p->codec.hevc.hier_ref_type = (ctrl->value >> 16) & 0x1;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_QP:
 		p->codec.hevc.hier_qp_layer[(ctrl->value >> 16) & 0x7]
 			= ctrl->value & 0xFF;
 		break;
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT0:
 		p->codec.hevc.hier_bit_layer[0] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT1:
+		p->codec.hevc.hier_bit_layer[1] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT2:
+		p->codec.hevc.hier_bit_layer[2] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT3:
+		p->codec.hevc.hier_bit_layer[3] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT4:
+		p->codec.hevc.hier_bit_layer[4] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT5:
+		p->codec.hevc.hier_bit_layer[5] = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_BIT6:
+		p->codec.hevc.hier_bit_layer[6] = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_SIGN_DATA_HIDING:
 		p->codec.hevc.sign_data_hiding = ctrl->value;
@@ -2863,6 +2888,7 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH:
 	case V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH:
 	case V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_CH:
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 	case V4L2_CID_MPEG_MFC_H264_MARK_LTR:
@@ -2885,7 +2911,9 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 					(ctx_ctrl->id == \
 					V4L2_CID_MPEG_VIDEO_VP8_HIERARCHICAL_CODING_LAYER_CH) ||
 					(ctx_ctrl->id == \
-					V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH)) &&
+					V4L2_CID_MPEG_VIDEO_VP9_HIERARCHICAL_CODING_LAYER_CH) ||
+					(ctx_ctrl->id == \
+					V4L2_CID_MPEG_VIDEO_HEVC_HIERARCHICAL_CODING_LAYER_CH)) &&
 					(enc->sh_handle.fd == -1)) {
 						enc->sh_handle.fd = ctrl->value;
 						if (process_user_shared_handle_enc(ctx)) {

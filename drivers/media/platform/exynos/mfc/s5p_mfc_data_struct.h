@@ -498,10 +498,11 @@ struct s5p_mfc_hevc_enc_params {
 	u8 wavefront_enable;
 	u8 enable_ltr;
 	u8 hier_qp_enable;
-	u8 hier_qp_type;
+	enum v4l2_mpeg_video_hevc_hierarchical_coding_type hier_qp_type;
+	u8 hier_ref_type;
 	u8 num_hier_layer;
-	u8 hier_qp_layer[5];
-	u8 hier_bit_layer[5];
+	u8 hier_qp_layer[7];
+	u32 hier_bit_layer[7];
 	u8 sign_data_hiding;
 	u8 general_pb_enable;
 	u8 temporal_id_enable;

@@ -1088,17 +1088,24 @@ int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 	}
 	/* hier qp enable */
 	if (p_hevc->num_hier_layer) {
+		reg = 0;
 		reg |= (p_hevc->hier_qp_type & 0x1) << 0x3;
 		reg |= p_hevc->num_hier_layer & 0x7;
+		if (p_hevc->hier_ref_type) {
+			reg |= 0x1 << 7;
+			reg |= 0x3 << 4;
+		} else {
+			reg |= 0x7 << 4;
+		}
 		MFC_WRITEL(reg, S5P_FIMV_E_NUM_T_LAYER);
 		/* QP value for each layer */
 		if (p_hevc->hier_qp_enable) {
-			for (i = 0; i < (p_hevc->num_hier_layer & 0x7); i++)
+			for (i = 0; i < 7; i++)
 				MFC_WRITEL(p_hevc->hier_qp_layer[i],
 					S5P_FIMV_E_HIERARCHICAL_QP_LAYER0 + i * 4);
 		}
 		if (p->rc_frame) {
-			for (i = 0; i < (p_hevc->num_hier_layer & 0x7); i++)
+			for (i = 0; i < 7; i++)
 				MFC_WRITEL(p_hevc->hier_bit_layer[i],
 					S5P_FIMV_E_HIERARCHICAL_BIT_RATE_LAYER0 + i * 4);
 		}
