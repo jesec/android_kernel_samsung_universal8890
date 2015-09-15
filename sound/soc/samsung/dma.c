@@ -435,8 +435,10 @@ static int dma_close(struct snd_pcm_substream *substream)
 
 	pr_debug("Entered %s\n", __func__);
 
-	if (!prtd)
+	if (!prtd) {
 		pr_debug("dma_close called with prtd == NULL\n");
+		return 0;
+	}
 
 	pr_info("%s: prtd = %p, irq_cnt %u\n",
 			__func__, prtd, prtd->irq_cnt);
