@@ -528,6 +528,8 @@ int enter_c2(unsigned int cpu, int index)
 
 		s3c24xx_serial_fifo_wait();
 		pm_info->sicd_entered = sicd_mode;
+
+		exynos_ss_cpuidle(EXYNOS_SS_SICD_INDEX, 0, 0, ESS_FLAG_IN);
 	}
 out:
 	spin_unlock(&c2_lock);
@@ -550,6 +552,8 @@ void wakeup_from_c2(unsigned int cpu, int early_wakeup)
 	if (pm_info->sicd_entered != -1) {
 		exynos_wakeup_sys_powerdown(pm_info->sicd_entered, early_wakeup);
 		pm_info->sicd_entered = -1;
+
+		exynos_ss_cpuidle(EXYNOS_SS_SICD_INDEX, 0, 0, ESS_FLAG_OUT);
 	}
 
 	update_c2_state(false, cpu);

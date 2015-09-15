@@ -117,4 +117,6 @@ extern u64 exynos_get_eint_wake_mask(void);
 #else
 static inline u64 exynos_get_eint_wake_mask(void) { return 0xffffffffL; }
 #endif
+
+#define EXYNOS_SS_SICD_INDEX		('S' + 'I' + 'C' + 'D')		/* 291 */
 #endif /* __EXYNOS_POWERMODE_H */
