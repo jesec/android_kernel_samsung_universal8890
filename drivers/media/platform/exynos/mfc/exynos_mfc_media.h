@@ -338,6 +338,8 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 					(V4L2_CID_MPEG_MFC_BASE + 151)
 #define V4L2_CID_MPEG_MFC90_VIDEO_HEVC_SIZE_OF_LENGTH_FIELD	\
 					(V4L2_CID_MPEG_MFC_BASE + 152)
+#define V4L2_CID_MPEG_VIDEO_HEVC_PREPEND_SPSPPS_TO_IDR		\
+					(V4L2_CID_MPEG_MFC_BASE + 153)
 
 /* CIDs for VP9 encoding. Number gaps are for compatibility */
 #define V4L2_CID_MPEG_VIDEO_VP9_VERSION				\
