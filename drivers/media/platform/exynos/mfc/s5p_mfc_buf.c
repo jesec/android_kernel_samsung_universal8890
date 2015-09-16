@@ -778,6 +778,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 
 	dev = ctx->dev;
 	raw = &ctx->raw_buf;
+	raw->total_plane_size = 0;
 
 	dec = ctx->dec_priv;
 	tiled_ref = &dec->tiled_ref;
@@ -1086,6 +1087,7 @@ void s5p_mfc_enc_calc_src_size(struct s5p_mfc_ctx *ctx)
 
 	dev = ctx->dev;
 	raw = &ctx->raw_buf;
+	raw->total_plane_size = 0;
 	mb_width = mb_width(ctx->img_width);
 	mb_height = mb_height(ctx->img_height);
 	add_size = mfc_linear_buf_size(mfc_version(dev));
