@@ -451,7 +451,7 @@ int cal_dfs_get_asv_table(unsigned int id, unsigned int *table)
 {
 	struct vclk_dfs_ops *dfsops = get_dfsops(id);
 	int num_of_entry, i;
-	int volt_offset = 0;
+	int volt_offset;
 	int org_volt, percent_volt;
 
 	if (dfsops->get_margin_param)
