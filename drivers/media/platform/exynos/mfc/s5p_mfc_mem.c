@@ -116,6 +116,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	buf_size = dev->variant->buf_size->buf;
 	base_align = dev->variant->buf_align->mfc_base_align;
 	firmware_size = dev->variant->buf_size->firmware_code;
+	dev->fw_region_size = firmware_size + buf_size->dev_ctx;
 	alloc_ctx = dev->alloc_ctx;
 
 	if (dev->fw_info.alloc)
@@ -124,8 +125,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 	mfc_debug(2, "Allocating memory for firmware.\n");
 
 	alloc_ctx = dev->alloc_ctx_fw;
-	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx,
-					firmware_size + buf_size->dev_ctx);
+	dev->fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, dev->fw_region_size);
 	if (IS_ERR(dev->fw_info.alloc)) {
 		dev->fw_info.alloc = 0;
 		printk(KERN_ERR "Allocating bitprocessor buffer failed\n");
@@ -160,8 +160,7 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	alloc_ctx = dev->alloc_ctx_drm_fw;
 
-	dev->drm_fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx,
-					firmware_size + buf_size->dev_ctx);
+	dev->drm_fw_info.alloc = s5p_mfc_mem_alloc_priv(alloc_ctx, dev->fw_region_size);
 	if (IS_ERR(dev->drm_fw_info.alloc)) {
 		/* Release normal F/W buffer */
 		s5p_mfc_mem_free_priv(dev->fw_info.alloc);
@@ -182,6 +181,23 @@ int s5p_mfc_alloc_firmware(struct s5p_mfc_dev *dev)
 		dev->fw_info.alloc = 0;
 		return -EIO;
 	}
+
+	dev->drm_fw_info.virt =
+		s5p_mfc_mem_vaddr_priv(dev->drm_fw_info.alloc);
+	mfc_info_dev("Virtual address for DRM FW: %08lx\n",
+			(long unsigned int)dev->drm_fw_info.virt);
+	if (!dev->drm_fw_info.virt) {
+		mfc_err_dev("Bitprocessor memory remap failed\n");
+		s5p_mfc_mem_free_priv(dev->drm_fw_info.alloc);
+		/* Release normal F/W buffer */
+		s5p_mfc_mem_free_priv(dev->fw_info.alloc);
+		dev->fw_info.ofs = 0;
+		dev->fw_info.alloc = 0;
+		return -EIO;
+	}
+
+	dev->drm_fw_info.phys =
+		s5p_mfc_mem_phys_addr(dev->drm_fw_info.alloc);
 
 	mfc_info_dev("Port for DRM F/W : 0x%lx\n", dev->drm_fw_info.ofs);
 #endif
@@ -234,6 +250,16 @@ int s5p_mfc_load_firmware(struct s5p_mfc_dev *dev)
 	memcpy(dev->fw_info.virt, fw_blob->data, fw_blob->size);
 	s5p_mfc_mem_clean_priv(dev->fw_info.alloc, dev->fw_info.virt, 0,
 			fw_blob->size);
+	s5p_mfc_mem_inv_priv(dev->fw_info.alloc, dev->fw_info.virt, 0,
+			fw_blob->size);
+	if (dev->drm_fw_info.virt) {
+		memcpy(dev->drm_fw_info.virt, fw_blob->data, fw_blob->size);
+		mfc_debug(2, "copy firmware to secure region\n");
+		s5p_mfc_mem_clean_priv(dev->drm_fw_info.alloc,
+				dev->drm_fw_info.virt, 0, fw_blob->size);
+		s5p_mfc_mem_inv_priv(dev->drm_fw_info.alloc,
+				dev->drm_fw_info.virt, 0, fw_blob->size);
+	}
 	release_firmware(fw_blob);
 	mfc_debug_leave();
 	return 0;
@@ -255,6 +281,7 @@ int s5p_mfc_release_firmware(struct s5p_mfc_dev *dev)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (dev->drm_fw_info.alloc) {
 		s5p_mfc_mem_free_priv(dev->drm_fw_info.alloc);
+		dev->drm_fw_info.virt = 0;
 		dev->drm_fw_info.alloc = 0;
 		dev->drm_fw_info.ofs = 0;
 	}

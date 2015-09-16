@@ -227,12 +227,15 @@ struct s5p_mfc_variant {
  * @virt:		kernel virtual address, only valid when the
  *			buffer accessed by driver
  * @dma:		DMA address, only valid when kernel DMA API used
+ *
+ * @phys:		physical address for exynos_smc
  */
 struct s5p_mfc_extra_buf {
 	void		*alloc;
 	unsigned long	ofs;
 	void		*virt;
 	dma_addr_t	dma;
+	phys_addr_t	phys;
 };
 
 /**
@@ -323,6 +326,7 @@ struct s5p_mfc_dev {
 	int id;
 	atomic_t clk_ref;
 	int fw_size;
+	size_t fw_region_size;
 	int drm_fw_status;
 	int is_support_smc;
 	int sys_init_status;
