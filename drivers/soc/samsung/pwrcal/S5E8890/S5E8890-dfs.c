@@ -363,22 +363,6 @@ struct pwrcal_clk_set dfsg3d_en_list[] = {
 	{CLK_NONE,	0,	-1},
 };
 
-struct dfs_switch dfsg3dm_switches[] = {
-};
-
-static struct dfs_table dfsg3dm_table = {
-	.switches = dfsg3dm_switches,
-	.num_of_switches = ARRAY_SIZE(dfsg3dm_switches),
-};
-
-struct pwrcal_clk *dfsg3dm_dfsclkgrp[] = {
-	CLK_NONE,
-};
-
-struct pwrcal_clk_set dfsg3dm_en_list[] = {
-	{CLK_NONE,	0,	-1},
-};
-
 struct dfs_switch dfsmif_switches[] = {
 	{	468000,	4,	1	},
 };
@@ -733,26 +717,7 @@ static struct vclk_dfs_ops dfsg3d_dfsops = {
 	.dvs = dfsg3d_dvs,
 	.get_rate_table = dfsg3d_get_rate_table,
 	.get_asv_table = dfsg3d_asv_voltage_table,
-};
-
-static int dfsg3dm_get_rate_table(unsigned long *table)
-{
-	return dfs_get_rate_table(&dfsg3dm_table, table);
-}
-
-static int dfsg3dm_asv_voltage_table(unsigned int *table)
-{
-	int i;
-
-	for (i = 0; i < dfsg3dm_table.num_of_lv; i++)
-		table[i] = 900000;
-
-	return i;
-}
-
-static struct vclk_dfs_ops dfsg3dm_dfsops = {
-	.get_rate_table = dfsg3dm_get_rate_table,
-	.get_asv_table = dfsg3dm_asv_voltage_table,
+	.get_margin_param = common_get_margin_param,
 };
 
 
@@ -974,7 +939,6 @@ static DEFINE_SPINLOCK(dvfs_mif_lock);
 static DEFINE_SPINLOCK(dvfs_int_lock);
 static DEFINE_SPINLOCK(dvfs_disp_lock);
 static DEFINE_SPINLOCK(dvfs_cam_lock);
-static DEFINE_SPINLOCK(dvs_g3dm_lock);
 
 DFS(dvfs_big) = {
 	.vclk.type	= vclk_group_dfs,
@@ -1073,19 +1037,6 @@ DFS(dvfs_disp) = {
 	.dfsops		= &dfsdisp_dfsops,
 };
 
-DFS(dvs_g3dm) = {
-	.vclk.type	= vclk_group_dfs,
-	.vclk.parent	= VCLK(pxmxdx_top),
-	.vclk.ref_count	= 0,
-	.vclk.vfreq	= 0,
-	.vclk.name	= "dvs_g3dm",
-	.vclk.ops	= &dfs_ops,
-	.lock		= &dvs_g3dm_lock,
-	.clks		= dfsg3dm_dfsclkgrp,
-	.en_clks		= dfsg3dm_en_list,
-	.table		= &dfsg3dm_table,
-	.dfsops		= &dfsg3dm_dfsops,
-};
 
 void dfs_set_clk_information(struct pwrcal_vclk_dfs *dfs)
 {
@@ -1170,7 +1121,6 @@ void dfs_init(void)
 	dfs_set_clk_information(&vclk_dvfs_int);
 	dfs_set_clk_information(&vclk_dvfs_cam);
 	dfs_set_clk_information(&vclk_dvfs_disp);
-	dfs_set_clk_information(&vclk_dvs_g3dm);
 
 	dfs_dram_init();
 	dfs_set_pscdc_information();
