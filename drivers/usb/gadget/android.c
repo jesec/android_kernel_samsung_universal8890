@@ -27,6 +27,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
+#include <linux/soc/samsung/exynos-soc.h>
 
 #include "gadget_chips.h"
 
@@ -47,6 +48,7 @@ MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
 static const char longname[] = "Gadget Android";
+#define CHIPID_SIZE             (16)
 
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
@@ -1452,7 +1454,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	/* Default strings - should be updated by userspace */
 	strncpy(manufacturer_string, "Android", sizeof(manufacturer_string)-1);
 	strncpy(product_string, "Android", sizeof(product_string) - 1);
-	strncpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
+	snprintf(serial_string, CHIPID_SIZE + 1, "%016lx", (long)exynos_soc_info.unique_id);
 
 	id = usb_string_id(cdev);
 	if (id < 0)
