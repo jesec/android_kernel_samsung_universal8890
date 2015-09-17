@@ -1351,14 +1351,19 @@ void decon_reg_config_dsc_size(u32 id, enum decon_dsi_mode dsi_mode, struct deco
 {
 	u32 width = lcd_info->xres / 3;
 	u32 fifo_w = width;
+	u32 dsc_id = id;
 
 	/* DSC(pps) -> Splitter -> FF_FIFO -> DISPIF */
 	if (lcd_info->dsc_cnt == 2) {
-		dsc_reg_set_input_pixel_count(1, lcd_info->xres >> 1, lcd_info->yres);
-		dsc_reg_set_comp_pixel_count(1);
-		dsc_reg_set_pps_6_7_picture_height(1, lcd_info->yres);
+		/* Case of 1-Encoder, Decon_F -> DSC0, Decon_S -> DSC1 */
+		dsc_id = DECON_DSC_ENC_1;
+		dsc_reg_set_input_pixel_count(dsc_id, lcd_info->xres >> 1, lcd_info->yres);
+		dsc_reg_set_comp_pixel_count(dsc_id);
+		dsc_reg_set_pps_6_7_picture_height(dsc_id, lcd_info->yres);
+		dsc_id = DECON_DSC_ENC_0;
 	}
-	dsc_reg_set_pps_6_7_picture_height(0, lcd_info->yres);
+
+	dsc_reg_set_pps_6_7_picture_height(dsc_id, lcd_info->yres);
 
 	decon_reg_set_splitter(id, dsi_mode, width, lcd_info->yres);
 	if (lcd_info->dsc_cnt == 2) {
@@ -1375,14 +1380,18 @@ void decon_reg_config_dsc_size(u32 id, enum decon_dsi_mode dsi_mode, struct deco
 int dsc_reg_init(u32 id, enum decon_dsi_mode dsi_mode, struct decon_lcd *lcd_info)
 {
 	u32 w, h;
+	u32 dsc_id = id;
 
 	if (lcd_info->dsc_cnt == 2) {
-		dsc_reg_set_encoder(1, lcd_info);
-		dsc_reg_set_pps_size(1, lcd_info);
+		/* Case of 1-Encoder, Decon_F -> DSC0, Decon_S -> DSC1 */
+		dsc_id = DECON_DSC_ENC_1;
+		dsc_reg_set_encoder(dsc_id, lcd_info);
+		dsc_reg_set_pps_size(dsc_id, lcd_info);
+		dsc_id = DECON_DSC_ENC_0;
 	}
 
-	dsc_reg_set_encoder(0, lcd_info);
-	dsc_reg_set_pps_size(0, lcd_info);
+	dsc_reg_set_encoder(dsc_id, lcd_info);
+	dsc_reg_set_pps_size(dsc_id, lcd_info);
 	decon_reg_config_dsc_size(id, dsi_mode, lcd_info);
 
 	decon_reg_get_splitter_size(id, &w, &h);

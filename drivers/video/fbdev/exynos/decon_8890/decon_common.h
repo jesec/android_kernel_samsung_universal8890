@@ -254,6 +254,10 @@ enum decon_enhance_path {
 	ENHANCEPATH_MDNIE_DITHER_ON	= 0x5,
 };
 
+enum decon_dsc_id {
+	DECON_DSC_ENC_0	= 0x0,
+	DECON_DSC_ENC_1,
+};
 
 /* CAL APIs list */
 int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p);
