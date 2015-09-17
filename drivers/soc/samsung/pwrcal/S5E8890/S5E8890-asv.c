@@ -658,6 +658,12 @@ static int asv_rcc_set_table(void)
 		*(p + lv) = pwrcal_mif_rcc_table[asv_tbl_info.asv_table_ver].table[lv].voltage[asv];
 	}
 
+#ifdef PWRCAL_TARGET_LINUX
+	exynos_smc_readsfr((unsigned long)(ASV_INFO_ADDR_BASE + 0xC), &tmp);
+	p = (unsigned int *)(apm_sram_base + 0x0160);
+	*p = tmp;
+#endif
+
 	return 0;
 }
 
