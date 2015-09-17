@@ -355,7 +355,10 @@ static irqreturn_t samsung_ipc_handler(int irq, void *p)
 int samsung_mbox_last_tx_done(struct mbox_chan *chan)
 {
 	unsigned int status, limit_cnt = 0, tmp, i;
+	ktime_t __start;
+	s64 __elapsed;
 
+	__start = ktime_get();
 	do {
 		if (limit_cnt) {
 			cpu_relax();
@@ -367,8 +370,11 @@ int samsung_mbox_last_tx_done(struct mbox_chan *chan)
 		limit_cnt++;
 
 		/* RX interrupt timeout check */
-		if (limit_cnt > 100)
+		if (limit_cnt > 100) {
+			__elapsed = ktime_to_ns(ktime_sub(ktime_get(), __start));
+			pr_info("mailbox timeout : %lld ns \n", __elapsed);
 			return -EIO;
+		}
 	} while(!status);
 
 	/* Acknowledge the interrupt by clearing the interrupt register */
