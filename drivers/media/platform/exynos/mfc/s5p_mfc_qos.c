@@ -15,6 +15,7 @@
 #include <linux/jiffies.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
+#include <soc/samsung/bts.h>
 
 #include "s5p_mfc_qos.h"
 
@@ -23,6 +24,7 @@ enum {
 	MFC_QOS_ADD,
 	MFC_QOS_UPDATE,
 	MFC_QOS_REMOVE,
+	MFC_QOS_EXTRA,
 };
 
 static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
@@ -86,9 +88,35 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		pm_qos_remove_request(&dev->qos_req_cluster1);
 		pm_qos_remove_request(&dev->qos_req_cluster0);
 #endif
+		if (dev->extra_mo) {
+			bts_ext_scenario_set(TYPE_MFC, TYPE_HIGHPERF, false);
+			dev->extra_mo = false;
+			mfc_info_ctx("restore MO limitation\n");
+		}
+
 		atomic_set(&dev->qos_req_cur, 0);
 		MFC_TRACE_CTX("-- QOS remove\n");
 		mfc_info_ctx("QoS remove\n");
+		break;
+	case MFC_QOS_EXTRA:
+		/* remove MO limitation for QoS table[5]~[8] */
+		if (idx > 4) {
+			if (!dev->extra_mo) {
+				MFC_TRACE_CTX("++ QOS extra\n");
+				bts_ext_scenario_set(TYPE_MFC, TYPE_HIGHPERF, true);
+				dev->extra_mo = true;
+				MFC_TRACE_CTX("-- QOS extra\n");
+				mfc_info_ctx("QoS extra: no limit MO\n");
+			}
+		} else {
+			if (dev->extra_mo) {
+				MFC_TRACE_CTX("++ QOS extra\n");
+				bts_ext_scenario_set(TYPE_MFC, TYPE_HIGHPERF, false);
+				dev->extra_mo = false;
+				MFC_TRACE_CTX("-- QOS extra\n");
+				mfc_info_ctx("QoS extra: limit MO\n");
+			}
+		}
 		break;
 	default:
 		mfc_err_ctx("Unknown request for opr [%d]\n", opr_type);
@@ -125,9 +153,11 @@ static void mfc_qos_add_or_update(struct s5p_mfc_ctx *ctx, int total_mb)
 			if (atomic_read(&dev->qos_req_cur) == 0) {
 				mfc_qos_print(ctx, qos_table, i);
 				mfc_qos_operate(ctx, MFC_QOS_ADD, i);
+				mfc_qos_operate(ctx, MFC_QOS_EXTRA, i);
 			} else if (atomic_read(&dev->qos_req_cur) != (i + 1)) {
 				mfc_qos_print(ctx, qos_table, i);
 				mfc_qos_operate(ctx, MFC_QOS_UPDATE, i);
+				mfc_qos_operate(ctx, MFC_QOS_EXTRA, i);
 			}
 			break;
 		}
