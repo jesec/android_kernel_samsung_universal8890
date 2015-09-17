@@ -740,8 +740,7 @@ static void ufshcd_gate_work(struct work_struct *work)
 			hba->clk_gating.state = __CLKS_ON;
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
 			hba->clk_gating.is_suspended = true;
-			ssleep(1);
-			ufshcd_host_reset_and_restore(hba);
+			ufshcd_reset_and_restore(hba);
 			spin_lock_irqsave(hba->host->host_lock, flags);
 			hba->clk_gating.state = CLKS_ON;
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
