@@ -2171,6 +2171,20 @@ void resume_console(void)
 }
 
 /**
+ * console_flush - flush dmesg if console isn't suspended
+ *
+ * console_unlock always flushes the dmesg buffer, so just try to
+ * grab&drop the console lock. If that fails we know that the current
+ * holder will eventually drop the console lock and so flush the dmesg
+ * buffers at the earliest possible time.
+ */
+void console_flush(void)
+{
+	if (console_trylock())
+		console_unlock();
+}
+
+/**
  * console_cpu_notify - print deferred console messages after CPU hotplug
  * @self: notifier struct
  * @action: CPU hotplug event
@@ -2189,8 +2203,7 @@ static int console_cpu_notify(struct notifier_block *self,
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
-		console_lock();
-		console_unlock();
+		console_flush();
 	}
 	return NOTIFY_OK;
 }
