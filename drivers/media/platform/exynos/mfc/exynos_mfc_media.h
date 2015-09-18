@@ -249,6 +249,8 @@ enum v4l2_mpeg_mfc51_video_frame_type {
 					(V4L2_CID_MPEG_MFC_BASE + 106)
 #define V4L2_CID_MPEG_MFC_GET_DRIVER_INFO			\
 					(V4L2_CID_MPEG_MFC_BASE + 107)
+#define V4L2_CID_MPEG_MFC_CONFIG_QP_ENABLE             \
+					(V4L2_CID_MPEG_MFC_BASE + 108)
 
 /* CIDs for HEVC encoding. Number gaps are for compatibility */
 
