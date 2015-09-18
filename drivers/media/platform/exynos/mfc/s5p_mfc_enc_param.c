@@ -380,8 +380,7 @@ int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	reg &= ~(0x3F);
 	reg |= p_264->rc_frame_qp;
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
-
-	if (p->rc_frame == 0 && p->rc_mb == 0) {
+	if (!p->rc_frame && !p->rc_mb && p->dynamic_qp) {
 		reg |= (0x1 << 11);
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
 	}

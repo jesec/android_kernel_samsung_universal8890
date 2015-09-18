@@ -538,6 +538,8 @@ struct s5p_mfc_enc_params {
 	u8 rc_frame;
 	u32 rc_bitrate;
 	u16 rc_reaction_coeff;
+	u32 config_qp;
+	u32 dynamic_qp;
 	u8 frame_tag;
 
 	u8 num_b_frame;		/* H.264/MPEG4 */
@@ -792,7 +794,6 @@ struct s5p_mfc_enc {
 	unsigned int buf_full;
 
 	int stored_tag;
-	int config_qp;
 	struct mfc_user_shared_handle sh_handle;
 };
 

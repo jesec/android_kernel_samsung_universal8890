@@ -644,7 +644,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		}
 		/* per buffer QP setting change */
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC_CONFIG_QP)
-			enc->config_qp = buf_ctrl->val;
+			p->config_qp = buf_ctrl->val;
 
 invalid_layer_count:
 		mfc_debug(8, "Set buffer control "\
@@ -652,10 +652,10 @@ invalid_layer_count:
 				buf_ctrl->id, buf_ctrl->val);
 	}
 
-	if (!p->rc_frame && !p->rc_mb) {
+	if (!p->rc_frame && !p->rc_mb && p->dynamic_qp) {
 		value = MFC_READL(S5P_FIMV_E_FIXED_PICTURE_QP);
 		value &= ~(0xFF000000);
-		value |= (enc->config_qp & 0xFF) << 24;
+		value |= (p->config_qp & 0xFF) << 24;
 		MFC_WRITEL(value, S5P_FIMV_E_FIXED_PICTURE_QP);
 	}
 
@@ -849,7 +849,7 @@ static int enc_set_buf_ctrls_val_nal_q(struct s5p_mfc_ctx *ctx,
 			pInStr->FixedPictureQp &= ~(buf_ctrl->mask << buf_ctrl->shft);
 			pInStr->FixedPictureQp |=
 				(buf_ctrl->val & buf_ctrl->mask) << buf_ctrl->shft;
-			enc->config_qp = buf_ctrl->val;
+			p->config_qp = buf_ctrl->val;
 			break;
 		}
 
@@ -861,7 +861,7 @@ static int enc_set_buf_ctrls_val_nal_q(struct s5p_mfc_ctx *ctx,
 
 	if (!p->rc_frame && !p->rc_mb) {
 		pInStr->FixedPictureQp &= ~(0xFF000000);
-		pInStr->FixedPictureQp |= (enc->config_qp & 0xFF) << 24;
+		pInStr->FixedPictureQp |= (p->config_qp & 0xFF) << 24;
 	}
 	mfc_debug_leave();
 
@@ -2782,6 +2782,12 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_HEVC_PREPEND_SPSPPS_TO_IDR:
 		p->codec.hevc.prepend_sps_pps_to_idr = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_MFC_CONFIG_QP_ENABLE:
+		p->dynamic_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC_CONFIG_QP:
+		p->config_qp = ctrl->value;
+		break;
 	default:
 		v4l2_err(&dev->v4l2_dev, "Invalid control\n");
 		ret = -EINVAL;
@@ -3569,6 +3575,7 @@ const struct v4l2_ioctl_ops *get_enc_v4l2_ioctl_ops(void)
 int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_enc *enc;
+	struct s5p_mfc_enc_params *p;
 	int ret = 0;
 	int i;
 
@@ -3580,6 +3587,8 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	ctx->enc_priv = enc;
 
 	ctx->inst_no = MFC_NO_INSTANCE_SET;
+
+	p = &enc->params;
 
 	INIT_LIST_HEAD(&ctx->src_queue);
 	INIT_LIST_HEAD(&ctx->dst_queue);
@@ -3611,7 +3620,7 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	INIT_LIST_HEAD(&enc->ref_queue);
 	enc->ref_queue_cnt = 0;
 	enc->sh_handle.fd = -1;
-	enc->config_qp = 34;
+	p->config_qp = 34;
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
