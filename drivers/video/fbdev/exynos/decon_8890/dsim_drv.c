@@ -714,7 +714,6 @@ static int dsim_enable(struct dsim_device *dsim)
 
 	/* Panel power on */
 	dsim_set_panel_power(dsim, 1);
-	dsim_reset_panel(dsim);
 
 	call_panel_ops(dsim, resume, dsim);
 
@@ -723,6 +722,9 @@ static int dsim_enable(struct dsim_device *dsim)
 
 	dsim_reg_set_clocks(dsim->id, &dsim->clks_param.clks, &dsim->lcd_info.dphy_pms, 1);
 	dsim_reg_set_lanes(dsim->id, DSIM_LANE_CLOCK | dsim->data_lane, 1);
+
+	/* Panel reset should be set after LP-11 */
+	dsim_reset_panel(dsim);
 	dsim_reg_init(dsim->id, &dsim->lcd_info, dsim->data_lane_cnt,
 			&dsim->clks_param.clks);
 
