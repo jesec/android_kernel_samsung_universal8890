@@ -96,6 +96,7 @@ enum exynos_bts_function {
 	BF_SETTREXQOS,
 	BF_SETTREXQOS_MO,
 	BF_SETTREXQOS_MO_RT,
+	BF_SETTREXQOS_MO_CP,
 	BF_SETTREXQOS_BW,
 	BF_SETTREXQOS_FBMBW,
 	BF_SETTREXDISABLE,
@@ -309,7 +310,7 @@ static struct bts_info exynos8_bts[] = {
 		.name = "cp",
 		.pd_name = "trex",
 		.pa_base = EXYNOS8890_PA_BTS_TREX_CP,
-		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_RT,
+		.table[BS_DEFAULT].fn = BF_SETTREXQOS_MO_CP,
 		.table[BS_DEFAULT].priority = 0x0000000C,
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x10,
@@ -524,6 +525,10 @@ static void bts_set_ip_table(enum exynos_bts_scenario scen,
 		break;
 	case BF_SETTREXQOS_MO_RT:
 		bts_settrexqos_mo_rt(bts->va_base, bts->table[scen].priority, bts->table[scen].mo,
+				0, 0, bts->table[scen].timeout, bts->table[scen].bypass_en);
+		break;
+	case BF_SETTREXQOS_MO_CP:
+		bts_settrexqos_mo_cp(bts->va_base, bts->table[scen].priority, bts->table[scen].mo,
 				0, 0, bts->table[scen].timeout, bts->table[scen].bypass_en);
 		break;
 	case BF_SETTREXQOS_MO:
@@ -760,9 +765,9 @@ static void bts_smc_init(void __iomem *base)
 
 static void bts_trex_init(void __iomem *base)
 {
-	__raw_writel(0x0F070000, base + SCI_CTRL);
-	__raw_writel(0x00000000, base + READ_QURGENT);
-	__raw_writel(0x00000000, base + WRITE_QURGENT);
+	__raw_writel(0x0B070000, base + SCI_CTRL);
+	__raw_writel(0x00200000, base + READ_QURGENT);
+	__raw_writel(0x00200000, base + WRITE_QURGENT);
 	__raw_writel(0x2A55A954, base + VC_NUM0);
 	__raw_writel(0x00000CA0, base + VC_NUM1);
 	__raw_writel(0x04040404, base + TH_IMM0);
@@ -770,14 +775,14 @@ static void bts_trex_init(void __iomem *base)
 	__raw_writel(0x04040404, base + TH_IMM2);
 	__raw_writel(0x04040404, base + TH_IMM3);
 	__raw_writel(0x04040404, base + TH_IMM4);
-	__raw_writel(0x04040404, base + TH_IMM5);
-	__raw_writel(0x04040404, base + TH_IMM6);
+	__raw_writel(0x04040004, base + TH_IMM5);
+	__raw_writel(0x00040404, base + TH_IMM6);
 	__raw_writel(0x02020202, base + TH_HIGH0);
 	__raw_writel(0x02020202, base + TH_HIGH1);
 	__raw_writel(0x02020202, base + TH_HIGH2);
 	__raw_writel(0x02020202, base + TH_HIGH3);
 	__raw_writel(0x02020202, base + TH_HIGH4);
-	__raw_writel(0x02020202, base + TH_HIGH5);
+	__raw_writel(0x02020002, base + TH_HIGH5);
 	__raw_writel(0x00020202, base + TH_HIGH6);
 
 	return;
