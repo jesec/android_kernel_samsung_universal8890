@@ -426,10 +426,11 @@ static DEVICE_ATTR_RW(uevent);
 static ssize_t online_show(struct device *dev, struct device_attribute *attr,
 			   char *buf)
 {
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
 	bool val;
 
 	device_lock(dev);
-	val = !dev->offline;
+	val = !!cpu_online(cpu->dev.id);
 	device_unlock(dev);
 	return sprintf(buf, "%u\n", val);
 }
@@ -1394,13 +1395,14 @@ int __init devices_init(void)
 
 static int device_check_offline(struct device *dev, void *not_used)
 {
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
 	int ret;
 
 	ret = device_for_each_child(dev, NULL, device_check_offline);
 	if (ret)
 		return ret;
 
-	return device_supports_offline(dev) && !dev->offline ? -EBUSY : 0;
+	return device_supports_offline(dev) && cpu_online(cpu->dev.id) ? -EBUSY : 0;
 }
 
 /**
@@ -1416,6 +1418,7 @@ static int device_check_offline(struct device *dev, void *not_used)
  */
 int device_offline(struct device *dev)
 {
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
 	int ret;
 
 	if (dev->offline_disabled)
@@ -1427,14 +1430,12 @@ int device_offline(struct device *dev)
 
 	device_lock(dev);
 	if (device_supports_offline(dev)) {
-		if (dev->offline) {
+		if (!cpu_online(cpu->dev.id)) {
 			ret = 1;
 		} else {
 			ret = dev->bus->offline(dev);
-			if (!ret) {
+			if (!ret)
 				kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
-				dev->offline = true;
-			}
 		}
 	}
 	device_unlock(dev);
@@ -1454,16 +1455,15 @@ int device_offline(struct device *dev)
  */
 int device_online(struct device *dev)
 {
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
 	int ret = 0;
 
 	device_lock(dev);
 	if (device_supports_offline(dev)) {
-		if (dev->offline) {
+		if (!cpu_online(cpu->dev.id)) {
 			ret = dev->bus->online(dev);
-			if (!ret) {
+			if (!ret)
 				kobject_uevent(&dev->kobj, KOBJ_ONLINE);
-				dev->offline = false;
-			}
 		} else {
 			ret = 1;
 		}
