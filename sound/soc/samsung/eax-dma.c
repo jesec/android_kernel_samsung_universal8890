@@ -507,12 +507,17 @@ static void eax_adma_trigger(bool on)
 	if (on) {
 		di.running = on;
 		lpass_dma_enable(true);
+		lpass_inc_dram_usage_count();
+		/* eax always uses dram */
+		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
 		if (di.params->ch)
 			di.params->ops->trigger(di.params->ch);
 	} else {
 		if (di.params->ch)
 			di.params->ops->stop(di.params->ch);
 		lpass_dma_enable(false);
+		lpass_dec_dram_usage_count();
+		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 		di.prepare_done = false;
 		di.running = on;
 	}
@@ -744,16 +749,10 @@ static int eax_dma_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_START:
 		prtd->running = true;
 		eax_mixer_trigger(true);
-
-		lpass_inc_dram_usage_count();
-		/* eax always uses dram */
-		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		prtd->running = false;
 		eax_mixer_trigger(false);
-		lpass_dec_dram_usage_count();
-		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 		break;
 	default:
 		ret = -EINVAL;
