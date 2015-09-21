@@ -39,7 +39,7 @@
 #define DEVFREQ_MIF_DIFF_FREQ		(962000)
 #define DEVFREQ_MIF_CMOS_FREQ		(468000)
 #define DEVFREQ_MIF_SWITCH_FREQ_HI	(936000)
-#define DEVFREQ_MIF_SWITCH_FREQ 	(468000)
+#define DEVFREQ_MIF_SWITCH_FREQ 	(528000)
 #define SWITCH_CMOS_VOLT_OFFSET		(56250)
 
 static struct pm_qos_request int_pm_qos_from_mif;
@@ -145,13 +145,9 @@ static int exynos8890_devfreq_mif_get_switch_freq(u32 cur_freq, u32 new_freq,
 {
 	*switch_freq = DEVFREQ_MIF_SWITCH_FREQ;
 
-	if (cur_freq > DEVFREQ_MIF_DIFF_FREQ ||
-		new_freq > DEVFREQ_MIF_DIFF_FREQ)
+	if (cur_freq > DEVFREQ_MIF_SWITCH_FREQ_HI &&
+		new_freq > DEVFREQ_MIF_SWITCH_FREQ_HI)
 		*switch_freq = DEVFREQ_MIF_SWITCH_FREQ_HI;
-
-	if (cur_freq <= DEVFREQ_MIF_CMOS_FREQ ||
-		new_freq <= DEVFREQ_MIF_CMOS_FREQ)
-		*switch_freq = DEVFREQ_MIF_SWITCH_FREQ;
 
 	return 0;
 }

@@ -121,6 +121,7 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	unsigned int rate_sci, rate_smc;	/* unit size : MHZ */
 	unsigned int mux_value, div_value;
 	unsigned int mux_switch;
+	unsigned int mif_pll_rate = 0;
 
 	lv_from = dfs_get_lv(rate_from, table);
 	if (lv_from < 0)
@@ -129,16 +130,18 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	if (lv_switch < 0)
 		goto errorout;
 
+	mif_pll_rate = get_value(table, lv_from, 1);
+
 	/* HW constraint : Root Clock gate disable (TBD : reset value is disable) */
 	pwrcal_setbit(TOP0_ROOTCLKEN_ON_GATE, 0, 0);
 	pwrcal_setbit(TOP3_ROOTCLKEN_ON_GATE, 2, 0);
 
 	vclk_enable(VCLK(p1_bus3_pll));
 
-	if (table->switch_src_gate)
+	if (mif_pll_rate && table->switch_src_gate)
 		pwrcal_gate_enable(table->switch_src_gate);
 
-	if (table->switch_src_usermux)
+	if (mif_pll_rate && table->switch_src_usermux)
 		if (pwrcal_mux_set_src(table->switch_src_usermux, 1))
 			goto errorout;
 
@@ -169,8 +172,11 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	rate_smc = rate_switch / 2000;
 	mux_value = rate_table_aclk_ccore_800[lv_switch].mux;
 	div_value = rate_table_aclk_ccore_800[lv_switch].div;
-	mux_switch = (rate_switch >= 936000) ? 3 : 4;
-	pscdc_trans(rate_sci, rate_smc, mux_switch, 0, 1, 1, 1, mux_value, div_value, 1, 1);
+	mux_switch = (rate_switch >= 936000) ? 3 : 0;
+	if (mif_pll_rate)
+		pscdc_trans(rate_sci, rate_smc, mux_switch, 0, 1, 1, 1, mux_value, div_value, 1, 1);
+	else
+		pscdc_trans(rate_sci, rate_smc, mux_switch, 0, 0, 1, 1, mux_value, div_value, 1, 1);
 
 
 	/* 1-4 */
@@ -180,6 +186,9 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	/* 1-5 */
 	if (dfs_trans_div(lv_from, lv_switch, table, TRANS_LOW))
 		goto errorout;
+
+	if (!mif_pll_rate)
+		vclk_disable(VCLK(p1_bus3_pll));
 
 	if (rate_from > BUS3_PLL_ENABLE_THRESHOLD)
 		vclk_disable(VCLK(p1_bus3_pll));
@@ -195,6 +204,7 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	int lv_to, lv_switch;
 	unsigned int rate_sci, rate_smc;	/* unit size : MHZ */
 	unsigned int mux_value, div_value;
+	unsigned int mif_pll_rate = 0;
 
 	lv_switch = dfs_get_lv(rate_switch, table) - 1;
 	if (lv_switch < 0)
@@ -206,6 +216,9 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	if (rate_to > BUS3_PLL_ENABLE_THRESHOLD)
 		vclk_enable(VCLK(p1_bus3_pll));
 
+	mif_pll_rate = get_value(table, lv_to, 1);
+	if (!mif_pll_rate)
+		vclk_enable(VCLK(p1_bus3_pll));
 	/*
 	STEP 2. PLL transition
 	*/
@@ -234,7 +247,10 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	div_value = rate_table_aclk_ccore_800[lv_to].div;
 	rate_sci = rate_table_aclk_ccore_800[lv_to].sci_ratio;
 	rate_smc = rate_table_aclk_ccore_800[lv_to].smc_ratio;
-	pscdc_trans(rate_sci, rate_smc, 0, 0, 1, 1, 0, mux_value, div_value, 1, 1);
+	if (mif_pll_rate)
+		pscdc_trans(rate_sci, rate_smc, 0, 0, 1, 1, 0, mux_value, div_value, 1, 1);
+	else
+		pscdc_trans(rate_sci, rate_smc, 3, 0, 0, 1, 1, mux_value, div_value, 1, 1);
 
 	/* 3-4 */
 	if (table->switch_post)
@@ -247,11 +263,11 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	if (table->trans_post)
 		table->trans_post(rate_switch, rate_to);
 
-	if (table->switch_src_usermux)
+	if (mif_pll_rate && table->switch_src_usermux)
 		if (pwrcal_mux_set_src(table->switch_src_usermux, 0))
 			goto errorout;
 
-	if (table->switch_src_gate)
+	if (mif_pll_rate && table->switch_src_gate)
 		pwrcal_gate_disable(table->switch_src_gate);
 
 	vclk_disable(VCLK(p1_bus3_pll));

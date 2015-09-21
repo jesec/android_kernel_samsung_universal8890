@@ -2321,5 +2321,4 @@ void vclk_init(void)
 	/* This code is for reference count sync. Initial state of BUS3_PLL is enabled. */
 	vclk_enable(VCLK(p1_bus3_pll));
 	vclk_enable(VCLK(p1_bus3_pll));
-	vclk_enable(VCLK(p1_bus3_pll));
 }

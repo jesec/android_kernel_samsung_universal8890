@@ -321,9 +321,13 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 
 	target_mif_level_idx = convert_to_level(target_mif_freq);
 
-	target_mif_level_switch_idx = convert_to_level_switch(target_mif_freq);
+	if (target_mif_freq == 936000000) {
+		target_mif_level_switch_idx = convert_to_level_switch(target_mif_freq);
+		target_mif_level_switch_idx += num_mif_freq_to_level;
+	} else {
+		target_mif_level_switch_idx = convert_to_level(target_mif_freq);
+	}
 
-	target_mif_level_switch_idx += num_mif_freq_to_level;
 
 	/* 1. Configure parameter */
 	if (timing_set_idx == MIF_TIMING_SET_0) {
