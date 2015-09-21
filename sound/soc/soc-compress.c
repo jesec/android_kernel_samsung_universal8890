@@ -210,7 +210,7 @@ static int soc_compr_free(struct snd_compr_stream *cstream)
 
 	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
-		if (codec_dai->playback_active)
+		if (codec_dai->playback_active || codec_dai->component->active)
 			goto out;
 #endif
 
@@ -226,7 +226,7 @@ static int soc_compr_free(struct snd_compr_stream *cstream)
 		}
 	} else {
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
-		if (codec_dai->capture_active)
+		if (codec_dai->capture_active || codec_dai->component->active)
 			goto out;
 #endif
 
