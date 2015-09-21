@@ -222,8 +222,8 @@ static int s6e3hf4_wqhd_dump(int dsim)
 	if (rx_buf[0] & 0x40)
 		dsim_info("* TE MODE on\n");
 
-	if (rx_buf[0] & 0x00) {
-		/* get a value of protocal violation error */
+	if (rx_buf[0] & 0x01) {
+		/* get a value of protocol violation error */
 		ret = dsim_read_from_panel(dsim, 0xEA, DSIM_DDI_ID_LEN, rx_buf);
 		if (ret != DSIM_DDI_ID_LEN) {
 			dsim_err("%s : can't read Panel's Protocol\n",__func__);
