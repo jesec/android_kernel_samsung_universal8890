@@ -1468,11 +1468,13 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	if (i2c->need_hw_init)
 		exynos5_i2c_reset(i2c);
 
-	if (unlikely(!(readl(i2c->regs + HSI2C_CONF)
+	if (!(i2c->support_hsi2c_batcher)) {
+		if (unlikely(!(readl(i2c->regs + HSI2C_CONF)
 			& HSI2C_AUTO_MODE))) {
-
-		exynos5_hsi2c_clock_setup(i2c);
-		exynos5_i2c_init(i2c);
+			dev_err(i2c->dev, "HSI2C should be reconfigured\n");
+			exynos5_hsi2c_clock_setup(i2c);
+			exynos5_i2c_init(i2c);
+		}
 	}
 
 	for (retry = 0; retry < adap->retries; retry++) {
