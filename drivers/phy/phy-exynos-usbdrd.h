@@ -149,6 +149,7 @@ struct exynos_usbdrd_phy {
 		const struct exynos_usbdrd_phy_config *phy_cfg;
 	} phys[EXYNOS_DRDPHYS_NUM];
 	u32 extrefclk;
+	u32 use_additional_tuning;
 	struct clk *ref_clk;
 	struct regulator *vbus;
 	struct exynos_usbphy_info usbphy_info;

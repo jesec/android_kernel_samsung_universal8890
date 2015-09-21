@@ -302,6 +302,9 @@ exynos_usbdrd_utmi_set_refclk(struct phy_usb_instance *inst)
 	return reg;
 }
 
+/*
+ * Sets the default PHY tuning values for high-speed connection.
+ */
 static void exynos_usbdrd_fill_hstune(struct exynos_usbdrd_phy *phy_drd,
 				struct exynos_usbphy_hs_tune *hs_tune)
 {
@@ -327,6 +330,32 @@ static void exynos_usbdrd_fill_hstune(struct exynos_usbdrd_phy *phy_drd,
 	}
 }
 
+static void exynos_usbdrd_set_hstune(struct exynos_usbdrd_phy *phy_drd,
+				enum exynos_usbphy_mode phy_mode)
+{
+	struct exynos_usbphy_hs_tune *hs_tune = phy_drd->usbphy_info.hs_tune;
+
+	if (phy_mode == USBPHY_MODE_DEV) {
+		;
+	} else { /* USBPHY_MODE_HOST */
+		switch (phy_drd->drv_data->cpu_type) {
+		case TYPE_EXYNOS8890:
+			if (phy_drd->drv_data->ip_type == TYPE_USB3DRD) {
+				hs_tune->tx_vref	= 0x1;
+				hs_tune->tx_pre_emp	= 0x0;
+				hs_tune->compdis	= 0x7;
+			}
+			break;
+		default:
+			break;
+		}
+
+	}
+}
+
+/*
+ * Sets the default PHY tuning values for super-speed connection.
+ */
 static void exynos_usbdrd_fill_sstune(struct exynos_usbdrd_phy *phy_drd,
 				struct exynos_usbphy_ss_tune *ss_tune)
 {
@@ -383,6 +412,8 @@ static int exynos_usbdrd_get_phyinfo(struct exynos_usbdrd_phy *phy_drd)
 	phy_drd->usbphy_info.regs_base = phy_drd->reg_phy;
 	phy_drd->usbphy_info.not_used_vbus_pad = of_property_read_bool(node,
 							"is_not_vbus_pad");
+	phy_drd->use_additional_tuning = of_property_read_bool(node,
+						"use_additional_tuning");
 
 	if (phy_drd->drv_data->cpu_type == TYPE_EXYNOS8890 &&
 		phy_drd->drv_data->ip_type == TYPE_USB2HOST) {
@@ -478,12 +509,21 @@ static int exynos_usbdrd_phy_exit(struct phy *phy)
 static void exynos_usbdrd_pipe3_tune(struct exynos_usbdrd_phy *phy_drd,
 							int phy_state)
 {
-	if (phy_state >= OTG_STATE_A_IDLE)
+	exynos_usbdrd_fill_hstune(phy_drd, phy_drd->usbphy_info.hs_tune);
+
+	if (phy_state >= OTG_STATE_A_IDLE) {
 		/* for host mode */
+		if (phy_drd->use_additional_tuning)
+			exynos_usbdrd_set_hstune(phy_drd, USBPHY_MODE_HOST);
+
 		samsung_exynos_cal_usb3phy_tune_host(&phy_drd->usbphy_info);
-	else
+	} else {
 		/* for device mode */
+		if (phy_drd->use_additional_tuning)
+			exynos_usbdrd_set_hstune(phy_drd, USBPHY_MODE_DEV);
+
 		samsung_exynos_cal_usb3phy_tune_dev(&phy_drd->usbphy_info);
+	}
 }
 
 static void exynos_usbdrd_utmi_tune(struct exynos_usbdrd_phy *phy_drd,
