@@ -1508,11 +1508,17 @@ u32 dsim_reg_get_xres(u32 id)
 int dsim_reg_exit_ulps_and_start(u32 id, u32 ddi_type, u32 lanes)
 {
 	int ret = 0;
-	/* try to exit ULPS mode. The sequence is depends on DDI type */
-	ret = dsim_reg_set_ulps_by_ddi(id, ddi_type, lanes, 0);
+	/*
+	 * Guarantee 1.2v signal level for data lane(positive) when exit ULPS.
+	 * DSIM Should be set standby. If not, lane goes to 600mv sometimes.
+	*/
 	dsim_reg_set_hs_clock(id, 1);
 	dsim_reg_set_standby(id, 1);
-	dsim_reg_set_int(id, 1);
+	dsim_reg_set_hs_clock(id, 0);
+
+	/* try to exit ULPS mode. The sequence is depends on DDI type */
+	ret = dsim_reg_set_ulps_by_ddi(id, ddi_type, lanes, 0);
+	dsim_reg_start(id, NULL, lanes);
 	return ret;
 }
 
