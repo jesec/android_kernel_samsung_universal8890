@@ -546,6 +546,12 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 		exynos_cl_dvfs_stop(CLUSTER_ID(cur), new_index);
 #endif
 
+	if (old_index > new_index) {
+		if (pm_qos_request_active(&exynos_mif_qos[cur]))
+			pm_qos_update_request(&exynos_mif_qos[cur],
+					exynos_info[cur]->bus_table[new_index]);
+	}
+
 	/* When the new frequency is higher than current frequency */
 	if ((freqs[cur]->new > freqs[cur]->old) && !safe_volt){
 		/* Firstly, voltage up to increase frequency */
@@ -565,19 +571,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 			exynos_info[cur]->set_ema(safe_volt);
 	}
 
-	if (old_index > new_index) {
-		if (pm_qos_request_active(&exynos_mif_qos[cur]))
-			pm_qos_update_request(&exynos_mif_qos[cur],
-					exynos_info[cur]->bus_table[new_index]);
-	}
-
 	exynos_info[cur]->set_freq(old_index, new_index);
-
-	if (old_index < new_index) {
-		if (pm_qos_request_active(&exynos_mif_qos[cur]))
-			pm_qos_update_request(&exynos_mif_qos[cur],
-					exynos_info[cur]->bus_table[new_index]);
-	}
 
 #ifdef CONFIG_SMP
 	if (!global_lpj_ref.freq) {
@@ -607,6 +601,13 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 			goto put_policy;
 		}
 	}
+
+	if (old_index < new_index) {
+		if (pm_qos_request_active(&exynos_mif_qos[cur]))
+			pm_qos_update_request(&exynos_mif_qos[cur],
+					exynos_info[cur]->bus_table[new_index]);
+	}
+
 
 	if (freqs[cur]->new < freqs[cur]->old) {
 		if (exynos_info[cur]->set_int_skew)
