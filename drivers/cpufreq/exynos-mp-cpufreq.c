@@ -286,7 +286,9 @@ static void cluster_onoff_monitor(struct work_struct *work)
 
 		if (exynos_info[cl]->bus_table && exynos_info[cl]->is_alive) {
 			if (!exynos_info[cl]->is_alive() && cluster_status[cl]) {
-				pm_qos_update_request(&exynos_mif_qos[cl], 0);
+				if (freqs[cl]->old == freq_min[cl])
+					pm_qos_update_request(&exynos_mif_qos[cl], 0);
+
 				cluster_status[cl] = false;
 			} else if (exynos_info[cl]->is_alive() && !cluster_status[cl]) {
 				freq_table = exynos_info[cl]->freq_table;
