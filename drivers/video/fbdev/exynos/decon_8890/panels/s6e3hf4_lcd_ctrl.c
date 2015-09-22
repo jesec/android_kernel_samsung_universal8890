@@ -113,6 +113,18 @@ void lcd_init(int id, struct decon_lcd *lcd)
 	dsim_wait_for_cmd_completion(id);
 	msleep(120);
 
+	/* Setting the TE timing to prevent LCD tearing */
+	/* KEY_ON -> Setting -> KEY_OFF */
+	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TEST_KEY_ON_F0,
+				ARRAY_SIZE(SEQ_TEST_KEY_ON_F0)) < 0)
+		dsim_err("fail to write KEY_ON init command.\n");
+	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TE_START_SETTING,
+				ARRAY_SIZE(SEQ_TE_START_SETTING)) < 0)
+		dsim_err("fail to write TE_START_SETTING command.\n");
+	if (dsim_wr_data(id, MIPI_DSI_DCS_LONG_WRITE, (unsigned long)SEQ_TEST_KEY_OFF_F0,
+				ARRAY_SIZE(SEQ_TEST_KEY_OFF_F0)) < 0)
+		dsim_err("fail to write KEY_OFF init command.\n");
+
 	if (dsim_wr_data(id, MIPI_DSI_DCS_SHORT_WRITE, SEQ_TE_ON[0], 0) < 0)
 		dsim_err("fail to write SEQ_TE_ON init command.\n");
 }
