@@ -94,12 +94,9 @@ struct asv_tbl_info {
 
 	unsigned asv_table_ver:7;
 	unsigned fused_grp:1;
-	unsigned reserved_0:8;
-	unsigned cp_asv_group:4;
-	int cp_modified_group:4;
-	unsigned cp_ssa10:2;
-	unsigned cp_ssa11:2;
-	unsigned cp_ssa0:4;
+	unsigned reserved_0:12;
+	unsigned g3d_mcs0:4;
+	unsigned g3d_mcs1:4;
 
 	unsigned mngs_vthr:2;
 	unsigned mngs_delta:2;
@@ -110,9 +107,7 @@ struct asv_tbl_info {
 	unsigned int_delta:2;
 	unsigned mif_vthr:2;
 	unsigned mif_delta:2;
-	unsigned g3d_mcs0:4;
-	unsigned g3d_mcs1:4;
-	unsigned reserved_2:4;
+	unsigned reserved_2:10;
 };
 #define ASV_INFO_ADDR_BASE	(0x101E9000)
 #define ASV_INFO_ADDR_CNT	(sizeof(struct asv_tbl_info) / 4)
@@ -316,14 +311,50 @@ static void asv_get_asvinfo(void)
 	}
 
 	if (!asv_tbl_info.fused_grp) {
-		asv_tbl_info.asv_table_ver = 3;
-		asv_tbl_info.fused_grp = 1;
+		asv_tbl_info.mngs_asv_group = 0;
+		asv_tbl_info.mngs_modified_group = 0;
+		asv_tbl_info.mngs_ssa10 = 0;
+		asv_tbl_info.mngs_ssa11 = 0;
+		asv_tbl_info.mngs_ssa0 = 0;
+		asv_tbl_info.apollo_asv_group = 0;
+		asv_tbl_info.apollo_modified_group = 0;
+		asv_tbl_info.apollo_ssa10 = 0;
+		asv_tbl_info.apollo_ssa11 = 0;
+		asv_tbl_info.apollo_ssa0 = 0;
+
+		asv_tbl_info.g3d_asv_group = 0;
+		asv_tbl_info.g3d_modified_group = 0;
+		asv_tbl_info.g3d_ssa10 = 0;
+		asv_tbl_info.g3d_ssa11 = 0;
+		asv_tbl_info.g3d_ssa0 = 0;
+		asv_tbl_info.mif_asv_group = 0;
+		asv_tbl_info.mif_modified_group = 0;
+		asv_tbl_info.mif_ssa10 = 0;
+		asv_tbl_info.mif_ssa11 = 0;
+		asv_tbl_info.mif_ssa0 = 0;
+
+		asv_tbl_info.int_asv_group = 0;
+		asv_tbl_info.int_modified_group = 0;
+		asv_tbl_info.int_ssa10 = 0;
+		asv_tbl_info.int_ssa11 = 0;
+		asv_tbl_info.int_ssa0 = 0;
+		asv_tbl_info.disp_asv_group = 0;
+		asv_tbl_info.disp_modified_group = 0;
+		asv_tbl_info.disp_ssa10 = 0;
+		asv_tbl_info.disp_ssa11 = 0;
+		asv_tbl_info.disp_ssa0 = 0;
+
+		asv_tbl_info.asv_table_ver = 0;
+		asv_tbl_info.fused_grp = 0;
+		asv_tbl_info.reserved_0 = 0;
+		asv_tbl_info.g3d_mcs0 = 0;
+		asv_tbl_info.g3d_mcs1 = 0;
 	}
 
 	if (asv_tbl_info.g3d_mcs0 == 0)
-		asv_tbl_info.g3d_mcs0 = 0x4;
+		asv_tbl_info.g3d_mcs0 = 0x5;
 	if (asv_tbl_info.g3d_mcs1 == 0)
-		asv_tbl_info.g3d_mcs1 = 0x5;
+		asv_tbl_info.g3d_mcs1 = 0xE;
 
 	asv_set_freq_limit();
 }
