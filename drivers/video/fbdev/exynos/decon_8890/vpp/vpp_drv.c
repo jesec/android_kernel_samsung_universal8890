@@ -20,6 +20,8 @@
 #include <linux/export.h>
 #include <linux/videodev2_exynos_media.h>
 
+#include "../../../../../soc/samsung/pwrcal/pwrcal.h"
+#include "../../../../../soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 #include "vpp.h"
 #include "vpp_common.h"
 #include "../decon_helper.h"
@@ -451,6 +453,16 @@ void vpp_split_single_plane(struct decon_win_config *config, struct vpp_size_par
 	}
 }
 
+void vpp_set_deadlock_time(struct vpp_dev *vpp, int msec)
+{
+	int deadlock_num;
+	int disp;
+
+	disp = cal_dfs_get_rate(dvfs_disp);
+	deadlock_num = msec * disp;
+	vpp_reg_set_deadlock_num(vpp->id, deadlock_num);
+}
+
 static int vpp_set_config(struct vpp_dev *vpp)
 {
 	struct decon_win_config *config = vpp->config;
@@ -486,6 +498,8 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	}
 
 	vpp_reg_wait_pingpong_clear(vpp->id);
+
+	vpp_set_deadlock_time(vpp, 20);
 
 	vpp_set_initial_phase(vpp);
 	vpp_to_scale_params(vpp, &p);

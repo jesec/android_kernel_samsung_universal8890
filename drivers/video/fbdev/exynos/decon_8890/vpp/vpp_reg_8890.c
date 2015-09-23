@@ -93,6 +93,11 @@ void vpp_reg_wait_pingpong_clear(u32 id)
 	vpp_err("timeout of VPP(%d) pingpong_clear\n", id);
 }
 
+void vpp_reg_set_deadlock_num(u32 id, u32 num)
+{
+	vpp_write(id, VG_DEADLOCK_NUM, num);
+}
+
 void vpp_reg_set_realtime_path(u32 id)
 {
 	vpp_write_mask(id, VG_ENABLE, ~0, VG_ENABLE_RT_PATH_EN);
