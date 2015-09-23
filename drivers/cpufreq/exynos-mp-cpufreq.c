@@ -884,10 +884,14 @@ static int exynos_cpufreq_suspend(struct cpufreq_policy *policy)
 
 static int exynos_cpufreq_resume(struct cpufreq_policy *policy)
 {
-	int cl;
+	int cl, cur;
 
 	for (cl = 0; cl < CL_END; cl++)
 		freqs[cl]->old = exynos_getspeed_cluster(cl);
+
+	/* Update policy->cur value to resume frequency */
+	cur = get_cur_cluster(policy->cpu);
+	policy->cur = exynos_getspeed_cluster(cur);
 
 	return 0;
 }
