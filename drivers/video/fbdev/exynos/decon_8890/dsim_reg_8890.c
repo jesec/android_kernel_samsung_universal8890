@@ -1096,7 +1096,6 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	 * DSIM does not need to init, if DSIM is already
 	 * becomes txrequest_hsclk = 1'b1 because of LCD_ON_UBOOT
 	 */
-#if 0
 	if (dsim_read_mask(id, DSIM_CLKCTRL, DSIM_CLKCTRL_TX_REQUEST_HSCLK)) {
 		dsim_info("dsim%d is probed with LCD ON UBOOT\n", id);
 		dsim_reg_init_probe(id, lcd_info, data_lane_cnt, clks);
@@ -1104,7 +1103,6 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 		   then just return. */
 		ret = -EBUSY;
 	}
-#endif
 
 	/* get byte clock */
 	clks->byte_clk = clks->hs_clk / 8;

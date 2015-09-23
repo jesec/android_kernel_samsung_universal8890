@@ -1414,7 +1414,6 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 
 	/* DECON does not need to start, if DECON is already
 	 * running(enabled in LCD_ON_UBOOT) */
-#if 0
 	if (decon_reg_get_run_status(id)) {
 		decon_info("decon_reg_init already called by BOOTLOADER\n");
 		decon_reg_init_probe(id, dsi_idx, p);
@@ -1422,7 +1421,6 @@ int decon_reg_init(u32 id, u32 dsi_idx, struct decon_param *p)
 			decon_reg_set_trigger(id, psr, DECON_TRIG_DISABLE);
 		return -EBUSY;
 	}
-#endif
 
 	/* Configure a DISP_SS */
 	decon_reg_set_disp_ss_cfg(id, p->disp_ss_regs, dsi_idx, psr);
