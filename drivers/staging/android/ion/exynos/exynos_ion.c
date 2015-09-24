@@ -34,6 +34,7 @@ struct exynos_ion_platform_heap {
 	bool secure;
 	bool reusable;
 	bool protected;
+	bool noprot;
 	atomic_t secure_ref;
 	struct device dev;
 	struct ion_heap *heap;
@@ -121,6 +122,9 @@ int ion_secure_protect(struct ion_buffer *buffer)
 		return -EPERM;
 	}
 
+	if (pdata->noprot)
+		return 0;
+
 	return (pdata->reusable ? __ion_secure_protect_buffer(pdata, buffer) :
 				__ion_secure_protect_region(pdata, buffer));
 }
@@ -181,6 +185,9 @@ int ion_secure_unprotect(struct ion_buffer *buffer)
 		pr_err("%s: heap %s is not secure heap\n", __func__, heap->name);
 		return -EPERM;
 	}
+
+	if (pdata->noprot)
+		return 0;
 
 	return (pdata->reusable ? __ion_secure_unprotect_buffer(pdata, buffer) :
 				__ion_secure_unprotect_region(pdata, buffer));
@@ -264,6 +271,7 @@ static int __init exynos_ion_reserved_mem_setup(struct reserved_mem *rmem)
 	pdata = &plat_heaps[nr_heaps];
 	pdata->secure = !!of_get_flat_dt_prop(rmem->fdt_node, "secure", NULL);
 	pdata->reusable = !!of_get_flat_dt_prop(rmem->fdt_node, "reusable", NULL);
+	pdata->noprot = !!of_get_flat_dt_prop(rmem->fdt_node, "noprot", NULL);
 
 	prop = of_get_flat_dt_prop(rmem->fdt_node, "id", &len);
 	if (!prop) {
