@@ -96,6 +96,7 @@ struct exynos_ss_item {
 	struct exynos_ss_base entry;
 	unsigned char *head_ptr;
 	unsigned char *curr_ptr;
+	unsigned long long time;
 };
 
 struct exynos_ss_log {
@@ -363,21 +364,26 @@ static int ess_hardlockup = false;
  */
 static struct exynos_ss_item ess_items[] = {
 #ifndef CONFIG_EXYNOS_SNAPSHOT_MINIMIZED_MODE
-	{"log_kevents",	{SZ_8M,		0, 0, true}, NULL ,NULL},
+	{"log_kevents",	{SZ_8M,		0, 0, true}, NULL ,NULL, 0},
 #else
-	{"log_kevents",	{SZ_2M,		0, 0, true}, NULL ,NULL},
+	{"log_kevents",	{SZ_2M,		0, 0, true}, NULL ,NULL, 0},
 #endif
-	{"log_kernel",	{SZ_2M,		0, 0, true}, NULL ,NULL},
+	{"log_kernel",	{SZ_2M,		0, 0, true}, NULL ,NULL, 0},
 #ifdef CONFIG_EXYNOS_SNAPSHOT_HOOK_LOGGER
 #ifndef CONFIG_EXYNOS_SNAPSHOT_MINIMIZED_MODE
-	{"log_main",	{SZ_4M,		0, 0, true}, NULL ,NULL},
+	{"log_platform",{SZ_4M,		0, 0, true}, NULL ,NULL, 0},
 #else
-	{"log_main",	{SZ_2M,		0, 0, true}, NULL ,NULL},
+	{"log_platform",{SZ_2M,		0, 0, true}, NULL ,NULL, 0},
 #endif
-	{"log_radio",	{SZ_2M,		0, 0, true}, NULL ,NULL},
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_SFRDUMP
+	{"log_sfr",	{SZ_4M,		0, 0, true}, NULL ,NULL, 0},
+#endif
+#ifdef CONFIG_EXYNOS_SNAPSHOT_PSTORE
+	{"log_pstore",	{SZ_2M,		0, 0, true}, NULL ,NULL, 0},
 #endif
 #ifdef CONFIG_EXYNOS_CORESIGHT_ETR
-	{"log_etm",	{SZ_16M,	0, 0, true}, NULL ,NULL},
+	{"log_etm",	{SZ_8M,		0, 0, true}, NULL ,NULL, 0},
 #endif
 };
 
@@ -775,12 +781,12 @@ int exynos_ss_set_enable(const char *name, int en)
 	if (!strncmp(name, "base", strlen(name))) {
 		ess_base.enabled = en;
 		pr_info("exynos-snapshot: %sabled\n", en ? "en" : "dis");
-	}
-	else {
+	} else {
 		for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
 			if (!strncmp(ess_items[i].name, name, strlen(name))) {
 				item = &ess_items[i];
 				item->entry.enabled = en;
+				item->time = local_clock();
 				pr_info("exynos-snapshot: item - %s is %sabled\n",
 						name, en ? "en" : "dis");
 				break;
@@ -791,6 +797,37 @@ int exynos_ss_set_enable(const char *name, int en)
 }
 EXPORT_SYMBOL(exynos_ss_set_enable);
 
+int exynos_ss_try_enable(const char *name, unsigned long long duration)
+{
+	struct exynos_ss_item *item = NULL;
+	unsigned long long time;
+	unsigned long i;
+	int ret = -1;
+
+	/* If ESS was disabled, just return */
+	if (unlikely(!ess_base.enabled))
+		return ret;
+
+	for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
+		if (!strncmp(ess_items[i].name, name, strlen(name))) {
+			item = &ess_items[i];
+
+			/* We only interest in disabled */
+			if (item->entry.enabled == false) {
+				time = local_clock() - item->time;
+				if (time > duration) {
+					item->entry.enabled = true;
+					ret = 1;
+				} else
+					ret = 0;
+			}
+			break;
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL(exynos_ss_try_enable);
+
 int exynos_ss_get_enable(const char *name)
 {
 	struct exynos_ss_item *item = NULL;
@@ -799,8 +836,7 @@ int exynos_ss_get_enable(const char *name)
 
 	if (!strncmp(name, "base", strlen(name))) {
 		ret = ess_base.enabled;
-	}
-	else {
+	} else {
 		for (i = 0; i < ARRAY_SIZE(ess_items); i++) {
 			if (!strncmp(ess_items[i].name, name, strlen(name))) {
 				item = &ess_items[i];

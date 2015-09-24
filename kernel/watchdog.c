@@ -393,6 +393,9 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	int duration;
 	int softlockup_all_cpu_backtrace = sysctl_softlockup_all_cpu_backtrace;
 
+	/* try to enable log_kevent of exynos-snapshot if log_kevent was off because of rcu stall */
+	exynos_ss_try_enable("log_kevent", NSEC_PER_SEC * 15);
+
 	/* kick the hardlockup detector */
 	watchdog_interrupt_count();
 
