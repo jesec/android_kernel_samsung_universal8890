@@ -942,6 +942,10 @@ static int lucky_aif2_hw_params(struct snd_pcm_substream *substream,
 		dev_err(card->dev,
 				 "Unable to set ASYNCCLK to FLL: %d\n", ret);
 
+	ret = snd_soc_dai_set_sysclk(codec_dai, ARIZONA_CLK_ASYNCCLK, 0, 0);
+	if (ret < 0)
+		dev_err(card->dev, "Failed to enable asyncclk (%d)\n", ret);
+
 	/* Set Codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai, priv->aif_format[1]);
 	if (ret < 0)

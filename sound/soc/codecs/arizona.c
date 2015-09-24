@@ -4148,11 +4148,14 @@ static int arizona_dai_set_sysclk(struct snd_soc_dai *dai,
 	if (clk_id == dai_priv->clk)
 		return 0;
 
+	/* FIXME: In normal case, this function is called after pcm is
+	 * opened. So, dai active count has already increased.
 	if (dai->active) {
 		dev_err(codec->dev, "Can't change clock on active DAI %d\n",
 			dai->id);
 		return -EBUSY;
 	}
+	*/
 
 	dev_dbg(codec->dev, "Setting AIF%d to %s\n", dai->id + 1,
 		arizona_dai_clk_str(clk_id));
