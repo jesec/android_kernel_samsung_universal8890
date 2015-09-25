@@ -130,7 +130,6 @@ static void cam1_prev(int enable)
 	}
 	if (enable == 0) {
 		vclk_disable(VCLK(dvfs_cam));
-		vclk_disable(VCLK(p1_bus3_pll));
 
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS0_CSIS2_USER, 12, 0);
 		pwrcal_setbit(CLK_CON_MUX_PHYCLK_RXBYTECLKHS0_CSIS2_USER, 27, 1);
@@ -665,7 +664,6 @@ static void cam1_post(int enable)
 {
 	if (enable == 1) {
 		vclk_enable(VCLK(dvfs_cam));
-		vclk_enable(VCLK(p1_bus3_pll));
 
 		pwrcal_writel(CAM1_DRCG_EN, 0x7FFFF);
 
