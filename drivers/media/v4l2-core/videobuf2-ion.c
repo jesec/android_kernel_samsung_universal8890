@@ -639,7 +639,7 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	struct vb2_ion_context *ctx = alloc_ctx;
 	struct vb2_ion_buf *buf = NULL;
 	struct vm_area_struct *vma;
-	void *p_ret;
+	void *p_ret = ERR_PTR(-ENOMEM);;
 
 	if (ctx->protected) {
 		dev_err(ctx->dev,
