@@ -298,7 +298,7 @@ static void smfc_vb2_buf_cleanup(struct vb2_buffer *vb)
 		 * for the later use of this buffer.
 		 */
 		void *cookie = vb2_plane_cookie(vb, 0);
-		off_t size = vb2_ion_buffer_offset(cookie);
+		size_t size = (size_t)vb2_ion_buffer_offset(cookie);
 		vb2_ion_sync_for_device(cookie, 0, size, DMA_TO_DEVICE);
 	}
 }
