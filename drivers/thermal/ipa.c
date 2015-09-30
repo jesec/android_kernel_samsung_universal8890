@@ -229,15 +229,10 @@ static int queue_arbiter_poll(void)
 	int cpu, ret;
 	unsigned int period = (arbiter_data.active == true) ? ARBITER_ACTIVE_PERIOD_MSEC : ARBITER_PASSIVE_PERIOD_MSEC;
 
-	if (arbiter_data.config.enabled) {
-		cpu = cpumask_any(arbiter_data.cl_stats[CL_ZERO].mask);
-		ret = queue_delayed_work_on(cpu, system_freezable_wq,
-					&arbiter_data.work,
-					msecs_to_jiffies(period));
-	} else {
-		arbiter_data.active = false;
-		cancel_delayed_work(&arbiter_data.work);
-	}
+	cpu = cpumask_any(arbiter_data.cl_stats[CL_ZERO].mask);
+	ret = queue_delayed_work_on(cpu, system_freezable_wq,
+				&arbiter_data.work,
+				msecs_to_jiffies(period));
 
 	return ret;
 }
@@ -808,11 +803,10 @@ static ssize_t enabled_store(struct kobject *kobj,
     if (!buf)
 		return -EINVAL;
 
-    if ((buf[0]) == 'Y' && arbiter_data.config.enabled == 0) {
+    if ((buf[0]) == 'Y') {
 		arbiter_data.config.enabled = true;
-		queue_arbiter_poll();
 		return n;
-    } else  if ((buf[0]) == 'N' && arbiter_data.config.enabled != 0) {
+    } else  if ((buf[0]) == 'N') {
 		arbiter_data.config.enabled = false;
 		release_power_caps();
 		return n;
@@ -886,13 +880,10 @@ static ssize_t cpu_hotplug_out_show(struct kobject *kobj,
 static ssize_t debugfs_enabled_set(struct file *file, const char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
-	u32 enabled = arbiter_data.config.enabled;
 	ssize_t ret = __write_file_bool(file, user_buf, count, ppos);
 
-	if (enabled && !arbiter_data.config.enabled)
+	if (!arbiter_data.config.enabled)
 		release_power_caps();
-	else if (!enabled && arbiter_data.config.enabled)
-		queue_arbiter_poll();
 
 	return ret;
 }
