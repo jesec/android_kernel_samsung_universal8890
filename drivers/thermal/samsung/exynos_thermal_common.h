@@ -48,6 +48,8 @@
 #define TYPE_8BIT_MASK	(0xFF)
 #define TYPE_9BIT_MASK	(0x1FF)
 
+#define CLUSTER1_CORE	(4)
+
 enum trigger_type {
 	THROTTLE_ACTIVE = 1,
 	THROTTLE_PASSIVE,

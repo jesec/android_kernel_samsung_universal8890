@@ -25,6 +25,7 @@
 #include <linux/isp_cooling.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/cpufreq.h>
 #include <linux/suspend.h>
 #include <linux/thermal.h>
 #include <soc/samsung/cpufreq.h>
@@ -148,6 +149,7 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 	struct exynos_thermal_zone *th_zone = thermal->devdata;
 	struct thermal_sensor_conf *data = th_zone->sensor_conf;
 	enum thermal_trip_type type;
+	struct cpufreq_policy policy;
 
 	tab_ptr = (struct freq_clip_table *)data->cooling_data.freq_data;
 	tab_size = data->cooling_data.freq_clip_count;
@@ -169,9 +171,18 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 		clip_data = (struct freq_clip_table *)&(tab_ptr[i]);
 		if (data->d_type == CLUSTER0)
 			level = cpufreq_cooling_get_level(0, clip_data->freq_clip_max);
-		else if (data->d_type == CLUSTER1)
+		else if (data->d_type == CLUSTER1) {
+			cpufreq_get_policy(&policy, CLUSTER1_CORE);
+
+			if (clip_data->freq_clip_max > policy.max) {
+				dev_info(data->dev, "clip_data->freq_clip_max : %d, policy.max : %d \n",
+							clip_data->freq_clip_max, policy.max);
+				clip_data->freq_clip_max = policy.max;
+				dev_info(data->dev, "Apply to clip_data->freq_clip_max : %d",
+							clip_data->freq_clip_max);
+			}
 			level = cpufreq_cooling_get_level(4, clip_data->freq_clip_max);
-		else if (data->d_type == GPU)
+		} else if (data->d_type == GPU)
 			level = gpufreq_cooling_get_level(0, clip_data->freq_clip_max);
 		else if (data->d_type == ISP)
 			level = isp_cooling_get_fps(0, clip_data->freq_clip_max);
