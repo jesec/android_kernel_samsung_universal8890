@@ -138,8 +138,7 @@ unsigned int get_power_value(struct cpu_power_info *power_info);
 int get_ipa_dvfs_max_freq(void);
 int get_real_max_freq(cluster_type cluster);
 
-#define ARBITER_ACTIVE_PERIOD_MSEC 	100
-#define ARBITER_PASSIVE_PERIOD_MSEC	1000
+#define ARBITER_PERIOD_MSEC 100
 
 static int nr_big_coeffs, nr_little_coeffs;
 
@@ -227,12 +226,13 @@ static void reset_arbiter_configuration(struct ipa_config *config)
 static int queue_arbiter_poll(void)
 {
 	int cpu, ret;
-	unsigned int period = (arbiter_data.active == true) ? ARBITER_ACTIVE_PERIOD_MSEC : ARBITER_PASSIVE_PERIOD_MSEC;
 
 	cpu = cpumask_any(arbiter_data.cl_stats[CL_ZERO].mask);
 	ret = queue_delayed_work_on(cpu, system_freezable_wq,
 				&arbiter_data.work,
-				msecs_to_jiffies(period));
+				msecs_to_jiffies(ARBITER_PERIOD_MSEC));
+
+	arbiter_data.active = true;
 
 	return ret;
 }
@@ -494,7 +494,7 @@ static void print_only_temp_trace(int skin_temp)
 {
 }
 #endif
-static void check_switch_ipa_onoff(int skin_temp)
+static void check_switch_ipa_off(int skin_temp)
 {
 	int currT, threshold_temp;
 
@@ -506,9 +506,34 @@ static void check_switch_ipa_onoff(int skin_temp)
 		release_power_caps();
 		arbiter_data.active = false;
 		/* The caller should dequeue arbiter_poll() *if* it's queued */
-	} else if (!arbiter_data.active && currT >= threshold_temp) {
+	}
+
+	if (!arbiter_data.active)
+		print_only_temp_trace(skin_temp);
+}
+
+void check_switch_ipa_on(int max_temp)
+{
+	int skin_temp, currT, threshold_temp;
+
+	/*
+	 * IPA initialization is deferred until exynos_cpufreq is
+	 * initialised, so we can't start queueing ourselves until we
+	 * are initialised.
+	 */
+	if (!arbiter_data.initialised)
+		return;
+
+	arbiter_data.max_sensor_temp = max_temp;
+	skin_temp = arbiter_data.sensor->read_skin_temperature();
+	currT = skin_temp / 10;
+	threshold_temp = arbiter_data.config.control_temp - arbiter_data.config.temp_threshold;
+
+	if (!arbiter_data.active && currT > threshold_temp) {
+		/* Switch On */
+		/* Reset the controller before re-starting */
 		reset_controller(&arbiter_data.config.ctlr);
-		arbiter_data.active = true;
+		queue_arbiter_poll();
 	}
 
 	if (!arbiter_data.active)
@@ -1367,10 +1392,11 @@ static void arbiter_poll(struct work_struct *work)
 	arbiter_data.skin_temperature = arbiter_data.sensor->read_skin_temperature();
 	arbiter_data.cp_temperature = get_humidity_sensor_temp();
 
-	check_switch_ipa_onoff(arbiter_data.skin_temperature);
+	check_switch_ipa_off(arbiter_data.skin_temperature);
+	if (!arbiter_data.active)
+		return;
 
-	if (arbiter_data.active)
-		arbiter_calc(arbiter_data.skin_temperature/10);
+	arbiter_calc(arbiter_data.skin_temperature/10);
 
 	queue_arbiter_poll();
 }
