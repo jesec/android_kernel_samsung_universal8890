@@ -659,6 +659,7 @@ static void *vb2_ion_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf) {
 		dev_err(ctx->dev, "%s: Not enough memory\n", __func__);
+		p_ret = ERR_PTR(-ENOMEM);
 		goto err_alloc;
 	}
 
