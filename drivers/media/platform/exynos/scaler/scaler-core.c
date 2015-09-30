@@ -901,10 +901,9 @@ static int sc_v4l2_s_crop(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
-	if (cr->c.left < 0 || cr->c.top < 0 ||
-			cr->c.width < 0 || cr->c.height < 0) {
+	if (cr->c.left < 0 || cr->c.top < 0) {
 		v4l2_err(&ctx->sc_dev->m2m.v4l2_dev,
-				"crop value is negative\n");
+				"crop position is negative\n");
 		return -EINVAL;
 	}
 
