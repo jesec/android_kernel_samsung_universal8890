@@ -1061,7 +1061,7 @@ static int setup_cpufreq_tables(int cl_idx)
 	int policy_cpu = ((cl_idx == CL_ONE) ? 4 : 0);
 	struct coefficients *coeff = ((cl_idx == CL_ONE) ? big_cpu_coeffs : little_cpu_coeffs);
 	struct cpufreq_frequency_table *table =
-			cpufreq_frequency_get_table(policy_cpu);
+			cpufreq_get_info_table(policy_cpu);
 
 	for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++) {
 		if (table[i].frequency == CPUFREQ_ENTRY_INVALID)
