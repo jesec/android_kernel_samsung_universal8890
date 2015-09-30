@@ -149,9 +149,12 @@ static nal_queue_out_handle* s5p_mfc_nal_q_create_out_q(struct s5p_mfc_dev *dev,
 	return nal_q_out_handle;
 }
 
-static void s5p_mfc_nal_q_destroy_in_q(nal_queue_in_handle *nal_q_in_handle)
+static int s5p_mfc_nal_q_destroy_in_q(nal_queue_in_handle *nal_q_in_handle)
 {
 	mfc_debug_enter();
+
+	if (!nal_q_in_handle)
+		return -EINVAL;
 
 	if (nal_q_in_handle->in_alloc)
 		s5p_mfc_mem_free_priv(nal_q_in_handle->in_alloc);
@@ -159,11 +162,16 @@ static void s5p_mfc_nal_q_destroy_in_q(nal_queue_in_handle *nal_q_in_handle)
 		kfree(nal_q_in_handle);
 
 	mfc_debug_leave();
+
+	return 0;
 }
 
-static void s5p_mfc_nal_q_destroy_out_q(nal_queue_out_handle *nal_q_out_handle)
+static int s5p_mfc_nal_q_destroy_out_q(nal_queue_out_handle *nal_q_out_handle)
 {
 	mfc_debug_enter();
+
+	if (!nal_q_out_handle)
+		return -EINVAL;
 
 	if (nal_q_out_handle->out_alloc)
 		s5p_mfc_mem_free_priv(nal_q_out_handle->out_alloc);
@@ -171,6 +179,8 @@ static void s5p_mfc_nal_q_destroy_out_q(nal_queue_out_handle *nal_q_out_handle)
 		kfree(nal_q_out_handle);
 
 	mfc_debug_leave();
+
+	return 0;
 }
 
 /*
@@ -212,21 +222,35 @@ nal_queue_handle *s5p_mfc_nal_q_create(struct s5p_mfc_dev *dev)
 	return nal_q_handle;
 }
 
-void s5p_mfc_nal_q_destroy(struct s5p_mfc_dev *dev, nal_queue_handle *nal_q_handle)
+int s5p_mfc_nal_q_destroy(struct s5p_mfc_dev *dev, nal_queue_handle *nal_q_handle)
 {
+	int ret = 0;
+
 	mfc_debug_enter();
 
-	if (!nal_q_handle)
-		return;
+	if (!nal_q_handle) {
+		mfc_err_dev("there isn't nal_q_handle\n");
+		return -EINVAL;
+	}
 
-	s5p_mfc_nal_q_destroy_out_q(nal_q_handle->nal_q_out_handle);
+	ret = s5p_mfc_nal_q_destroy_out_q(nal_q_handle->nal_q_out_handle);
+	if (ret) {
+		mfc_err_dev("failed nal_q_out_handle destroy\n");
+		return ret;
+	}
 
-	s5p_mfc_nal_q_destroy_in_q(nal_q_handle->nal_q_in_handle);
+	ret = s5p_mfc_nal_q_destroy_in_q(nal_q_handle->nal_q_in_handle);
+	if (ret) {
+		mfc_err_dev("failed nal_q_in_handle destroy\n");
+		return ret;
+	}
 
 	kfree(nal_q_handle);
 	dev->nal_q_handle = NULL;
 
 	mfc_debug_leave();
+
+	return ret;
 }
 
 void s5p_mfc_nal_q_init(struct s5p_mfc_dev *dev, nal_queue_handle *nal_q_handle)
@@ -433,9 +457,9 @@ void s5p_mfc_nal_q_set_slice_mode(struct s5p_mfc_ctx *ctx, EncoderInputStr *pInS
 
 int s5p_mfc_nal_q_set_in_buf_enc(struct s5p_mfc_ctx *ctx, EncoderInputStr *pInStr)
 {
-	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_buf *src_buf, *dst_buf;
-	struct s5p_mfc_raw_info *raw = &ctx->raw_buf;
+	struct s5p_mfc_raw_info *raw = NULL;
 	dma_addr_t src_addr[3] = {0, 0, 0};
 	unsigned int index, i;
 	unsigned long flags;
@@ -466,6 +490,7 @@ int s5p_mfc_nal_q_set_in_buf_enc(struct s5p_mfc_ctx *ctx, EncoderInputStr *pInSt
 	pInStr->startcode = 0xBBBBBBBB;
 	pInStr->CommandId = 0;
 
+	raw = &ctx->raw_buf;
 	src_buf = list_entry(ctx->src_queue.next, struct s5p_mfc_buf, list);
 	src_buf->used = 1;
 

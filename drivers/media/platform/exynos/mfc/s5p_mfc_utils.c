@@ -156,7 +156,7 @@ int s5p_mfc_raw_buf_prot(struct s5p_mfc_ctx *ctx,
 {
 	struct s5p_mfc_dev *dev;
 	struct s5p_mfc_raw_info *raw = &ctx->raw_buf;
-	int num_planes, i, ret = 0;
+	int num_planes = 0, i, ret = 0;
 	void *cookie = NULL;
 	phys_addr_t addr = 0;
 	u32 cmd_id;

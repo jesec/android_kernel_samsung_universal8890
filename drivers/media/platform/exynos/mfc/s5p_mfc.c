@@ -1412,8 +1412,10 @@ static irqreturn_t s5p_mfc_top_half_irq(int irq, void *priv)
 	unsigned int reason;
 
 	ctx = dev->ctx[dev->curr_ctx];
-	if (!ctx)
+	if (!ctx) {
 		mfc_err("no mfc context to run\n");
+		return IRQ_WAKE_THREAD;
+	}
 
 	reason = s5p_mfc_get_int_reason();
 	err = s5p_mfc_get_int_err();
@@ -1444,7 +1446,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 
 	if (!dev) {
 		mfc_err("no mfc device to run\n");
-		goto irq_done;
+		goto irq_end;
 	}
 
 	if (atomic_read(&dev->pm.power) == 0) {
@@ -1694,16 +1696,17 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		s5p_mfc_check_and_stop_hw(dev);
 	wake_up_ctx(ctx, reason, err);
 
-irq_done:
 	if (dev->has_job) {
 		/* If cache flush command is needed, hander should stop */
 		if (dev->curr_ctx_drm != dev->ctx[new_ctx]->is_drm)
 			queue_work(dev->sched_wq, &dev->sched_work);
 		else
 			s5p_mfc_try_run(dev);
-	} else {
-		queue_work(dev->sched_wq, &dev->sched_work);
 	}
+
+irq_done:
+	if (!dev->has_job)
+		queue_work(dev->sched_wq, &dev->sched_work);
 
 irq_end:
 	mfc_debug_leave();
@@ -2198,8 +2201,13 @@ static int s5p_mfc_release(struct file *file)
 #endif
 
 #ifdef NAL_Q_ENABLE
-		if (dev->nal_q_handle)
-			s5p_mfc_nal_q_destroy(dev, dev->nal_q_handle);
+		if (dev->nal_q_handle) {
+			ret = s5p_mfc_nal_q_destroy(dev, dev->nal_q_handle);
+			if (ret) {
+				mfc_err_ctx("failed nal_q destroy\n");
+				return ret;
+			}
+		}
 #endif
 	}
 

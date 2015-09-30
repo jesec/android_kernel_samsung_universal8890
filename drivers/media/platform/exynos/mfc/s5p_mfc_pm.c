@@ -171,7 +171,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 		}
 		spin_unlock_irqrestore(&dev->pm.clklock, flags);
 	} else {
-		atomic_dec_return(&dev->clk_ref);
+		atomic_dec(&dev->clk_ref);
 	}
 
 	dev->pm.clock_off_steps |= 0x1 << 3;

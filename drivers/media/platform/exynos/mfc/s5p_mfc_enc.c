@@ -571,8 +571,6 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
 
 			if(((temporal_LC.temporal_layer_count & 0x7) < 1) ||
-				(((temporal_LC.temporal_layer_count & 0x7) > 7) &&
-				(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
@@ -789,8 +787,6 @@ static int enc_set_buf_ctrls_val_nal_q(struct s5p_mfc_ctx *ctx,
 				enc->sh_handle.virt, sizeof(struct temporal_layer_info));
 
 			if (((temporal_LC.temporal_layer_count & 0x7) < 1) ||
-				(((temporal_LC.temporal_layer_count & 0x7) > 7) &&
-				(ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
 				(ctx->codec_mode == S5P_FIMV_CODEC_VP8_ENC)) ||
 				((temporal_LC.temporal_layer_count > 3) &&
