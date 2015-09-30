@@ -379,6 +379,15 @@ int exynos_verify_speed(struct cpufreq_policy *policy)
 				exynos_info[cur]->freq_table);
 }
 
+struct cpufreq_frequency_table *cpufreq_get_info_table(unsigned int cpu)
+{
+	unsigned int cur = get_cur_cluster(cpu);
+	struct cpufreq_frequency_table *freq_table
+					= exynos_info[cur]->freq_table;
+
+	return freq_table;
+}
+
 unsigned int exynos_getspeed_cluster(cluster_type cluster)
 {
 	return clk_get_freq(cluster);
