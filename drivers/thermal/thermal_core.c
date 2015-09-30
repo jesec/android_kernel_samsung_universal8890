@@ -1843,16 +1843,14 @@ static int __cpuinit thermal_cpu_callback(struct notifier_block *nfb,
 	case CPU_ONLINE:
 		if (cpu == BOUNDED_CPU) {
 			list_for_each_entry(pos, &thermal_tz_list, node) {
-				if (pos->polling_delay) {
-					pos->poll_queue_cpu = BOUNDED_CPU;
-					start_poll_queue(pos, pos->polling_delay);
-				}
+				pos->poll_queue_cpu = BOUNDED_CPU;
+				start_poll_queue(pos, pos->polling_delay);
 			}
 		}
 		break;
 	case CPU_DOWN_PREPARE:
 		list_for_each_entry(pos, &thermal_tz_list, node) {
-			if (pos->poll_queue_cpu == cpu && pos->polling_delay) {
+			if (pos->poll_queue_cpu == cpu) {
 				pos->poll_queue_cpu = 0;
 				start_poll_queue(pos, pos->polling_delay);
 			}
@@ -1940,9 +1938,6 @@ error:
 static void __exit thermal_exit(void)
 {
 	unregister_pm_notifier(&thermal_pm_notifier);
-#ifdef CONFIG_SCHED_HMP
-	unregister_hotcpu_notifier(&thermal_cpu_notifier);
-#endif
 	of_thermal_destroy_zones();
 	genetlink_exit();
 	class_unregister(&thermal_class);
