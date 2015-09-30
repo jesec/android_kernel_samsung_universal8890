@@ -13,6 +13,7 @@
 #define __EXYNOS_CPU_HOTPLUG_H __FILE__
 
 struct kobject *exynos_cpu_hotplug_kobj(void);
+bool exynos_cpu_hotplug_disable(void);
 
 #endif /* __EXYNOS_CPU_HOTPLUG_H */
 

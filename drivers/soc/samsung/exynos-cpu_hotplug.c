@@ -103,6 +103,11 @@ struct kobject *exynos_cpu_hotplug_kobj(void)
 	return cpu_hotplug.kobj;
 }
 
+bool exynos_cpu_hotplug_disable(void)
+{
+	return cpu_hotplug.disabled;
+}
+
 /*
  * If somebody requests CPU hotplug, hotplug driver creates cpumask with minimum
  * and maxinum online CPU in PM QoS. The number of online CPU will be same as

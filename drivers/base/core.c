@@ -27,6 +27,10 @@
 #include <linux/netdevice.h>
 #include <linux/sysfs.h>
 
+#ifdef CONFIG_ARCH_EXYNOS
+#include <soc/samsung/exynos-cpu_hotplug.h>
+#endif
+
 #include "base.h"
 #include "power/power.h"
 
@@ -440,6 +444,11 @@ static ssize_t online_store(struct device *dev, struct device_attribute *attr,
 {
 	bool val;
 	int ret;
+
+#ifdef CONFIG_ARCH_EXYNOS
+	if (!exynos_cpu_hotplug_disable())
+		return count;
+#endif
 
 	ret = strtobool(buf, &val);
 	if (ret < 0)
