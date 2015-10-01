@@ -2251,6 +2251,7 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 	if (of_property_read_u32(np, (cl ? "cl1_en_ema" : "cl0_en_ema"),
 				&ptr->en_ema))
 		return -ENODEV;
+
 	if (cl == CL_ONE) {
 		if (of_property_read_u32(np, "en_cl0_qos_lock", &en_cl0_qos_lock))
 			return -ENODEV;
@@ -2259,6 +2260,8 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 		if (of_property_read_u32(np, "cl0_qos_lock_freq", &cl0_qos_lock_freq))
 			return -ENODEV;
 		if (of_property_read_u32(np, "cl1_en_smpl", &ptr->en_smpl))
+			return -ENODEV;
+		if (of_property_read_u32(np, "cl1_reboot_limit_freq", &ptr->reboot_limit_freq))
 			return -ENODEV;
 	}
 
