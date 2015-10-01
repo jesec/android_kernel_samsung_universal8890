@@ -545,22 +545,6 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 		if (buf_ctrl->id == V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG)
 			enc->stored_tag = buf_ctrl->val;
 
-		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
-			p->codec.h264.num_hier_layer = buf_ctrl->val & 0x7;
-			p->codec.h264.hier_ref_type = (buf_ctrl->val >> 16) & 0x1;
-			value = MFC_READL(S5P_FIMV_E_NUM_T_LAYER);
-			buf_ctrl->old_val2 = value;
-			value &= ~(0x7 << 4);
-			if (p->codec.h264.hier_ref_type) {
-				value |= 0x1 << 7;
-				value |= (p->codec.h264.num_hier_layer & 0x7) << 4;
-			} else {
-				value &= ~(0x1 << 7);
-				value |= 0x7 << 4;
-			}
-			MFC_WRITEL(value, S5P_FIMV_E_NUM_T_LAYER);
-		}
-
 		if (buf_ctrl->id
 			== V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH ||
 			buf_ctrl->id
@@ -584,10 +568,8 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 				goto invalid_layer_count;
 			}
 
-			if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_CH) {
+			if (ctx->codec_mode == S5P_FIMV_CODEC_H264_ENC)
 				p->codec.h264.num_hier_layer = temporal_LC.temporal_layer_count & 0x7;
-				p->codec.h264.hier_ref_type = (temporal_LC.temporal_layer_count >> 16) & 0x1;
-			}
 
 			/* enable RC_BIT_RATE_CHANGE */
 			value = MFC_READL(buf_ctrl->flag_addr);
@@ -605,15 +587,7 @@ static int enc_set_buf_ctrls_val(struct s5p_mfc_ctx *ctx, struct list_head *head
 			value = MFC_READL(S5P_FIMV_E_NUM_T_LAYER);
 			buf_ctrl->old_val2 = value;
 			value &= ~(0x7);
-			value &= ~(0x7 << 4);
 			value |= (temporal_LC.temporal_layer_count & 0x7);
-			if (p->codec.h264.hier_ref_type) {
-				value |= 0x1 << 7;
-				value |= (p->codec.h264.num_hier_layer & 0x7) << 4;
-			} else {
-				value &= ~(0x1 << 7);
-				value |= 0x7 << 4;
-			}
 			MFC_WRITEL(value, S5P_FIMV_E_NUM_T_LAYER);
 			for (i = 0; i < (temporal_LC.temporal_layer_count & 0x7); i++) {
 				mfc_debug(2, "temporal layer bitrate[%d] : %d\n",
@@ -995,14 +969,6 @@ static int enc_recover_buf_ctrls_val(struct s5p_mfc_ctx *ctx,
 			value = MFC_READL(buf_ctrl->flag_addr);
 			value &= ~(1 << 2);
 			MFC_WRITEL(value, buf_ctrl->flag_addr);
-		}
-		if (buf_ctrl->id == V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER) {
-			value = MFC_READL(S5P_FIMV_E_NUM_T_LAYER);
-			value &= ~(0x1 << 7);
-			value &= ~(0x7 << 4);
-			value |= (buf_ctrl->old_val2 & (0x1 << 7));
-			value |= (buf_ctrl->old_val2 & (0x7 << 4));
-			MFC_WRITEL(value, S5P_FIMV_E_NUM_T_LAYER);
 		}
 	}
 
@@ -2902,7 +2868,6 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_MFC_H264_MARK_LTR:
 	case V4L2_CID_MPEG_MFC_H264_USE_LTR:
 	case V4L2_CID_MPEG_MFC_H264_BASE_PRIORITY:
-	case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER:
 	case V4L2_CID_MPEG_MFC_CONFIG_QP:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {
 			if (!(ctx_ctrl->type & MFC_CTRL_TYPE_SET))

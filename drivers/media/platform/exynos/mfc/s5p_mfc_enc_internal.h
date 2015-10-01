@@ -2096,18 +2096,6 @@ static struct s5p_mfc_ctrl_cfg mfc_ctrl_list[] = {
 		.flag_addr = S5P_FIMV_E_PARAM_CHANGE,
 		.flag_shft = 10,
 	},
-	{	/* H.264 Dynamic Temporal Layer change */
-		.type = MFC_CTRL_TYPE_SET,
-		.id = V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER,
-		.is_volatile = 1,
-		.mode = MFC_CTRL_MODE_SFR,
-		.addr = S5P_FIMV_E_NUM_T_LAYER,
-		.mask = 0x00000007,
-		.shft = 0,
-		.flag_mode = MFC_CTRL_MODE_SFR,
-		.flag_addr = S5P_FIMV_E_PARAM_CHANGE,
-		.flag_shft = 10,
-	},
 	{	/* HEVC QP Max change */
 		.type = MFC_CTRL_TYPE_SET,
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
