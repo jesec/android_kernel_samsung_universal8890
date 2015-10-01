@@ -35,6 +35,7 @@
 #include <linux/reboot.h>
 #include <linux/string.h>
 #include <linux/of.h>
+#include <linux/suspend.h>
 #include <net/netlink.h>
 #include <net/genetlink.h>
 
@@ -1865,6 +1866,33 @@ static struct notifier_block __cpuinitdata thermal_cpu_notifier =
 };
 #endif
 
+static int exynos_thermal_pm_notifier(struct notifier_block *notifier,
+			unsigned long event, void *v)
+{
+	struct thermal_zone_device *pos;
+	unsigned int polling_interval = 100;
+
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		break;
+	case PM_POST_SUSPEND:
+		list_for_each_entry(pos, &thermal_tz_list, node) {
+			if (!pos->polling_delay) {
+				pos->poll_queue_cpu = BOUNDED_CPU;
+				start_poll_queue(pos, polling_interval);
+			}
+		}
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block thermal_pm_notifier = {
+	.notifier_call = exynos_thermal_pm_notifier,
+	.priority = (INT_MIN + 1),
+};
+
 static int __init thermal_init(void)
 {
 	int result;
@@ -1888,6 +1916,7 @@ static int __init thermal_init(void)
 #ifdef CONFIG_SCHED_HMP
 	register_hotcpu_notifier(&thermal_cpu_notifier);
 #endif
+	register_pm_notifier(&thermal_pm_notifier);
 
 	return 0;
 
@@ -1908,6 +1937,7 @@ error:
 
 static void __exit thermal_exit(void)
 {
+	unregister_pm_notifier(&thermal_pm_notifier);
 	of_thermal_destroy_zones();
 	genetlink_exit();
 	class_unregister(&thermal_class);
