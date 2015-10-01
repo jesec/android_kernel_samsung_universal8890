@@ -180,6 +180,7 @@ ENTRY(memcpy)
 	* interlace the load of next 64 bytes data block with store of the last
 	* loaded 64 bytes data.
 	*/
+	prfm	pldl1strm, [src, #(64*8)]
 	stp	A_l, A_h, [dst],#16
 	ldp	A_l, A_h, [src],#16
 	stp	B_l, B_h, [dst],#16
