@@ -1843,8 +1843,8 @@ static int __cpuinit thermal_cpu_callback(struct notifier_block *nfb,
 	case CPU_ONLINE:
 		if (cpu == BOUNDED_CPU) {
 			list_for_each_entry(pos, &thermal_tz_list, node) {
+				pos->poll_queue_cpu = BOUNDED_CPU;
 				if (pos->polling_delay) {
-					pos->poll_queue_cpu = BOUNDED_CPU;
 					start_poll_queue(pos, pos->polling_delay);
 				}
 			}
@@ -1852,9 +1852,10 @@ static int __cpuinit thermal_cpu_callback(struct notifier_block *nfb,
 		break;
 	case CPU_DOWN_PREPARE:
 		list_for_each_entry(pos, &thermal_tz_list, node) {
-			if (pos->poll_queue_cpu == cpu && pos->polling_delay) {
+			if (pos->poll_queue_cpu == cpu) {
 				pos->poll_queue_cpu = 0;
-				start_poll_queue(pos, pos->polling_delay);
+				if (pos->polling_delay)
+					start_poll_queue(pos, pos->polling_delay);
 			}
 		}
 		break;
@@ -1876,11 +1877,14 @@ static int exynos_thermal_pm_notifier(struct notifier_block *notifier,
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
+		list_for_each_entry(pos, &thermal_tz_list, node) {
+			if (delayed_work_pending(&pos->poll_queue))
+				cancel_delayed_work(&pos->poll_queue);
+		}
 		break;
 	case PM_POST_SUSPEND:
 		list_for_each_entry(pos, &thermal_tz_list, node) {
 			if (!pos->polling_delay) {
-				pos->poll_queue_cpu = BOUNDED_CPU;
 				start_poll_queue(pos, polling_interval);
 			}
 		}
