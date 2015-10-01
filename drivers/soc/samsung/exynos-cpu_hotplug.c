@@ -146,7 +146,7 @@ static struct cpumask create_cpumask(void)
  * enables or disables cpus, so all APIs in this driver call do_cpu_hotplug()
  * eventually.
  */
-static int do_cpu_hotplug(void)
+static int do_cpu_hotplug(void *param)
 {
 	int ret = 0;
 	struct cpumask disable_cpus, enable_cpus;
@@ -175,14 +175,21 @@ static int do_cpu_hotplug(void)
 
 	/* If request has the callback, call cpus_up() and cpus_down() */
 	if (!cpumask_empty(&enable_cpus)) {
-		ret = cpu_hotplug_in(&enable_cpus);
+		if (param)
+			ret = cpus_up(&enable_cpus);
+		else
+			ret = cpu_hotplug_in(&enable_cpus);
+
 		if (ret)
 			goto out;
 	}
 
-	if (!cpumask_empty(&disable_cpus))
-		ret = cpu_hotplug_out(&disable_cpus);
-
+	if (!cpumask_empty(&disable_cpus)) {
+		if (param)
+			ret = cpus_down(&disable_cpus);
+		else
+			ret = cpu_hotplug_out(&disable_cpus);
+	}
 out:
 	/* If it fails to complete cpu hotplug request, retries after 100ms */
 	if (ret)
@@ -196,7 +203,7 @@ out:
 
 static void cpu_hotplug_work(struct work_struct *work)
 {
-	do_cpu_hotplug();
+	do_cpu_hotplug(NULL);
 }
 
 /*
@@ -206,7 +213,7 @@ static void cpu_hotplug_work(struct work_struct *work)
 static int cpu_hotplug_qos_handler(struct notifier_block *b,
 					 unsigned long val, void *v)
 {
-	return do_cpu_hotplug();
+	return do_cpu_hotplug(v);
 }
 
 static struct notifier_block cpu_hotplug_qos_notifier = {
@@ -328,7 +335,7 @@ static ssize_t store_cpu_hotplug_disable(struct kobject *kobj,
 	cpu_hotplug.disabled = !!input;
 
 	/* To enable all cpus, call do_cpu_hotplug() */
-	do_cpu_hotplug();
+	do_cpu_hotplug(NULL);
 
 	return count;
 }
