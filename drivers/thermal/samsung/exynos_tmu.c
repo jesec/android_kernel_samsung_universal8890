@@ -1218,6 +1218,11 @@ static int exynos_tmu_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int exynos_tmu_suspend(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
+
+	disable_irq(data->irq);
+
 	exynos_tmu_control(to_platform_device(dev), false);
 
 	return 0;
@@ -1226,9 +1231,12 @@ static int exynos_tmu_suspend(struct device *dev)
 static int exynos_tmu_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
+	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
 
 	exynos_tmu_initialize(pdev);
 	exynos_tmu_control(pdev, true);
+
+	enable_irq(data->irq);
 
 	return 0;
 }
