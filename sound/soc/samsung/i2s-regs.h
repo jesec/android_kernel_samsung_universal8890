@@ -98,7 +98,7 @@
 #define MOD_SLAVE		(1 << 11)
 #define MOD_RCLKSRC		(1 << 10)
 
-#if defined(CONFIG_SOC_EXYNOS7420)
+#if defined(CONFIG_SOC_EXYNOS7420) || defined(CONFIG_SOC_EXYNOS8890)
 #define MOD_TXR_TXONLY		2
 #define MOD_TXR_RXONLY		2
 #define MOD_TXR_TXRX		2
