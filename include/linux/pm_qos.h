@@ -146,7 +146,7 @@ static inline int dev_pm_qos_request_active(struct dev_pm_qos_request *req)
 }
 
 int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
-			 enum pm_qos_req_action action, int value);
+			 enum pm_qos_req_action action, int value, void *notify_param);
 int pm_qos_update_constraints(int pm_qos_class,
 			struct pm_qos_constraints *constraints);
 bool pm_qos_update_flags(struct pm_qos_flags *pqf,
@@ -157,6 +157,8 @@ void pm_qos_add_request_trace(char *func, unsigned int line,
 			s32 value);
 void pm_qos_update_request(struct pm_qos_request *req,
 			   s32 new_value);
+void pm_qos_update_request_param(struct pm_qos_request *req,
+			   s32 new_value, void *notify_param);
 void pm_qos_update_request_timeout(struct pm_qos_request *req,
 				   s32 new_value, unsigned long timeout_us);
 void pm_qos_remove_request(struct pm_qos_request *req);
