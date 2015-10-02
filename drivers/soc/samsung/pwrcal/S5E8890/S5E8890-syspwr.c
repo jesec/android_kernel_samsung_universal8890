@@ -598,16 +598,16 @@ static int syspwr_hwacg_control(int mode)
 		pwrcal_setbit(QCH_CTRL_CMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_PMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_SYSREG_FSYS0, 0, 1);
-		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 1);
+		pwrcal_setbit(QCH_CTRL_USBDRD30, 0, 0);
 		pwrcal_setbit(QCH_CTRL_MMC0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_UFS_LINK_EMBEDDED, 0, 1);
-		pwrcal_setbit(QCH_CTRL_USBHOST20, 0, 1);
-		pwrcal_setbit(QCH_CTRL_PDMA0, 0, 1);
-		pwrcal_setbit(QCH_CTRL_PDMAS, 0, 1);
+		pwrcal_setbit(QCH_CTRL_USBHOST20, 0, 0);
+		pwrcal_setbit(QCH_CTRL_PDMA0, 0, 0);
+		pwrcal_setbit(QCH_CTRL_PDMAS, 0, 0);
 		pwrcal_setbit(QCH_CTRL_PPMU_FSYS0, 0, 1);
 		pwrcal_setbit(QCH_CTRL_ACEL_LH_ASYNC_SI_TOP_FSYS0, 0, 1);
-		pwrcal_setbit(QCH_CTRL_USBDRD30_PHYCTRL, 0, 1);
-		pwrcal_setbit(QCH_CTRL_USBHOST20_PHYCTRL, 0, 1);
+		pwrcal_setbit(QCH_CTRL_USBDRD30_PHYCTRL, 0, 0);
+		pwrcal_setbit(QCH_CTRL_USBHOST20_PHYCTRL, 0, 0);
 	}
 	/* all QCH_CTRL in CMU_FSYS1 */
 	if (pwrcal_getf(FSYS1_STATUS, 0, 0xF) == 0xF) {
