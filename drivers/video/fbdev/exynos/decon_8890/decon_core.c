@@ -41,6 +41,8 @@
 #include "./panels/lcd_ctrl.h"
 #include "../../../../staging/android/sw_sync.h"
 #include "vpp/vpp.h"
+#include "../../../../soc/samsung/pwrcal/pwrcal.h"
+#include "../../../../soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
 
 #ifdef CONFIG_MACH_VELOCE8890
 #define DISP_SYSMMU_DIS
@@ -2031,8 +2033,22 @@ void decon_vpp_wait_wb_framedone(struct decon_device *decon)
 	struct v4l2_subdev *sd = NULL;
 
 	sd = decon->mdev->vpp_sd[ODMA_WB];
-	v4l2_subdev_call(sd, core, ioctl,
-			VPP_WAIT_FOR_FRAMEDONE, NULL);
+	if (v4l2_subdev_call(sd, core, ioctl,
+			VPP_WAIT_FOR_FRAMEDONE, NULL) < 0) {
+		decon_warn("%s: timeout of framedone (%d)\n",
+				__func__,
+				decon->timeline->value);
+		decon_warn("\t\t mif(%lu), int(%lu), disp(%lu), eclk(%lu)\n",
+				cal_dfs_get_rate(dvfs_mif),
+				cal_dfs_get_rate(dvfs_int),
+				cal_dfs_get_rate(dvfs_disp),
+				clk_get_rate(decon->res.eclk_leaf) / MHZ);
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+		decon_warn("\t\t bw(%d) peak_bw(%d) disp_bw(%llu)\n",
+				decon->total_bw, decon->max_peak_bw,
+				decon->max_disp_ch);
+#endif
+	}
 }
 
 #if !defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)

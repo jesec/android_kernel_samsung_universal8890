@@ -37,6 +37,7 @@
 
 #define MIF_LV1			(2912000/2)
 #define INT_LV7			(400000)
+#define FRAMEDONE_TIMEOUT	msecs_to_jiffies(30)
 
 #define MEM_FAULT_VPP_MASTER            0
 #define MEM_FAULT_VPP_CFW               1
@@ -120,9 +121,9 @@ static int vpp_wait_for_framedone(struct vpp_dev *vpp)
 				done_cnt, vpp->done_count);
 		ret = wait_event_interruptible_timeout(vpp->framedone_wq,
 				(done_cnt != vpp->done_count),
-				msecs_to_jiffies(17));
+				FRAMEDONE_TIMEOUT);
 		if (ret == 0) {
-			dev_err(DEV, "timeout of frame done(st:%d, %d, do:%d)\n",
+			dev_dbg(DEV, "timeout of frame done(st:%d, %d, do:%d)\n",
 				vpp->start_count, done_cnt, vpp->done_count);
 			return -ETIMEDOUT;
 		}
