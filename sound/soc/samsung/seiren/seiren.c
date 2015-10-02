@@ -379,6 +379,8 @@ int check_esa_compr_state(void)
  * through mailbox interface */
 void esa_compr_alpa_notifier(bool on)
 {
+	if (si.mailbox == NULL)
+		return;
 	writel(on ? 1 : 0, si.mailbox + COMPR_ALPA_NOTI);
 	esa_debug("%s ALPA %s\n", __func__, (on ? "Enter" : "Exit"));
 	if (!on) {
