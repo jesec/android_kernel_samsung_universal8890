@@ -558,6 +558,9 @@ void set_pmu_central_seq_mif(bool enable)
 
 static int syspwr_hwacg_control(int mode)
 {
+	if (mode == syspwr_sicd || mode == syspwr_sicd_cpd || mode == syspwr_sicd_aud)
+		return 0;
+
 	/* all QCH_CTRL in CMU_IMEM */
 	pwrcal_setbit(QCH_CTRL_AXI_LH_ASYNC_MI_IMEM, 0, 1);
 	pwrcal_setbit(QCH_CTRL_SSS, 0, 1);
