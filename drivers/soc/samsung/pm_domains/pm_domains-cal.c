@@ -46,9 +46,11 @@ static void exynos_genpd_power_on_post(struct exynos_pm_domain *pd)
 
 static void exynos_genpd_power_off_pre(struct exynos_pm_domain *pd)
 {
+#ifdef CONFIG_EXYNOS_CL_DVFS_G3D
 	if (!strcmp(pd->name, "pd-g3d")) {
 		exynos_g3d_power_down_noti_apm();
 	}
+#endif /* CONFIG_EXYNOS_CL_DVFS_G3D */
 }
 
 static void exynos_genpd_power_off_post(struct exynos_pm_domain *pd)
