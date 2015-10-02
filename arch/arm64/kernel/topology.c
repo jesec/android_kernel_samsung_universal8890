@@ -501,6 +501,14 @@ void __init arch_get_hmp_domains(struct list_head *hmp_domains_list)
 }
 #endif /* CONFIG_SCHED_HMP */
 
+#ifdef CONFIG_DISABLE_CPU_SCHED_DOMAIN_BALANCE
+
+int cpu_cpu_flags(void)
+{
+	return SD_NO_LOAD_BALANCE;
+}
+#endif /* CONFIG_DISABLE_CPU_SCHED_DOMAIN_BALANCE */
+
 /*
  * cluster_to_logical_mask - return cpu logical mask of CPUs in a cluster
  * @socket_id:		cluster HW identifier
