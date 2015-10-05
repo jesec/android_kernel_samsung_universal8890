@@ -2537,6 +2537,40 @@ static void decon_win_config_dump(struct decon_device *decon,
 	}
 }
 
+static int decon_create_release_fence(struct decon_device *decon)
+{
+	struct sync_fence *fence;
+	struct sync_pt *pt;
+	int fd = -EMFILE;
+
+	pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
+	if (!pt) {
+		dev_err(decon->dev,
+			"%s: failed to create sync pt\n", __func__);
+		goto err;
+	}
+
+	fence = sync_fence_create("display", pt);
+	if (!fence) {
+		dev_err(decon->dev,
+			"%s: failed to create fence\n", __func__);
+		sync_pt_free(pt);
+		goto err;
+	}
+
+	fd = get_unused_fd();
+	if (fd < 0) {
+		dev_err(decon->dev,
+			"%s: failed to allocated fd\n", __func__);
+		sync_fence_put(fence);
+		return fd;
+	}
+
+	sync_fence_install(fence, fd);
+err:
+	return fd;
+}
+
 static int decon_set_win_config(struct decon_device *decon,
 		struct decon_win_config_data *win_data)
 {
@@ -2544,26 +2578,18 @@ static int decon_set_win_config(struct decon_device *decon,
 	int ret = 0;
 	unsigned short i, j;
 	struct decon_reg_data *regs;
-	struct sync_fence *fence;
-	struct sync_pt *pt;
-	int fd;
 	unsigned int bw = 0;
 	int plane_cnt = 0;
 
-	fd = get_unused_fd();
-	if (fd < 0)
-		return fd;
-
 	mutex_lock(&decon->output_lock);
+
+	/* If producer doesn't need waiting, then release fence set to -1 */
+	win_data->fence = -1;
 
 	if ((decon->state == DECON_STATE_OFF) ||
 		(decon->pdata->out_type == DECON_OUT_TUI)) {
 		decon->timeline_max++;
-		pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
-		fence = sync_fence_create("display", pt);
-		sync_fence_install(fence, fd);
-		win_data->fence = fd;
-
+		win_data->fence = decon_create_release_fence(decon);
 		sw_sync_timeline_inc(decon->timeline, 1);
 		goto err;
 	}
@@ -2683,20 +2709,13 @@ static int decon_set_win_config(struct decon_device *decon,
 			for (j = 0; j < plane_cnt; ++j)
 				decon_free_dma_buf(decon, &regs->dma_buf_data[MAX_DECON_WIN][j]);
 		}
-		put_unused_fd(fd);
 		kfree(regs);
-		win_data->fence = -1;
 	} else {
 		decon_lpd_block(decon);
 		decon->timeline_max++;
 		if (regs->num_of_window) {
-			pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
-			fence = sync_fence_create("display", pt);
-			sync_fence_install(fence, fd);
-			win_data->fence = fd;
+			win_data->fence = decon_create_release_fence(decon);
 		} else {
-			win_data->fence = -1;
-			put_unused_fd(fd);
 #ifdef CONFIG_FB_WINDOW_UPDATE
 			if (regs->need_update)
 				decon_win_update_rect_reset(decon);
