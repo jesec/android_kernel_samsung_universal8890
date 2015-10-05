@@ -307,6 +307,21 @@ void bts_settrexqos_mo_cp(addr_u32 base, unsigned int priority, unsigned int mo,
 	Outp32(base + TBTS_CON, 0x101101); // Time out, Urgent enable
 }
 
+void bts_settrexqos_mo_change(addr_u32 base, unsigned int mo)
+{
+	Outp32(base + TBTS_RCON, 0x0);
+	Outp32(base + TBTS_WCON, 0x0);
+
+	Outp32(base + TBTS_TKNUPBOUND, mo);
+	Outp32(base + TBTS_TKNLOBOUND, mo);
+
+	Outp32(base + TBTS_DEMTH, mo);
+	Outp32(base + TBTS_PRMTH, mo);
+
+	Outp32(base + TBTS_RCON, 0x11);		// MO mode & Blocking on
+	Outp32(base + TBTS_WCON, 0x11);
+}
+
 void bts_settrexqos_bw(addr_u32 base, unsigned int priority, unsigned int decval, unsigned int master_id, unsigned int mask)
 {
 	Outp32(base + TBTS_CON, 0x0);

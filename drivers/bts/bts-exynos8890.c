@@ -102,6 +102,7 @@ enum exynos_bts_function {
 	BF_SETTREXQOS_MO,
 	BF_SETTREXQOS_MO_RT,
 	BF_SETTREXQOS_MO_CP,
+	BF_SETTREXQOS_MO_CHANGE,
 	BF_SETTREXQOS_BW,
 	BF_SETTREXQOS_FBMBW,
 	BF_SETTREXDISABLE,
@@ -566,6 +567,9 @@ static void bts_set_ip_table(enum exynos_bts_scenario scen,
 		break;
 	case BF_SETTREXQOS_MO:
 		bts_settrexqos_mo(bts->va_base, bts->table[scen].priority, bts->table[scen].mo, 0, 0);
+		break;
+	case BF_SETTREXQOS_MO_CHANGE:
+		bts_settrexqos_mo_change(bts->va_base, bts->table[scen].mo);
 		break;
 	case BF_SETTREXQOS_BW:
 		bts_settrexqos_bw(bts->va_base, bts->table[scen].priority,
