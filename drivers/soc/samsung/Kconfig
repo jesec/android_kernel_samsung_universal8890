@@ -32,4 +32,7 @@ config ECT_DUMP
 	default n
 	depends on ECT
 
+config EXYNOS_HOTPLUG_GOVERNOR
+	bool "Enable Exynos dynamic hotplug governor"
+
 endif #SOC_SAMSUNG
