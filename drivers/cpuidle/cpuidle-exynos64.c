@@ -235,7 +235,7 @@ static struct cpuidle_driver exynos_idle_nonboot_cluster_driver = {
 	.owner = THIS_MODULE,
 	.states[0] = EXYNOS_CPUIDLE_WFI_STATE,
 #ifdef CONFIG_CPU_IDLE_GOV_MENU
-	.skip_correction = 0,
+	.skip_correction = 1,
 #endif
 };
 
