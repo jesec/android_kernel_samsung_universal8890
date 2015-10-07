@@ -117,7 +117,7 @@ struct pwrcal_pll {
 };
 
 #define CLK_PLL(_typ, _id, _pid, _lock, _con, _rtable, _mux, _ops)	\
-struct pwrcal_pll clk_##_id __attribute__((unused, aligned(8), section(".clk_pll."#_id))) = {	\
+struct pwrcal_pll clk_##_id __attribute__((unused, aligned(8), section(".clk_pll."))) = {	\
 	.clk.id		= _id,					\
 	.clk.parent	= &((clk_##_pid).clk),			\
 	.clk.offset	= _con,					\
@@ -139,7 +139,7 @@ struct pwrcal_clk_fixed_rate {
 };
 
 #define FIXEDRATE(_id, _frate, _gate)			\
-struct pwrcal_clk_fixed_rate clk_##_id __attribute__((unused, aligned(8), section(".clk_fixed_rate."#_id))) = {	\
+struct pwrcal_clk_fixed_rate clk_##_id __attribute__((unused, aligned(8), section(".clk_fixed_rate."))) = {	\
 	.clk.id		= _id,				\
 	.clk.parent	= &(clk_0.clk),			\
 	.clk.name	= #_id,				\
@@ -156,7 +156,7 @@ struct pwrcal_clk_fixed_factor {
 };
 
 #define FIXEDFACTOR(_id, _pid, _ratio, _gate)		\
-struct pwrcal_clk_fixed_factor clk_##_id __attribute__((unused, aligned(8), section(".clk_fixed_factor."#_id))) = {	\
+struct pwrcal_clk_fixed_factor clk_##_id __attribute__((unused, aligned(8), section(".clk_fixed_factor."))) = {	\
 	.clk.id		= _id,				\
 	.clk.parent	= &((clk_##_pid).clk),		\
 	.clk.name	= #_id,				\
@@ -175,7 +175,7 @@ struct pwrcal_mux {
 
 #define CLK_MUX(_id, _pids, _o, _s, _w, _so, _ss, _sw,	\
 					_eo, _es, _gate)	\
-struct pwrcal_mux clk_##_id __attribute__((unused, aligned(8), section(".clk_mux."#_id))) = {	\
+struct pwrcal_mux clk_##_id __attribute__((unused, aligned(8), section(".clk_mux."))) = {	\
 	.clk.id		= _id,				\
 	.clk.name	= #_id,				\
 	.clk.offset	= _o,				\
@@ -199,7 +199,7 @@ struct pwrcal_div {
 };
 
 #define CLK_DIV(_id, _pid, _o, _s, _w, _so, _ss, _sw, _gate)	\
-struct pwrcal_div clk_##_id __attribute__((unused, aligned(8), section(".clk_div."#_id))) = {	\
+struct pwrcal_div clk_##_id __attribute__((unused, aligned(8), section(".clk_div."))) = {	\
 	.clk.id		= _id,				\
 	.clk.name	= #_id,				\
 	.clk.parent	= &((clk_##_pid).clk),		\
@@ -219,7 +219,7 @@ struct pwrcal_gate {
 };
 
 #define CLK_GATE(_id, _pid, _o, _s)			\
-struct pwrcal_gate clk_##_id __attribute__((unused, aligned(8), section(".clk_gate."#_id))) = {	\
+struct pwrcal_gate clk_##_id __attribute__((unused, aligned(8), section(".clk_gate."))) = {	\
 	.clk.id		= _id,				\
 	.clk.name	= #_id,				\
 	.clk.parent	= &((clk_##_pid).clk),		\

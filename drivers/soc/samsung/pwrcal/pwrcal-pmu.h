@@ -26,7 +26,7 @@ extern struct cal_pd_ops cal_pd_ops;
 
 /* Macro to define BLKPWR */
 #define BLKPWR(_name, _offset, _shift, _mask, _status, _status_shift, _status_mask, _config, _prev, _post)	\
-struct cal_pd blkpwr_##_name __attribute__((unused, aligned(8), section(".blkpwr."#_name))) = {	\
+struct cal_pd blkpwr_##_name __attribute__((unused, aligned(8), section(".blkpwr."))) = {	\
 	.offset		= _offset,	\
 	.shift		= _shift,		\
 	.mask		= _mask,	\
