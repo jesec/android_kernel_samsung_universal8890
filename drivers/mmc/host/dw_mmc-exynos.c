@@ -168,7 +168,7 @@ static void dw_mci_exynos_set_clksel_timing(struct dw_mci *host, u32 timing)
 
 static inline u8 dw_mci_exynos_get_ciu_div(struct dw_mci *host)
 {
-	return SDMMC_CLKSEL_GET_DIVRATIO(host->pdata->io_mode);
+	return SDMMC_CLKSEL_GET_DIV(mci_readl(host, CLKSEL)) + 1;
 }
 
 static int dw_mci_exynos_setup_clock(struct dw_mci *host)
