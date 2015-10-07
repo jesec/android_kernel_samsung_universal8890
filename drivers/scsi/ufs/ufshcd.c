@@ -5397,7 +5397,8 @@ static int ufshcd_link_state_transition(struct ufs_hba *hba,
 	if (req_link_state == hba->uic_link_state)
 		return 0;
 
-	if (req_link_state == UIC_LINK_HIBERN8_STATE) {
+	if (req_link_state == UIC_LINK_HIBERN8_STATE ||
+			req_link_state == UIC_LINK_OFF_STATE) {
 		ufshcd_set_link_trans_hibern8(hba);
 		ret = ufshcd_link_hibern8_ctrl(hba, true);
 		if (!ret)
@@ -5419,30 +5420,31 @@ static int ufshcd_link_state_transition(struct ufs_hba *hba,
 
 			goto out;
 		}
-	}
-	/*
-	 * If autobkops is enabled, link can't be turned off because
-	 * turning off the link would also turn off the device.
-	 */
-	else if ((req_link_state == UIC_LINK_OFF_STATE) &&
-		   (!check_for_bkops || (check_for_bkops &&
-		    !hba->auto_bkops_enabled))) {
-		unsigned long flags;
 
 		/*
-		 * Change controller state to "reset state" which
-		 * should also put the link in off/reset state
+		 * If autobkops is enabled, link can't be turned off because
+		 * turning off the link would also turn off the device.
 		 */
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		hba->ufshcd_state = UFSHCD_STATE_RESET;
-		ufshcd_hba_stop(hba);
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		if ((req_link_state == UIC_LINK_OFF_STATE) &&
+				(!check_for_bkops || (check_for_bkops &&
+						      !hba->auto_bkops_enabled))) {
+			unsigned long flags;
 
-		/*
-		 * TODO: Check if we need any delay to make sure that
-		 * controller is reset
-		 */
-		ufshcd_set_link_off(hba);
+			/*
+			 * Change controller state to "reset state" which
+			 * should also put the link in off/reset state
+			 */
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			hba->ufshcd_state = UFSHCD_STATE_RESET;
+			ufshcd_hba_stop(hba);
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+			/*
+			 * TODO: Check if we need any delay to make sure that
+			 * controller is reset
+			 */
+			ufshcd_set_link_off(hba);
+		}
 	}
 
 out:
