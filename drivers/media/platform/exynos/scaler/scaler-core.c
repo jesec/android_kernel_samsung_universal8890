@@ -2073,8 +2073,10 @@ static int sc_ctrl_protection(struct sc_dev *sc, struct sc_ctx *ctx, bool en)
 	vb = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	for (i = 0; i < ctx->s_frame.sc_fmt->num_planes; i++) {
 		cookie = vb2_plane_cookie(vb, i);
-		if (!cookie)
+		if (!cookie) {
+			ret = -EINVAL;
 			goto err_addr;
+		}
 		ret = vb2_ion_phys_address(cookie, &addr);
 		if (ret != 0)
 			goto err_addr;
@@ -2093,8 +2095,10 @@ static int sc_ctrl_protection(struct sc_dev *sc, struct sc_ctx *ctx, bool en)
 	vb = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 	for (i = 0; i < ctx->d_frame.sc_fmt->num_planes; i++) {
 		cookie = vb2_plane_cookie(vb, i);
-		if (!cookie)
+		if (!cookie) {
+			ret = -EINVAL;
 			goto err_addr;
+		}
 		ret = vb2_ion_phys_address(cookie, &addr);
 		if (ret != 0)
 			goto err_addr;
