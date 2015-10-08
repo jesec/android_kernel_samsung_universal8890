@@ -104,7 +104,6 @@ struct sysmmu_event_log {
 struct exynos_iommu_event_log {
 	atomic_t index;
 	unsigned int log_len;
-	struct page *page_log;
 	struct sysmmu_event_log *log;
 	struct dentry *debugfs_root;
 };
@@ -220,13 +219,6 @@ static inline void SYSMMU_EVENT_LOG_IOMMU_MAP(
 int exynos_iommu_init_event_log(struct exynos_iommu_event_log *log,
 				unsigned int log_len);
 
-static inline void exynos_iommu_free_event_log(
-		struct exynos_iommu_event_log *plog, unsigned int log_len)
-{
-	vunmap(plog->log);
-	__free_pages(plog->page_log, get_order(sizeof(*(plog->log)) * log_len));
-}
-
 void sysmmu_add_log_to_debugfs(struct dentry *debugfs_root,
 			struct exynos_iommu_event_log *log, const char *name);
 
@@ -252,8 +244,6 @@ static inline int exynos_iommu_init_event_log(
 {
 	return 0;
 }
-
-#define exynos_iommu_free_event_log(plog, log_len) do { } while (0)
 
 #define iovmm_add_log_to_debugfs(debugfs_root, log, name) do { } while (0)
 

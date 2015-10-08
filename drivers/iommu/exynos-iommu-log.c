@@ -21,7 +21,6 @@ int exynos_iommu_init_event_log(struct exynos_iommu_event_log *log,
 				unsigned int log_len)
 {
 	struct page *page;
-	struct page **pages;
 	int i, order;
 	size_t fit_size = PAGE_ALIGN(sizeof(*(log->log)) * log_len);
 	int fit_pages = fit_size / PAGE_SIZE;
@@ -36,6 +35,7 @@ int exynos_iommu_init_event_log(struct exynos_iommu_event_log *log,
 		return -ENOMEM;
 
 	split_page(page, order);
+
 	if ((1 << order) > fit_pages) {
 		int extra = (1 << order) - fit_pages;
 
@@ -43,35 +43,10 @@ int exynos_iommu_init_event_log(struct exynos_iommu_event_log *log,
 			__free_pages(page + fit_pages + i, 0);
 	}
 
-	pages = kmalloc(fit_pages * sizeof(*pages), GFP_KERNEL);
-	if (!pages)
-		goto err_kmalloc;
-
-	for (i = 0; i < fit_pages; i++)
-		pages[i] = &page[i];
-
-	dma_sync_single_for_device(NULL, page_to_phys(page),
-			fit_size, DMA_BIDIRECTIONAL);
-	dma_sync_single_for_cpu(NULL, page_to_phys(page),
-			fit_size, DMA_BIDIRECTIONAL);
-
-	log->log = vmap(pages, fit_pages, VM_MAP,
-			pgprot_writecombine(PAGE_KERNEL));
-	if (!log->log)
-		goto err_vmap;
-
-	kfree(pages);
-
+	log->log = page_address(page);
 	log->log_len = log_len;
-	log->page_log = page;
 
 	return 0;
-err_vmap:
-	kfree(pages);
-err_kmalloc:
-	for (i = 0; i < fit_pages; i++)
-		__free_pages(page + i, 0);
-	return -ENOMEM;
 }
 
 static const char * const sysmmu_event_name[] = {
