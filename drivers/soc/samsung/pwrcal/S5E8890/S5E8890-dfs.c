@@ -75,6 +75,10 @@ static void pscdc_trans(unsigned int sci_rate,
 			unsigned int ccore_mux_user,
 			unsigned int mif_pause)
 {
+	unsigned int div_ccore_cur;
+
+	div_ccore_cur = pwrcal_getf(CLK_CON_DIV_ACLK_CCORE_800, 0, 0xF);
+
 	pwrcal_writel(PSCDC_CTRL_MIF0,	0x00000001);
 	pwrcal_writel(PSCDC_CTRL_MIF1,	0x00000001);
 	pwrcal_writel(PSCDC_CTRL_MIF2,	0x00000001);
@@ -86,8 +90,14 @@ static void pscdc_trans(unsigned int sci_rate,
 	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON2,	0x80030000 | (mif_mux_bus_pll << 12));
 	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON3,	0x80040000 | (mif_mux_aclk_mif_pll << 12));
 	pwrcal_writel(PSCDC_SMC_FIFO_CLK_CON4,	0x00000000);
-	pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON0,	0x80000000 | (top_mux_ccore << 12));
-	pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON1,	0x80010000 | (top_div_ccore));
+
+	if (div_ccore_cur > top_div_ccore) {
+		pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON0,	0x80000000 | (top_mux_ccore << 12));
+		pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON1,	0x80010000 | (top_div_ccore));
+	} else {
+		pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON0,	0x80010000 | (top_div_ccore));
+		pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON1,	0x80000000 | (top_mux_ccore << 12));
+	}
 	pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON2,	0x80020000 | (ccore_mux_user << 12));
 	pwrcal_writel(PSCDC_SCI_FIFO_CLK_CON3,	0x00000000);
 
