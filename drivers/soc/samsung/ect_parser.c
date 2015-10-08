@@ -593,6 +593,8 @@ static int ect_parse_timing_param_header(void *address, struct ect_info *info)
 		ect_timing_param_size = &ect_timing_param_header->size_list[i];
 
 		ect_parse_integer(&address, &ect_timing_param_size->memory_size);
+		ect_timing_param_size->parameter_key = ect_timing_param_size->memory_size;
+
 		ect_parse_integer(&address, &ect_timing_param_size->offset);
 	}
 
@@ -1406,7 +1408,7 @@ static int ect_dump_timing_parameter(struct seq_file *s, void *data)
 	for (i = 0; i < ect_timing_param_header->num_of_size; ++i) {
 		size = &ect_timing_param_header->size_list[i];
 
-		seq_printf(s, "\t\t[MEMORY SIZE] : %u\n", size->memory_size);
+		seq_printf(s, "\t\t[PARAMETER KEY] : %x\n", size->parameter_key);
 		seq_printf(s, "\t\t[NUM OF TIMING PARAMETER] : %d\n", size->num_of_timing_param);
 		seq_printf(s, "\t\t[NUM OF LEVEL] : %d\n", size->num_of_level);
 
@@ -1819,6 +1821,27 @@ struct ect_timing_param_size *ect_timing_param_get_size(void *block, int dram_si
 	return NULL;
 }
 
+struct ect_timing_param_size *ect_timing_param_get_key(void *block, unsigned int key)
+{
+	int i;
+	struct ect_timing_param_header *header;
+	struct ect_timing_param_size *size;
+
+	if (block == NULL)
+		return NULL;
+
+	header = (struct ect_timing_param_header *)block;
+
+	for (i = 0; i < header->num_of_size; ++i) {
+		size = &header->size_list[i];
+
+		if (key == size->parameter_key)
+			return size;
+	}
+
+	return NULL;
+}
+
 struct ect_minlock_domain *ect_minlock_get_domain(void *block, char *domain_name)
 {
 	int i;
@@ -1902,8 +1925,6 @@ int ect_parse_binary_header(void)
 	ect_parse_integer(&address, &ect_header->total_size);
 	ect_parse_integer(&address, &ect_header->num_of_header);
 
-	pr_info("~~~~~~~~~~~~ %d %d\n", *(int *)ect_signature, *(int *)ect_header->sign);
-
 	if (memcmp(ect_header->sign, ect_signature, sizeof(ect_signature) - 1))
 		return -EINVAL;
 
@@ -1941,6 +1962,17 @@ int ect_strcmp(char *src1, char *src2)
 			return 0;
 
 	return ((*(unsigned char *)src1 < *(unsigned char *)src2) ? -1 : +1);
+}
+
+int ect_strncmp(char *src1, char *src2, int length)
+{
+	int i;
+
+	for (i = 0; i < length; src1++, src2++)
+		if (*src1 != *src2)
+			return ((*(unsigned char *)src1 < *(unsigned char *)src2) ? -1 : +1);
+
+	return 0;
 }
 
 void __init ect_init_map_io(void)

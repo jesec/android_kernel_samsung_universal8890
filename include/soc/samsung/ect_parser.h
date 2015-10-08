@@ -249,8 +249,9 @@ struct ect_margin_header
 struct ect_timing_param_size
 {
 	unsigned int memory_size;
-	unsigned int offset
-		;
+	unsigned int parameter_key;
+	unsigned int offset;
+
 	int num_of_timing_param;
 	int num_of_level;
 	unsigned int *timing_parameter;
@@ -350,6 +351,7 @@ struct ect_mif_thermal_level *ect_mif_thermal_get_level(void *block, int mr4_lev
 struct ect_ap_thermal_function *ect_ap_thermal_get_function(void *block, char *function_name);
 struct ect_margin_domain *ect_margin_get_domain(void *block, char *domain_name);
 struct ect_timing_param_size *ect_timing_param_get_size(void *block, int size);
+struct ect_timing_param_size *ect_timing_param_get_key(void *block, unsigned int key);
 struct ect_minlock_domain *ect_minlock_get_domain(void *block, char *domain_name);
 struct ect_gen_param_table *ect_gen_param_get_table(void *block, char *table_name);
 struct ect_bin *ect_binary_get_bin(void *block, char *binary_name);
@@ -357,6 +359,7 @@ struct ect_bin *ect_binary_get_bin(void *block, char *binary_name);
 void ect_init_map_io(void);
 
 int ect_strcmp(char *src1, char *src2);
+int ect_strncmp(char *src1, char *src2, int length);
 
 #else
 
@@ -371,6 +374,7 @@ static inline struct ect_mif_thermal_level *ect_mif_thermal_get_level(void *bloc
 static inline struct ect_ap_thermal_function *ect_ap_thermal_get_function(void *block, char *function_name) { return NULL; }
 static inline struct ect_margin_domain *ect_margin_get_domain(void *block, char *domain_name) { return NULL; }
 static inline struct ect_timing_param_size *ect_timing_param_get_size(void *block, int size) { return NULL; }
+static inline struct ect_timing_param_size *ect_timing_param_get_key(void *block, unsigned int key) { return NULL; }
 static inline struct ect_minlock_domain *ect_minlock_get_domain(void *block, char *domain_name) { return NULL; }
 static inline struct ect_gen_param_table *ect_gen_param_get_table(void *block, char *table_name) { return NULL; }
 static inline struct ect_bin *ect_binary_get_bin(void *block, char *binary_name) { return NULL; }
@@ -378,6 +382,7 @@ static inline struct ect_bin *ect_binary_get_bin(void *block, char *binary_name)
 static inline void ect_init_map_io(void) {}
 
 static inline int ect_strcmp(char *src1, char *src2) { return -1; }
+static inline int ect_strncmp(char *src1, char *src2, int length) { return -1; }
 
 #endif
 
