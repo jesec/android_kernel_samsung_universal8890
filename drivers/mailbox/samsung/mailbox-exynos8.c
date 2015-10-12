@@ -188,7 +188,7 @@ static int firmware_update(struct device *dev)
 {
 	const struct firmware *fw_entry = NULL;
 #ifdef CONFIG_ECT
-	struct ect_bin *fw;
+	struct ect_bin *fw = NULL;
 	void *firmware;
 #endif
 	int err;
