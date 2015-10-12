@@ -37,6 +37,8 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 
+#include <soc/samsung/exynos-powermode.h>
+
 static const char *fault_name(unsigned int esr);
 
 /*
@@ -359,6 +361,7 @@ static int __kprobes do_translation_fault(unsigned long addr,
 	if (addr < TASK_SIZE)
 		return do_page_fault(addr, esr, regs);
 
+	set_stop_cpu(raw_smp_processor_id());
 	do_bad_area(addr, esr, regs);
 	return 0;
 }
@@ -463,6 +466,8 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 
 	pr_alert("Unhandled fault: %s (0x%08x) at 0x%016lx\n",
 		 inf->name, esr, addr);
+
+	set_stop_cpu(raw_smp_processor_id());
 
 	info.si_signo = inf->sig;
 	info.si_errno = 0;
