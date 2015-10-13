@@ -915,10 +915,10 @@ static int exynos_target(struct cpufreq_policy *policy,
 	pr_debug("%s[%d]: new_freq[%d], index[%d]\n",
 				__func__, cur, target_freq, index);
 
-	exynos_ss_freq(cur, freqs[cur]->old, ESS_FLAG_IN);
+	exynos_ss_freq(cur, freqs[cur]->old, target_freq, ESS_FLAG_IN);
 	/* frequency and volt scaling */
 	ret = exynos_cpufreq_scale(target_freq, policy->cpu);
-	exynos_ss_freq(cur, target_freq, ESS_FLAG_OUT);
+	exynos_ss_freq(cur, freqs[cur]->old, target_freq, ESS_FLAG_OUT);
 
 	/* enable cluster power down  */
 	if (cur == CL_ONE)
