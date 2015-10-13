@@ -1123,7 +1123,7 @@ static int exynos_devfreq_target(struct device *dev,
 	/* calcuration to voltage set ordering */
 	data->set_volt_order = exynos_devfreq_set_volt_order(data);
 
-	exynos_ss_freq(data->ess_flag, data->old_freq, ESS_FLAG_IN);
+	exynos_ss_freq(data->ess_flag, data->old_freq, data->new_freq, ESS_FLAG_IN);
 
 	if (data->use_cl_dvfs && !data->volt_offset) {
 		if (data->ops.cl_dvfs_stop) {
@@ -1314,7 +1314,7 @@ static int exynos_devfreq_target(struct device *dev,
 		}
 	}
 
-	exynos_ss_freq(data->ess_flag, data->new_freq, ESS_FLAG_OUT);
+	exynos_ss_freq(data->ess_flag, data->old_freq, data->new_freq, ESS_FLAG_OUT);
 
 	data->old_freq = data->new_freq;
 	data->old_idx = data->new_idx;
