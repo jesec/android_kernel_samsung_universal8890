@@ -565,6 +565,24 @@ err:
 	return ret;
 }
 
+static int vpp_tui_protection(struct v4l2_subdev *sd, int enable)
+{
+	struct vpp_dev *vpp = v4l2_get_subdevdata(sd);
+	int ret;
+
+	if (test_bit(VPP_POWER_ON, &vpp->state)) {
+		dev_err(DEV, "VPP is not ready for TUI (%ld)\n", vpp->state);
+		return -EBUSY;
+	}
+
+	if (enable)
+		ret = vpp_clk_enable(vpp);
+	else
+		vpp_clk_disable(vpp);
+
+	return ret;
+}
+
 static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
 				unsigned int cmd, void *arg)
 {
@@ -614,6 +632,10 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
 		pm_runtime_put_sync(DEV);
 		dev_dbg(DEV, "vpp stop(%d)\n", vpp->id);
 		clear_bit(VPP_STOPPING, &vpp->state);
+		break;
+
+	case VPP_TUI_PROTECT:
+		ret = vpp_tui_protection(sd, state);
 		break;
 
 	case VPP_GET_BTS_VAL:
