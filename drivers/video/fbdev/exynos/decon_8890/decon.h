@@ -24,6 +24,7 @@
 #include <media/v4l2-device.h>
 #include <media/videobuf2-core.h>
 #include <media/exynos_mc.h>
+#include <soc/samsung/bts.h>
 
 #include "regs-decon.h"
 #include "decon_common.h"
@@ -115,8 +116,14 @@ extern struct decon_bts2 decon_bts2_control;
 
 #define decon_dbg(fmt, ...)							\
 	do {									\
-		if (decon_log_level >= 7)					\
+		if (decon_log_level >= 8)					\
 			pr_info(pr_fmt(fmt), ##__VA_ARGS__);			\
+	} while (0)
+
+#define decon_bts(fmt, ...)							\
+	do {									\
+		if (decon_log_level >= 7)					\
+			pr_info("[BTS]"pr_fmt(fmt), ##__VA_ARGS__);			\
 	} while (0)
 
 #define call_bts_ops(q, op, args...)				\
@@ -332,6 +339,14 @@ enum vpp_stop_status {
 	VPP_STOP_ERR,
 };
 
+enum vpp_port_num {
+	VPP_PORT_NUM0 = 0,
+	VPP_PORT_NUM1,
+	VPP_PORT_NUM2,
+	VPP_PORT_NUM3,
+	VPP_PORT_MAX,
+};
+
 struct vpp_params {
 	dma_addr_t addr[MAX_BUF_PLANE_CNT];
 	enum vpp_rotate rot;
@@ -470,11 +485,10 @@ struct decon_bts {
 
 struct decon_bts2 {
 	void (*bts_init)(struct decon_device *decon);
-	void (*bts_calc_bw)(struct decon_device *decon, struct decon_reg_data *regs);
-	void (*bts_update_bw)(struct decon_device *decon, struct decon_reg_data *regs,
-			u32 is_after);
+	void (*bts_calc_bw)(struct decon_device *decon);
+	void (*bts_update_bw)(struct decon_device *decon, u32 is_after);
 	void (*bts_release_bw)(struct decon_device *decon);
-	void (*bts_release_rot_bw)(enum decon_idma_type type);
+	void (*bts_release_vpp)(struct bts_vpp_info *bts);
 	void (*bts_deinit)(struct decon_device *decon);
 };
 

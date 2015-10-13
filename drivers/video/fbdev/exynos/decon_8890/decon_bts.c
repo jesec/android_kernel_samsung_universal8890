@@ -207,7 +207,8 @@ static void update_req_vpp_bts_info(struct decon_device *decon)
 
 	for (id = 0; id < MAX_VPP_SUBDEV; id++) {
 		struct v4l2_subdev *sd = decon->mdev->vpp_sd[id];
-		if (sd) {
+		BUG_ON(!sd);
+		if (decon->vpp_usage_bitmask & (1 << id)) {
 			vpp = v4l2_get_subdevdata(sd);
 			vpp->bts_info.shw_cur_bw = vpp->bts_info.cur_bw;
 			vpp->bts_info.shw_peak_bw = vpp->bts_info.peak_bw;
@@ -267,9 +268,8 @@ static void bts2_calc_disp(struct decon_device *decon, struct vpp_dev *vpp,
 		* DISP_FACTOR * (MULTI_FACTOR * dst->w / lcd_width)
 		/ (MULTI_FACTOR * MULTI_FACTOR * MULTI_FACTOR) / 2;
 
-	decon_dbg("vpp%d DISP INT level(%llu)\n", vpp->id, vpp->disp);
-	decon_dbg("src w(%d) h(%d), dst w(%d) h(%d)\n",
-			src_w, src_h, dst->w, dst->h);
+	decon_bts("VPP_INFO_%d: src w(%d) h(%d), dst w(%d) h(%d)\n",
+			vpp->id, src_w, src_h, dst->w, dst->h);
 }
 
 static struct bts_vpp_info *bts_get_bts_info
@@ -315,134 +315,123 @@ static struct bts_vpp_info *bts_get_bts_info
 	return NULL;
 }
 
-void bts2_calc_bw(struct decon_device *decon, struct decon_reg_data *regs)
+void bts2_calc_bw(struct decon_device *decon)
 {
-	int i;
-	struct decon_win *win;
-	struct vpp_dev *vpp;
-	struct v4l2_subdev *sd;
-	struct decon_win_config *config;
+	int i, num;
+	struct bts_vpp_info *bts;
+	u32 peak_bw[VPP_PORT_MAX] = {0,}, mem_sum = 0, bus_sum = 0;
+	u64 disp_bw[VPP_PORT_MAX] = {0,}, disp_sum = 0;
 
-	decon->total_bw = 0;
-	decon->max_peak_bw = 0;
+	for (i = 0; i < MAX_VPP_SUBDEV; i++) {
+		u32 mem_bw = 0, bus_bw = 0; u64 disp_ch_bw = 0;
 
-	for (i = 0; i < decon->pdata->max_win; i++) {
-		win = decon->windows[i];
-		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
-			sd = decon->mdev->vpp_sd[win->vpp_id];
-			vpp = v4l2_get_subdevdata(sd);
-			config = &regs->vpp_config[i];
-
-			vpp->bts_info.src_w = config->src.w;
-			vpp->bts_info.src_h = config->src.h;
-			vpp->bts_info.dst_w = config->dst.w;
-			vpp->bts_info.dst_h = config->dst.h;
-			vpp->bts_info.bpp = decon_get_bpp(config->format);
-			vpp->bts_info.is_rotation = is_rotation(config);
-			vpp->bts_info.mic = decon->mic_factor;
-			vpp->bts_info.pix_per_clk = DECON_PIX_PER_CLK;
-			vpp->bts_info.vclk = decon->vclk_factor;
-
-			decon_dbg("%s(%d): src_w(%d), src_h(%d), dst_w(%d), dst_h(%d)\n",
-					__func__, win->vpp_id,
-					vpp->bts_info.src_w, vpp->bts_info.src_h,
-					vpp->bts_info.dst_w, vpp->bts_info.dst_h);
-			decon_dbg("bpp(%d), roration(%d)\n",
-					vpp->bts_info.bpp, vpp->bts_info.is_rotation);
-
-			exynos_bw_calc(win->vpp_id, &vpp->bts_info.hw);
-
-			decon_dbg("cur_bw(%llu), peak_bw(%llu)\n",
-					vpp->bts_info.cur_bw, vpp->bts_info.peak_bw);
-
-			/* sum of each VPP's bandwidth */
-			decon->total_bw += vpp->bts_info.cur_bw;
-			/* max of each VPP's peak bandwidth */
-			if (decon->max_peak_bw < vpp->bts_info.peak_bw)
-				decon->max_peak_bw = vpp->bts_info.peak_bw;
-
-			bts2_calc_disp(decon, vpp, config);
+		bts = bts_get_bts_info(decon, i, &disp_ch_bw);
+		if (bts) {
+			if (decon->vpp_usage_bitmask & (1 << i)) {
+				mem_bw = bts->cur_bw;
+				bus_bw = bts->peak_bw;
+			} else { /* Remote connected VPP */
+				bus_bw = bts->shw_peak_bw;
+				bus_bw = bts->shw_peak_bw;
+			}
+			decon_bts("VPP_BW_%d: mem(%d), bus(%d), disp(%llu)\n",
+					i, mem_bw, bus_bw, disp_ch_bw);
 		}
+		/* Get maximum bus & disp bandwidth */
+		num = bts_get_port_number(i);
+		switch (i) {
+		case IDMA_G0:
+		case IDMA_G1:
+		case IDMA_G2:
+		case IDMA_G3:
+			peak_bw[num] = bus_bw;
+			disp_bw[num] = disp_ch_bw;
+			break;
+		default:
+			peak_bw[num] += bus_bw;
+			disp_bw[num] += disp_ch_bw;
+			decon_bts("Port_BW_%d: bus(%d), disp(%llu)\n",
+					num, peak_bw[num], disp_bw[num]);
+			bus_sum  = max(bus_sum, peak_bw[num]);
+			disp_sum = max(disp_sum, disp_bw[num]);
+			break;
+		}
+		mem_sum += mem_bw;
 	}
 
-	decon_dbg("total cur bw(%d), max peak bw(%d), max disp int channel(%llu)\n",
+	decon->total_bw = mem_sum;
+	decon->max_peak_bw = bus_sum;
+	decon->max_disp_ch = disp_sum;
+
+	decon_bts("Result_BW: mif (%d), bus (%d), disp (%llu)\n",
 			decon->total_bw, decon->max_peak_bw, decon->max_disp_ch);
 }
 
-void bts2_update_bw(struct decon_device *decon, struct decon_reg_data *regs, u32 is_after)
+void bts2_update_bw(struct decon_device *decon, u32 is_after)
 {
 	int i;
-	struct decon_win *win;
 	struct vpp_dev *vpp;
-	struct v4l2_subdev *sd;
-	struct decon_win_config *config;
+	u32 mem_bw, bus_bw; u64 disp_bw;
+	struct decon_device *deconf = get_decon_drvdata(0);
+
+	for (i = 0; i < MAX_VPP_SUBDEV; i++) {
+		vpp = get_running_vpp_dev(decon, i);
+		if (vpp && is_vgr(vpp)) {
+			u32 rot = is_rotation(vpp->config);
+			if ((is_after && !rot) || (!is_after && rot)) {
+				bts_ext_scenario_set(i, TYPE_ROTATION, rot);
+				decon_bts("SCEN_SET: vpp-%d, rot(%d)\n", i, rot);
+			}
+		}
+	}
 
 	if (is_after) { /* after DECON h/w configuration */
-		if (decon->total_bw < decon->prev_total_bw) {
-			/* don't care 1st param */
-			exynos_update_bw(0, decon->total_bw,
-					decon->max_peak_bw);
-		}
+		mem_bw  = min(decon->total_bw, deconf->prev_total_bw);
+		bus_bw  = min(decon->max_peak_bw, deconf->prev_max_peak_bw);
+		disp_bw = min(decon->max_disp_ch, deconf->prev_max_disp_ch);
 
-		for (i = 0; i < decon->pdata->max_win; i++) {
-			win = decon->windows[i];
-			if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
-				sd = decon->mdev->vpp_sd[win->vpp_id];
-				vpp = v4l2_get_subdevdata(sd);
-				config = &regs->vpp_config[i];
-
-				if (!is_rotation(config))
-					bts_ext_scenario_set(win->vpp_id,
-							TYPE_ROTATION,
-							is_rotation(config));
-			}
-		}
-
-		if (decon->max_disp_ch < decon->prev_max_disp_ch)
-			pm_qos_update_request(&decon->disp_qos, decon->max_disp_ch);
-
-		decon->prev_total_bw = decon->total_bw;
-		decon->prev_max_peak_bw = decon->max_peak_bw;
-		decon->prev_max_disp_ch = decon->max_disp_ch;
 	} else {
-		if (decon->total_bw > decon->prev_total_bw) {
-			/* don't care 1st param */
-			exynos_update_bw(0, decon->total_bw,
-					decon->max_peak_bw);
-		}
-
-		for (i = 0; i < decon->pdata->max_win; i++) {
-			win = decon->windows[i];
-			if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
-				sd = decon->mdev->vpp_sd[win->vpp_id];
-				vpp = v4l2_get_subdevdata(sd);
-				config = &regs->vpp_config[i];
-
-				if (is_rotation(config))
-					bts_ext_scenario_set(win->vpp_id,
-							TYPE_ROTATION,
-							is_rotation(config));
-			}
-		}
-
-		if (decon->max_disp_ch > decon->prev_max_disp_ch)
-			pm_qos_update_request(&decon->disp_qos, decon->max_disp_ch);
+		mem_bw  = max(decon->total_bw, deconf->prev_total_bw);
+		bus_bw  = max(decon->max_peak_bw, deconf->prev_max_peak_bw);
+		disp_bw = max(decon->max_disp_ch, deconf->prev_max_disp_ch);
 	}
+
+	if (mem_bw != deconf->prev_total_bw ||
+			bus_bw != deconf->prev_max_peak_bw) {
+		deconf->prev_total_bw = decon->total_bw;
+		deconf->prev_max_peak_bw = decon->max_peak_bw;
+		exynos_update_bw(0, mem_bw, bus_bw); /* don't care 1st param */
+		decon_bts("UPDATE_BW(%s): mem(%d), bus(%d)\n",
+				is_after? "AF" : "BE", mem_bw, bus_bw);
+	}
+
+	if (disp_bw != deconf->prev_max_disp_ch) {
+		deconf->prev_max_disp_ch = decon->max_disp_ch;
+		pm_qos_update_request(&decon->disp_qos, disp_bw);
+		decon_bts("UPDATE_BW(%s): bus(%llu)\n",
+				is_after? "AF" : "BE", disp_bw);
+	}
+	/* update latest bandwidth value after H/W applied */
+	if (is_after || decon->pdata->trig_mode == DECON_SW_TRIG)
+		update_req_vpp_bts_info(decon);
 }
 
 void bts2_release_bw(struct decon_device *decon)
 {
-	exynos_update_bw(0, 0, 0);
-	pm_qos_update_request(&decon->disp_qos, 0);
+	bts2_calc_bw(decon);
+	bts2_update_bw(decon, 1);
 
+	decon->prev_max_disp_ch = 0;
 	decon->prev_total_bw = 0;
 	decon->prev_max_peak_bw = 0;
-	decon->prev_max_disp_ch = 0;
 }
 
-void bts2_release_rot_bw(enum decon_idma_type type)
+void bts2_release_vpp(struct bts_vpp_info *bts)
 {
-	bts_ext_scenario_set(type, TYPE_ROTATION, 0);
+	if (!bts)
+		return;
+	bts->shw_cur_bw  = bts->cur_bw  = 0;
+	bts->shw_peak_bw = bts->peak_bw = 0;
 }
 
 void bts2_init(struct decon_device *decon)
@@ -495,7 +484,7 @@ struct decon_bts2 decon_bts2_control = {
 	.bts_calc_bw		= bts2_calc_bw,
 	.bts_update_bw		= bts2_update_bw,
 	.bts_release_bw		= bts2_release_bw,
-	.bts_release_rot_bw	= bts2_release_rot_bw,
+	.bts_release_vpp	= bts2_release_vpp,
 	.bts_deinit		= bts2_deinit,
 };
 #endif

@@ -88,6 +88,8 @@ struct bts_vpp_info {
 
 	u64		cur_bw;
 	u64		peak_bw;
+	u64		shw_cur_bw;
+	u64		shw_peak_bw;
 };
 
 #define to_bts_vpp(_hw)	container_of(_hw, struct bts_vpp_info, hw)
