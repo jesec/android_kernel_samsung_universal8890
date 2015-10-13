@@ -265,6 +265,7 @@ void decon_reg_init_probe(u32 id, u32 dsi_idx, struct decon_param *p);
 int decon_reg_start(u32 id, struct decon_mode_info *psr);
 int decon_reg_stop(u32 id, u32 dsi_idx, struct decon_mode_info *psr);
 void decon_reg_release_resource(u32 id, struct decon_mode_info *psr);
+void decon_reg_release_resource_instantly(u32 id);
 void decon_reg_set_int(u32 id, struct decon_mode_info *psr, u32 en);
 void decon_reg_set_window_control(u32 id, int win_idx, struct decon_window_regs *regs, u32 winmap_en);
 void decon_reg_update_req_and_unmask(u32 id, struct decon_mode_info *psr);

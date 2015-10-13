@@ -804,23 +804,26 @@ static int decon_win_update_disp_config(struct decon_device *decon,
 int decon_tui_protection(struct decon_device *decon, bool tui_en)
 {
 	int ret = 0;
-	int i;
-	struct decon_mode_info psr;
+	struct v4l2_subdev *sd = decon->mdev->vpp_sd[IDMA_G0];
+	int win_idx;
 
+	decon_warn("%s:state %d: out_type %d:+\n", __func__,
+				tui_en, decon->pdata->out_type);
 	if (tui_en) {
-		/* Blocking LPD */
 		decon_lpd_block_exit(decon);
+
 		mutex_lock(&decon->output_lock);
+		if (decon->state == DECON_STATE_OFF) {
+			decon_warn("%s: already disabled(tui=%d)\n", __func__, tui_en);
+			ret = -EBUSY;
+			mutex_unlock(&decon->output_lock);
+			goto exit;
+		}
 		flush_kthread_worker(&decon->update_regs_worker);
 
-		/* disable all the windows */
-		for (i = 0; i < decon->pdata->max_win; i++)
-			decon_write(decon->id, WIN_CONTROL(i), 0);
 #ifdef CONFIG_FB_WINDOW_UPDATE
-		/* Restore window_partial_update */
 		if (decon->need_update) {
-			decon->update_win.x = 0;
-			decon->update_win.y = 0;
+			decon->update_win.x = decon->update_win.y = 0;
 			decon->update_win.w = decon->lcd_info->xres;
 			decon->update_win.h = decon->lcd_info->yres;
 			decon_reg_ddi_partial_cmd(decon, &decon->update_win);
@@ -828,25 +831,38 @@ int decon_tui_protection(struct decon_device *decon, bool tui_en)
 			decon->need_update = false;
 		}
 #endif
-		decon_to_psr_info(decon, &psr);
-		decon_reg_start(decon->id, &psr);
-		decon_reg_update_req_and_unmask(decon->id, &psr);
 		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
-		/*
-		 * TODO: stop the VPP
+
+		/* Disable all of normal window before using secure world */
+		for (win_idx = 0; win_idx < decon->pdata->max_win; win_idx++)
+			decon_write(decon->id, WIN_CONTROL(win_idx), 0x0);
+		decon_reg_all_win_shadow_update_req(decon->id);
+
+		/* Decon is shutdown. It will be started in secure world */
+		decon_reg_release_resource_instantly(decon->id);
+		decon_set_protected_content(decon, NULL);
 		decon->vpp_usage_bitmask = 0;
 		decon_vpp_stop(decon, false);
-		*/
+
+		ret = v4l2_subdev_call(sd, core, ioctl, VPP_TUI_PROTECT,
+				(unsigned long *)true);
+
 		decon->pdata->out_type = DECON_OUT_TUI;
 		mutex_unlock(&decon->output_lock);
 	} else {
 		mutex_lock(&decon->output_lock);
+		ret = v4l2_subdev_call(sd, core, ioctl, VPP_TUI_PROTECT,
+				(unsigned long *)false);
+
 		decon->pdata->out_type = DECON_OUT_DSI;
 		mutex_unlock(&decon->output_lock);
-		/* UnBlocking LPD */
+
 		decon_lpd_unblock(decon);
 	}
 
+exit:
+	decon_warn("%s:state %d: out_type %d:-\n", __func__,
+				tui_en, decon->pdata->out_type);
 	return ret;
 }
 
@@ -1027,6 +1043,10 @@ int decon_disable(struct decon_device *decon)
 
 	exynos_ss_printk("disable decon-%d, state(%d) cnt %d\n", decon->id,
 				decon->state, pm_runtime_active(decon->dev));
+
+	/* Clear TUI state: Case of LCD off without TUI exit */
+	if (decon->pdata->out_type == DECON_OUT_TUI)
+		decon_tui_protection(decon, false);
 
 	if (decon->state != DECON_STATE_LPD_ENT_REQ)
 		mutex_lock(&decon->output_lock);
@@ -1218,9 +1238,6 @@ int decon_wait_for_vsync(struct decon_device *decon, u32 timeout)
 {
 	ktime_t timestamp;
 	int ret;
-
-	if (decon->pdata->out_type == DECON_OUT_TUI)
-		return 0;
 
 	timestamp = decon->vsync_info.timestamp;
 	decon_activate_vsync(decon);

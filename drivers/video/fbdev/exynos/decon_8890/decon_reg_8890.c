@@ -1682,6 +1682,13 @@ void decon_reg_release_resource(u32 id, struct decon_mode_info *psr)
 	decon_reg_set_trigger(id, psr, DECON_TRIG_ENABLE);
 }
 
+void decon_reg_release_resource_instantly(u32 id)
+{
+	decon_reg_direct_on_off(id, 0);
+	decon_reg_update_req_global(id);
+	decon_reg_wait_run_is_off_timeout(id, 20 * 1000);
+}
+
 void decon_reg_set_int(u32 id, struct decon_mode_info *psr, u32 en)
 {
 	u32 val;
