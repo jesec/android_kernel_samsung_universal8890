@@ -989,8 +989,9 @@ struct pwrcal_vclk_none vclk_0;
 int vclk_setrate(struct vclk *vclk, unsigned long rate)
 {
 	int ret = 0;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CLK
 	const char *name = "vclk_setrate";
-
+#endif
 	if (!vclk->ref_count && vclk->ops->set_rate) {
 		vclk->vfreq = rate;
 		goto out;
@@ -1014,7 +1015,9 @@ out:
 unsigned long vclk_getrate(struct vclk *vclk)
 {
 	int ret = 0;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CLK
 	const char *name = "vclk_getrate";
+#endif
 
 	exynos_ss_clk(vclk, name, ESS_FLAG_IN);
 	if (!vclk->ref_count) {
@@ -1036,8 +1039,9 @@ int vclk_enable(struct vclk *vclk)
 {
 	int ret = 0;
 	unsigned int tmp;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CLK
 	const char *name = "vclk_enable";
-
+#endif
 	if (vclk->ref_count++)
 		goto out;
 
@@ -1073,8 +1077,9 @@ int vclk_disable(struct vclk *vclk)
 {
 	int ret = 0;
 	int parent_disable = 0;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CLK
 	const char *name = "vclk_disable";
-
+#endif
 	if (vclk->ref_count)
 		parent_disable = 1;
 

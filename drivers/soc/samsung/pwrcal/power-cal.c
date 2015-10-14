@@ -288,8 +288,9 @@ int cal_dfs_set_rate(unsigned int id, unsigned long rate)
 	struct vclk *vclk;
 	unsigned long flag;
 	int ret = 0;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CLK
 	const char *name = "cal_dfs_set_rate";
-
+#endif
 	vclk = cal_get_vclk(id);
 	if (!vclk)
 		return -1;
@@ -362,8 +363,9 @@ unsigned long cal_dfs_cached_get_rate(unsigned int id)
 	struct vclk *vclk;
 	unsigned long flag;
 	unsigned long ret = 0;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CLK
 	const char *name = "cal_dfs_get_rate";
-
+#endif
 	vclk = cal_get_vclk(id);
 	if (!vclk)
 		return 0;
@@ -394,8 +396,9 @@ unsigned long cal_dfs_get_rate(unsigned int id)
 	struct vclk *vclk;
 	unsigned long flag;
 	unsigned long ret = 0;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_CLK
 	const char *name = "cal_dfs_get_rate";
-
+#endif
 	vclk = cal_get_vclk(id);
 	if (!vclk)
 		return 0;
