@@ -576,8 +576,9 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 	const struct exynos_tmu_registers *reg = pdata->registers;
 	u32 temp_code;
 	int temp;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_THERMAL
 	char *cool_device_name = "NONE";
-
+#endif
 	mutex_lock(&data->lock);
 
 	/* Check to the vaild data */
