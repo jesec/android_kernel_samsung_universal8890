@@ -281,12 +281,10 @@ static int gic_set_wake(struct irq_data *d, unsigned int on)
 static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 {
 	u32 irqstat, irqnr;
-	volatile u32 dummy_read_register;
 	struct gic_chip_data *gic = &gic_data[0];
 	void __iomem *cpu_base = gic_data_cpu_base(gic);
 
 	do {
-		dummy_read_register = readl_relaxed(cpu_base);
 		irqstat = readl_relaxed(cpu_base + GIC_CPU_INTACK);
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
