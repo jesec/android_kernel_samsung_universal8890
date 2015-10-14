@@ -525,8 +525,7 @@ out:
 	return ret;
 }
 
-static int exynos_cpufreq_scale(unsigned int target_freq,
-				unsigned int curr_freq, unsigned int cpu)
+static int exynos_cpufreq_scale(unsigned int target_freq, unsigned int cpu)
 {
 	unsigned int cur = get_cur_cluster(cpu);
 	struct cpufreq_frequency_table *freq_table = exynos_info[cur]->freq_table;
@@ -543,7 +542,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 	freqs[cur]->new = target_freq;
 
 	if (exynos5_frequency_table_target(policy, freq_table,
-				curr_freq, CPUFREQ_RELATION_L, &old_index)) {
+				freqs[cur]->old, CPUFREQ_RELATION_L, &old_index)) {
 		ret = -EINVAL;
 		goto put_policy;
 	}
@@ -571,10 +570,9 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 	/* Update policy current frequency */
 	cpufreq_freq_transition_begin(policy, freqs[cur]);
 
-	if (freqs[cur]->new > freqs[cur]->old) {
+	if (old_index > new_index)
 		if (exynos_info[cur]->set_int_skew)
 			exynos_info[cur]->set_int_skew(new_index);
-	}
 
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
 	if (!volt_offset)
@@ -588,14 +586,15 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 	}
 
 	/* When the new frequency is higher than current frequency */
-	if ((freqs[cur]->new > freqs[cur]->old) && !safe_volt){
+	if ((old_index > new_index) && !safe_volt) {
 		/* Firstly, voltage up to increase frequency */
 		ret = exynos_set_voltage(old_index, new_index, volt, cur);
 		if (ret)
 			goto fail_dvfs;
 
 		if (exynos_info[cur]->set_ema)
-			exynos_info[cur]->set_ema(volt); }
+			exynos_info[cur]->set_ema(volt);
+	}
 
 	if (safe_volt) {
 		ret = exynos_set_voltage(old_index, new_index, safe_volt, cur);
@@ -629,8 +628,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 	cpufreq_freq_transition_end(policy, freqs[cur], 0);
 
 	/* When the new frequency is lower than current frequency */
-	if ((freqs[cur]->new < freqs[cur]->old) ||
-		((freqs[cur]->new > freqs[cur]->old) && safe_volt)) {
+	if ((old_index < new_index) || ((old_index > new_index) && safe_volt)) {
 		/* down the voltage after frequency change */
 		if (exynos_info[cur]->set_ema)
 			 exynos_info[cur]->set_ema(volt);
@@ -649,11 +647,9 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 					exynos_info[cur]->bus_table[new_index]);
 	}
 
-
-	if (freqs[cur]->new < freqs[cur]->old) {
+	if (old_index < new_index)
 		if (exynos_info[cur]->set_int_skew)
 			exynos_info[cur]->set_int_skew(new_index);
-	}
 
 #ifdef CONFIG_EXYNOS_CL_DVFS_CPU
 	if (!volt_offset)
@@ -859,7 +855,7 @@ static int exynos_target(struct cpufreq_policy *policy,
 
 	exynos_ss_freq(cur, freqs[cur]->old, ESS_FLAG_IN);
 	/* frequency and volt scaling */
-	ret = exynos_cpufreq_scale(target_freq, freqs[cur]->old, policy->cpu);
+	ret = exynos_cpufreq_scale(target_freq, policy->cpu);
 	exynos_ss_freq(cur, target_freq, ESS_FLAG_OUT);
 
 	/* enable cluster power down  */
