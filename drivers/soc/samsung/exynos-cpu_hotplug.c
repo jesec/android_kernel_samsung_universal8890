@@ -121,12 +121,6 @@ static struct cpumask create_cpumask(void)
 	int cpu;
 	struct cpumask mask;
 
-	/* If cpu hotplug is disabled, all cpus stay in online state */
-	if (cpu_hotplug.disabled) {
-		cpumask_setall(&mask);
-		return mask;
-	}
-
 	online_cpu_min = pm_qos_request(PM_QOS_CPU_ONLINE_MIN),
 	online_cpu_max = pm_qos_request(PM_QOS_CPU_ONLINE_MAX);
 
@@ -153,6 +147,12 @@ static int do_cpu_hotplug(void *param)
 	char cpus_buf[10];
 
 	mutex_lock(&cpu_hotplug.lock);
+
+	/* If cpu hotplug is disabled, do_cpu_hotplug() do nothing. */
+	if (cpu_hotplug.disabled) {
+		mutex_unlock(&cpu_hotplug.lock);
+		return 0;
+	}
 
 	/* Create online cpumask */
 	enable_cpus = create_cpumask();
@@ -207,6 +207,36 @@ out:
 static void cpu_hotplug_work(struct work_struct *work)
 {
 	do_cpu_hotplug(NULL);
+}
+
+static int disable_cpu_hotplug(bool disable)
+{
+	struct cpumask mask;
+	int ret = 0;
+
+	if (disable) {
+		mutex_lock(&cpu_hotplug.lock);
+
+		cpumask_setall(&mask);
+		cpumask_andnot(&mask, &mask, cpu_online_mask);
+
+		/*
+		 * If it success to enable all CPUs, set cpu_hotplug.disabled flag.
+		 * Since then all hotplug requests are ignored.
+		 */
+		ret = cpu_hotplug_in(&mask);
+		if (!ret)
+			cpu_hotplug.disabled = 1;
+		mutex_unlock(&cpu_hotplug.lock);
+	} else {
+		mutex_lock(&cpu_hotplug.lock);
+		cpu_hotplug.disabled = 0;
+		mutex_unlock(&cpu_hotplug.lock);
+
+		do_cpu_hotplug(NULL);
+	}
+
+	return ret;
 }
 
 /*
@@ -335,10 +365,8 @@ static ssize_t store_cpu_hotplug_disable(struct kobject *kobj,
 	if (!sscanf(buf, "%d", &input))
 		return -EINVAL;
 
-	cpu_hotplug.disabled = !!input;
-
-	/* To enable all cpus, call do_cpu_hotplug() */
-	do_cpu_hotplug(NULL);
+	if (disable_cpu_hotplug(!!input))
+		pr_err("Fail to disable cpu hotplug, please try again\n");
 
 	return count;
 }
