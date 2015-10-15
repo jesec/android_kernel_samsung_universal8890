@@ -11,6 +11,7 @@ struct cal_asv_ops {
 	int (*set_rcc_table)(void);
 	int (*asv_init)(void);
 	unsigned int (*asv_pmic_info)(void);
+	void (*set_ssa0)(unsigned int id, unsigned int ssa0);
 };
 
 extern struct cal_asv_ops cal_asv_ops;
