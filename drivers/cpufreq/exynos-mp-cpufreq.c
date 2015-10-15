@@ -1950,6 +1950,14 @@ static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
 		}
 	}
 
+	if (event == CPUS_UP_PREPARE && big_cpu_cnt > NUM_FREQ_BOOST_CPU &&
+		freqs[CL_ONE]->old > big_quad_maxfreq) {
+		pr_err("big frequency(%d) is still higher than big_quad_maxfreq\n",
+			freqs[CL_ONE]->old);
+
+		return NOTIFY_BAD;
+	}
+
 	return NOTIFY_OK;
 }
 
