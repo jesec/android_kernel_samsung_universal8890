@@ -43,6 +43,7 @@
 #include <soc/samsung/asv-exynos.h>
 #include <soc/samsung/tmu.h>
 #include <soc/samsung/ect_parser.h>
+#include <soc/samsung/exynos-pmu.h>
 
 #define POWER_COEFF_15P		68 /* percore param */
 #define POWER_COEFF_7P		10 /* percore  param */
@@ -174,6 +175,28 @@ static int exynos_cpufreq_smpl_warn_notifier_call(
 static struct notifier_block exynos_cpufreq_smpl_warn_notifier = {
 	.notifier_call = exynos_cpufreq_smpl_warn_notifier_call,
 };
+
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+#define NUM_FREQ_BOOST_CPU	2
+static void exynos_cpufreq_verify_dual_mode(void)
+{
+	unsigned int cpu;
+	unsigned int off_cnt = 0;
+
+	for (cpu = nr_cpu_ids - 1; cpu >= NR_CLUST0_CPUS; cpu--) {
+		if (!cpu_online(cpu) && !exynos_cpu.power_state(cpu))
+			off_cnt++;
+
+		if (off_cnt >= NUM_FREQ_BOOST_CPU)
+			return;
+	}
+
+	pr_err("Can't use boost freq (freq %d -> %d, big off_cnt %d\n",
+			freqs[CL_ONE]->old, freqs[CL_ONE]->new, off_cnt);
+	BUG_ON(1);
+}
+#endif
 
 static unsigned int get_limit_voltage(unsigned int voltage)
 {
@@ -582,6 +605,12 @@ static int exynos_cpufreq_scale(unsigned int target_freq,
 		if (exynos_info[cur]->set_ema)
 			exynos_info[cur]->set_ema(safe_volt);
 	}
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	/* check number of offed core */
+	if (cur == CL_ONE && new_index < exynos_info[cur]->max_quad_support_idx)
+		exynos_cpufreq_verify_dual_mode();
+#endif
 
 	exynos_info[cur]->set_freq(old_index, new_index);
 
