@@ -52,6 +52,7 @@
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
 #include <asm/ptrace.h>
+#include <soc/samsung/cpufreq.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -79,6 +80,12 @@ enum ipi_msg_type {
  */
 static int boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
+	int ret;
+
+	ret = exynos_cpufreq_verify_possible_hotplug(cpu);
+	if (ret)
+		return ret;
+
 	if (cpu_ops[cpu]->cpu_boot)
 		return cpu_ops[cpu]->cpu_boot(cpu);
 
