@@ -231,7 +231,7 @@ static struct pwrcal_clk_set pxmxdx_oscclk_aud_grp[] = {
 };
 
 PXMXDX(pxmxdx_top,	0,	pxmxdx_top_grp);
-PXMXDX(pxmxdx_mfc,	p1_mfc_pll,	pxmxdx_mfc_grp);
+PXMXDX(pxmxdx_mfc,	gate_bus1_mfc,	pxmxdx_mfc_grp);
 PXMXDX(pxmxdx_mscl,	gate_bus1_mscl,	pxmxdx_mscl_grp);
 PXMXDX(pxmxdx_imem,	0,	pxmxdx_imem_grp);
 PXMXDX(pxmxdx_fsys0,	gate_bus1_fsys0,	pxmxdx_fsys0_grp);
@@ -310,7 +310,7 @@ M1D1G1(sclk_decon1_eclk1_local,	0,	DISP1_MUX_SCLK_DISP1_DECON1_ECLK1,	DISP1_DIV_
 
 P1(p1_disp_pll,	0,	DISP_PLL);
 P1(p1_aud_pll,	0,	AUD_PLL);
-P1(p1_mfc_pll,	gate_bus1_mfc,	MFC_PLL_GATE);
+P1(p1_mfc_pll,	0,	MFC_PLL_GATE);
 P1(p1_bus3_pll,	0,	BUS3_PLL);
 
 D1(d1_sclk_i2s_local,	pxmxdx_aud,	AUD_DIV_SCLK_I2S);
@@ -1860,7 +1860,6 @@ void vclk_unused_disable(void)
 
 	vclk_disable(VCLK(p1_disp_pll));
 	vclk_disable(VCLK(p1_aud_pll));
-	vclk_disable(VCLK(p1_mfc_pll));
 
 	vclk_disable(VCLK(d1_sclk_i2s_local));
 	vclk_disable(VCLK(d1_sclk_pcm_local));
@@ -1913,6 +1912,7 @@ void vclk_unused_disable(void)
 	vclk_disable(VCLK(gate_peric1_uart4));
 	vclk_disable(VCLK(sclk_uart2));
 	vclk_disable(VCLK(sclk_ap2cp_mif_pll_out));
+	vclk_disable(VCLK(p1_mfc_pll));
 #endif
 }
 

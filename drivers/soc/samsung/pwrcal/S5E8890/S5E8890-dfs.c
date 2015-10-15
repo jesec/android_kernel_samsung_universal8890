@@ -604,7 +604,7 @@ static struct dfs_table dfscam_table = {
 };
 
 struct pwrcal_clk_set dfscam_en_list[] = {
-	{CLK(ISP_PLL),	409500,	0},
+	{CLK(ISP_PLL),	425750,	0},
 	{CLK_NONE,	0,	-1},
 };
 
