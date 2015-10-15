@@ -150,6 +150,7 @@ static int do_cpu_hotplug(void *param)
 {
 	int ret = 0;
 	struct cpumask disable_cpus, enable_cpus;
+	char cpus_buf[10];
 
 	mutex_lock(&cpu_hotplug.lock);
 
@@ -170,8 +171,10 @@ static int do_cpu_hotplug(void *param)
 	cpumask_andnot(&enable_cpus, &enable_cpus, cpu_online_mask);
 	cpumask_and(&disable_cpus, &disable_cpus, cpu_online_mask);
 
-	pr_debug("%s: enable_cpus=%#lx\n", __func__, *cpumask_bits(&enable_cpus));
-	pr_debug("%s: disable_cpus=%#lx\n", __func__, *cpumask_bits(&disable_cpus));
+	cpulist_scnprintf(cpus_buf, sizeof(cpus_buf), &enable_cpus);
+	pr_debug("%s: enable_cpus=%s\n", __func__, cpus_buf);
+	cpulist_scnprintf(cpus_buf, sizeof(cpus_buf), &disable_cpus);
+	pr_debug("%s: disable_cpus=%s\n", __func__, cpus_buf);
 
 	/* If request has the callback, call cpus_up() and cpus_down() */
 	if (!cpumask_empty(&enable_cpus)) {
