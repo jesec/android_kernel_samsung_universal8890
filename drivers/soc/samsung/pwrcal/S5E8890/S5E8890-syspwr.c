@@ -562,7 +562,7 @@ static int syspwr_hwacg_control(int mode)
 		return 0;
 
 	/* all QCH_CTRL in CMU_IMEM */
-	pwrcal_setbit(QCH_CTRL_LH_ASYNC_SI_IMEM, 0, 1);
+	pwrcal_setbit(QCH_CTRL_AXI_LH_ASYNC_MI_IMEM, 0, 1);
 	pwrcal_setbit(QCH_CTRL_SSS, 0, 1);
 	pwrcal_setbit(QCH_CTRL_RTIC, 0, 1);
 	pwrcal_setbit(QCH_CTRL_INT_MEM, 0, 1);
@@ -572,8 +572,7 @@ static int syspwr_hwacg_control(int mode)
 	pwrcal_setbit(QCH_CTRL_PMU_IMEM, 0, 1);
 	pwrcal_setbit(QCH_CTRL_SYSREG_IMEM, 0, 1);
 	pwrcal_setbit(QCH_CTRL_PPMU_SSSX, 0, 1);
-	pwrcal_setbit(QCH_CTRL_AXI_LH_ASYNC_MI_IMEM, 0, 1);
-
+	pwrcal_setbit(QCH_CTRL_LH_ASYNC_SI_IMEM, 0, 1);
 	pwrcal_setbit(QCH_CTRL_APM, 0, 1);
 	pwrcal_setbit(QCH_CTRL_CM3_APM, 0, 1);
 
@@ -635,21 +634,6 @@ static int syspwr_hwacg_control(int mode)
 }
 static int syspwr_hwacg_control_post(int mode)
 {
-	pwrcal_setbit(QCH_CTRL_AXI_LH_ASYNC_MI_IMEM, 0, 0);
-	pwrcal_setbit(QCH_CTRL_SSS, 0, 0);
-	pwrcal_setbit(QCH_CTRL_RTIC, 0, 0);
-	pwrcal_setbit(QCH_CTRL_INT_MEM, 0, 0);
-	pwrcal_setbit(QCH_CTRL_INT_MEM_ALV, 0, 0);
-	pwrcal_setbit(QCH_CTRL_MCOMP, 0, 0);
-	pwrcal_setbit(QCH_CTRL_CMU_IMEM, 0, 0);
-	pwrcal_setbit(QCH_CTRL_PMU_IMEM, 0, 0);
-	pwrcal_setbit(QCH_CTRL_SYSREG_IMEM, 0, 0);
-	pwrcal_setbit(QCH_CTRL_PPMU_SSSX, 0, 0);
-	pwrcal_setbit(QCH_CTRL_LH_ASYNC_SI_IMEM, 0, 0);
-
-	pwrcal_setbit(QCH_CTRL_APM, 0, 0);
-	pwrcal_setbit(QCH_CTRL_CM3_APM, 0, 0);
-
 	return 0;
 }
 
@@ -2133,10 +2117,7 @@ static void pwrcal_syspwr_prepare(int mode)
 	save_cmusfr(mode);
 	save_topmuxgate();
 	topmux_enable();
-
-	if (mode != syspwr_sicd && mode != syspwr_sicd_cpd && mode != syspwr_sicd_aud)
-		syspwr_hwacg_control(mode);
-
+	syspwr_hwacg_control(mode);
 	disable_armidleclockdown();
 
 	set_pmu_sys_pwr_reg(mode);
