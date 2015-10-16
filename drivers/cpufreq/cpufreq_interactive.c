@@ -2056,8 +2056,20 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			WARN_ON(cpufreq_get_global_kobject());
 		}
 
-		rc = sysfs_create_group(get_governor_parent_kobj(policy),
-				get_sysfs_attr());
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+		rc = sysfs_create_groups(get_governor_parent_kobj(policy), exynos_tuned_attr_group_gov_pol);
+		if (rc) {
+			kfree(tunables);
+			policy->governor_data = NULL;
+			if (!have_governor_per_policy()) {
+				common_tunables = NULL;
+				cpufreq_put_global_kobject();
+			}
+			return rc;
+		}
+#endif
+
+		rc = sysfs_create_group(get_governor_parent_kobj(policy), get_sysfs_attr());
 		if (rc) {
 			kfree(tunables);
 			policy->governor_data = NULL;
@@ -2086,6 +2098,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 				idle_notifier_unregister(&cpufreq_interactive_idle_nb);
 			}
 
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+			sysfs_remove_groups(get_governor_parent_kobj(policy),
+					exynos_tuned_attr_group_gov_pol);
+#endif
 			sysfs_remove_group(get_governor_parent_kobj(policy),
 					get_sysfs_attr());
 
@@ -2213,6 +2229,7 @@ unsigned int cpufreq_interactive_get_hispeed_freq(int cpu)
 static void exynos_update_gov_param(
 		struct cpufreq_interactive_tunables *params, int idx)
 {
+#if 0
 	struct cpufreq_interactive_tunables *tunables;
 	struct cpufreq_policy *policy = container_of(params->policy,
 					struct cpufreq_policy, policy);
@@ -2232,6 +2249,7 @@ static void exynos_update_gov_param(
 	tunables->mode_idx = params->mode_idx = idx;
 
 	spin_unlock_irqrestore(&tuned_lock, flags);
+#endif
 }
 
 extern struct cpumask hmp_fast_cpu_mask;
