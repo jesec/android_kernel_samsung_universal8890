@@ -13,6 +13,8 @@
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
 
+#include <soc/samsung/exynos-cpu_hotplug.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/hotplug_governor.h>
 
@@ -434,8 +436,8 @@ static int __init exynos_hpgov_init(void)
 	HPGOV_RW_ATTRIB(0, enabled);
 	HPGOV_RW_ATTRIB(1, dual_change_ms);
 
-	exynos_hpgov.attrib.attrib_group.name = "hotplug_governor";
-	ret = sysfs_create_group(power_kobj, &exynos_hpgov.attrib.attrib_group);
+	exynos_hpgov.attrib.attrib_group.name = "governor";
+	ret = sysfs_create_group(exynos_cpu_hotplug_kobj(), &exynos_hpgov.attrib.attrib_group);
 	if (ret)
 		pr_err("Unable to create sysfs objects :%d\n", ret);
 
