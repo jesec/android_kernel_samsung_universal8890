@@ -14,6 +14,7 @@
 #include <linux/fb.h>
 #include <linux/kthread.h>
 #include <linux/pm_qos.h>
+#include <linux/suspend.h>
 
 static int cpu_hotplug_in(const struct cpumask *mask)
 {
@@ -401,6 +402,33 @@ static void __init cpu_hotplug_dt_init(void)
 	}
 }
 
+static int exynos_cpu_hotplug_pm_notifier(struct notifier_block *notifier,
+				       unsigned long pm_event, void *v)
+{
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		mutex_lock(&cpu_hotplug.lock);
+		cpu_hotplug.disabled = 1;
+		mutex_unlock(&cpu_hotplug.lock);
+		break;
+
+	case PM_POST_SUSPEND:
+		mutex_lock(&cpu_hotplug.lock);
+		cpu_hotplug.disabled = 0;
+		mutex_unlock(&cpu_hotplug.lock);
+
+		do_cpu_hotplug(NULL);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_cpu_hotplug_nb = {
+	.notifier_call = exynos_cpu_hotplug_pm_notifier,
+};
+
+
 static struct pm_qos_request boot_min_cpu_hotplug_request;
 static void __init cpu_hotplug_pm_qos_init(void)
 {
@@ -467,6 +495,9 @@ static int __init cpu_hotplug_init(void)
 
 	/* Create sysfs */
 	cpu_hotplug_sysfs_init();
+
+	/* register pm notifier */
+	register_pm_notifier(&exynos_cpu_hotplug_nb);
 
 	return 0;
 }
