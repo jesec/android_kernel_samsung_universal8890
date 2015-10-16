@@ -37,6 +37,8 @@ static inline int is_cp_aud_enabled(void)
 #endif
 extern void enable_cppll_sharing_bus012_disable(void);
 extern void disable_cppll_sharing_bus012_enable(void);
+extern void bus12_disable(void);
+extern void bus12_enable(void);
 static unsigned int mif_use_cp_pll = 0;
 
 /* set_pmu_lpi_mask */
@@ -2217,6 +2219,8 @@ static void pwrcal_syspwr_prepare(int mode)
 		if (is_cp_aud_enabled()) {
 			mif_use_cp_pll = 1;
 			enable_cppll_sharing_bus012_disable();
+		} else {
+			bus12_disable();
 		}
 		break;
 	default:
@@ -2299,6 +2303,8 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 		if (mif_use_cp_pll) {
 			mif_use_cp_pll = 0;
 			disable_cppll_sharing_bus012_enable();
+		} else {
+			bus12_enable();
 		}
 	case syspwr_stop:
 	case syspwr_sicd:
