@@ -132,11 +132,25 @@ struct cpufreq_interactive_tunables {
 
 	/* handle for get cpufreq_policy */
 	unsigned int *policy;
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	int mode_idx;
+#endif
 };
 
 /* For cases where we have single governor instance for system */
 static struct cpufreq_interactive_tunables *common_tunables;
 static struct cpufreq_interactive_tunables *tuned_parameters[NR_CPUS] = {NULL, };
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+enum big_freq_boost_mode {
+	 DUAL_MODE,
+	 QUAD_MODE,
+	 NR_MODE,
+};
+static struct cpufreq_interactive_tunables *exynos_tuned_param[NR_MODE] = {NULL, };
+DEFINE_SPINLOCK(tuned_lock);
+#endif
 
 static struct attribute_group *get_sysfs_attr(void);
 
@@ -1225,6 +1239,20 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			tunables->timer_rate = DEFAULT_TIMER_RATE;
 			tunables->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
 			tunables->timer_slack_val = DEFAULT_TIMER_SLACK;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+			for (j = 0; j < NR_MODE; j++) {
+				exynos_tuned_param[j]->hispeed_freq = policy->max;
+				exynos_tuned_param[j]->above_hispeed_delay = default_above_hispeed_delay;
+				exynos_tuned_param[j]->nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
+				exynos_tuned_param[j]->go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
+				exynos_tuned_param[j]->target_loads = default_target_loads;
+				exynos_tuned_param[j]->ntarget_loads = ARRAY_SIZE(default_target_loads);
+				exynos_tuned_param[j]->min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
+				exynos_tuned_param[j]->timer_rate = DEFAULT_TIMER_RATE;
+				exynos_tuned_param[j]->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
+				exynos_tuned_param[j]->timer_slack_val = DEFAULT_TIMER_SLACK;
+			}
+#endif
 		} else {
 			memcpy(tunables, tuned_parameters[policy->cpu], sizeof(*tunables));
 			kfree(tuned_parameters[policy->cpu]);
@@ -1232,6 +1260,12 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		tunables->usage_count = 1;
 
 		/* update handle for get cpufreq_policy */
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+		if (policy->cpu) {
+			exynos_tuned_param[DUAL_MODE]->policy = &policy->policy;
+			exynos_tuned_param[QUAD_MODE]->policy = &policy->policy;
+		}
+#endif
 		tunables->policy = &policy->policy;
 
 		spin_lock_init(&tunables->target_loads_lock);
@@ -1395,6 +1429,63 @@ unsigned int cpufreq_interactive_get_hispeed_freq(int cpu)
 
 	return tunables->hispeed_freq;
 }
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+static void exynos_update_gov_param(
+		struct cpufreq_interactive_tunables *params, int idx)
+{
+	struct cpufreq_interactive_tunables *tunables;
+	struct cpufreq_policy *policy = container_of(params->policy,
+					struct cpufreq_policy, policy);
+	unsigned long flags;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+
+	tunables = policy->governor_data;
+	tunables->hispeed_freq = params->hispeed_freq;
+	tunables->go_hispeed_load = params->go_hispeed_load;
+	tunables->min_sample_time = params->min_sample_time;
+	tunables->timer_rate = params->timer_rate;
+	tunables->target_loads = params->target_loads;
+	tunables->ntarget_loads = params->ntarget_loads;
+	tunables->above_hispeed_delay = params->above_hispeed_delay;
+	tunables->nabove_hispeed_delay = params->nabove_hispeed_delay;
+	tunables->mode_idx = params->mode_idx = idx;
+
+	spin_unlock_irqrestore(&tuned_lock, flags);
+}
+
+extern struct cpumask hmp_fast_cpu_mask;
+static int exynos_tuned_param_update_notifier(struct notifier_block *nb,
+						    unsigned long event, void *data)
+{
+	struct cpumask mask;
+	int fast_online_cpu;
+	int mode_idx;
+
+	switch (event) {
+	case CPU_DEAD:
+	case CPU_ONLINE:
+		cpumask_copy(&mask, cpu_online_mask);
+		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
+		fast_online_cpu = cpumask_weight(&mask);
+		if (!fast_online_cpu) {
+			pr_debug("%s: Do not update param on slow_cpu.\n", __func__);
+			break;
+		}
+
+		mode_idx = fast_online_cpu > 2 ? QUAD_MODE : DUAL_MODE;
+		exynos_update_gov_param(exynos_tuned_param[mode_idx], mode_idx);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_tuned_param_update_nb = {
+	.notifier_call = exynos_tuned_param_update_notifier,
+	.priority = INT_MIN,
+};
+#endif
 
 #ifdef CONFIG_ARCH_EXYNOS
 static int cpufreq_interactive_cluster1_min_qos_handler(struct notifier_block *b,
@@ -1630,6 +1721,13 @@ static int __init cpufreq_interactive_init(void)
 	pm_qos_add_notifier(PM_QOS_CLUSTER0_FREQ_MIN, &cpufreq_interactive_cluster0_min_qos_notifier);
 	pm_qos_add_notifier(PM_QOS_CLUSTER0_FREQ_MAX, &cpufreq_interactive_cluster0_max_qos_notifier);
 #endif
+#endif
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	for (i = 0; i < NR_MODE; i++)
+		exynos_tuned_param[i] = kzalloc(sizeof(struct cpufreq_interactive_tunables *), GFP_KERNEL);
+
+	register_cpu_notifier(&exynos_tuned_param_update_nb);
 #endif
 
 	return cpufreq_register_governor(&cpufreq_gov_interactive);
