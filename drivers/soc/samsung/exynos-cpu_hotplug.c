@@ -17,29 +17,34 @@
 
 static int cpu_hotplug_in(const struct cpumask *mask)
 {
-	int cpu, error = 0;
+	int cpu, ret = 0;
 
 	for_each_cpu(cpu, mask) {
-		error = cpu_up(cpu);
-		if (error) {
+		ret = cpu_up(cpu);
+		if (ret) {
 			/*
-			 * If someone is requesting cpu hotplug(-EBUSY),
+			 * -EIO means core fail to come online by itself
+			 * it is critical error
+			 */
+			if (ret == -EIO)
+				panic("I/O error(-EIO) occurs while CPU%d comes online\n", cpu);
+
+			/*
+			 * If it fails to enable cpu,
 			 * it cancels cpu hotplug request and retries later.
 			 */
-			if (error == -EBUSY)
-				return error;
-
-			panic("Error %d taking CPU%d up\n", error, cpu);
+			pr_err("%s: Failed to hotplug in CPU%d with error %d\n",
+								__func__, cpu, ret);
 			break;
 		}
 	}
 
-	return error;
+	return ret;
 }
 
 static int cpu_hotplug_out(const struct cpumask *mask)
 {
-	int cpu, error = 0;
+	int cpu, ret = 0;
 
 	/*
 	 * Reverse order of cpu,
@@ -49,21 +54,15 @@ static int cpu_hotplug_out(const struct cpumask *mask)
 		if (!cpumask_test_cpu(cpu, mask))
 			continue;
 
-		error = cpu_down(cpu);
-		if (error) {
-			/*
-			 * If someone is requesting cpu hotplug(-EBUSY),
-			 * it cancels cpu hotplug request and retries later.
-			 */
-			if (error == -EBUSY)
-				return error;
-
-			panic("Error %d taking CPU%d down\n", error, cpu);
+		ret = cpu_down(cpu);
+		if (ret) {
+			pr_err("%s: Failed to hotplug out CPU%d with error %d\n",
+								__func__, cpu, ret);
 			break;
 		}
 	}
 
-	return error;
+	return ret;
 }
 
 static struct {
