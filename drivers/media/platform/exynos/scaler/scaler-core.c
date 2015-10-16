@@ -1523,12 +1523,6 @@ err_ft:
 	return -EINVAL;
 }
 
-/*
- * GET_DSIZE_BY_RATIO(x, y) calculates dst size by src size and ratio.
- * x is src size, y is scaling ratio.
- */
-#define GET_DSIZE_BY_RATIO(x, y)	SCALE_RATIO(x, y)
-
 static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 {
 	__s32 src_width, src_height;
@@ -1622,18 +1616,14 @@ static int sc_find_scaling_ratio(struct sc_ctx *ctx)
 	}
 
 	if ((ctx->cp_enabled) && (h_ratio > sc_down_min)) {
-		dev_info(sc->dev, "%s: %d h_ratio is not supported on drm\n",
-				__func__, h_ratio);
-		ctx->d_frame.crop.width =
-			GET_DSIZE_BY_RATIO(src_width, sc_down_min);
-		h_ratio = sc_down_min;
+		dev_err(sc->dev, "Out of width range on protect(%d->%d)\n",
+				src_width, ctx->d_frame.crop.width);
+		return -EINVAL;
 	}
 	if ((ctx->cp_enabled) && (v_ratio > sc_down_min)) {
-		dev_info(sc->dev, "%s: %d v_ratio is not supported on drm\n",
-				__func__, v_ratio);
-		ctx->d_frame.crop.height =
-			GET_DSIZE_BY_RATIO(src_height, sc_down_min);
-		v_ratio = sc_down_min;
+		dev_err(sc->dev, "Out of height range on protect(%d->%d)\n",
+				src_height, ctx->d_frame.crop.height);
+		return -EINVAL;
 	}
 
 	if ((h_ratio > sc_down_min) || (v_ratio > sc_down_min)) {
