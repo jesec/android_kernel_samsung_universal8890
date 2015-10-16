@@ -98,6 +98,11 @@ struct v2p_sfr v2psfrmap[] = {
 	DEFINE_V2P(SMC3_BASE,	0x10B00000),
 
 	DEFINE_V2P(MAILBOX_BASE, 0x10540000),
+
+	DEFINE_V2P(LPDDR4_PHY1_BASE,	0x10920000),
+	DEFINE_V2P(LPDDR4_PHY2_BASE,	0x10A20000),
+	DEFINE_V2P(LPDDR4_PHY3_BASE,	0x10B20000),
+
 };
 
 int num_of_v2psfrmap = sizeof(v2psfrmap) / sizeof(v2psfrmap[0]);

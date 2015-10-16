@@ -85,19 +85,63 @@
 #define SMC_PwrMgmtMode_CH2		((void *)(SMC2_BASE + 0x0238))
 #define SMC_PwrMgmtMode_CH3		((void *)(SMC3_BASE + 0x0238))
 
-#define PHY_DVFS_CON_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00B8))
 #define PHY_DVFS_CON			((void *)(__PHY_ALL + 0x00B8))
-#define PHY_DVFS0_CON0			((void *)(__PHY_ALL + 0x00BC))
-#define PHY_DVFS0_CON1			((void *)(__PHY_ALL + 0x00C4))
-#define PHY_DVFS0_CON2			((void *)(__PHY_ALL + 0x00CC))
-#define PHY_DVFS0_CON3			((void *)(__PHY_ALL + 0x00D4))
-#define PHY_DVFS0_CON4			((void *)(__PHY_ALL + 0x00DC))
+#define PHY_DVFS_CON_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00B8))
+#define PHY_DVFS0_CON0_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00BC))
+#define PHY_DVFS0_CON1_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00C4))
+#define PHY_DVFS0_CON2_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00CC))
+#define PHY_DVFS0_CON3_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00D4))
+#define PHY_DVFS0_CON4_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00DC))
 
-#define PHY_DVFS1_CON0			((void *)(__PHY_ALL + 0x00C0))
-#define PHY_DVFS1_CON1			((void *)(__PHY_ALL + 0x00C8))
-#define PHY_DVFS1_CON2			((void *)(__PHY_ALL + 0x00D0))
-#define PHY_DVFS1_CON3			((void *)(__PHY_ALL + 0x00D8))
-#define PHY_DVFS1_CON4			((void *)(__PHY_ALL + 0x00E0))
+#define PHY_DVFS_CON_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00B8))
+#define PHY_DVFS0_CON0_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00BC))
+#define PHY_DVFS0_CON1_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00C4))
+#define PHY_DVFS0_CON2_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00CC))
+#define PHY_DVFS0_CON3_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00D4))
+#define PHY_DVFS0_CON4_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00DC))
+
+#define PHY_DVFS_CON_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00B8))
+#define PHY_DVFS0_CON0_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00BC))
+#define PHY_DVFS0_CON1_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00C4))
+#define PHY_DVFS0_CON2_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00CC))
+#define PHY_DVFS0_CON3_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00D4))
+#define PHY_DVFS0_CON4_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00DC))
+
+#define PHY_DVFS_CON_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00B8))
+#define PHY_DVFS0_CON0_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00BC))
+#define PHY_DVFS0_CON1_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00C4))
+#define PHY_DVFS0_CON2_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00CC))
+#define PHY_DVFS0_CON3_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00D4))
+#define PHY_DVFS0_CON4_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00DC))
+
+#define PHY_DVFS1_CON0_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00C0))
+#define PHY_DVFS1_CON1_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00C8))
+#define PHY_DVFS1_CON2_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00D0))
+#define PHY_DVFS1_CON3_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00D8))
+#define PHY_DVFS1_CON4_CH0		((void *)(LPDDR4_PHY0_BASE + 0x00E0))
+
+#define PHY_DVFS1_CON0_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00C0))
+#define PHY_DVFS1_CON1_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00C8))
+#define PHY_DVFS1_CON2_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00D0))
+#define PHY_DVFS1_CON3_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00D8))
+#define PHY_DVFS1_CON4_CH1		((void *)(LPDDR4_PHY1_BASE + 0x00E0))
+
+#define PHY_DVFS1_CON0_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00C0))
+#define PHY_DVFS1_CON1_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00C8))
+#define PHY_DVFS1_CON2_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00D0))
+#define PHY_DVFS1_CON3_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00D8))
+#define PHY_DVFS1_CON4_CH2		((void *)(LPDDR4_PHY2_BASE + 0x00E0))
+
+#define PHY_DVFS1_CON0_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00C0))
+#define PHY_DVFS1_CON1_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00C8))
+#define PHY_DVFS1_CON2_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00D0))
+#define PHY_DVFS1_CON3_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00D8))
+#define PHY_DVFS1_CON4_CH3		((void *)(LPDDR4_PHY3_BASE + 0x00E0))
+
+#define PHY_ZQ_CON0_CH0			((void *)(LPDDR4_PHY0_BASE + 0x03C8))
+#define PHY_ZQ_CON0_CH1			((void *)(LPDDR4_PHY1_BASE + 0x03C8))
+#define PHY_ZQ_CON0_CH2			((void *)(LPDDR4_PHY2_BASE + 0x03C8))
+#define PHY_ZQ_CON0_CH3			((void *)(LPDDR4_PHY3_BASE + 0x03C8))
 
 #define DMC_MISC_CON0			((void *)(__DMC_MISC_ALL + 0x0014))
 #define DMC_MISC_CON1			((void *)(__DMC_MISC_ALL + 0x003C))
@@ -112,6 +156,8 @@
 #define CG_CTRL_MAN_DDRPHY1		((void *)(CMU_MIF1_BASE + 0x1A08))
 #define CG_CTRL_MAN_DDRPHY2		((void *)(CMU_MIF2_BASE + 0x1A08))
 #define CG_CTRL_MAN_DDRPHY3		((void *)(CMU_MIF3_BASE + 0x1A08))
+
+#define PMU_DREX_CALIBRATION3	((void *)(PMU_ALIVE_BASE + 0x09ac))
 
 enum mif_timing_set_idx {
 	MIF_TIMING_SET_0,
@@ -195,6 +241,88 @@ enum timing_parameter_column {
 	num_of_dram_parameter = num_of_g_smc_dfs_table_column + num_of_g_phy_dfs_table_column + num_of_g_dram_dfs_table_column,
 };
 
+typedef volatile unsigned int rw_bf_t;
+typedef const unsigned int ro_bf_t;
+typedef const unsigned int wo_bf_t;
+
+typedef union {
+	volatile unsigned int data;
+	struct {
+rw_bf_t dvfs0_zq_ds0_pdds         :
+		(2 - 0 + 1);
+rw_bf_t dvfs0_zq_ds0_dds          :
+		(5 - 3 + 1);
+rw_bf_t dvfs0_zq_ds1_pdds         :
+		(8 - 6 + 1);
+rw_bf_t dvfs0_zq_ds1_dds          :
+		(11 - 9 + 1);
+rw_bf_t dvfs0_zq_mode_pdds        :
+		(14 - 12 + 1);
+rw_bf_t dvfs0_zq_mode_dds         :
+		(17 - 15 + 1);
+ro_bf_t reserved_18_19               :
+		(19 - 18 + 1);
+rw_bf_t dvfs0_ds0_vref            :
+		(25 - 20 + 1);
+rw_bf_t dvfs0_ds1_vref            :
+		(31 - 26 + 1);
+	} bitfield;
+} phy_dvfs0_con3_t;
+
+typedef union {
+	volatile unsigned int data;
+	struct {
+rw_bf_t dvfs0_phyupd_req_cycle    :
+		(5 - 0 + 1);
+ro_bf_t reserved_6_7                 :
+		(7 - 6 + 1);
+rw_bf_t dvfs0_mcupd_req_cycle     :
+		(13 - 8 + 1);
+ro_bf_t reserved_14_15               :
+		(15 - 14 + 1);
+rw_bf_t dvfs0_zq_ds0_term         :
+		(18 - 16 + 1);
+rw_bf_t dvfs0_zq_ds1_term         :
+		(21 - 19 + 1);
+ro_bf_t reserved_22_31				 :
+		(31 - 22 + 1);
+	} bitfield;
+} phy_dvfs0_con4_t;
+
+typedef union {
+	volatile unsigned int data;
+	struct {
+ro_bf_t reserved_0                   :
+		(0 - 0 + 1);
+rw_bf_t zq_manual_str             :
+		(1 - 1 + 1);
+rw_bf_t zq_manual_mode            :
+		(3 - 2 + 1);
+rw_bf_t zq_udt_dly                :
+		(11 - 4 + 1);
+rw_bf_t zq_force_impp             :
+		(14 - 12 + 1);
+rw_bf_t zq_force_impn             :
+		(17 - 15 + 1);
+rw_bf_t zq_clk_div_en             :
+		(18 - 18 + 1);
+rw_bf_t zq_mode_noterm            :
+		(19 - 19 + 1);
+rw_bf_t zq_rgddr3                 :
+		(20 - 20 + 1);
+rw_bf_t zq_mode_term              :
+		(23 - 21 + 1);
+rw_bf_t zq_mode_dds               :
+		(26 - 24 + 1);
+rw_bf_t zq_clk_en                 :
+		(27 - 27 + 1);
+rw_bf_t zq_mode_pdds              :
+		(30 - 28 + 1);
+rw_bf_t zq_mode_lp4               :
+		(31 - 31 + 1);
+	} bitfield;
+} phy_zq_con0_t;
+
 struct smc_dfs_table {
 	unsigned int DramTiming0;
 	unsigned int DramTiming1;
@@ -254,6 +382,66 @@ static const unsigned long long mif_freq_to_level_switch[] = {
 	/* BUS0_PLL SW 468 */	468 * MHZ
 };
 
+
+/******************************************************************************
+ *
+ * @fn      get_smc_dfs_table
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
+void *get_smc_dfs_table(void)
+{
+	return((void *)g_smc_dfs_table);
+}
+
+/******************************************************************************
+ *
+ * @fn      get_phy_dfs_table
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
+void *get_phy_dfs_table(void)
+{
+	return((void *)g_phy_dfs_table);
+}
+
+/******************************************************************************
+ *
+ * @fn      get_dram_dfs_table
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
+void *get_dram_dfs_table(void)
+{
+	return((void *)g_dram_dfs_table);
+}
+
+/******************************************************************************
+ *
+ * @fn      smc_set_qchannel
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 void smc_set_qchannel(int enable)
 {
 	if (enable == 0)	{
@@ -277,11 +465,33 @@ void smc_set_qchannel(int enable)
 	}
 }
 
+/******************************************************************************
+ *
+ * @fn      dmc_misc_direct_dmc_enable
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 void dmc_misc_direct_dmc_enable(int enable)
 {
 	pwrcal_writel(DMC_MISC_CON0, (enable << 24) | (0x2 << 20));
 }
 
+/******************************************************************************
+ *
+ * @fn      smc_mode_register_write
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 void smc_mode_register_write(int mr, int op)
 {
 	pwrcal_writel(ModeRegAddr, ((0x3 << 28) | (mr << 20)));
@@ -289,6 +499,17 @@ void smc_mode_register_write(int mr, int op)
 	pwrcal_writel(MprMrCtl, 0x10);
 }
 
+/******************************************************************************
+ *
+ * @fn      convert_to_level
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 static unsigned int convert_to_level(unsigned long long freq)
 {
 	int idx;
@@ -301,6 +522,17 @@ static unsigned int convert_to_level(unsigned long long freq)
 	return 0;
 }
 
+/******************************************************************************
+ *
+ * @fn      convert_to_level_switch
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 static unsigned int convert_to_level_switch(unsigned long long freq)
 {
 	int idx;
@@ -313,11 +545,43 @@ static unsigned int convert_to_level_switch(unsigned long long freq)
 	return 0;
 }
 
+typedef struct phy_dvfs0_con3_t DVFS_CON3;
+typedef struct phy_dvfs0_con4_t DVFS_CON4;
+typedef struct phy_zq_con0_t ZQ_CON0;
+
+void *PHY_ZQ_CON0[] = {PHY_ZQ_CON0_CH0, PHY_ZQ_CON0_CH1, PHY_ZQ_CON0_CH2, PHY_ZQ_CON0_CH3};
+
+void *PHY_DVFS0_CON0[] = {PHY_DVFS0_CON0_CH0, PHY_DVFS0_CON0_CH1, PHY_DVFS0_CON0_CH2, PHY_DVFS0_CON0_CH3};
+void *PHY_DVFS0_CON1[] = {PHY_DVFS0_CON1_CH0, PHY_DVFS0_CON1_CH1, PHY_DVFS0_CON1_CH2, PHY_DVFS0_CON1_CH3};
+void *PHY_DVFS0_CON2[] = {PHY_DVFS0_CON2_CH0, PHY_DVFS0_CON2_CH1, PHY_DVFS0_CON2_CH2, PHY_DVFS0_CON2_CH3};
+void *PHY_DVFS0_CON3[] = {PHY_DVFS0_CON3_CH0, PHY_DVFS0_CON3_CH1, PHY_DVFS0_CON3_CH2, PHY_DVFS0_CON3_CH3};
+void *PHY_DVFS0_CON4[] = {PHY_DVFS0_CON4_CH0, PHY_DVFS0_CON4_CH1, PHY_DVFS0_CON4_CH2, PHY_DVFS0_CON4_CH3};
+
+void *PHY_DVFS1_CON0[] = {PHY_DVFS1_CON0_CH0, PHY_DVFS1_CON0_CH1, PHY_DVFS1_CON0_CH2, PHY_DVFS1_CON0_CH3};
+void *PHY_DVFS1_CON1[] = {PHY_DVFS1_CON1_CH0, PHY_DVFS1_CON1_CH1, PHY_DVFS1_CON1_CH2, PHY_DVFS1_CON1_CH3};
+void *PHY_DVFS1_CON2[] = {PHY_DVFS1_CON2_CH0, PHY_DVFS1_CON2_CH1, PHY_DVFS1_CON2_CH2, PHY_DVFS1_CON2_CH3};
+void *PHY_DVFS1_CON3[] = {PHY_DVFS1_CON3_CH0, PHY_DVFS1_CON3_CH1, PHY_DVFS1_CON3_CH2, PHY_DVFS1_CON3_CH3};
+void *PHY_DVFS1_CON4[] = {PHY_DVFS1_CON4_CH0, PHY_DVFS1_CON4_CH1, PHY_DVFS1_CON4_CH2, PHY_DVFS1_CON4_CH3};
+/******************************************************************************
+ *
+ * @fn      pwrcal_dmc_set_dvfs
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing_set_idx)
 {
+	int n;
 	unsigned int uReg;
 	unsigned int target_mif_level_idx, target_mif_level_switch_idx;
 	unsigned int mr13;
+	phy_dvfs0_con3_t DVFS_CON3_ECT, DVFS_CON3;
+	phy_dvfs0_con4_t DVFS_CON4_ECT, DVFS_CON4;
+	phy_zq_con0_t ZQ_CON0;
 
 	target_mif_level_idx = convert_to_level(target_mif_freq);
 
@@ -379,11 +643,55 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		uReg |= (0x1 << 30);	//0x1 = DVFS 1 mode
 		pwrcal_writel(PHY_DVFS_CON, uReg);
 
-		pwrcal_writel(PHY_DVFS0_CON0, g_phy_dfs_table[target_mif_level_idx].DVFSn_CON0);
-		pwrcal_writel(PHY_DVFS0_CON1, g_phy_dfs_table[target_mif_level_idx].DVFSn_CON1);
-		pwrcal_writel(PHY_DVFS0_CON2, g_phy_dfs_table[target_mif_level_idx].DVFSn_CON2);
-		pwrcal_writel(PHY_DVFS0_CON3, g_phy_dfs_table[target_mif_level_idx].DVFSn_CON3);
-		pwrcal_writel(PHY_DVFS0_CON4, g_phy_dfs_table[target_mif_level_idx].DVFSn_CON4);
+		for (n = 0; n < 4; n++) {
+			DVFS_CON3.data = DVFS_CON3_ECT.data = g_phy_dfs_table[target_mif_level_idx].DVFSn_CON3;
+			DVFS_CON4.data = DVFS_CON4_ECT.data = g_phy_dfs_table[target_mif_level_idx].DVFSn_CON4;
+			ZQ_CON0.data = pwrcal_readl(PHY_ZQ_CON0[n]);
+
+			/* WA: Ch1 and Ch2 wrong connection SFR and IO control pin */
+			if ((n == 1) || (n == 2)) {
+
+				/* ca register => byte1 pad */
+				DVFS_CON3.bitfield.dvfs0_zq_mode_dds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_mode_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_pdds;
+				ZQ_CON0.bitfield.zq_mode_term				= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds1_term;
+
+				/* ds0 register => ca pad */
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds0_term		= 0x0;
+
+				/* ds1 register => byte0 pad */
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds1_term		= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds0_term;
+
+			} else {
+
+				DVFS_CON3.bitfield.dvfs0_zq_mode_dds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_mode_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_pdds;
+				ZQ_CON0.bitfield.zq_mode_term				= 0x0;
+
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds0_term		= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds0_term;
+
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds1_term		= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds1_term;
+			}
+
+			/* tied to byte0 */
+			DVFS_CON3.bitfield.dvfs0_ds0_vref				= DVFS_CON3_ECT.bitfield.dvfs0_ds0_vref;
+			DVFS_CON3.bitfield.dvfs0_ds1_vref				= DVFS_CON3_ECT.bitfield.dvfs0_ds0_vref;
+
+			pwrcal_writel(PHY_DVFS0_CON0[n], g_phy_dfs_table[target_mif_level_idx].DVFSn_CON0);
+			pwrcal_writel(PHY_DVFS0_CON1[n], g_phy_dfs_table[target_mif_level_idx].DVFSn_CON1);
+			pwrcal_writel(PHY_DVFS0_CON2[n], g_phy_dfs_table[target_mif_level_idx].DVFSn_CON2);
+			pwrcal_writel(PHY_DVFS0_CON3[n], DVFS_CON3.data);
+			pwrcal_writel(PHY_DVFS0_CON4[n], DVFS_CON4.data);
+			pwrcal_writel(PHY_ZQ_CON0[n],	 ZQ_CON0.data);
+		}
 
 		mr13 = (0x1 << 7) | (0x0 << 6) | (0x0 << 5) | (0x1 << 3);	//FSP-OP=0x1, FSP-WR=0x0, DMD=0x0, VRCG=0x1
 		smc_mode_register_write(DRAM_MR13, mr13);
@@ -443,11 +751,57 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		uReg |= (0x2 << 30);	//0x2 = DVFS 2 mode
 		pwrcal_writel(PHY_DVFS_CON, uReg);
 
-		pwrcal_writel(PHY_DVFS1_CON0, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON0);
-		pwrcal_writel(PHY_DVFS1_CON1, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON1);
-		pwrcal_writel(PHY_DVFS1_CON2, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON2);
-		pwrcal_writel(PHY_DVFS1_CON3, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON3);
-		pwrcal_writel(PHY_DVFS1_CON4, g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON4);
+		for (n = 0; n < 4; n++) {
+
+			DVFS_CON3.data = DVFS_CON3_ECT.data = g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON3;
+			DVFS_CON4.data = DVFS_CON4_ECT.data = g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON4;
+			ZQ_CON0.data = pwrcal_readl(PHY_ZQ_CON0[n]);
+
+			/* WA: Ch1 and Ch2 wrong connection SFR and IO control pin */
+			if ((n == 1) || (n == 2)) {
+
+				/* ca register => byte1 pad */
+				DVFS_CON3.bitfield.dvfs0_zq_mode_dds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_mode_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_pdds;
+				ZQ_CON0.bitfield.zq_mode_term				= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds1_term;
+
+				/* ds0 register => ca pad */
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds0_term		= 0x0;
+
+				/* ds1 register => byte0 pad */
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds1_term		= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds0_term;
+
+			} else {
+
+				DVFS_CON3.bitfield.dvfs0_zq_mode_dds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_mode_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_mode_pdds;
+				ZQ_CON0.bitfield.zq_mode_term				= 0x0;
+
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds0_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds0_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds0_term		= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds0_term;
+
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_dds			= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_dds;
+				DVFS_CON3.bitfield.dvfs0_zq_ds1_pdds		= DVFS_CON3_ECT.bitfield.dvfs0_zq_ds1_pdds;
+				DVFS_CON4.bitfield.dvfs0_zq_ds1_term		= DVFS_CON4_ECT.bitfield.dvfs0_zq_ds1_term;
+			}
+
+			/* tied to byte0 */
+			DVFS_CON3.bitfield.dvfs0_ds0_vref				= DVFS_CON3_ECT.bitfield.dvfs0_ds0_vref;
+			DVFS_CON3.bitfield.dvfs0_ds1_vref				= DVFS_CON3_ECT.bitfield.dvfs0_ds0_vref;
+
+			pwrcal_writel(PHY_DVFS1_CON0[n], g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON0);
+			pwrcal_writel(PHY_DVFS1_CON1[n], g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON1);
+			pwrcal_writel(PHY_DVFS1_CON2[n], g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON2);
+			pwrcal_writel(PHY_DVFS1_CON3[n], DVFS_CON3.data);
+			pwrcal_writel(PHY_DVFS1_CON4[n], DVFS_CON4.data);
+			pwrcal_writel(PHY_ZQ_CON0[n],	 ZQ_CON0.data);
+		}
+
 
 		mr13 = (0x0 << 7) | (0x1 << 6) | (0x0 << 5) | (0x1 << 3);	//FSP-OP=0x0, FSP-WR=0x1, DMD=0x0, VRCG=0x1
 		smc_mode_register_write(DRAM_MR13, mr13);
@@ -468,19 +822,35 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 	}
 }
 
-
+/******************************************************************************
+ *
+ * @fn      dfs_dram_param_init
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 void dfs_dram_param_init(void)
 {
 	int i;
 	void *dram_block;
-	int memory_size = 3; // means 3GB
+	unsigned int query_key; // means 3GB
 	struct ect_timing_param_size *size;
 
 	dram_block = ect_get_block(BLOCK_TIMING_PARAM);
 	if (dram_block == NULL)
 		return;
+	query_key = pwrcal_readl(PMU_DREX_CALIBRATION3);
+	if (query_key != 0) {
+		size = ect_timing_param_get_key(dram_block, query_key | 0x1);
+	} else {
+		query_key = 3;
+		size = ect_timing_param_get_size(dram_block, query_key);
+	}
 
-	size = ect_timing_param_get_size(dram_block, memory_size);
 	if (size == NULL)
 		return;
 
@@ -543,6 +913,17 @@ void dfs_dram_param_init(void)
 	}
 }
 
+/******************************************************************************
+ *
+ * @fn      dfs_mif_level_init
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 void dfs_mif_level_init(void)
 {
 	int i;
@@ -567,6 +948,17 @@ void dfs_mif_level_init(void)
 		mif_freq_to_level[i] = domain->list_level[i].level * KHZ;
 }
 
+/******************************************************************************
+ *
+ * @fn      dfs_dram_init
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
 void dfs_dram_init(void)
 {
 	dfs_dram_param_init();
