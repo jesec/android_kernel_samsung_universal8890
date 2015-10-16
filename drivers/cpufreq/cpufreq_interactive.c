@@ -1013,6 +1013,635 @@ static ssize_t store_io_is_busy(struct cpufreq_interactive_tunables *tunables,
 	return count;
 }
 
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+static ssize_t show_target_loads_dual(
+	struct cpufreq_interactive_tunables *tunables,
+	char *buf)
+{
+	int i;
+	ssize_t ret = 0;
+
+	for (i = 0; i < exynos_tuned_param[DUAL_MODE]->ntarget_loads; i++)
+		ret += sprintf(buf + ret, "%u%s",
+				 exynos_tuned_param[DUAL_MODE]->target_loads[i],
+			       i & 0x1 ? ":" : " ");
+
+	sprintf(buf + ret - 1, "\n");
+	return ret;
+}
+
+static ssize_t show_target_loads_quad(
+	struct cpufreq_interactive_tunables *tunables,
+	char *buf)
+{
+	int i;
+	ssize_t ret = 0;
+
+	for (i = 0; i < exynos_tuned_param[QUAD_MODE]->ntarget_loads; i++)
+		ret += sprintf(buf + ret, "%u%s",
+				 exynos_tuned_param[QUAD_MODE]->target_loads[i],
+			       i & 0x1 ? ":" : " ");
+
+	sprintf(buf + ret - 1, "\n");
+	return ret;
+}
+
+static ssize_t store_target_loads_dual(
+	struct cpufreq_interactive_tunables *tunables,
+	const char *buf, size_t count)
+{
+	int ntokens;
+	unsigned int *new_target_loads = NULL;
+	unsigned long flags;
+
+	new_target_loads = get_tokenized_data(buf, &ntokens);
+	if (IS_ERR(new_target_loads))
+		return PTR_RET(new_target_loads);
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	if (exynos_tuned_param[DUAL_MODE]->target_loads != default_target_loads)
+		kfree(exynos_tuned_param[DUAL_MODE]->target_loads);
+	exynos_tuned_param[DUAL_MODE]->target_loads = new_target_loads;
+	exynos_tuned_param[DUAL_MODE]->ntarget_loads = ntokens;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->target_loads = new_target_loads;
+		tunables->ntarget_loads = ntokens;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+
+	return count;
+}
+
+static ssize_t store_target_loads_quad(
+	struct cpufreq_interactive_tunables *tunables,
+	const char *buf, size_t count)
+{
+	int ntokens;
+	unsigned int *new_target_loads = NULL;
+	unsigned long flags;
+
+	new_target_loads = get_tokenized_data(buf, &ntokens);
+	if (IS_ERR(new_target_loads))
+		return PTR_RET(new_target_loads);
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	if (exynos_tuned_param[QUAD_MODE]->target_loads != default_target_loads)
+		kfree(exynos_tuned_param[QUAD_MODE]->target_loads);
+	exynos_tuned_param[QUAD_MODE]->target_loads = new_target_loads;
+	exynos_tuned_param[QUAD_MODE]->ntarget_loads = ntokens;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->target_loads = new_target_loads;
+		tunables->ntarget_loads = ntokens;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+
+	return count;
+}
+
+static ssize_t show_above_hispeed_delay_dual(
+	struct cpufreq_interactive_tunables *tunables, char *buf)
+{
+	int i;
+	ssize_t ret = 0;
+
+	for (i = 0; i < exynos_tuned_param[DUAL_MODE]->nabove_hispeed_delay; i++)
+		ret += sprintf(buf + ret, "%u%s",
+			       exynos_tuned_param[DUAL_MODE]->above_hispeed_delay[i],
+			       i & 0x1 ? ":" : " ");
+
+	sprintf(buf + ret - 1, "\n");
+
+	return ret;
+}
+
+static ssize_t show_above_hispeed_delay_quad(
+	struct cpufreq_interactive_tunables *tunables, char *buf)
+{
+	int i;
+	ssize_t ret = 0;
+
+	for (i = 0; i < exynos_tuned_param[QUAD_MODE]->nabove_hispeed_delay; i++)
+		ret += sprintf(buf + ret, "%u%s",
+			       exynos_tuned_param[QUAD_MODE]->above_hispeed_delay[i],
+			       i & 0x1 ? ":" : " ");
+
+	sprintf(buf + ret - 1, "\n");
+
+	return ret;
+}
+
+static ssize_t store_above_hispeed_delay_dual(
+	struct cpufreq_interactive_tunables *tunables,
+	const char *buf, size_t count)
+{
+	int ntokens;
+	unsigned int *new_above_hispeed_delay = NULL;
+	unsigned long flags;
+
+	new_above_hispeed_delay = get_tokenized_data(buf, &ntokens);
+	if (IS_ERR(new_above_hispeed_delay))
+		return PTR_RET(new_above_hispeed_delay);
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	if (exynos_tuned_param[DUAL_MODE]->above_hispeed_delay != default_above_hispeed_delay)
+		kfree(exynos_tuned_param[DUAL_MODE]->above_hispeed_delay);
+	exynos_tuned_param[DUAL_MODE]->above_hispeed_delay = new_above_hispeed_delay;
+	exynos_tuned_param[DUAL_MODE]->nabove_hispeed_delay = ntokens;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->above_hispeed_delay = new_above_hispeed_delay;
+		tunables->nabove_hispeed_delay = ntokens;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+
+	return count;
+}
+
+static ssize_t store_above_hispeed_delay_quad(
+	struct cpufreq_interactive_tunables *tunables,
+	const char *buf, size_t count)
+{
+	int ntokens;
+	unsigned int *new_above_hispeed_delay = NULL;
+	unsigned long flags;
+
+	new_above_hispeed_delay = get_tokenized_data(buf, &ntokens);
+	if (IS_ERR(new_above_hispeed_delay))
+		return PTR_RET(new_above_hispeed_delay);
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	if (exynos_tuned_param[QUAD_MODE]->above_hispeed_delay != default_above_hispeed_delay)
+		kfree(exynos_tuned_param[QUAD_MODE]->above_hispeed_delay);
+	exynos_tuned_param[QUAD_MODE]->above_hispeed_delay = new_above_hispeed_delay;
+	exynos_tuned_param[QUAD_MODE]->nabove_hispeed_delay = ntokens;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->above_hispeed_delay = new_above_hispeed_delay;
+		tunables->nabove_hispeed_delay = ntokens;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+
+	return count;
+}
+
+static ssize_t show_hispeed_freq_dual(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%u\n", exynos_tuned_param[DUAL_MODE]->hispeed_freq);
+}
+
+static ssize_t show_hispeed_freq_quad(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%u\n", exynos_tuned_param[QUAD_MODE]->hispeed_freq);
+}
+
+static ssize_t store_hispeed_freq_dual(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	long unsigned int val;
+	unsigned long flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->hispeed_freq = val;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->hispeed_freq = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_hispeed_freq_quad(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	long unsigned int val;
+	unsigned long flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->hispeed_freq = val;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->hispeed_freq = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t show_go_hispeed_load_dual(struct cpufreq_interactive_tunables
+		*tunables, char *buf)
+{
+	return sprintf(buf, "%lu\n", exynos_tuned_param[DUAL_MODE]->go_hispeed_load);
+}
+
+static ssize_t show_go_hispeed_load_quad(struct cpufreq_interactive_tunables
+		*tunables, char *buf)
+{
+	return sprintf(buf, "%lu\n", exynos_tuned_param[QUAD_MODE]->go_hispeed_load);
+}
+
+static ssize_t store_go_hispeed_load_dual(struct cpufreq_interactive_tunables
+		*tunables, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+	unsigned long flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->go_hispeed_load = val;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->go_hispeed_load = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_go_hispeed_load_quad(struct cpufreq_interactive_tunables
+		*tunables, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->go_hispeed_load = val;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->go_hispeed_load = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t show_min_sample_time_dual(struct cpufreq_interactive_tunables
+		*tunables, char *buf)
+{
+	return sprintf(buf, "%lu\n", exynos_tuned_param[DUAL_MODE]->min_sample_time);
+}
+
+static ssize_t show_min_sample_time_quad(struct cpufreq_interactive_tunables
+		*tunables, char *buf)
+{
+	return sprintf(buf, "%lu\n", exynos_tuned_param[QUAD_MODE]->min_sample_time);
+}
+
+static ssize_t store_min_sample_time_dual(struct cpufreq_interactive_tunables
+		*tunables, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->min_sample_time = val;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->min_sample_time = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_min_sample_time_quad(struct cpufreq_interactive_tunables
+		*tunables, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->min_sample_time = val;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->min_sample_time = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t show_timer_rate_dual(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%lu\n", exynos_tuned_param[DUAL_MODE]->timer_rate);
+}
+
+static ssize_t show_timer_rate_quad(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%lu\n", exynos_tuned_param[QUAD_MODE]->timer_rate);
+}
+
+static ssize_t store_timer_rate_dual(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, val_round, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	val_round = jiffies_to_usecs(usecs_to_jiffies(val));
+	if (val != val_round)
+		pr_warn("timer_rate not aligned to jiffy. Rounded up to %lu\n",
+			val_round);
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->timer_rate = val_round;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->timer_rate = val_round;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_timer_rate_quad(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, val_round, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	val_round = jiffies_to_usecs(usecs_to_jiffies(val));
+	if (val != val_round)
+		pr_warn("timer_rate not aligned to jiffy. Rounded up to %lu\n",
+			val_round);
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->timer_rate = val_round;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->timer_rate = val_round;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t show_timer_slack_dual(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%d\n", exynos_tuned_param[DUAL_MODE]->timer_slack_val);
+}
+
+static ssize_t show_timer_slack_quad(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%d\n", exynos_tuned_param[QUAD_MODE]->timer_slack_val);
+}
+
+static ssize_t store_timer_slack_dual(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtol(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->timer_slack_val = val;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->timer_slack_val = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_timer_slack_quad(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtol(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->timer_slack_val = val;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->timer_slack_val = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t show_boost_dual(struct cpufreq_interactive_tunables *tunables,
+			  char *buf)
+{
+	return sprintf(buf, "%d\n", exynos_tuned_param[DUAL_MODE]->boost_val);
+}
+
+static ssize_t show_boost_quad(struct cpufreq_interactive_tunables *tunables,
+			  char *buf)
+{
+	return sprintf(buf, "%d\n", exynos_tuned_param[QUAD_MODE]->boost_val);
+}
+
+static ssize_t store_boost_dual(struct cpufreq_interactive_tunables *tunables,
+			   const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->boost_val = val;
+
+	if (tunables->mode_idx == DUAL_MODE) {
+		tunables->boost_val = val;
+
+		if (tunables->boost_val) {
+			trace_cpufreq_interactive_boost("on");
+			if (!tunables->boosted)
+				cpufreq_interactive_boost(tunables);
+		} else {
+			exynos_tuned_param[DUAL_MODE]->boostpulse_endtime
+					= tunables->boostpulse_endtime
+					= ktime_to_us(ktime_get());
+			trace_cpufreq_interactive_unboost("off");
+		}
+	}
+	spin_unlock_irqrestore(&tuned_lock, flags);
+
+	return count;
+}
+
+static ssize_t store_boost_quad(struct cpufreq_interactive_tunables *tunables,
+			   const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->boost_val = val;
+
+	if (tunables->mode_idx == QUAD_MODE) {
+		tunables->boost_val = val;
+
+		if (tunables->boost_val) {
+			trace_cpufreq_interactive_boost("on");
+			if (!tunables->boosted)
+				cpufreq_interactive_boost(tunables);
+		} else {
+			exynos_tuned_param[QUAD_MODE]->boostpulse_endtime
+					= tunables->boostpulse_endtime
+					= ktime_to_us(ktime_get());
+			trace_cpufreq_interactive_unboost("off");
+		}
+	}
+	spin_unlock_irqrestore(&tuned_lock, flags);
+
+	return count;
+}
+
+static ssize_t store_boostpulse_dual(struct cpufreq_interactive_tunables *tunables,
+				const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->boostpulse_endtime = ktime_to_us(ktime_get()) +
+		exynos_tuned_param[DUAL_MODE]->boostpulse_duration_val;
+	if (tunables->mode_idx == DUAL_MODE) {
+		tunables->boostpulse_endtime = exynos_tuned_param[DUAL_MODE]->boostpulse_endtime;
+		trace_cpufreq_interactive_boost("pulse");
+		if (!tunables->boosted)
+			cpufreq_interactive_boost(tunables);
+	}
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_boostpulse_quad(struct cpufreq_interactive_tunables *tunables,
+				const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->boostpulse_endtime = ktime_to_us(ktime_get()) +
+		exynos_tuned_param[QUAD_MODE]->boostpulse_duration_val;
+	if (tunables->mode_idx == QUAD_MODE) {
+		tunables->boostpulse_endtime = exynos_tuned_param[QUAD_MODE]->boostpulse_endtime;
+		trace_cpufreq_interactive_boost("pulse");
+		if (!tunables->boosted)
+			cpufreq_interactive_boost(tunables);
+	}
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t show_boostpulse_duration_dual(struct cpufreq_interactive_tunables
+		*tunables, char *buf)
+{
+	return sprintf(buf, "%d\n", exynos_tuned_param[DUAL_MODE]->boostpulse_duration_val);
+}
+
+static ssize_t show_boostpulse_duration_quad(struct cpufreq_interactive_tunables
+		*tunables, char *buf)
+{
+	return sprintf(buf, "%d\n", exynos_tuned_param[QUAD_MODE]->boostpulse_duration_val);
+}
+
+static ssize_t store_boostpulse_duration_dual(struct cpufreq_interactive_tunables
+		*tunables, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->boostpulse_duration_val = val;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->boostpulse_duration_val = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_boostpulse_duration_quad(struct cpufreq_interactive_tunables
+		*tunables, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[QUAD_MODE]->boostpulse_duration_val = val;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->boostpulse_duration_val = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t show_io_is_busy_dual(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%u\n", exynos_tuned_param[DUAL_MODE]->io_is_busy);
+}
+
+static ssize_t show_io_is_busy_quad(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%u\n", exynos_tuned_param[QUAD_MODE]->io_is_busy);
+}
+
+static ssize_t store_io_is_busy_dual(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val, flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->io_is_busy = val;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->io_is_busy = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_io_is_busy_quad(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	exynos_tuned_param[QUAD_MODE]->io_is_busy = val;
+	if (tunables->mode_idx == QUAD_MODE)
+		tunables->io_is_busy = val;
+	return count;
+}
+#endif
+
 /*
  * Create show/store routines
  * - sys: One governor instance for complete SYSTEM
@@ -1110,6 +1739,156 @@ static struct attribute_group interactive_attr_group_gov_sys = {
 	.attrs = interactive_attributes_gov_sys,
 	.name = "interactive",
 };
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+#define store_gov_pol_sys_dual(file_name)				\
+static ssize_t store_##file_name##_gov_pol_dual				\
+(struct cpufreq_policy *policy, const char *buf, size_t count)		\
+{									\
+	return store_##file_name##_dual(policy->governor_data, buf, count);	\
+}
+
+#define store_gov_pol_sys_quad(file_name)				\
+static ssize_t store_##file_name##_gov_pol_quad				\
+(struct cpufreq_policy *policy, const char *buf, size_t count)		\
+{									\
+	return store_##file_name##_quad(policy->governor_data, buf, count);	\
+}
+
+#define show_gov_pol_sys_dual(file_name)				\
+static ssize_t show_##file_name##_gov_pol_dual				\
+(struct cpufreq_policy *policy, char *buf)				\
+{									\
+	return show_##file_name##_dual(policy->governor_data, buf);	\
+}
+
+#define show_gov_pol_sys_quad(file_name)				\
+static ssize_t show_##file_name##_gov_pol_quad				\
+(struct cpufreq_policy *policy, char *buf)				\
+{									\
+	return show_##file_name##_quad(policy->governor_data, buf);	\
+}
+
+#define show_store_gov_pol_sys_dual(file_name)				\
+show_gov_pol_sys_dual(file_name);					\
+store_gov_pol_sys_dual(file_name)
+
+#define show_store_gov_pol_sys_quad(file_name)				\
+show_gov_pol_sys_quad(file_name);					\
+store_gov_pol_sys_quad(file_name)
+
+show_store_gov_pol_sys_dual(target_loads);
+show_store_gov_pol_sys_dual(above_hispeed_delay);
+show_store_gov_pol_sys_dual(hispeed_freq);
+show_store_gov_pol_sys_dual(go_hispeed_load);
+show_store_gov_pol_sys_dual(min_sample_time);
+show_store_gov_pol_sys_dual(timer_rate);
+show_store_gov_pol_sys_dual(timer_slack);
+show_store_gov_pol_sys_dual(boost);
+store_gov_pol_sys_dual(boostpulse);
+show_store_gov_pol_sys_dual(boostpulse_duration);
+show_store_gov_pol_sys_dual(io_is_busy);
+
+show_store_gov_pol_sys_quad(target_loads);
+show_store_gov_pol_sys_quad(above_hispeed_delay);
+show_store_gov_pol_sys_quad(hispeed_freq);
+show_store_gov_pol_sys_quad(go_hispeed_load);
+show_store_gov_pol_sys_quad(min_sample_time);
+show_store_gov_pol_sys_quad(timer_rate);
+show_store_gov_pol_sys_quad(timer_slack);
+show_store_gov_pol_sys_quad(boost);
+store_gov_pol_sys_quad(boostpulse);
+show_store_gov_pol_sys_quad(boostpulse_duration);
+show_store_gov_pol_sys_quad(io_is_busy);
+
+#define gov_pol_attr_rw_dual(_name)					\
+static struct freq_attr _name##_gov_pol_dual =				\
+__ATTR(_name, 0644, show_##_name##_gov_pol_dual, store_##_name##_gov_pol_dual)
+
+#define gov_pol_attr_rw_quad(_name)					\
+static struct freq_attr _name##_gov_pol_quad =				\
+__ATTR(_name, 0644, show_##_name##_gov_pol_quad, store_##_name##_gov_pol_quad)
+
+#define gov_sys_pol_attr_rw_dual(_name)					\
+	gov_pol_attr_rw_dual(_name)
+
+#define gov_sys_pol_attr_rw_quad(_name)					\
+	gov_pol_attr_rw_quad(_name)
+
+gov_sys_pol_attr_rw_dual(target_loads);
+gov_sys_pol_attr_rw_dual(above_hispeed_delay);
+gov_sys_pol_attr_rw_dual(hispeed_freq);
+gov_sys_pol_attr_rw_dual(go_hispeed_load);
+gov_sys_pol_attr_rw_dual(min_sample_time);
+gov_sys_pol_attr_rw_dual(timer_rate);
+gov_sys_pol_attr_rw_dual(timer_slack);
+gov_sys_pol_attr_rw_dual(boost);
+gov_sys_pol_attr_rw_dual(boostpulse_duration);
+gov_sys_pol_attr_rw_dual(io_is_busy);
+
+gov_sys_pol_attr_rw_quad(target_loads);
+gov_sys_pol_attr_rw_quad(above_hispeed_delay);
+gov_sys_pol_attr_rw_quad(hispeed_freq);
+gov_sys_pol_attr_rw_quad(go_hispeed_load);
+gov_sys_pol_attr_rw_quad(min_sample_time);
+gov_sys_pol_attr_rw_quad(timer_rate);
+gov_sys_pol_attr_rw_quad(timer_slack);
+gov_sys_pol_attr_rw_quad(boost);
+gov_sys_pol_attr_rw_quad(boostpulse_duration);
+gov_sys_pol_attr_rw_quad(io_is_busy);
+
+static struct freq_attr boostpulse_gov_pol_dual =
+	__ATTR(boostpulse, 0200, NULL, store_boostpulse_gov_pol_dual);
+
+static struct freq_attr boostpulse_gov_pol_quad =
+	__ATTR(boostpulse, 0200, NULL, store_boostpulse_gov_pol_quad);
+
+static struct attribute *exynos_tuned_attributes_gov_pol_dual[] = {
+	&target_loads_gov_pol_dual.attr,
+	&above_hispeed_delay_gov_pol_dual.attr,
+	&hispeed_freq_gov_pol_dual.attr,
+	&go_hispeed_load_gov_pol_dual.attr,
+	&min_sample_time_gov_pol_dual.attr,
+	&timer_rate_gov_pol_dual.attr,
+	&timer_slack_gov_pol_dual.attr,
+	&boost_gov_pol_dual.attr,
+	&boostpulse_gov_pol_dual.attr,
+	&boostpulse_duration_gov_pol_dual.attr,
+	&io_is_busy_gov_pol_dual.attr,
+	NULL,
+};
+
+static struct attribute *exynos_tuned_attributes_gov_pol_quad[] = {
+	&target_loads_gov_pol_quad.attr,
+	&above_hispeed_delay_gov_pol_quad.attr,
+	&hispeed_freq_gov_pol_quad.attr,
+	&go_hispeed_load_gov_pol_quad.attr,
+	&min_sample_time_gov_pol_quad.attr,
+	&timer_rate_gov_pol_quad.attr,
+	&timer_slack_gov_pol_quad.attr,
+	&boost_gov_pol_quad.attr,
+	&boostpulse_gov_pol_quad.attr,
+	&boostpulse_duration_gov_pol_quad.attr,
+	&io_is_busy_gov_pol_quad.attr,
+	NULL,
+};
+
+static struct attribute_group exynos_tuned_attr_gov_pol_dual = {
+	.attrs = exynos_tuned_attributes_gov_pol_dual,
+	.name = "interactive_dual",
+};
+
+static struct attribute_group exynos_tuned_attr_gov_pol_quad = {
+	.attrs = exynos_tuned_attributes_gov_pol_quad,
+	.name = "interactive_quad",
+};
+
+static const struct attribute_group *exynos_tuned_attr_group_gov_pol[] = {
+	&exynos_tuned_attr_gov_pol_dual,
+	&exynos_tuned_attr_gov_pol_quad,
+	NULL
+};
+#endif
 
 /* Per policy governor instance */
 static struct attribute *interactive_attributes_gov_pol[] = {
