@@ -1409,6 +1409,7 @@ struct task_struct {
 	int nr_thread_group;
 	raw_spinlock_t thread_group_lock;
 	bool hp_boost_requested;	/* This task requested hotplug boost */
+	bool fork_infant;
 #endif
 	struct completion *vfork_done;		/* for vfork() */
 	int __user *set_child_tid;		/* CLONE_CHILD_SETTID */

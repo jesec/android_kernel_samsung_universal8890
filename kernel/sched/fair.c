@@ -10039,8 +10039,10 @@ static void add_thread_group_info(struct sched_entity *se)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
-	group_leader->thread_group_load += se->avg.load_avg_ratio;
-	group_leader->nr_thread_group++;
+	if (likely(!task_of(se)->fork_infant)) {
+		group_leader->thread_group_load += se->avg.load_avg_ratio;
+		group_leader->nr_thread_group++;
+	}
 
 	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, se->avg.load_avg_ratio, group_leader->nr_thread_group, 1);
 	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
@@ -10054,8 +10056,10 @@ static void sub_thread_group_info(struct sched_entity *se)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
-	group_leader->thread_group_load -= se->avg.load_avg_ratio;
-	group_leader->nr_thread_group--;
+	if (likely(!task_of(se)->fork_infant)) {
+		group_leader->thread_group_load -= se->avg.load_avg_ratio;
+		group_leader->nr_thread_group--;
+	}
 
 	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, se->avg.load_avg_ratio, group_leader->nr_thread_group, 0);
 	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
@@ -10069,7 +10073,14 @@ static void update_thread_group_info(struct sched_entity *se, long update_load)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
-	group_leader->thread_group_load += update_load;
+	if (unlikely(task_of(se)->fork_infant) && se->avg.load_avg_ratio >= hmp_down_threshold) {
+		update_load = se->avg.load_avg_ratio;
+		task_of(se)->fork_infant = false;
+		group_leader->nr_thread_group++;
+	}
+
+	if (likely(!task_of(se)->fork_infant))
+		group_leader->thread_group_load += update_load;
 
 	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, se->avg.load_avg_ratio, group_leader->nr_thread_group, 2);
 	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
