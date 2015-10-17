@@ -88,17 +88,20 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		pm_qos_remove_request(&dev->qos_req_cluster1);
 		pm_qos_remove_request(&dev->qos_req_cluster0);
 #endif
+#ifdef CONFIG_EXYNOS8890_BTS_OPTIMIZATION
 		if (dev->extra_mo) {
 			bts_ext_scenario_set(TYPE_MFC, TYPE_HIGHPERF, false);
 			dev->extra_mo = false;
 			mfc_info_ctx("restore MO limitation\n");
 		}
+#endif
 
 		atomic_set(&dev->qos_req_cur, 0);
 		MFC_TRACE_CTX("-- QOS remove\n");
 		mfc_info_ctx("QoS remove\n");
 		break;
 	case MFC_QOS_EXTRA:
+#ifdef CONFIG_EXYNOS8890_BTS_OPTIMIZATION
 		/* remove MO limitation for QoS table[5]~[8] */
 		if (idx > 4) {
 			if (!dev->extra_mo) {
@@ -117,6 +120,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 				mfc_info_ctx("QoS extra: limit MO\n");
 			}
 		}
+#endif
 		break;
 	default:
 		mfc_err_ctx("Unknown request for opr [%d]\n", opr_type);
