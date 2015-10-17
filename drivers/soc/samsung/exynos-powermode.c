@@ -69,40 +69,6 @@ static struct exynos_powermode_info *pm_info;
 #define PMU_IDLE_IP(x)			(PMU_IDLE_IP_BASE + (x * 0x4))
 #define PMU_IDLE_IP_MASK(x)		(PMU_IDLE_IP_MASK_BASE + (x * 0x4))
 
-void __iomem *cti_base[CONFIG_NR_CPUS];
-void __iomem *clk_con_mux_mngs_pll_base;
-
-void set_cti_break_enable(void)
-{
-	int i;
-	for (i = 0; i < CONFIG_NR_CPUS; i++) {
-		__raw_writel(0xc5acce55, cti_base[i] + 0xfb0);
-		__raw_writel(0x1, cti_base[i] + 0xa0);
-		__raw_writel(0x1, cti_base[i]);
-	}
-}
-
-void cti_break_enable_init(void)
-{
-	int i;
-	unsigned long dbg_cti_base = 0x16420000;
-	unsigned long core_offset = 0x100000;
-
-	for (i = 0; i < CONFIG_NR_CPUS; i++)
-		cti_base[i^4] = ioremap(dbg_cti_base + core_offset * i, 0x1000);
-
-	set_cti_break_enable();
-	clk_con_mux_mngs_pll_base = ioremap(0x11800200, 0x10);
-}
-
-inline void set_stop_cpu(int cpu)
-{
-	unsigned long temp = __raw_readl(clk_con_mux_mngs_pll_base);
-	__raw_writel(temp & ~BIT(12), clk_con_mux_mngs_pll_base);
-	__raw_writel(0x1, cti_base[cpu] + 0x14);
-	asm volatile("b .");
-}
-
 static int exynos_check_idle_ip_stat(int mode, int reg_index)
 {
 	unsigned int val, mask;
@@ -720,8 +686,6 @@ void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
 	 */
 	unsigned int cpu = 0;
 
-	set_cti_break_enable();
-
 	if (early_wakeup)
 		cal_pm_earlywakeup(mode);
 	else
@@ -813,9 +777,6 @@ static int __init dt_init_exynos_powermode(void)
 int __init exynos_powermode_init(void)
 {
 	int mode, index;
-
-	cti_break_enable_init();
-	pr_info("[CTI] break_enable!!\n");
 
 	pm_info = kzalloc(sizeof(struct exynos_powermode_info), GFP_KERNEL);
 	if (pm_info == NULL) {
