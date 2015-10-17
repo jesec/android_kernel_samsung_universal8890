@@ -66,6 +66,10 @@ struct cpufreq_interactive_cpuinfo {
 	u64 loc_floor_val_time; /* per-cpu floor_validate_time */
 	u64 pol_hispeed_val_time; /* policy hispeed_validate_time */
 	u64 loc_hispeed_val_time; /* per-cpu hispeed_validate_time */
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	u64 loc_hispeed_val_time_2nd; /* per-cpu hispeed_validate_time_2nd */
+#endif
+
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
 };
@@ -91,6 +95,9 @@ struct cpufreq_interactive_tunables {
 	int usage_count;
 	/* Hi speed to bump to from lo speed when load burst (default max) */
 	unsigned int hispeed_freq;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	unsigned int hispeed_freq_2nd;
+#endif
 	/* Go to hi speed when CPU load at or above this value. */
 #define DEFAULT_GO_HISPEED_LOAD 99
 	unsigned long go_hispeed_load;
@@ -440,6 +447,28 @@ static void cpufreq_interactive_timer(unsigned long data)
 		spin_unlock_irqrestore(&pcpu->target_freq_lock, flags);
 		goto target_update;
 	}
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	/*
+	 * In case of dual mode, during above_hispeed_delay time corresponding
+	 * with hispeed_freq_2nd, do not scale higher than hispeed_freq_2nd for
+	 * power consumption.
+	 */
+	if (tunables->hispeed_freq_2nd &&
+			new_freq > tunables->hispeed_freq_2nd) {
+		if (pcpu->target_freq == tunables->hispeed_freq_2nd &&
+			now - pcpu->loc_hispeed_val_time_2nd <
+			freq_to_above_hispeed_delay(tunables, pcpu->policy->cur)) {
+			spin_unlock_irqrestore(&pcpu->target_freq_lock, flags);
+			goto rearm;
+		}
+
+		if (pcpu->target_freq < tunables->hispeed_freq_2nd)
+			new_freq = tunables->hispeed_freq_2nd;
+	}
+
+	pcpu->loc_hispeed_val_time_2nd = now;
+#endif
 
 	pcpu->loc_hispeed_val_time = now;
 
@@ -1184,6 +1213,12 @@ static ssize_t show_hispeed_freq_dual(struct cpufreq_interactive_tunables *tunab
 	return sprintf(buf, "%u\n", exynos_tuned_param[DUAL_MODE]->hispeed_freq);
 }
 
+static ssize_t show_hispeed_freq_2nd_dual(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%u\n", exynos_tuned_param[DUAL_MODE]->hispeed_freq_2nd);
+}
+
 static ssize_t show_hispeed_freq_quad(struct cpufreq_interactive_tunables *tunables,
 		char *buf)
 {
@@ -1205,6 +1240,25 @@ static ssize_t store_hispeed_freq_dual(struct cpufreq_interactive_tunables *tuna
 	exynos_tuned_param[DUAL_MODE]->hispeed_freq = val;
 	if (tunables->mode_idx == DUAL_MODE)
 		tunables->hispeed_freq = val;
+	spin_unlock_irqrestore(&tuned_lock, flags);
+	return count;
+}
+
+static ssize_t store_hispeed_freq_2nd_dual(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	long unsigned int val;
+	unsigned long flags;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&tuned_lock, flags);
+	exynos_tuned_param[DUAL_MODE]->hispeed_freq_2nd = val;
+	if (tunables->mode_idx == DUAL_MODE)
+		tunables->hispeed_freq_2nd = val;
 	spin_unlock_irqrestore(&tuned_lock, flags);
 	return count;
 }
@@ -1780,6 +1834,7 @@ store_gov_pol_sys_quad(file_name)
 show_store_gov_pol_sys_dual(target_loads);
 show_store_gov_pol_sys_dual(above_hispeed_delay);
 show_store_gov_pol_sys_dual(hispeed_freq);
+show_store_gov_pol_sys_dual(hispeed_freq_2nd);
 show_store_gov_pol_sys_dual(go_hispeed_load);
 show_store_gov_pol_sys_dual(min_sample_time);
 show_store_gov_pol_sys_dual(timer_rate);
@@ -1818,6 +1873,7 @@ __ATTR(_name, 0644, show_##_name##_gov_pol_quad, store_##_name##_gov_pol_quad)
 gov_sys_pol_attr_rw_dual(target_loads);
 gov_sys_pol_attr_rw_dual(above_hispeed_delay);
 gov_sys_pol_attr_rw_dual(hispeed_freq);
+gov_sys_pol_attr_rw_dual(hispeed_freq_2nd);
 gov_sys_pol_attr_rw_dual(go_hispeed_load);
 gov_sys_pol_attr_rw_dual(min_sample_time);
 gov_sys_pol_attr_rw_dual(timer_rate);
@@ -1847,6 +1903,7 @@ static struct attribute *exynos_tuned_attributes_gov_pol_dual[] = {
 	&target_loads_gov_pol_dual.attr,
 	&above_hispeed_delay_gov_pol_dual.attr,
 	&hispeed_freq_gov_pol_dual.attr,
+	&hispeed_freq_2nd_gov_pol_dual.attr,
 	&go_hispeed_load_gov_pol_dual.attr,
 	&min_sample_time_gov_pol_dual.attr,
 	&timer_rate_gov_pol_dual.attr,
@@ -1916,6 +1973,9 @@ static const char *interactive_sysfs[] = {
 	"target_loads",
 	"above_hispeed_delay",
 	"hispeed_freq",
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	"hispeed_freq_2nd",
+#endif
 	"go_hispeed_load",
 	"min_sample_time",
 	"timer_rate",
@@ -2019,17 +2079,20 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			tunables->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
 			tunables->timer_slack_val = DEFAULT_TIMER_SLACK;
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
-			for (j = 0; j < NR_MODE; j++) {
-				exynos_tuned_param[j]->hispeed_freq = policy->max;
-				exynos_tuned_param[j]->above_hispeed_delay = default_above_hispeed_delay;
-				exynos_tuned_param[j]->nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
-				exynos_tuned_param[j]->go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
-				exynos_tuned_param[j]->target_loads = default_target_loads;
-				exynos_tuned_param[j]->ntarget_loads = ARRAY_SIZE(default_target_loads);
-				exynos_tuned_param[j]->min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
-				exynos_tuned_param[j]->timer_rate = DEFAULT_TIMER_RATE;
-				exynos_tuned_param[j]->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
-				exynos_tuned_param[j]->timer_slack_val = DEFAULT_TIMER_SLACK;
+			if (policy->cpu) {
+				for (j = 0; j < NR_MODE; j++) {
+					exynos_tuned_param[j]->hispeed_freq = policy->max;
+					exynos_tuned_param[j]->hispeed_freq_2nd = policy->max;
+					exynos_tuned_param[j]->above_hispeed_delay = default_above_hispeed_delay;
+					exynos_tuned_param[j]->nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
+					exynos_tuned_param[j]->go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
+					exynos_tuned_param[j]->target_loads = default_target_loads;
+					exynos_tuned_param[j]->ntarget_loads = ARRAY_SIZE(default_target_loads);
+					exynos_tuned_param[j]->min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
+					exynos_tuned_param[j]->timer_rate = DEFAULT_TIMER_RATE;
+					exynos_tuned_param[j]->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
+					exynos_tuned_param[j]->timer_slack_val = DEFAULT_TIMER_SLACK;
+				}
 			}
 #endif
 		} else {
@@ -2139,6 +2202,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu->loc_floor_val_time = pcpu->pol_floor_val_time;
 			pcpu->pol_hispeed_val_time = pcpu->pol_floor_val_time;
 			pcpu->loc_hispeed_val_time = pcpu->pol_floor_val_time;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+			if (policy->cpu)
+				pcpu->loc_hispeed_val_time_2nd = pcpu->pol_floor_val_time;
+#endif
 			down_write(&pcpu->enable_sem);
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
@@ -2239,6 +2306,7 @@ static void exynos_update_gov_param(
 
 	tunables = policy->governor_data;
 	tunables->hispeed_freq = params->hispeed_freq;
+	tunables->hispeed_freq_2nd = params->hispeed_freq_2nd;
 	tunables->go_hispeed_load = params->go_hispeed_load;
 	tunables->min_sample_time = params->min_sample_time;
 	tunables->timer_rate = params->timer_rate;
