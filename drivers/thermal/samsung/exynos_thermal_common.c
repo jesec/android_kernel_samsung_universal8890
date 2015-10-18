@@ -34,6 +34,9 @@
 #include "exynos_thermal_common.h"
 
 unsigned long cpu_max_temp[2];
+#if defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
+int get_real_max_freq(cluster_type cluster);
+#endif
 
 struct exynos_thermal_zone {
 	enum thermal_device_mode mode;
@@ -151,6 +154,7 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 	struct thermal_sensor_conf *data = th_zone->sensor_conf;
 	enum thermal_trip_type type;
 	struct cpufreq_policy policy;
+	int max_freq;
 
 	tab_ptr = (struct freq_clip_table *)data->cooling_data.freq_data;
 	tab_size = data->cooling_data.freq_clip_count;
@@ -175,10 +179,15 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 		else if (data->d_type == CLUSTER1) {
 			cpufreq_get_policy(&policy, CLUSTER1_CORE);
 
-			if (clip_data->freq_clip_max > policy.max) {
+#if defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
+			max_freq = get_real_max_freq(CL_ONE);
+#else
+			max_freq = policy.max;
+#endif
+			if (clip_data->freq_clip_max > max_freq) {
 				dev_info(data->dev, "clip_data->freq_clip_max : %d, policy.max : %d \n",
-							clip_data->freq_clip_max, policy.max);
-				clip_data->freq_clip_max = policy.max;
+							clip_data->freq_clip_max, max_freq);
+				clip_data->freq_clip_max = max_freq;
 				dev_info(data->dev, "Apply to clip_data->freq_clip_max : %d",
 							clip_data->freq_clip_max);
 			}
