@@ -828,35 +828,35 @@ TRACE_EVENT(sched_wake_idle_without_ipi,
 
 TRACE_EVENT(sched_hp_event_thread_group,
 
-	TP_PROTO(struct task_struct *g_tsk, struct task_struct *tsk, unsigned long ratio, unsigned long load_avg_ratio, int nr_thread_gr, int enqueue),
+	TP_PROTO(struct task_struct *g_tsk, struct task_struct *tsk, unsigned long g_ratio, int nr_thread_gr, unsigned long load_avg_ratio, char *label),
 
-	TP_ARGS(g_tsk, tsk, ratio, load_avg_ratio, nr_thread_gr, enqueue),
+	TP_ARGS(g_tsk, tsk, g_ratio, nr_thread_gr, load_avg_ratio, label),
 
 	TP_STRUCT__entry(
 		__array(char, comm, TASK_COMM_LEN)
 		__array(char, comm2, TASK_COMM_LEN)
 		__field(pid_t, g_pid)
 		__field(pid_t, pid)
-		__field(unsigned long, ratio)
-		__field(unsigned long, load_avg_ratio)
+		__field(unsigned long, g_ratio)
 		__field(int, nr_thread_gr)
-		__field(int, enqueue)
+		__field(unsigned long, load_avg_ratio)
+		__array(char, label, 64)
 	),
 
 	TP_fast_assign(
-	memcpy(__entry->comm, g_tsk->comm, TASK_COMM_LEN);
-	memcpy(__entry->comm2, tsk->comm, TASK_COMM_LEN);
+		strncpy(__entry->comm, g_tsk->comm, TASK_COMM_LEN);
+		strncpy(__entry->comm2, tsk->comm, TASK_COMM_LEN);
 		__entry->g_pid            = g_tsk->pid;
 		__entry->pid            = tsk->pid;
-		__entry->ratio = ratio;
-		__entry->load_avg_ratio = load_avg_ratio;
+		__entry->g_ratio = g_ratio;
 		__entry->nr_thread_gr = nr_thread_gr;
-		__entry->enqueue = enqueue;
+		__entry->load_avg_ratio = load_avg_ratio;
+		strncpy(__entry->label, label, 64);
 	),
 
-	TP_printk("g_comm %s g_pid = %d comm=%s pid = %d thread_load=%lu avg_ratio : %lu nr_thread_gr = %d, enqueue = %d",
-			__entry->comm, __entry->g_pid, __entry->comm2, __entry->pid,
-			__entry->ratio, __entry->load_avg_ratio,  __entry->nr_thread_gr,__entry->enqueue)
+	TP_printk("g_comm %s g_pid=%d comm=%s pid=%d group_load=%lu group_cnt=%d avg_ratio=%lu label=%63s",
+			__entry->comm, __entry->g_pid, __entry->comm2, __entry->pid, __entry->g_ratio,
+			__entry->nr_thread_gr, __entry->load_avg_ratio, __entry->label)
 );
 
 TRACE_EVENT(sched_hp_event_big_threads,

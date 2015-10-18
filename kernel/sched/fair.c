@@ -2778,7 +2778,7 @@ static inline void update_entity_load_avg(struct sched_entity *se,
 
 	contrib_delta = __update_entity_load_avg_contrib(se, &ratio_delta);
 
-	hp_event_update_entity_load(se, ratio_delta);
+	hp_event_update_entity_load(se);
 
 	if (!update_cfs_rq)
 		return;
@@ -3074,7 +3074,7 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 
 	se->on_rq = 1;
 
-	hp_event_enqueue_entity(se);
+	hp_event_enqueue_entity(se, flags);
 
 	if (cfs_rq->nr_running == 1) {
 		list_add_leaf_cfs_rq(cfs_rq);
@@ -3158,7 +3158,7 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 		__dequeue_entity(cfs_rq, se);
 	se->on_rq = 0;
 
-	hp_event_dequeue_entity(se);
+	hp_event_dequeue_entity(se, flags);
 
 	account_entity_dequeue(cfs_rq, se);
 
@@ -10035,16 +10035,21 @@ static void update_boost_request(struct sched_entity *se)
 
 static void add_thread_group_info(struct sched_entity *se)
 {
+
 	struct task_struct *group_leader = task_of(se)->group_leader;
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
-	if (likely(!task_of(se)->fork_infant)) {
-		group_leader->thread_group_load += se->avg.load_avg_ratio;
-		group_leader->nr_thread_group++;
+	if (task_of(se)->member_of_group && !task_of(se)->applied_to_group_load) {
+		if (se->avg.load_avg_ratio >= hmp_down_threshold) {
+			group_leader->nr_thread_group++;
+			group_leader->thread_group_load += se->avg.load_avg_ratio;
+			task_of(se)->group_applied_load = se->avg.load_avg_ratio;
+			task_of(se)->applied_to_group_load = true;
+		}
 	}
 
-	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, se->avg.load_avg_ratio, group_leader->nr_thread_group, 1);
+	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, group_leader->nr_thread_group, se->avg.load_avg_ratio, "enqueue");
 	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 
 	update_boost_request(se);
@@ -10056,42 +10061,52 @@ static void sub_thread_group_info(struct sched_entity *se)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
-	if (likely(!task_of(se)->fork_infant)) {
-		group_leader->thread_group_load -= se->avg.load_avg_ratio;
+	if (task_of(se)->applied_to_group_load) {
 		group_leader->nr_thread_group--;
+		group_leader->thread_group_load -= task_of(se)->group_applied_load;
+		task_of(se)->applied_to_group_load = false;
 	}
 
-	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, se->avg.load_avg_ratio, group_leader->nr_thread_group, 0);
+	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, group_leader->nr_thread_group, se->avg.load_avg_ratio, "dequeue");
 	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 
 	update_boost_request(se);
 }
 
-static void update_thread_group_info(struct sched_entity *se, long update_load)
+static void update_thread_group_info(struct sched_entity *se)
 {
 	struct task_struct *group_leader = task_of(se)->group_leader;
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
-	if (unlikely(task_of(se)->fork_infant) && se->avg.load_avg_ratio >= hmp_down_threshold) {
-		update_load = se->avg.load_avg_ratio;
-		task_of(se)->fork_infant = false;
-		group_leader->nr_thread_group++;
+	if (task_of(se)->applied_to_group_load) {
+		if (se->avg.load_avg_ratio >= hmp_down_threshold) {
+			group_leader->thread_group_load += se->avg.load_avg_ratio
+						- task_of(se)->group_applied_load;
+			task_of(se)->group_applied_load = se->avg.load_avg_ratio;
+		} else {
+			group_leader->nr_thread_group--;
+			group_leader->thread_group_load -= task_of(se)->group_applied_load;
+			task_of(se)->applied_to_group_load = false;
+		}
+	} else {
+		if (se->avg.load_avg_ratio >= hmp_down_threshold) {
+			group_leader->nr_thread_group++;
+			group_leader->thread_group_load += se->avg.load_avg_ratio;
+			task_of(se)->group_applied_load = se->avg.load_avg_ratio;
+			task_of(se)->applied_to_group_load = true;
+			task_of(se)->member_of_group = true;
+		}
 	}
-
-	if (likely(!task_of(se)->fork_infant))
-		group_leader->thread_group_load += update_load;
-
-	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, se->avg.load_avg_ratio, group_leader->nr_thread_group, 2);
+	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, group_leader->nr_thread_group, se->avg.load_avg_ratio, "update");
 	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 
 	update_boost_request(se);
 }
-
 #else /* CONFIG_HP_EVENT_THREAD_GROUP */
 static inline void add_thread_group_info(struct sched_entity *se) { };
 static inline void sub_thread_group_info(struct sched_entity *se) { };
-static inline void update_thread_group_info(struct sched_entity *se, long update_load) { };
+static inline void update_thread_group_info(struct sched_entity *se) { };
 #endif
 
 #if defined(CONFIG_HP_EVENT_BIG_THREADS)
@@ -10100,28 +10115,31 @@ enum {
 	BIG_THROTTLED	= 1,
 };
 static int hmp_big_status = BIG_IDLE;
-static atomic_t hmp_num_big_thread;
+static int hmp_num_big_thread = 0;
+DEFINE_RAW_SPINLOCK(big_thread_lock);
 
 static void update_big_state(struct hmp_domain *big_hmpd)
 {
-	int num_big_cpus = cpumask_weight(&big_hmpd->cpus);
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&big_thread_lock, flags);
 	switch(hmp_big_status) {
 	case BIG_IDLE:
-		if (atomic_read(&hmp_num_big_thread) > num_big_cpus) {
+		if (hmp_num_big_thread > hpgov_default_level()) {
 			inc_boost_req_count(false);
 			hmp_big_status = BIG_THROTTLED;
-			trace_sched_hp_event_big_threads(raw_smp_processor_id(), num_big_cpus, "throttled");
+			trace_sched_hp_event_big_threads(raw_smp_processor_id(), hmp_num_big_thread, "throttled");
 		}
 		break;
 	case BIG_THROTTLED:
-		if (atomic_read(&hmp_num_big_thread) <= hpgov_default_level()) {
+		if (hmp_num_big_thread <= hpgov_default_level()) {
 			dec_boost_req_count(false);
 			hmp_big_status = BIG_IDLE;
-			trace_sched_hp_event_big_threads(raw_smp_processor_id(), num_big_cpus, "idle");
+			trace_sched_hp_event_big_threads(raw_smp_processor_id(), hmp_num_big_thread, "idle");
 		}
 		break;
 	}
-	trace_sched_hp_event_big_threads(raw_smp_processor_id(), atomic_read(&hmp_num_big_thread), "??");
+	raw_spin_unlock_irqrestore(&big_thread_lock, flags);
 }
 
 static bool inline tsk_cpus_big_allowed(struct task_struct *p)
@@ -10131,53 +10149,65 @@ static bool inline tsk_cpus_big_allowed(struct task_struct *p)
 
 static void update_big_thread_info(struct sched_entity *se)
 {
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&big_thread_lock, flags);
 	if (se->big_thread) {
-		if (se->avg.load_avg_ratio <= hmp_up_threshold &&
-			tsk_cpus_big_allowed(task_of(se))) {
-			atomic_dec(&hmp_num_big_thread);
+		if (se->avg.load_avg_ratio <= hmp_up_threshold) {
 			se->big_thread = false;
+			hmp_num_big_thread--;
+			trace_sched_hp_event_big_threads(raw_smp_processor_id(), hmp_num_big_thread, "small_thread");
 		}
 	} else {
-		if (se->avg.load_avg_ratio > hmp_up_threshold) {
-			atomic_inc(&hmp_num_big_thread);
+		if (se->avg.load_avg_ratio > hmp_up_threshold &&
+			tsk_cpus_big_allowed(task_of(se))) {
 			se->big_thread = true;
+			hmp_num_big_thread++;
+			trace_sched_hp_event_big_threads(raw_smp_processor_id(), hmp_num_big_thread, "big_thread");
 		}
 	}
+	raw_spin_unlock_irqrestore(&big_thread_lock, flags);
 }
 
 static void sub_big_thread_info(struct sched_entity *se)
 {
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&big_thread_lock, flags);
 	if (se->big_thread) {
-		atomic_dec(&hmp_num_big_thread);
 		se->big_thread = false;
+		hmp_num_big_thread--;
+		trace_sched_hp_event_big_threads(raw_smp_processor_id(), hmp_num_big_thread, "dequeue_thread");
 	}
+	raw_spin_unlock_irqrestore(&big_thread_lock, flags);
 }
 #else /* CONFIG_HP_EVENT_SYSTEM_LOAD */
 static inline void update_big_thread_info(struct sched_entity *se) { };
 static inline void update_big_state(struct hmp_domain *big_hmpd) { };
+static inline void sub_big_thread_info(struct sched_entity *se) { };
 #endif
 
 #if defined(CONFIG_HP_EVENT_THREAD_GROUP) || defined(CONFIG_HP_EVENT_BIG_THREADS)
-void hp_event_enqueue_entity(struct sched_entity *se)
+void hp_event_enqueue_entity(struct sched_entity *se, int flags)
 {
-	if (entity_is_task(se))
+	if (entity_is_task(se) && flags & ENQUEUE_WAKEUP)
 		add_thread_group_info(se);
 }
 
-void hp_event_dequeue_entity(struct sched_entity *se)
+void hp_event_dequeue_entity(struct sched_entity *se, int flags)
 {
-	if (entity_is_task(se)) {
+	if (entity_is_task(se) && flags & DEQUEUE_SLEEP) {
 		sub_thread_group_info(se);
 		sub_big_thread_info(se);
 	}
 }
 
-void hp_event_update_entity_load(struct sched_entity *se, long update_load)
+void hp_event_update_entity_load(struct sched_entity *se)
 {
-	 if (entity_is_task(se) && se->on_rq) {
-		 update_thread_group_info(se, update_load);
-		 update_big_thread_info(se);
-	 }
+	 if (entity_is_task(se) && se->on_rq)
+		 update_thread_group_info(se);
+
+	 update_big_thread_info(se);
 }
 
 void hp_event_hmp_load_balance(struct hmp_domain *hmpd)

@@ -1830,7 +1830,9 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->nr_thread_group		= 0;
 	raw_spin_lock_init(&p->thread_group_lock);
 	p->hp_boost_requested		= false;
-	p->fork_infant			= true;
+	p->applied_to_group_load	= false;
+	p->member_of_group		= false;
+	p->group_applied_load		= 0;
 #endif
 #ifdef CONFIG_HP_EVENT_BIG_THREADS
 	p->se.big_thread = false;
