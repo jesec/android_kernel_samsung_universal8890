@@ -905,6 +905,8 @@ static int exynos_target(struct cpufreq_policy *policy,
 	}
 
 	target_freq = freq_table[index].frequency;
+	if (target_freq > policy->max)
+		target_freq = policy->max;
 
 	/* disable cluster power down during scale */
 	if (cur == CL_ONE)
@@ -1998,12 +2000,16 @@ static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
 		}
 	}
 
-	if (event == CPUS_UP_PREPARE &&
-		freqs[CL_ONE]->old > exynos_cpufreq_get_possible_max_freq(big_cpu_cnt)) {
-		pr_err("frequency(%d) is higher than possible max frequency, big cpu cnt: %d\n",
+	if (event == CPUS_UP_PREPARE) {
+		mutex_lock(&cpufreq_lock);
+		mutex_unlock(&cpufreq_lock);
+
+		if (unlikely(freqs[CL_ONE]->old > exynos_cpufreq_get_possible_max_freq(big_cpu_cnt))) {
+			pr_err("frequency(%d) is higher than possible max frequency of big cpu cnt: %d\n",
 			freqs[CL_ONE]->old, big_cpu_cnt);
 
-		return NOTIFY_BAD;
+			return NOTIFY_BAD;
+		}
 	}
 
 	return NOTIFY_OK;
