@@ -58,7 +58,6 @@ struct exynos_dvfs_info {
 	unsigned int	max_idx_num;
 	unsigned int	max_support_idx;
 	unsigned int	min_support_idx;
-	unsigned int	max_quad_support_idx;
 	unsigned int	cluster_num;
 	unsigned int	reboot_limit_freq;
 	unsigned int	boost_freq;	/* use only KFC when enable HMP */
@@ -77,6 +76,7 @@ struct exynos_dvfs_info {
 	struct clk	*cpu_clk;
 	unsigned int	*volt_table;
 	unsigned int	*abb_table;
+	unsigned int	*max_support_idx_table;
 	const unsigned int	*max_op_freqs;
 	struct cpufreq_frequency_table	*freq_table;
 	struct regulator *regulator;
@@ -117,6 +117,12 @@ static inline void exynos_set_max_freq(int max_freq, unsigned int cpu) {}
 static inline void ipa_set_clamp(int cpu, unsigned int clamp_freq, unsigned int gov_target) {}
 #endif
 
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+int exynos_cpufreq_verify_possible_hotplug(unsigned int hcpu);
+#else
+static inline int exynos_cpufreq_verify_possible_hotplug(unsigned int hcpu) {return 0;}
+#endif
 /* interface for THERMAL */
 extern void exynos_thermal_throttle(void);
 extern void exynos_thermal_unthrottle(void);

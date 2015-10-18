@@ -178,23 +178,79 @@ static struct notifier_block exynos_cpufreq_smpl_warn_notifier = {
 
 
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
-#define NUM_FREQ_BOOST_CPU	2
-static void exynos_cpufreq_verify_dual_mode(void)
+static void exynos_cpufreq_print_max_freq(void)
+{
+	int i, idx;
+
+	pr_info("Boost Frequency\n");
+	for (i = 1; i <= NR_CLUST1_CPUS; i++) {
+		idx = exynos_info[CL_ONE]->max_support_idx_table[i];
+		pr_info("Number of onlince core: %d -> max frequency: %d\n",
+			i, exynos_info[CL_ONE]->freq_table[idx].frequency);
+	}
+}
+
+/* input num of online core, return possible max freq */
+static unsigned int exynos_cpufreq_get_possible_max_freq(int num_of_online)
+{
+	int idx;
+
+	if (num_of_online > NR_CLUST1_CPUS) {
+		pr_err("Input value is invalied! return possible max frequency\n");
+		idx = exynos_info[CL_ONE]->max_support_idx_table[NR_CLUST1_CPUS];
+	} else {
+		idx = exynos_info[CL_ONE]->max_support_idx_table[num_of_online];
+	}
+
+	return  exynos_info[CL_ONE]->freq_table[idx].frequency;
+}
+
+static void exynos_cpufreq_verify_possible_freq(int *new_index)
 {
 	unsigned int cpu;
 	unsigned int off_cnt = 0;
 
-	for (cpu = nr_cpu_ids - 1; cpu >= NR_CLUST0_CPUS; cpu--) {
+	for (cpu = nr_cpu_ids - 1; cpu >= NR_CLUST0_CPUS; cpu--)
 		if (!cpu_online(cpu) && !exynos_cpu.power_state(cpu))
 			off_cnt++;
 
-		if (off_cnt >= NUM_FREQ_BOOST_CPU)
-			return;
-	}
+	/* Check whether new freq is possible freq */
+	if (*new_index >= exynos_info[CL_ONE]->max_support_idx_table[NR_CLUST1_CPUS - off_cnt])
+		return;
 
 	pr_err("Can't use boost freq (freq %d -> %d, big off_cnt %d\n",
 			freqs[CL_ONE]->old, freqs[CL_ONE]->new, off_cnt);
-	BUG_ON(1);
+	BUG();
+
+	/* change index and new_freq to possible value */
+	*new_index = exynos_info[CL_ONE]->max_support_idx_table[NR_CLUST1_CPUS - off_cnt];
+	freqs[CL_ONE]->new = exynos_info[CL_ONE]->freq_table[*new_index].frequency;
+}
+
+int exynos_cpufreq_verify_possible_hotplug(unsigned int hcpu)
+{
+	unsigned int possible_freq;
+	struct cpumask mask;
+
+	if (cpumask_test_cpu(hcpu, &hmp_slow_cpu_mask))
+		return 0;
+
+	if (!exynos_cpufreq_init_done)
+		return 0;
+
+	cpumask_and(&mask, cpu_online_mask, &hmp_fast_cpu_mask);
+	cpumask_or(&mask, cpumask_of(hcpu), &mask);
+	possible_freq = exynos_cpufreq_get_possible_max_freq(cpumask_weight(&mask));
+
+	if (freqs[CL_ONE]->old <= possible_freq)
+		return 0;
+
+	pr_err("Can't boot cpu (number of online core: %d -> %d, cur_freq: %d\n",
+		cpumask_weight(&mask), cpumask_weight(&mask) - 1, freqs[CL_ONE]->old);
+
+	BUG();
+
+	return -EINVAL;
 }
 #endif
 
@@ -553,6 +609,16 @@ static int exynos_cpufreq_scale(unsigned int target_freq, unsigned int cpu)
 		goto put_policy;
 	}
 
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	/*
+	 * check whether new freq is possilbe
+	 * if not change new freq to possible max freq
+	 */
+	if (cur == CL_ONE &&
+		new_index < exynos_info[cur]->max_support_idx_table[NR_CLUST1_CPUS])
+		exynos_cpufreq_verify_possible_freq(&new_index);
+#endif
+
 	if (old_index == new_index)
 		goto put_policy;
 
@@ -604,12 +670,6 @@ static int exynos_cpufreq_scale(unsigned int target_freq, unsigned int cpu)
 		if (exynos_info[cur]->set_ema)
 			exynos_info[cur]->set_ema(safe_volt);
 	}
-
-#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
-	/* check number of offed core */
-	if (cur == CL_ONE && new_index < exynos_info[cur]->max_quad_support_idx)
-		exynos_cpufreq_verify_dual_mode();
-#endif
 
 	exynos_info[cur]->set_freq(old_index, new_index);
 
@@ -1888,13 +1948,6 @@ static struct notifier_block exynos_cluster0_max_qos_notifier = {
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
 extern struct cpumask hmp_fast_cpu_mask;
 static int big_cpu_cnt;
-static unsigned int big_dual_maxfreq;
-static unsigned int big_quad_maxfreq;
-
-unsigned int get_exynos_quad_maxfreq(cluster_type cluster)
-{
-	return exynos_info[cluster]->freq_table[exynos_info[cluster]->max_quad_support_idx].frequency;
-}
 
 static int cpufreq_policy_notifier(struct notifier_block *nb,
 				    unsigned long event, void *data)
@@ -1902,11 +1955,10 @@ static int cpufreq_policy_notifier(struct notifier_block *nb,
 	struct cpufreq_policy *policy = data;
 	unsigned long max_freq;
 
-	if (event != CPUFREQ_ADJUST)
+	if (event != CPUFREQ_ADJUST || !policy->cpu)
 		return 0;
 
-	max_freq = (big_cpu_cnt > 0 && big_cpu_cnt <= 2) ? big_dual_maxfreq
-							: big_quad_maxfreq;
+	max_freq = exynos_cpufreq_get_possible_max_freq(big_cpu_cnt);
 
 	if (policy->max != max_freq)
 		cpufreq_verify_within_limits(policy, 0, max_freq);
@@ -1946,10 +1998,10 @@ static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
 		}
 	}
 
-	if (event == CPUS_UP_PREPARE && big_cpu_cnt > NUM_FREQ_BOOST_CPU &&
-		freqs[CL_ONE]->old > big_quad_maxfreq) {
-		pr_err("big frequency(%d) is still higher than big_quad_maxfreq\n",
-			freqs[CL_ONE]->old);
+	if (event == CPUS_UP_PREPARE &&
+		freqs[CL_ONE]->old > exynos_cpufreq_get_possible_max_freq(big_cpu_cnt)) {
+		pr_err("frequency(%d) is higher than possible max frequency, big cpu cnt: %d\n",
+			freqs[CL_ONE]->old, big_cpu_cnt);
 
 		return NOTIFY_BAD;
 	}
@@ -2056,10 +2108,9 @@ static int exynos_cpufreq_init(void)
 #endif
 
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
-	big_dual_maxfreq = freq_max[CL_ONE];
-	big_quad_maxfreq = get_exynos_quad_maxfreq(CL_ONE);
 	cpufreq_register_notifier(&exynos_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
 	register_cpus_notifier(&exynos_cpufreq_cpus_nb);
+	exynos_cpufreq_print_max_freq();
 #endif
 
 	/* block frequency scale before acquire boot lock */
@@ -2386,9 +2437,15 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 		if (of_property_read_u32(np, "cl1_reboot_limit_freq", &ptr->reboot_limit_freq))
 			return -ENODEV;
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
-		if (of_property_read_u32(np, "cl1_max_quad_support_idx",
-			&ptr->max_quad_support_idx))
+		ptr->max_support_idx_table = kzalloc(sizeof(unsigned int)
+				* (NR_CLUST1_CPUS + 1), GFP_KERNEL);
+		ret = of_property_read_u32_array(np, "cl1_max_support_idx_table",
+				(unsigned int *)ptr->max_support_idx_table, NR_CLUST1_CPUS + 1);
+		if (ret < 0)
 			return -ENODEV;
+
+		/* change max_support_idx */
+		ptr->max_support_idx = ptr->max_support_idx_table[1];
 #endif
 	}
 
