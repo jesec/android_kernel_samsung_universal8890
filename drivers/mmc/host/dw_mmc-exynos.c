@@ -1069,30 +1069,6 @@ static int dw_mci_exynos_check_cd(struct dw_mci *host)
 	return ret;
 }
 
-static int dw_mci_exynos_set_def_caps(struct dw_mci *host)
-{
-	int id;
-	int ret;
-
-	id = of_alias_get_id(host->dev->of_node, "mshc");
-	switch (id) {
-	/* dwmmc0 : eMMC    */
-	case 0:
-		ret = EXYNOS_DEF_MMC_0_CAPS;
-		break;
-	case 1:
-		ret = EXYNOS_DEF_MMC_1_CAPS;
-		break;
-	case 2:
-		ret = EXYNOS_DEF_MMC_2_CAPS;
-		break;
-	default:
-		ret = 0;
-	}
-
-	return ret;
-}
-
 static int dw_mci_exynos_misc_control(struct dw_mci *host,
 		enum dw_mci_misc_control control, void *priv)
 {
@@ -1102,9 +1078,6 @@ static int dw_mci_exynos_misc_control(struct dw_mci *host,
 		case CTRL_RESTORE_CLKSEL:
 			dw_mci_exynos_set_sample(host, host->pdata->clk_smpl, false);
 			dw_mci_set_fine_tuning_bit(host, host->pdata->is_fine_tuned);
-			break;
-		case CTRL_SET_DEF_CAPS:
-			ret = dw_mci_exynos_set_def_caps(host);
 			break;
 		case CTRL_REQUEST_EXT_IRQ:
 			ret = dw_mci_exynos_request_ext_irq(host, (irq_handler_t)priv);

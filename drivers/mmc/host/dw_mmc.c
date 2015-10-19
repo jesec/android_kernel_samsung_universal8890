@@ -3206,28 +3206,18 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 		pdata->use_gate_clock = true;
 
 	/* caps */
-	if (of_find_property(np, "caps-control", NULL)) {
-		if (of_find_property(np, "supports-ddr50", NULL))
-			pdata->caps = MMC_CAP_UHS_DDR50;
 
-		if (of_find_property(np, "supports-1-8v-ddr", NULL))
-			pdata->caps |= MMC_CAP_1_8V_DDR;
+	if (of_find_property(np, "supports-8bit", NULL))
+		pdata->caps |= MMC_CAP_8_BIT_DATA;
 
-		if (of_find_property(np, "supports-8-bit", NULL))
-			pdata->caps |= MMC_CAP_8_BIT_DATA;
+	if (of_find_property(np, "supports-4bit", NULL))
+		pdata->caps |= MMC_CAP_4_BIT_DATA;
 
-		if (of_find_property(np, "supports-cmd23", NULL))
-			pdata->caps |= MMC_CAP_CMD23;
+	if (of_find_property(np, "supports-cmd23", NULL))
+		pdata->caps |= MMC_CAP_CMD23;
 
-		if (of_find_property(np, "supports-sdr104-mode", NULL))
-			pdata->caps |= MMC_CAP_UHS_SDR104;
-
-		if (of_find_property(np, "supports-erase", NULL))
-			pdata->caps |= MMC_CAP_ERASE;
-
-	} else if (drv_data && drv_data->misc_control)
-		pdata->caps = drv_data->misc_control(host,
-				CTRL_SET_DEF_CAPS, NULL);
+	if (of_find_property(np, "supports-erase", NULL))
+		pdata->caps |= MMC_CAP_ERASE;
 
 	return pdata;
 }
