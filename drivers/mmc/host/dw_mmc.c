@@ -1109,47 +1109,6 @@ static void dw_mci_post_req(struct mmc_host *mmc,
 	data->host_cookie = 0;
 }
 
-static void dw_mci_adjust_fifoth(struct dw_mci *host, struct mmc_data *data)
-{
-#ifdef CONFIG_MMC_DW_IDMAC
-	unsigned int blksz = data->blksz;
-	const u32 mszs[] = {1, 4, 8, 16, 32, 64, 128, 256};
-	u32 fifo_width = 1 << host->data_shift;
-	u32 blksz_depth = blksz / fifo_width, fifoth_val;
-	u32 msize = 0, rx_wmark = 1, tx_wmark, tx_wmark_invers;
-	int idx = (sizeof(mszs) / sizeof(mszs[0])) - 1;
-
-	tx_wmark = (host->fifo_depth) / 2;
-	tx_wmark_invers = host->fifo_depth - tx_wmark;
-
-	/*
-	 * MSIZE is '1',
-	 * if blksz is not a multiple of the FIFO width
-	 */
-	if (blksz % fifo_width) {
-		msize = 0;
-		rx_wmark = 1;
-		goto done;
-	}
-
-	do {
-		if (!((blksz_depth % mszs[idx]) ||
-		     (tx_wmark_invers % mszs[idx]))) {
-			msize = idx;
-			rx_wmark = mszs[idx] - 1;
-			break;
-		}
-	} while (--idx > 0);
-	/*
-	 * If idx is '0', it won't be tried
-	 * Thus, initial values are uesed
-	 */
-done:
-	fifoth_val = SDMMC_SET_FIFOTH(msize, rx_wmark, tx_wmark);
-	mci_writel(host, FIFOTH, fifoth_val);
-#endif
-}
-
 static void dw_mci_ctrl_rd_thld(struct dw_mci *host, struct mmc_data *data)
 {
 	unsigned int blksz = data->blksz;
@@ -1217,14 +1176,6 @@ static int dw_mci_submit_data_dma(struct dw_mci *host, struct mmc_data *data)
 		 (unsigned long)host->sg_cpu, (unsigned long)host->sg_dma,
 		 sg_len);
 
-	/*
-	 * Decide the MSIZE and RX/TX Watermark.
-	 * If current block size is same with previous size,
-	 * no need to update fifoth.
-	 */
-	if (host->prev_blksz != data->blksz)
-		dw_mci_adjust_fifoth(host, data);
-
 	/* Enable the DMA interface */
 	temp = mci_readl(host, CTRL);
 	temp |= SDMMC_CTRL_DMA_ENABLE;
@@ -1283,20 +1234,6 @@ static void dw_mci_submit_data(struct dw_mci *host, struct mmc_data *data)
 		temp &= ~SDMMC_CTRL_DMA_ENABLE;
 		mci_writel(host, CTRL, temp);
 
-		/*
-		 * Use the initial fifoth_val for PIO mode.
-		 * If next issued data may be transfered by DMA mode,
-		 * prev_blksz should be invalidated.
-		 */
-		mci_writel(host, FIFOTH, host->fifoth_val);
-		host->prev_blksz = 0;
-	} else {
-		/*
-		 * Keep the current block size.
-		 * It will be used to decide whether to update
-		 * fifoth register next time.
-		 */
-		host->prev_blksz = data->blksz;
 	}
 }
 
@@ -3657,12 +3594,8 @@ int dw_mci_resume(struct dw_mci *host)
 
 	if (host->pdata->quirks & DW_MCI_QUIRK_BYPASS_SMU)
 		drv_data->cfg_smu(host);
-	/*
-	 * Restore the initial value at FIFOTH register
-	 * And Invalidate the prev_blksz with zero
-	 */
+
 	mci_writel(host, FIFOTH, host->fifoth_val);
-	host->prev_blksz = 0;
 
 	/* Put in max timeout */
 	mci_writel(host, TMOUT, 0xFFFFFFFF);
