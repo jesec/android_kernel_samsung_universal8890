@@ -14,32 +14,32 @@
 #include <linux/fb.h>
 #include <linux/kthread.h>
 #include <linux/pm_qos.h>
+#include <linux/suspend.h>
 
 static int cpu_hotplug_in(const struct cpumask *mask)
 {
-	int cpu, error = 0;
+	int cpu, ret = 0;
 
 	for_each_cpu(cpu, mask) {
-		error = cpu_up(cpu);
-		if (error) {
-			/*
-			 * If someone is requesting cpu hotplug(-EBUSY),
-			 * it cancels cpu hotplug request and retries later.
-			 */
-			if (error == -EBUSY)
-				return error;
+		ret = cpu_up(cpu);
+		if (ret) {
 
-			panic("Error %d taking CPU%d up\n", error, cpu);
-			break;
+			/* -EIO means core failed to come online by itself
+			 * it is critical error
+			 */
+			if (ret == -EIO)
+				panic("[cpu%d] failed to come online(err %d)\n", cpu, ret);
+			else
+				pr_info("[cpu%d] failed to cpu up(err: %d)\n", cpu, ret);
 		}
 	}
 
-	return error;
+	return ret;
 }
 
 static int cpu_hotplug_out(const struct cpumask *mask)
 {
-	int cpu, error = 0;
+	int cpu, ret = 0;
 
 	/*
 	 * Reverse order of cpu,
@@ -49,21 +49,12 @@ static int cpu_hotplug_out(const struct cpumask *mask)
 		if (!cpumask_test_cpu(cpu, mask))
 			continue;
 
-		error = cpu_down(cpu);
-		if (error) {
-			/*
-			 * If someone is requesting cpu hotplug(-EBUSY),
-			 * it cancels cpu hotplug request and retries later.
-			 */
-			if (error == -EBUSY)
-				return error;
-
-			panic("Error %d taking CPU%d down\n", error, cpu);
-			break;
-		}
+		ret = cpu_down(cpu);
+		if (ret)
+			pr_info("[cpu%d] failed to cpu down(err: %d)\n", cpu, ret);
 	}
 
-	return error;
+	return ret;
 }
 
 static struct {
@@ -121,12 +112,6 @@ static struct cpumask create_cpumask(void)
 	int cpu;
 	struct cpumask mask;
 
-	/* If cpu hotplug is disabled, all cpus stay in online state */
-	if (cpu_hotplug.disabled) {
-		cpumask_setall(&mask);
-		return mask;
-	}
-
 	online_cpu_min = pm_qos_request(PM_QOS_CPU_ONLINE_MIN),
 	online_cpu_max = pm_qos_request(PM_QOS_CPU_ONLINE_MAX);
 
@@ -150,8 +135,15 @@ static int do_cpu_hotplug(void)
 {
 	int ret = 0;
 	struct cpumask disable_cpus, enable_cpus;
+	char cpus_buf[10];
 
 	mutex_lock(&cpu_hotplug.lock);
+
+	/* If cpu hotplug is disabled, do_cpu_hotplug() do nothing. */
+	if (cpu_hotplug.disabled) {
+		mutex_unlock(&cpu_hotplug.lock);
+		return 0;
+	}
 
 	/* Create online cpumask */
 	enable_cpus = create_cpumask();
@@ -170,8 +162,10 @@ static int do_cpu_hotplug(void)
 	cpumask_andnot(&enable_cpus, &enable_cpus, cpu_online_mask);
 	cpumask_and(&disable_cpus, &disable_cpus, cpu_online_mask);
 
-	pr_debug("%s: enable_cpus=%#lx\n", __func__, *cpumask_bits(&enable_cpus));
-	pr_debug("%s: disable_cpus=%#lx\n", __func__, *cpumask_bits(&disable_cpus));
+	cpulist_scnprintf(cpus_buf, sizeof(cpus_buf), &enable_cpus);
+	pr_debug("%s: enable_cpus=%s\n", __func__, cpus_buf);
+	cpulist_scnprintf(cpus_buf, sizeof(cpus_buf), &disable_cpus);
+	pr_debug("%s: disable_cpus=%s\n", __func__, cpus_buf);
 
 	/* If request has the callback, call cpus_up() and cpus_down() */
 	if (!cpumask_empty(&enable_cpus)) {
@@ -197,6 +191,36 @@ out:
 static void cpu_hotplug_work(struct work_struct *work)
 {
 	do_cpu_hotplug();
+}
+
+static int disable_cpu_hotplug(bool disable)
+{
+	struct cpumask mask;
+	int ret = 0;
+
+	if (disable) {
+		mutex_lock(&cpu_hotplug.lock);
+
+		cpumask_setall(&mask);
+		cpumask_andnot(&mask, &mask, cpu_online_mask);
+
+		/*
+		 * If it success to enable all CPUs, set cpu_hotplug.disabled flag.
+		 * Since then all hotplug requests are ignored.
+		 */
+		ret = cpu_hotplug_in(&mask);
+		if (!ret)
+			cpu_hotplug.disabled = 1;
+		mutex_unlock(&cpu_hotplug.lock);
+	} else {
+		mutex_lock(&cpu_hotplug.lock);
+		cpu_hotplug.disabled = 0;
+		mutex_unlock(&cpu_hotplug.lock);
+
+		do_cpu_hotplug();
+	}
+
+	return ret;
 }
 
 /*
@@ -325,10 +349,8 @@ static ssize_t store_cpu_hotplug_disable(struct kobject *kobj,
 	if (!sscanf(buf, "%d", &input))
 		return -EINVAL;
 
-	cpu_hotplug.disabled = !!input;
-
-	/* To enable all cpus, call do_cpu_hotplug() */
-	do_cpu_hotplug();
+	if (disable_cpu_hotplug(!!input))
+		pr_err("Fail to disable cpu hotplug, please try again\n");
 
 	return count;
 }
@@ -363,6 +385,39 @@ static void __init cpu_hotplug_dt_init(void)
 		return;
 	}
 }
+
+static int exynos_cpufreq_pm_notifier(struct notifier_block *notifier,
+				       unsigned long pm_event, void *v)
+{
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		mutex_lock(&cpu_hotplug.lock);
+
+			cpu_hotplug.disabled = true;
+			pr_info("CPU_HOTPLUG is disabled\n");
+
+		mutex_unlock(&cpu_hotplug.lock);
+
+		break;
+
+	case PM_POST_SUSPEND:
+		mutex_lock(&cpu_hotplug.lock);
+
+		cpu_hotplug.disabled = false;
+		pr_info("CPU_HOTPLUG is enabled\n");
+
+		mutex_unlock(&cpu_hotplug.lock);
+
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_cpufreq_nb = {
+	.notifier_call = exynos_cpufreq_pm_notifier,
+};
+
 
 static struct pm_qos_request boot_min_cpu_hotplug_request;
 static void __init cpu_hotplug_pm_qos_init(void)
@@ -407,6 +462,39 @@ static void __init cpu_hotplug_sysfs_init(void)
 		pr_err("Fail to link cpuhotplug directory");
 }
 
+static void set_cpu_hotplug_disable(bool input)
+{
+	mutex_lock(&cpu_hotplug.lock);
+
+	cpu_hotplug.disabled = input;
+
+	mutex_unlock(&cpu_hotplug.lock);
+}
+
+static void __maybe_unused __exynos_cpu_hotplug_disable(void)
+{
+	if (!exynos_cpu_hotplug_disable())
+	set_cpu_hotplug_disable(true);
+}
+
+static void __maybe_unused __exynos_cpu_hotplug_enable(void)
+{
+	if (exynos_cpu_hotplug_disable())
+	set_cpu_hotplug_disable(false);
+}
+
+#ifdef CONFIG_ARGOS
+void argos_dm_hotplug_enable(void)
+{
+	__exynos_cpu_hotplug_enable();
+}
+
+void argos_dm_hotplug_disable(void)
+{
+	        __exynos_cpu_hotplug_disable();
+}
+#endif
+
 static int __init cpu_hotplug_init(void)
 {
 	/* Initialize delayed work */
@@ -430,6 +518,8 @@ static int __init cpu_hotplug_init(void)
 
 	/* Create sysfs */
 	cpu_hotplug_sysfs_init();
+
+	register_pm_notifier(&exynos_cpufreq_nb);
 
 	return 0;
 }
