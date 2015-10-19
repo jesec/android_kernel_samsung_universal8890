@@ -97,10 +97,12 @@ void exynos_update_bw(enum bts_media_type ip_type,
 void bts_ext_scenario_set(enum bts_media_type ip_type,
 				enum bts_scen_type scen_type, bool on);
 struct bts_vpp_info *exynos_bw_calc(enum bts_media_type ip_type, struct bts_hw *bw);
+int bts_update_gpu_mif(unsigned int freq);
 #else
 #define exynos_update_bw(a, b, c) do {} while (0)
 #define bts_ext_scenario_set(a, b, c) do {} while (0)
 #define exynos_bw_calc(a, b) do {} while (0)
+#define bts_update_gpu_mif(a) do {} while (0)
 #endif
 
 #else /* BTS_OPTIMIZATION */
@@ -161,8 +163,10 @@ enum vpp_bw_type {
 #if defined(CONFIG_EXYNOS8890_BTS)
 void exynos_update_media_scenario(enum bts_media_type media_type,
 		unsigned int bw, int bw_type);
+int bts_update_gpu_mif(unsigned int freq);
 #else
 #define exynos_update_media_scenario(a, b, c) do {} while (0)
+#define bts_update_gpu_mif(a) do {} while (0)
 #endif
 
 #endif /* BTS_OPTIMIZATION */

@@ -185,6 +185,7 @@ static unsigned int mif_freq, int_freq;
 #endif
 static struct pm_qos_request exynos8_mif_bts_qos;
 static struct pm_qos_request exynos8_int_bts_qos;
+static struct pm_qos_request exynos8_gpu_mif_bts_qos;
 static struct srcu_notifier_head exynos_media_notifier;
 static struct clk_info clk_table[0];
 
@@ -856,6 +857,16 @@ static struct notifier_block exynos_bts_notifier = {
 	.notifier_call = exynos_bts_notifier_event,
 };
 
+int bts_update_gpu_mif(unsigned int freq)
+{
+	int ret = 0;
+
+	if (pm_qos_request_active(&exynos8_gpu_mif_bts_qos))
+		pm_qos_update_request(&exynos8_gpu_mif_bts_qos, freq);
+
+	return ret;
+}
+
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 unsigned int ip_sum_bw[IP_NUM];
 unsigned int ip_peak_bw[IP_NUM];
@@ -1298,6 +1309,7 @@ static int __init exynos8_bts_init(void)
 
 	pm_qos_add_request(&exynos8_mif_bts_qos, PM_QOS_BUS_THROUGHPUT, 0);
 	pm_qos_add_request(&exynos8_int_bts_qos, PM_QOS_DEVICE_THROUGHPUT, 0);
+	pm_qos_add_request(&exynos8_gpu_mif_bts_qos, PM_QOS_BUS_THROUGHPUT, 0);
 
 	register_pm_notifier(&exynos_bts_notifier);
 
