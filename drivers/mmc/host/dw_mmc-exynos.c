@@ -25,6 +25,37 @@
 #include "dw_mmc-pltfm.h"
 #include "dw_mmc-exynos.h"
 
+static void dw_mci_exynos_register_dump(struct dw_mci *host)
+{
+	bool is_smu;
+
+	is_smu = (host->pdata->quirks & DW_MCI_QUIRK_BYPASS_SMU) ?
+			 true : false;
+
+	dev_err(host->dev, ": CLKSEL:   0x%08x\n", mci_readl(host, CLKSEL));
+	if (is_smu) {
+		dev_err(host->dev, ": EMMCP_BASE:	0x%08x\n",
+				mci_readl(host, EMMCP_BASE));
+		dev_err(host->dev, ": MPSECURITY:	0x%08x\n",
+				mci_readl(host, MPSECURITY));
+		dev_err(host->dev, ": MPSTAT:	0x%08x\n",
+				mci_readl(host, MPSTAT));
+		dev_err(host->dev, ": MPSBEGIN:	0x%08x\n",
+				mci_readl(host, MPSBEGIN0));
+		dev_err(host->dev, ": MPSEND:	0x%08x\n",
+				mci_readl(host, MPSEND0));
+		dev_err(host->dev, ": MPSCTRL:	0x%08x\n",
+				mci_readl(host, MPSCTRL0));
+	}
+
+	dev_err(host->dev, ": DDR200_RDDQS_EN:  0x%08x\n",
+			mci_readl(host, DDR200_RDDQS_EN));
+	dev_err(host->dev, ": DDR200_ASYNC_FIFO_CTRL:   0x%08x\n",
+			mci_readl(host, DDR200_ASYNC_FIFO_CTRL));
+	dev_err(host->dev, ": DDR200_DLINE_CTRL:        0x%08x\n",
+			mci_readl(host, DDR200_DLINE_CTRL));
+}
+
 void dw_mci_reg_dump(struct dw_mci *host)
 {
 
@@ -76,20 +107,17 @@ void dw_mci_reg_dump(struct dw_mci *host)
 	dev_err(host->dev, ": IDSTS64:	 0x%08x\n", mci_readl(host, IDSTS64));
 	dev_err(host->dev, ": IDINTEN:	 0x%08x\n", mci_readl(host, IDINTEN));
 	dev_err(host->dev, ": IDINTEN64: 0x%08x\n", mci_readl(host, IDINTEN64));
-	dev_err(host->dev, ": EMMCP_BASE:0x%08x\n", mci_readl(host, EMMCP_BASE));
-	dev_err(host->dev, ": MPSECURITY:0x%08x\n", mci_readl(host, MPSECURITY));
-	dev_err(host->dev, ": MPSTAT:	 0x%08x\n", mci_readl(host, MPSTAT));
-	dev_err(host->dev, ": DDR200_RDDQS_EN:	0x%08x\n",
-		mci_readl(host, DDR200_RDDQS_EN));
-	dev_err(host->dev, ": DDR200_ASYNC_FIFO_CTRL:	0x%08x\n",
-		mci_readl(host, DDR200_ASYNC_FIFO_CTRL));
-	dev_err(host->dev, ": DDR200_DLINE_CTRL:	0x%08x\n",
-		mci_readl(host, DDR200_DLINE_CTRL));
+	dw_mci_exynos_register_dump(host);
 	dev_err(host->dev, ": ============== STATUS DUMP ================\n");
 	dev_err(host->dev, ": cmd_status:      0x%08x\n", host->cmd_status);
 	dev_err(host->dev, ": data_status:     0x%08x\n", host->data_status);
 	dev_err(host->dev, ": pending_events:  0x%08lx\n", host->pending_events);
 	dev_err(host->dev, ": completed_events:0x%08lx\n", host->completed_events);
+	dev_err(host->dev, ": gate-clk:            %s\n",
+		 atomic_read(&host->ciu_clk_cnt) ?
+		 "enable" : "disable");
+	dev_err(host->dev, ": ciu_en_win:           %d\n",
+		 atomic_read(&host->ciu_en_win));
 	reg = mci_readl(host, CMD);
 	dev_err(host->dev, ": ================= CMD REG =================\n");
 	dev_err(host->dev, ": read/write        : %s\n",
