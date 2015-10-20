@@ -196,6 +196,12 @@ static void lpass_update_qos(void);
 static bool cp_available;
 static atomic_t dram_usage_cnt;
 
+void lpass_disable_mif_status(bool on)
+{
+	u32 val = on ? 1 << 2 : 0x0;
+	writel(val, lpass.regs + LPASS_MIF_POWER);
+}
+
 void lpass_inc_dram_usage_count(void)
 {
 	atomic_inc(&dram_usage_cnt);

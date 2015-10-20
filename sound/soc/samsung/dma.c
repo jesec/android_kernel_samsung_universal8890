@@ -354,8 +354,13 @@ static int dma_trigger(struct snd_pcm_substream *substream, int cmd)
 		lpass_dma_enable(true);
 		prtd->params->ops->trigger(prtd->params->ch);
 		if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ||
-			(prtd->cap_dram_used))
+			(prtd->cap_dram_used)) {
 			lpass_inc_dram_usage_count();
+			lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
+		} else {
+			lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, true);
+			lpass_disable_mif_status(true);
+		}
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -363,15 +368,19 @@ static int dma_trigger(struct snd_pcm_substream *substream, int cmd)
 		prtd->params->ops->stop(prtd->params->ch);
 		lpass_dma_enable(false);
 		if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ||
-			(prtd->cap_dram_used))
+			(prtd->cap_dram_used)) {
 			lpass_dec_dram_usage_count();
+			lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
+		} else {
+			lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
+			lpass_disable_mif_status(false);
+		}
 		break;
 
 	default:
 		ret = -EINVAL;
 		break;
 	}
-	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 
 	spin_unlock(&prtd->lock);
 
