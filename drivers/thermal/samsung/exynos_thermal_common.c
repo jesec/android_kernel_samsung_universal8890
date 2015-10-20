@@ -73,21 +73,9 @@ static int exynos_set_mode(struct thermal_zone_device *thermal,
 		return 0;
 	}
 
-	mutex_lock(&thermal->lock);
-
-	if (mode == THERMAL_DEVICE_ENABLED &&
-		!th_zone->sensor_conf->trip_data.trigger_falling)
-		thermal->polling_delay = IDLE_INTERVAL;
-	else
-		thermal->polling_delay = 0;
-
-	mutex_unlock(&thermal->lock);
-
 	th_zone->mode = mode;
 	thermal_zone_device_update(thermal);
-	dev_dbg(th_zone->sensor_conf->dev,
-		"thermal polling set for duration=%d msec\n",
-		thermal->polling_delay);
+
 	return 0;
 }
 
