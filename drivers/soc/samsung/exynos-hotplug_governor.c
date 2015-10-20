@@ -54,6 +54,7 @@ struct {
 	struct task_struct		*hptask;
 	struct hrtimer			slack_timer;
 	struct irq_work			update_irq_work;
+	struct irq_work			start_slack_timer_irq_work;
 	struct hpgov_data		data;
 	int				hp_state;
 	wait_queue_head_t		wait_q;
@@ -146,6 +147,19 @@ static void exynos_hpgov_irq_work(struct irq_work *irq_work)
 	wake_up(&exynos_hpgov.wait_q);
 }
 
+static void exynos_hpgov_slack_timer_start(void)
+{
+	if (!exynos_hpgov.enabled)
+		return;
+
+	irq_work_queue(&exynos_hpgov.start_slack_timer_irq_work);
+}
+
+static void slack_timer_irq_work(struct irq_work *irq_work)
+{
+	start_slack_timer();
+}
+
 void inc_boost_req_count(bool delayed_boost)
 {
 	unsigned long flags;
@@ -182,7 +196,7 @@ void dec_boost_req_count(bool delayed_boost)
 	}
 
 	if (delayed_boost_cnt == 0 && delayed_boost) {
-		start_slack_timer();
+		exynos_hpgov_slack_timer_start();
 		spin_unlock_irqrestore(&hpgov_boost_cnt_lock, flags);
 	} else if (delayed_boost_cnt + boost_cnt == 0 && !slack_timer_is_queued()) {
 		spin_unlock_irqrestore(&hpgov_boost_cnt_lock, flags);
@@ -454,6 +468,7 @@ static int __init exynos_hpgov_init(void)
 	init_waitqueue_head(&exynos_hpgov.wait_q);
 	init_waitqueue_head(&exynos_hpgov.wait_hpq);
 	init_irq_work(&exynos_hpgov.update_irq_work, exynos_hpgov_irq_work);
+	init_irq_work(&exynos_hpgov.start_slack_timer_irq_work, slack_timer_irq_work);
 
 	exynos_hpgov.attrib.attrib_group.attrs =
 		kzalloc(attr_count * sizeof(struct attribute *), GFP_KERNEL);
