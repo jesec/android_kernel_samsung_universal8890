@@ -346,7 +346,7 @@ struct dw_mci_debug_info {
 #define DWMCI_DBG_NUM_HOST	3
 
 #define DWMCI_DBG_NUM_INFO	2			/* configurable */
-#define DWMCI_DBG_MASK_INFO	(BIT(0) | BIT(2))	/* configurable */
+#define DWMCI_DBG_MASK_INFO	(BIT(0) | BIT(1) | BIT(2))	/* configurable */
 #define DWMCI_DBG_BIT_HOST(x)	BIT(x)
 
 struct dw_mci_debug_data {
