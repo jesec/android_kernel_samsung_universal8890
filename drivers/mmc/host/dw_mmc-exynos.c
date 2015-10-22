@@ -113,6 +113,7 @@ void dw_mci_reg_dump(struct dw_mci *host)
 	dev_err(host->dev, ": data_status:     0x%08x\n", host->data_status);
 	dev_err(host->dev, ": pending_events:  0x%08lx\n", host->pending_events);
 	dev_err(host->dev, ": completed_events:0x%08lx\n", host->completed_events);
+	dev_err(host->dev, ": state:           %d\n", host->state);
 	dev_err(host->dev, ": gate-clk:            %s\n",
 		 atomic_read(&host->ciu_clk_cnt) ?
 		 "enable" : "disable");
@@ -512,6 +513,7 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 
 	priv->ddr_timing = SDMMC_CLKSEL_TIMING(timing[0], timing[1], timing[2], timing[3]);
 
+	of_property_read_u32(np, "ignore-phase", &priv->ignore_phase);
 	if (of_find_property(np, "use-fine-tuning", NULL))
 		priv->ctrl_flag |= DW_MMC_EXYNOS_USE_FINE_TUNING;
 	if (of_find_property(np, "bypass-for-allpass", NULL))
@@ -643,6 +645,7 @@ static u8 dw_mci_tuning_sampling(struct dw_mci *host)
 
 	clksel = mci_readl(host, CLKSEL);
 	sample = (clksel + 1) & 0x7;
+	priv->ignore_phase = (1 << 0x7 | 1 << 0x3);
 
 	if (priv->ignore_phase) {
 		for (i = 0; i < 8; i++) {
@@ -836,13 +839,21 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 	bool en_fine_tuning = false;
 	bool is_fine_tuning = false;
 	unsigned int abnormal_result = 0xFF;
+	unsigned int temp_ignore_phase = priv->ignore_phase;
+	int ffs_ignore_phase = 0;
 	u8 all_pass_count = 0;
 	bool bypass = false;
 
 	if (priv->ctrl_flag & DW_MMC_EXYNOS_USE_FINE_TUNING) {
 		en_fine_tuning = true;
 		abnormal_result = 0xFFFF;
-	}
+		while (temp_ignore_phase) {
+			ffs_ignore_phase = ffs(temp_ignore_phase) - 1;
+			abnormal_result &= ~(0x3 << (2 * ffs_ignore_phase));
+			temp_ignore_phase &= ~(0x1 << ffs_ignore_phase);
+		}
+	} else
+		abnormal_result &= ~(priv->ignore_phase);
 
 	/* Short circuit: don't tune again if we already did. */
 	if (host->pdata->tuned) {
@@ -871,6 +882,8 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 
 	if (host->pdata->io_mode == MMC_TIMING_MMC_HS400)
 		host->quirks |= DW_MCI_QUIRK_NO_DETECT_EBIT;
+
+	dev_info(host->dev, "Tuning Abnormal_result 0x%08x.\n", abnormal_result);
 
 	do {
 		struct mmc_request mrq;
@@ -957,8 +970,10 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 			}
 		} else {
 			dev_info(&mmc->class_dev,
-				"Tuning error: cmd.error:%d, data.error:%d\n",
-				cmd.error, data.error);
+				"Tuning error: cmd.error:%d, data.error:%d CLKSEL = 0x%08x, EN_SHIFT = 0x%08x\n",
+				cmd.error, data.error,
+				mci_readl(host, CLKSEL),
+				mci_readl(host, DDR200_ENABLE_SHIFT));
 		}
 
 		if (orig_sample == test_sample && !is_fine_tuning) {
@@ -1032,6 +1047,10 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 		dw_mci_exynos_set_sample(host, orig_sample, false);
 		ret = -EIO;
 	}
+
+	dev_info(host->dev, "CLKSEL = 0x%08x, EN_SHIFT = 0x%08x\n",
+			mci_readl(host, CLKSEL),
+			mci_readl(host, DDR200_ENABLE_SHIFT));
 
 	kfree(tuning_blk);
 	return ret;
