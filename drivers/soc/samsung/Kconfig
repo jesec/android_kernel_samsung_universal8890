@@ -50,4 +50,8 @@ config HP_EVENT_BIG_THREADS
 	depends on SCHED_HP_EVENT && SCHED_HMP
 	default n
 
+config EXYNOS_PM_DVS
+	bool "Enable Exynos dynamic voltage setting"
+	default n
+
 endif #SOC_SAMSUNG
