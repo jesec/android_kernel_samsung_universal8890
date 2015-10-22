@@ -667,9 +667,13 @@ ENDPROC(__secondary_switched)
 __enable_mmu:
 	ldr	x5, =vectors
 	msr	vbar_el1, x5
+	tlbi	vaae1, xzr
+	dsb	nsh
 	msr	ttbr0_el1, x25			// load TTBR0
 	msr	ttbr1_el1, x26			// load TTBR1
 	isb
+	tlbi	vaae1, xzr
+	dsb	nsh
 	b	__turn_mmu_on
 ENDPROC(__enable_mmu)
 
