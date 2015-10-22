@@ -1486,8 +1486,17 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 */
 	slot->clock = ios->clock;
 
-	if(!ios->clock)
+	if (ios->clock) {
+		/*
+		 * Use mirror of ios->clock to prevent race with mmc
+		 * core ios update when finding the minimum.
+		 */
+		pm_qos_update_request(&slot->host->pm_qos_int,
+				slot->host->pdata->qos_int_level);
+	} else {
+		pm_qos_update_request(&slot->host->pm_qos_int, 0);
 		cclk_request_turn_off = 1;
+	}
 
 	if (drv_data && drv_data->set_ios)
 		drv_data->set_ios(slot->host, ios);
@@ -1653,10 +1662,10 @@ static int dw_mci_get_cd(struct mmc_host *mmc)
 	spin_lock_bh(&host->lock);
 	if (present) {
 		set_bit(DW_MMC_CARD_PRESENT, &slot->flags);
-		dev_dbg(&mmc->class_dev, "card is present\n");
+		dev_info(&mmc->class_dev, "card is present\n");
 	} else {
 		clear_bit(DW_MMC_CARD_PRESENT, &slot->flags);
-		dev_dbg(&mmc->class_dev, "card is not present\n");
+		dev_info(&mmc->class_dev, "card is not present\n");
 	}
 	spin_unlock_bh(&host->lock);
 
@@ -3188,6 +3197,8 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 				"value of FIFOTH register as default\n");
 
 	of_property_read_u32(np, "card-detect-delay", &pdata->detect_delay_ms);
+	of_property_read_u32(np, "qos_int_level", &pdata->qos_int_level);
+	of_property_read_u32(np, "data-timeout", &pdata->data_timeout);
 	of_property_read_u32(np, "desc-size", &pdata->desc_sz);
 
 	if (!of_property_read_u32(np, "clock-frequency", &clock_frequency))
@@ -3445,6 +3456,10 @@ int dw_mci_probe(struct dw_mci *host)
 		goto err_dmaunmap;
 	}
 	INIT_WORK(&host->card_work, dw_mci_work_routine_card);
+
+	/* INT min lock */
+	pm_qos_add_request(&host->pm_qos_int, PM_QOS_DEVICE_THROUGHPUT, 0);
+
 	ret = devm_request_irq(host->dev, host->irq, dw_mci_interrupt,
 			       host->irq_flags, "dw-mci", host);
 
@@ -3503,6 +3518,7 @@ int dw_mci_probe(struct dw_mci *host)
 
 err_workqueue:
 	destroy_workqueue(host->card_workqueue);
+	pm_qos_remove_request(&host->pm_qos_int);
 
 err_dmaunmap:
 	if (host->use_dma && host->dma_ops->exit)
@@ -3539,6 +3555,7 @@ void dw_mci_remove(struct dw_mci *host)
 
 	del_timer_sync(&host->timer);
 	destroy_workqueue(host->card_workqueue);
+	pm_qos_remove_request(&host->pm_qos_int);
 
 	if (host->use_dma && host->dma_ops->exit)
 		host->dma_ops->exit(host);

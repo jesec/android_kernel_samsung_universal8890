@@ -16,6 +16,7 @@
 
 #include <linux/scatterlist.h>
 #include <linux/mmc/core.h>
+#include <linux/pm_qos.h>
 
 #define MAX_MCI_SLOTS	2
 
@@ -152,11 +153,13 @@ struct dw_mci {
 	struct dw_mci_dma_data	*dma_data;
 #endif
 	unsigned int            desc_sz;
+	struct pm_qos_request	pm_qos_int;
 	u32			cmd_status;
 	u32			data_status;
 	u32			stop_cmdr;
 	u32			dir_status;
 	struct tasklet_struct	tasklet;
+	u32			tasklet_state;
 	struct work_struct	card_work;
 	unsigned long		pending_events;
 	unsigned long		completed_events;
@@ -290,13 +293,15 @@ struct dw_mci_board {
 	bool extra_tuning;
 	bool only_once_tune;
 
+	/* INT QOS khz */
+	unsigned int qos_int_level;
 	unsigned char io_mode;
 
 	struct dw_mci_dma_ops *dma_ops;
 	struct dma_pdata *data;
 	struct block_settings *blk_settings;
 	unsigned int sw_timeout;
-
+	u32 data_timeout;	/* DATA_TIMEOUT[31:11] of TMOUT */
 	bool use_gate_clock;
 	bool use_biu_gate_clock;
 	bool enable_cclk_on_suspend;
