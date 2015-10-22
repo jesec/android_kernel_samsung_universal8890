@@ -265,6 +265,68 @@ static int s2m_set_voltage_sel_regmap_buck(struct regulator_dev *rdev,
 		BUG_ON(s2m_get_dvs_is_on());
 	}
 
+	/* voltage information logging to snapshot feature */
+	snprintf(name, sizeof(name), "BUCK%d", (reg_id - S2MPS16_BUCK1) + 1);
+	if (reg_id == S2MPS16_BUCK8 || reg_id == S2MPS16_BUCK9){
+		voltage = (sel * S2MPS16_BUCK_STEP2) + S2MPS16_BUCK_MIN2;
+		dev_info(&rdev->dev, ":BUCK%d 	voltage :%d	\n",
+				(reg_id - S2MPS16_BUCK1) + 1, voltage);
+	}
+	else
+		voltage = (sel * S2MPS16_BUCK_STEP1) + S2MPS16_BUCK_MIN1;
+	exynos_ss_regulator(name, rdev->desc->vsel_reg, voltage, ESS_FLAG_IN);
+
+	/* BUCK2 Control */
+	if (reg_id == S2MPS16_BUCK2 && s2mps16->buck_dvs_on) {
+		mutex_lock(&s2mps16->lock);
+
+		if (s2mps16->buck2_dvs == 0)
+			delta_val = 100000;
+		else if (s2mps16->buck2_dvs == 1)
+			delta_val = 0;
+		else if (s2mps16->buck2_dvs == 2)
+			delta_val = 75000;
+		else if (s2mps16->buck2_dvs == 3)
+			delta_val = 50000;
+
+		buck2_set_val = rdev->desc->min_uV + (rdev->desc->uV_step * sel);
+
+		if (delta_val + buck2_set_val <= BUCK2_ASV_MAX) {
+			if (!s2mps16->buck2_sync) {
+				ret = s2m_set_fix_ldo_voltage(rdev, 1);
+				if (ret < 0)
+					goto out;
+			}
+		} else {
+			if (s2mps16->buck2_sync) {
+				ret = s2m_set_fix_ldo_voltage(rdev, 0);
+				if (ret < 0)
+					goto out;
+			}
+		}
+
+		ret = sec_reg_write(s2mps16->iodev, rdev->desc->vsel_reg, sel);
+		if (ret < 0)
+			goto out;
+
+		mutex_unlock(&s2mps16->lock);
+		return ret;
+	}
+
+	if ((reg_id == S2MPS16_BUCK4 || reg_id == S2MPS16_BUCK5) && s2mps16->buck_dvs_on) {
+		mutex_lock(&s2mps16->lock);
+		ret = s2m_set_max_int_voltage(rdev, sel);
+		if (ret < 0)
+			goto out;
+		mutex_unlock(&s2mps16->lock);
+		return ret;
+	}
+
+	if (reg_id == S2MPS16_BUCK1 || reg_id == S2MPS16_BUCK2 ||
+		reg_id == S2MPS16_BUCK3 || reg_id == S2MPS16_BUCK4 ||
+		reg_id == S2MPS16_BUCK5)
+		s2mps16->vsel_value[reg_id] = sel;
+
 	ret = sec_reg_write(s2mps16->iodev, rdev->desc->vsel_reg, sel);
 	if (ret < 0)
 		goto i2c_out;
@@ -793,6 +855,12 @@ static int s2mps16_pmic_probe(struct platform_device *pdev)
 	}
 
 	sec_reg_update(iodev, S2MPS16_REG_B4CTRL1, 0x00, 0x10);
+
+	ret = sec_reg_write(iodev, 0x9B, 0x10);
+	if (ret) {
+		dev_err(&pdev->dev, "BUCK8, BUCK9 DVS setting failed\n");
+		goto err;
+	}
 
 	/* On sequence Config for PWREN_MIF */
 	sec_reg_write(iodev, 0x70, 0xB4);	/* seq. Buck2, Buck1 */
