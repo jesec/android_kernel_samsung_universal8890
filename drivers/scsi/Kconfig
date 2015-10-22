@@ -91,6 +91,25 @@ config BLK_DEV_SD
 	  In this case, do not compile the driver for your SCSI host adapter
 	  (below) as a module either.
 
+config SCSI_SKIP_CACHE_OP
+	bool "Skip operations for cache coherency prior to DMA transfer"
+	depends on BLK_DEV_SD
+	---help---
+	  This selects support for skipping operations for cache coherency
+	  prior to DMA transfer, to reduce I/O overhead
+	  if file system layer do same thing.
+
+	  If unsure, say N.
+
+config SCSI_SKIP_CPU_SYNC
+	bool "Skip unnecessary CPU syncronization with hardware support"
+	depends on BLK_DEV_SD
+	---help---
+	  This selects support for skipping CPU syncronization
+	  when hardware do them instead automatically around DMA transfer
+
+	  If unsure, say N.
+
 config CHR_DEV_ST
 	tristate "SCSI tape support"
 	depends on SCSI

@@ -350,6 +350,7 @@ static struct device_type scsi_host_type = {
 	.release =	scsi_host_dev_release,
 };
 
+extern void scsi_dma_set_skip_cpu_sync(void);
 /**
  * scsi_host_alloc - register a scsi host adapter instance.
  * @sht:	pointer to scsi host template
@@ -487,6 +488,12 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 		goto fail_kthread;
 	}
 	scsi_proc_hostdir_add(shost->hostt);
+
+#if defined(CONFIG_SCSI_SKIP_CACHE_OP) || \
+	defined(CONFIG_SCSI_SKIP_CPU_SYNC)
+	scsi_dma_set_skip_cpu_sync();
+#endif
+
 	return shost;
 
  fail_kthread:

@@ -1151,6 +1151,24 @@ static void exynos_ufs_config_smu(struct exynos_ufs *ufs)
 	ufsp_writel(ufs, 0xf1, UFSPSCTRL0);
 }
 
+static void exynos_ufs_enable_io_coherency(struct exynos_ufs *ufs)
+{
+#if defined(CONFIG_SCSI_SKIP_CPU_SYNC)
+	u32 reg;
+
+	if (!of_get_child_by_name(ufs->dev->of_node, "ufs-sys")) {
+		panic("Not configured to use IO coherency");
+		return;
+	}
+
+	reg = readl(ufs->sys.reg_sys);
+	writel(reg | ((1 << 16) | (1 << 17)), ufs->sys.reg_sys);
+
+	reg = ufsp_readl(ufs, UFSPRSECURITY);
+	ufsp_writel(ufs, reg | CFG_AXPROT(2), UFSPRSECURITY);
+#endif
+}
+
 static bool exynos_ufs_wait_pll_lock(struct exynos_ufs *ufs)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(100);
@@ -1753,10 +1771,12 @@ static void exynos_ufs_post_hibern8(struct ufs_hba *hba, u8 enter)
 
 static int exynos_ufs_link_startup_notify(struct ufs_hba *hba, bool notify)
 {
+	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	int ret = 0;
 
 	switch (notify) {
 	case PRE_CHANGE:
+		exynos_ufs_enable_io_coherency(ufs);
 		exynos_ufs_dev_hw_reset(hba);
 		ret = exynos_ufs_pre_link(hba);
 		break;
@@ -2005,6 +2025,37 @@ static int exynos_ufs_clk_init(struct device *dev, struct exynos_ufs *ufs)
 	return ret;
 }
 
+static int exynos_ufs_populate_dt_sys(struct device *dev, struct exynos_ufs *ufs)
+{
+	struct device_node *np;
+	struct exynos_ufs_sys *sys = &ufs->sys;
+	struct resource io_res;
+	int ret;
+
+	np = of_get_child_by_name(dev->of_node, "ufs-sys");
+	if (!np) {
+		dev_err(dev, "failed to get ufs-sys node\n");
+		return -ENODEV;
+	}
+
+	ret = of_address_to_resource(np, 0, &io_res);
+	if (ret) {
+		dev_err(dev, "failed to get i/o address sysreg\n");
+		goto err_0;
+	}
+
+	sys->reg_sys = devm_ioremap_resource(dev, &io_res);
+	if (!sys->reg_sys) {
+		dev_err(dev, "failed to ioremap sysreg\n");
+		ret = -ENOMEM;
+		goto err_0;
+	}
+err_0:
+	of_node_put(np);
+
+	return ret;
+}
+
 static int exynos_ufs_populate_dt_phy(struct device *dev, struct exynos_ufs *ufs)
 {
 	struct device_node *ufs_phy, *phy_sys;
@@ -2133,6 +2184,10 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 		dev_err(dev, "failed to populate dt-phy\n");
 		goto out;
 	}
+
+	ret = exynos_ufs_populate_dt_sys(dev, ufs);
+	if (ret)
+		dev_err(dev, "failed to populate ufs-sys\n");
 
 	ret = of_property_read_u32_array(np,
 			"pclk-freq-avail-range",freq, ARRAY_SIZE(freq));

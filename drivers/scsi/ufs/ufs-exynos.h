@@ -167,6 +167,15 @@ enum {
 #define UFSPRSTAT	0x008
 #define UFSPRSECURITY	0x010
  #define NSSMU		BIT(14)
+#define DESCTYPE(type)		((type & 0x3) << 19)
+#define ARPROTPRDT(type)	((type & 0x3) << 16)
+#define ARPROTDESC(type)	((type & 0x3) << 9)
+#define ARPROTDATA(type)	((type & 0x3) << 6)
+#define AWPROTDESC(type)	((type & 0x3) << 3)
+#define AWPROTDATA(type)	((type & 0x3))
+#define CFG_AXPROT(type)	(ARPROTPRDT(type) | ARPROTDESC(type) | \
+				ARPROTDATA(type) | AWPROTDESC(type) | \
+				AWPROTDATA(type))
 #define UFSPVERSION	0x01C
 #define UFSPRENCKEY0	0x020
 #define UFSPRENCKEY1	0x024
@@ -392,6 +401,10 @@ struct exynos_ufs_phy {
 	struct exynos_ufs_soc *soc;
 };
 
+struct exynos_ufs_sys {
+	void __iomem *reg_sys;
+};
+
 struct uic_pwr_mode {
 	u8 lane;
 	u8 gear;
@@ -469,6 +482,7 @@ struct exynos_ufs {
 	int avail_ln_tx;
 
 	struct exynos_ufs_phy phy;
+	struct exynos_ufs_sys sys;
 	struct notifier_block lpa_nb;
 	struct uic_pwr_mode req_pmd_parm;
 	struct uic_pwr_mode act_pmd_parm;

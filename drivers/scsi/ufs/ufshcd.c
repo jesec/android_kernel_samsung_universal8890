@@ -1503,6 +1503,10 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (hba->vops && hba->vops->set_nexus_t_xfer_req)
 		hba->vops->set_nexus_t_xfer_req(hba, tag, lrbp->cmd);
 
+#if defined(CONFIG_SCSI_SKIP_CPU_SYNC)
+	if (lrbp->command_type == UTP_CMD_TYPE_SCSI)
+		mb();
+#endif
 	ufshcd_send_command(hba, tag);
 
 	if (hba->debug.flag & UFSHCD_DEBUG_LEVEL1)
@@ -6231,11 +6235,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		dev_err(hba->dev, "Memory allocation failed\n");
 		goto out_disable;
 	}
-
-	/* Skip pre-CI */
-#ifdef CONFIG_SCSI_SKIP_CACHE_OP
-	scsi_dma_set_skip_cpu_sync();
-#endif
 
 	/* Configure LRB */
 	ufshcd_host_memory_configure(hba);
