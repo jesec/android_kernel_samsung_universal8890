@@ -117,6 +117,39 @@ static unsigned int *pmu_cpuoption_sfrlist[] = {
 #define DUR_SCPRE_WAIT	(0xF << 0)
 #define DUR_SCALL_VALUE (1 << 4)
 
+#define SMC_PwrMgmtMode_CH0		((void *)(SMC0_BASE + 0x0238))
+#define SMC_PwrMgmtMode_CH1		((void *)(SMC1_BASE + 0x0238))
+#define SMC_PwrMgmtMode_CH2		((void *)(SMC2_BASE + 0x0238))
+#define SMC_PwrMgmtMode_CH3		((void *)(SMC3_BASE + 0x0238))
+
+int phycgen_ch0;
+int phycgen_ch1;
+int phycgen_ch2;
+int phycgen_ch3;
+
+static void smc_set_phycgen(int enable)
+{
+	if (enable == 1) {
+		pwrcal_setbit(SMC_PwrMgmtMode_CH0, 6, phycgen_ch0);
+		pwrcal_setbit(SMC_PwrMgmtMode_CH1, 6, phycgen_ch1);
+		pwrcal_setbit(SMC_PwrMgmtMode_CH2, 6, phycgen_ch2);
+		pwrcal_setbit(SMC_PwrMgmtMode_CH3, 6, phycgen_ch3);
+	} else {
+		pwrcal_setbit(SMC_PwrMgmtMode_CH0, 6, 1);
+		pwrcal_setbit(SMC_PwrMgmtMode_CH1, 6, 1);
+		pwrcal_setbit(SMC_PwrMgmtMode_CH2, 6, 1);
+		pwrcal_setbit(SMC_PwrMgmtMode_CH3, 6, 1);
+	}
+}
+static void smc_get_init_phycgen(void)
+{
+	phycgen_ch0 = pwrcal_getbit(SMC_PwrMgmtMode_CH0, 6);
+	phycgen_ch1 = pwrcal_getbit(SMC_PwrMgmtMode_CH1, 6);
+	phycgen_ch2 = pwrcal_getbit(SMC_PwrMgmtMode_CH2, 6);
+	phycgen_ch3 = pwrcal_getbit(SMC_PwrMgmtMode_CH3, 6);
+}
+
+
 static void init_pmu_cpu_option(void)
 {
 	int cpu;
@@ -267,6 +300,7 @@ static void pwrcal_syspwr_init(void)
 	init_pmu_stable_counter();
 	init_ps_hold_setting();
 	enable_armidleclockdown();
+	smc_get_init_phycgen();
 }
 
 
@@ -2168,6 +2202,7 @@ static void pwrcal_syspwr_prepare(int mode)
 		pwrcal_setbit(G3D_OPTION, 31, 0);
 		pwrcal_setbit(G3D_OPTION, 30, 0);
 		pwrcal_setbit(WAKEUP_MASK, 30, 1);
+		smc_set_phycgen(false);
 		set_pmu_central_seq_mif(true);
 		break;
 	case syspwr_alpa:
@@ -2260,9 +2295,6 @@ static void pwrcal_syspwr_post(int mode)
 		set_pmu_lpi_mask();
 		mif_use_cp_pll = 0;
 	case syspwr_stop:
-	case syspwr_sicd:
-	case syspwr_sicd_cpd:
-	case syspwr_sicd_aud:
 	case syspwr_aftr:
 	case syspwr_alpa:
 	case syspwr_lpd:
@@ -2279,6 +2311,24 @@ static void pwrcal_syspwr_post(int mode)
 		pwrcal_setbit(G3D_OPTION, 31, 0);
 		pwrcal_setbit(G3D_OPTION, 30, 0);
 		pwrcal_setbit(WAKEUP_MASK, 30, 0);
+		set_pmu_central_seq_mif(false);
+		break;
+	case syspwr_sicd:
+	case syspwr_sicd_cpd:
+	case syspwr_sicd_aud:
+		pwrcal_setbit(TOP_BUS_MIF_OPTION, 2, 0);
+		pwrcal_setbit(TOP_BUS_MIF_OPTION, 1, 0);
+		pwrcal_setbit(TOP_BUS_MIF_OPTION, 0, 0);
+		pwrcal_setbit(FSYS0_OPTION, 31, 0);
+		pwrcal_setbit(FSYS0_OPTION, 30, 0);
+		pwrcal_setbit(FSYS0_OPTION, 29, 0);
+		pwrcal_setbit(FSYS1_OPTION, 31, 0);
+		pwrcal_setbit(FSYS1_OPTION, 30, 0);
+		pwrcal_setbit(FSYS1_OPTION, 29, 0);
+		pwrcal_setbit(G3D_OPTION, 31, 0);
+		pwrcal_setbit(G3D_OPTION, 30, 0);
+		pwrcal_setbit(WAKEUP_MASK, 30, 0);
+		smc_set_phycgen(true);
 		set_pmu_central_seq_mif(false);
 		break;
 	default:
@@ -2301,9 +2351,6 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 			disable_cppll_sharing_bus012_enable();
 		}
 	case syspwr_stop:
-	case syspwr_sicd:
-	case syspwr_sicd_cpd:
-	case syspwr_sicd_aud:
 	case syspwr_aftr:
 	case syspwr_alpa:
 	case syspwr_lpd:
@@ -2320,6 +2367,24 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 		pwrcal_setbit(G3D_OPTION, 31, 0);
 		pwrcal_setbit(G3D_OPTION, 30, 0);
 		pwrcal_setbit(WAKEUP_MASK, 30, 0);
+		set_pmu_central_seq_mif(false);
+		break;
+	case syspwr_sicd:
+	case syspwr_sicd_cpd:
+	case syspwr_sicd_aud:
+		pwrcal_setbit(TOP_BUS_MIF_OPTION, 2, 0);
+		pwrcal_setbit(TOP_BUS_MIF_OPTION, 1, 0);
+		pwrcal_setbit(TOP_BUS_MIF_OPTION, 0, 0);
+		pwrcal_setbit(FSYS0_OPTION, 31, 0);
+		pwrcal_setbit(FSYS0_OPTION, 30, 0);
+		pwrcal_setbit(FSYS0_OPTION, 29, 0);
+		pwrcal_setbit(FSYS1_OPTION, 31, 0);
+		pwrcal_setbit(FSYS1_OPTION, 30, 0);
+		pwrcal_setbit(FSYS1_OPTION, 29, 0);
+		pwrcal_setbit(G3D_OPTION, 31, 0);
+		pwrcal_setbit(G3D_OPTION, 30, 0);
+		pwrcal_setbit(WAKEUP_MASK, 30, 0);
+		smc_set_phycgen(true);
 		set_pmu_central_seq_mif(false);
 		break;
 	default:
