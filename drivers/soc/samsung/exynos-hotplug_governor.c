@@ -21,6 +21,7 @@
 
 #define DEFAULT_DUAL_CHANGE_MS (15)		/* 15 ms */
 #define DEFAULT_BOOT_ENABLE_MS (30000)		/* 30 s */
+#define RETRY_BOOT_ENABLE_MS (100)		/* 100 ms */
 
 enum hpgov_event {
 	HPGOV_SLACK_TIMER_EXPIRED = 1,	/* slack timer expired */
@@ -343,8 +344,10 @@ static int exynos_hpgov_set_enabled(uint32_t enable)
 
 		exynos_hpgov.hptask = kthread_create(exynos_hpgov_do_hotplug,
 						&exynos_hpgov.hp_state, "exynos_hp");
-		if (IS_ERR(exynos_hpgov.hptask))
+		if (IS_ERR(exynos_hpgov.hptask)) {
+			kthread_stop(exynos_hpgov.task);
 			return -EFAULT;
+		}
 
 		set_user_nice(exynos_hpgov.hptask, MIN_NICE);
 		kthread_bind(exynos_hpgov.hptask, 0);
@@ -447,12 +450,13 @@ HPGOV_PARAM(enabled, exynos_hpgov.enabled);
 HPGOV_PARAM(dual_change_ms, exynos_hpgov.dual_change_ms);
 HPGOV_PARAM(boost, exynos_hpgov.boost_cnt);
 
+static void hpgov_boot_enable(struct work_struct *work);
+static DECLARE_DELAYED_WORK(hpgov_boot_work, hpgov_boot_enable);
 static void hpgov_boot_enable(struct work_struct *work)
 {
-	exynos_hpgov_set_enabled(1);
+	if (exynos_hpgov_set_enabled(1))
+		schedule_delayed_work_on(0, &hpgov_boot_work, msecs_to_jiffies(RETRY_BOOT_ENABLE_MS));
 }
-
-static DECLARE_DELAYED_WORK(hpgov_boot_work, hpgov_boot_enable);
 
 static int __init exynos_hpgov_init(void)
 {
