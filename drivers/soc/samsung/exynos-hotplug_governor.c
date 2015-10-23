@@ -360,10 +360,10 @@ static int exynos_hpgov_set_enabled(uint32_t enable)
 		exynos_hpgov.enabled = 0;
 		smp_wmb();
 
-		pm_qos_update_request(&hpgov_max_pm_qos, PM_QOS_CPU_ONLINE_MAX);
-		pm_qos_update_request(&hpgov_min_pm_qos, PM_QOS_CPU_ONLINE_MIN);
+		pm_qos_update_request(&hpgov_max_pm_qos, PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
+		pm_qos_update_request(&hpgov_min_pm_qos, PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 		exynos_hpgov.cur_cpu_max = PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE;
-		exynos_hpgov.cur_cpu_min = PM_QOS_CPU_ONLINE_MIN_DEFAULT_VALUE;
+		exynos_hpgov.cur_cpu_min = PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE;
 	}
 
 	return ret;
