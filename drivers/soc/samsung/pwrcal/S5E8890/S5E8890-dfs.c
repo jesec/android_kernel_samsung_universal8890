@@ -278,18 +278,6 @@ errorout:
 	return -1;
 }
 
-void bus12_disable(void)
-{
-	pwrcal_pll_disable(CLK(BUS1_PLL));
-	pwrcal_pll_disable(CLK(BUS2_PLL));
-}
-
-void bus12_enable(void)
-{
-	pwrcal_pll_enable(CLK(BUS1_PLL));
-	pwrcal_pll_enable(CLK(BUS2_PLL));
-}
-
 void enable_cppll_sharing_bus012_disable(void)
 {
 	pwrcal_writel(AP_FLAG, 1);
