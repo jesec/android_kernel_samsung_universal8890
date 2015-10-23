@@ -67,8 +67,8 @@ static int cpu_hotplug_out(const struct cpumask *mask)
 }
 
 static struct {
-	/* Disable cpu hotplug operation */
-	bool			disabled;
+	/* Control cpu hotplug operation */
+	bool			enabled;
 
 	/* Synchronizes accesses to refcount and cpumask */
 	struct mutex		lock;
@@ -98,14 +98,21 @@ static struct {
 	.lock = __MUTEX_INITIALIZER(cpu_hotplug.lock),
 };
 
+static inline void update_enable_flag(bool enable)
+{
+	mutex_lock(&cpu_hotplug.lock);
+	cpu_hotplug.enabled = enable;
+	mutex_unlock(&cpu_hotplug.lock);
+}
+
 struct kobject *exynos_cpu_hotplug_kobj(void)
 {
 	return cpu_hotplug.kobj;
 }
 
-bool exynos_cpu_hotplug_disable(void)
+bool exynos_cpu_hotplug_enabled(void)
 {
-	return cpu_hotplug.disabled;
+	return cpu_hotplug.enabled;
 }
 
 /*
@@ -149,7 +156,7 @@ static int do_cpu_hotplug(void *param)
 	mutex_lock(&cpu_hotplug.lock);
 
 	/* If cpu hotplug is disabled, do_cpu_hotplug() do nothing. */
-	if (cpu_hotplug.disabled) {
+	if (!cpu_hotplug.enabled) {
 		mutex_unlock(&cpu_hotplug.lock);
 		return 0;
 	}
@@ -209,31 +216,36 @@ static void cpu_hotplug_work(struct work_struct *work)
 	do_cpu_hotplug(NULL);
 }
 
-static int disable_cpu_hotplug(bool disable)
+static int control_cpu_hotplug(bool enable)
 {
 	struct cpumask mask;
 	int ret = 0;
 
-	if (disable) {
+	if (enable) {
+		update_enable_flag(true);
+		do_cpu_hotplug(NULL);
+	} else {
 		mutex_lock(&cpu_hotplug.lock);
 
 		cpumask_setall(&mask);
 		cpumask_andnot(&mask, &mask, cpu_online_mask);
 
 		/*
-		 * If it success to enable all CPUs, set cpu_hotplug.disabled flag.
+		 * If it success to enable all CPUs, clear cpu_hotplug.enabled flag.
 		 * Since then all hotplug requests are ignored.
 		 */
 		ret = cpu_hotplug_in(&mask);
-		if (!ret)
-			cpu_hotplug.disabled = 1;
-		mutex_unlock(&cpu_hotplug.lock);
-	} else {
-		mutex_lock(&cpu_hotplug.lock);
-		cpu_hotplug.disabled = 0;
-		mutex_unlock(&cpu_hotplug.lock);
+		if (!ret) {
+			/*
+			 * In this position, can't use update_enable_flag()
+			 * because already taken cpu_hotplug.lock
+			 */
+			cpu_hotplug.enabled = false;
+		} else {
+			pr_err("Fail to disable cpu hotplug, please try again\n");
+		}
 
-		do_cpu_hotplug(NULL);
+		mutex_unlock(&cpu_hotplug.lock);
 	}
 
 	return ret;
@@ -310,7 +322,7 @@ static ssize_t show_control_online_cpus(struct kobject *kobj,
 {
 	ssize_t count = 0;
 
-	count += snprintf(&buf[count], 40, "cpu online count(mix/max) : %u/%u\n",
+	count += snprintf(&buf[count], 40, "cpu online count(min/max) : %u/%u\n",
 					pm_qos_request(PM_QOS_CPU_ONLINE_MIN),
 					pm_qos_request(PM_QOS_CPU_ONLINE_MAX));
 
@@ -343,20 +355,21 @@ static struct kobj_attribute control_online_cpus =
 __ATTR(control_online_cpus, 0644, show_control_online_cpus, store_control_online_cpus);
 
 /*
- * User can disable the cpu hotplug operation as below:
+ * User can control the cpu hotplug operation as below:
  *
- * #echo 1 > /sys/power/cpuhotplug/disable
+ * #echo 1 > /sys/power/cpuhotplug/enabled => enable
+ * #echo 0 > /sys/power/cpuhotplug/enabled => disable
  *
- * If disable become 1, hotplug driver enable the all cpus and no hotplug
+ * If enabled become 0, hotplug driver enable the all cpus and no hotplug
  * operation happen from hotplug driver.
  */
-static ssize_t show_cpu_hotplug_disable(struct kobject *kobj,
+static ssize_t show_cpu_hotplug_enable(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, 10, "%d\n", cpu_hotplug.disabled);
+	return snprintf(buf, 10, "%d\n", cpu_hotplug.enabled);
 }
 
-static ssize_t store_cpu_hotplug_disable(struct kobject *kobj,
+static ssize_t store_cpu_hotplug_enable(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf,
 		size_t count)
 {
@@ -365,18 +378,17 @@ static ssize_t store_cpu_hotplug_disable(struct kobject *kobj,
 	if (!sscanf(buf, "%d", &input))
 		return -EINVAL;
 
-	if (disable_cpu_hotplug(!!input))
-		pr_err("Fail to disable cpu hotplug, please try again\n");
+	control_cpu_hotplug(!!input);
 
 	return count;
 }
 
-static struct kobj_attribute cpu_hotplug_disabled =
-__ATTR(disable, 0644, show_cpu_hotplug_disable, store_cpu_hotplug_disable);
+static struct kobj_attribute cpu_hotplug_enabled =
+__ATTR(enabled, 0644, show_cpu_hotplug_enable, store_cpu_hotplug_enable);
 
 static struct attribute *cpu_hotplug_attrs[] = {
 	&control_online_cpus.attr,
-	&cpu_hotplug_disabled.attr,
+	&cpu_hotplug_enabled.attr,
 	NULL,
 };
 
@@ -407,16 +419,11 @@ static int exynos_cpu_hotplug_pm_notifier(struct notifier_block *notifier,
 {
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
-		mutex_lock(&cpu_hotplug.lock);
-		cpu_hotplug.disabled = 1;
-		mutex_unlock(&cpu_hotplug.lock);
+		update_enable_flag(false);
 		break;
 
 	case PM_POST_SUSPEND:
-		mutex_lock(&cpu_hotplug.lock);
-		cpu_hotplug.disabled = 0;
-		mutex_unlock(&cpu_hotplug.lock);
-
+		update_enable_flag(true);
 		do_cpu_hotplug(NULL);
 		break;
 	}
@@ -498,6 +505,9 @@ static int __init cpu_hotplug_init(void)
 
 	/* register pm notifier */
 	register_pm_notifier(&exynos_cpu_hotplug_nb);
+
+	/* Enable cpu_hotplug */
+	update_enable_flag(true);
 
 	return 0;
 }

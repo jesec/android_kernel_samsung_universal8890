@@ -446,7 +446,7 @@ static ssize_t online_store(struct device *dev, struct device_attribute *attr,
 	int ret;
 
 #ifdef CONFIG_ARCH_EXYNOS
-	if (!exynos_cpu_hotplug_disable())
+	if (exynos_cpu_hotplug_enabled())
 		return count;
 #endif
 
