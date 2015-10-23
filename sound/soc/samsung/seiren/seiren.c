@@ -634,7 +634,7 @@ static void esa_fw_download(void)
 	if (si.fw_suspended) {
 		esa_info("%s: resume\n", __func__);
 		/* Restore SRAM */
-		memcpy(si.sram, si.fwmem_sram_bak, SRAM_FW_MAX);
+		memcpy(si.sram, si.fwmem_sram_bak, SRAM_FW_MEMSET_SIZE);
 #ifndef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 		memset(si.sram + FW_ZERO_SET_BASE, 0, FW_ZERO_SET_SIZE);
 #else
@@ -719,7 +719,7 @@ static void esa_fw_shutdown(void)
 	esa_debug("CA5_STATUS: %X\n", val);
 
 	/* Backup SRAM */
-	memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MAX);
+	memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MEMSET_SIZE);
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 	esa_memcpy_mailbox(true);
 #endif
