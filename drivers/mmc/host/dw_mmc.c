@@ -3599,6 +3599,11 @@ int dw_mci_resume(struct dw_mci *host)
 	if (host->use_dma && host->dma_ops->init)
 		host->dma_ops->init(host);
 
+	if (host->pdata->quirks & DW_MCI_QUIRK_HWACG_CTRL) {
+		host->qactive_check = HWACG_Q_ACTIVE_DIS;
+		mci_writel(host, FORCE_CLK_STOP, 0);
+	}
+
 	if (host->pdata->quirks & DW_MCI_QUIRK_BYPASS_SMU)
 		drv_data->cfg_smu(host);
 
