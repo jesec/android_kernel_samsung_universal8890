@@ -53,6 +53,11 @@ config EXYNOS_BIG_FREQ_BOOST
 	default n
 	depends on ARM_EXYNOS_MP_CPUFREQ && SCHED_HMP
 
+config EXYNOS_DUAL_GOV_PARAMS_SUPPORT
+	bool "Dual governor parameter support on interactive governor"
+	default n
+	depends on EXYNOS_BIG_FREQ_BOOST
+
 config ARM_EXYNOS4X12_CPUFREQ
 	bool "SAMSUNG EXYNOS4x12"
 	depends on SOC_EXYNOS4212 || SOC_EXYNOS4412
