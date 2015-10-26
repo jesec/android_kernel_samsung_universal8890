@@ -169,7 +169,6 @@ struct clk_info {
 	enum bts_index index;
 };
 
-static void __iomem *base_smc[MIF_BLK_NUM];
 static void __iomem *base_trex[TREX_SCI_NUM];
 
 static DEFINE_MUTEX(media_mutex);
@@ -796,15 +795,6 @@ static void scen_chaining(enum exynos_bts_scenario scen)
 	}
 }
 
-static void bts_smc_init(void __iomem *base)
-{
-	__raw_writel(0x10101010, base + SCHED_CTRL0);
-	__raw_writel(0x10101010, base + SCHED_CTRL1);
-	__raw_writel(0x20202060, base + SCHED_CTRL2);
-	__raw_writel(0x00000110, base + SCHED_CTRL3);
-	return;
-}
-
 static void bts_trex_init(void __iomem *base)
 {
 	__raw_writel(0x0B070000, base + SCI_CTRL);
@@ -838,8 +828,6 @@ static int exynos_bts_notifier_event(struct notifier_block *this,
 
 	switch ((unsigned int)event) {
 	case PM_POST_SUSPEND:
-		for (i = 0; i < (unsigned int)ARRAY_SIZE(base_smc); i++)
-			bts_smc_init(base_smc[i]);
 		for (i = 0; i < (unsigned int)ARRAY_SIZE(base_trex); i++)
 			bts_trex_init(base_trex[i]);
 		bts_initialize("trex", true);
@@ -1239,8 +1227,6 @@ static int exynos8_bts_lpa_event(struct notifier_block *nb,
 
 	switch (event) {
 	case LPA_EXIT:
-		for (i = 0; i < (unsigned int)ARRAY_SIZE(base_smc); i++)
-			bts_smc_init(base_smc[i]);
 		for (i = 0; i < (unsigned int)ARRAY_SIZE(base_trex); i++)
 			bts_trex_init(base_trex[i]);
 		bts_initialize("trex", true);
@@ -1297,19 +1283,11 @@ static int __init exynos8_bts_init(void)
 		list_add(&exynos8_bts[i].list, &bts_list);
 	}
 
-	base_smc[0] = ioremap(EXYNOS8_PA_SMC0, SZ_4K);
-	base_smc[1] = ioremap(EXYNOS8_PA_SMC1, SZ_4K);
-	base_smc[2] = ioremap(EXYNOS8_PA_SMC2, SZ_4K);
-	base_smc[3] = ioremap(EXYNOS8_PA_SMC3, SZ_4K);
-
 	base_trex[0] = ioremap(EXYNOS8_PA_TREX_CCORE0, SZ_4K);
 	base_trex[1] = ioremap(EXYNOS8_PA_TREX_CCORE1, SZ_4K);
 
 	for (i = BS_DEFAULT + 1; i < BS_MAX; i++)
 		scen_chaining(i);
-
-	for (i = 0; i < ARRAY_SIZE(base_smc); i++)
-		bts_smc_init(base_smc[i]);
 
 	for (i = 0; i < ARRAY_SIZE(base_trex); i++)
 		bts_trex_init(base_trex[i]);
