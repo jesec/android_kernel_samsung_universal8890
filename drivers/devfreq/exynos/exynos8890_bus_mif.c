@@ -40,7 +40,6 @@
 #define DEVFREQ_MIF_CMOS_FREQ		(468000)
 #define DEVFREQ_MIF_SWITCH_FREQ_HI	(936000)
 #define DEVFREQ_MIF_SWITCH_FREQ 	(528000)
-#define SWITCH_CMOS_VOLT_OFFSET		(56250)
 
 static struct pm_qos_request int_pm_qos_from_mif;
 
@@ -157,7 +156,7 @@ static int exynos8890_devfreq_mif_get_switch_voltage(u32 cur_freq, u32 new_freq,
 {
 	/* if switching PLL is CMOS I/O mode level, it should be add a voltage offset */
 	if (cur_freq <= DEVFREQ_MIF_CMOS_FREQ || new_freq <= DEVFREQ_MIF_CMOS_FREQ) {
-		data->switch_volt = sw_volt_table[1] + SWITCH_CMOS_VOLT_OFFSET;
+		data->switch_volt = sw_volt_table[1];
 		goto out;
 	}
 
