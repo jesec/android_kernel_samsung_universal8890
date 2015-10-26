@@ -35,6 +35,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/exynos-ss.h>
 #include <linux/pm_qos.h>
+#include <linux/cpu.h>
 
 #include <soc/samsung/exynos-pm.h>
 #include <soc/samsung/cpufreq.h>
@@ -50,6 +51,7 @@
 static unsigned int sensor_count = 0;
 struct cpufreq_frequency_table gpu_freq_table[10];
 struct isp_fps_table isp_fps_table[10];
+unsigned long base_addr[10];
 
 /**
  * struct exynos_tmu_data : A structure to hold the private data of the TMU
@@ -825,6 +827,8 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 	struct isp_fps_table *isp_table_ptr;
 	unsigned int table_size;
 	u32 gpu_idx_num = 0, isp_idx_num = 0;
+	int real_tmuctrl_id = -1;
+	int sensor_type = -1;
 
 	if (!data || !pdev->dev.of_node)
 		return -ENODEV;
@@ -859,11 +863,22 @@ static int exynos_map_dt_data(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get Resource 0\n");
 		return -ENODEV;
 	}
+	/* Check senor type (0 : Normal, 1 : Virtual) */
+	of_property_read_u32(pdev->dev.of_node, "sensor_type", &sensor_type);
+	if (sensor_type < 0)
+		dev_err(&pdev->dev, "NO checked sensor type\n");
 
-	data->base = devm_ioremap(&pdev->dev, res.start, resource_size(&res));
-	if (!data->base) {
-		dev_err(&pdev->dev, "Failed to ioremap memory\n");
-		return -EADDRNOTAVAIL;
+	if (sensor_type == NORMAL_SENSOR) {
+		data->base = devm_ioremap(&pdev->dev, res.start, resource_size(&res));
+		if (!data->base) {
+			dev_err(&pdev->dev, "Failed to ioremap memory\n");
+			return -EADDRNOTAVAIL;
+		}
+		base_addr[data->id] = (unsigned long)data->base;
+	}
+	else {
+		of_property_read_u32(pdev->dev.of_node, "real_tmuctrl_id", &real_tmuctrl_id);
+		data->base = (void __iomem *) base_addr[real_tmuctrl_id];
 	}
 
 	pdata = exynos_get_driver_data(pdev, data->id);
@@ -1190,9 +1205,10 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		exynos_pm_register_notifier(&exynos_low_pwr_nb);
 #endif
 #if defined(CONFIG_CPU_THERMAL_IPA)
-	if (pdata->d_type == CLUSTER1)
+	if (pdata->d_type == CLUSTER1 && pdata->sensor_type == NORMAL_SENSOR) {
 		pm_qos_add_request(&ipa_cpu_hotplug_request, PM_QOS_CPU_ONLINE_MAX,
 					PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
+	}
 #endif
 
 	return 0;

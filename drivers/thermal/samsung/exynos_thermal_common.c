@@ -545,8 +545,9 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 	/* Add hotplug function ops */
 	if (sensor_conf->hotplug_enable) {
 		dev_ops = &exynos_dev_hotplug_ops;
-		pm_qos_add_request(&thermal_cpu_hotplug_request, PM_QOS_CPU_ONLINE_MAX,
-					PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
+		if (sensor_conf->id == 0)
+			pm_qos_add_request(&thermal_cpu_hotplug_request, PM_QOS_CPU_ONLINE_MAX,
+						PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 	} else
 		dev_ops = &exynos_dev_ops;
 
