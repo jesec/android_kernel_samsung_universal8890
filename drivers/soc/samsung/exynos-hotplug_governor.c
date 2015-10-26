@@ -12,6 +12,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
+#include <linux/fb.h>
 
 #include <soc/samsung/exynos-cpu_hotplug.h>
 
@@ -25,6 +26,7 @@
 enum hpgov_event {
 	HPGOV_SLACK_TIMER_EXPIRED = 1,	/* slack timer expired */
 	HPGOV_BIG_MODE_UPDATED = 2,	/* dual/quad mode updated */
+	HPGOV_LCD_STATUS_UPDATED = 3,	/* lcd_status updated */
 };
 
 struct hpgov_attrib {
@@ -45,6 +47,8 @@ struct {
 	int				cur_cpu_max;
 	int				cur_cpu_min;
 	long				use_fast_hp;
+
+	bool				lcd_on;
 
 	uint32_t			dual_change_ms;
 	struct hpgov_attrib		attrib;
@@ -78,7 +82,20 @@ enum {
 enum {
 	BIG_DUAL_MODE,
 	BIG_QUAD_MODE,
+	BIG_OFF_MODE,
 };
+
+static inline bool hpgov_lcd_on_status(void)
+{
+	bool ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&hpgov_lock, flags);
+	ret = exynos_hpgov.lcd_on;
+	spin_unlock_irqrestore(&hpgov_lock, flags);
+
+	return ret;
+}
 
 static int start_slack_timer(void)
 {
@@ -86,7 +103,7 @@ static int start_slack_timer(void)
 
 	ktime_t curr_time = ktime_get();
 
-	if (!exynos_hpgov.enabled)
+	if (!exynos_hpgov.enabled || !hpgov_lcd_on_status())
 		return 0;
 
 	hrtimer_cancel(&exynos_hpgov.slack_timer);
@@ -114,27 +131,47 @@ static enum hrtimer_restart exynos_hpgov_slack_timer(struct hrtimer *timer)
 
 	spin_lock_irqsave(&hpgov_lock, flags);
 	exynos_hpgov.data.event = HPGOV_SLACK_TIMER_EXPIRED;
-	exynos_hpgov.data.req_cpu_max = 6;
+	exynos_hpgov.data.req_cpu_min = 6;
 	spin_unlock_irqrestore(&hpgov_lock, flags);
 
 	wake_up(&exynos_hpgov.wait_q);
 out:
 	return HRTIMER_NORESTART;
 }
+static void exynos_hpgov_lcd_status_update(int big_mode)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&hpgov_lock, flags);
+	exynos_hpgov.data.event = HPGOV_LCD_STATUS_UPDATED;
+	if (big_mode == BIG_OFF_MODE) {
+		exynos_hpgov.data.req_cpu_min = 4;
+		exynos_hpgov.lcd_on = false;
+	} else {
+		exynos_hpgov.lcd_on = true;
+		exynos_hpgov.data.req_cpu_min = 6;
+	}
+	spin_unlock_irqrestore(&hpgov_lock, flags);
+
+	if (!exynos_hpgov.enabled)
+		return;
+
+	irq_work_queue(&exynos_hpgov.update_irq_work);
+}
 
 static void exynos_hpgov_big_mode_update(int big_mode)
 {
 	unsigned long flags;
 
-	if (!exynos_hpgov.enabled)
+	if (!exynos_hpgov.enabled || !hpgov_lcd_on_status())
 		return;
 
 	spin_lock_irqsave(&hpgov_lock, flags);
 	exynos_hpgov.data.event = HPGOV_BIG_MODE_UPDATED;
 	if (big_mode == BIG_QUAD_MODE)
-		exynos_hpgov.data.req_cpu_max = 8;
+		exynos_hpgov.data.req_cpu_min = 8;
 	else
-		exynos_hpgov.data.req_cpu_max = 6;
+		exynos_hpgov.data.req_cpu_min = 6;
 	spin_unlock_irqrestore(&hpgov_lock, flags);
 
 	irq_work_queue(&exynos_hpgov.update_irq_work);
@@ -215,7 +252,9 @@ static int exynos_hpgov_update_governor(enum hpgov_event event, int req_cpu_max,
 	case HPGOV_BIG_MODE_UPDATED:
 	case HPGOV_SLACK_TIMER_EXPIRED:
 		exynos_hpgov.use_fast_hp = 1;
-
+		break;
+	case HPGOV_LCD_STATUS_UPDATED:
+		exynos_hpgov.use_fast_hp = 0;
 	default:
 		break;
 	}
@@ -429,6 +468,47 @@ static void hpgov_boot_enable(struct work_struct *work)
 		schedule_delayed_work_on(0, &hpgov_boot_work, msecs_to_jiffies(RETRY_BOOT_ENABLE_MS));
 }
 
+static int exynos_hpgov_fb_notifier(struct notifier_block *nb,
+					unsigned long val, void *data)
+{
+	struct fb_event *evdata = data;
+	struct fb_info *info = evdata->info;
+	unsigned int blank;
+	int ret = NOTIFY_OK;
+
+	if (val != FB_EVENT_BLANK && val != FB_R_EARLY_EVENT_BLANK)
+		return 0;
+
+	/*
+	 * If FBNODE is not zero, it is not primary display(LCD)
+	 * and don't need to process these scheduling.
+	 */
+	if (info->node)
+		return ret;
+
+	blank = *(int *)evdata->data;
+
+	switch (blank) {
+	case FB_BLANK_POWERDOWN:
+		pr_info("%s: LCD is off\n", __func__);
+		exynos_hpgov_lcd_status_update(BIG_OFF_MODE);
+		hrtimer_cancel(&exynos_hpgov.slack_timer);
+		break;
+	case FB_BLANK_UNBLANK:
+		pr_info("%s: LCD is on\n", __func__);
+		exynos_hpgov_lcd_status_update(BIG_DUAL_MODE);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static struct notifier_block exynos_hpgov_fb_notifier_block = {
+        .notifier_call = exynos_hpgov_fb_notifier,
+};
+
 static int __init exynos_hpgov_init(void)
 {
 	int ret = 0;
@@ -466,6 +546,9 @@ static int __init exynos_hpgov_init(void)
 
 	pm_qos_add_request(&hpgov_max_pm_qos, PM_QOS_CPU_ONLINE_MAX, PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 	pm_qos_add_request(&hpgov_min_pm_qos, PM_QOS_CPU_ONLINE_MIN, PM_QOS_CPU_ONLINE_MIN_DEFAULT_VALUE);
+
+	/* Register FB notifier */
+	fb_register_client(&exynos_hpgov_fb_notifier_block);
 
 	schedule_delayed_work_on(0, &hpgov_boot_work, msecs_to_jiffies(DEFAULT_BOOT_ENABLE_MS));
 
