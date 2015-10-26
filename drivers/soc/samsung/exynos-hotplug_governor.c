@@ -12,7 +12,6 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
-#include <linux/atomic.h>
 
 #include <soc/samsung/exynos-cpu_hotplug.h>
 
@@ -31,7 +30,6 @@ enum hpgov_event {
 struct hpgov_attrib {
 	struct kobj_attribute	enabled;
 	struct kobj_attribute	dual_change_ms;
-	struct kobj_attribute	boost;
 
 	struct attribute_group	attrib_group;
 };
@@ -61,7 +59,6 @@ struct {
 	wait_queue_head_t		wait_q;
 	wait_queue_head_t		wait_hpq;
 
-	atomic_t			qos_boost_cnt;
 	int				boost_cnt;
 	int				delayed_boost_cnt;
 } exynos_hpgov;
@@ -378,35 +375,10 @@ int hpgov_default_level(void)
 	return 2;
 }
 
-int set_hpgov_boost(int enable)
-{
-	int cnt;
-	if (enable) {
-		cnt = atomic_inc_return(&exynos_hpgov.qos_boost_cnt);
-		if (cnt == 1)
-			inc_boost_req_count(false);
-	} else {
-		cnt = atomic_dec_return(&exynos_hpgov.qos_boost_cnt);
-		if (cnt == 0)
-			dec_boost_req_count(false);
-		else if (cnt < 0) {
-			atomic_set(&exynos_hpgov.qos_boost_cnt, 0);
-			pr_warn("Unbalanced hotplug governor boost\n");
-		}
-	}
-	return 0;
-}
-EXPORT_SYMBOL(set_hpgov_boost);
-
 static int exynos_hpgov_set_dual_change_ms(uint32_t val)
 {
 	exynos_hpgov.dual_change_ms = val;
 	return 0;
-}
-
-static int exynos_hpgov_set_boost(uint32_t val)
-{
-	return set_hpgov_boost(val);
 }
 
 #define HPGOV_PARAM(_name, _param) \
@@ -448,7 +420,6 @@ static ssize_t exynos_hpgov_attr_##_name##_store(struct kobject *kobj, \
 
 HPGOV_PARAM(enabled, exynos_hpgov.enabled);
 HPGOV_PARAM(dual_change_ms, exynos_hpgov.dual_change_ms);
-HPGOV_PARAM(boost, exynos_hpgov.boost_cnt);
 
 static void hpgov_boot_enable(struct work_struct *work);
 static DECLARE_DELAYED_WORK(hpgov_boot_work, hpgov_boot_enable);
@@ -483,7 +454,6 @@ static int __init exynos_hpgov_init(void)
 
 	HPGOV_RW_ATTRIB(0, enabled);
 	HPGOV_RW_ATTRIB(1, dual_change_ms);
-	HPGOV_RW_ATTRIB(2, boost);
 
 	exynos_hpgov.attrib.attrib_group.name = "governor";
 	ret = sysfs_create_group(exynos_cpu_hotplug_kobj(), &exynos_hpgov.attrib.attrib_group);
