@@ -66,10 +66,6 @@ struct cpufreq_interactive_cpuinfo {
 	u64 loc_floor_val_time; /* per-cpu floor_validate_time */
 	u64 pol_hispeed_val_time; /* policy hispeed_validate_time */
 	u64 loc_hispeed_val_time; /* per-cpu hispeed_validate_time */
-#if defined(CONFIG_EXYNOS_DUAL_GOV_PARAMS_SUPPORT)
-	u64 loc_hispeed_val_time_2nd; /* per-cpu hispeed_validate_time_2nd */
-#endif
-
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
 };
@@ -464,18 +460,16 @@ static void cpufreq_interactive_timer(unsigned long data)
 	 */
 	if (tunables->hispeed_freq_2nd &&
 			new_freq > tunables->hispeed_freq_2nd) {
-		if (pcpu->target_freq == tunables->hispeed_freq_2nd &&
-			now - pcpu->loc_hispeed_val_time_2nd <
+		if (pcpu->policy->cur == tunables->hispeed_freq_2nd &&
+			now - pcpu->pol_hispeed_val_time <
 			freq_to_above_hispeed_delay(tunables, pcpu->policy->cur)) {
 			spin_unlock_irqrestore(&pcpu->target_freq_lock, flags);
 			goto rearm;
 		}
 
-		if (pcpu->target_freq < tunables->hispeed_freq_2nd)
+		if (pcpu->policy->cur < tunables->hispeed_freq_2nd)
 			new_freq = tunables->hispeed_freq_2nd;
 	}
-
-	pcpu->loc_hispeed_val_time_2nd = now;
 #endif
 
 	pcpu->loc_hispeed_val_time = now;
@@ -2466,10 +2460,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu->loc_floor_val_time = pcpu->pol_floor_val_time;
 			pcpu->pol_hispeed_val_time = pcpu->pol_floor_val_time;
 			pcpu->loc_hispeed_val_time = pcpu->pol_floor_val_time;
-#if defined(CONFIG_EXYNOS_DUAL_GOV_PARAMS_SUPPORT)
-			if (policy->cpu)
-				pcpu->loc_hispeed_val_time_2nd = pcpu->pol_floor_val_time;
-#endif
 			down_write(&pcpu->enable_sem);
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
