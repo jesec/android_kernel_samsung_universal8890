@@ -93,28 +93,18 @@ int s5p_mfc_alloc_codec_buffers(struct s5p_mfc_ctx *ctx)
 			lcu_height = enc_lcu_height(ctx->img_height);
 			if (ctx->codec_mode != S5P_FIMV_CODEC_HEVC_ENC &&
 				ctx->codec_mode != S5P_FIMV_CODEC_VP9_ENC) {
-				if (IS_MFCv101(dev))
-					enc->luma_dpb_size =
-						ALIGN((((mb_width * 16) + 63) / 64) * 64
-							* (((mb_height * 16) + 31) / 32)
-							* 32 + 64, 64);
-				else
-					enc->luma_dpb_size =
-						ALIGN((((mb_width * 16) + 63) / 64) * 64
-							* (mb_height * 16) + 64, 64);
+				enc->luma_dpb_size =
+					ALIGN((((mb_width * 16) + 63) / 64) * 64
+						* (((mb_height * 16) + 31) / 32)
+						* 32 + 64, 64);
 				enc->chroma_dpb_size =
 					ALIGN((((mb_width * 16) + 63) / 64)
-							* 64 * (mb_height * 8) + 64, 64);
+						* 64 * (mb_height * 8) + 64, 64);
 			} else {
-				if (IS_MFCv101(dev))
-					enc->luma_dpb_size =
-						ALIGN((((lcu_width * 32 ) + 63 ) / 64) * 64
-							* (((lcu_height * 32) + 31) / 32)
-							* 32 + 64, 64);
-				else
-					enc->luma_dpb_size =
-						ALIGN((((lcu_width * 32) + 63) / 64) * 64
-							* (lcu_height * 32) + 64, 64);
+				enc->luma_dpb_size =
+					ALIGN((((lcu_width * 32 ) + 63 ) / 64) * 64
+						* (((lcu_height * 32) + 31) / 32)
+						* 32 + 64, 64);
 				enc->chroma_dpb_size =
 					ALIGN((((lcu_width * 32) + 63) / 64)
 						* 64 * (lcu_height * 16) + 64, 64);

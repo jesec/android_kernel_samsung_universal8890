@@ -118,7 +118,6 @@
 #define IS_MFCv10X(dev)		((mfc_version(dev) == 0xA0) || \
 				 (mfc_version(dev) == 0xA01))
 #define IS_MFCv78(dev)		(mfc_version(dev) == 0x78)
-#define IS_MFCv101(dev)		(mfc_version(dev) == 0xA01)
 #define IS_MFCV6(dev)		(IS_MFCv6X(dev) || IS_MFCv7X(dev) ||	\
 				IS_MFCv8X(dev) || IS_MFCv9X(dev) ||	\
 				IS_MFCv10X(dev))

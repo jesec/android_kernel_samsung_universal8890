@@ -1896,7 +1896,7 @@ static int s5p_mfc_open(struct file *file)
 				mfc_err_ctx("DRM F/W buffer is not allocated.\n");
 				dev->drm_fw_status = 0;
 			} else {
-				if (IS_MFCv101(dev)) {
+				if (IS_MFCv10X(dev)) {
 					ret = exynos_smc(SMC_DRM_SECBUF_PROT,
 							dev->drm_fw_info.phys,
 							dev->fw_region_size,
@@ -1987,7 +1987,7 @@ err_fw_load:
 	if (dev->drm_fw_status) {
 		dev->is_support_smc = 0;
 		dev->drm_fw_status = 0;
-		if (IS_MFCv101(dev)) {
+		if (IS_MFCv10X(dev)) {
 			ret = exynos_smc(SMC_DRM_SECBUF_UNPROT,
 					dev->drm_fw_info.phys,
 					dev->fw_region_size,
@@ -2171,7 +2171,7 @@ static int s5p_mfc_release(struct file *file)
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 					dev->is_support_smc = 0;
-					if (IS_MFCv101(dev)) {
+					if (IS_MFCv10X(dev)) {
 						ret = exynos_smc(SMC_DRM_SECBUF_UNPROT,
 								dev->drm_fw_info.phys,
 								dev->fw_region_size,
@@ -2218,7 +2218,7 @@ static int s5p_mfc_release(struct file *file)
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 		dev->is_support_smc = 0;
-		if (IS_MFCv101(dev)) {
+		if (IS_MFCv10X(dev)) {
 			ret = exynos_smc(SMC_DRM_SECBUF_UNPROT,
 					dev->drm_fw_info.phys,
 					dev->fw_region_size,
