@@ -449,9 +449,6 @@ static int is_sicd_available(unsigned int cpu, unsigned int *sicd_mode)
 	if (is_cpus_busy(pm_info->sicd_residency, cpu_online_mask))
 		return false;
 
-	if (!exynos_check_cp_status())
-		return false;
-
 	if (check_mode_available(SYS_SICD_AUD)) {
 		*sicd_mode = SYS_SICD_AUD;
 		return true;
@@ -712,9 +709,6 @@ void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
  */
 int determine_lpm(void)
 {
-	if (!exynos_check_cp_status())
-		return SYS_AFTR;
-
 	if (check_mode_available(SYS_ALPA))
 		return SYS_ALPA;
 

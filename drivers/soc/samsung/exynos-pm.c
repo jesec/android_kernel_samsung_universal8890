@@ -201,15 +201,9 @@ EXPORT_SYMBOL_GPL(exynos_pm_sicd_exit);
 
 int early_wakeup;
 int psci_index;
-int is_cp_call;
 
 static int exynos_pm_syscore_suspend(void)
 {
-	if (!exynos_check_cp_status()) {
-		pr_info("%s: sleep canceled by CP reset \n",__func__);
-		return -EINVAL;
-	}
-
 	psci_index = PSCI_SYSTEM_SLEEP;
 	exynos_prepare_sys_powerdown(SYS_SLEEP);
 	pr_info("%s: Enter sleep mode\n",__func__);

@@ -153,16 +153,6 @@ struct exynos_cpu_power_ops exynos_cpu = {
 	.cluster_state = exynos_cluster_state,
 };
 
-
-int exynos_check_cp_status(void)
-{
-	unsigned int val;
-
-	exynos_pmu_read(PMU_CP_STAT, &val);
-
-	return val;
-}
-
 #ifdef CONFIG_EXYNOS_BIG_FREQ_BOOST
 #include <linux/delay.h>
 #include <linux/notifier.h>
