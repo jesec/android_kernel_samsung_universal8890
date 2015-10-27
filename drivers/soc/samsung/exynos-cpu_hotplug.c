@@ -70,6 +70,9 @@ static struct {
 	/* Control cpu hotplug operation */
 	bool			enabled;
 
+	/* flag for suspend */
+	bool			suspended;
+
 	/* Synchronizes accesses to refcount and cpumask */
 	struct mutex		lock;
 
@@ -94,6 +97,14 @@ static struct {
 } cpu_hotplug = {
 	.lock = __MUTEX_INITIALIZER(cpu_hotplug.lock),
 };
+
+static inline void cpu_hotplug_suspend(bool enable)
+{
+	/* This lock guarantees completion of do_cpu_hotplug() */
+	mutex_lock(&cpu_hotplug.lock);
+	cpu_hotplug.suspended = enable;
+	mutex_unlock(&cpu_hotplug.lock);
+}
 
 static inline void update_enable_flag(bool enable)
 {
@@ -152,8 +163,11 @@ static int do_cpu_hotplug(void *param)
 
 	mutex_lock(&cpu_hotplug.lock);
 
-	/* If cpu hotplug is disabled, do_cpu_hotplug() do nothing. */
-	if (!cpu_hotplug.enabled) {
+	/*
+	 * If cpu hotplug is disabled or suspended,
+	 * do_cpu_hotplug() do nothing.
+	 */
+	if (!cpu_hotplug.enabled || cpu_hotplug.suspended) {
 		mutex_unlock(&cpu_hotplug.lock);
 		return 0;
 	}
@@ -366,11 +380,11 @@ static int exynos_cpu_hotplug_pm_notifier(struct notifier_block *notifier,
 {
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
-		update_enable_flag(false);
+		cpu_hotplug_suspend(true);
 		break;
 
 	case PM_POST_SUSPEND:
-		update_enable_flag(true);
+		cpu_hotplug_suspend(false);
 		do_cpu_hotplug(NULL);
 		break;
 	}
