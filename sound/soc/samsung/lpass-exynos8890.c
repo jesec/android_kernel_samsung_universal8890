@@ -147,6 +147,7 @@ void lpass_enable_pll(bool on)
 		/* FIX ME: This code is related to POWER CAL,
 		   We need to resolve the issue related to Audio DMA */
 		cmu_reg = ioremap(0x114C0000, SZ_4K);
+		writel(0x1, cmu_reg + 0x800);
 		writel(0x1f3fff, cmu_reg + 0x804);
 
 		cfg = readl(cmu_reg + 0x400) & ~(0xF);
