@@ -12,11 +12,14 @@
 
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/input.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
 #include <linux/soc/samsung/exynos-soc.h>
+#include <linux/delay.h>
 
 extern void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
 static void __iomem *exynos_pmu_base = NULL;
@@ -68,6 +71,7 @@ int soc_has_mongoose(void)
 #define EXYNOS_PMU_ATLAS_NONCPU_RESET			(0x240C)
 #define EXYNOS_PMU_SWRESET				(0x0400)
 #define EXYNOS_PMU_RESET_SEQUENCER_CONFIGURATION	(0x0500)
+#define EXYNOS_PMU_PS_HOLD_CONTROL			(0x330C)
 
 static void mngs_reset_control(int en)
 {
@@ -183,6 +187,66 @@ static void dfd_set_dump_gpr(int en)
 #define INFORM_RAMDUMP		0xd
 #define INFORM_RECOVERY		0xf
 
+#if !defined(CONFIG_SEC_REBOOT)
+#ifdef CONFIG_OF
+static void exynos_power_off(void)
+{
+	int gpio_key = -1;
+	struct device_node *np, *child;
+	int retry = 0;
+
+	if (!(np=of_find_node_by_path("/gpio_keys")))
+		return;
+
+	for_each_child_of_node(np, child) {
+		uint keycode = 0;
+		if (!of_find_property(child, "gpios", NULL))
+			continue;
+		of_property_read_u32(child, "linux,code", &keycode);
+		if (keycode == KEY_POWER) {
+			pr_info("%s: node found (%u)\n", __func__,  keycode);
+			gpio_key = of_get_gpio(child, 0);
+			break;
+		}
+	}
+	of_node_put(np);
+
+	if (!gpio_is_valid(gpio_key)) {
+		pr_err("%s: There is no node of power key.\n", __func__);
+		return;
+	}
+
+	local_irq_disable();
+
+	while (1) {
+		/* Wait until power button released */
+		if (gpio_get_value(gpio_key)) {
+			pr_emerg("%s: Set PS_HOLD Low.\n", __func__);
+
+			/*
+			 * Set PS_HOLD low.
+			 */
+			mdelay(10);
+			writel(readl(exynos_pmu_base + EXYNOS_PMU_PS_HOLD_CONTROL) & 0xFFFFFEFF, exynos_pmu_base + EXYNOS_PMU_PS_HOLD_CONTROL);
+
+			++retry;
+			pr_emerg("%s: Should't be reached here! (retry cnt : %d)\n",
+			     __func__, retry);
+		} else {
+		/* If power button is not released, wait... */
+			pr_info("%s: Button is not released.\n", __func__);
+		}
+		mdelay(1000);
+	}
+}
+#else
+static void exynos_power_off(void)
+{
+	pr_info("Exynos power off does not support.\n");
+}
+#endif
+#endif
+
 static void exynos_reboot(enum reboot_mode mode, const char *cmd)
 {
 	u32 restart_inform, soc_id;
@@ -252,6 +316,9 @@ static int __init exynos_reboot_init(void)
 		return -ENODEV;
 
 	arm_pm_restart = exynos_reboot;
+#if !defined(CONFIG_SEC_REBOOT)
+	pm_power_off = exynos_power_off;
+#endif
 	init_fn = (reboot_initcall_t)matched_np->data;
 
 	return init_fn(np);
