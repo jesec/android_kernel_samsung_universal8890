@@ -368,6 +368,7 @@ void bts2_update_bw(struct decon_device *decon, struct decon_reg_data *regs, u32
 void bts2_release_bw(struct decon_device *decon)
 {
 	exynos_update_bw(0, 0, 0);
+	pm_qos_update_request(&decon->disp_qos, 0);
 
 	decon->prev_total_bw = 0;
 	decon->prev_max_peak_bw = 0;
