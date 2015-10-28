@@ -669,8 +669,10 @@ __enable_mmu:
 	msr	vbar_el1, x5
 	tlbi	vaae1, xzr
 	dsb	nsh
+	tlbi	vaae1, xzr
 	msr	ttbr0_el1, x25			// load TTBR0
 	msr	ttbr1_el1, x26			// load TTBR1
+	tlbi	vaae1, xzr
 	isb
 	tlbi	vaae1, xzr
 	dsb	nsh

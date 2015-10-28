@@ -184,7 +184,9 @@ ENTRY(cpu_do_switch_mm)
 	bfi	x0, x1, #48, #16		// set the ASID
 	tlbi	vaae1, xzr
 	dsb	nsh
+	tlbi	vaae1, xzr
 	msr	ttbr0_el1, x0			// set TTBR0
+	tlbi	vaae1, xzr
 	isb
 	tlbi	vaae1, xzr
 	dsb	nsh

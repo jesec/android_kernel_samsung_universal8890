@@ -60,7 +60,9 @@ static inline void cpu_set_reserved_ttbr0(void)
 	asm(
 	"	tlbi	vaae1, xzr	\n"
 	"	dsb	nsh		\n"
+	"	tlbi	vaae1, xzr	\n"
 	"	msr	ttbr0_el1, %0			// set TTBR0\n"
+	"	tlbi	vaae1, xzr	\n"
 	"	isb			\n"
 	"	tlbi	vaae1, xzr	\n"
 	"	dsb	nsh		\n"
