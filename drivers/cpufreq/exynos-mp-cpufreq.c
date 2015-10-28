@@ -1107,6 +1107,12 @@ static int exynos_cpufreq_pm_notifier(struct notifier_block *notifier,
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
+		/* Fix min/max freq to bootfreq for boot cluster */
+		pm_qos_update_request(&boot_min_qos[CL_ZERO],
+					exynos_info[CL_ZERO]->boot_freq);
+		pm_qos_update_request(&boot_max_qos[CL_ZERO],
+					exynos_info[CL_ZERO]->boot_freq);
+
 		pm_qos_update_request(&boot_max_qos[CL_ONE], freq_min[CL_ONE]);
 
 		mutex_lock(&cpufreq_lock);
@@ -1178,6 +1184,10 @@ static int exynos_cpufreq_pm_notifier(struct notifier_block *notifier,
 			exynos_info[cl]->blocked = false;
 			mutex_unlock(&cpufreq_lock);
 		}
+
+		/* Recovery min/max frequency normally for boot cluster */
+		pm_qos_update_request(&boot_min_qos[CL_ZERO], freq_min[CL_ZERO]);
+		pm_qos_update_request(&boot_max_qos[CL_ZERO], freq_max[CL_ZERO]);
 
 		pm_qos_update_request(&boot_max_qos[CL_ONE], INT_MAX);
 
