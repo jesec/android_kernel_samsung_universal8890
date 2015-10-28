@@ -1060,6 +1060,8 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 		/* Try to search decoded address in whole dst queue */
 		list_for_each_entry(dec_buf, &ctx->dst_queue, list) {
 			buf_addr = s5p_mfc_mem_plane_addr(ctx, &dec_buf->vb, 0);
+			mfc_debug(2, "dec buf: 0x%llx, dst buf: 0x%llx, used: %d\n",
+					dec_addr, buf_addr, dec_buf->used);
 			if ((buf_addr == dec_addr) && (dec_buf->used == 1)) {
 				found = 1;
 				break;
@@ -1077,11 +1079,6 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 
 			list_add_tail(&dec_buf->list, &dec->ref_queue);
 			dec->ref_queue_cnt++;
-		} else {
-			mfc_debug(2, "Can't find buffer for addr = 0x%llx\n",
-			(unsigned long long)dec_addr);
-			mfc_debug(2, "Expected addr = 0x%llx, used = %d\n",
-			(unsigned long long)buf_addr, dec_buf->used);
 		}
 	}
 
@@ -1090,6 +1087,9 @@ static void s5p_mfc_handle_ref_frame(struct s5p_mfc_ctx *ctx)
 		if (!(dec->dynamic_set & mfc_get_dec_used_flag())) {
 			dec->dynamic_used |= dec->dynamic_set;
 		}
+	} else {
+		mfc_debug(2, "Can't find buffer for addr = 0x%llx\n",
+				(unsigned long long)dec_addr);
 	}
 }
 
@@ -1345,23 +1345,32 @@ static inline void s5p_mfc_handle_error(struct s5p_mfc_ctx *ctx,
 				ctx->src_queue_cnt--;
 				vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_DONE);
 			}
-		} else if (err == S5P_FIMV_ERR_HEADER_NOT_FOUND && !ctx->is_drm) {
-			unsigned char *stream_vir = NULL;
-			unsigned int strm_size = 0;
-			spin_lock_irqsave(&dev->irqlock, flags);
+		} else if (err == S5P_FIMV_ERR_HEADER_NOT_FOUND) {
+			if (!ctx->is_drm) {
+				unsigned char *stream_vir = NULL;
+				unsigned int strm_size = 0;
+				spin_lock_irqsave(&dev->irqlock, flags);
+				if (!list_empty(&ctx->src_queue)) {
+					src_buf = list_entry(ctx->src_queue.next,
+							struct s5p_mfc_buf, list);
+					stream_vir = src_buf->vir_addr;
+					strm_size = src_buf->vb.v4l2_planes[0].bytesused;
+					if (strm_size > 32)
+						strm_size = 32;
+				}
+				spin_unlock_irqrestore(&dev->irqlock, flags);
+				if (stream_vir && strm_size)
+					print_hex_dump(KERN_ERR, "No header: ",
+							DUMP_PREFIX_ADDRESS, strm_size, 4,
+							stream_vir, strm_size, false);
+			}
 			if (!list_empty(&ctx->src_queue)) {
 				src_buf = list_entry(ctx->src_queue.next,
 						struct s5p_mfc_buf, list);
-				stream_vir = src_buf->vir_addr;
-				strm_size = src_buf->vb.v4l2_planes[0].bytesused;
-				if (strm_size > 32)
-					strm_size = 32;
+				list_del(&src_buf->list);
+				ctx->src_queue_cnt--;
+				vb2_buffer_done(&src_buf->vb, VB2_BUF_STATE_DONE);
 			}
-			spin_unlock_irqrestore(&dev->irqlock, flags);
-			if (stream_vir && strm_size)
-				print_hex_dump(KERN_ERR, "No header: ",
-						DUMP_PREFIX_ADDRESS, strm_size, 4,
-						stream_vir, strm_size, false);
 		}
 	case MFCINST_RES_CHANGE_END:
 		/* This error had to happen while parsing the header */
@@ -2058,8 +2067,8 @@ static int s5p_mfc_release(struct file *file)
 		enc = ctx->enc_priv;
 		if (!enc) {
 			mfc_err_ctx("no mfc encoder to run\n");
-			mutex_unlock(&dev->mfc_mutex);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err_release;
 		}
 
 		if (enc->in_slice || enc->buf_full) {
@@ -2093,9 +2102,14 @@ static int s5p_mfc_release(struct file *file)
 	if (!atomic_read(&dev->watchdog_run) &&
 		(ctx->inst_no != MFC_NO_INSTANCE_SET)) {
 		/* Wait for hw_lock == 0 for this context */
-		wait_event_timeout(ctx->queue,
+		ret = wait_event_timeout(ctx->queue,
 				(test_bit(ctx->num, &dev->hw_lock) == 0),
-				msecs_to_jiffies(MFC_INT_SHORT_TIMEOUT));
+				msecs_to_jiffies(MFC_INT_TIMEOUT));
+		if (ret == 0) {
+			mfc_err_ctx("Waiting for hardware to finish timed out\n");
+			ret = -EBUSY;
+			goto err_release;
+		}
 
 		s5p_mfc_change_state(ctx, MFCINST_RETURN_INST);
 		spin_lock_irq(&dev->condlock);
@@ -2109,6 +2123,7 @@ static int s5p_mfc_release(struct file *file)
 		/* Wait until instance is returned or timeout occured */
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET)) {
+			mfc_err_ctx("Waiting for CLOSE_INSTANCE timed out\n");
 			dev->curr_ctx_drm = ctx->is_drm;
 			set_bit(ctx->num, &dev->hw_lock);
 			s5p_mfc_clock_on(dev);
@@ -2150,7 +2165,7 @@ static int s5p_mfc_release(struct file *file)
 						if (ret != DRMDRV_OK) {
 							mfc_err_ctx("failed MFC DRM F/W unprot(%#x)\n",
 									ret);
-							return ret;
+							goto err_release;
 						}
 					}
 #endif
@@ -2197,7 +2212,7 @@ static int s5p_mfc_release(struct file *file)
 			if (ret != DRMDRV_OK) {
 				mfc_err_ctx("failed MFC DRM F/W unprot(%#x)\n",
 						ret);
-				return ret;
+				goto err_release;
 			}
 		}
 #endif
@@ -2207,7 +2222,7 @@ static int s5p_mfc_release(struct file *file)
 			ret = s5p_mfc_nal_q_destroy(dev, dev->nal_q_handle);
 			if (ret) {
 				mfc_err_ctx("failed nal_q destroy\n");
-				return ret;
+				goto err_release;
 			}
 		}
 #endif
@@ -2236,9 +2251,10 @@ static int s5p_mfc_release(struct file *file)
 	mfc_info_dev("mfc driver release finished [%d:%d], dev = %p\n",
 			dev->num_drm_inst, dev->num_inst, dev);
 
+err_release:
 	mutex_unlock(&dev->mfc_mutex);
 
-	return 0;
+	return ret;
 }
 
 /* Poll */

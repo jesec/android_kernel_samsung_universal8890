@@ -899,6 +899,15 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 
 	/* In case of calling s_fmt twice or more */
 	if (ctx->inst_no != MFC_NO_INSTANCE_SET) {
+		/* Wait for hw_lock == 0 for this context */
+		ret = wait_event_timeout(ctx->queue,
+				(test_bit(ctx->num, &dev->hw_lock) == 0),
+				msecs_to_jiffies(MFC_INT_TIMEOUT));
+		if (ret == 0) {
+			mfc_err_ctx("Waiting for hardware to finish timed out\n");
+			return -EBUSY;
+		}
+
 		s5p_mfc_change_state(ctx, MFCINST_RETURN_INST);
 		spin_lock_irq(&dev->condlock);
 		set_bit(ctx->num, &dev->ctx_work_bits);
@@ -908,6 +917,7 @@ static int vidioc_s_fmt_vid_out_mplane(struct file *file, void *priv,
 		/* Wait until instance is returned or timeout occured */
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_CLOSE_INSTANCE_RET)) {
+			mfc_err_ctx("Waiting for CLOSE_INSTANCE timed out\n");
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 			return -EIO;
 		}
