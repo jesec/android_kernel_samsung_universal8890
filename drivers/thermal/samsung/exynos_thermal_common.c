@@ -511,9 +511,16 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 	cpumask_clear(&mask_val);
 
 	for_each_possible_cpu(cpu) {
-		if (cpu_topology[cpu].cluster_id == sensor_conf->id) {
-			cpumask_copy(&mask_val, topology_core_cpumask(cpu));
-			break;
+		if (sensor_conf->d_type == CLUSTER1) {
+			if (cpu_topology[cpu].cluster_id == 0) {
+				cpumask_copy(&mask_val, topology_core_cpumask(cpu));
+				break;
+			}
+		} else {
+			if (cpu_topology[cpu].cluster_id == sensor_conf->id) {
+				cpumask_copy(&mask_val, topology_core_cpumask(cpu));
+				break;
+			}
 		}
 	}
 
