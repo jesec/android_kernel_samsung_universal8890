@@ -192,6 +192,15 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	unsigned int temp_mask = TYPE_8BIT_MASK;
 
 	mutex_lock(&data->lock);
+	if (pdata->sensor_type == VIRTUAL_SENSOR) {
+		if (!data->initialized)
+			list_add_tail(&data->node, &dtm_dev_list);
+
+		data->initialized = true;
+		mutex_unlock(&data->lock);
+
+		return 0;
+	}
 
 	if (reg->calib_sel_shift) {
 		status = (readb(data->base + reg->triminfo_data) >> reg->calib_sel_shift) \
@@ -441,13 +450,16 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	return ret;
 }
 
-static void exynos_tmu_control(struct platform_device *pdev, bool on)
+static int exynos_tmu_control(struct platform_device *pdev, bool on)
 {
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	const struct exynos_tmu_registers *reg = pdata->registers;
 	unsigned int con, interrupt_en, otp_fuse;
 	int timeout, status;
+
+	if (pdata->sensor_type == VIRTUAL_SENSOR)
+		return 0;
 
 	mutex_lock(&data->lock);
 
@@ -539,6 +551,8 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
 	}
 
 	mutex_unlock(&data->lock);
+
+	return 0;
 }
 
 #if defined(CONFIG_CPU_THERMAL_IPA)
@@ -1135,12 +1149,14 @@ static int exynos_tmu_ect_set_information(struct platform_device *pdev)
 	return 0;
 }
 #endif
-
 static int exynos_tmu_probe(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data;
 	struct exynos_tmu_platform_data *pdata;
 	struct thermal_sensor_conf *sensor_conf;
+	struct exynos_tmu_data *devnode;
+	u16 p_temp_error1, p_temp_error2;
+	u16 p_threshold_falling, p_cal_type;
 	int ret, i;
 
 	/* make sure cpufreq driver has been initialized */
@@ -1194,6 +1210,22 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	}
 
 	exynos_tmu_control(pdev, true);
+
+	list_for_each_entry(devnode, &dtm_dev_list, node) {
+		if (devnode->pdata->d_type == CLUSTER1) {
+			if (devnode->pdata->sensor_type == NORMAL_SENSOR) {
+				p_temp_error1 = devnode->temp_error1;
+				p_temp_error2 = devnode->temp_error2;
+				p_cal_type = devnode->pdata->cal_type;
+				p_threshold_falling = devnode->pdata->threshold_falling;
+			} else if (devnode->pdata->sensor_type == VIRTUAL_SENSOR) {
+				devnode->temp_error1 = p_temp_error1;
+				devnode->temp_error2 = p_temp_error2;
+				devnode->pdata->cal_type = p_cal_type;
+				devnode->pdata->threshold_falling = p_threshold_falling;
+			}
+		}
+	}
 
 	/* Allocate a structure to register with the exynos core thermal */
 	sensor_conf = devm_kzalloc(&pdev->dev,
