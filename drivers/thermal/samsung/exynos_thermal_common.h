@@ -113,6 +113,7 @@ struct thermal_sensor_conf {
 void exynos_unregister_thermal(struct thermal_sensor_conf *sensor_conf);
 int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf);
 void exynos_report_trigger(struct thermal_sensor_conf *sensor_conf);
+void change_core_boost_thermal(struct thermal_sensor_conf *quad, struct thermal_sensor_conf *dual, int mode);
 #else
 static inline void
 exynos_unregister_thermal(struct thermal_sensor_conf *sensor_conf) { return; }

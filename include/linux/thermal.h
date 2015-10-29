@@ -69,6 +69,7 @@ struct thermal_cooling_device;
 enum thermal_device_mode {
 	THERMAL_DEVICE_DISABLED = 0,
 	THERMAL_DEVICE_ENABLED,
+	THERMAL_DEVICE_PAUSED,
 };
 
 enum thermal_trip_type {

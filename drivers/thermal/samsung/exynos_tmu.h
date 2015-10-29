@@ -28,6 +28,11 @@
 
 #define FIRST_SENSOR		0
 
+#define QUAD_MODE		(0)
+#define DUAL_MODE		(1)
+#define DUAL_CPU		(2)
+#define QUAD_CPU		(4)
+
 enum calibration_type {
 	TYPE_ONE_POINT_TRIMMING,
 	TYPE_ONE_POINT_TRIMMING_25,

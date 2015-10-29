@@ -691,6 +691,8 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 				    unsigned long event, void *data)
 {
 	struct cpumask mask;
+	struct exynos_tmu_data *devnode;
+	struct exynos_tmu_data *quad_data, *dual_data;
 
 	switch (event) {
 	case CPUS_DOWN_COMPLETE:
@@ -698,12 +700,36 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
 		big_cpu_cnt = cpumask_weight(&mask);
 
+		list_for_each_entry(devnode, &dtm_dev_list, node) {
+			if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == NORMAL_SENSOR)
+				quad_data = devnode;
+			else if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == VIRTUAL_SENSOR)
+				dual_data = devnode;
+		}
+
+		if (big_cpu_cnt == DUAL_CPU) {
+			/* changed to dual */
+			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, DUAL_MODE);
+		}
 		break;
 	case CPUS_UP_PREPARE:
 		cpumask_copy(&mask, data);
 		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
 		big_cpu_cnt = cpumask_weight(&mask);
 
+		list_for_each_entry(devnode, &dtm_dev_list, node) {
+			if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == NORMAL_SENSOR)
+				quad_data = devnode;
+			else if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == VIRTUAL_SENSOR)
+				dual_data = devnode;
+		}
+
+		if (big_cpu_cnt == QUAD_CPU){
+			/* changed to quad */
+			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, QUAD_MODE);
+		} else if (big_cpu_cnt == DUAL_CPU) {
+			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, DUAL_MODE);
+		}
 		break;
 	}
 

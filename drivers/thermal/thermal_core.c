@@ -495,6 +495,7 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 {
 	int count, result;
 	enum thermal_device_mode mode;
+	struct thermal_instance *instance;
 
 	if (!tz->ops->get_mode)
 		return;
@@ -508,6 +509,14 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 	if (mode == THERMAL_DEVICE_ENABLED) {
 		for (count = 0; count < tz->trips; count++)
 			handle_thermal_trip(tz, count);
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	} else if (mode == THERMAL_DEVICE_PAUSED) {
+		list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+			instance->target = 0;
+			instance->cdev->updated = false;
+			thermal_cdev_update(instance->cdev);
+		}
+#endif
 	}
 }
 EXPORT_SYMBOL_GPL(thermal_zone_device_update);

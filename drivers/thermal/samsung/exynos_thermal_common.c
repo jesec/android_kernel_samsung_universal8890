@@ -74,6 +74,7 @@ static int exynos_set_mode(struct thermal_zone_device *thermal,
 	}
 
 	th_zone->mode = mode;
+
 	thermal_zone_device_update(thermal);
 
 	return 0;
@@ -367,8 +368,11 @@ static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
 			 * call cluster1_cores_hotplug(false) for hotplugged out cpus.
 			 */
 			pm_qos_update_request(&thermal_cpu_hotplug_request, NR_CPUS);
+
+			mutex_lock(&th_zone->therm_dev->lock);
 			is_cpu_hotplugged_out = false;
 			cpufreq_device->cpufreq_state = 0;
+			mutex_unlock(&th_zone->therm_dev->lock);
 		}
 	} else {
 		if (cur_temp >= data->hotplug_out_threshold) {
@@ -376,8 +380,11 @@ static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
 			 * If current temperature is higher than high threshold,
 			 * call cluster1_cores_hotplug(true) to hold temperature down.
 			 */
-			pm_qos_update_request(&thermal_cpu_hotplug_request, NR_CLUST1_CPUS);
+			mutex_lock(&th_zone->therm_dev->lock);
 			is_cpu_hotplugged_out = true;
+			mutex_unlock(&th_zone->therm_dev->lock);
+
+			pm_qos_update_request(&thermal_cpu_hotplug_request, NR_CLUST1_CPUS);
 		}
 	}
 
@@ -462,6 +469,25 @@ void exynos_report_trigger(struct thermal_sensor_conf *conf)
 	kobject_uevent_env(&th_zone->therm_dev->device.kobj, KOBJ_CHANGE, envp);
 	mutex_unlock(&th_zone->therm_dev->lock);
 }
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+void change_core_boost_thermal(struct thermal_sensor_conf *quad, struct thermal_sensor_conf *dual, int mode)
+{
+	struct exynos_thermal_zone *th_zone;
+
+	if (mode == 0) {
+		th_zone = quad->pzone_data;
+		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_ENABLED);
+		th_zone = dual->pzone_data;
+		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_PAUSED);
+	} else {
+		th_zone = dual->pzone_data;
+		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_ENABLED);
+		th_zone = quad->pzone_data;
+		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_PAUSED);
+	}
+}
+#endif
 
 static int exynos_pm_notifier(struct notifier_block *notifier,
 			unsigned long event, void *v)
