@@ -78,6 +78,7 @@ struct exynos_tmu_data {
 	int irq;
 	enum soc_type soc;
 	struct work_struct irq_work;
+	struct notifier_block nb;
 	struct mutex lock;
 	u16 temp_error1, temp_error2;
 	struct regulator *regulator;
@@ -682,6 +683,38 @@ void exynos_tmu_core_control(bool on, int id)
 	}
 }
 
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+extern struct cpumask hmp_fast_cpu_mask;
+static int big_cpu_cnt;
+
+static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
+				    unsigned long event, void *data)
+{
+	struct cpumask mask;
+
+	switch (event) {
+	case CPUS_DOWN_COMPLETE:
+		cpumask_copy(&mask, data);
+		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
+		big_cpu_cnt = cpumask_weight(&mask);
+
+		break;
+	case CPUS_UP_PREPARE:
+		cpumask_copy(&mask, data);
+		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
+		big_cpu_cnt = cpumask_weight(&mask);
+
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_tmu_cpus_nb = {
+	.notifier_call = exynos_tmu_cpus_notifier,
+};
+#endif
+
 #ifdef CONFIG_CPU_PM
 #ifdef CONFIG_CPU_IDLE
 static int exynos_low_pwr_notifier(struct notifier_block *notifier,
@@ -1212,7 +1245,12 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 					PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 	}
 #endif
-
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	if (pdata->d_type == CLUSTER1 && pdata->sensor_type == NORMAL_SENSOR) {
+		register_cpus_notifier(&exynos_tmu_cpus_nb);
+		data->nb.notifier_call = exynos_tmu_cpus_notifier;
+	}
+#endif
 	return 0;
 err:
 	return ret;
@@ -1221,7 +1259,13 @@ err:
 static int exynos_tmu_remove(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
+	struct exynos_tmu_platform_data *pdata = data->pdata;
 	struct exynos_tmu_data *devnode;
+
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	if (pdata->d_type == CLUSTER1 && pdata->sensor_type == NORMAL_SENSOR)
+		unregister_cpus_notifier(&exynos_tmu_cpus_nb);
+#endif
 
 	exynos_unregister_thermal(data->reg_conf);
 
