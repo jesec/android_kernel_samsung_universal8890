@@ -98,58 +98,34 @@ static void mngs_reset_control(int en)
 
 		for (val = 0; val < mngs_cpu_cnt; val++) {
 			reg_val = readl(exynos_pmu_base + EXYNOS_PMU_ATLAS_CPU0_RESET + (val * 0x80));
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
 			reg_val |= (RESET_DISABLE_WDT_CPUPORESET
 					| RESET_DISABLE_CORERESET | RESET_DISABLE_CPUPORESET);
-#else
-			reg_val |= (RESET_DISABLE_CORERESET | RESET_DISABLE_CPUPORESET);
-#endif
 			writel(reg_val, exynos_pmu_base + EXYNOS_PMU_ATLAS_CPU0_RESET + (val * 0x80));
 		}
 
 		reg_val = readl(exynos_pmu_base + EXYNOS_PMU_ATLAS_DBG_RESET);
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
 		reg_val |= (RESET_DISABLE_WDT_PRESET_DBG | RESET_DISABLE_PRESET_DBG);
-#else
-		reg_val |= (RESET_DISABLE_PRESET_DBG);
-#endif
 		writel(reg_val, exynos_pmu_base + EXYNOS_PMU_ATLAS_DBG_RESET);
 
                 reg_val = readl(exynos_pmu_base + EXYNOS_PMU_ATLAS_NONCPU_RESET);
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
                 reg_val |= (RESET_DISABLE_L2RESET | RESET_DISABLE_WDT_L2RESET);
-#else
-                reg_val |= (RESET_DISABLE_L2RESET);
-#endif
                 writel(reg_val, exynos_pmu_base + EXYNOS_PMU_ATLAS_NONCPU_RESET);
 	} else {
 		/* reset enable for MNGS */
 		pr_err("%s: mngs cpu reset enable before s/w reset\n", __func__);
 		for (val = 0; val < mngs_cpu_cnt; val++) {
 			reg_val = readl(exynos_pmu_base + EXYNOS_PMU_ATLAS_CPU0_RESET + (val * 0x80));
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
 			reg_val &= ~(RESET_DISABLE_WDT_CPUPORESET
 					| RESET_DISABLE_CORERESET | RESET_DISABLE_CPUPORESET);
-#else
-			reg_val &= ~(RESET_DISABLE_CORERESET | RESET_DISABLE_CPUPORESET);
-#endif
 			writel(reg_val, exynos_pmu_base + EXYNOS_PMU_ATLAS_CPU0_RESET + (val * 0x80));
 		}
 
 		reg_val = readl(exynos_pmu_base + EXYNOS_PMU_ATLAS_DBG_RESET);
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
 		reg_val &= ~(RESET_DISABLE_WDT_PRESET_DBG | RESET_DISABLE_PRESET_DBG);
-#else
-		reg_val &= ~(RESET_DISABLE_PRESET_DBG);
-#endif
 		writel(reg_val, exynos_pmu_base + EXYNOS_PMU_ATLAS_DBG_RESET);
 
                 reg_val = readl(exynos_pmu_base + EXYNOS_PMU_ATLAS_NONCPU_RESET);
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
                 reg_val &= ~(RESET_DISABLE_L2RESET | RESET_DISABLE_WDT_L2RESET);
-#else
-                reg_val &= ~(RESET_DISABLE_L2RESET);
-#endif
                 writel(reg_val, exynos_pmu_base + EXYNOS_PMU_ATLAS_NONCPU_RESET);
 	}
 }
