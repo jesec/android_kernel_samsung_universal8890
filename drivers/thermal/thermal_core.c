@@ -579,17 +579,29 @@ static ssize_t
 mode_store(struct device *dev, struct device_attribute *attr,
 	   const char *buf, size_t count)
 {
-	struct thermal_zone_device *tz = to_thermal_zone(dev);
+	struct thermal_zone_device *tz = to_thermal_zone(dev), *pos = NULL;
 	int result;
 
 	if (!tz->ops->set_mode)
 		return -EPERM;
 
-	if (!strncmp(buf, "enabled", sizeof("enabled") - 1))
+	if (!strncmp(buf, "enabled", sizeof("enabled") - 1)) {
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+		list_for_each_entry(pos, &thermal_tz_list, node) {
+			if (tz->ops->throttle_cpu_hotplug)
+				pos->device_enable = THERMAL_DEVICE_ENABLED;
+		}
+#endif
 		result = tz->ops->set_mode(tz, THERMAL_DEVICE_ENABLED);
-	else if (!strncmp(buf, "disabled", sizeof("disabled") - 1))
+	} else if (!strncmp(buf, "disabled", sizeof("disabled") - 1)) {
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+		list_for_each_entry(pos, &thermal_tz_list, node) {
+			if (tz->ops->throttle_cpu_hotplug)
+				pos->device_enable = THERMAL_DEVICE_DISABLED;
+		}
+#endif
 		result = tz->ops->set_mode(tz, THERMAL_DEVICE_DISABLED);
-	else
+	} else
 		result = -EINVAL;
 
 	if (result)
@@ -1527,6 +1539,9 @@ struct thermal_zone_device *thermal_zone_device_register(const char *type,
 	tz->trips = trips;
 	tz->passive_delay = passive_delay;
 	tz->polling_delay = polling_delay;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	tz->device_enable = THERMAL_DEVICE_ENABLED;
+#endif
 #ifdef CONFIG_SCHED_HMP
 	tz->poll_queue_cpu = BOUNDED_CPU;
 #endif

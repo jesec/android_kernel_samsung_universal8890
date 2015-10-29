@@ -224,6 +224,9 @@ struct thermal_zone_device {
 	struct mutex lock;
 	struct list_head node;
 	struct delayed_work poll_queue;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	int device_enable;
+#endif
 #ifdef CONFIG_SCHED_HMP
 	unsigned int poll_queue_cpu;
 #endif

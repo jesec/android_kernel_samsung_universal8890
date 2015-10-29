@@ -75,7 +75,8 @@ static int exynos_set_mode(struct thermal_zone_device *thermal,
 
 	th_zone->mode = mode;
 
-	thermal_zone_device_update(thermal);
+	if (th_zone->therm_dev->device_enable)
+		thermal_zone_device_update(thermal);
 
 	return 0;
 }
@@ -476,15 +477,32 @@ void change_core_boost_thermal(struct thermal_sensor_conf *quad, struct thermal_
 	struct exynos_thermal_zone *th_zone;
 
 	if (mode == 0) {
+		/* Quad Setting Value */
 		th_zone = quad->pzone_data;
-		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_ENABLED);
+		if (th_zone->therm_dev->device_enable)
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_ENABLED);
+		else
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_DISABLED);
+
+		/* Dual Setting Value */
 		th_zone = dual->pzone_data;
-		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_PAUSED);
+		if (th_zone->therm_dev->device_enable)
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_PAUSED);
+		else
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_DISABLED);
 	} else {
+		/* Dual Setting Value */
 		th_zone = dual->pzone_data;
-		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_ENABLED);
+		if (th_zone->therm_dev->device_enable)
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_ENABLED);
+		else
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_DISABLED);
+		/* Quad Setting Value */
 		th_zone = quad->pzone_data;
-		exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_PAUSED);
+		if (th_zone->therm_dev->device_enable)
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_PAUSED);
+		else
+			exynos_set_mode(th_zone->therm_dev, THERMAL_DEVICE_DISABLED);
 	}
 }
 #endif
