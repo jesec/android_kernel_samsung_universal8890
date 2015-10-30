@@ -197,6 +197,12 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 		else
 			g_current_power_mode &= (~LPCLK_CTRLID_OFFLOAD);
 	}
+	if (ctrlid & LPCLK_CTRLID_RECORD) {
+		if (active)
+			g_current_power_mode |= LPCLK_CTRLID_RECORD;
+		else
+			g_current_power_mode &= (~LPCLK_CTRLID_RECORD);
+	}
 	dev_info(dev, "power mode: 0x%02X, dram_used: %d\n",
 		g_current_power_mode, dram_used);
 	switch (g_current_power_mode) {
@@ -207,14 +213,19 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 			exynos_update_ip_idle_status(g_sicd_index, 0);
 		exynos_update_ip_idle_status(g_sicd_aud_index, 0);
 		break;
-	case 0x01:
-		exynos_update_ip_idle_status(g_sicd_index, 0);
-		exynos_update_ip_idle_status(g_sicd_aud_index, 1);
-		break;
-	case 0x02:
+	case 0x02: /* DRAM Use Case */
 	case 0x03:
+	case 0x06:
+	case 0x07:
 		exynos_update_ip_idle_status(g_sicd_index, 0);
 		exynos_update_ip_idle_status(g_sicd_aud_index, 0);
+		break;
+	case 0x04: /* Only SRAM record case */
+		lpass_disable_mif_status(true);
+	case 0x01: /* Only offload case */
+	case 0x05: /* SRAM record + offload case */
+		exynos_update_ip_idle_status(g_sicd_index, 0);
+		exynos_update_ip_idle_status(g_sicd_aud_index, 1);
 		break;
 	default:
 		pr_err("[ERROR] Invalid audio power mode: 0x%04X\n",
