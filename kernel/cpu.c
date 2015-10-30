@@ -450,6 +450,12 @@ int __ref cpus_down(struct cpumask *cpus)
 		.mod = 0,
 		.hcpu = (void *)NR_CPUS,
 	};
+#ifdef CONFIG_ARM_EXYNOS_MP_CPUFREQ
+	int nonboot_cluster_first_cpu = cpumask_weight(cpu_coregroup_mask(0));
+
+	if (cpumask_test_cpu(nonboot_cluster_first_cpu, cpus))
+		return -EINVAL;
+#endif
 
 	cpu_maps_update_begin();
 	cpu_hotplug_begin();
