@@ -391,9 +391,6 @@ static int __kprobes do_tlb_conflict(unsigned long addr,
 					  unsigned int esr,
 					  struct pt_regs *regs)
 {
-	pr_alert("Unhandled fault: %s (0x%08x) at 0x%016lx\n",
-		 fault_name(esr), esr, addr);
-
 	asm volatile("tlbi vmalle1");
 	asm volatile("dsb nsh");
 
