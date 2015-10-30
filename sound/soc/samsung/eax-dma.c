@@ -247,9 +247,11 @@ static inline bool eax_mixer_any_buf_running(void)
 {
 	struct buf_info *bi;
 
-	list_for_each_entry(bi, &buf_list, node) {
-		if (bi->prtd && bi->prtd->running)
-			return true;
+	if (!list_empty(&buf_list)) {
+		list_for_each_entry(bi, &buf_list, node) {
+			if (bi->prtd && bi->prtd->running)
+				return true;
+		}
 	}
 
 	return false;
@@ -1088,7 +1090,7 @@ static void eax_mixer_write(void)
 	int ret;
 
 	spin_lock(&mi.lock);
-	if (!eax_mixer_any_buf_running()) {
+	if (!eax_mixer_any_buf_running() || !mi.running) {
 		spin_unlock(&mi.lock);
 		return;
 	}
@@ -1212,7 +1214,9 @@ static int eax_mixer_remove(struct runtime_data *prtd)
 static void eax_mixer_trigger(bool on)
 {
 	if (on) {
+		spin_lock(&mi.lock);
 		mi.running = true;
+		spin_unlock(&mi.lock);
 		if (waitqueue_active(&mixer_run_wq))
 			wake_up_interruptible(&mixer_run_wq);
 	} else {
@@ -1220,7 +1224,9 @@ static void eax_mixer_trigger(bool on)
 			if (di.running)
 				eax_adma_trigger(false);
 
+			spin_lock(&mi.lock);
 			mi.running = false;
+			spin_unlock(&mi.lock);
 		}
 	}
 }
