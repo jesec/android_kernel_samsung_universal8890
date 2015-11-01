@@ -3062,6 +3062,7 @@ void exynos_iommu_unmap_userptr(struct iommu_domain *dom,
 	struct exynos_iommu_domain *domain = dom->priv;
 	sysmmu_pte_t *sent = section_entry(domain->pgtable, iova);
 	unsigned int entries = size >> SPAGE_ORDER;
+	dma_addr_t start = iova;
 
 	while (entries > 0) {
 		unsigned int lv2ents, i;
@@ -3106,6 +3107,8 @@ void exynos_iommu_unmap_userptr(struct iommu_domain *dom,
 		iova += lv2ents << SPAGE_ORDER;
 		sent++;
 	}
+
+	exynos_sysmmu_tlb_invalidate(dom, start, size);
 }
 
 typedef void (*syncop)(const void *, size_t, int);
