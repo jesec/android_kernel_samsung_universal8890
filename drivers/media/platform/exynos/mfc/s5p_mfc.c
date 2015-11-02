@@ -82,7 +82,7 @@ static struct proc_dir_entry *mfc_proc_entry;
 #define MFC_DRM_MAGIC_CHUNK3	0x3bd05317
 #endif
 
-#define MFC_SFR_AREA_COUNT	18
+#define MFC_SFR_AREA_COUNT	19
 void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 {
 	int i;
@@ -92,6 +92,7 @@ void s5p_mfc_dump_regs(struct s5p_mfc_dev *dev)
 		{ 0xF000, 0xFF8 },
 		{ 0x2000, 0xA00 },
 		{ 0x3000, 0x40 },
+		{ 0x3110, 0x10 },
 		{ 0x5000, 0x100 },
 		{ 0x5200, 0x300 },
 		{ 0x5600, 0x100 },
