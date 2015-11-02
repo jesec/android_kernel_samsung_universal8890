@@ -845,6 +845,11 @@ static int dwc3_exynos_suspend(struct device *dev)
 	if (exynos->vdd10)
 		regulator_disable(exynos->vdd10);
 
+#ifdef CONFIG_PM_DEVFREQ
+	if (exynos->int_min_lock)
+		pm_qos_update_request(&exynos_usb_int_qos, 0);
+#endif
+
 	return 0;
 }
 
