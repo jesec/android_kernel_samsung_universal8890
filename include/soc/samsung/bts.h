@@ -171,6 +171,12 @@ int bts_update_gpu_mif(unsigned int freq);
 
 #endif /* BTS_OPTIMIZATION */
 
+#if defined(CONFIG_EXYNOS8890_BTS)
+void exynos_bts_scitoken_setting(bool on);
+#else
+#define exynos_bts_scitoken_setting(a) do {} while (0)
+#endif
+
 #if defined(CONFIG_EXYNOS7420_BTS) || defined(CONFIG_EXYNOS7890_BTS)
 void exynos7_update_media_scenario(enum bts_media_type media_type,
 		unsigned int bw, int bw_type);

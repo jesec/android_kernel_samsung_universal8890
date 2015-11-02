@@ -1222,6 +1222,15 @@ void exynos_update_media_scenario(enum bts_media_type media_type,
 }
 #endif /* BTS_OPT */
 
+static void __iomem *sci_base;
+void exynos_bts_scitoken_setting(bool on)
+{
+	if (on)
+		__raw_writel(0x10101117, sci_base + CMDTOKEN);
+	else
+		__raw_writel(0x10101127, sci_base + CMDTOKEN);
+}
+
 #ifdef CONFIG_CPU_IDLE
 static int exynos8_bts_lpa_event(struct notifier_block *nb,
 				unsigned long event, void *data)
@@ -1306,6 +1315,10 @@ static int __init exynos8_bts_init(void)
 		bts_trex_init(base_trex[i]);
 
 	bts_initialize("trex", true);
+
+	/* SCI Related settings */
+	sci_base = ioremap(EXYNOS8_PA_SCI, SZ_4K);
+	exynos_bts_scitoken_setting(false);
 
 	pm_qos_add_request(&exynos8_mif_bts_qos, PM_QOS_BUS_THROUGHPUT, 0);
 	pm_qos_add_request(&exynos8_int_bts_qos, PM_QOS_DEVICE_THROUGHPUT, 0);
