@@ -28,7 +28,7 @@
  *	x0 - bytes not copied
  */
 
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
+#ifdef CONFIG_SOC_EXYNOS8890
 #include <asm/cache.h>
 
 dst	.req	x0
