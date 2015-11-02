@@ -1321,6 +1321,7 @@ void thermal_cdev_update(struct thermal_cooling_device *cdev)
 {
 	struct thermal_instance *instance;
 	unsigned long target = 0;
+	int ret;
 
 	/* cooling device is updated*/
 	if (cdev->updated)
@@ -1337,10 +1338,12 @@ void thermal_cdev_update(struct thermal_cooling_device *cdev)
 			target = instance->target;
 	}
 	mutex_unlock(&cdev->lock);
-	cdev->ops->set_cur_state(cdev, target);
-	cdev->updated = true;
-	trace_cdev_update(cdev, target);
-	dev_dbg(&cdev->device, "set to state %lu\n", target);
+	ret = cdev->ops->set_cur_state(cdev, target);
+	if (!ret) {
+		cdev->updated = true;
+		trace_cdev_update(cdev, target);
+		dev_dbg(&cdev->device, "set to state %lu\n", target);
+	}
 }
 EXPORT_SYMBOL(thermal_cdev_update);
 
