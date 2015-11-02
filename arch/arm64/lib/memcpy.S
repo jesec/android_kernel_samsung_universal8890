@@ -175,7 +175,7 @@ ENTRY(memcpy)
 	ldp	B_l, B_h, [src],#16
 	ldp	C_l, C_h, [src],#16
 	ldp	D_l, D_h, [src],#16
-#ifdef CONFIG_SOC_EXYNOS8890_EVT1
+#ifdef CONFIG_SOC_EXYNOS8890
 	mrs	tmp1, midr_el1
 	ubfx	tmp1, tmp1, #24, #8
 	cmp	tmp1, #0x53
