@@ -33,6 +33,8 @@
 #define DSIM_CMD_ALLOW_VALUE		4
 #define DSIM_STABLE_VFP_VALUE		2
 #define DSIM_M_PLL_CTRL2		0x0
+#define TE_PROTECT_ON_TIME		158 /* 15.8ms*/
+#define TE_TIMEOUT_TIME			180 /* 18ms */
 
 /* M_PLL_CTRL setting value */
 const u32 DSIM_M_PLL_CTRL1[3] = {0x40000080, 0x400000c0, 0x400000c0};
@@ -1181,8 +1183,8 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 		/*set TE base command*/
 		time_stable_vfp = lcd_info->xres * DSIM_STABLE_VFP_VALUE * 3 / 100;
 		time_vsync_tout = lcd_info->vfp * lcd_info->xres * 3 / 100;
-		time_te_protect_on = (clks->hs_clk/8) * 165;
-		time_te_tout = (clks->hs_clk/8) * 18 * 10;
+		time_te_protect_on = (clks->hs_clk * TE_PROTECT_ON_TIME) / 8;
+		time_te_tout = (clks->hs_clk * TE_TIMEOUT_TIME) / 8;
 		dsim_reg_set_command_control(id, 0);
 		dsim_reg_set_time_stable_vfp(id, time_stable_vfp);
 		dsim_reg_set_time_vsync_timeout(id, time_vsync_tout);
