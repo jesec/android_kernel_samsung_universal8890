@@ -3097,4 +3097,17 @@ static inline unsigned long rlimit_max(unsigned int limit)
 	return task_rlimit_max(current, limit);
 }
 
+#if defined(CONFIG_HP_EVENT_THREAD_GROUP) || defined(CONFIG_HP_EVENT_BIG_THREADS)
+void hp_event_enqueue_entity(struct sched_entity *se, int flags);
+void hp_event_dequeue_entity(struct sched_entity *se, int flags);
+void hp_event_update_entity_load(struct sched_entity *se);
+void hp_event_hmp_load_balance(struct hmp_domain *hmpd);
+void hp_event_do_exit(struct task_struct *p);
+#else
+static inline void hp_event_update_entity_load(struct sched_entity *se) { };
+static inline void hp_event_enqueue_entity(struct sched_entity *se, int flags) { };
+static inline void hp_event_dequeue_entity(struct sched_entity *se, int flags) { };
+static inline void hp_event_hmp_load_balance(struct hmp_domain *hmpd) { };
+static inline void hp_event_do_exit(struct task_struct *p) { };
+#endif
 #endif

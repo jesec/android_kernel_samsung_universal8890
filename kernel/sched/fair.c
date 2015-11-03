@@ -10011,13 +10011,12 @@ pure_initcall(hmp_param_init);
 #include <soc/samsung/exynos-cpu_hotplug.h>
 
 #if defined(CONFIG_HP_EVENT_THREAD_GROUP)
+/* should be called with thread_group_lock acquired */
 static void update_boost_request(struct sched_entity *se)
 {
 	struct task_struct *group_leader = task_of(se)->group_leader;
-	unsigned long flags;
 	int level = hpgov_default_level();
 
-	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
 	if (group_leader->thread_group_load >= (hmp_up_threshold * (level + 1))
 			&& group_leader->nr_thread_group >= level + 1) {
 		if (!group_leader->hp_boost_requested) {
@@ -10030,7 +10029,6 @@ static void update_boost_request(struct sched_entity *se)
 			dec_boost_req_count(true);
 		}
 	}
-	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 }
 
 static void add_thread_group_info(struct sched_entity *se)
@@ -10038,6 +10036,9 @@ static void add_thread_group_info(struct sched_entity *se)
 
 	struct task_struct *group_leader = task_of(se)->group_leader;
 	unsigned long flags;
+
+	if (task_of(se)->exit_state)
+		return;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
 	if (task_of(se)->member_of_group && !task_of(se)->applied_to_group_load) {
@@ -10050,15 +10051,18 @@ static void add_thread_group_info(struct sched_entity *se)
 	}
 
 	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, group_leader->nr_thread_group, se->avg.load_avg_ratio, "enqueue");
-	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 
 	update_boost_request(se);
+	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 }
 
 static void sub_thread_group_info(struct sched_entity *se)
 {
 	struct task_struct *group_leader = task_of(se)->group_leader;
 	unsigned long flags;
+
+	if (task_of(se)->exit_state)
+		return;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
 	if (task_of(se)->applied_to_group_load) {
@@ -10068,15 +10072,18 @@ static void sub_thread_group_info(struct sched_entity *se)
 	}
 
 	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, group_leader->nr_thread_group, se->avg.load_avg_ratio, "dequeue");
-	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 
 	update_boost_request(se);
+	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 }
 
 static void update_thread_group_info(struct sched_entity *se)
 {
 	struct task_struct *group_leader = task_of(se)->group_leader;
 	unsigned long flags;
+
+	if (task_of(se)->exit_state)
+		return;
 
 	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
 	if (task_of(se)->applied_to_group_load) {
@@ -10099,14 +10106,34 @@ static void update_thread_group_info(struct sched_entity *se)
 		}
 	}
 	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, group_leader->nr_thread_group, se->avg.load_avg_ratio, "update");
-	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 
 	update_boost_request(se);
+	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
+}
+
+static void exit_thread_group_info(struct sched_entity *se)
+{
+	struct task_struct *group_leader = task_of(se)->group_leader;
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&group_leader->thread_group_lock, flags);
+
+	if (task_of(se)->applied_to_group_load) {
+		group_leader->nr_thread_group--;
+		group_leader->thread_group_load -= task_of(se)->group_applied_load;
+		task_of(se)->applied_to_group_load = false;
+	}
+
+	trace_sched_hp_event_thread_group(group_leader, task_of(se), group_leader->thread_group_load, group_leader->nr_thread_group, se->avg.load_avg_ratio, "exit");
+
+	update_boost_request(se);
+	raw_spin_unlock_irqrestore(&group_leader->thread_group_lock, flags);
 }
 #else /* CONFIG_HP_EVENT_THREAD_GROUP */
 static inline void add_thread_group_info(struct sched_entity *se) { };
 static inline void sub_thread_group_info(struct sched_entity *se) { };
 static inline void update_thread_group_info(struct sched_entity *se) { };
+static inline void exit_thread_group_info(struct sched_entity *se) { };
 #endif
 
 #if defined(CONFIG_HP_EVENT_BIG_THREADS)
@@ -10213,6 +10240,11 @@ void hp_event_update_entity_load(struct sched_entity *se)
 void hp_event_hmp_load_balance(struct hmp_domain *hmpd)
 {
 	update_big_state(hmpd);
+}
+
+void hp_event_do_exit(struct task_struct *p)
+{
+	exit_thread_group_info(&p->se);
 }
 #endif
 #endif /* CONFIG_SCHED_HP_EVENT */

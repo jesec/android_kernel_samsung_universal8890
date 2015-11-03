@@ -1578,15 +1578,3 @@ static inline u64 irq_time_read(int cpu)
 }
 #endif /* CONFIG_64BIT */
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
-
-#if defined(CONFIG_HP_EVENT_THREAD_GROUP) || defined(CONFIG_HP_EVENT_BIG_THREADS)
-void hp_event_enqueue_entity(struct sched_entity *se, int flags);
-void hp_event_dequeue_entity(struct sched_entity *se, int flags);
-void hp_event_update_entity_load(struct sched_entity *se);
-void hp_event_hmp_load_balance(struct hmp_domain *hmpd);
-#else
-static inline void hp_event_update_entity_load(struct sched_entity *se) { };
-static inline void hp_event_enqueue_entity(struct sched_entity *se, int flags) { };
-static inline void hp_event_dequeue_entity(struct sched_entity *se, int flags) { };
-static inline void hp_event_hmp_load_balance(struct hmp_domain *hmpd) { };
-#endif
