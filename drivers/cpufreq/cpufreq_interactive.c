@@ -2590,7 +2590,7 @@ static int __init cpufreq_interactive_init(void)
 
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
 	for (i = 0; i < NR_MODE; i++)
-		exynos_tuned_param[i] = kzalloc(sizeof(struct cpufreq_interactive_tunables *), GFP_KERNEL);
+		exynos_tuned_param[i] = kzalloc(sizeof(struct cpufreq_interactive_tunables), GFP_KERNEL);
 
 	register_cpu_notifier(&exynos_tuned_param_update_nb);
 #endif
