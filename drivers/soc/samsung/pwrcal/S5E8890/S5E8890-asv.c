@@ -772,8 +772,10 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 	if (domain == NULL)
 		return;
 
-	if (asv_tbl_info.asv_table_ver >= domain->num_of_table)
-		BUG();
+	if (asv_tbl_info.asv_table_ver >= domain->num_of_table) {
+		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, domain->num_of_table - 1);
+		asv_tbl_info.asv_table_ver = domain->num_of_table - 1;
+	}
 
 	if (margin_block)
 		margin_domain = ect_margin_get_domain(margin_block, dfs->vclk.name);
