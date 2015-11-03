@@ -167,6 +167,16 @@ static int dw_mci_exynos_priv_init(struct dw_mci *host)
 		priv->dqs_delay =
 			DQS_CTRL_GET_RD_DELAY(priv->saved_strobe_ctrl);
 
+#if defined(CONFIG_MMC_DW_64BIT_DESC)
+	if (priv->voltage_int_extra != 0) {
+		u32 reg = 0;
+		reg = mci_readl(host, AXI_BURST_LEN);
+		reg &= ~(0x7 << 24);
+		reg |= (priv->voltage_int_extra << 24);
+		mci_writel(host, AXI_BURST_LEN, reg);
+	}
+#endif
+
 	return 0;
 }
 
@@ -433,7 +443,7 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 	struct dw_mci_exynos_priv_data *priv;
 	struct device_node *np = host->dev->of_node;
 	u32 timing[4];
-	u32 div = 0;
+	u32 div = 0, voltage_int_extra = 0;
 	int idx;
 	int ref_clk_size;
 	u32 *ref_clk;
@@ -498,6 +508,9 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 
 	of_property_read_u32(np, "samsung,dw-mshc-ciu-div", &div);
 	priv->ciu_div = div;
+
+	if (of_property_read_u32(np, "samsung,voltage-int-extra", &voltage_int_extra))
+		priv->voltage_int_extra = voltage_int_extra;
 
 	ret = of_property_read_u32_array(np,
 			"samsung,dw-mshc-sdr-timing", timing, 4);

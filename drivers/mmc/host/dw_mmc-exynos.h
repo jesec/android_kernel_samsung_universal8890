@@ -53,6 +53,7 @@ struct dw_mci_exynos_priv_data {
 	u32			ctrl_windows;
 	u32			ignore_phase;
 	u32			selclk_drv;
+	u32			voltage_int_extra;
 
 #define DW_MMC_EXYNOS_USE_FINE_TUNING		BIT(0)
 #define DW_MMC_EXYNOS_BYPASS_FOR_ALL_PASS	BIT(1)
