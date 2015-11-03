@@ -40,10 +40,11 @@ static void decon_oneshot_underrun_log(struct decon_device *decon)
 				decon->total_bw, decon->prev_total_bw,
 				decon->max_peak_bw, decon->prev_max_peak_bw,
 				decon->max_disp_ch, decon->prev_max_disp_ch);
-		decon_warn("    total cnt(%d), chmap(0x%08x), win(0x%lx)\n",
+		decon_warn("    total cnt(%d), chmap(0x%08x), win(0x%lx) rot(%d)\n",
 				decon->underrun_stat.total_underrun_cnt,
 				decon->underrun_stat.chmap,
-				decon->underrun_stat.used_windows);
+				decon->underrun_stat.used_windows,
+				decon->underrun_stat.rotation);
 		decon_warn("    mif(%lu), int(%lu), disp(%lu)\n",
 				cal_dfs_get_rate(dvfs_mif),
 				cal_dfs_get_rate(dvfs_int),

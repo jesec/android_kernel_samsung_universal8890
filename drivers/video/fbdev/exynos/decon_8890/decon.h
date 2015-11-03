@@ -443,6 +443,7 @@ struct decon_underrun_stat {
 	unsigned long lh_disp0;
 	unsigned long mif_pll;
 	unsigned long used_windows;
+	bool rotation;
 };
 
 struct disp_ss_size_info {

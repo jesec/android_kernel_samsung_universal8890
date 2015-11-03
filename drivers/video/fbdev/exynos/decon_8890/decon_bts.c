@@ -326,10 +326,17 @@ void bts2_update_bw(struct decon_device *decon, struct decon_reg_data *regs, u32
 				vpp = v4l2_get_subdevdata(sd);
 				config = &regs->vpp_config[i];
 
-				if (!is_rotation(config))
+				if (!is_rotation(config)) {
 					bts_ext_scenario_set(win->vpp_id,
 							TYPE_ROTATION,
 							is_rotation(config));
+					decon->underrun_stat.rotation = false;
+				} else {
+					pm_qos_update_request(&decon->disp_qos,
+							336000000);
+					decon->underrun_stat.rotation = true;
+				}
+
 			}
 		}
 
@@ -353,10 +360,16 @@ void bts2_update_bw(struct decon_device *decon, struct decon_reg_data *regs, u32
 				vpp = v4l2_get_subdevdata(sd);
 				config = &regs->vpp_config[i];
 
-				if (is_rotation(config))
+				if (!is_rotation(config)) {
+					decon->underrun_stat.rotation = false;
+				} else {
 					bts_ext_scenario_set(win->vpp_id,
 							TYPE_ROTATION,
 							is_rotation(config));
+					pm_qos_update_request(&decon->disp_qos,
+							336000000);
+					decon->underrun_stat.rotation = true;
+				}
 			}
 		}
 
