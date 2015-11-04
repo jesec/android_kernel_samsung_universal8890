@@ -196,9 +196,6 @@ static int step_wise_throttle(struct thermal_zone_device *tz, int trip)
 
 	mutex_unlock(&tz->lock);
 
-	if (tz->ops->throttle_cpu_hotplug)
-		tz->ops->throttle_cpu_hotplug(tz);
-
 	return 0;
 }
 

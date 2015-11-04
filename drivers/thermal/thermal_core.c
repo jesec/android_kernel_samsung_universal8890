@@ -527,6 +527,9 @@ static void thermal_zone_device_check(struct work_struct *work)
 						      thermal_zone_device,
 						      poll_queue.work);
 	thermal_zone_device_update(tz);
+
+	if (tz->ops->throttle_cpu_hotplug)
+		tz->ops->throttle_cpu_hotplug(tz);
 }
 
 /* sys I/F for thermal zone */
@@ -779,6 +782,9 @@ passive_store(struct device *dev, struct device_attribute *attr,
 
 	thermal_zone_device_update(tz);
 
+	if (tz->ops->throttle_cpu_hotplug)
+		tz->ops->throttle_cpu_hotplug(tz);
+
 	return count;
 }
 
@@ -844,8 +850,12 @@ emul_temp_store(struct device *dev, struct device_attribute *attr,
 		ret = tz->ops->set_emul_temp(tz, temperature);
 	}
 
-	if (!ret)
+	if (!ret) {
 		thermal_zone_device_update(tz);
+
+		if (tz->ops->throttle_cpu_hotplug)
+			tz->ops->throttle_cpu_hotplug(tz);
+	}
 
 	return ret ? ret : count;
 }
@@ -1629,6 +1639,9 @@ struct thermal_zone_device *thermal_zone_device_register(const char *type,
 		thermal_zone_device_set_polling(tz, 0);
 
 	thermal_zone_device_update(tz);
+
+	if (tz->ops->throttle_cpu_hotplug)
+		tz->ops->throttle_cpu_hotplug(tz);
 
 	return tz;
 

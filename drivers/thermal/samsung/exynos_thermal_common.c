@@ -450,6 +450,9 @@ void exynos_report_trigger(struct thermal_sensor_conf *conf)
 
 	thermal_zone_device_update(th_zone->therm_dev);
 
+	if (th_zone->therm_dev->ops->throttle_cpu_hotplug)
+		th_zone->therm_dev->ops->throttle_cpu_hotplug(th_zone->therm_dev);
+
 	mutex_lock(&th_zone->therm_dev->lock);
 	/* Find the level for which trip happened */
 	for (i = 0; i < th_zone->sensor_conf->trip_data.trip_count; i++) {
