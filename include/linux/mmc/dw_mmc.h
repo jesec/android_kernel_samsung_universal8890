@@ -217,6 +217,9 @@ struct dw_mci {
 	
 	/* HWACG q-active ctrl check */
 	unsigned int qactive_check;
+
+	/* Support system power mode */
+	int idle_ip_index;
 };
 
 /* DMA ops for Internal/External DMAC interface */

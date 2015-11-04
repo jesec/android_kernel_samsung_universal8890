@@ -40,6 +40,9 @@
 #include <linux/mmc/slot-gpio.h>
 #include <linux/smc.h>
 
+#include <soc/samsung/exynos-pm.h>
+#include <soc/samsung/exynos-powermode.h>
+
 #include "dw_mmc.h"
 #include "dw_mmc-exynos.h"
 
@@ -1491,10 +1494,16 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		 * Use mirror of ios->clock to prevent race with mmc
 		 * core ios update when finding the minimum.
 		 */
+#ifdef CONFIG_CPU_IDLE
+		exynos_update_ip_idle_status(slot->host->idle_ip_index, 0);
+#endif
 		pm_qos_update_request(&slot->host->pm_qos_int,
 				slot->host->pdata->qos_int_level);
 	} else {
 		pm_qos_update_request(&slot->host->pm_qos_int, 0);
+#ifdef CONFIG_CPU_IDLE
+		exynos_update_ip_idle_status(slot->host->idle_ip_index, 1);
+#endif
 		cclk_request_turn_off = 1;
 	}
 
@@ -3326,6 +3335,11 @@ int dw_mci_probe(struct dw_mci *host)
 	}
 
 	host->quirks = host->pdata->quirks;
+
+#ifdef CONFIG_CPU_IDLE
+	host->idle_ip_index = exynos_get_idle_ip_index(dev_name(host->dev));
+	exynos_update_ip_idle_status(host->idle_ip_index, 0);
+#endif
 
 	if (host->quirks & DW_MCI_QUIRK_HWACG_CTRL)
 		host->qactive_check = HWACG_Q_ACTIVE_EN;
