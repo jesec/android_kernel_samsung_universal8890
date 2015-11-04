@@ -1585,6 +1585,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 				dec->profile = s5p_mfc_get_profile();
 				if (dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
 					dec->is_10bit = 1;
+					ctx->qos_ratio = (ctx->qos_ratio * 133) / 100;
 					mfc_info_ctx("HEVC 10bit contents.\n");
 				}
 			}
