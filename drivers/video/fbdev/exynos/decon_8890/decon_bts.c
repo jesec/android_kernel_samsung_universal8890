@@ -30,7 +30,7 @@
  * And then, should be divided using FORMAT_FACTOR at the end of bw_eq
  */
 #define FORMAT_FACTOR 		2
-#define DISP_FACTOR 		1
+#define DISP_FACTOR 		(105 * KHZ / 100)
 
 #define ENUM_OFFSET 		2
 
@@ -91,7 +91,7 @@ void bts_disp_bw(struct vpp_dev *vpp)
 	s_ratio_v = (src_h <= dst->h) ? MULTI_FACTOR : MULTI_FACTOR * src_h / dst->h;
 
 	vpp->disp_cur_bw = vclk * mic_factor * s_ratio_h * s_ratio_v
-		* DISP_FACTOR * KHZ * (MULTI_FACTOR * dst->w / lcd_width)
+		* DISP_FACTOR * (MULTI_FACTOR * dst->w / lcd_width)
 		/ (MULTI_FACTOR * MULTI_FACTOR * MULTI_FACTOR) / 2;
 }
 
@@ -200,7 +200,7 @@ static void bts2_calc_disp(struct decon_device *decon, struct vpp_dev *vpp,
 	s_ratio_v = (src_h <= dst->h) ? MULTI_FACTOR : MULTI_FACTOR * src_h / dst->h;
 
 	vpp->disp = decon->vclk_factor * decon->mic_factor * s_ratio_h * s_ratio_v
-		* DISP_FACTOR * KHZ * (MULTI_FACTOR * dst->w / lcd_width)
+		* DISP_FACTOR * (MULTI_FACTOR * dst->w / lcd_width)
 		/ (MULTI_FACTOR * MULTI_FACTOR * MULTI_FACTOR) / 2;
 
 	decon_dbg("vpp%d DISP INT level(%llu)\n", vpp->id, vpp->disp);
