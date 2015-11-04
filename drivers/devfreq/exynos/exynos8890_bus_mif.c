@@ -27,6 +27,7 @@
 #include <soc/samsung/bts.h>
 #include <linux/apm-exynos.h>
 #include <soc/samsung/asv-exynos.h>
+#include <linux/mcu_ipc.h>
 
 #include "../../../drivers/soc/samsung/pwrcal/pwrcal.h"
 #include "../../../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
@@ -228,6 +229,9 @@ static int exynos8890_devfreq_mif_set_freq_post(struct device *dev,
 	if (data->old_freq > data->new_freq)
 		pm_qos_update_request(&int_pm_qos_from_mif,
 					int_min_table[data->new_idx]);
+
+	/* Send information about MIF frequency to mailbox */
+	mbox_set_value(13, data->new_freq);
 
 	return 0;
 }
