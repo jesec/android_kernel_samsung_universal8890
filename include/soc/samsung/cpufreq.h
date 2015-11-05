@@ -157,7 +157,11 @@ typedef enum {
 	CL_END,
 } cluster_type;
 
+#if defined(CONFIG_SOC_EXYNOS8890)
+#define COLD_VOLT_OFFSET	25000
+#else
 #define COLD_VOLT_OFFSET	37500
+#endif
 #define LIMIT_COLD_VOLTAGE	1350000
 #define MIN_COLD_VOLTAGE	950000
 #define NR_CLUST0_CPUS		4
