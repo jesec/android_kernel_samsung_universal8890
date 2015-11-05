@@ -153,6 +153,14 @@ struct exynos_usbdrd_phy {
 	struct clk *ref_clk;
 	struct regulator *vbus;
 	struct exynos_usbphy_info usbphy_info;
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+#define OTP_SUPPORT_USBPHY_NUMBER	2
+#define OTP_USB3PHY_INDEX		0
+#define OTP_USB2PHY_INDEX		1
+	u8 otp_type[OTP_SUPPORT_USBPHY_NUMBER];
+	u8 otp_index[OTP_SUPPORT_USBPHY_NUMBER];
+	struct tune_bits *otp_data[OTP_SUPPORT_USBPHY_NUMBER];
+#endif
 };
 
 #endif	/* __PHY_EXYNOS_USBDRD_H__ */

@@ -642,3 +642,10 @@ void samsung_exynos_cal_usb3phy_tune_host(
 		writel(phypcsval, regs_base + EXYNOS_USBCON_PHYPCSVAL);
 	}
 }
+
+void samsung_exynos_cal_usb3phy_write_register(
+		struct exynos_usbphy_info *usbphy_info, u32 offset, u32 value)
+{
+	void __iomem *regs_base = usbphy_info->regs_base;
+	writel(value, regs_base + offset);
+}

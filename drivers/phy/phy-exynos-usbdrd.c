@@ -28,6 +28,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb/samsung_usb.h>
 #include <linux/usb/otg.h>
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+#include <linux/exynos_otp.h>
+#endif
 
 #include "phy-exynos-usbdrd.h"
 
@@ -137,6 +140,57 @@ struct exynos_usbdrd_phy *to_usbdrd_phy(struct phy_usb_instance *inst)
 	return container_of((inst), struct exynos_usbdrd_phy,
 			    phys[(inst)->index]);
 }
+
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+void exynos_usbdrd_phy_get_otp_info(struct exynos_usbdrd_phy *phy_drd)
+{
+	struct tune_bits *data;
+	u16 magic;
+	u8 type;
+	u8 index_count;
+	u8 i, j;
+
+	phy_drd->otp_index[0] = phy_drd->otp_index[1] = 0;
+
+	for (i = 0; i < OTP_SUPPORT_USBPHY_NUMBER; i++) {
+		magic = i ? OTP_MAGIC_USB2: OTP_MAGIC_USB3;
+
+		if (otp_tune_bits_parsed(magic, &type, &index_count, &data)) {
+			dev_err(phy_drd->dev, "%s failed to get usb%d otp\n",
+				__func__, i ? 2 : 3);
+			continue;
+		}
+		dev_info(phy_drd->dev, "usb[%d] otp index_count: %d\n",
+								i, index_count);
+
+		if (!index_count) {
+			phy_drd->otp_data[i] = NULL;
+			continue;
+		}
+
+		phy_drd->otp_data[i] = devm_kzalloc(phy_drd->dev,
+			sizeof(*data) * index_count, GFP_KERNEL);
+		if (!phy_drd->otp_data[i]) {
+			dev_err(phy_drd->dev, "%s failed to alloc for usb%d\n",
+				__func__, i ? 2 : 3);
+			continue;
+		}
+
+		phy_drd->otp_index[i] = index_count;
+		phy_drd->otp_type[i] = type ? 4 : 1;
+		dev_info(phy_drd->dev, "usb[%d] otp type: %d\n", i, type);
+
+		for (j = 0; j < index_count; j++) {
+			phy_drd->otp_data[i][j].index = data[j].index;
+			phy_drd->otp_data[i][j].value = data[j].value;
+			dev_dbg(phy_drd->dev,
+				"usb[%d][%d] otp_data index:%d, value:0x%08x\n",
+					i, j, phy_drd->otp_data[i][j].index,
+					phy_drd->otp_data[i][j].value);
+		}
+	}
+}
+#endif
 
 /*
  * exynos_rate_to_clk() converts the supplied clock rate to the value that
@@ -452,6 +506,12 @@ done:
 static void exynos_usbdrd_pipe3_init(struct exynos_usbdrd_phy *phy_drd)
 {
 	int ret;
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+	struct tune_bits *otp_data;
+	u8 otp_type;
+	u8 otp_index;
+	u8 i;
+#endif
 
 	ret = exynos_usbdrd_clk_enable(phy_drd);
 	if (ret) {
@@ -460,6 +520,25 @@ static void exynos_usbdrd_pipe3_init(struct exynos_usbdrd_phy *phy_drd)
 	}
 
 	samsung_exynos_cal_usb3phy_enable(&phy_drd->usbphy_info);
+
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+	if (phy_drd->drv_data->ip_type < TYPE_USB2DRD) {
+		otp_type = phy_drd->otp_type[OTP_USB3PHY_INDEX];
+		otp_index = phy_drd->otp_index[OTP_USB3PHY_INDEX];
+		otp_data = phy_drd->otp_data[OTP_USB3PHY_INDEX];
+	} else {
+		otp_type = phy_drd->otp_type[OTP_USB2PHY_INDEX];
+		otp_index = phy_drd->otp_index[OTP_USB2PHY_INDEX];
+		otp_data = phy_drd->otp_data[OTP_USB2PHY_INDEX];
+	}
+
+	for (i = 0; i < otp_index; i++) {
+		samsung_exynos_cal_usb3phy_write_register(
+			&phy_drd->usbphy_info,
+			otp_data[i].index * otp_type,
+			otp_data[i].value);
+	}
+#endif
 }
 
 static void exynos_usbdrd_utmi_init(struct exynos_usbdrd_phy *phy_drd)
@@ -782,6 +861,10 @@ static int exynos_usbdrd_phy_probe(struct platform_device *pdev)
 	ret = exynos_usbdrd_get_phyinfo(phy_drd);
 	if (ret)
 		goto err1;
+
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+	exynos_usbdrd_phy_get_otp_info(phy_drd);
+#endif
 
 	for (i = 0; i < EXYNOS_DRDPHYS_NUM; i++) {
 		struct phy *phy = devm_phy_create(dev, NULL,
