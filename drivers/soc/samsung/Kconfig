@@ -45,10 +45,10 @@ config HP_EVENT_THREAD_GROUP
 	depends on SCHED_HP_EVENT && SCHED_HMP
 	default n
 
-config HP_EVENT_BIG_THREADS
-	bool "Gathres big threads in system"
+config HP_EVENT_HMP_SYSTEM_LOAD
+	bool "Gathres system load information"
 	depends on SCHED_HP_EVENT && SCHED_HMP
-	default n
+	default y
 
 config EXYNOS_PM_DVS
 	bool "Enable Exynos dynamic voltage setting"

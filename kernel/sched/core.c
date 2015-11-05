@@ -1857,9 +1857,6 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->member_of_group		= false;
 	p->group_applied_load		= 0;
 #endif
-#ifdef CONFIG_HP_EVENT_BIG_THREADS
-	p->se.big_thread = false;
-#endif
 	p->se.on_rq			= 0;
 	p->se.exec_start		= 0;
 	p->se.sum_exec_runtime		= 0;
@@ -1882,6 +1879,9 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.avg.hmp_last_up_migration = 0;
 	p->se.avg.hmp_last_down_migration = 0;
 	p->hmp_migration_on_going = false;
+#ifdef CONFIG_HP_EVENT_HMP_SYSTEM_LOAD
+	p->se.avg.is_big_thread = false;
+#endif
 #endif
 #endif
 #ifdef CONFIG_SCHEDSTATS

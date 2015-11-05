@@ -1117,6 +1117,9 @@ struct sched_avg {
 #ifdef CONFIG_SCHED_HMP
 	u64 hmp_last_up_migration;
 	u64 hmp_last_down_migration;
+#ifdef CONFIG_HP_EVENT_HMP_SYSTEM_LOAD
+	bool is_big_thread;
+#endif
 #endif
 	u32 usage_avg_sum;
 };
@@ -1186,9 +1189,6 @@ struct sched_entity {
 #ifdef CONFIG_SMP
 	/* Per-entity load-tracking */
 	struct sched_avg	avg;
-#endif
-#ifdef CONFIG_HP_EVENT_BIG_THREADS
-	bool big_thread;
 #endif
 };
 
@@ -3100,17 +3100,19 @@ static inline unsigned long rlimit_max(unsigned int limit)
 	return task_rlimit_max(current, limit);
 }
 
-#if defined(CONFIG_HP_EVENT_THREAD_GROUP) || defined(CONFIG_HP_EVENT_BIG_THREADS)
+#if defined(CONFIG_HP_EVENT_THREAD_GROUP) || defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
 void hp_event_enqueue_entity(struct sched_entity *se, int flags);
 void hp_event_dequeue_entity(struct sched_entity *se, int flags);
 void hp_event_update_entity_load(struct sched_entity *se);
-void hp_event_hmp_load_balance(struct hmp_domain *hmpd);
+void hp_event_switched_from(struct sched_entity *se);
 void hp_event_do_exit(struct task_struct *p);
+void hp_event_update_rq_load(int cpu);
 #else
 static inline void hp_event_update_entity_load(struct sched_entity *se) { };
 static inline void hp_event_enqueue_entity(struct sched_entity *se, int flags) { };
 static inline void hp_event_dequeue_entity(struct sched_entity *se, int flags) { };
-static inline void hp_event_hmp_load_balance(struct hmp_domain *hmpd) { };
+static inline void hp_event_switched_from(struct sched_entity *se) { };
 static inline void hp_event_do_exit(struct task_struct *p) { };
+static inline void hp_event_update_rq_load(int cpu) { };
 #endif
 #endif

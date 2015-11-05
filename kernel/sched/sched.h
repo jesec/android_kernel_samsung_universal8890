@@ -547,6 +547,8 @@ struct rq {
 	unsigned long nr_load_updates;
 	u64 nr_switches;
 
+	unsigned long sysload_avg_ratio;
+
 	struct cfs_rq cfs;
 	struct rt_rq rt;
 	struct dl_rq dl;
