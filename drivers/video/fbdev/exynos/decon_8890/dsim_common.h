@@ -108,6 +108,7 @@ u32 dsim_reg_get_rx_fifo(u32 id);
 int dsim_reg_rx_err_handler(u32 id, u32 rx_fifo);
 
 /* CAL raw functions list */
+void dsim_reg_set_phy_otp_config(u32 id);
 void dsim_reg_sw_reset(u32 id);
 void dsim_reg_dphy_reset(u32 id);
 void dsim_reg_funtion_reset(u32 id);

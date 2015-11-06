@@ -154,6 +154,43 @@ const u32 b_dphyctl[14] = {
 
 
 /******************* CAL raw functions implementation *************************/
+
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+void dsim_reg_set_phy_otp_config(u32 id)
+{
+	u8 type, index_count;
+	u32 i, ret, magic;
+	struct tune_bits *data;
+
+	switch (id) {
+	case 0:
+		magic = OTP_MAGIC_MIPI_DSI0_M4S4;
+		break;
+	case 1:
+		magic = OTP_MAGIC_MIPI_DSI1_M4S0;
+		break;
+	case 2:
+		magic = OTP_MAGIC_MIPI_DSI2_M1S0;
+		break;
+	default:
+		dsim_err("%s dsim%d doesn't supported\n", __func__, id);
+		break;
+	}
+
+	ret = otp_tune_bits_parsed(magic, &type, &index_count, &data);
+	if (ret) {
+		dsim_err("OTP data for DPHY is not ready\n");
+		return;
+	}
+
+	for (i = 0; i < index_count; i++) {
+		dsim_write(id, data[i].index * 4, data[i].value);
+		dsim_dbg("dsi%d, data[%d].index = %d, data[%d].value = %d\n",
+				i, i, data[i].index, i, data[i].value);
+	}
+}
+#endif
+
 void dsim_reg_sw_reset(u32 id)
 {
 	u32 cnt = 1000;
@@ -1092,6 +1129,9 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	int ret = 0;
 	u32 num_of_slice;
 
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+	dsim_reg_set_phy_otp_config(id);
+#endif
 	/*
 	 * DSIM does not need to init, if DSIM is already
 	 * becomes txrequest_hsclk = 1'b1 because of LCD_ON_UBOOT
@@ -1249,7 +1289,6 @@ int dsim_reg_set_clocks(u32 id, struct dsim_clks *clks, struct stdphy_pms *dphy_
 		/* get DPHY timing values using hs clock and escape clock */
 		dsim_reg_get_dphy_timing(clks->hs_clk, clks->esc_clk, &t);
 		dsim_reg_set_dphy_timing_values(id, &t);
-
 		/* enable PLL */
 		ret = dsim_reg_enable_pll(id, 1);
 	} else {

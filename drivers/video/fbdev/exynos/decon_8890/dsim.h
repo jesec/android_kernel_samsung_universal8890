@@ -20,6 +20,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#if IS_ENABLED(CONFIG_EXYNOS_OTP)
+#include <linux/exynos_otp.h>
+#endif
 
 #include <media/v4l2-subdev.h>
 #include <media/media-entity.h>
