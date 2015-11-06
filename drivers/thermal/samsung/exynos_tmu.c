@@ -86,6 +86,9 @@ struct exynos_tmu_data {
 	struct list_head node;
 	int temp;
 	int vaild;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_THERMAL
+	int cpu_num;
+#endif
 };
 
 /* list of multiple instance for each thermal sensor */
@@ -718,6 +721,10 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 	struct cpumask mask;
 	struct exynos_tmu_data *devnode;
 	struct exynos_tmu_data *quad_data, *dual_data;
+	struct exynos_tmu_platform_data *quad_pdata, *dual_pdata;
+#ifdef CONFIG_EXYNOS_SNAPSHOT_THERMAL
+	char *cool_device_name = "CHANGE_MODE";
+#endif
 
 	switch (event) {
 	case CPUS_DOWN_COMPLETE:
@@ -726,15 +733,24 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 		big_cpu_cnt = cpumask_weight(&mask);
 
 		list_for_each_entry(devnode, &dtm_dev_list, node) {
-			if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == NORMAL_SENSOR)
+			if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == NORMAL_SENSOR) {
 				quad_data = devnode;
-			else if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == VIRTUAL_SENSOR)
+				quad_pdata = quad_data->pdata;
+			} else if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == VIRTUAL_SENSOR) {
 				dual_data = devnode;
+				dual_pdata = dual_data->pdata;
+			}
 		}
 
 		if (big_cpu_cnt == DUAL_CPU) {
 			/* changed to dual */
 			mutex_lock(&boost_lock);
+			dual_data->cpu_num = quad_data->cpu_num = big_cpu_cnt;
+
+			/* Snap shot logging */
+			exynos_ss_thermal(quad_pdata, 0, cool_device_name, 0);
+			exynos_ss_thermal(dual_pdata, 0, cool_device_name, 1);
+
 			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, DUAL_MODE);
 			mutex_unlock(&boost_lock);
 		}
@@ -745,19 +761,34 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 		big_cpu_cnt = cpumask_weight(&mask);
 
 		list_for_each_entry(devnode, &dtm_dev_list, node) {
-			if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == NORMAL_SENSOR)
+			if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == NORMAL_SENSOR) {
 				quad_data = devnode;
-			else if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == VIRTUAL_SENSOR)
+				quad_pdata = quad_data->pdata;
+			} else if (devnode->pdata->d_type == CLUSTER1 && devnode->pdata->sensor_type == VIRTUAL_SENSOR) {
 				dual_data = devnode;
+				dual_pdata = dual_data->pdata;
+			}
 		}
 
 		if (big_cpu_cnt == QUAD_CPU){
 			/* changed to quad */
 			mutex_lock(&boost_lock);
+			dual_data->cpu_num = quad_data->cpu_num = big_cpu_cnt;
+
+			/* Snap shot logging */
+			exynos_ss_thermal(quad_pdata, 0, cool_device_name, 1);
+			exynos_ss_thermal(dual_pdata, 0, cool_device_name, 0);
+
 			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, QUAD_MODE);
 			mutex_unlock(&boost_lock);
 		} else if (big_cpu_cnt == DUAL_CPU) {
 			mutex_lock(&boost_lock);
+			dual_data->cpu_num = quad_data->cpu_num = big_cpu_cnt;
+
+			/* Snap shot logging */
+			exynos_ss_thermal(quad_pdata, 0, cool_device_name, 0);
+			exynos_ss_thermal(dual_pdata, 0, cool_device_name, 1);
+
 			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, DUAL_MODE);
 			mutex_unlock(&boost_lock);
 		}
