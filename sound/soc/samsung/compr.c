@@ -26,6 +26,7 @@
 #include <sound/tlv.h>
 
 #include "compr.h"
+#include "lpass.h"
 #include "./seiren/seiren.h"
 #ifdef CONFIG_SND_ESA_SA_EFFECT
 #include "esa_sa_effect.h"
@@ -388,6 +389,7 @@ static int compr_open(struct snd_compr_stream *cstream)
 	int ret;
 
 	pr_debug("%s\n", __func__);
+	lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, true);
 
 	prtd = kzalloc(sizeof(struct runtime_data), GFP_KERNEL);
 	if (prtd == NULL)
@@ -534,6 +536,7 @@ static int compr_free(struct snd_compr_stream *cstream)
 	pr_debug("%s: may be the ap sleep time : (%llu/%llu)\n", __func__,
 		playback_time - total_time, playback_time);
 #endif
+	lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
 	kfree(prtd->ap);
 	kfree(prtd);
 	return 0;
