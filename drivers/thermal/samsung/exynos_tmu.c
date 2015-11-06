@@ -698,8 +698,19 @@ void exynos_tmu_core_control(bool on, int id)
 }
 
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+static DEFINE_MUTEX(boost_lock);
 extern struct cpumask hmp_fast_cpu_mask;
 static int big_cpu_cnt;
+
+void core_boost_lock(void)
+{
+	mutex_lock(&boost_lock);
+}
+
+void core_boost_unlock(void)
+{
+	mutex_unlock(&boost_lock);
+}
 
 static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 				    unsigned long event, void *data)
@@ -723,7 +734,9 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 
 		if (big_cpu_cnt == DUAL_CPU) {
 			/* changed to dual */
+			mutex_lock(&boost_lock);
 			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, DUAL_MODE);
+			mutex_unlock(&boost_lock);
 		}
 		break;
 	case CPUS_UP_PREPARE:
@@ -740,9 +753,13 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 
 		if (big_cpu_cnt == QUAD_CPU){
 			/* changed to quad */
+			mutex_lock(&boost_lock);
 			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, QUAD_MODE);
+			mutex_unlock(&boost_lock);
 		} else if (big_cpu_cnt == DUAL_CPU) {
+			mutex_lock(&boost_lock);
 			change_core_boost_thermal(quad_data->reg_conf, dual_data->reg_conf, DUAL_MODE);
+			mutex_unlock(&boost_lock);
 		}
 		break;
 	}

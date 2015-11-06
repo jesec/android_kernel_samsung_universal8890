@@ -448,7 +448,12 @@ void exynos_report_trigger(struct thermal_sensor_conf *conf)
 		}
 	}
 
-	thermal_zone_device_update(th_zone->therm_dev);
+	if (conf->d_type == CLUSTER1) {
+		core_boost_lock();
+		thermal_zone_device_update(th_zone->therm_dev);
+		core_boost_unlock();
+	} else
+		thermal_zone_device_update(th_zone->therm_dev);
 
 	if (th_zone->therm_dev->ops->throttle_cpu_hotplug)
 		th_zone->therm_dev->ops->throttle_cpu_hotplug(th_zone->therm_dev);

@@ -125,4 +125,11 @@ static inline void
 exynos_report_trigger(struct thermal_sensor_conf *sensor_conf) { return; }
 
 #endif /* CONFIG_EXYNOS_THERMAL_CORE */
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+void core_boost_lock(void);
+void core_boost_unlock(void);
+#else
+static inline core_boost_lock(void) {return ;}
+static inline core_boost_unlock(void) {return ;}
+#endif
 #endif /* _EXYNOS_THERMAL_COMMON_H */
