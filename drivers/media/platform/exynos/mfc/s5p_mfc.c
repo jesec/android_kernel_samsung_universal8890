@@ -1709,10 +1709,15 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 
 	if (dev->has_job) {
 		/* If cache flush command is needed, hander should stop */
-		if (dev->curr_ctx_drm != dev->ctx[new_ctx]->is_drm)
+		if (dev->curr_ctx_drm != dev->ctx[new_ctx]->is_drm) {
+			mfc_debug(2, "DRM attribute is changed %d->%d\n",
+					dev->curr_ctx_drm, dev->ctx[new_ctx]->is_drm);
 			queue_work(dev->sched_wq, &dev->sched_work);
-		else
+		} else {
+			mfc_debug(5, "next ctx(%d) is picked\n", new_ctx);
+			dev->preempt_ctx = new_ctx;
 			s5p_mfc_try_run(dev);
+		}
 	}
 
 irq_done:
