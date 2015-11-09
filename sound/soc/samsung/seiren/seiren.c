@@ -82,7 +82,6 @@
 #endif
 
 #ifdef CONFIG_SOC_EXYNOS8890
-#define OFFLOAD_INT_LOCK_FREQ 255000
 #define OFFLOAD_CPU_LOCK_FREQ 650000
 #endif
 
@@ -426,7 +425,6 @@ void esa_compr_open(void)
 	u32 cfg;
 
 	pm_qos_update_request(&si.ap_cpu_qos, OFFLOAD_CPU_LOCK_FREQ);
-	pm_qos_update_request(&si.ca5_int_qos, OFFLOAD_INT_LOCK_FREQ);
 	pm_runtime_get_sync(&si.pdev->dev);
 
 	cmu_reg = ioremap(0x114C0000, SZ_4K);
@@ -460,7 +458,6 @@ void esa_compr_close(void)
 	pm_runtime_mark_last_busy(&si.pdev->dev);
 	pm_runtime_put_sync_autosuspend(&si.pdev->dev);
 	pm_qos_update_request(&si.ap_cpu_qos, 0);
-	pm_qos_update_request(&si.ca5_int_qos, 0);
 	ptr_ap = NULL;
 #ifdef CONFIG_SND_ESA_SA_EFFECT
 	si.out_sample_rate = 0;
