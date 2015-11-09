@@ -563,6 +563,8 @@ struct disp_log_vpp {
 	u32 id;
 	u32 start_cnt;
 	u32 done_cnt;
+	u32 width;
+	u32 height;
 };
 
 /**

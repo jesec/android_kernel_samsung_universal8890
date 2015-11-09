@@ -304,6 +304,8 @@ static inline void disp_ss_event_log_vpp
 		log->data.vpp.id = vpp->id;
 		log->data.vpp.start_cnt = vpp->start_count;
 		log->data.vpp.done_cnt = vpp->done_count;
+		log->data.vpp.width = vpp->config->dst.w;
+		log->data.vpp.height = vpp->config->dst.h;
 		break;
 	default:
 		log->data.vpp.id = vpp->id;
