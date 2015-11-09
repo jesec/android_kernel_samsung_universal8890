@@ -11,10 +11,10 @@
  */
 
 #include <linux/cpu.h>
+#include <linux/fb.h>
 #include <linux/kthread.h>
 #include <linux/pm_qos.h>
 #include <linux/suspend.h>
-#include <linux/of.h>
 
 static int cpu_hotplug_in(const struct cpumask *mask)
 {
@@ -78,6 +78,9 @@ static struct {
 
 	/* all CPUs running time during booting */
 	int			boot_lock_time;
+
+	/* The number of online cpu while display off */
+	unsigned int		display_off_online_cpu;
 
 	/*
 	 * In blocking notifier call chain, it is not supposed to call
@@ -276,6 +279,48 @@ static struct notifier_block cpu_hotplug_qos_notifier = {
 	.notifier_call = cpu_hotplug_qos_handler,
 };
 
+static struct pm_qos_request display_cpu_hotplug_request;
+static int cpu_hotplug_fb_notifier(struct notifier_block *nb,
+					unsigned long val, void *data)
+{
+	struct fb_event *evdata = data;
+	struct fb_info *info = evdata->info;
+	unsigned int blank;
+	int ret = NOTIFY_OK;
+
+	if (val != FB_EVENT_BLANK && val != FB_R_EARLY_EVENT_BLANK)
+		return 0;
+
+	/*
+	 * If FBNODE is not zero, it is not primary display(LCD)
+	 * and don't need to process these scheduling.
+	 */
+	if (info->node)
+		return ret;
+
+	blank = *(int *)evdata->data;
+
+	switch (blank) {
+	case FB_BLANK_POWERDOWN:
+		pr_info("%s: LCD is off\n", __func__);
+		pm_qos_update_request(&display_cpu_hotplug_request,
+					cpu_hotplug.display_off_online_cpu);
+		break;
+	case FB_BLANK_UNBLANK:
+		pr_info("%s: LCD is on\n", __func__);
+		pm_qos_update_request(&display_cpu_hotplug_request, NR_CPUS);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static struct notifier_block cpu_hotplug_fb_notifier_block = {
+        .notifier_call = cpu_hotplug_fb_notifier,
+};
+
 /*
  * User can change the number of online cpu by using control_online_cpus
  * sysfs node. User input minimum and maxinum online cpu to this node as
@@ -368,6 +413,14 @@ static const struct attribute_group cpu_hotplug_group = {
 static void __init cpu_hotplug_dt_init(void)
 {
 	struct device_node *np = of_find_node_by_name(NULL, "cpu_hotplug");
+	int count;
+
+	if (of_property_read_u32(np, "display_off_online_cpu", &count)) {
+		pr_warn("display_off_online_cpu property is omitted!\n");
+		return;
+	}
+
+	cpu_hotplug.display_off_online_cpu = count;
 
 	if (of_property_read_u32(np, "boot_lock_time", &cpu_hotplug.boot_lock_time)) {
 		pr_warn("boot_lock_time property is omitted!\n");
@@ -416,6 +469,9 @@ static void __init cpu_hotplug_pm_qos_init(void)
 	pm_qos_add_request(&user_max_cpu_hotplug_request,
 		PM_QOS_CPU_ONLINE_MAX, PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 
+	/* Add PM QoS for display */
+	pm_qos_add_request(&display_cpu_hotplug_request,
+		PM_QOS_CPU_ONLINE_MIN, PM_QOS_CPU_ONLINE_MIN_DEFAULT_VALUE);
 }
 
 static void __init cpu_hotplug_sysfs_init(void)
@@ -454,6 +510,9 @@ static int __init cpu_hotplug_init(void)
 
 	/* Initialize pm_qos request and handler */
 	cpu_hotplug_pm_qos_init();
+
+	/* Register FB notifier */
+	fb_register_client(&cpu_hotplug_fb_notifier_block);
 
 	/* Create sysfs */
 	cpu_hotplug_sysfs_init();
