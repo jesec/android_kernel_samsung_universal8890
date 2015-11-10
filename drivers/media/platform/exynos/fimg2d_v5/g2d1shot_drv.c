@@ -543,6 +543,20 @@ static int exynos_g2d_probe(struct platform_device *pdev)
 	if (IS_ERR(g2d_dev->oneshot2_dev))
 		return PTR_ERR(g2d_dev->oneshot2_dev);
 
+#if defined(G2D_SHARABILITY_CONTROL)
+	g2d_dev->syscon_reg = ioremap(SYSREG_BLK_MSCL, SZ_4K);
+	if (!g2d_dev->syscon_reg) {
+		dev_err(&pdev->dev, "Failed to map BLK_MSCL for sharability\n");
+		goto err_hwver;
+	}
+	g2d_dev->wlu_disable = true;
+#else
+	/* It should be NULL if SHARABILITY is not set */
+	g2d_dev->syscon_reg = NULL;
+	g2d_dev->wlu_disable = false;
+#endif
+	platform_set_drvdata(pdev, g2d_dev);
+
 	pm_runtime_enable(&pdev->dev);
 
 	ret = g2d_get_hw_version(&pdev->dev, g2d_dev);
@@ -563,8 +577,6 @@ static int exynos_g2d_probe(struct platform_device *pdev)
 						(unsigned long)g2d_dev);
 	spin_lock_init(&g2d_dev->state_lock);
 	init_waitqueue_head(&g2d_dev->suspend_wait);
-
-	platform_set_drvdata(pdev, g2d_dev);
 
 	dev_info(&pdev->dev, "G2D with m2m1shot2 is probed successfully.\n");
 
@@ -630,6 +642,7 @@ static int g2d_runtime_suspend(struct device *dev)
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 static int g2d_runtime_resume(struct device *dev)
 {
+	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(dev);
 	int ret;
 
 	ret = exynos_smc(MC_FC_SET_CFW_PROT, MC_FC_DRM_SET_CFW_PROT,
@@ -639,11 +652,19 @@ static int g2d_runtime_resume(struct device *dev)
 	else
 		g2d_debug("success to set cfw protection\n");
 
+	if (g2d_dev->wlu_disable)
+		g2d_wlu_disable(g2d_dev);
+
 	return 0;
 }
 #else
 static int g2d_runtime_resume(struct device *dev)
 {
+	struct g2d1shot_dev *g2d_dev = dev_get_drvdata(dev);
+
+	if (g2d_dev->wlu_disable)
+		g2d_wlu_disable(g2d_dev);
+
 	return 0;
 }
 #endif

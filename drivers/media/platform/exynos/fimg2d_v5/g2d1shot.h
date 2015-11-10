@@ -27,6 +27,16 @@
 #define G2D_MAX_NORMAL_SIZE	16383
 #define G2D_MAX_COMP_SIZE	8192
 
+#define G2D_SHARABILITY_CONTROL
+
+#if defined(G2D_SHARABILITY_CONTROL)
+#define SYSREG_BLK_MSCL		0x151C0000
+#define G2D_SHARABILITY_CTRL	0x700
+#define	WLU_EN_SHIFT		4
+#define	WLU_EN_MASK		0x1
+#endif
+
+
 /* flags for G2D supported format */
 #define G2D_FMT_FLAG_SUPPORT_COMP	(1 << 0)
 #define G2D_DATAFORMAT_RGB8888		(0 << 16)
@@ -61,6 +71,9 @@ struct g2d1shot_dev {
 	wait_queue_head_t suspend_wait;
 	struct m2m1shot2_context *suspend_ctx;
 	bool suspend_ctx_success;
+
+	bool wlu_disable;
+	void __iomem *syscon_reg;
 };
 
 struct g2d1shot_ctx {
@@ -171,6 +184,22 @@ static inline void g2d_hw_set_dither(struct g2d1shot_dev *g2d_dev)
 
 	__raw_writel(cfg, g2d_dev->reg + G2D_BITBLT_COMMAND_REG);
 }
+
+#if defined(G2D_SHARABILITY_CONTROL)
+static inline void g2d_wlu_disable(struct g2d1shot_dev *g2d_dev)
+{
+	u32 cfg;
+
+	cfg = readl(g2d_dev->syscon_reg + G2D_SHARABILITY_CTRL);
+	cfg &= ~(0x1 << WLU_EN_SHIFT);
+	writel(cfg, g2d_dev->syscon_reg + G2D_SHARABILITY_CTRL);
+}
+#else
+static inline void g2d_wlu_disable(struct g2d1shot_dev *g2d_dev)
+{
+	/* Dummy for compile error */
+}
+#endif
 
 void g2d_hw_start(struct g2d1shot_dev *g2d_dev);
 void g2d_hw_set_source_blending(struct g2d1shot_dev *g2d_dev, int n,
