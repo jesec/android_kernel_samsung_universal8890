@@ -491,6 +491,7 @@ struct exynos_ufs {
 	u32 rx_adv_fine_gran_step;
 	u32 rx_min_actv_time_cap;
 	u32 rx_hibern8_time_cap;
+	u32 tx_hibern8_time_cap;
 	u32 rx_adv_min_actv_time_cap;
 	u32 rx_adv_hibern8_time_cap;
 

@@ -1098,6 +1098,11 @@ static void exynos_ufs_config_phy_cap_attr(struct exynos_ufs *ufs)
 				ufshcd_dme_set(hba,
 					UIC_ARG_MIB_SEL(RX_HIBERN8TIME_CAP, i),
 					ufs->rx_hibern8_time_cap);
+
+			if (ufs->tx_hibern8_time_cap)
+				ufshcd_dme_set(hba,
+					UIC_ARG_MIB_SEL(TX_HIBERN8TIME_CAP, i),
+					ufs->tx_hibern8_time_cap);
 		}
 	} else if (ufs->rx_adv_fine_gran_sup_en == 1) {
 		for_each_ufs_lane(ufs, i) {
@@ -1624,6 +1629,8 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	const struct exynos_ufs_soc *soc = to_phy_soc(ufs);
+	u32 rx_min_actv_time_cap;
+	u32 rx_hibern8_time_cap;
 
 	exynos_ufs_establish_connt(ufs);
 	exynos_ufs_fit_aggr_timeout(ufs);
@@ -1653,6 +1660,11 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 		if (ufs->pa_hibern8time)
 			ufshcd_dme_set(hba,
 				UIC_ARG_MIB(PA_HIBERN8TIME), ufs->pa_hibern8time);
+	} else {
+		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TACTIVATE), &rx_min_actv_time_cap);
+		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_HIBERN8TIME), &rx_hibern8_time_cap);
+		ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TACTIVATE), rx_min_actv_time_cap + 1);
+		ufshcd_dme_set(hba,UIC_ARG_MIB(PA_HIBERN8TIME), rx_hibern8_time_cap + 1);
 	}
 
 	if (soc)
@@ -2222,6 +2234,12 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 					&ufs->rx_hibern8_time_cap))
 				dev_warn(dev,
 					"ufs-rx-hibern8-time-cap is empty\n");
+
+			if (of_property_read_u32(np,
+					"ufs-tx-hibern8-time-cap",
+					&ufs->tx_hibern8_time_cap))
+				dev_warn(dev,
+					"ufs-tx-hibern8-time-cap is empty\n");
 		} else if (ufs->rx_adv_fine_gran_sup_en == 1) {
 			/* fine granularity step */
 			if (of_property_read_u32(np,

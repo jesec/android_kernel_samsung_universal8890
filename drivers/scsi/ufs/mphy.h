@@ -12,6 +12,7 @@
 #ifndef _MPHY_H_
 #define _MPHY_H_
 
+#define TX_HIBERN8TIME_CAP		0x0f
 #define TX_MIN_ACTIVATE_TIME		0x33
 
 #define RX_HS_G1_SYNC_LENGTH_CAP	0x8b
