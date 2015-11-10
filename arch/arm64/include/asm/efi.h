@@ -2,6 +2,7 @@
 #define _ASM_EFI_H
 
 #include <asm/io.h>
+#include <asm/neon.h>
 
 #ifdef CONFIG_EFI
 extern void efi_init(void);
