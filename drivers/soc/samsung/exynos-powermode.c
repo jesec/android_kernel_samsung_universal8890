@@ -57,6 +57,9 @@ struct exynos_powermode_info {
 	 */
 	unsigned int	wakeup_mask[NUM_SYS_POWERDOWN][NUM_WAKEUP_MASK];
 	int		idle_ip_mask[NUM_SYS_POWERDOWN][NUM_IDLE_IP];
+
+	/* For debugging using exynos snapshot. */
+	char *syspwr_modes[NUM_SYS_POWERDOWN];
 };
 
 static struct exynos_powermode_info *pm_info;
@@ -538,7 +541,8 @@ int enter_c2(unsigned int cpu, int index)
 		s3c24xx_serial_fifo_wait();
 		pm_info->sicd_entered = sicd_mode;
 
-		exynos_ss_cpuidle(EXYNOS_SS_SICD_INDEX, 0, 0, ESS_FLAG_IN);
+		exynos_ss_cpuidle(pm_info->syspwr_modes[pm_info->sicd_entered],
+				  0, 0, ESS_FLAG_IN);
 	}
 out:
 	spin_unlock(&c2_lock);
@@ -560,9 +564,10 @@ void wakeup_from_c2(unsigned int cpu, int early_wakeup)
 
 	if (pm_info->sicd_entered != -1) {
 		exynos_wakeup_sys_powerdown(pm_info->sicd_entered, early_wakeup);
-		pm_info->sicd_entered = -1;
+		exynos_ss_cpuidle(pm_info->syspwr_modes[pm_info->sicd_entered],
+				  0, 0, ESS_FLAG_OUT);
 
-		exynos_ss_cpuidle(EXYNOS_SS_SICD_INDEX, 0, 0, ESS_FLAG_OUT);
+		pm_info->sicd_entered = -1;
 	}
 
 	update_c2_state(false, cpu);
@@ -792,9 +797,12 @@ int __init exynos_powermode_init(void)
 
 	dt_init_exynos_powermode();
 
-	for_each_syspower_mode(mode)
+	for_each_syspower_mode(mode) {
 		for_each_idle_ip(index)
 			pm_info->idle_ip_mask[mode][index] = 0xFFFFFFFF;
+
+		pm_info->syspwr_modes[mode] = get_sys_powerdown_str(mode);
+	}
 
 	pm_info->sicd_entered = -1;
 
