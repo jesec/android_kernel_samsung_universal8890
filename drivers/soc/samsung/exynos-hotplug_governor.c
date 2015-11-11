@@ -46,12 +46,12 @@ struct hpgov_data {
 };
 
 struct {
-	uint32_t			enabled;
+	int				enabled;
 	int				cur_cpu_max;
 	int				cur_cpu_min;
 	long				use_fast_hp;
 
-	uint32_t			dual_change_ms;
+	int				dual_change_ms;
 	struct hpgov_attrib		attrib;
 	struct mutex			attrib_lock;
 	struct task_struct		*task;
@@ -315,10 +315,10 @@ restart:
 	return 0;
 }
 
-static int exynos_hpgov_set_enabled(uint32_t enable)
+static int exynos_hpgov_set_enabled(int enable)
 {
 	int ret = 0;
-	static uint32_t last_enable = 0;
+	static int last_enable = 0;
 
 	enable = (enable > 0) ? 1 : 0;
 	if (last_enable == enable)
@@ -380,8 +380,11 @@ int hpgov_default_level(void)
 	return 2;
 }
 
-static int exynos_hpgov_set_dual_change_ms(uint32_t val)
+static int exynos_hpgov_set_dual_change_ms(int val)
 {
+	if (!(val >= 0))
+		return -EINVAL;
+
 	exynos_hpgov.dual_change_ms = val;
 	return 0;
 }
@@ -389,9 +392,8 @@ static int exynos_hpgov_set_dual_change_ms(uint32_t val)
 #if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
 /* Currently max value of to_quad_ratio is 100. */
 /* TODO: Change max value for ratio to 1024 (permille) */
-static int exynos_hpgov_set_to_quad_ratio(uint32_t val)
+static int exynos_hpgov_set_to_quad_ratio(int val)
 {
-	/* FIXME: Current sysfs handler couldn't handle negative value. */
 	if ((val > 100) || (val < 0))
 		return -EINVAL;
 
@@ -405,9 +407,8 @@ static int exynos_hpgov_set_to_quad_ratio(uint32_t val)
 
 /* Currently max value of to_dual_ratio is 100. */
 /* TODO: Change max value for ratio to 1024 (permille) */
-static int exynos_hpgov_set_to_dual_ratio(uint32_t val)
+static int exynos_hpgov_set_to_dual_ratio(int val)
 {
-	/* FIXME: Current sysfs handler couldn't handle negative value. */
 	if ((val > 100) || (val < 0))
 		return -EINVAL;
 
@@ -430,10 +431,10 @@ static ssize_t exynos_hpgov_attr_##_name##_store(struct kobject *kobj, \
 		struct kobj_attribute *attr, const char *buf, size_t count) \
 { \
 	int ret = 0; \
-	uint32_t val; \
-	uint32_t old_val; \
+	int val; \
+	int old_val; \
 	mutex_lock(&exynos_hpgov.attrib_lock); \
-	ret = kstrtouint(buf, 10, &val); \
+	ret = kstrtoint(buf, 10, &val); \
 	if (ret) { \
 		pr_err("Invalid input %s for %s %d\n", \
 				buf, __stringify(_name), ret);\
