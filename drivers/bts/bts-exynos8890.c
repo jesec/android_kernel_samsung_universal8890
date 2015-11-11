@@ -714,6 +714,7 @@ void bts_scen_update(enum bts_scen_type type, unsigned int val)
 		scen = BS_HIGHPERF;
 		bts = &exynos8_bts[BTS_IDX_TREX_MFC0];
 		BTS_DBG("[BTS] MFC PERF: %s\n", bts_scen[scen].name);
+		break;
 	case TYPE_G3D_FREQ:
 		on = val ? true : false;
 		scen = BS_G3DFREQ;
