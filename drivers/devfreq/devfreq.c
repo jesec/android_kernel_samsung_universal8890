@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/stat.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_qos.h>
 #include <linux/devfreq.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
@@ -168,6 +169,10 @@ int update_devfreq(struct devfreq *devfreq)
 	unsigned long freq;
 	int err = 0;
 	u32 flags = 0;
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_EXYNOS)
+	struct devfreq_simple_exynos_data *gov_data = devfreq->data;
+	unsigned long pm_qos_max;
+#endif
 
 	if (!mutex_is_locked(&devfreq->lock)) {
 		WARN(true, "devfreq->lock must be locked by the caller.\n");
@@ -198,6 +203,15 @@ int update_devfreq(struct devfreq *devfreq)
 		freq = devfreq->max_freq;
 		flags |= DEVFREQ_FLAG_LEAST_UPPER_BOUND; /* Use LUB */
 	}
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_EXYNOS)
+	if (!strcmp(devfreq->governor->name, "simple_exynos") && gov_data->pm_qos_class_max) {
+		pm_qos_max = (unsigned long)pm_qos_request(gov_data->pm_qos_class_max);
+		if (freq > pm_qos_max) {
+			freq = pm_qos_max;
+			flags |= DEVFREQ_FLAG_LEAST_UPPER_BOUND; /* Use LUB */
+		}
+	}
+#endif
 
 	err = devfreq->profile->target(devfreq->dev.parent, &freq, flags);
 	if (err)
