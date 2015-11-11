@@ -173,7 +173,7 @@ retry:
 			page = vm_normal_page(vma, address, pte);
 			BUG_ON(!page);
 
-			pr_info("cma: cma page %p[%#lx] migrated to new "
+			pr_debug("cma: cma page %p[%#lx] migrated to new "
 					"page %p[%#lx]\n", old_page,
 					page_to_pfn(old_page),
 					page, page_to_pfn(page));
