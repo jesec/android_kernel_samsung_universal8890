@@ -10187,13 +10187,33 @@ static int hmp_big_status = BIG_IDLE;
 static atomic_t hmp_num_big_threads;
 DEFINE_RAW_SPINLOCK(sysload_lock);
 
-#define TO_QUAD_RATIO	100
-#define TO_DUAL_RATIO	80
+int hp_sysload_to_quad_ratio = 100;
+int hp_sysload_to_dual_ratio = 80;
 
-static unsigned long big_throttle_threshold = ((2 * 12480 * 5035) >> SCHED_FREQSCALE_SHIFT) * TO_QUAD_RATIO;
-static unsigned long big_idle_threshold = ((2 * 12480 * 5035) >> SCHED_FREQSCALE_SHIFT) * TO_DUAL_RATIO;
-static unsigned long big_multiplier = (5035 * (2704000 >> SCHED_FREQSCALE_SHIFT)) >> SCHED_FREQSCALE_SHIFT;
-static unsigned long little_multiplier = (2048 * (1586000 >> SCHED_FREQSCALE_SHIFT)) >> SCHED_FREQSCALE_SHIFT;
+static unsigned long big_throttle_threshold;
+static unsigned long big_idle_threshold;
+static unsigned long big_multiplier;
+static unsigned long little_multiplier;
+
+int hp_sysload_param_calc(void)
+{
+	/* XXX: Do we need sysload_lock here? */
+	big_throttle_threshold = ((2 * 12480 * 5035) >> SCHED_FREQSCALE_SHIFT) * hp_sysload_to_quad_ratio;
+	big_idle_threshold = ((2 * 12480 * 5035) >> SCHED_FREQSCALE_SHIFT) * hp_sysload_to_dual_ratio;
+
+	return 0;
+}
+
+static int __init hp_sysload_param_init(void)
+{
+	hp_sysload_param_calc();
+
+	big_multiplier = (5035 * (2704000 >> SCHED_FREQSCALE_SHIFT)) >> SCHED_FREQSCALE_SHIFT;
+	little_multiplier = (2048 * (1586000 >> SCHED_FREQSCALE_SHIFT)) >> SCHED_FREQSCALE_SHIFT;
+
+	return 0;
+}
+pure_initcall(hp_sysload_param_init);
 
 static inline unsigned long sysload_sum(unsigned long big_load, unsigned long little_load)
 {

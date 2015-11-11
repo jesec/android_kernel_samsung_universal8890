@@ -3115,4 +3115,10 @@ static inline void hp_event_switched_from(struct sched_entity *se) { };
 static inline void hp_event_do_exit(struct task_struct *p) { };
 static inline void hp_event_update_rq_load(int cpu) { };
 #endif
+
+#if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
+extern int hp_sysload_to_quad_ratio;
+extern int hp_sysload_to_dual_ratio;
+extern int hp_sysload_param_calc(void);
+#endif
 #endif
