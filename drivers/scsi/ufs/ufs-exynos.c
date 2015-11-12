@@ -1562,30 +1562,6 @@ static void exynos_ufs_config_intr(struct exynos_ufs *ufs, u32 errs, u8 index)
 	}
 }
 
-static int exynos_ufs_line_rest_ctrl(struct exynos_ufs *ufs)
-{
-	struct ufs_hba *hba = ufs->hba;
-	u32 val;
-	int i;
-
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9565), 0xf);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9565), 0xf);
-	for_each_ufs_lane(ufs, i)
-		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x2b, i), 0x0);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9518), 0x1);
-	udelay(1);
-	ufshcd_dme_get(hba, UIC_ARG_MIB(0x9564), &val);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9564), val | (1 << 12));
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9539), 0x1);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9541), 0x1);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9543), 0x1);
-	udelay(1600);
-	ufshcd_dme_get(hba, UIC_ARG_MIB(0x9564), &val);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(0x9564), val & ~(1 << 12));
-
-	return 0;
-}
-
 static int exynos_ufs_pre_link(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
@@ -1610,8 +1586,6 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 	/* mphy */
 	exynos_ufs_config_phy_time_v(ufs);
 	exynos_ufs_config_phy_cap_attr(ufs);
-
-	exynos_ufs_line_rest_ctrl(ufs);
 
 	return 0;
 }
