@@ -1310,6 +1310,10 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 		clk_en_a = SDMMC_CLKEN_ENABLE << slot->id;
 		if (!(mci_readl(host, INTMASK) & SDMMC_INT_SDIO(slot->id)))
 			clk_en_a |= SDMMC_CLKEN_LOW_PWR << slot->id;
+
+		if (host->current_speed <= 400 * 1000)
+			clk_en_a &= ~(SDMMC_CLKEN_LOW_PWR << slot->id);
+
 		mci_writel(host, CLKENA, clk_en_a);
 
 		/* inform CIU */
