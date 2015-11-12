@@ -1857,6 +1857,8 @@ static int __exynos_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 
+	pm_qos_update_request(&ufs->pm_qos_int, 0);
+
 	exynos_ufs_ctrl_phy_pwr(ufs, false);
 
 	return 0;
@@ -1875,7 +1877,14 @@ static int __exynos_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	exynos_ufs_ctrl_hci_core_clk(ufs, false);
 	exynos_ufs_config_smu(ufs);
 #if defined(CONFIG_UFS_FMP_DM_CRYPT)
-	ret = exynos_smc(SMC_CMD_FMP, FMP_KEY_RESUME, 0, 0);
+	ret = exynos_smc(SMC_CMD_RESUME, 0, UFS_FMP, 1);
+#else
+	ret = exynos_smc(SMC_CMD_RESUME, 0, UFS_FMP, 0);
+#endif
+
+	if (ufshcd_is_clkgating_allowed(hba))
+		clk_disable_unprepare(ufs->clk_hci);
+
 	if (ret)
 		dev_warn(ufs->dev, "failed to smc call for FMP: %x\n", ret);
 #endif
