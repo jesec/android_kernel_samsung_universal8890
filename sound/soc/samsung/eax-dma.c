@@ -1214,9 +1214,7 @@ static int eax_mixer_remove(struct runtime_data *prtd)
 static void eax_mixer_trigger(bool on)
 {
 	if (on) {
-		spin_lock(&mi.lock);
 		mi.running = true;
-		spin_unlock(&mi.lock);
 		if (waitqueue_active(&mixer_run_wq))
 			wake_up_interruptible(&mixer_run_wq);
 	} else {
@@ -1224,9 +1222,7 @@ static void eax_mixer_trigger(bool on)
 			if (di.running)
 				eax_adma_trigger(false);
 
-			spin_lock(&mi.lock);
 			mi.running = false;
-			spin_unlock(&mi.lock);
 		}
 	}
 }
