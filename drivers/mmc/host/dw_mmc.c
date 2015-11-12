@@ -607,6 +607,19 @@ out:
 	dw_mci_enable_interrupt(host, int_mask);
 }
 
+static inline bool dw_mci_stop_abort_cmd(struct mmc_command *cmd)
+{
+	u32 op = cmd->opcode;
+
+	if ((op == MMC_STOP_TRANSMISSION) ||
+	    (op == MMC_GO_IDLE_STATE) ||
+	    (op == MMC_GO_INACTIVE_STATE) ||
+	    ((op == SD_IO_RW_DIRECT) && (cmd->arg & 0x80000000) &&
+	     ((cmd->arg >> 9) & 0x1FFFF) == SDIO_CCCR_ABORT))
+		return true;
+	return false;
+}
+
 static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 {
 	struct mmc_data	*data;
@@ -1260,6 +1273,61 @@ static void mci_send_cmd(struct dw_mci_slot *slot, u32 cmd, u32 arg)
 		cmd, arg, cmd_status);
 }
 
+static bool dw_mci_wait_data_busy(struct dw_mci *host, struct mmc_request *mrq)
+{
+	u32 status;
+	unsigned long timeout = jiffies + msecs_to_jiffies(500);
+	struct dw_mci_slot *slot = host->cur_slot;
+	int try = 6;
+	u32 clkena;
+	bool ret = false;
+
+	do {
+		do {
+			status = mci_readl(host, STATUS);
+			if (!(status & SDMMC_STATUS_BUSY)) {
+				ret = true;
+				goto out;
+			}
+
+			usleep_range(10, 20);
+		} while (time_before(jiffies, timeout));
+
+		/* card is checked every 1s by CMD13 at least */
+		if (mrq->cmd->opcode == MMC_SEND_STATUS)
+			return true;
+
+		dw_mci_ctrl_reset(host, SDMMC_CTRL_FIFO_RESET);
+		dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
+		/* After CTRL Reset, Should be needed clk val to CIU */
+		if (host->cur_slot) {
+			/* Disable low power mode */
+			clkena = mci_readl(host, CLKENA);
+			clkena &= ~((SDMMC_CLKEN_LOW_PWR) << slot->id);
+			mci_writel(host, CLKENA, clkena);
+
+			mci_send_cmd(host->cur_slot,
+				SDMMC_CMD_UPD_CLK | SDMMC_CMD_PRV_DAT_WAIT, 0);
+		}
+		timeout = jiffies + msecs_to_jiffies(500);
+	} while (--try);
+out:
+	if (host->cur_slot) {
+		if (ret == false)
+			dev_err(host->dev, "Data[0]: data is busy\n");
+
+		/* enable clock */
+		mci_writel(host, CLKENA, ((SDMMC_CLKEN_ENABLE |
+					SDMMC_CLKEN_LOW_PWR) << slot->id));
+
+		/* inform CIU */
+		mci_send_cmd(slot,
+			     SDMMC_CMD_UPD_CLK | SDMMC_CMD_PRV_DAT_WAIT, 0);
+	}
+
+	return ret;
+}
+
 static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 {
 	struct dw_mci *host = slot->host;
@@ -1434,6 +1502,15 @@ static void dw_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * atomic, otherwise the card could be removed in between and the
 	 * request wouldn't fail until another card was inserted.
 	 */
+
+	if (!dw_mci_stop_abort_cmd(mrq->cmd)) {
+		if (!dw_mci_wait_data_busy(host, mrq)) {
+			mrq->cmd->error = -ENOTRECOVERABLE;
+			mmc_request_done(mmc, mrq);
+			return;
+		}
+	}
+
 	spin_lock_bh(&host->lock);
 
 	if (!test_bit(DW_MMC_CARD_PRESENT, &slot->flags)) {
