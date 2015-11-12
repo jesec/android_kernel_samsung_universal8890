@@ -742,13 +742,26 @@ static int decon_win_update_disp_config(struct decon_device *decon,
 {
 	struct decon_lcd lcd_info;
 	int ret = 0;
+	u32 comp_ratio;
 
 	memcpy(&lcd_info, decon->lcd_info, sizeof(struct decon_lcd));
 	lcd_info.xres = win_rect->w;
 	lcd_info.yres = win_rect->h;
 
-	lcd_info.hfp = decon->lcd_info->hfp + ((decon->lcd_info->xres - win_rect->w) >> 1);
-	lcd_info.vfp = decon->lcd_info->vfp + decon->lcd_info->yres - win_rect->h;
+	if (decon->lcd_info->dsc_enabled)
+		comp_ratio = 3;
+	else if (decon->lcd_info->mic_enabled &&
+			decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_3)
+		comp_ratio = 3;
+	else if (decon->lcd_info->mic_enabled &&
+			decon->lcd_info->mic_ratio == MIC_COMP_RATIO_1_2)
+		comp_ratio = 2;
+	else
+		comp_ratio = 1;
+
+	/* HFP should be aligned multiple of 2 */
+	lcd_info.hfp = ALIGN(decon->lcd_info->hfp +
+		((decon->lcd_info->xres - win_rect->w) / comp_ratio), 2);
 
 	v4l2_set_subdev_hostdata(decon->output_sd, &lcd_info);
 	ret = v4l2_subdev_call(decon->output_sd, core, ioctl, DSIM_IOC_SET_PORCH, NULL);
