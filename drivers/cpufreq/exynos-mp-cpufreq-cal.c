@@ -130,25 +130,12 @@ static void exynos_mp_cpufreq_clear_smpl(void)
 		pr_err("CL1 : SMPL_WARN clear failed.\n");
 }
 
-static bool exynos_mp_cpufreq_cl0_state(void)
-{
-	/* in pmu driver, 1 is cluster 0 (little) */
-	return exynos_cpu.cluster_state(CL_ONE);
-}
-
-static bool exynos_mp_cpufreq_cl1_state(void)
-{
-	/* in pmu driver, 0 is cluster 1 (big) */
-	return exynos_cpu.cluster_state(CL_ZERO);
-}
-
 static void exynos_mp_cpufreq_set_cal_ops(cluster_type cluster)
 {
 	/* set cal ops for little core */
 	if (!cluster) {
 		exynos_info[cluster]->set_freq = exynos_mp_cpufreq_cl0_set_freq;
 		exynos_info[cluster]->get_freq = exynos_mp_cpufreq_cl0_get_freq;
-		exynos_info[cluster]->is_alive = exynos_mp_cpufreq_cl0_state;
 
 		if (exynos_info[cluster]->en_ema)
 			exynos_info[cluster]->set_ema = exynos_mp_cpufreq_cl0_set_ema;
@@ -158,7 +145,6 @@ static void exynos_mp_cpufreq_set_cal_ops(cluster_type cluster)
 	} else {
 		exynos_info[cluster]->set_freq = exynos_mp_cpufreq_cl1_set_freq;
 		exynos_info[cluster]->get_freq = exynos_mp_cpufreq_cl1_get_freq;
-		exynos_info[cluster]->is_alive = exynos_mp_cpufreq_cl1_state;
 
 		if (exynos_info[cluster]->en_ema)
 			exynos_info[cluster]->set_ema = exynos_mp_cpufreq_cl1_set_ema;

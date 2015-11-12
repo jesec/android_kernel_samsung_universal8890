@@ -73,19 +73,12 @@ static DEFINE_MUTEX(cpufreq_scale_lock);
 
 bool exynos_cpufreq_init_done;
 static bool suspend_prepared = false;
-bool cluster_on[CL_END] = {true, };
 #ifdef CONFIG_PM
 #ifdef CONFIG_SCHED_HMP
 static bool hmp_boosted = false;
 #endif
 static bool cluster1_hotplugged = false;
 #endif
-
-/* for cluster0 QoS lock by cluster1 */
-static unsigned int en_cl0_qos_lock = 0;
-static unsigned int cl1_lock_fthr = 0;
-static unsigned int cl0_qos_lock_freq = 0;
-static bool cl0_locked = false;
 
 /* Include CPU mask of each cluster */
 cluster_type exynos_boot_cluster;
@@ -106,9 +99,6 @@ static struct pm_qos_request exynos_mif_qos[CL_END];
 static struct pm_qos_request ipa_max_qos[CL_END];
 static struct pm_qos_request reboot_max_qos[CL_END];
 
-static struct workqueue_struct *cluster_monitor_wq;
-static struct delayed_work monitor_cluster_on;
-static bool cluster_status[CL_END] = {false, false};
 static int qos_max_class[CL_END] = {PM_QOS_CLUSTER0_FREQ_MAX, PM_QOS_CLUSTER1_FREQ_MAX};
 static int qos_min_class[CL_END] = {PM_QOS_CLUSTER0_FREQ_MIN, PM_QOS_CLUSTER1_FREQ_MIN};
 //static int qos_max_default_value[CL_END] = {PM_QOS_CLUSTER0_FREQ_MAX_DEFAULT_VALUE, PM_QOS_CLUSTER1_FREQ_MAX_DEFAULT_VALUE};
@@ -333,66 +323,6 @@ static void set_resume_freq(cluster_type cluster)
 	if (exynos_info[cluster])
 		exynos_info[cluster]->resume_freq
 				= clk_get_freq(cluster);
-}
-
-static void set_cluster0_lock(void)
-{
-	if (exynos_info[CL_ONE]->is_alive && exynos_info[CL_ONE]->is_alive()) {
-		if (freqs[CL_ONE]->old >= cl1_lock_fthr && !cl0_locked) {
-			pm_qos_update_request(&core_min_qos_real[CL_ZERO], cl0_qos_lock_freq);
-			cl0_locked = true;
-		} else if (freqs[CL_ONE]-> old < cl1_lock_fthr && cl0_locked) {
-			pm_qos_update_request(&core_min_qos_real[CL_ZERO], 0);
-			cl0_locked = false;
-		}
-	} else {
-		if (cl0_locked) {
-			pm_qos_update_request(&core_min_qos_real[CL_ZERO], 0);
-			cl0_locked = false;
-		}
-	}
-}
-
-static void cluster_onoff_monitor(struct work_struct *work)
-{
-	struct cpufreq_frequency_table *freq_table = NULL;
-	unsigned int old_index = 0;
-	unsigned int freq;
-	int i, cl;
-
-	for (cl = 0; cl < CL_END; cl++) {
-		if (exynos_info[cl]->is_alive)
-			cluster_on[cl] = exynos_info[cl]->is_alive();
-
-		if (exynos_info[cl]->bus_table && exynos_info[cl]->is_alive) {
-			if (!exynos_info[cl]->is_alive() && cluster_status[cl]) {
-				if (freqs[cl]->old == freq_min[cl])
-					pm_qos_update_request(&exynos_mif_qos[cl], 0);
-
-				cluster_status[cl] = false;
-			} else if (exynos_info[cl]->is_alive() && !cluster_status[cl]) {
-				freq_table = exynos_info[cl]->freq_table;
-				for (i = 0; (freq_table[i].frequency != CPUFREQ_TABLE_END); i++) {
-					freq = freq_table[i].frequency;
-					if (freq == CPUFREQ_ENTRY_INVALID)
-						continue;
-					if (freqs[cl]->old == freq) {
-						old_index = i;
-						break;
-					}
-				}
-
-				pm_qos_update_request(&exynos_mif_qos[cl],
-						exynos_info[cl]->bus_table[old_index]);
-				cluster_status[cl] = true;
-			}
-		}
-
-		if (en_cl0_qos_lock && cl == CL_ONE)
-			set_cluster0_lock();
-	}
-
-	queue_delayed_work_on(0, cluster_monitor_wq, &monitor_cluster_on, msecs_to_jiffies(100));
 }
 
 static unsigned int get_freq_volt(int cluster, unsigned int target_freq, int *idx)
@@ -2276,26 +2206,12 @@ static int exynos_cpufreq_init(void)
 	}
 #endif
 
-	if (exynos_info[CL_ZERO]->bus_table || exynos_info[CL_ONE]->bus_table) {
-		INIT_DELAYED_WORK(&monitor_cluster_on, cluster_onoff_monitor);
-
-		cluster_monitor_wq = create_workqueue("cluster_monitor");
-		if (!cluster_monitor_wq) {
-			pr_err("%s: failed to create cluster_monitor_wq\n", __func__);
-			goto err_workqueue;
-		}
-
-		queue_delayed_work_on(0, cluster_monitor_wq, &monitor_cluster_on,
-						msecs_to_jiffies(1000));
-	}
-
 	exynos_cpufreq_init_done = true;
 	exynos_cpufreq_init_notify_call_chain(CPUFREQ_INIT_COMPLETE);
 
 	pr_info("%s: MP-CPUFreq Initialization Complete\n", __func__);
 	return 0;
 
-err_workqueue:
 #ifdef CONFIG_PM
 err_cpufreq_max_limit:
 	sysfs_remove_file(power_kobj, &cpufreq_min_limit.attr);
@@ -2487,12 +2403,6 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 		return -ENODEV;
 
 	if (cl == CL_ONE) {
-		if (of_property_read_u32(np, "en_cl0_qos_lock", &en_cl0_qos_lock))
-			return -ENODEV;
-		if (of_property_read_u32(np, "cl1_lock_fthr", &cl1_lock_fthr))
-			return -ENODEV;
-		if (of_property_read_u32(np, "cl0_qos_lock_freq", &cl0_qos_lock_freq))
-			return -ENODEV;
 		if (of_property_read_u32(np, "cl1_en_smpl", &ptr->en_smpl))
 			return -ENODEV;
 		if (of_property_read_u32(np, "cl1_reboot_limit_freq", &ptr->reboot_limit_freq))
