@@ -1755,9 +1755,6 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	if (size >= SECT_SIZE) {
 		ret = lv1set_section(priv, entry, paddr, size,
 				&priv->lv2entcnt[lv1ent_offset(iova)]);
-
-		SYSMMU_EVENT_LOG_IOMMU_MAP(IOMMU_PRIV_TO_LOG(priv),
-				iova, iova + size, paddr / SPAGE_SIZE);
 	} else {
 		sysmmu_pte_t *pent;
 		pent = alloc_lv2entry(priv, entry, iova,
@@ -1767,9 +1764,6 @@ static int exynos_iommu_map(struct iommu_domain *domain, unsigned long iova,
 		} else {
 			ret = lv2set_page(pent, paddr, size,
 					&priv->lv2entcnt[lv1ent_offset(iova)]);
-
-			SYSMMU_EVENT_LOG_IOMMU_MAP(IOMMU_PRIV_TO_LOG(priv),
-					iova, iova + size, paddr / SPAGE_SIZE);
 		}
 	}
 
@@ -1895,9 +1889,6 @@ unmap_flpd:
 	}
 
 done:
-	SYSMMU_EVENT_LOG_IOMMU_UNMAP(IOMMU_PRIV_TO_LOG(priv),
-						iova, iova + size);
-
 	exynos_iommu_tlb_invalidate_entry(priv, iova);
 
 	/* TLB invalidation is performed by IOVMM */
@@ -2977,8 +2968,6 @@ static int sysmmu_map_pte(struct mm_struct *mm,
 		BUG_ON(!lv2ent_fault(ent));
 
 		*ent = mk_lv2ent_spage(pte_pfn(*pte) << PAGE_SHIFT);
-		SYSMMU_EVENT_LOG_IOMMU_MAP(IOMMU_PRIV_TO_LOG(domain),
-				iova, iova + SPAGE_SIZE, pte_pfn(*pte));
 
 		if (!pfnmap)
 			get_page(pte_page(*pte));
@@ -3116,9 +3105,6 @@ void exynos_iommu_unmap_userptr(struct iommu_domain *dom,
 				put_page(phys_to_page(spage_phys(pent)));
 
 			*pent = 0;
-
-			SYSMMU_EVENT_LOG_IOMMU_UNMAP(IOMMU_PRIV_TO_LOG(domain),
-					iova + i * SPAGE_SIZE, SPAGE_SIZE);
 		}
 
 		pgtable_flush(pent - lv2ents, pent);
