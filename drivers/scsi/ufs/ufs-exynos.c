@@ -634,7 +634,7 @@ static void exynos_ufs_get_sfr(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	struct exynos_ufs_sfr_log* cfg = ufs->debug.sfr;
-	int sel_api;
+	int sel_api = 0;
 
 	while(cfg) {
 		if (!cfg->name)

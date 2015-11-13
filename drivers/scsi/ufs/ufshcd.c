@@ -1903,7 +1903,7 @@ static int ufshcd_query_descriptor(struct ufs_hba *hba,
 {
 	struct ufs_query_req *request;
 	struct ufs_query_res *response;
-	int err;
+	int err = 0;
 
 	BUG_ON(!hba);
 
