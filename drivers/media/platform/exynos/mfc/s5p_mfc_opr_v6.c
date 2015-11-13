@@ -493,6 +493,8 @@ static inline int s5p_mfc_run_dec_last_frames(struct s5p_mfc_ctx *ctx)
 	}
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
+
+	s5p_mfc_clean_ctx_int_flags(ctx);
 	s5p_mfc_decode_one_frame(ctx, 1);
 
 	return 0;
@@ -672,6 +674,8 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
+	s5p_mfc_clean_ctx_int_flags(ctx);
+
 	if (temp_vb->vb.v4l2_buf.reserved2 & FLAG_LAST_FRAME) {
 		last_frame = 1;
 		mfc_debug(2, "Setting ctx->state to FINISHING\n");
@@ -733,6 +737,7 @@ static inline int s5p_mfc_run_enc_last_frames(struct s5p_mfc_ctx *ctx)
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
+	s5p_mfc_clean_ctx_int_flags(ctx);
 	s5p_mfc_encode_one_frame(ctx, 1);
 
 	return 0;
@@ -831,6 +836,7 @@ static inline int s5p_mfc_run_enc_frame(struct s5p_mfc_ctx *ctx)
 	if (call_cop(ctx, set_buf_ctrls_val, ctx, &ctx->src_ctrls[index]) < 0)
 		mfc_err_ctx("failed in set_buf_ctrls_val\n");
 
+	s5p_mfc_clean_ctx_int_flags(ctx);
 	s5p_mfc_encode_one_frame(ctx, last_frame);
 
 	return 0;
@@ -896,6 +902,7 @@ static inline int s5p_mfc_run_init_dec(struct s5p_mfc_ctx *ctx)
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 	mfc_debug(2, "Header addr: 0x%08lx\n",
 		(unsigned long)s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0));
+	s5p_mfc_clean_ctx_int_flags(ctx);
 	s5p_mfc_init_decode(ctx);
 
 	return 0;
@@ -942,6 +949,7 @@ static inline int s5p_mfc_run_init_enc(struct s5p_mfc_ctx *ctx)
 
 	mfc_debug(2, "Header addr: 0x%08lx\n",
 		(unsigned long)s5p_mfc_mem_plane_addr(ctx, &dst_mb->vb, 0));
+	s5p_mfc_clean_ctx_int_flags(ctx);
 
 	ret = s5p_mfc_init_encode(ctx);
 	return ret;
@@ -975,6 +983,7 @@ static inline int s5p_mfc_run_init_dec_buffers(struct s5p_mfc_ctx *ctx)
 		return -EAGAIN;
 	}
 
+	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_set_dec_frame_buffer(ctx);
 	if (ret) {
 		mfc_err_ctx("Failed to alloc frame mem.\n");
@@ -1007,6 +1016,7 @@ static inline int s5p_mfc_run_init_enc_buffers(struct s5p_mfc_ctx *ctx)
 		return -EAGAIN;
 	}
 
+	s5p_mfc_clean_ctx_int_flags(ctx);
 	ret = s5p_mfc_set_enc_ref_buffer(ctx);
 	if (ret) {
 		mfc_err_ctx("Failed to alloc frame mem.\n");
@@ -1029,6 +1039,8 @@ static inline int s5p_mfc_abort_inst(struct s5p_mfc_ctx *ctx)
 		return -EINVAL;
 	}
 
+	s5p_mfc_clean_ctx_int_flags(ctx);
+
 	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_CH_NAL_ABORT, NULL);
 
@@ -1041,6 +1053,8 @@ static inline int s5p_mfc_dec_dpb_flush(struct s5p_mfc_ctx *ctx)
 
 	if (on_res_change(ctx))
 		mfc_err("dpb flush on res change(state:%d)\n", ctx->state);
+
+	s5p_mfc_clean_ctx_int_flags(ctx);
 
 	MFC_WRITEL(ctx->inst_no, S5P_FIMV_INSTANCE_ID);
 	s5p_mfc_cmd_host2risc(dev, S5P_FIMV_H2R_CMD_FLUSH, NULL);
@@ -1097,7 +1111,8 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 		return;
 	}
 	spin_unlock_irq(&dev->condlock);
-	s5p_mfc_clean_ctx_int_flags(ctx);
+	if (ctx->state == MFCINST_RUNNING)
+		s5p_mfc_clean_ctx_int_flags(ctx);
 
 	mfc_debug(1, "New context: %d\n", new_ctx);
 	mfc_debug(1, "Seting new context to %p\n", ctx);
