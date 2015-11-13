@@ -125,13 +125,21 @@ static int enc_ctrl_read_cst(struct s5p_mfc_ctx *ctx,
 
 int s5p_mfc_enc_ctx_ready(struct s5p_mfc_ctx *ctx)
 {
+	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	struct s5p_mfc_enc_params *p = &enc->params;
-
 	mfc_debug(2, "src=%d, dst=%d, src_q=%d, dst_q=%d, ref=%d, state=%d\n",
 		  ctx->src_queue_cnt, ctx->dst_queue_cnt,
 		  ctx->src_queue_cnt_nal_q, ctx->dst_queue_cnt_nal_q,
 		  enc->ref_queue_cnt, ctx->state);
+
+	/* Skip ready check temporally */
+	spin_lock_irq(&dev->condlock);
+	if (test_bit(ctx->num, &dev->ctx_stop_bits)) {
+		spin_unlock_irq(&dev->condlock);
+		return 0;
+	}
+	spin_unlock_irq(&dev->condlock);
 
 	/* context is ready to make header */
 	if (ctx->state == MFCINST_GOT_INST && ctx->dst_queue_cnt >= 1) {
@@ -3383,6 +3391,11 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
 	int index = 0;
 	int aborted = 0;
+	int ret = 0;
+
+	mfc_info_ctx("stop_streaming is called, hw_lock : %d, type : %d\n",
+				test_bit(ctx->num, &dev->hw_lock), q->type);
+
 #ifdef NAL_Q_ENABLE
 	nal_queue_handle *nal_q_handle = dev->nal_q_handle;
 	if (nal_q_handle && nal_q_handle->nal_q_state == NAL_Q_STATE_STARTED) {
@@ -3399,20 +3412,23 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	}
 #endif
 
-	if (need_to_wait_frame_start(ctx)) {
-		s5p_mfc_change_state(ctx, MFCINST_ABORT);
-		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
-			s5p_mfc_cleanup_timeout_and_try_run(ctx);
-		aborted = 1;
-	}
+	spin_lock_irq(&dev->condlock);
+	set_bit(ctx->num, &dev->ctx_stop_bits);
+	clear_bit(ctx->num, &dev->ctx_work_bits);
+	spin_unlock_irq(&dev->condlock);
 
-	if (need_to_wait_nal_abort(ctx)) {
-		s5p_mfc_change_state(ctx, MFCINST_ABORT);
+	/* If a H/W operation is in progress, wait for it complete */
+	 if (need_to_wait_nal_abort(ctx)) {
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		aborted = 1;
+	} else if (test_bit(ctx->num, &dev->hw_lock)) {
+		ret = wait_event_timeout(ctx->queue,
+				(test_bit(ctx->num, &dev->hw_lock) == 0),
+				msecs_to_jiffies(MFC_INT_TIMEOUT));
+		if (ret == 0)
+			mfc_err_ctx("wait for event failed\n");
 	}
 
 	if (enc->in_slice || enc->buf_full) {
@@ -3454,7 +3470,6 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		s5p_mfc_cleanup_queue(&ctx->dst_queue);
 		INIT_LIST_HEAD(&ctx->dst_queue);
 		ctx->dst_queue_cnt = 0;
-
 		while (index < MFC_MAX_BUFFERS) {
 			index = find_next_bit(&ctx->dst_ctrls_avail,
 					MFC_MAX_BUFFERS, index);
@@ -3498,8 +3513,24 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	if (aborted)
+	if (aborted && ctx->state == MFCINST_FINISHING)
 		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
+
+	spin_lock_irq(&dev->condlock);
+	clear_bit(ctx->num, &dev->ctx_stop_bits);
+	spin_unlock_irq(&dev->condlock);
+
+	mfc_debug(2, "buffer cleanup is done in stop_streaming, type : %d\n", q->type);
+
+	if (s5p_mfc_enc_ctx_ready(ctx)) {
+		spin_lock_irq(&dev->condlock);
+		set_bit(ctx->num, &dev->ctx_work_bits);
+		spin_unlock_irq(&dev->condlock);
+	}
+	spin_lock_irq(&dev->condlock);
+	if (dev->ctx_work_bits)
+		queue_work(dev->sched_wq, &dev->sched_work);
+	spin_unlock_irq(&dev->condlock);
 }
 
 static void s5p_mfc_buf_queue(struct vb2_buffer *vb)

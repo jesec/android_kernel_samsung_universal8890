@@ -195,8 +195,11 @@
 	  (ctx->state == MFCINST_RUNNING)) &&	\
 	 test_bit(ctx->num, &ctx->dev->hw_lock))
 #define need_to_wait_nal_abort(ctx)		 \
-	(((ctx->state == MFCINST_ABORT_INST)) && \
-	 test_bit(ctx->num, &ctx->dev->hw_lock))
+	(ctx->state == MFCINST_ABORT_INST)
+#define need_to_continue(ctx)			\
+	((ctx->state == MFCINST_DPB_FLUSHING) ||\
+	(ctx->state == MFCINST_ABORT_INST) ||	\
+	(ctx->state == MFCINST_RETURN_INST))
 
 /* Extra information for Decoder */
 #define	DEC_SET_DUAL_DPB		(1 << 0)

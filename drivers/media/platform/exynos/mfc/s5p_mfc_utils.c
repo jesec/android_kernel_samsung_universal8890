@@ -95,7 +95,7 @@ int check_vb_with_fmt(struct s5p_mfc_fmt *fmt, struct vb2_buffer *vb)
 			return -ENOMEM;
 		}
 
-		mfc_debug(2, "index: %d, plane[%d] cookie: 0x%08llx",
+		mfc_debug(2, "index: %d, plane[%d] cookie: 0x%08llx\n",
 				vb->v4l2_buf.index, i,
 				s5p_mfc_mem_plane_addr(ctx, vb, i));
 	}

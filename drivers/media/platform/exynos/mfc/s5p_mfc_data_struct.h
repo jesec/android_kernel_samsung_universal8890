@@ -286,7 +286,9 @@ struct s5p_mfc_dev {
 	struct s5p_mfc_ctx *ctx[MFC_NUM_CONTEXTS];
 	int curr_ctx;
 	int preempt_ctx;
+	int continue_ctx;
 	unsigned long ctx_work_bits;
+	unsigned long ctx_stop_bits;
 
 	atomic_t watchdog_cnt;
 	atomic_t watchdog_run;

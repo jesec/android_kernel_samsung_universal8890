@@ -1289,6 +1289,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 			ret = s5p_mfc_dec_dpb_flush(ctx);
 			break;
 		default:
+			mfc_info_ctx("can't try command(decoder try_run), state : %d\n", ctx->state);
 			ret = -EAGAIN;
 		}
 	} else if (ctx->type == MFCINST_ENCODER) {
@@ -1316,6 +1317,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 			ret = s5p_mfc_abort_inst(ctx);
 			break;
 		default:
+			mfc_info_ctx("can't try command(encoder try_run), state : %d\n", ctx->state);
 			ret = -EAGAIN;
 		}
 	} else {
@@ -1331,7 +1333,7 @@ void s5p_mfc_try_run(struct s5p_mfc_dev *dev)
 			clear_bit(ctx->num, &dev->ctx_work_bits);
 			spin_unlock_irq(&dev->condlock);
 		}
-
+		dev->continue_ctx = MFC_NO_INSTANCE_SET;
 		/* Free hardware lock */
 		if (clear_hw_bit(ctx) == 0)
 			mfc_err_ctx("Failed to unlock hardware.\n");

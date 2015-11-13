@@ -130,9 +130,9 @@ static void s5p_mfc_disp_state(struct s5p_mfc_dev *dev)
 	pr_err("power:%d, clock:%d, num_inst:%d, num_drm_inst:%d, fw_status:%d\n",
 			s5p_mfc_get_power_ref_cnt(dev), s5p_mfc_get_clk_ref_cnt(dev),
 			dev->num_inst, dev->num_drm_inst, dev->fw_status);
-	pr_err("hw_lock:%#lx, curr_ctx:%d, preempt_ctx:%d, ctx_work_bits:%#lx\n",
+	pr_err("hw_lock:%#lx, curr_ctx:%d, preempt_ctx:%d, continue_ctx:%d, ctx_work_bits:%#lx\n",
 			dev->hw_lock, dev->curr_ctx,
-			dev->preempt_ctx, dev->ctx_work_bits);
+			dev->preempt_ctx, dev->continue_ctx, dev->ctx_work_bits);
 
 	for (i = 0; i < MFC_NUM_CONTEXTS; i++)
 		if (dev->ctx[i])
@@ -1533,6 +1533,7 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 		enc = ctx->enc_priv;
 
 	dev->preempt_ctx = MFC_NO_INSTANCE_SET;
+	dev->continue_ctx = MFC_NO_INSTANCE_SET;
 
 	switch (reason) {
 	case S5P_FIMV_R2H_CMD_ERR_RET:
@@ -1713,9 +1714,12 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 			mfc_debug(2, "DRM attribute is changed %d->%d\n",
 					dev->curr_ctx_drm, dev->ctx[new_ctx]->is_drm);
 			queue_work(dev->sched_wq, &dev->sched_work);
+		} else if (dev->preempt_ctx > MFC_NO_INSTANCE_SET) {
+			mfc_debug(5, "next ctx(%d) is preempted\n", new_ctx);
+			s5p_mfc_try_run(dev);
 		} else {
 			mfc_debug(5, "next ctx(%d) is picked\n", new_ctx);
-			dev->preempt_ctx = new_ctx;
+			dev->continue_ctx = new_ctx;
 			s5p_mfc_try_run(dev);
 		}
 	}
@@ -1949,6 +1953,7 @@ static int s5p_mfc_open(struct file *file)
 
 		dev->curr_ctx = ctx->num;
 		dev->preempt_ctx = MFC_NO_INSTANCE_SET;
+		dev->continue_ctx = MFC_NO_INSTANCE_SET;
 		dev->curr_ctx_drm = ctx->is_drm;
 
 		/* Init the FW */
@@ -2054,18 +2059,22 @@ static int s5p_mfc_release(struct file *file)
 	mfc_info_ctx("MFC driver release is called [%d:%d], is_drm(%d)\n",
 			dev->num_drm_inst, dev->num_inst, ctx->is_drm);
 
-	if (need_to_wait_frame_start(ctx)) {
-		s5p_mfc_change_state(ctx, MFCINST_ABORT);
-		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
-			s5p_mfc_cleanup_timeout_and_try_run(ctx);
-	}
+	spin_lock_irq(&dev->condlock);
+	set_bit(ctx->num, &dev->ctx_stop_bits);
+	clear_bit(ctx->num, &dev->ctx_work_bits);
+	spin_unlock_irq(&dev->condlock);
 
+	/* If a H/W operation is in progress, wait for it complete */
 	if (need_to_wait_nal_abort(ctx)) {
-		s5p_mfc_change_state(ctx, MFCINST_ABORT);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_NAL_ABORT_RET))
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
+	} else if (test_bit(ctx->num, &dev->hw_lock)) {
+		ret = wait_event_timeout(ctx->queue,
+				(test_bit(ctx->num, &dev->hw_lock) == 0),
+				msecs_to_jiffies(MFC_INT_TIMEOUT));
+		if (ret == 0)
+			mfc_err_ctx("wait for event failed\n");
 	}
 
 	if (ctx->type == MFCINST_ENCODER) {
@@ -2250,13 +2259,25 @@ static int s5p_mfc_release(struct file *file)
 		enc_cleanup_user_shared_handle(ctx);
 		kfree(ctx->enc_priv);
 	}
+
+	spin_lock_irq(&dev->condlock);
+	clear_bit(ctx->num, &dev->ctx_stop_bits);
+	spin_unlock_irq(&dev->condlock);
+
 	dev->ctx[ctx->num] = 0;
 	kfree(ctx);
 
 	mfc_info_dev("mfc driver release finished [%d:%d], dev = %p\n",
 			dev->num_drm_inst, dev->num_inst, dev);
+	mutex_unlock(&dev->mfc_mutex);
+
+	return ret;
 
 err_release:
+	spin_lock_irq(&dev->condlock);
+	clear_bit(ctx->num, &dev->ctx_stop_bits);
+	spin_unlock_irq(&dev->condlock);
+
 	mutex_unlock(&dev->mfc_mutex);
 
 	return ret;

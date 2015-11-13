@@ -85,11 +85,20 @@ static int check_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 /* Check whether a context should be run on hardware */
 int s5p_mfc_dec_ctx_ready(struct s5p_mfc_ctx *ctx)
 {
+	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_dec *dec = ctx->dec_priv;
 	mfc_debug(2, "src=%d, dst=%d, ref=%d, state=%d capstat=%d\n",
 		  ctx->src_queue_cnt, ctx->dst_queue_cnt, dec->ref_queue_cnt,
 		  ctx->state, ctx->capture_state);
 	mfc_debug(2, "wait_state = %d\n", ctx->wait_state);
+
+	/* Skip ready check temporally */
+	spin_lock_irq(&dev->condlock);
+	if (test_bit(ctx->num, &dev->ctx_stop_bits)) {
+		spin_unlock_irq(&dev->condlock);
+		return 0;
+	}
+	spin_unlock_irq(&dev->condlock);
 
 	/* Context is to parse header */
 	if (ctx->src_queue_cnt >= 1 && ctx->state == MFCINST_GOT_INST)
@@ -2207,8 +2216,8 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	struct s5p_mfc_ctx *ctx = q->drv_priv;
 	struct s5p_mfc_dec *dec;
 	struct s5p_mfc_dev *dev;
-	int aborted = 0;
 	int index = 0;
+	int ret = 0;
 	int prev_state;
 
 	if (!ctx) {
@@ -2228,15 +2237,21 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		return;
 	}
 
-	if (need_to_wait_frame_start(ctx)) {
-		s5p_mfc_change_state(ctx, MFCINST_ABORT);
-		if (s5p_mfc_wait_for_done_ctx(ctx,
-				S5P_FIMV_R2H_CMD_FRAME_DONE_RET))
-			s5p_mfc_cleanup_timeout_and_try_run(ctx);
-		if (on_res_change(ctx))
-			mfc_debug(2, "stop on res change(state:%d)\n", ctx->state);
-		else
-			aborted = 1;
+	mfc_debug(2, "stop_streaming is called, hw_lock : %d, type : %d\n",
+				test_bit(ctx->num, &dev->hw_lock), q->type);
+
+	spin_lock_irq(&dev->condlock);
+	set_bit(ctx->num, &dev->ctx_stop_bits);
+	clear_bit(ctx->num, &dev->ctx_work_bits);
+	spin_unlock_irq(&dev->condlock);
+
+	/* If a H/W operation is in progress, wait for it complete */
+	if (test_bit(ctx->num, &dev->hw_lock)) {
+		ret = wait_event_timeout(ctx->queue,
+				(test_bit(ctx->num, &dev->hw_lock) == 0),
+				msecs_to_jiffies(MFC_INT_TIMEOUT));
+		if (ret == 0)
+			mfc_err_ctx("wait for event failed\n");
 	}
 
 	spin_lock_irqsave(&dev->irqlock, flags);
@@ -2329,7 +2344,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		}
 	}
 
-	if (aborted)
+	if (ctx->state == MFCINST_FINISHING)
 		s5p_mfc_change_state(ctx, MFCINST_RUNNING);
 
 	spin_unlock_irqrestore(&dev->irqlock, flags);
@@ -2348,6 +2363,23 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 			s5p_mfc_cleanup_timeout_and_try_run(ctx);
 		s5p_mfc_change_state(ctx, prev_state);
 	}
+
+	spin_lock_irq(&dev->condlock);
+	clear_bit(ctx->num, &dev->ctx_stop_bits);
+	spin_unlock_irq(&dev->condlock);
+
+	mfc_debug(2, "buffer cleanup & flush is done in stop_streaming, type : %d\n", q->type);
+
+	if (s5p_mfc_dec_ctx_ready(ctx)) {
+		spin_lock_irq(&dev->condlock);
+		set_bit(ctx->num, &dev->ctx_work_bits);
+		spin_unlock_irq(&dev->condlock);
+	}
+	spin_lock_irq(&dev->condlock);
+	if (dev->ctx_work_bits)
+		queue_work(dev->sched_wq, &dev->sched_work);
+	spin_unlock_irq(&dev->condlock);
+
 }
 
 #define mfc_need_to_fill_dpb(ctx, dec, index)						\
