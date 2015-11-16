@@ -788,7 +788,6 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		raw->plane_size[2] = 0;
 		break;
 	case V4L2_PIX_FMT_NV12M:
-	case V4L2_PIX_FMT_NV12N:
 	case V4L2_PIX_FMT_NV21M:
 		raw->plane_size[0] =
 			calc_plane(ctx->img_width, ctx->img_height, 0);
@@ -796,8 +795,12 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 			calc_plane(ctx->img_width, (ctx->img_height >> 1), 0);
 		raw->plane_size[2] = 0;
 		break;
+	case V4L2_PIX_FMT_NV12N:
+		raw->plane_size[0] = NV12N_Y_SIZE(ctx->img_width, ctx->img_height);
+		raw->plane_size[1] = NV12N_CBCR_SIZE(ctx->img_width, ctx->img_height);
+		raw->plane_size[2] = 0;
+		break;
 	case V4L2_PIX_FMT_YUV420M:
-	case V4L2_PIX_FMT_YUV420N:
 	case V4L2_PIX_FMT_YVU420M:
 		raw->plane_size[0] =
 			calc_plane(ctx->img_width, ctx->img_height, 0);
@@ -805,6 +808,11 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 			calc_plane(ctx->img_width >> 1, ctx->img_height >> 1, 0);
 		raw->plane_size[2] =
 			calc_plane(ctx->img_width >> 1, ctx->img_height >> 1, 0);
+		break;
+	case V4L2_PIX_FMT_YUV420N:
+		raw->plane_size[0] = YUV420N_Y_SIZE(ctx->img_width, ctx->img_height);
+		raw->plane_size[1] = YUV420N_CB_SIZE(ctx->img_width, ctx->img_height);
+		raw->plane_size[2] = YUV420N_CR_SIZE(ctx->img_width, ctx->img_height);
 		break;
 	default:
 		raw->plane_size[0] = 0;
@@ -835,7 +843,6 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 
 		switch (ctx->dst_fmt->fourcc) {
 			case V4L2_PIX_FMT_NV12M:
-			case V4L2_PIX_FMT_NV12N:
 			case V4L2_PIX_FMT_NV21M:
 				raw->plane_size[0] += 64;
 				raw->plane_size[1] =
@@ -843,7 +850,6 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 					*(((ctx->img_height + 15)/16)*8) + 64;
 				break;
 			case V4L2_PIX_FMT_YUV420M:
-			case V4L2_PIX_FMT_YUV420N:
 			case V4L2_PIX_FMT_YVU420M:
 				raw->plane_size[0] += 64;
 				raw->plane_size[1] =
