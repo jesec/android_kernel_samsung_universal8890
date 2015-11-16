@@ -691,6 +691,9 @@ static int eax_dma_hw_free(struct snd_pcm_substream *substream)
 #ifdef EAX_DMA_PCM_DUMP
         close_file(prtd);
 #endif
+	while (!waitqueue_active(&mixer_run_wq)) {
+		schedule_timeout_interruptible(1); /* 1 jiffies = 10ms */
+	};
 
 	eax_adma_hw_free();
 
@@ -1096,7 +1099,8 @@ static void eax_mixer_write(void)
 	}
 	spin_unlock(&mi.lock);
 
-	if (!di.running && di.buf_fill[DMA_START_THRESHOLD]) {
+	if (!di.running && di.buf_fill[DMA_START_THRESHOLD] &&
+		mi.running) {
 		if (!di.prepare_done) {
 			eax_adma_hw_params(mi.mixbuf_byte);
 			eax_adma_prepare(mi.mixbuf_byte);
