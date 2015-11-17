@@ -1603,8 +1603,8 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 {
 	struct exynos_ufs *ufs = to_exynos_ufs(hba);
 	const struct exynos_ufs_soc *soc = to_phy_soc(ufs);
-	u32 rx_min_actv_time_cap;
-	u32 rx_hibern8_time_cap;
+	u32 peer_rx_min_actv_time_cap;
+	u32 max_rx_hibern8_time_cap;
 
 	exynos_ufs_establish_connt(ufs);
 	exynos_ufs_fit_aggr_timeout(ufs);
@@ -1635,10 +1635,12 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 			ufshcd_dme_set(hba,
 				UIC_ARG_MIB(PA_HIBERN8TIME), ufs->pa_hibern8time);
 	} else {
-		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TACTIVATE), &rx_min_actv_time_cap);
-		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_HIBERN8TIME), &rx_hibern8_time_cap);
-		ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TACTIVATE), rx_min_actv_time_cap + 1);
-		ufshcd_dme_set(hba,UIC_ARG_MIB(PA_HIBERN8TIME), rx_hibern8_time_cap + 1);
+		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TACTIVATE), &peer_rx_min_actv_time_cap);
+		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_HIBERN8TIME), &max_rx_hibern8_time_cap);
+		if (ufs->rx_min_actv_time_cap <= peer_rx_min_actv_time_cap)
+			ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TACTIVATE),
+					peer_rx_min_actv_time_cap + 1);
+		ufshcd_dme_set(hba,UIC_ARG_MIB(PA_HIBERN8TIME), max_rx_hibern8_time_cap + 1);
 	}
 
 	if (soc)
