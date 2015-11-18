@@ -38,6 +38,7 @@
 
 #define update_rot_scen(a)	(pr_state.rot_scen = a)
 #define update_g3d_scen(a)	(pr_state.g3d_scen = a)
+#define update_urgent_scen(a)	(pr_state.urg_scen = a)
 
 #ifdef BTS_DBGGEN
 #define BTS_DBG(x...) 		pr_err(x)
@@ -88,6 +89,7 @@ enum exynos_bts_scenario {
 	BS_ROTATION,
 	BS_HIGHPERF,
 	BS_G3DFREQ,
+	BS_URGENTOFF,
 	BS_DEBUG,
 	BS_MAX,
 };
@@ -103,6 +105,7 @@ enum exynos_bts_function {
 	BF_SETTREXQOS_MO_RT,
 	BF_SETTREXQOS_MO_CP,
 	BF_SETTREXQOS_MO_CHANGE,
+	BF_SETTREXQOS_URGENT_OFF,
 	BF_SETTREXQOS_BW,
 	BF_SETTREXQOS_FBMBW,
 	BF_SETTREXDISABLE,
@@ -149,6 +152,7 @@ struct bts_info {
 struct bts_scen_status {
 	bool rot_scen;
 	bool g3d_scen;
+	bool urg_scen;
 };
 
 struct bts_scenario {
@@ -161,6 +165,7 @@ struct bts_scenario {
 struct bts_scen_status pr_state = {
 	.rot_scen = false,
 	.g3d_scen = false,
+	.urg_scen = false,
 };
 
 struct clk_info {
@@ -187,6 +192,9 @@ static struct pm_qos_request exynos8_int_bts_qos;
 static struct pm_qos_request exynos8_gpu_mif_bts_qos;
 static struct srcu_notifier_head exynos_media_notifier;
 static struct clk_info clk_table[0];
+
+static int bts_trex_qosoff(void __iomem *base);
+static int bts_trex_qoson(void __iomem *base);
 
 static struct bts_info exynos8_bts[] = {
 	[BTS_IDX_TREX_DISP0_0] = {
@@ -323,6 +331,7 @@ static struct bts_info exynos8_bts[] = {
 		.table[BS_DEFAULT].mo = 0x10,
 		.table[BS_DEFAULT].timeout = 0x10,
 		.table[BS_DEFAULT].bypass_en = 0,
+		.table[BS_URGENTOFF].fn = BF_SETTREXQOS_URGENT_OFF,
 		.table[BS_DISABLE].fn = BF_SETTREXDISABLE,
 		.cur_scen = BS_DISABLE,
 		.on = false,
@@ -474,6 +483,11 @@ static struct bts_scenario bts_scen[] = {
 		.ip = BTS_G3D,
 		.id = BS_G3DFREQ,
 	},
+	[BS_URGENTOFF] = {
+		.name = "bts_urgentoff",
+		.ip = BTS_TREX_CP,
+		.id = BS_URGENTOFF,
+	},
 	[BS_DEBUG] = {
 		.name = "bts_dubugging_ip",
 		.id = BS_DEBUG,
@@ -540,6 +554,7 @@ static void bts_set_ip_table(enum exynos_bts_scenario scen,
 		struct bts_info *bts)
 {
 	enum exynos_bts_function fn = bts->table[scen].fn;
+	int i;
 
 	is_bts_clk_enabled(bts);
 	BTS_DBG("[BTS] %s on:%d bts scen: [%s]->[%s]\n", bts->name, bts->on,
@@ -556,12 +571,20 @@ static void bts_set_ip_table(enum exynos_bts_scenario scen,
 	case BF_SETTREXQOS_MO_CP:
 		bts_settrexqos_mo_cp(bts->va_base, bts->table[scen].priority, bts->table[scen].mo,
 				0, 0, bts->table[scen].timeout, bts->table[scen].bypass_en);
+		bts_settrexqos_urgent_on(bts->va_base);
+		for (i = 0; i < (unsigned int)ARRAY_SIZE(base_trex); i++)
+			bts_trex_qoson(base_trex[i]);
 		break;
 	case BF_SETTREXQOS_MO:
 		bts_settrexqos_mo(bts->va_base, bts->table[scen].priority, bts->table[scen].mo, 0, 0);
 		break;
 	case BF_SETTREXQOS_MO_CHANGE:
 		bts_settrexqos_mo_change(bts->va_base, bts->table[scen].mo);
+		break;
+	case BF_SETTREXQOS_URGENT_OFF:
+		bts_settrexqos_urgent_off(bts->va_base);
+		for (i = 0; i < (unsigned int)ARRAY_SIZE(base_trex); i++)
+			bts_trex_qosoff(base_trex[i]);
 		break;
 	case BF_SETTREXQOS_BW:
 		bts_settrexqos_bw(bts->va_base, bts->table[scen].priority,
@@ -722,6 +745,13 @@ void bts_scen_update(enum bts_scen_type type, unsigned int val)
 		BTS_DBG("[BTS] G3D FREQ: %s\n", bts_scen[scen].name);
 		update_g3d_scen(val);
 		break;
+	case TYPE_URGENT_OFF:
+		on = val ? true : false;
+		scen = BS_URGENTOFF;
+		bts = &exynos8_bts[BTS_IDX_TREX_CP];
+		BTS_DBG("[BTS] URGENT: %s\n", bts_scen[scen].name);
+		update_urgent_scen(val);
+		break;
 	default:
 		spin_unlock(&bts_lock);
 		return;
@@ -819,6 +849,26 @@ static void bts_trex_init(void __iomem *base)
 	__raw_writel(0x00020202, base + TH_HIGH6);
 
 	return;
+}
+
+static int bts_trex_qoson(void __iomem *base)
+{
+	__raw_writel(0x00200000, base + READ_QURGENT);
+	__raw_writel(0x00200000, base + WRITE_QURGENT);
+	__raw_writel(0x04040004, base + TH_IMM5);
+	__raw_writel(0x02020002, base + TH_HIGH5);
+
+	return 0;
+}
+
+static int bts_trex_qosoff(void __iomem *base)
+{
+	__raw_writel(0x00000000, base + READ_QURGENT);
+	__raw_writel(0x00000000, base + WRITE_QURGENT);
+	__raw_writel(0x04040404, base + TH_IMM5);
+	__raw_writel(0x02020202, base + TH_HIGH5);
+
+	return 0;
 }
 
 static int exynos_bts_notifier_event(struct notifier_block *this,
@@ -1021,6 +1071,12 @@ void bts_ext_scenario_set(enum bts_media_type ip_type,
 		break;
 
 	case TYPE_CAM:
+		if (scen_type == TYPE_URGENT_OFF) {
+			if (on)
+				bts_scen_update(scen_type, 1);
+			else
+				bts_scen_update(scen_type, 0);
+		}
 		break;
 	case TYPE_MFC:
 		if (scen_type == TYPE_HIGHPERF) {

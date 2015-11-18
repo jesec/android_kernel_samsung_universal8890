@@ -322,6 +322,15 @@ void bts_settrexqos_mo_change(addr_u32 base, unsigned int mo)
 	Outp32(base + TBTS_WCON, 0x11);
 }
 
+void bts_settrexqos_urgent_off(addr_u32 base)
+{
+	Outp32(base + TBTS_CON, 0x001001); // Time out, Urgent disable
+}
+void bts_settrexqos_urgent_on(addr_u32 base)
+{
+	Outp32(base + TBTS_CON, 0x101101); // Time out, Urgent enable
+}
+
 void bts_settrexqos_bw(addr_u32 base, unsigned int priority, unsigned int decval, unsigned int master_id, unsigned int mask)
 {
 	Outp32(base + TBTS_CON, 0x0);

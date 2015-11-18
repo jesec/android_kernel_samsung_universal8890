@@ -121,6 +121,8 @@ void bts_settrexqos_mo_rt(addr_u32 base, unsigned int priority, unsigned int mo,
 void bts_settrexqos_mo_cp(addr_u32 base, unsigned int priority, unsigned int mo, unsigned int master_id, unsigned int mask,
 			unsigned int time_out, unsigned int bypass_en);
 void bts_settrexqos_mo_change(addr_u32 base, unsigned int mo);
+void bts_settrexqos_urgent_off(addr_u32 base);
+void bts_settrexqos_urgent_on(addr_u32 base);
 void bts_settrexqos_bw(addr_u32 base, unsigned int priority, unsigned int decval, unsigned int master_id, unsigned int mask);
 void bts_settrexqos_fbmbw(addr_u32 base, unsigned int priority, unsigned int master_id, unsigned int mask);
 void bts_trexdisable(addr_u32 base, unsigned int master_id, unsigned int mask);

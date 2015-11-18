@@ -22,6 +22,7 @@ enum bts_scen_type {
 	TYPE_G3D_SCENARIO,
 	TYPE_ROTATION,
 	TYPE_HIGHPERF,
+	TYPE_URGENT_OFF,
 };
 
 void bts_scen_update(enum bts_scen_type type, unsigned int val);
