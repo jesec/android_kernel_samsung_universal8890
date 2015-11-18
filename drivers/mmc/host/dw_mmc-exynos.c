@@ -658,7 +658,6 @@ static u8 dw_mci_tuning_sampling(struct dw_mci *host)
 
 	clksel = mci_readl(host, CLKSEL);
 	sample = (clksel + 1) & 0x7;
-	priv->ignore_phase = (1 << 0x7 | 1 << 0x3);
 
 	if (priv->ignore_phase) {
 		for (i = 0; i < 8; i++) {
