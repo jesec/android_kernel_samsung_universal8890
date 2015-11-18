@@ -32,7 +32,6 @@ static void dw_mci_exynos_register_dump(struct dw_mci *host)
 	is_smu = (host->pdata->quirks & DW_MCI_QUIRK_BYPASS_SMU) ?
 			 true : false;
 
-	dev_err(host->dev, ": CLKSEL:   0x%08x\n", mci_readl(host, CLKSEL));
 	if (is_smu) {
 		dev_err(host->dev, ": EMMCP_BASE:	0x%08x\n",
 				mci_readl(host, EMMCP_BASE));
@@ -103,10 +102,14 @@ void dw_mci_reg_dump(struct dw_mci *host)
 	dev_err(host->dev, ": DBADDR:	 0x%08x\n", mci_readl(host, DBADDR));
 	dev_err(host->dev, ": DSCADDR:	 0x%08x\n", mci_readl(host, DSCADDR));
 	dev_err(host->dev, ": BUFADDR:	 0x%08x\n", mci_readl(host, BUFADDR));
+	dev_err(host->dev, ": CLKSEL:    0x%08x\n", mci_readl(host, CLKSEL));
 	dev_err(host->dev, ": IDSTS:	 0x%08x\n", mci_readl(host, IDSTS));
 	dev_err(host->dev, ": IDSTS64:	 0x%08x\n", mci_readl(host, IDSTS64));
 	dev_err(host->dev, ": IDINTEN:	 0x%08x\n", mci_readl(host, IDINTEN));
 	dev_err(host->dev, ": IDINTEN64: 0x%08x\n", mci_readl(host, IDINTEN64));
+	dev_err(host->dev, ": RESP_TAT: 0x%08x\n", mci_readl(host, RESP_TAT));
+	dev_err(host->dev, ": FORCE_CLK_STOP: 0x%08x\n", mci_readl(host, FORCE_CLK_STOP));
+	dev_err(host->dev, ": CDTHRCTL: 0x%08x\n", mci_readl(host, CDTHRCTL));
 	dw_mci_exynos_register_dump(host);
 	dev_err(host->dev, ": ============== STATUS DUMP ================\n");
 	dev_err(host->dev, ": cmd_status:      0x%08x\n", host->cmd_status);
@@ -409,10 +412,18 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 			clksel |= BIT(6);
 		break;
 	case MMC_TIMING_MMC_DDR52:
+	case MMC_TIMING_UHS_DDR50:
 		clksel = priv->ddr_timing;
 		/* Should be double rate for DDR mode */
 		if (ios->bus_width == MMC_BUS_WIDTH_8)
 			wanted <<= 1;
+		break;
+	case MMC_TIMING_MMC_HS200:
+	case MMC_TIMING_UHS_SDR104:
+		clksel = SDMMC_CLKSEL_UP_SAMPLE(priv->sdr_timing, priv->tuned_sample);
+		break;
+	case MMC_TIMING_UHS_SDR50:
+		clksel = SDMMC_CLKSEL_UP_SAMPLE(priv->sdr_timing, priv->tuned_sample);
 		break;
 	default:
 		clksel = priv->sdr_timing;
@@ -450,7 +461,7 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 	u32 *ciu_clkin_values = NULL;
 	int idx_ref;
 	int ret = 0;
-	int id = 0;
+	int id = 0, i;
 
 	priv = devm_kzalloc(host->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -505,6 +516,28 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 	ref_clk -= ref_clk_size;
 	ciu_clkin_values -= ref_clk_size;
 	priv->ref_clk = ref_clk;
+
+	/* Swapping clock drive strength */
+	of_property_read_u32(np, "clk-drive-number", &priv->clk_drive_number);
+
+	priv->pinctrl = devm_pinctrl_get(host->dev);
+
+	if (IS_ERR(priv->pinctrl)) {
+		priv->pinctrl = NULL;
+	} else {
+		priv->clk_drive_base = pinctrl_lookup_state(priv->pinctrl, "default");
+		priv->clk_drive_str[0] = pinctrl_lookup_state(priv->pinctrl, "fast-slew-rate-1x");
+		priv->clk_drive_str[1] = pinctrl_lookup_state(priv->pinctrl, "fast-slew-rate-2x");
+		priv->clk_drive_str[2] = pinctrl_lookup_state(priv->pinctrl, "fast-slew-rate-3x");
+		priv->clk_drive_str[3] = pinctrl_lookup_state(priv->pinctrl, "fast-slew-rate-4x");
+		priv->clk_drive_str[4] = pinctrl_lookup_state(priv->pinctrl, "fast-slew-rate-5x");
+		priv->clk_drive_str[5] = pinctrl_lookup_state(priv->pinctrl, "fast-slew-rate-6x");
+
+		for (i = 0; i < 6; i++) {
+			if (IS_ERR(priv->clk_drive_str[i]))
+				priv->clk_drive_str[i] = NULL;
+		}
+	}
 
 	of_property_read_u32(np, "samsung,dw-mshc-ciu-div", &div);
 	priv->ciu_div = div;
@@ -827,6 +860,17 @@ static int find_median_of_16bits(struct dw_mci *host, unsigned int map, bool for
 	return sel;
 }
 
+static void exynos_dwmci_tuning_drv_st(struct dw_mci *host)
+{
+	struct dw_mci_exynos_priv_data *priv = host->priv;
+
+	dev_info(host->dev, "Clock GPIO Drive Strength Value: x%d\n",
+			(priv->clk_drive_tuning + 1));
+
+	if (priv->pinctrl && priv->clk_drive_str[priv->clk_drive_tuning])
+		pinctrl_select_state(priv->pinctrl, priv->clk_drive_str[priv->clk_drive_tuning]);
+}
+
 /*
  * Test all 8 possible "Clock in" Sample timings.
  * Create a bitmap of which CLock sample values work and find the "median"
@@ -839,6 +883,7 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 	struct dw_mci_exynos_priv_data *priv = host->priv;
 	struct mmc_host *mmc = slot->mmc;
 	unsigned int tuning_loop = MAX_TUNING_LOOP;
+	unsigned int drv_str_retries;
 	bool tuned = 0;
 	int ret = 0;
 	u8 *tuning_blk;			/* data read from device */
@@ -896,6 +941,9 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 		host->quirks |= DW_MCI_QUIRK_NO_DETECT_EBIT;
 
 	dev_info(host->dev, "Tuning Abnormal_result 0x%08x.\n", abnormal_result);
+
+	priv->clk_drive_tuning = priv->clk_drive_number;
+	drv_str_retries = priv->clk_drive_number;
 
 	do {
 		struct mmc_request mrq;
@@ -1024,6 +1072,19 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 					break;
 				}
 			}
+
+			if (drv_str_retries) {
+				drv_str_retries--;
+				if (priv->clk_drive_str[0]) {
+					exynos_dwmci_tuning_drv_st(host);
+					if (priv->clk_drive_tuning > 0)
+						priv->clk_drive_tuning--;
+					else
+						break;
+				}
+				sample_good = 0;
+			} else
+				break;
 		}
 		tuning_loop--;
 	} while (!tuned);
@@ -1052,6 +1113,15 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 			else
 				dw_mci_set_fine_tuning_bit(host, false);
 		}
+#if defined(CONFIG_MMC_DW_64BIT_DESC)
+		{
+			u32 reg = 0;
+
+			reg = mci_readl(host, AXI_BURST_LEN);
+			reg |= (0x1 << 31);
+			mci_writel(host, AXI_BURST_LEN, reg);
+		}
+#endif
 	} else {
 		/* Failed. Just restore and return error */
 		dev_err(host->dev, "tuning err\n");
@@ -1059,6 +1129,10 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 		dw_mci_exynos_set_sample(host, orig_sample, false);
 		ret = -EIO;
 	}
+
+	/* Rollback Clock drive strength */
+	if (priv->pinctrl && priv->clk_drive_base)
+		pinctrl_select_state(priv->pinctrl, priv->clk_drive_base);
 
 	dev_info(host->dev, "CLKSEL = 0x%08x, EN_SHIFT = 0x%08x\n",
 			mci_readl(host, CLKSEL),

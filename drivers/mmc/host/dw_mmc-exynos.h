@@ -40,19 +40,18 @@ struct dw_mci_exynos_priv_data {
 	u32			ddr200_tx_t_fastlimit;
 	u32			ddr200_tx_t_initval;
 	u32			*ref_clk;
-	const char		*drv_str_pin;
-	const char		*drv_str_addr;
-	int			drv_str_val;
 	u32			delay_line;
 	u32			tx_delay_line;
-	int			drv_str_base_val;
-	u32			drv_str_num;
+	struct pinctrl		*pinctrl;
+	u32			clk_drive_number;
+	u32			clk_drive_tuning;
+	struct pinctrl_state	*clk_drive_base;
+	struct pinctrl_state	*clk_drive_str[6];
 	int			cd_gpio;
 	u32			caps;
 	u32			ctrl_flag;
 	u32			ctrl_windows;
 	u32			ignore_phase;
-	u32			selclk_drv;
 	u32			voltage_int_extra;
 
 #define DW_MMC_EXYNOS_USE_FINE_TUNING		BIT(0)

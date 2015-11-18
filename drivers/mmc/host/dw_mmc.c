@@ -730,9 +730,10 @@ static void dw_mci_start_command(struct dw_mci *host,
 				 struct mmc_command *cmd, u32 cmd_flags)
 {
 	host->cmd = cmd;
+
 	dev_vdbg(host->dev,
-		 "start command: ARGR=0x%08x CMDR=0x%08x\n",
-		 cmd->arg, cmd_flags);
+		"start command: ARGR=0x%08x CMDR=0x%08x\n",
+		cmd->arg, cmd_flags);
 
 	/* needed to
 	 * add get node parse_dt for check to enable logging
@@ -2652,6 +2653,16 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			mci_writel(host, RINTSTS, SDMMC_INT_VOLT_SWITCH);
 			pending &= ~SDMMC_INT_VOLT_SWITCH;
 			dw_mci_cmd_interrupt(host, pending);
+		}
+
+		if (pending & SDMMC_INT_HLE) {
+			dev_err(host->dev, "hardware locked write error\n");
+			dw_mci_reg_dump(host);
+			mci_writel(host, RINTSTS, SDMMC_INT_HLE);
+			dw_mci_debug_cmd_log(host->cmd, host, false,
+					DW_MCI_FLAG_ERROR, status);
+			host->cmd_status = pending;
+			tasklet_schedule(&host->tasklet);
 		}
 
 		if (pending & DW_MCI_CMD_ERROR_FLAGS) {
