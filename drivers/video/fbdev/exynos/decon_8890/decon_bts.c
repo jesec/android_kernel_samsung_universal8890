@@ -186,6 +186,70 @@ void bts_mif_lock(struct vpp_dev *vpp){ return; }
 #endif
 
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+static struct vpp_dev *get_running_vpp_dev(struct decon_device *decon, int id)
+{
+	struct vpp_dev *vpp = NULL;
+	struct v4l2_subdev *sd = decon->mdev->vpp_sd[id];
+
+	if (sd) {
+		vpp = v4l2_get_subdevdata(sd);
+		if (test_bit(VPP_RUNNING, &vpp->state))
+			return vpp;
+	}
+
+	return NULL;
+}
+
+static void update_req_vpp_bts_info(struct decon_device *decon)
+{
+	int id;
+	struct vpp_dev *vpp = NULL;
+
+	for (id = 0; id < MAX_VPP_SUBDEV; id++) {
+		struct v4l2_subdev *sd = decon->mdev->vpp_sd[id];
+		if (sd) {
+			vpp = v4l2_get_subdevdata(sd);
+			vpp->bts_info.shw_cur_bw = vpp->bts_info.cur_bw;
+			vpp->bts_info.shw_peak_bw = vpp->bts_info.peak_bw;
+		}
+	}
+}
+
+/*
+*  VPP0(G0), VPP1(G1), VPP2(VG0), VPP3(VG1),
+*  VPP4(G2), VPP5(G3), VPP6(VGR0), VPP7(VGR1), VPP8(WB)
+*  vpp_bus_bw[0] = DISP0_0_BW = G0 + VG0;
+*  vpp_bus_bw[1] = DISP0_1_BW = G1 + VG1;
+*  vpp_bus_bw[2] = DISP1_0_BW = G2 + VGR0;
+*  vpp_bus_bw[3] = DISP1_1_BW = G3 + VGR1 + WB;
+*/
+static enum vpp_port_num bts_get_port_number(enum decon_idma_type type)
+{
+	enum vpp_port_num port_num = VPP_PORT_NUM0;
+	switch (type) {
+	case IDMA_G0:
+	case IDMA_VG0:
+		port_num = VPP_PORT_NUM0;
+		break;
+	case IDMA_G1:
+	case IDMA_VG1:
+		port_num = VPP_PORT_NUM1;
+		break;
+	case IDMA_G2:
+	case IDMA_VGR0:
+		port_num = VPP_PORT_NUM2;
+		break;
+	case IDMA_G3:
+	case IDMA_VGR1:
+	case ODMA_WB:
+		port_num = VPP_PORT_NUM3;
+		break;
+	default:
+		break;
+	}
+	return port_num;
+}
+
 static void bts2_calc_disp(struct decon_device *decon, struct vpp_dev *vpp,
 		struct decon_win_config *config)
 {
@@ -208,44 +272,47 @@ static void bts2_calc_disp(struct decon_device *decon, struct vpp_dev *vpp,
 			src_w, src_h, dst->w, dst->h);
 }
 
-static void bts2_find_max_disp_ch(struct decon_device *decon)
+static struct bts_vpp_info *bts_get_bts_info
+	(struct decon_device *decon, int id, u64 *disp_bw)
 {
 	int i;
-	u64 disp_ch[4] = {0, 0, 0, 0};
-	struct v4l2_subdev *sd;
-	struct decon_win *win;
-	struct vpp_dev *vpp;
+	struct vpp_dev *vpp = get_running_vpp_dev(decon, id);
 
-	for (i = 0; i < decon->pdata->max_win; i++) {
-		win = decon->windows[i];
-		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
-			sd = decon->mdev->vpp_sd[win->vpp_id];
-			vpp = v4l2_get_subdevdata(sd);
+	if (!vpp) return NULL;
 
-			/*
-			 *  VPP0(G0), VPP1(G1), VPP2(VG0), VPP3(VG1),
-			 *  VPP4(G2), VPP5(G3), VPP6(VGR0), VPP7(VGR1), VPP8(WB)
-			 *  vpp_bus_bw[0] = DISP0_0_BW = G0 + VG0;
-			 *  vpp_bus_bw[1] = DISP0_1_BW = G1 + VG1;
-			 *  vpp_bus_bw[2] = DISP1_0_BW = G2 + VGR0;
-			 *  vpp_bus_bw[3] = DISP1_1_BW = G3 + VGR1 + WB;
-			 */
-			if((vpp->id == 0) || (vpp->id == 2))
-				disp_ch[0] += vpp->disp;
-			if((vpp->id == 1) || (vpp->id == 3))
-				disp_ch[1] += vpp->disp;
-			if((vpp->id == 4) || (vpp->id == 6))
-				disp_ch[2] += vpp->disp;
-			if((vpp->id == 5) || (vpp->id == 7) || (vpp->id == 8))
-				disp_ch[3] += vpp->disp;
-		}
+	/* Finding a local connected vpp */
+	if (decon->vpp_usage_bitmask & (1 << id)) {
+		struct decon_win_config *config = vpp->config;
+
+		bts2_calc_disp(decon, vpp, config);
+		*disp_bw = vpp->disp;
+
+		vpp->bts_info.src_w = config->src.w;
+		vpp->bts_info.src_h = config->src.h;
+		vpp->bts_info.dst_w = config->dst.w;
+		vpp->bts_info.dst_h = config->dst.h;
+		vpp->bts_info.bpp = decon_get_bpp(config->format);
+		vpp->bts_info.is_rotation = is_rotation(config);
+		vpp->bts_info.mic = decon->mic_factor;
+		vpp->bts_info.pix_per_clk = DECON_PIX_PER_CLK;
+		vpp->bts_info.vclk = decon->vclk_factor;
+		exynos_bw_calc(vpp->id, &vpp->bts_info.hw);
+
+		return &vpp->bts_info;
 	}
 
-	decon->max_disp_ch = disp_ch[0];
-	for (i = 0; i < 4; i++) {
-		if (decon->max_disp_ch < disp_ch[i])
-			decon->max_disp_ch = disp_ch[i];
+	/* Finding a remote connected vpp */
+	for (i = 0; i < NUM_DECON_IPS; i++) {
+		struct decon_device *other = get_decon_drvdata(i);
+
+		if (other->state == DECON_STATE_OFF || other->id == decon->id)
+			continue;
+
+		if (other->vpp_usage_bitmask & (1 << id))
+			return &vpp->bts_info;
 	}
+
+	return NULL;
 }
 
 void bts2_calc_bw(struct decon_device *decon, struct decon_reg_data *regs)
@@ -297,8 +364,6 @@ void bts2_calc_bw(struct decon_device *decon, struct decon_reg_data *regs)
 			bts2_calc_disp(decon, vpp, config);
 		}
 	}
-
-	bts2_find_max_disp_ch(decon);
 
 	decon_dbg("total cur bw(%d), max peak bw(%d), max disp int channel(%llu)\n",
 			decon->total_bw, decon->max_peak_bw, decon->max_disp_ch);
