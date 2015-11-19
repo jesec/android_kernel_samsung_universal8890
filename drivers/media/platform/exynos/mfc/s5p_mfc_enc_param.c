@@ -222,7 +222,7 @@ static int s5p_mfc_set_enc_params(struct s5p_mfc_ctx *ctx)
 	/** seq header ctrl */
 	reg = MFC_READL(S5P_FIMV_E_ENC_OPTIONS);
 	reg &= ~(0x1 << 2);
-	reg |= (p->seq_hdr_mode << 2);
+	reg |= ((p->seq_hdr_mode & 0x1) << 2);
 	/** frame skip mode */
 	reg &= ~(0x3);
 	reg |= (p->frame_skip_mode);
@@ -1045,6 +1045,7 @@ int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 	reg |= (p_hevc->lossless_cu_enable & 0x1) << 6;
 	reg |= (p_hevc->wavefront_enable & 0x1) << 7;
 	reg |= (p_hevc->loopfilter_disable & 0x1) << 8;
+	reg |= (p_hevc->loopfilter_across & 0x1) << 9;
 	reg |= (p_hevc->enable_ltr & 0x1) << 10;
 	reg |= (p_hevc->hier_qp_enable & 0x1) << 11;
 	reg |= (p_hevc->sign_data_hiding & 0x1) << 12;
@@ -1061,21 +1062,17 @@ int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 	/* refresh period */
 	if (p_hevc->refreshtype) {
 		reg = 0;
-		reg |= (p_hevc->refreshperiod & 0x1);
+		reg |= (p_hevc->refreshperiod & 0xFFFF);
 		MFC_WRITEL(reg, S5P_FIMV_E_HEVC_REFRESH_PERIOD);
 	}
 	/* loop filter setting */
-	reg |= (p_hevc->loopfilter_disable & 0x01) << 8;
 	if (!p_hevc->loopfilter_disable) {
 		reg = 0;
-		reg |= (p_hevc->lf_beta_offset_div2 & 0x1);
+		reg |= (p_hevc->lf_beta_offset_div2);
 		MFC_WRITEL(reg, S5P_FIMV_E_HEVC_LF_BETA_OFFSET_DIV2);
 		reg = 0;
-		reg |= (p_hevc->lf_tc_offset_div2 & 0x1);
+		reg |= (p_hevc->lf_tc_offset_div2);
 		MFC_WRITEL(reg, S5P_FIMV_E_HEVC_LF_TC_OFFSET_DIV2);
-		reg = MFC_READL(S5P_FIMV_E_HEVC_OPTIONS);
-		reg &= ~(0x1 << 9);
-		reg |= (p_hevc->loopfilter_across & 0x1) << 9;
 	}
 	/* long term reference */
 	if (p_hevc->enable_ltr) {

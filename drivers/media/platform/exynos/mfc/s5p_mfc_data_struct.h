@@ -432,7 +432,7 @@ struct s5p_mfc_vp9_enc_params {
 	u8 rc_frame_qp;
 	u8 rc_p_frame_qp;
 	u8 vp9_goldenframesel;
-	u8 vp9_gfrefreshperiod;
+	u16 vp9_gfrefreshperiod;
 	u8 hier_qp_enable;
 	u8 hier_qp_layer[3];
 	u32 hier_bit_layer[3];
@@ -458,7 +458,7 @@ struct s5p_mfc_vp8_enc_params {
 	u8 vp8_filterlevel;
 	u8 vp8_filtersharpness;
 	u8 vp8_goldenframesel;
-	u8 vp8_gfrefreshperiod;
+	u16 vp8_gfrefreshperiod;
 	u8 hier_qp_enable;
 	u8 hier_qp_layer[3];
 	u32 hier_bit_layer[3];
@@ -487,11 +487,9 @@ struct s5p_mfc_hevc_enc_params {
 	u8 max_partition_depth;
 	u8 num_refs_for_p;
 	u8 refreshtype;
-	u8 refreshperiod;
-	s8 croma_qp_offset_cr;
-	s8 croma_qp_offset_cb;
-	s8 lf_beta_offset_div2;
-	s8 lf_tc_offset_div2;
+	u16 refreshperiod;
+	s32 lf_beta_offset_div2;
+	s32 lf_tc_offset_div2;
 	u8 loopfilter_disable;
 	u8 loopfilter_across;
 	u8 nal_control_length_filed;
@@ -534,8 +532,8 @@ struct s5p_mfc_enc_params {
 	enum v4l2_mpeg_video_multi_slice_mode slice_mode;
 	u32 slice_mb;
 	u32 slice_bit;
-	u16 slice_mb_row;
-	u16 intra_refresh_mb;
+	u32 slice_mb_row;
+	u32 intra_refresh_mb;
 	u8 pad;
 	u8 pad_luma;
 	u8 pad_cb;

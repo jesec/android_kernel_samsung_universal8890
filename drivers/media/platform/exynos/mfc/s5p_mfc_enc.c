@@ -2733,7 +2733,7 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		p->codec.hevc.loopfilter_disable = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_SLICE_BOUNDARY:
-		p->codec.hevc.loopfilter_disable = ctrl->value;
+		p->codec.hevc.loopfilter_across = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LTR_ENABLE:
 		p->codec.hevc.enable_ltr = ctrl->value;
@@ -2800,12 +2800,6 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_REFRESH_PERIOD:
 		p->codec.hevc.refreshperiod = ctrl->value;
-		break;
-	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_QP_INDEX_CR:
-		p->codec.hevc.croma_qp_offset_cr = ctrl->value;
-		break;
-	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_QP_INDEX_CB:
-		p->codec.hevc.croma_qp_offset_cb = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_MFC90_VIDEO_HEVC_LF_BETA_OFFSET_DIV2:
 		p->codec.hevc.lf_beta_offset_div2 = ctrl->value;
