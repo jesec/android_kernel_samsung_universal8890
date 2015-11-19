@@ -39,7 +39,10 @@ enum idle_state {
 	IDLE_C1 = 0,
 	IDLE_C2,
 	IDLE_LPM,
+	IDLE_STATE_MAX,
 };
+
+static char *idle_state_name[IDLE_STATE_MAX] = {"c1", "c2", "lpm"};
 
 /***************************************************************************
  *                             Helper function                             *
@@ -142,6 +145,11 @@ static int exynos_enter_idle_state(struct cpuidle_device *dev,
 				struct cpuidle_driver *drv, int index)
 {
 	int (*func)(struct cpuidle_device *, struct cpuidle_driver *, int);
+	ktime_t time_start, time_end;
+	int ret;
+
+	exynos_ss_cpuidle(idle_state_name[index], index, 0, ESS_FLAG_IN);
+	time_start = ktime_get();
 
 	switch (index) {
 	case IDLE_C1:
@@ -167,7 +175,13 @@ static int exynos_enter_idle_state(struct cpuidle_device *dev,
 		return -EINVAL;
 	}
 
-	return (*func)(dev, drv, index);
+	ret = (*func)(dev, drv, index);
+
+	time_end = ktime_get();
+	exynos_ss_cpuidle(idle_state_name[index], ret,
+		(int)ktime_to_us(ktime_sub(time_end, time_start)), ESS_FLAG_OUT);
+
+	return ret;
 }
 
 /***************************************************************************

@@ -245,20 +245,6 @@ static ktime_t profile_start_time;
 static ktime_t profile_finish_time;
 static s64 profile_time;
 
-static char * sys_powerdown_str[NUM_SYS_POWERDOWN] = {
-	"SICD",
-	"SICD_CPD",
-	"SICD_AUD",
-	"AFTR",
-	"STOP",
-        "DSTOP",
-	"LPD",
-	"ALPA",
-	"SLEEP"
-};
-
-#define get_sys_powerdown_str(mode)	sys_powerdown_str[mode]
-
 static int calculate_percent(s64 residency)
 {
 	if (!residency)
