@@ -685,21 +685,21 @@ static void vpp_dump(struct decon_device *decon)
 static void decon_vpp_stop(struct decon_device *decon, bool do_reset)
 {
 	int i;
+	struct vpp_dev *vpp;
 	unsigned long state = (unsigned long)do_reset;
 
 	for (i = 0; i < MAX_VPP_SUBDEV; i++) {
 		if (decon->vpp_used[i] && (!(decon->vpp_usage_bitmask & (1 << i)))) {
-			struct v4l2_subdev *sd = NULL;
-			sd = decon->mdev->vpp_sd[i];
+			struct v4l2_subdev *sd = decon->mdev->vpp_sd[i];
 			BUG_ON(!sd);
 			if (decon->vpp_err_stat[i])
 				state = VPP_STOP_ERR;
 			v4l2_subdev_call(sd, core, ioctl, VPP_STOP,
 						(unsigned long *)state);
+			vpp = v4l2_get_subdevdata(sd);
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
-			decon->bts2_ops->bts_release_rot_bw(i);
+			decon->bts2_ops->bts_release_vpp(&vpp->bts_info);
 #endif
-
 			decon->vpp_used[i] = false;
 			decon->vpp_err_stat[i] = false;
 		}
@@ -2313,6 +2313,17 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 			DISP_SS_EVENT_LOG(DISP_EVT_WB_SW_TRIGGER, &decon->sd, ktime_set(0, 0));
 	}
 
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	/* NOTE: Must be called after VPP_WIN_CONFIG
+	 * calculate bandwidth and update min lock(MIF, INT, DISP) */
+	decon->bts2_ops->bts_calc_bw(decon);
+	decon->bts2_ops->bts_update_bw(decon, 0);
+#else
+	decon_get_vpp_min_lock(decon, regs);
+	decon_set_vpp_disp_min_lock(decon, regs);
+	decon_set_vpp_min_lock_early(decon, regs);
+#endif
+
 	/* DMA protection(SFW) enable must be happen on vpp domain is alive */
 	decon_set_protected_content(decon, regs);
 
@@ -2456,17 +2467,6 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	}
 
 	decon_check_vpp_used(decon, regs);
-#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
-	/* TODO: call BTS API
-	 * calculate bandwidth and update min lock(MIF, INT, DISP) */
-	decon->bts2_ops->bts_calc_bw(decon, regs);
-	decon->bts2_ops->bts_update_bw(decon, regs, 0);
-#else
-	decon_get_vpp_min_lock(decon, regs);
-	decon_set_vpp_disp_min_lock(decon, regs);
-	decon_set_vpp_min_lock_early(decon, regs);
-#endif
-
 	DISP_SS_EVENT_LOG_WINCON(&decon->sd, regs);
 
 #ifdef CONFIG_USE_VSYNC_SKIP
@@ -2547,16 +2547,17 @@ end:
 
 	sw_sync_timeline_inc(decon->timeline, 1);
 
-#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
-	/* TODO: call BTS API
-	 * update min lock(MIF, INT, DISP) */
-	decon->bts2_ops->bts_update_bw(decon, regs, 1);
-#else
-	decon_set_vpp_min_lock_lately(decon, regs);
-#endif
 	decon_save_win_state(decon, regs);
 	decon_set_cfw(decon, regs, 0);
 	decon_vpp_stop(decon, false);
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
+	/* NOTE: Must be called after VPP_STOP
+	 * update min lock(MIF, INT, DISP) */
+	decon->bts2_ops->bts_calc_bw(decon);
+	decon->bts2_ops->bts_update_bw(decon, 1);
+#else
+	decon_set_vpp_min_lock_lately(decon, regs);
+#endif
 }
 
 static void decon_update_regs_handler(struct kthread_work *work)
