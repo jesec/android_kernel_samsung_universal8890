@@ -33,6 +33,9 @@ extern void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wake
 extern int determine_lpm(void);
 extern void exynos_prepare_cp_call(void);
 extern void exynos_wakeup_cp_call(bool early_wakeup);
+extern char *sys_powerdown_str[NUM_SYS_POWERDOWN];
+
+#define get_sys_powerdown_str(mode)	sys_powerdown_str[mode]
 
 /**
  * Functions for cpuidle driver

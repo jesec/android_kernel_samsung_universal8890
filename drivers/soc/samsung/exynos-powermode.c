@@ -61,6 +61,18 @@ struct exynos_powermode_info {
 
 static struct exynos_powermode_info *pm_info;
 
+char *sys_powerdown_str[NUM_SYS_POWERDOWN] = {
+	"SICD",
+	"SICD_CPD",
+	"SICD_AUD",
+	"AFTR",
+	"STOP",
+        "DSTOP",
+	"LPD",
+	"ALPA",
+	"SLEEP"
+};
+
 /******************************************************************************
  *                                  IDLE_IP                                   *
  ******************************************************************************/
