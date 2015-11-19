@@ -19,7 +19,7 @@
 #define MAX_TUNING_LOOP		(MAX_TUNING_RETRIES * 8 * 2)
 
 
-#define EXYNOS_CCLKIN_MIN	50000000	/* unit: HZ */
+#define EXYNOS_CCLKIN_MIN	25000000	/* unit: HZ */
 
 /* Exynos implementation specific driver private data */
 struct dw_mci_exynos_priv_data {
