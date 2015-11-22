@@ -288,7 +288,6 @@ void enable_cppll_sharing_bus012_disable(void)
 	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_PSCDC_400), 2);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_PSCDC_400), 3);
 	pwrcal_gate_enable(CLK(TOP_GATE_SCLK_BUS_PLL_MIF));
-	pwrcal_mux_set_src(CLK(TOP_MUX_BUS_PLL_MIF), 1);
 	pscdc_trans(200, 200, 5, 0, 0, 1, 1, 7, 3, 1, 1);
 
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_528), 4);
@@ -300,7 +299,6 @@ void enable_cppll_sharing_bus012_disable(void)
 	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_132), 11);
 	pwrcal_div_set_ratio(CLK(TOP_DIV_PCLK_CCORE_66), 5);
 
-	pwrcal_pll_disable(CLK(MIF_PLL));
 	pwrcal_pll_disable(CLK(BUS0_PLL));
 	pwrcal_pll_disable(CLK(BUS1_PLL));
 	pwrcal_pll_disable(CLK(BUS2_PLL));
@@ -321,16 +319,17 @@ void disable_cppll_sharing_bus012_enable(void)
 	pwrcal_writel(INIT_TURN, CP_TURN);
 	while ((pwrcal_readl(CP_FLAG) == 1) && (pwrcal_readl(INIT_TURN) == CP_TURN));
 
-	pwrcal_pll_enable(CLK(MIF_PLL));
 	pwrcal_pll_enable(CLK(BUS0_PLL));
 	pwrcal_pll_enable(CLK(BUS1_PLL));
 	pwrcal_pll_enable(CLK(BUS2_PLL));
+
+	pwrcal_gate_enable(CLK(TOP_GATE_SCLK_BUS_PLL_MIF));
 
 	mux_value = rate_table_aclk_ccore_800[dfs_mif_resume_level].mux;
 	div_value = rate_table_aclk_ccore_800[dfs_mif_resume_level].div;
 	rate_sci = rate_table_aclk_ccore_800[dfs_mif_resume_level].sci_ratio;
 	rate_smc = rate_table_aclk_ccore_800[dfs_mif_resume_level].smc_ratio;
-	pscdc_trans(rate_sci, rate_smc, 0, 0, 1, 1, 0, mux_value, div_value, 1, 1);
+	pscdc_trans(rate_sci, rate_smc, 3, 0, 0, 1, 1, mux_value, div_value, 1, 1);
 
 	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_528), 3);
 	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_264), 7);
@@ -341,10 +340,8 @@ void disable_cppll_sharing_bus012_enable(void)
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_132), 0);
 	pwrcal_mux_set_src(CLK(TOP_MUX_PCLK_CCORE_66), 0);
 
-	pwrcal_mux_set_src(CLK(TOP_MUX_BUS_PLL_MIF), 0);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_PSCDC_400), 1);
 	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_PSCDC_400), 1);
-	pwrcal_gate_disable(CLK(TOP_GATE_SCLK_BUS_PLL_MIF));
 	pwrcal_mux_set_src(CLK(TOP_MUX_CP2AP_MIF_CLK_USER), 0);
 
 	pwrcal_writel(MIF_MUX_DONE, 1);
