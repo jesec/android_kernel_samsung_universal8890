@@ -1257,18 +1257,30 @@ static void dw_mci_submit_data(struct dw_mci *host, struct mmc_data *data)
 static void mci_send_cmd(struct dw_mci_slot *slot, u32 cmd, u32 arg)
 {
 	struct dw_mci *host = slot->host;
-	unsigned long timeout = jiffies + msecs_to_jiffies(500);
+	unsigned long timeout = jiffies + msecs_to_jiffies(10);
 	unsigned int cmd_status = 0;
+	int try = 50;
+
+	atomic_inc_return(&slot->host->ciu_en_win);
+	dw_mci_ciu_clk_en(slot->host, false);
+	atomic_dec_return(&slot->host->ciu_en_win);
 
 	mci_writel(host, CMDARG, arg);
 	wmb();
 	mci_writel(host, CMD, SDMMC_CMD_START | cmd);
 
-	while (time_before(jiffies, timeout)) {
-		cmd_status = mci_readl(host, CMD);
-		if (!(cmd_status & SDMMC_CMD_START))
-			return;
-	}
+	do {
+		while (time_before(jiffies, timeout)) {
+			cmd_status = mci_readl(host, CMD);
+			if (!(cmd_status & SDMMC_CMD_START))
+				return;
+		}
+
+		dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
+		mci_writel(host, CMD, SDMMC_CMD_START | cmd);
+		timeout = jiffies + msecs_to_jiffies(10);
+	} while (--try);
+
 	dev_err(&slot->mmc->class_dev,
 		"Timeout sending command (cmd %#x arg %#x status %#x)\n",
 		cmd, arg, cmd_status);
@@ -3143,10 +3155,17 @@ static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset)
 	unsigned long timeout = jiffies + msecs_to_jiffies(500);
 	u32 ctrl;
 	unsigned int int_mask = 0;
+	u32 clksel_saved = 0x0;
+	bool ret = false;
 
 	/* Interrupt disable */
 	ctrl = dw_mci_disable_interrupt(host, &int_mask);
 
+	/* set Rx timing to 0 */
+	clksel_saved = mci_readl(host, CLKSEL);
+	mci_writel(host, CLKSEL, clksel_saved & ~(0x3 << 6 | 0x7));
+
+	/* Reset */
 	ctrl |= reset;
 	mci_writel(host, CTRL, ctrl);
 
@@ -3158,13 +3177,20 @@ static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset)
 
 	/* wait till resets clear */
 	do {
-		if (!(mci_readl(host, CTRL) & reset))
-			return true;
+		if (!(mci_readl(host, CTRL) & reset)) {
+			ret = true;
+			break;
+		}
 	} while (time_before(jiffies, timeout));
 
-	dev_err(host->dev, "Timeout resetting block (ctrl %#x)\n", ctrl);
+	if (!ret)
+		dev_err(host->dev, "Timeout resetting block (ctrl %#x)\n", ctrl);
 
-	return false;
+	/* restore Rx timing */
+	mci_writel(host, CLKSEL, clksel_saved);
+
+	return ret;
+
 }
 
 static bool dw_mci_reset(struct dw_mci *host)
