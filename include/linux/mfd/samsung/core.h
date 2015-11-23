@@ -14,6 +14,8 @@
 #ifndef __LINUX_MFD_SEC_CORE_H
 #define __LINUX_MFD_SEC_CORE_H
 
+#include <linux/regulator/consumer.h>
+
 #define NUM_IRQ_REGS	4
 
 #define SEC_PMIC_REV(iodev)	(iodev)->rev_num
@@ -187,7 +189,8 @@ extern int sec_rtc_bulk_write(struct sec_pmic_dev *sec_pmic, u32 reg, int count,
 				u8 *buf);
 extern int sec_rtc_update(struct sec_pmic_dev *sec_pmic, u32 reg, u32 val,
 				u32 mask);
-#if 0
+
+extern int s2m_set_pwm_mode(struct regulator *reg, bool enable);
 extern void s2m_init_dvs(void);
 extern int s2m_get_dvs_is_enable(void);
 extern int s2m_get_dvs_is_on(void);

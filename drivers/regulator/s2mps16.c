@@ -30,9 +30,27 @@
 #include <mach/asv-exynos.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
+#include <linux/exynos-ss.h>
 
-#include <mach/pm_domains-cal.h>
-#include <../pwrcal/S5E8890/S5E8890-vclk.h>
+#include "internal.h"
+
+#include <soc/samsung/exynos-pmu.h>
+#if defined(CONFIG_PWRCAL)
+#include <../drivers/soc/samsung/pwrcal/pwrcal.h>
+#if defined(CONFIG_SOC_EXYNOS8890)
+#include <../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h>
+#endif
+#endif
+
+#define EXYNOS_PMU_G3D_STATUS          0x4064
+#define EXYNOS_PMU_GPU_DVS_CTRL                0x6100
+#define EXYNOS_PMU_GPU_DVS_STATUS      0x6104
+#define G3D_DVS_CTRL_ON                        (0x1 << 1)
+#define G3D_DVS_CTRL_OFF               (0x0 << 1)
+#define G3D_DVS_CTRL                   (0x1 << 1)
+#define G3D_DVS_STATUS                 (0x1)
+#define LOCAL_PWR_CFG                  (0xF << 0)
+#define BUCK2_ASV_MAX		       (1300000)
 
 static struct s2mps16_info *static_info;
 static struct regulator_desc regulators[][S2MPS16_REGULATOR_MAX];
@@ -371,6 +389,21 @@ static int s2m_set_voltage_time_sel(struct regulator_dev *rdev,
 
 	return 0;
 }
+
+int s2m_set_pwm_mode(struct regulator *reg, bool enable)
+{
+	struct regulator_dev *rdev = reg->rdev;
+	struct s2mps16_info *s2mps16 = rdev_get_drvdata(rdev);
+	int ret;
+
+	if(enable)
+		ret = sec_reg_update(s2mps16->iodev, S2MPS16_REG_B7CTRL1, S2MPS16_PWM_MODE, 0x27);
+	else
+		ret = sec_reg_update(s2mps16->iodev, S2MPS16_REG_B7CTRL1, S2MPS16_AUTO_MODE, 0x27);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(s2m_set_pwm_mode);
 
 void s2m_init_dvs()
 {
