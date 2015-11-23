@@ -52,6 +52,7 @@ struct {
 	struct task_struct		*task;
 	struct task_struct		*hptask;
 	struct hrtimer			slack_timer;
+	ktime_t				slack_start_time;
 	struct irq_work			update_irq_work;
 	struct irq_work			start_slack_timer_irq_work;
 	struct hpgov_data		data;
@@ -60,7 +61,6 @@ struct {
 	wait_queue_head_t		wait_hpq;
 
 	int				boost_cnt;
-	int				delayed_boost_cnt;
 } exynos_hpgov;
 
 static struct pm_qos_request hpgov_max_pm_qos;
@@ -84,14 +84,12 @@ static int start_slack_timer(void)
 {
 	int ret;
 
-	ktime_t curr_time = ktime_get();
-
 	if (!exynos_hpgov.enabled)
 		return 0;
 
 	hrtimer_cancel(&exynos_hpgov.slack_timer);
 	ret = hrtimer_start(&exynos_hpgov.slack_timer,
-		ktime_add(curr_time, ktime_set(0,
+		ktime_add(exynos_hpgov.slack_start_time, ktime_set(0,
 			exynos_hpgov.dual_change_ms * NSEC_PER_MSEC)),
 			HRTIMER_MODE_PINNED);
 	if (ret)
@@ -109,7 +107,7 @@ static enum hrtimer_restart exynos_hpgov_slack_timer(struct hrtimer *timer)
 {
 	unsigned long flags;
 
-	if (exynos_hpgov.boost_cnt || exynos_hpgov.delayed_boost_cnt)
+	if (exynos_hpgov.boost_cnt)
 		goto out;
 
 	spin_lock_irqsave(&hpgov_lock, flags);
@@ -158,23 +156,16 @@ static void slack_timer_irq_work(struct irq_work *irq_work)
 	start_slack_timer();
 }
 
-void inc_boost_req_count(bool delayed_boost)
+void inc_boost_req_count(void)
 {
 	unsigned long flags;
 	int boost_cnt;
-	int delayed_boost_cnt;
 
 	spin_lock_irqsave(&hpgov_boost_cnt_lock, flags);
-	if (delayed_boost) {
-		delayed_boost_cnt = ++exynos_hpgov.delayed_boost_cnt;
-		boost_cnt = exynos_hpgov.boost_cnt;
-	} else {
-		boost_cnt = ++exynos_hpgov.boost_cnt;
-		delayed_boost_cnt = exynos_hpgov.delayed_boost_cnt;
-	}
+	boost_cnt = ++exynos_hpgov.boost_cnt;
 	spin_unlock_irqrestore(&hpgov_boost_cnt_lock, flags);
 
-	if (boost_cnt + delayed_boost_cnt == 1)
+	if (boost_cnt == 1)
 		exynos_hpgov_big_mode_update(BIG_QUAD_MODE);
 }
 
@@ -182,26 +173,22 @@ void dec_boost_req_count(bool delayed_boost)
 {
 	unsigned long flags;
 	int boost_cnt;
-	int delayed_boost_cnt;
 
 	spin_lock_irqsave(&hpgov_boost_cnt_lock, flags);
-	if (delayed_boost) {
-		delayed_boost_cnt = --exynos_hpgov.delayed_boost_cnt;
-		boost_cnt = exynos_hpgov.boost_cnt;
-	} else {
-		boost_cnt = --exynos_hpgov.boost_cnt;
-		delayed_boost_cnt = exynos_hpgov.delayed_boost_cnt;
-	}
+	if (delayed_boost)
+		exynos_hpgov.slack_start_time = ktime_get();
 
-	if (delayed_boost_cnt == 0 && delayed_boost) {
-		exynos_hpgov_slack_timer_start();
-		spin_unlock_irqrestore(&hpgov_boost_cnt_lock, flags);
-	} else if (delayed_boost_cnt + boost_cnt == 0 && !slack_timer_is_queued()) {
-		spin_unlock_irqrestore(&hpgov_boost_cnt_lock, flags);
-		exynos_hpgov_big_mode_update(BIG_DUAL_MODE);
-	} else {
-		spin_unlock_irqrestore(&hpgov_boost_cnt_lock, flags);
+	boost_cnt = --exynos_hpgov.boost_cnt;
+
+	if (boost_cnt == 0) {
+		if (delayed_boost || ktime_before(ktime_get(),
+		ktime_add_ms(exynos_hpgov.slack_start_time,
+			exynos_hpgov.dual_change_ms - 1)))
+			exynos_hpgov_slack_timer_start();
+		else
+			exynos_hpgov_big_mode_update(BIG_DUAL_MODE);
 	}
+	spin_unlock_irqrestore(&hpgov_boost_cnt_lock, flags);
 }
 
 static int exynos_hpgov_update_governor(enum hpgov_event event, int req_cpu_max, int req_cpu_min)

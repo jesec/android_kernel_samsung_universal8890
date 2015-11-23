@@ -10035,7 +10035,7 @@ static void update_boost_request(struct sched_entity *se)
 			&& group_leader->nr_thread_group >= level + 1) {
 		if (!group_leader->hp_boost_requested) {
 			group_leader->hp_boost_requested = true;
-			inc_boost_req_count(true);
+			inc_boost_req_count();
 		}
 	} else {
 		if (group_leader->hp_boost_requested) {
@@ -10167,7 +10167,7 @@ static void update_big_state(struct hmp_domain *big_hmpd)
 	switch(hmp_big_status) {
 	case BIG_IDLE:
 		if (hmp_num_big_thread > hpgov_default_level()) {
-			inc_boost_req_count(false);
+			inc_boost_req_count();
 			hmp_big_status = BIG_THROTTLED;
 			trace_sched_hp_event_big_threads(raw_smp_processor_id(), hmp_num_big_thread, "throttled");
 		}
