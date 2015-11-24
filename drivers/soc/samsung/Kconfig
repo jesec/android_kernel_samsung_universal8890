@@ -43,7 +43,7 @@ config SCHED_HP_EVENT
 config HP_EVENT_THREAD_GROUP
 	bool "Gathres thread group information"
 	depends on SCHED_HP_EVENT && SCHED_HMP
-	default y
+	default n
 
 config HP_EVENT_BIG_THREADS
 	bool "Gathres big threads in system"
