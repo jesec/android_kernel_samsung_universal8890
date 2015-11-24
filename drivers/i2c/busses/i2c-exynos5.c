@@ -1465,7 +1465,7 @@ static int exynos5_i2c_xfer(struct i2c_adapter *adap,
 	exynos_update_ip_idle_status(i2c->idle_ip_index, 0);
 	clk_prepare_enable(i2c->clk);
 #endif
-	if (i2c->need_hw_init)
+	if ((i2c->need_hw_init) && !(i2c->support_hsi2c_batcher))
 		exynos5_i2c_reset(i2c);
 
 	if (!(i2c->support_hsi2c_batcher)) {
