@@ -149,6 +149,9 @@ static LIST_HEAD(drvdata_list);
 #define TXBUSY    (1<<3)
 
 #define SPI_DBG_MODE (0x1 << 0)
+#define SD_INFO_PA			0x10000004
+
+u32 fusing_bit;
 
 /**
  * struct s3c64xx_spi_info - SPI Controller hardware info
@@ -395,18 +398,28 @@ static int acquire_dma(struct s3c64xx_spi_driver_data *sdd)
 {
 	struct samsung_dma_req req;
 	struct device *dev = &sdd->pdev->dev;
+	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
 
 	sdd->ops = samsung_dma_get_ops();
 
 	req.cap = DMA_SLAVE;
 	req.client = &s3c64xx_spi_dma_client;
 
-	if (sdd->rx_dma.ch == NULL)
-		sdd->rx_dma.ch = (void *)sdd->ops->request(sdd->rx_dma.dmach,
+	if ((sci->check_fusing_bit) && (fusing_bit == 0x40000000)) {
+		if (sdd->rx_dma.ch == NULL)
+			sdd->rx_dma.ch = (void *)sdd->ops->request(sdd->rx_dma.dmach,
+							&req, dev, "rx-s");
+		if (sdd->tx_dma.ch == NULL)
+			sdd->tx_dma.ch = (void *)sdd->ops->request(sdd->tx_dma.dmach,
+							&req, dev, "tx-s");
+	} else {
+		if (sdd->rx_dma.ch == NULL)
+			sdd->rx_dma.ch = (void *)sdd->ops->request(sdd->rx_dma.dmach,
 							&req, dev, "rx");
-	if (sdd->tx_dma.ch == NULL)
-		sdd->tx_dma.ch = (void *)sdd->ops->request(sdd->tx_dma.dmach,
+		if (sdd->tx_dma.ch == NULL)
+			sdd->tx_dma.ch = (void *)sdd->ops->request(sdd->tx_dma.dmach,
 							&req, dev, "tx");
+	}
 
 	return 1;
 }
@@ -1364,6 +1377,11 @@ static struct s3c64xx_spi_info *s3c64xx_spi_parse_dt(struct device *dev)
 	else
 		sci->secure_mode = NONSECURE_MODE;
 
+	if (of_get_property(dev->of_node, "check-fusing-bit", NULL))
+		sci->check_fusing_bit = CHECK_FUSING_BIT;
+	else
+		sci->check_fusing_bit = NON_CHECK_FUSING_BIT;
+
 	if (of_property_read_u32(dev->of_node, "samsung,spi-src-clk", &temp)) {
 		dev_warn(dev, "spi bus clock parent not specified, using clock at index 0 as parent\n");
 		sci->src_clk_nr = 0;
@@ -1442,6 +1460,7 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	int ret, irq;
 	char clk_name[16];
 	int fifosize;
+	u32 __iomem	*fusing_bit_addr;
 
 	if (!sci && pdev->dev.of_node) {
 		sci = s3c64xx_spi_parse_dt(&pdev->dev);
@@ -1504,6 +1523,17 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	}
 
 	sdd->cur_bpw = 8;
+
+	if (sci->check_fusing_bit) {
+		fusing_bit_addr = ioremap(SD_INFO_PA, SZ_4);
+		if (!fusing_bit_addr) {
+			dev_err(&pdev->dev, "failed to ioremap fusing_bit address!!!!\n");
+			return -ENOMEM;
+		} else {
+			fusing_bit = __raw_readl(fusing_bit_addr);
+			dev_err(&pdev->dev, "fusing_bit value is 0x%x\n", fusing_bit);
+		}
+	}
 
 	if (sci->dma_mode == DMA_MODE) {
 		if (!sdd->pdev->dev.of_node) {
