@@ -323,7 +323,11 @@ static int exynos_hpgov_set_enabled(uint32_t enable)
 			return -EFAULT;
 
 		set_user_nice(exynos_hpgov.task, MIN_NICE);
+#ifdef CONFIG_SCHED_HMP
+		set_cpus_allowed(exynos_hpgov.task, hmp_fast_cpu_mask);
+#else
 		kthread_bind(exynos_hpgov.task, 0);
+#endif
 		wake_up_process(exynos_hpgov.task);
 
 		exynos_hpgov.hptask = kthread_create(exynos_hpgov_do_hotplug,
@@ -334,7 +338,11 @@ static int exynos_hpgov_set_enabled(uint32_t enable)
 		}
 
 		set_user_nice(exynos_hpgov.hptask, MIN_NICE);
+#ifdef CONFIG_SCHED_HMP
+		set_cpus_allowed(exynos_hpgov.hptask, hmp_fast_cpu_mask);
+#else
 		kthread_bind(exynos_hpgov.hptask, 0);
+#endif
 		wake_up_process(exynos_hpgov.hptask);
 
 		exynos_hpgov.enabled = 1;
