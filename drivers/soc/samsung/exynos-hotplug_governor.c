@@ -34,6 +34,7 @@ struct hpgov_attrib {
 #if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
 	struct kobj_attribute	to_quad_ratio;
 	struct kobj_attribute	to_dual_ratio;
+	struct kobj_attribute	lit_mult_ratio;
 #endif
 
 	struct attribute_group	attrib_group;
@@ -70,6 +71,7 @@ struct {
 #if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
 	int				*to_quad_ratio;
 	int				*to_dual_ratio;
+	int				*lit_mult_ratio;
 #endif
 } exynos_hpgov;
 
@@ -419,6 +421,21 @@ static int exynos_hpgov_set_to_dual_ratio(int val)
 
 	return 0;
 }
+
+/* Currently max value of lit_mult_ratio is 200. */
+/* TODO: Change max value for ratio to 2048 (permille) */
+static int exynos_hpgov_set_lit_mult_ratio(int val)
+{
+	if ((val > 200) || (val < 0))
+		return -EINVAL;
+
+	*exynos_hpgov.lit_mult_ratio = val;
+	hp_sysload_param_calc();
+
+	/* XXX: Does not required hp_event_update_rq_load()? */
+
+	return 0;
+}
 #endif
 
 #define HPGOV_PARAM(_name, _param) \
@@ -463,6 +480,7 @@ HPGOV_PARAM(dual_change_ms, exynos_hpgov.dual_change_ms);
 #if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
 HPGOV_PARAM(to_quad_ratio, *exynos_hpgov.to_quad_ratio);
 HPGOV_PARAM(to_dual_ratio, *exynos_hpgov.to_dual_ratio);
+HPGOV_PARAM(lit_mult_ratio, *exynos_hpgov.lit_mult_ratio);
 #endif
 
 static void hpgov_boot_enable(struct work_struct *work);
@@ -476,7 +494,7 @@ static void hpgov_boot_enable(struct work_struct *work)
 static int __init exynos_hpgov_init(void)
 {
 	int ret = 0;
-	const int attr_count = 4;
+	const int attr_count = 5;
 	int i_attr = attr_count;
 
 	hrtimer_init(&exynos_hpgov.slack_timer, CLOCK_MONOTONIC,
@@ -502,11 +520,13 @@ static int __init exynos_hpgov_init(void)
 #if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
 	HPGOV_RW_ATTRIB(attr_count - (i_attr--), to_quad_ratio);
 	HPGOV_RW_ATTRIB(attr_count - (i_attr--), to_dual_ratio);
+	HPGOV_RW_ATTRIB(attr_count - (i_attr--), lit_mult_ratio);
 #endif
 
 #if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
 	exynos_hpgov.to_quad_ratio = &hp_sysload_to_quad_ratio;
 	exynos_hpgov.to_dual_ratio = &hp_sysload_to_dual_ratio;
+	exynos_hpgov.lit_mult_ratio = &hp_little_multiplier_ratio;
 #endif
 
 	exynos_hpgov.attrib.attrib_group.name = "governor";

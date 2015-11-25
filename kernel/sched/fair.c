@@ -10179,6 +10179,9 @@ static inline void exit_thread_group_info(struct sched_entity *se) { };
 #endif
 
 #if defined(CONFIG_HP_EVENT_HMP_SYSTEM_LOAD)
+#include <soc/samsung/cpufreq.h>
+extern int get_real_max_freq(cluster_type cluster);
+
 enum {
 	BIG_IDLE	= 0,
 	BIG_THROTTLED	= 1,
@@ -10189,31 +10192,38 @@ DEFINE_RAW_SPINLOCK(sysload_lock);
 
 int hp_sysload_to_quad_ratio = 100;
 int hp_sysload_to_dual_ratio = 80;
+int hp_little_multiplier_ratio = 100;
 
 static unsigned long big_throttle_threshold;
 static unsigned long big_idle_threshold;
 static unsigned long big_multiplier;
 static unsigned long little_multiplier;
+static unsigned long thresh_precalc;
+static unsigned long little_mul_precalc;
 
 int hp_sysload_param_calc(void)
 {
-	/* XXX: Do we need sysload_lock here? */
-	big_throttle_threshold = ((2 * 12480 * 5035) >> SCHED_FREQSCALE_SHIFT) * hp_sysload_to_quad_ratio;
-	big_idle_threshold = ((2 * 12480 * 5035) >> SCHED_FREQSCALE_SHIFT) * hp_sysload_to_dual_ratio;
+	big_throttle_threshold = thresh_precalc * hp_sysload_to_quad_ratio;
+	big_idle_threshold = thresh_precalc * hp_sysload_to_dual_ratio;
+	little_multiplier = little_mul_precalc * hp_little_multiplier_ratio / 100;
 
 	return 0;
 }
 
 static int __init hp_sysload_param_init(void)
 {
-	hp_sysload_param_calc();
+	unsigned int lit_cpu_efficiency = pcpu_efficiency[0];
+	unsigned int big_cpu_efficiency = pcpu_efficiency[cpumask_weight(&hmp_slow_cpu_mask)];
 
-	big_multiplier = (5035 * (2704000 >> SCHED_FREQSCALE_SHIFT)) >> SCHED_FREQSCALE_SHIFT;
-	little_multiplier = (2048 * (1586000 >> SCHED_FREQSCALE_SHIFT)) >> SCHED_FREQSCALE_SHIFT;
+	thresh_precalc = (hpgov_default_level() * get_real_max_freq(CL_ONE) >> (SCHED_FREQSCALE_SHIFT + 1)) * big_cpu_efficiency / 100;
+	big_multiplier = ((get_real_max_freq(CL_ONE) >> SCHED_FREQSCALE_SHIFT) * big_cpu_efficiency) >> SCHED_FREQSCALE_SHIFT;
+	little_mul_precalc = ((get_real_max_freq(CL_ZERO) >> SCHED_FREQSCALE_SHIFT) * lit_cpu_efficiency) >> SCHED_FREQSCALE_SHIFT;
+
+	hp_sysload_param_calc();
 
 	return 0;
 }
-pure_initcall(hp_sysload_param_init);
+late_initcall(hp_sysload_param_init);
 
 static inline unsigned long sysload_sum(unsigned long big_load, unsigned long little_load)
 {

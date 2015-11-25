@@ -211,6 +211,8 @@ static const struct cpu_efficiency table_efficiency[] = {
 static unsigned long *__cpu_capacity;
 #define cpu_capacity(cpu)	__cpu_capacity[cpu]
 
+unsigned int *pcpu_efficiency;
+
 static unsigned long middle_capacity = 1;
 
 /*
@@ -272,6 +274,9 @@ static void __init parse_dt_cpu_power(void)
 	__cpu_capacity = kcalloc(nr_cpu_ids, sizeof(*__cpu_capacity),
 				 GFP_NOWAIT);
 
+	pcpu_efficiency = kcalloc(nr_cpu_ids, sizeof(*pcpu_efficiency),
+				 GFP_NOWAIT);
+
 	for_each_possible_cpu(cpu) {
 		const u32 *rate;
 		int len;
@@ -291,6 +296,8 @@ static void __init parse_dt_cpu_power(void)
 			pr_warn("%s: Unknown CPU type\n", cn->full_name);
 			continue;
 		}
+
+		pcpu_efficiency[cpu] = cpu_eff->efficiency;
 
 		rate = of_get_property(cn, "clock-frequency", &len);
 		if (!rate || len != 4) {
