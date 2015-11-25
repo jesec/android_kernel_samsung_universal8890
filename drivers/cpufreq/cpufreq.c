@@ -1377,8 +1377,6 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 	if (cpufreq_suspended)
 		per_cpu(cpufreq_cpu_data_fallback, cpu) = policy;
 
-	policy->hcpus_count++;
-
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	if (!policy) {
@@ -1386,11 +1384,14 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 		return -EINVAL;
 	}
 
+	policy->hcpus_count++;
+
 	if (has_target()) {
 		if (policy->hcpus_count == 1)
 			ret = __cpufreq_governor(policy, CPUFREQ_GOV_STOP);
 
 		if (ret) {
+			policy->hcpus_count--;
 			pr_err("%s: Failed to stop governor\n", __func__);
 			return ret;
 		}
@@ -1418,6 +1419,7 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 					      "cpufreq"))
 				pr_err("%s: Failed to restore kobj link to cpu:%d\n",
 				       __func__, cpu_dev->id);
+			policy->hcpus_count--;
 			return ret;
 		}
 
@@ -1443,7 +1445,6 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 	policy = per_cpu(cpufreq_cpu_data, cpu);
 	per_cpu(cpufreq_cpu_data, cpu) = NULL;
 
-	policy->hcpus_count--;
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	if (!policy) {
@@ -1453,6 +1454,8 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 
 	down_write(&policy->rwsem);
 	cpus = cpumask_weight(policy->cpus);
+
+	policy->hcpus_count--;
 
 	if (cpus > 1)
 		cpumask_clear_cpu(cpu, policy->cpus);
