@@ -23,6 +23,7 @@
 #include <linux/dma-buf.h>
 #include <linux/exynos_ion.h>
 #include <linux/ion.h>
+#include <linux/irq.h>
 #include <linux/highmem.h>
 #include <linux/memblock.h>
 #include <linux/exynos_iovmm.h>
@@ -43,6 +44,7 @@
 #include "vpp/vpp.h"
 #include "../../../../soc/samsung/pwrcal/pwrcal.h"
 #include "../../../../soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
+#include "../../../../kernel/irq/internals.h"
 
 #ifdef CONFIG_MACH_VELOCE8890
 #define DISP_SYSMMU_DIS
@@ -995,6 +997,12 @@ int decon_enable(struct decon_device *decon)
 	}
 #endif
 	if (!decon->id && !decon->eint_status) {
+		struct irq_desc *desc = irq_to_desc(decon->irq);
+		/* Pending IRQ clear */
+		if (desc->irq_data.chip->irq_ack) {
+			desc->irq_data.chip->irq_ack(&desc->irq_data);
+			desc->istate &= ~IRQS_PENDING;
+		}
 		enable_irq(decon->irq);
 		decon->eint_status = 1;
 	}
