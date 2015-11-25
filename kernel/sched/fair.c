@@ -4944,14 +4944,11 @@ static inline int hmp_boost(void)
 {
 	u64 now = ktime_to_us(ktime_get());
 	int ret;
-	unsigned long flags;
 
-	raw_spin_lock_irqsave(&hmp_boost_lock, flags);
 	if (hmp_boost_val || now < hmp_boostpulse_endtime)
 		ret = 1;
 	else
 		ret = 0;
-	raw_spin_unlock_irqrestore(&hmp_boost_lock, flags);
 
 	return ret;
 }
