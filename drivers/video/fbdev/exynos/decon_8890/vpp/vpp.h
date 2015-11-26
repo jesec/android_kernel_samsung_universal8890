@@ -150,7 +150,8 @@ struct vpp_dev {
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	struct bts_vpp_info		bts_info;
 	/* current each VPP's DISP INT level */
-	u64				disp;
+	u64				cur_disp;
+	u64				shw_disp;
 #endif
 	int				protection;
 };

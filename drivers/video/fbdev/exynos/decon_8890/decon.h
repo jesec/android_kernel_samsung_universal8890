@@ -24,7 +24,6 @@
 #include <media/v4l2-device.h>
 #include <media/videobuf2-core.h>
 #include <media/exynos_mc.h>
-#include <soc/samsung/bts.h>
 
 #include "regs-decon.h"
 #include "decon_common.h"
@@ -488,7 +487,7 @@ struct decon_bts2 {
 	void (*bts_calc_bw)(struct decon_device *decon);
 	void (*bts_update_bw)(struct decon_device *decon, u32 is_after);
 	void (*bts_release_bw)(struct decon_device *decon);
-	void (*bts_release_vpp)(struct bts_vpp_info *bts);
+	void (*bts_release_vpp)(struct vpp_dev *vpp);
 	void (*bts_deinit)(struct decon_device *decon);
 };
 

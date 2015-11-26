@@ -698,7 +698,7 @@ static void decon_vpp_stop(struct decon_device *decon, bool do_reset)
 						(unsigned long *)state);
 			vpp = v4l2_get_subdevdata(sd);
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
-			decon->bts2_ops->bts_release_vpp(&vpp->bts_info);
+			decon->bts2_ops->bts_release_vpp(vpp);
 #endif
 			decon->vpp_used[i] = false;
 			decon->vpp_err_stat[i] = false;
