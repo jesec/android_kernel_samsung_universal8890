@@ -3662,7 +3662,6 @@ const struct v4l2_ioctl_ops *get_enc_v4l2_ioctl_ops(void)
 int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_enc *enc;
-	struct s5p_mfc_enc_params *p;
 	int ret = 0;
 	int i;
 
@@ -3674,8 +3673,6 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	ctx->enc_priv = enc;
 
 	ctx->inst_no = MFC_NO_INSTANCE_SET;
-
-	p = &enc->params;
 
 	INIT_LIST_HEAD(&ctx->src_queue);
 	INIT_LIST_HEAD(&ctx->dst_queue);
@@ -3708,7 +3705,6 @@ int s5p_mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 	enc->ref_queue_cnt = 0;
 	enc->sh_handle_svc.fd = -1;
 	enc->sh_handle_roi.fd = -1;
-	p->config_qp = 34;
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;

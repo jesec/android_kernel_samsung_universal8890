@@ -135,8 +135,6 @@
 					(dev->fw.date >= 0x121005)) ||	\
 					(IS_MFCv5X(dev) &&		\
 					(dev->fw.date >= 0x120823)))
-#define FW_HAS_VUI_PARAMS(dev)		(IS_MFCV6(dev) &&		\
-					(dev->fw.date >= 0x121214))
 #define FW_HAS_ADV_RC_MODE(dev)		(IS_MFCV6(dev) &&		\
 					(dev->fw.date >= 0x130329))
 #define FW_HAS_I_LIMIT_RC_MODE(dev)	((IS_MFCv7X(dev) &&		\

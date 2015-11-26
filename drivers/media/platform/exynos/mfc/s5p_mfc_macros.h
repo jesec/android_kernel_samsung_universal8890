@@ -104,12 +104,6 @@
 #define ENC_V100_HEVC_ME_SIZE(x, y)				\
 	(((x + 3) * (y + 3) * 32) + (((y * 128) + 1280) * (x + 3) / 4))
 
-/* MV range is [16,256] for v6.1, [16,128] for v6.5 */
-#define ENC_V61_MV_RANGE		256
-#define ENC_V65_MV_RANGE		128
-/* MV range is [16,32] for v7.8 */
-#define ENC_V78_MV_RANGE		32
-
 #define NUM_MPEG4_LF_BUF		2
 
 /* Scratch buffer size for MFC v8.0 */
