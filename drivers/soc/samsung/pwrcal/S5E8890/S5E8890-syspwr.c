@@ -38,6 +38,7 @@ static inline int is_cp_aud_enabled(void)
 extern void enable_cppll_sharing_bus012_disable(void);
 extern void disable_cppll_sharing_bus012_enable(void);
 static unsigned int mif_use_cp_pll = 0;
+extern unsigned int dfsmif_paraset;
 
 /* set_pmu_lpi_mask */
 #define ASATB_MSTIF_MNGS_CAM1		(0x1 << 16)
@@ -2294,6 +2295,7 @@ static void pwrcal_syspwr_post(int mode)
 	case syspwr_sleep:
 		set_pmu_lpi_mask();
 		mif_use_cp_pll = 0;
+		dfsmif_paraset = 0;
 	case syspwr_stop:
 	case syspwr_aftr:
 	case syspwr_alpa:
