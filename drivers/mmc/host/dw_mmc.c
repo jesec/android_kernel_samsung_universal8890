@@ -647,9 +647,6 @@ static u32 dw_mci_prepare_command(struct mmc_host *mmc, struct mmc_command *cmd)
 	if (cmd->opcode == SD_SWITCH_VOLTAGE) {
 		u32 clk_en_a;
 
-		/* Special bit makes CMD11 not die */
-		cmdr |= SDMMC_CMD_VOLT_SWITCH;
-
 		/* Change state to continue to handle CMD11 weirdness */
 		WARN_ON(slot->host->state != STATE_SENDING_CMD);
 		slot->host->state = STATE_SENDING_CMD11;
@@ -1382,10 +1379,6 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
 	u32 clk_en_a;
 	u32 sdmmc_cmd_bits = SDMMC_CMD_UPD_CLK | SDMMC_CMD_PRV_DAT_WAIT;
 
-	/* We must continue to set bit 28 in CMD until the change is complete */
-	if (host->state == STATE_WAITING_CMD11_DONE)
-		sdmmc_cmd_bits |= SDMMC_CMD_VOLT_SWITCH;
-
 	if (!clock) {
 		mci_writel(host, CLKENA, 0);
 		mci_send_cmd(slot, sdmmc_cmd_bits, 0);
@@ -1735,10 +1728,12 @@ static int dw_mci_switch_voltage(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct dw_mci_slot *slot = mmc_priv(mmc);
 	struct dw_mci *host = slot->host;
+	unsigned long timeout = jiffies + msecs_to_jiffies(10);
 	u32 uhs;
 	u32 v18 = SDMMC_UHS_18V << slot->id;
 	int min_uv, max_uv;
-	int ret;
+	int ret = 0, retry = 10;
+	u32 status;
 
 	/*
 	 * Program the voltage.  Note that some instances of dw_mmc may use
@@ -1755,14 +1750,34 @@ static int dw_mci_switch_voltage(struct mmc_host *mmc, struct mmc_ios *ios)
 		max_uv = 1800000;
 		uhs |= v18;
 	}
+
 	if (!(host->quirks & DW_MMC_QUIRK_FIXED_VOLTAGE)) {
 		if (!IS_ERR(mmc->supply.vqmmc)) {
+			if (ios->signal_voltage != MMC_SIGNAL_VOLTAGE_330) {
+				dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
+				/* Check For DATA busy */
+				do {
+
+					while (time_before(jiffies, timeout)) {
+						status = mci_readl(host, STATUS);
+						if (!(status & SDMMC_STATUS_BUSY))
+							goto out;
+					}
+
+					dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
+					timeout = jiffies + msecs_to_jiffies(10);
+				} while (--retry);
+			}
+out:
+			/* waiting for stable */
+			mdelay(10);
+
 			ret = regulator_set_voltage(mmc->supply.vqmmc, min_uv, max_uv);
 
 			if (ret) {
 				dev_err(&mmc->class_dev,
-						 "Regulator set error %d: %d - %d\n",
-						 ret, min_uv, max_uv);
+						"Regulator set error %d: %d - %d\n",
+						ret, min_uv, max_uv);
 				return ret;
 			}
 		}
@@ -2709,14 +2724,6 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 	}
 
 	if (pending) {
-		/* Check volt switch first, since it can look like an error */
-		if ((host->state == STATE_SENDING_CMD11) &&
-		    (pending & SDMMC_INT_VOLT_SWITCH)) {
-			mci_writel(host, RINTSTS, SDMMC_INT_VOLT_SWITCH);
-			pending &= ~SDMMC_INT_VOLT_SWITCH;
-			dw_mci_cmd_interrupt(host, pending);
-		}
-
 		if (pending & SDMMC_INT_HLE) {
 			dev_err(host->dev, "hardware locked write error\n");
 			dw_mci_reg_dump(host);
