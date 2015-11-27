@@ -2384,6 +2384,7 @@ static int parse_mfc_qos_platdata(struct device_node *np, char *node_name,
 	of_property_read_u32(np_qos, "freq_mif", &pdata->freq_mif);
 	of_property_read_u32(np_qos, "freq_cpu", &pdata->freq_cpu);
 	of_property_read_u32(np_qos, "freq_kfc", &pdata->freq_kfc);
+	of_property_read_u32(np_qos, "has_enc_table", &pdata->has_enc_table);
 
 	return ret;
 }
