@@ -449,6 +449,10 @@ static void eax_adma_hw_free(void)
 
 	di.params_done = false;
 	di.prepare_done = false;
+
+	while (!waitqueue_active(&mixer_run_wq)) {
+		schedule_timeout_interruptible(1); /* 1 jiffies = 10ms */
+	};
 out:
 	di.set_params_cnt--;
 	pr_info("Entered %s --\n", __func__);
@@ -691,10 +695,6 @@ static int eax_dma_hw_free(struct snd_pcm_substream *substream)
 #ifdef EAX_DMA_PCM_DUMP
         close_file(prtd);
 #endif
-	while (!waitqueue_active(&mixer_run_wq)) {
-		schedule_timeout_interruptible(1); /* 1 jiffies = 10ms */
-	};
-
 	eax_adma_hw_free();
 
 	return 0;
