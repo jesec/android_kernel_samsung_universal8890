@@ -524,7 +524,11 @@ static int psci_suspend_finisher(unsigned long index)
  */
 static int psci_suspend_customized_finisher(unsigned long index)
 {
-	struct psci_power_state state;
+	struct psci_power_state state = {
+			.id = 0,
+			.type = 0,
+			.affinity_level = 0,
+	};
 
 	switch (index) {
 	case PSCI_CLUSTER_SLEEP:
