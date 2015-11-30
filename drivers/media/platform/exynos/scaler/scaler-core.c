@@ -1477,7 +1477,7 @@ static int sc_prepare_denoise_filter(struct sc_ctx *ctx)
 		goto err_ft;
 	}
 
-	if (ctx->sc_dev->version >= SCALER_VERSION(3, 0, 0)) {
+	if (ctx->sc_dev->variant->prescale) {
 		BUG_ON(sc_down_min != SCALE_RATIO_CONST(16, 1));
 
 		if (ctx->h_ratio > SCALE_RATIO_CONST(8, 1))
