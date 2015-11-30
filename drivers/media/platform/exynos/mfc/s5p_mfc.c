@@ -2131,7 +2131,6 @@ static int s5p_mfc_release(struct file *file)
 		spin_unlock_irq(&dev->condlock);
 
 		/* To issue the command 'CLOSE_INSTANCE' */
-		s5p_mfc_clean_ctx_int_flags(ctx);
 		s5p_mfc_try_run(dev);
 
 		/* Wait until instance is returned or timeout occured */
