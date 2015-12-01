@@ -1724,9 +1724,6 @@ struct task_struct {
 	unsigned int	sequential_io;
 	unsigned int	sequential_io_avg;
 #endif
-#ifdef CONFIG_SCHED_HMP
-	bool hmp_migration_on_going;
-#endif /* CONFIG_SCHED_HMP */
 };
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */

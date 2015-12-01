@@ -8947,18 +8947,13 @@ static int hmp_down_migration_noti(void)
 static int hmp_active_task_migration_cpu_stop(void *data)
 {
 	struct rq *busiest_rq = data;
-	struct task_struct *p;
+	struct task_struct *p = busiest_rq->migrate_task;
 	int busiest_cpu = cpu_of(busiest_rq);
 	int target_cpu = busiest_rq->push_cpu;
 	struct rq *target_rq = cpu_rq(target_cpu);
 	struct sched_domain *sd;
 
 	raw_spin_lock_irq(&busiest_rq->lock);
-	p = busiest_rq->migrate_task;
-	/* migrate_task is NULL */
-	if (!p)
-		goto out_unlock_null_tsk;
-
 	/* make sure the requested cpu hasn't gone down in the meantime */
 	if (unlikely(busiest_cpu != smp_processor_id() ||
 		!busiest_rq->active_balance)) {
@@ -9012,9 +9007,7 @@ static int hmp_active_task_migration_cpu_stop(void *data)
 	rcu_read_unlock();
 	double_unlock_balance(busiest_rq, target_rq);
 out_unlock:
-	p->hmp_migration_on_going = false;
 	put_task_struct(p);
-out_unlock_null_tsk:
 	busiest_rq->active_balance = 0;
 	raw_spin_unlock_irq(&busiest_rq->lock);
 	return 0;
@@ -9031,18 +9024,13 @@ out_unlock_null_tsk:
 static int hmp_idle_pull_cpu_stop(void *data)
 {
 	struct rq *busiest_rq = data;
-	struct task_struct *p;
+	struct task_struct *p = busiest_rq->migrate_task;
 	int busiest_cpu = cpu_of(busiest_rq);
 	int target_cpu = busiest_rq->push_cpu;
 	struct rq *target_rq = cpu_rq(target_cpu);
 	struct sched_domain *sd;
 
 	raw_spin_lock_irq(&busiest_rq->lock);
-
-	p = busiest_rq->migrate_task;
-	/* migrate_task is NULL */
-	if (!p)
-		goto out_unlock_null_tsk;
 
 	/* make sure the requested cpu hasn't gone down in the meantime */
 	if (unlikely(busiest_cpu != smp_processor_id() ||
@@ -9095,9 +9083,7 @@ static int hmp_idle_pull_cpu_stop(void *data)
 	rcu_read_unlock();
 	double_unlock_balance(busiest_rq, target_rq);
 out_unlock:
-	p->hmp_migration_on_going = false;
 	put_task_struct(p);
-out_unlock_null_tsk:
 	busiest_rq->active_balance = 0;
 	raw_spin_unlock_irq(&busiest_rq->lock);
 	return 0;
@@ -9152,7 +9138,6 @@ static void hmp_force_up_migration(int this_cpu)
 				target->active_balance = 1;
 				target->push_cpu = target_cpu;
 				target->migrate_task = p;
-				p->hmp_migration_on_going = true;
 				force = 1;
 				trace_sched_hmp_migrate(p, target->push_cpu,
 					HMP_MIGRATE_FORCE);
@@ -9173,7 +9158,6 @@ static void hmp_force_up_migration(int this_cpu)
 				get_task_struct(p);
 				target->active_balance = 1;
 				target->migrate_task = p;
-				p->hmp_migration_on_going = true;
 				force = 1;
 				trace_sched_hmp_migrate(p, target->push_cpu,
 					HMP_MIGRATE_OFFLOAD);
@@ -9269,7 +9253,6 @@ static unsigned int hmp_idle_pull(int this_cpu)
 		target->active_balance = 1;
 		target->push_cpu = this_cpu;
 		target->migrate_task = p;
-		p->hmp_migration_on_going = true;
 		force = 1;
 		trace_sched_hmp_migrate(p, target->push_cpu,
 			HMP_MIGRATE_IDLE_PULL);

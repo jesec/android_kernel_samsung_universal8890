@@ -365,29 +365,6 @@ task_rq_unlock(struct rq *rq, struct task_struct *p, unsigned long *flags)
 	raw_spin_unlock_irqrestore(&p->pi_lock, *flags);
 }
 
-#ifdef CONFIG_SCHED_HMP
-void remove_migrate_candidate(struct task_struct *tsk)
-{
-	int i;
-	struct rq *rq;
-	unsigned long flags;
-
-	if (!tsk->hmp_migration_on_going)
-		return;
-
-	for_each_online_cpu(i) {
-		rq = cpu_rq(i);
-		raw_spin_lock_irqsave(&rq->lock, flags);
-
-		if (rq->active_balance == 1 && rq->migrate_task == tsk)
-			BUG();
-
-		raw_spin_unlock_irqrestore(&rq->lock, flags);
-	}
-}
-EXPORT_SYMBOL_GPL(remove_migrate_candidate);
-#endif /* CONFIG_SCHED_HMP */
-
 /*
  * this_rq_lock - lock this runqueue and disable interrupts.
  */
@@ -1878,7 +1855,6 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 #ifdef CONFIG_SCHED_HMP
 	p->se.avg.hmp_last_up_migration = 0;
 	p->se.avg.hmp_last_down_migration = 0;
-	p->hmp_migration_on_going = false;
 #ifdef CONFIG_HP_EVENT_HMP_SYSTEM_LOAD
 	p->se.avg.is_big_thread = false;
 #endif
