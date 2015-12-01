@@ -106,16 +106,6 @@ static void exynos_show_wakeup_reason(bool sleep_abort)
 static DEFINE_RWLOCK(exynos_pm_notifier_lock);
 static RAW_NOTIFIER_HEAD(exynos_pm_notifier_chain);
 
-static int exynos_pm_notify(enum exynos_pm_event event, int nr_to_call, int *nr_calls)
-{
-	int ret;
-
-	ret = __raw_notifier_call_chain(&exynos_pm_notifier_chain, event, NULL,
-		nr_to_call, nr_calls);
-
-	return notifier_to_errno(ret);
-}
-
 int exynos_pm_register_notifier(struct notifier_block *nb)
 {
 	unsigned long flags;
@@ -142,61 +132,28 @@ int exynos_pm_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(exynos_pm_unregister_notifier);
 
-int exynos_pm_lpa_enter(void)
+static int __exynos_pm_notify(enum exynos_pm_event event, int nr_to_call, int *nr_calls)
+{
+	int ret;
+
+	ret = __raw_notifier_call_chain(&exynos_pm_notifier_chain, event, NULL,
+		nr_to_call, nr_calls);
+
+	return notifier_to_errno(ret);
+}
+
+int exynos_pm_notify(enum exynos_pm_event event)
 {
 	int nr_calls;
 	int ret = 0;
 
 	read_lock(&exynos_pm_notifier_lock);
-	ret = exynos_pm_notify(LPA_ENTER, -1, &nr_calls);
-	if (ret)
-		/*
-		 * Inform listeners (nr_calls - 1) about failure of LPA
-		 * entry who are notified earlier to prepare for it.
-		 */
-		exynos_pm_notify(LPA_ENTER_FAIL, nr_calls - 1, NULL);
+	ret = __exynos_pm_notify(event, -1, &nr_calls);
 	read_unlock(&exynos_pm_notifier_lock);
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(exynos_pm_lpa_enter);
-
-int exynos_pm_lpa_exit(void)
-{
-	int ret;
-
-	read_lock(&exynos_pm_notifier_lock);
-	ret = exynos_pm_notify(LPA_EXIT, -1, NULL);
-	read_unlock(&exynos_pm_notifier_lock);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(exynos_pm_lpa_exit);
-
-int exynos_pm_sicd_enter(void)
-{
-	int nr_calls;
-	int ret = 0;
-
-	read_lock(&exynos_pm_notifier_lock);
-	ret = exynos_pm_notify(SICD_ENTER, -1, &nr_calls);
-	read_unlock(&exynos_pm_notifier_lock);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(exynos_pm_sicd_enter);
-
-int exynos_pm_sicd_exit(void)
-{
-	int ret;
-
-	read_lock(&exynos_pm_notifier_lock);
-	ret = exynos_pm_notify(SICD_EXIT, -1, NULL);
-	read_unlock(&exynos_pm_notifier_lock);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(exynos_pm_sicd_exit);
+EXPORT_SYMBOL_GPL(exynos_pm_notify);
 #endif /* CONFIG_CPU_IDLE */
 
 int early_wakeup;

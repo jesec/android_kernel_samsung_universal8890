@@ -680,10 +680,10 @@ void exynos_prepare_sys_powerdown(enum sys_powerdown mode)
 
 	switch (mode) {
 	case SYS_SICD_AUD:
-		exynos_pm_sicd_enter();
+		exynos_pm_notify(SICD_ENTER);
 		break;
 	case SYS_ALPA:
-		exynos_pm_lpa_enter();
+		exynos_pm_notify(LPA_ENTER);
 	case SYS_AFTR:
 		exynos_cpu.power_down(cpu);
 		exynos_cpu.power_down(cpu);
@@ -707,10 +707,10 @@ void exynos_wakeup_sys_powerdown(enum sys_powerdown mode, bool early_wakeup)
 
 	switch (mode) {
 	case SYS_SICD_AUD:
-		exynos_pm_sicd_exit();
+		exynos_pm_notify(SICD_EXIT);
 		break;
 	case SYS_ALPA:
-		exynos_pm_lpa_exit();
+		exynos_pm_notify(LPA_EXIT);
 	case SYS_AFTR:
 		if (early_wakeup)
 			exynos_cpu.power_up(cpu);
