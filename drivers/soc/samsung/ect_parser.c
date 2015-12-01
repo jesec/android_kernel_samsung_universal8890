@@ -42,6 +42,7 @@ static int ect_parse_string(void **address, char **value, unsigned int *length)
 
 static int ect_parse_dvfs_domain(int parser_version, void *address, struct ect_dvfs_domain *domain)
 {
+	int ret = 0;
 	int i;
 	char *clock_name;
 	int length;
@@ -61,12 +62,16 @@ static int ect_parse_dvfs_domain(int parser_version, void *address, struct ect_d
 	ect_parse_integer(&address, &domain->num_of_level);
 
 	domain->list_clock = kzalloc(sizeof(char *) * domain->num_of_clock, GFP_KERNEL);
-	if (domain->list_clock == NULL)
-		return -ENOMEM;
+	if (domain->list_clock == NULL) {
+		ret = -ENOMEM;
+		goto err_list_clock_allocation;
+	}
 
 	for (i = 0; i < domain->num_of_clock; ++i) {
-		if (ect_parse_string(&address, &clock_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &clock_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		domain->list_clock[i] = clock_name;
 	}
@@ -77,10 +82,16 @@ static int ect_parse_dvfs_domain(int parser_version, void *address, struct ect_d
 	domain->list_dvfs_value = address;
 
 	return 0;
+
+err_parse_string:
+	kfree(domain->list_clock);
+err_list_clock_allocation:
+	return ret;
 }
 
 static int ect_parse_dvfs_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *domain_name;
 	unsigned int length, offset;
@@ -101,12 +112,16 @@ static int ect_parse_dvfs_header(void *address, struct ect_info *info)
 
 	ect_dvfs_header->domain_list = kzalloc(sizeof(struct ect_dvfs_domain) * ect_dvfs_header->num_of_domain,
 						GFP_KERNEL);
-	if (ect_dvfs_header->domain_list == NULL)
-		return -EINVAL;
+	if (ect_dvfs_header->domain_list == NULL) {
+		ret = -EINVAL;
+		goto err_domain_list_allocation;
+	}
 
 	for (i = 0; i < ect_dvfs_header->num_of_domain; ++i) {
-		if (ect_parse_string(&address, &domain_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &domain_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -120,13 +135,22 @@ static int ect_parse_dvfs_header(void *address, struct ect_info *info)
 
 		if (ect_parse_dvfs_domain(ect_dvfs_header->parser_version,
 						address_dvfs_header + ect_dvfs_domain->domain_offset,
-						ect_dvfs_domain))
-			return -EINVAL;
+						ect_dvfs_domain)) {
+			ret = -EINVAL;
+			goto err_parse_domain;
+		}
 	}
 
 	info->block_handle = ect_dvfs_header;
 
 	return 0;
+
+err_parse_domain:
+err_parse_string:
+	kfree(ect_dvfs_header->domain_list);
+err_domain_list_allocation:
+	kfree(ect_dvfs_header);
+	return ret;
 }
 
 static int ect_parse_pll(int parser_version, void *address, struct ect_pll *ect_pll)
@@ -141,6 +165,7 @@ static int ect_parse_pll(int parser_version, void *address, struct ect_pll *ect_
 
 static int ect_parse_pll_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *pll_name;
 	unsigned int length, offset;
@@ -161,13 +186,17 @@ static int ect_parse_pll_header(void *address, struct ect_info *info)
 
 	ect_pll_header->pll_list = kzalloc(sizeof(struct ect_pll) * ect_pll_header->num_of_pll,
 							GFP_KERNEL);
-	if (ect_pll_header->pll_list == NULL)
-		return -ENOMEM;
+	if (ect_pll_header->pll_list == NULL) {
+		ret = -ENOMEM;
+		goto err_pll_list_allocation;
+	}
 
 	for (i = 0; i < ect_pll_header->num_of_pll; ++i) {
 
-		if (ect_parse_string(&address, &pll_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &pll_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -180,13 +209,22 @@ static int ect_parse_pll_header(void *address, struct ect_info *info)
 		ect_pll = &ect_pll_header->pll_list[i];
 
 		if (ect_parse_pll(ect_pll_header->parser_version,
-					address_pll_header + ect_pll->pll_offset, ect_pll))
-			return -EINVAL;
+					address_pll_header + ect_pll->pll_offset, ect_pll)) {
+			ret = -EINVAL;
+			goto err_parse_pll;
+		}
 	}
 
 	info->block_handle = ect_pll_header;
 
 	return 0;
+
+err_parse_pll:
+err_parse_string:
+	kfree(ect_pll_header->pll_list);
+err_pll_list_allocation:
+	kfree(ect_pll_header);
+	return ret;
 }
 
 static int ect_parse_voltage_table(int parser_version, void **address, struct ect_voltage_domain *domain, struct ect_voltage_table *table)
@@ -228,6 +266,7 @@ static int ect_parse_voltage_table(int parser_version, void **address, struct ec
 
 static int ect_parse_voltage_domain(int parser_version, void *address, struct ect_voltage_domain *domain)
 {
+	int ret = 0;
 	int i;
 
 	ect_parse_integer(&address, &domain->num_of_group);
@@ -238,22 +277,32 @@ static int ect_parse_voltage_domain(int parser_version, void *address, struct ec
 	address += sizeof(int32_t) * domain->num_of_level;
 
 	domain->table_list = kzalloc(sizeof(struct ect_voltage_table) * domain->num_of_table, GFP_KERNEL);
-	if (domain->table_list == NULL)
-		return -ENOMEM;
+	if (domain->table_list == NULL) {
+		ret = -ENOMEM;
+		goto err_table_list_allocation;
+	}
 
 	for (i = 0; i < domain->num_of_table; ++i) {
 		if (ect_parse_voltage_table(parser_version,
 						&address,
 						domain,
-						&domain->table_list[i]))
-			return -EINVAL;
+						&domain->table_list[i])) {
+			ret = -EINVAL;
+			goto err_parse_voltage_table;
+		}
 	}
 
 	return 0;
+
+err_parse_voltage_table:
+	kfree(domain->table_list);
+err_table_list_allocation:
+	return ret;
 }
 
 static int ect_parse_voltage_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *domain_name;
 	unsigned int length, offset;
@@ -274,12 +323,16 @@ static int ect_parse_voltage_header(void *address, struct ect_info *info)
 
 	ect_voltage_header->domain_list = kzalloc(sizeof(struct ect_voltage_domain) * ect_voltage_header->num_of_domain,
 							GFP_KERNEL);
-	if (ect_voltage_header->domain_list == NULL)
-		return -ENOMEM;
+	if (ect_voltage_header->domain_list == NULL) {
+		ret = -ENOMEM;
+		goto err_domain_list_allocation;
+	}
 
 	for (i = 0; i < ect_voltage_header->num_of_domain; ++i) {
-		if (ect_parse_string(&address, &domain_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &domain_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -293,13 +346,22 @@ static int ect_parse_voltage_header(void *address, struct ect_info *info)
 
 		if (ect_parse_voltage_domain(ect_voltage_header->parser_version,
 						address_voltage_header + ect_voltage_domain->domain_offset,
-						ect_voltage_domain))
-			return -EINVAL;
+						ect_voltage_domain)) {
+			ret = -EINVAL;
+			goto err_parse_voltage_domain;
+		}
 	}
 
 	info->block_handle = ect_voltage_header;
 
 	return 0;
+
+err_parse_voltage_domain:
+err_parse_string:
+	kfree(ect_voltage_header->domain_list);
+err_domain_list_allocation:
+	kfree(ect_voltage_header);
+	return ret;
 }
 
 static int ect_parse_rcc_table(int parser_version, void **address, struct ect_rcc_domain *domain, struct ect_rcc_table *table)
@@ -321,6 +383,7 @@ static int ect_parse_rcc_table(int parser_version, void **address, struct ect_rc
 
 static int ect_parse_rcc_domain(int parser_version, void *address, struct ect_rcc_domain *domain)
 {
+	int ret = 0;
 	int i;
 
 	ect_parse_integer(&address, &domain->num_of_group);
@@ -331,21 +394,31 @@ static int ect_parse_rcc_domain(int parser_version, void *address, struct ect_rc
 	address += sizeof(int32_t) * domain->num_of_level;
 
 	domain->table_list = kzalloc(sizeof(struct ect_rcc_table) * domain->num_of_table, GFP_KERNEL);
-	if (domain->table_list == NULL)
-		return -ENOMEM;
+	if (domain->table_list == NULL) {
+		ret = -ENOMEM;
+		goto err_table_list_allocation;
+	}
 
 	for (i = 0; i < domain->num_of_table; ++i) {
 		if (ect_parse_rcc_table(parser_version,
 						&address,
-						domain, &domain->table_list[i]))
-			return -EINVAL;
+						domain, &domain->table_list[i])) {
+			ret = -EINVAL;
+			goto err_parse_rcc_table;
+		}
 	}
 
 	return 0;
+
+err_parse_rcc_table:
+	kfree(domain->table_list);
+err_table_list_allocation:
+	return ret;
 }
 
 static int ect_parse_rcc_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *domain_name;
 	unsigned int length, offset;
@@ -368,12 +441,16 @@ static int ect_parse_rcc_header(void *address, struct ect_info *info)
 	ect_rcc_header->domain_list = kzalloc(sizeof(struct ect_rcc_domain) * ect_rcc_header->num_of_domain,
 							GFP_KERNEL);
 
-	if (ect_rcc_header->domain_list == NULL)
-		return -ENOMEM;
+	if (ect_rcc_header->domain_list == NULL) {
+		ret = -ENOMEM;
+		goto err_domain_list_allocation;
+	}
 
 	for (i = 0; i < ect_rcc_header->num_of_domain; ++i) {
-		if (ect_parse_string(&address, &domain_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &domain_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -387,13 +464,22 @@ static int ect_parse_rcc_header(void *address, struct ect_info *info)
 
 		if (ect_parse_rcc_domain(ect_rcc_header->parser_version,
 						address_rcc_header + ect_rcc_domain->domain_offset,
-						ect_rcc_domain))
-			return -EINVAL;
+						ect_rcc_domain)) {
+			ret = -EINVAL;
+			goto err_parse_rcc_domain;
+		}
 	}
 
 	info->block_handle = ect_rcc_header;
 
 	return 0;
+
+err_parse_rcc_domain:
+err_parse_string:
+	kfree(ect_rcc_header->domain_list);
+err_domain_list_allocation:
+	kfree(ect_rcc_header);
+	return ret;
 }
 
 static int ect_parse_mif_thermal_header(void *address, struct ect_info *info)
@@ -442,6 +528,7 @@ static int ect_parse_ap_thermal_function(int parser_version, void *address, stru
 
 static int ect_parse_ap_thermal_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *function_name;
 	unsigned int length, offset;
@@ -462,12 +549,16 @@ static int ect_parse_ap_thermal_header(void *address, struct ect_info *info)
 
 	ect_ap_thermal_header->function_list = kzalloc(sizeof(struct ect_ap_thermal_function) * ect_ap_thermal_header->num_of_function,
 								GFP_KERNEL);
-	if (ect_ap_thermal_header->function_list == NULL)
-		return -ENOMEM;
+	if (ect_ap_thermal_header->function_list == NULL) {
+		ret = -ENOMEM;
+		goto err_function_list_allocation;
+	}
 
 	for (i = 0; i < ect_ap_thermal_header->num_of_function; ++i) {
-		if (ect_parse_string(&address, &function_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &function_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -481,13 +572,22 @@ static int ect_parse_ap_thermal_header(void *address, struct ect_info *info)
 
 		if (ect_parse_ap_thermal_function(ect_ap_thermal_header->parser_version,
 							address_thermal_header + ect_ap_thermal_function->function_offset,
-							ect_ap_thermal_function))
-			return -EINVAL;
+							ect_ap_thermal_function)) {
+			ret = -EINVAL;
+			goto err_parse_ap_thermal_function;
+		}
 	}
 
 	info->block_handle = ect_ap_thermal_header;
 
 	return 0;
+
+err_parse_ap_thermal_function:
+err_parse_string:
+	kfree(ect_ap_thermal_header->function_list);
+err_function_list_allocation:
+	kfree(ect_ap_thermal_header);
+	return ret;
 }
 
 static int ect_parse_margin_domain(int parser_version, void *address, struct ect_margin_domain *domain)
@@ -509,6 +609,7 @@ static int ect_parse_margin_domain(int parser_version, void *address, struct ect
 
 static int ect_parse_margin_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *domain_name;
 	unsigned int length, offset;
@@ -529,11 +630,16 @@ static int ect_parse_margin_header(void *address, struct ect_info *info)
 
 	ect_margin_header->domain_list = kzalloc(sizeof(struct ect_margin_domain) * ect_margin_header->num_of_domain,
 								GFP_KERNEL);
-	if (ect_margin_header->domain_list == NULL)
-		return -ENOMEM;
+	if (ect_margin_header->domain_list == NULL) {
+		ret = -ENOMEM;
+		goto err_domain_list_allocation;
+	}
+
 	for (i = 0; i < ect_margin_header->num_of_domain; ++i) {
-		if (ect_parse_string(&address, &domain_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &domain_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -547,13 +653,22 @@ static int ect_parse_margin_header(void *address, struct ect_info *info)
 
 		if (ect_parse_margin_domain(ect_margin_header->parser_version,
 						address_margin_header + ect_margin_domain->domain_offset,
-						ect_margin_domain))
-			return -EINVAL;
+						ect_margin_domain)) {
+			ret = -EINVAL;
+			goto err_parse_margin_domain;
+		}
 	}
 
 	info->block_handle = ect_margin_header;
 
 	return 0;
+
+err_parse_margin_domain:
+err_parse_string:
+	kfree(ect_margin_header->domain_list);
+err_domain_list_allocation:
+	kfree(ect_margin_header);
+	return ret;
 }
 
 static int ect_parse_timing_param_size(int parser_version, void *address, struct ect_timing_param_size *size)
@@ -568,6 +683,7 @@ static int ect_parse_timing_param_size(int parser_version, void *address, struct
 
 static int ect_parse_timing_param_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	struct ect_timing_param_header *ect_timing_param_header;
 	struct ect_timing_param_size *ect_timing_param_size;
@@ -586,8 +702,10 @@ static int ect_parse_timing_param_header(void *address, struct ect_info *info)
 
 	ect_timing_param_header->size_list = kzalloc(sizeof(struct ect_timing_param_size) * ect_timing_param_header->num_of_size,
 								GFP_KERNEL);
-	if (ect_timing_param_header->size_list == NULL)
-		return -ENOMEM;
+	if (ect_timing_param_header->size_list == NULL) {
+		ret = -ENOMEM;
+		goto err_size_list_allocation;
+	}
 
 	for (i = 0; i < ect_timing_param_header->num_of_size; ++i) {
 		ect_timing_param_size = &ect_timing_param_header->size_list[i];
@@ -603,13 +721,21 @@ static int ect_parse_timing_param_header(void *address, struct ect_info *info)
 
 		if (ect_parse_timing_param_size(ect_timing_param_header->parser_version,
 							address_param_header + ect_timing_param_size->offset,
-							ect_timing_param_size))
-			return -EINVAL;
+							ect_timing_param_size)) {
+			ret = -EINVAL;
+			goto err_parse_timing_param_size;
+		}
 	}
 
 	info->block_handle = ect_timing_param_header;
 
 	return 0;
+
+err_parse_timing_param_size:
+	kfree(ect_timing_param_header->size_list);
+err_size_list_allocation:
+	kfree(ect_timing_param_header);
+	return ret;
 }
 
 static int ect_parse_minlock_domain(int parser_version, void *address, struct ect_minlock_domain *domain)
@@ -623,6 +749,7 @@ static int ect_parse_minlock_domain(int parser_version, void *address, struct ec
 
 static int ect_parse_minlock_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *domain_name;
 	unsigned int length, offset;
@@ -643,12 +770,16 @@ static int ect_parse_minlock_header(void *address, struct ect_info *info)
 
 	ect_minlock_header->domain_list = kzalloc(sizeof(struct ect_minlock_domain) * ect_minlock_header->num_of_domain,
 							GFP_KERNEL);
-	if (ect_minlock_header->domain_list == NULL)
-		return -ENOMEM;
+	if (ect_minlock_header->domain_list == NULL) {
+		ret = -ENOMEM;
+		goto err_domain_list_allocation;
+	}
 
 	for (i = 0; i < ect_minlock_header->num_of_domain; ++i) {
-		if (ect_parse_string(&address, &domain_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &domain_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -662,13 +793,22 @@ static int ect_parse_minlock_header(void *address, struct ect_info *info)
 
 		if (ect_parse_minlock_domain(ect_minlock_header->parser_version,
 					address_minlock_header + ect_minlock_domain->domain_offset,
-					ect_minlock_domain))
-			return -EINVAL;
+					ect_minlock_domain)) {
+			ret = -EINVAL;
+			goto err_parse_minlock_domain;
+		}
 	}
 
 	info->block_handle = ect_minlock_header;
 
 	return 0;
+
+err_parse_minlock_domain:
+err_parse_string:
+	kfree(ect_minlock_header->domain_list);
+err_domain_list_allocation:
+	kfree(ect_minlock_header);
+	return ret;
 }
 
 static int ect_parse_gen_param_table(int parser_version, void *address, struct ect_gen_param_table *size)
@@ -683,6 +823,7 @@ static int ect_parse_gen_param_table(int parser_version, void *address, struct e
 
 static int ect_parse_gen_param_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	char *table_name;
 	unsigned int length, offset;
@@ -703,12 +844,16 @@ static int ect_parse_gen_param_header(void *address, struct ect_info *info)
 
 	ect_gen_param_header->table_list = kzalloc(sizeof(struct ect_gen_param_table) * ect_gen_param_header->num_of_table,
 								GFP_KERNEL);
-	if (ect_gen_param_header->table_list == NULL)
-		return -ENOMEM;
+	if (ect_gen_param_header->table_list == NULL) {
+		ret = -ENOMEM;
+		goto err_table_list_allocation;
+	}
 
 	for (i = 0; i < ect_gen_param_header->num_of_table; ++i) {
-		if (ect_parse_string(&address, &table_name, &length))
-			return -EINVAL;
+		if (ect_parse_string(&address, &table_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 
@@ -722,13 +867,22 @@ static int ect_parse_gen_param_header(void *address, struct ect_info *info)
 
 		if (ect_parse_gen_param_table(ect_gen_param_header->parser_version,
 							address_param_header + ect_gen_param_table->offset,
-							ect_gen_param_table))
-			return -EINVAL;
+							ect_gen_param_table)) {
+			ret = -EINVAL;
+			goto err_parse_gen_param_table;
+		}
 	}
 
 	info->block_handle = ect_gen_param_header;
 
 	return 0;
+
+err_parse_gen_param_table:
+err_parse_string:
+	kfree(ect_gen_param_header->table_list);
+err_table_list_allocation:
+	kfree(ect_gen_param_header);
+	return ret;
 }
 
 static int ect_parse_bin(int parser_version, void *address, struct ect_bin *binary)
@@ -742,6 +896,7 @@ static int ect_parse_bin(int parser_version, void *address, struct ect_bin *bina
 
 static int ect_parse_bin_header(void *address, struct ect_info *info)
 {
+	int ret = 0;
 	int i;
 	struct ect_bin_header *ect_bin_header;
 	struct ect_bin *ect_binary_bin;
@@ -761,14 +916,18 @@ static int ect_parse_bin_header(void *address, struct ect_info *info)
 	ect_parse_integer(&address, &ect_bin_header->num_of_binary);
 
 	ect_bin_header->binary_list = kzalloc(sizeof(struct ect_bin) * ect_bin_header->num_of_binary, GFP_KERNEL);
-	if (ect_bin_header->binary_list == NULL)
-		return -2;
+	if (ect_bin_header->binary_list == NULL) {
+		ret = -ENOMEM;
+		goto err_binary_list_allocation;
+	}
 
 	for (i = 0; i < ect_bin_header->num_of_binary; ++i) {
 		ect_binary_bin = &ect_bin_header->binary_list[i];
 
-		if (ect_parse_string(&address, &binary_name, &length))
-			return -1;
+		if (ect_parse_string(&address, &binary_name, &length)) {
+			ret = -EINVAL;
+			goto err_parse_string;
+		}
 
 		ect_parse_integer(&address, &offset);
 		ect_binary_bin->binary_name = binary_name;
@@ -780,13 +939,22 @@ static int ect_parse_bin_header(void *address, struct ect_info *info)
 
 		if (ect_parse_bin(ect_bin_header->parser_version,
 					address_param_header + ect_binary_bin->offset,
-					ect_binary_bin))
-			return -1;
+					ect_binary_bin)) {
+			ret = -EINVAL;
+			goto err_parse_bin;
+		}
 	}
 
 	info->block_handle = ect_bin_header;
 
 	return 0;
+
+err_parse_bin:
+err_parse_string:
+	kfree(ect_bin_header->binary_list);
+err_binary_list_allocation:
+	kfree(ect_bin_header);
+	return ret;
 }
 
 static void ect_present_test_data(char *version)
