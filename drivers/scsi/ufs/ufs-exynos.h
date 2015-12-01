@@ -477,6 +477,7 @@ struct exynos_ufs {
 	u32 pclk_avail_min;
 	u32 pclk_avail_max;
 	u32 mclk_rate;
+	u32 pwm_freq;
 
 	int avail_ln_rx;
 	int avail_ln_tx;
@@ -504,6 +505,7 @@ struct exynos_ufs {
 	u32 opts;
 #define EXYNOS_UFS_OPTS_SKIP_CONNECTION_ESTAB	BIT(0)
 #define EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK	BIT(1)	/* for CAL */
+#define EXYNOS_UFS_OPTS_SET_LINE_INIT_PREP_LEN	BIT(2)
 
 	/* Performance */
 	struct exynos_ufs_tp_mon_table *tp_mon_tbl;

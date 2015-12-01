@@ -898,7 +898,7 @@ static inline void exynos_ufs_gate_clk(struct exynos_ufs *ufs, bool en)
 
 static void exynos_ufs_set_unipro_pclk(struct exynos_ufs *ufs)
 {
-	u32 pclk_ctrl, pclk_rate;
+	u32 pclk_rate;
 	u32 f_min, f_max;
 	u8 div = 0;
 
@@ -917,9 +917,6 @@ static void exynos_ufs_set_unipro_pclk(struct exynos_ufs *ufs)
 
 	WARN(pclk_rate < f_min, "not available pclk range %d\n", pclk_rate);
 
-	pclk_ctrl = hci_readl(ufs, HCI_UNIPRO_APB_CLK_CTRL);
-	pclk_ctrl = (pclk_ctrl & ~0xf) | (div & 0xf);
-	hci_writel(ufs, pclk_ctrl, HCI_UNIPRO_APB_CLK_CTRL);
 	ufs->pclk_rate = pclk_rate;
 }
 
@@ -956,6 +953,7 @@ static void exynos_ufs_set_pwm_clk_div(struct exynos_ufs *ufs)
 			}
 		}
 	}
+	ufs->pwm_freq = clk;
 
 	if (clk_idx >= 0)
 		ufshcd_dme_set(hba, UIC_ARG_MIB(CMN_PWM_CMN_CTRL),
@@ -975,6 +973,67 @@ static long exynos_ufs_calc_time_cntr(struct exynos_ufs *ufs, long period)
 
 	return (period * precise) / ((clk_period * precise) + fraction);
 }
+
+static int exynos_ufs_calc_line_init_pre_len(struct exynos_ufs *ufs, int tx_ls_prep_len)
+{
+	u32 pwm_g1_ns;
+	u32 val = 1;
+	u32 result;
+	u32 pwm_gear = 1;
+	long pwm_g1_freq;
+	int i;
+	int pow_val;
+
+	pwm_g1_freq = ufs->pwm_freq;
+
+	pwm_g1_ns = (1000 *1000 *1000 / pwm_g1_freq); //ns
+
+	pow_val = (tx_ls_prep_len + pwm_gear - 7);
+	if (pow_val <= 0)
+		val = 1;
+	else {
+		for(i = 0; i < pow_val; i++)
+			val *= 2;
+	}
+
+	result = pwm_g1_ns * 10 * val;
+
+	return (result/1000);
+}
+
+static void exynos_ufs_set_line_init_prep_len(struct exynos_ufs *ufs)
+{
+	struct uic_pwr_mode *act_pmd = &ufs->act_pmd_parm;
+	struct ufs_hba *hba = ufs->hba;
+	u32 tx_ls_prepare_length;
+	u32 result;
+	u32 result_div;
+	u32 rate = act_pmd->hs_series;
+	int i;
+
+	for (i = 0; i <= 15; i++) {  /* gear1 prepare length 1~15 */
+		tx_ls_prepare_length = i;
+
+		result = exynos_ufs_calc_line_init_pre_len(ufs, tx_ls_prepare_length);
+
+		if (result > 200)
+			break;
+	}
+
+	if (rate == 1)
+		result_div = ((result * 10000) / 160);
+	else
+		result_div = ((result * 10000) / 136);
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), TRUE);
+	for_each_ufs_lane(ufs, i) {
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x29E, i), (result_div >> 8) & 0xFF);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x29F, i), result_div & 0xFF);
+		ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(0x29D, i), 0x10);
+	}
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_DBG_OV_TM), FALSE);
+}
+
 
 static void exynos_ufs_compute_phy_time_v(struct exynos_ufs *ufs,
 					struct phy_tm_parm *tm_parm)
@@ -1587,6 +1646,8 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 	exynos_ufs_config_phy_time_v(ufs);
 	exynos_ufs_config_phy_cap_attr(ufs);
 
+	if (ufs->opts & EXYNOS_UFS_OPTS_SET_LINE_INIT_PREP_LEN)
+		exynos_ufs_set_line_init_prep_len(ufs);
 	return 0;
 }
 
@@ -1638,8 +1699,7 @@ static int exynos_ufs_post_link(struct ufs_hba *hba)
 		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TACTIVATE), &peer_rx_min_actv_time_cap);
 		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_HIBERN8TIME), &max_rx_hibern8_time_cap);
 		if (ufs->rx_min_actv_time_cap <= peer_rx_min_actv_time_cap)
-			ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TACTIVATE),
-					peer_rx_min_actv_time_cap + 1);
+			ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TACTIVATE), peer_rx_min_actv_time_cap + 1);
 		ufshcd_dme_set(hba,UIC_ARG_MIB(PA_HIBERN8TIME), max_rx_hibern8_time_cap + 1);
 	}
 
@@ -2203,6 +2263,9 @@ static int exynos_ufs_populate_dt(struct device *dev, struct exynos_ufs *ufs)
 
 	if (of_find_property(np, "ufs-opts-use-seperated-pclk", NULL))
 		ufs->opts |= EXYNOS_UFS_OPTS_USE_SEPERATED_PCLK;
+
+	if (of_find_property(np, "ufs-opts-set-line-init-prep-len", NULL))
+		ufs->opts |= EXYNOS_UFS_OPTS_SET_LINE_INIT_PREP_LEN;
 
 	if (!of_property_read_u32(np, "ufs-rx-adv-fine-gran-sup_en",
 				&ufs->rx_adv_fine_gran_sup_en)) {
