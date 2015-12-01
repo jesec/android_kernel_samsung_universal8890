@@ -328,6 +328,17 @@ void vpp_reg_set_in_afbc_en(u32 id, u32 enable)
 	vpp_write_mask(id, VG_IN_CON, val, VG_IN_CON_IN_AFBC_EN);
 }
 
+u64 vpp_reg_print_buf_addr(u32 id)
+{
+	vpp_info("vpp(%d): addr_y(0x%x), addr_cb(0x%x)\n", id,
+			vpp_read(id, VG_BASE_ADDR_Y(0)),
+			vpp_read(id, VG_BASE_ADDR_CB(0)));
+	vpp_info("         shadow y(0x%x), cb(0x%x)\n",
+			vpp_read(id, VG_SHA_BASE_ADDR_Y),
+			vpp_read(id, VG_SHA_BASE_ADDR_CB));
+	return vpp_read(id, VG_SHA_BASE_ADDR_Y);
+}
+
 void vpp_reg_set_in_buf_addr(u32 id, struct vpp_size_param *p, struct vpp_img_format *vi)
 {
 	vpp_dbg("y : %llu, cb : %llu, cr : %llu\n",
@@ -456,6 +467,60 @@ void vpp_reg_set_lookup_table(u32 id)
 void vpp_reg_set_dynamic_clock_gating(u32 id)
 {
 	vpp_write(id, VG_DYNAMIC_GATING_ENABLE, 0x3F);
+}
+
+int vpp_reg_set_debug_sfr(u32 id)
+{
+	u32 afbc_re = false;
+	u32 read_data = 0;
+
+	vpp_write(id, VPP_DBG_ENABLE_SFR, (1 << 0));
+	/* IDMA AIFIF debug sel = 1, debug data bit[23:16] == 8'd1 */
+	vpp_write(id, VPP_DBG_WRITE_SFR, (0 << 8) | (1 << 0));
+	read_data = vpp_read(id, VPP_DBG_READ_SFR);
+	if (((read_data >> 16) & 0xff) == 1) {
+		afbc_re = true;
+	} else {
+		afbc_re = false;
+	}
+
+	/* AFBC debug sel = 0, debug data = 32'd1 */
+	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (0 << 0));
+	read_data = vpp_read(id, VPP_DBG_READ_SFR);
+	if (read_data == 1) {
+		afbc_re = true;
+	} else {
+		afbc_re = false;
+	}
+
+	/* AFBC debug sel = 1, debug data = 32'd5 */
+	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (1 << 0));
+	read_data = vpp_read(id, VPP_DBG_READ_SFR);
+	if (read_data == 5) {
+		afbc_re = true;
+	} else {
+		afbc_re = false;
+	}
+
+	/* AFBC debug sel = 10, debug data[7:4] 4'hc */
+	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (10 << 0));
+	read_data = vpp_read(id, VPP_DBG_READ_SFR);
+	if ((read_data >> 4 & 0xf)  == 12) {
+		afbc_re = true;
+	} else {
+		afbc_re = false;
+	}
+
+	/* AFBC debug sel = 12, debug data[7:4] 4'h0 */
+	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (12 << 0));
+	read_data = vpp_read(id, VPP_DBG_READ_SFR);
+	if ((read_data & 0xf)  == 0) {
+		afbc_re = true;
+	} else {
+		afbc_re = false;
+	}
+
+	return afbc_re;
 }
 
 int vpp_reg_get_irq_status(u32 id)
