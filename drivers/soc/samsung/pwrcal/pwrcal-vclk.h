@@ -124,6 +124,7 @@ struct dfs_table {
 					struct dfs_table *table);
 	int (*private_switch)(unsigned int rate_from, unsigned int rate_switch,
 					struct dfs_table *table);
+	unsigned long (*private_getrate)(struct dfs_table *table);
 };
 
 /* dfs ops */

@@ -415,7 +415,10 @@ unsigned long cal_dfs_get_rate(unsigned int id)
 		goto out;
 	}
 
-	ret = vclk->ops->get_rate(vclk);
+	if (dfs->table->private_getrate)
+		ret = dfs->table->private_getrate(dfs->table);
+	else
+		ret = vclk->ops->get_rate(vclk);
 
 	if (ret > 0) {
 		vclk->vfreq = (unsigned long)ret;
