@@ -1507,6 +1507,7 @@ static int exynos_devfreq_probe(struct platform_device *pdev)
 
 	if (data->use_regulator) {
 		data->volt_offset = 0;
+		data->limit_cold_volt = data->opp_list[0].volt;
 		data->vdd = regulator_get(NULL, data->regulator_name);
 		if (IS_ERR(data->vdd)) {
 			dev_err(data->dev, "failed get regulator(%s)\n", data->regulator_name);
