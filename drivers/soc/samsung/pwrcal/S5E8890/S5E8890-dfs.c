@@ -21,7 +21,6 @@
 #define BUS3_PLL_ENABLE_THRESHOLD	1600000
 
 static unsigned int dfs_mif_resume_level = 9;
-unsigned int dfsmif_paraset;
 
 extern int offset_percent;
 extern int set_big_volt;
@@ -115,7 +114,7 @@ struct aclk_ccore_800_table {
 	unsigned int smc_ratio;
 };
 static struct aclk_ccore_800_table *rate_table_aclk_ccore_800;
-static unsigned int cur_rate_switch;
+
 static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct dfs_table *table)
 {
 	int lv_from, lv_switch;
@@ -125,15 +124,11 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	unsigned int mif_pll_rate = 0;
 
 	lv_from = dfs_get_lv(rate_from, table);
-	if (lv_from < 0) {
-		pr_err("(%s) lv_from(%d) rate_from(%dKhz) is invalid\n", __func__, lv_from, rate_from);
+	if (lv_from < 0)
 		goto errorout;
-	}
 	lv_switch = dfs_get_lv(rate_switch, table) - 1;
-	if (lv_switch < 0) {
-		pr_err("(%s) lv_switch(%d) rate_switch(%dKhz) is invalid\n", __func__, lv_switch, rate_switch);
+	if (lv_switch < 0)
 		goto errorout;
-	}
 
 	mif_pll_rate = get_value(table, lv_from, 1);
 
@@ -205,8 +200,6 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	if (rate_from > BUS3_PLL_ENABLE_THRESHOLD)
 		vclk_disable(VCLK(p1_bus3_pll));
 
-	cur_rate_switch = rate_switch;
-
 	return 0;
 
 errorout:
@@ -220,16 +213,12 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	unsigned int mux_value, div_value;
 	unsigned int mif_pll_rate = 0;
 
-	lv_switch = dfs_get_lv(cur_rate_switch, table) - 1;
-	if (lv_switch < 0) {
-		pr_err("(%s) lv_switch(%d) rate_switch(%dKhz) is invalid\n", __func__, lv_switch, rate_switch);
+	lv_switch = dfs_get_lv(rate_switch, table) - 1;
+	if (lv_switch < 0)
 		goto errorout;
-	}
 	lv_to = dfs_get_lv(rate_to, table);
-	if (lv_to < 0) {
-		pr_err("(%s) lv_to(%d) rate_to(%dKhz) is invalid\n", __func__, lv_to, rate_to);
+	if (lv_to < 0)
 		goto errorout;
-	}
 
 	if (rate_to > BUS3_PLL_ENABLE_THRESHOLD)
 		vclk_enable(VCLK(p1_bus3_pll));
@@ -914,11 +903,12 @@ void dfsmif_trans_post(unsigned int rate_from, unsigned int rate_to)
 
 void dfsmif_switch_pre(unsigned int rate_from, unsigned int rate_to)
 {
+	static unsigned int paraset;
 	unsigned long long rate;
 
-	dfsmif_paraset = (dfsmif_paraset + 1) % 2;
+	paraset = (paraset + 1) % 2;
 	rate = (unsigned long long)rate_to * 1000;
-	pwrcal_dmc_set_dvfs(rate, dfsmif_paraset);
+	pwrcal_dmc_set_dvfs(rate, paraset);
 }
 
 void dfsmif_switch_post(unsigned int rate_from, unsigned int rate_to)
