@@ -261,6 +261,11 @@ static void asv_set_freq_limit(void)
 		goto notfused;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_big");
+	if (asv_tbl_info.asv_table_ver >= domain->num_of_table) {
+		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, domain->num_of_table - 1);
+		asv_tbl_info.asv_table_ver = domain->num_of_table - 1;
+	}
+
 	if (!domain)
 		BUG();
 	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
