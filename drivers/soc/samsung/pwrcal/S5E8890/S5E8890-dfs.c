@@ -19,8 +19,11 @@
    ACLK_CCORE_800 needs 936Mhz(from BUS3_PLL)
    because of PSCDC clock constraints. */
 #define BUS3_PLL_ENABLE_THRESHOLD	1600000
+#define MIF_SWITCH_FREQ_HIGH	936000
+#define MIF_SWITCH_FREQ_LOW	528000
 
 static unsigned int dfs_mif_resume_level = 9;
+unsigned int dfsmif_paraset;
 
 extern int offset_percent;
 extern int set_big_volt;
@@ -114,6 +117,7 @@ struct aclk_ccore_800_table {
 	unsigned int smc_ratio;
 };
 static struct aclk_ccore_800_table *rate_table_aclk_ccore_800;
+static bool switching_mode;
 
 static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct dfs_table *table)
 {
@@ -123,12 +127,21 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	unsigned int mux_switch;
 	unsigned int mif_pll_rate = 0;
 
+	if (switching_mode) {
+		pr_warn("DVFS_MIF already uses switching clock\n");
+		return 0;
+	}
+
 	lv_from = dfs_get_lv(rate_from, table);
-	if (lv_from < 0)
+	if (lv_from < 0) {
+		pr_err("(%s) lv_from(%d) rate_from(%dKhz) is invalid\n", __func__, lv_from, rate_from);
 		goto errorout;
+	}
 	lv_switch = dfs_get_lv(rate_switch, table) - 1;
-	if (lv_switch < 0)
+	if (lv_switch < 0) {
+		pr_err("(%s) lv_switch(%d) rate_switch(%dKhz) is invalid\n", __func__, lv_switch, rate_switch);
 		goto errorout;
+	}
 
 	mif_pll_rate = get_value(table, lv_from, 1);
 
@@ -183,6 +196,7 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	else
 		pscdc_trans(rate_sci, rate_smc, mux_switch, 0, 0, 1, 1, mux_value, div_value, 1, 1);
 
+	switching_mode = true;
 
 	/* 1-4 */
 	if (table->switch_post)
@@ -213,12 +227,26 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	unsigned int mux_value, div_value;
 	unsigned int mif_pll_rate = 0;
 
+	if (!switching_mode) {
+		pr_err("DVFS_MIF doesn't use switching clock.\n");
+		goto errorout;
+	}
+
 	lv_switch = dfs_get_lv(rate_switch, table) - 1;
-	if (lv_switch < 0)
+	if (lv_switch < 0) {
+		pr_err("(%s) lv_switch(%d) rate_switch(%dKhz) is invalid\n", __func__, lv_switch, rate_switch);
 		goto errorout;
+	}
 	lv_to = dfs_get_lv(rate_to, table);
-	if (lv_to < 0)
+	if (lv_to < 0) {
+		pr_err("(%s) lv_to(%d) rate_to(%dKhz) is invalid\n", __func__, lv_to, rate_to);
 		goto errorout;
+	}
+
+	if (rate_switch == MIF_SWITCH_FREQ_HIGH && !(get_value(table, lv_to, 1))) {
+		pr_err("(%s) DVFS_MIF can't change to lv(%d)\n", __func__, lv_to);
+		goto errorout;
+	}
 
 	if (rate_to > BUS3_PLL_ENABLE_THRESHOLD)
 		vclk_enable(VCLK(p1_bus3_pll));
@@ -259,6 +287,8 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 	else
 		pscdc_trans(rate_sci, rate_smc, 3, 0, 0, 1, 1, mux_value, div_value, 1, 1);
 
+	switching_mode = false;
+
 	/* 3-4 */
 	if (table->switch_post)
 		table->switch_post(rate_switch, rate_to);
@@ -288,6 +318,82 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 
 errorout:
 	return -1;
+}
+
+static unsigned long dfs_mif_get_rate(struct dfs_table *table)
+{
+	int l, m;
+	unsigned int cur[128];
+	unsigned long long rate;
+	struct pwrcal_clk *clk;
+	unsigned int aclk_mif_pll, sclk_bus_pll_mif;
+	unsigned int switch_freq = 0;
+
+	for (m = 1; m < table->num_of_members; m++) {
+		clk = table->members[m];
+		if (is_pll(clk)) {
+			rate = pwrcal_pll_get_rate(clk);
+			do_div(rate, 1000);
+			cur[m] = (unsigned int)rate;
+		}
+		if (is_mux(clk))
+			cur[m] = pwrcal_mux_get_src(clk);
+		if (is_div(clk))
+			cur[m] = pwrcal_div_get_ratio(clk) - 1;
+		if (is_gate(clk))
+			cur[m] = pwrcal_gate_is_enabled(clk);
+	}
+
+	for (l = 0; l < table->num_of_lv; l++) {
+		for (m = 1; m < table->num_of_members; m++)
+			if (cur[m] != get_value(table, l, m))
+				break;
+
+		if (m == table->num_of_members)
+			return get_value(table, l, 0);
+	}
+
+	aclk_mif_pll = pwrcal_getf(CLK_CON_MUX_ACLK_MIF0_PLL, 12, 0x1);
+
+	if (aclk_mif_pll == 1) {
+		sclk_bus_pll_mif = pwrcal_getf(CLK_CON_MUX_SCLK_BUS_PLL_MIF, 12, 0x7);
+
+		if (sclk_bus_pll_mif == 0)
+			switch_freq = MIF_SWITCH_FREQ_LOW;
+		else
+			switch_freq = MIF_SWITCH_FREQ_HIGH;
+
+		l = dfs_get_lv(switch_freq, table) - 1;
+		for (m = 1; m < table->num_of_members; m++) {
+			if (is_pll(table->members[m]))
+				continue;
+			if (cur[m] != get_value(table, l, m))
+				break;
+		}
+		if (m == table->num_of_members)
+			return (unsigned long)switch_freq;
+	}
+
+
+	for (l = 0; l < table->num_of_lv; l++) {
+		for (m = 1; m < table->num_of_members; m++) {
+			if (!is_pll(table->members[m]))
+				continue;
+			if (cur[m] != get_value(table, l, m))
+				break;
+		}
+
+		if (m == table->num_of_members)
+			return get_value(table, l, 0);
+	}
+
+	for (m = 1; m < table->num_of_members; m++) {
+		clk = table->members[m];
+		pr_err("dfs_get_rate mid : %s : %d\n", clk->name, cur[m]);
+	}
+
+	return 0;
+
 }
 
 void enable_cppll_sharing_bus012_disable(void)
@@ -514,6 +620,7 @@ static struct dfs_table dfsmif_table = {
 	.trans_post = dfsmif_trans_post,
 	.switch_pre = dfsmif_switch_pre,
 	.switch_post = dfsmif_switch_post,
+	.private_getrate = dfs_mif_get_rate,
 };
 
 struct pwrcal_clk *dfsmif_dfsclkgrp[] = {
@@ -903,12 +1010,11 @@ void dfsmif_trans_post(unsigned int rate_from, unsigned int rate_to)
 
 void dfsmif_switch_pre(unsigned int rate_from, unsigned int rate_to)
 {
-	static unsigned int paraset;
 	unsigned long long rate;
 
-	paraset = (paraset + 1) % 2;
+	dfsmif_paraset = (dfsmif_paraset + 1) % 2;
 	rate = (unsigned long long)rate_to * 1000;
-	pwrcal_dmc_set_dvfs(rate, paraset);
+	pwrcal_dmc_set_dvfs(rate, dfsmif_paraset);
 }
 
 void dfsmif_switch_post(unsigned int rate_from, unsigned int rate_to)
