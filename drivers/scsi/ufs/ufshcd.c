@@ -3875,6 +3875,10 @@ static void ufshcd_err_handler(struct work_struct *work)
 	pm_runtime_get_sync(hba->dev);
 	ufshcd_hold(hba, false);
 
+	/* Dump debugging information to system memory */
+	if (hba->vops && hba->vops->get_debug_info)
+		hba->vops->get_debug_info(hba);
+
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	if (hba->ufshcd_state == UFSHCD_STATE_RESET) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
