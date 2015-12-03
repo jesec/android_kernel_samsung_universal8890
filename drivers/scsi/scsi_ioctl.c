@@ -351,6 +351,11 @@ int scsi_ioctl(struct scsi_device *sdev, int cmd, void __user *arg)
 		{
 			unsigned short prot_spec;
 			unsigned long t_len;
+			int _cmd;
+
+			_cmd = SCSI_UFS_REQUEST_SENSE;
+			if(sdev->host->wlun_clr_uac)
+				sdev->host->hostt->ioctl(sdev, _cmd, NULL);
 
 			prot_spec = SECU_PROT_SPEC_CERT_DATA;
 			t_len = sdev->sector_size;

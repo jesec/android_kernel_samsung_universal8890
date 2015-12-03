@@ -17,6 +17,8 @@
 #define	SCSI_REMOVAL_PREVENT	1
 #define	SCSI_REMOVAL_ALLOW	0
 
+#define SCSI_UFS_REQUEST_SENSE 0x6000		/* clear UAC in w-lun */
+
 #ifdef __KERNEL__
 
 struct scsi_device;

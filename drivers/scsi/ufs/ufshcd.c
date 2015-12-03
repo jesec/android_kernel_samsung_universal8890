@@ -4816,13 +4816,7 @@ retry:
 		pm_runtime_put_sync(hba->dev);
 	}
 
-	ret = ufshcd_send_request_sense(hba, hba->sdev_rpmb);
-	if (ret) {
-		dev_warn(hba->dev, "%s failed to clear uac on rpmb(w-lu) %d\n",
-			__func__, ret);
-		ret = 0;
-	}
-
+	hba->host->wlun_clr_uac = true;
 	if (!hba->is_init_prefetch)
 		hba->is_init_prefetch = true;
 
@@ -5058,11 +5052,20 @@ static int ufshcd_ioctl(struct scsi_device *dev, int cmd, void __user *buffer)
 
 	BUG_ON(!hba);
 	if (!buffer) {
-		dev_err(hba->dev, "%s: User buffer is NULL!\n", __func__);
-		return -EINVAL;
+		if (cmd != SCSI_UFS_REQUEST_SENSE) {
+			dev_err(hba->dev, "%s: User buffer is NULL!\n", __func__);
+			return -EINVAL;
+		}
 	}
-
 	switch (cmd) {
+	case SCSI_UFS_REQUEST_SENSE:
+		err = ufshcd_send_request_sense(hba, hba->sdev_rpmb);
+		if (err) {
+			dev_warn(hba->dev, "%s failed to clear uac on rpmb(w-lu) %d\n",
+					__func__, err);
+			}
+		hba->host->wlun_clr_uac = false;
+		break;
 	case UFS_IOCTL_QUERY:
 		//pm_runtime_get_sync(hba->dev);
 		err = ufshcd_query_ioctl(hba, ufshcd_scsi_to_upiu_lun(dev->lun),
