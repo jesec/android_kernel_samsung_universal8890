@@ -141,6 +141,11 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	pwrcal_setbit(TOP0_ROOTCLKEN_ON_GATE, 0, 0);
 	pwrcal_setbit(TOP3_ROOTCLKEN_ON_GATE, 2, 0);
 
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF0, 0x003F0000);
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF1, 0x003F0000);
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF2, 0x003F0000);
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF3, 0x003F0000);
+
 	vclk_enable(VCLK(p1_bus3_pll));
 
 	if (mif_pll_rate && table->switch_src_gate)
@@ -273,6 +278,11 @@ static int pscdc_trasition(unsigned int rate_switch, unsigned int rate_to, struc
 
 	if (table->trans_post)
 		table->trans_post(rate_switch, rate_to);
+
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF0, 0x003F1001);
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF1, 0x003F1001);
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF2, 0x003F1001);
+	pwrcal_writel(QCH_CTRL_LH_AXI_P_MIF3, 0x003F1001);
 
 	if (mif_pll_rate && table->switch_src_usermux)
 		if (pwrcal_mux_set_src(table->switch_src_usermux, 0))
