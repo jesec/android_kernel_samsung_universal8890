@@ -1779,8 +1779,8 @@ static int exynos_cluster1_min_qos_handler(struct notifier_block *b, unsigned lo
 	}
 
 #if defined(CONFIG_CPU_FREQ_GOV_USERSPACE) || defined(CONFIG_CPU_FREQ_GOV_PERFORMANCE)
-	if ((strcmp(policy->governor->name, "userspace") == 0)
-			|| strcmp(policy->governor->name, "performance") == 0) {
+	if ((strcmp(policy->user_policy.governor->name, "userspace") == 0)
+			|| strcmp(policy->user_policy.governor->name, "performance") == 0) {
 		cpufreq_cpu_put(policy);
 		goto good;
 	}
@@ -1825,8 +1825,8 @@ static int exynos_cluster1_max_qos_handler(struct notifier_block *b, unsigned lo
 	}
 
 #if defined(CONFIG_CPU_FREQ_GOV_USERSPACE) || defined(CONFIG_CPU_FREQ_GOV_PERFORMANCE)
-	if ((strcmp(policy->governor->name, "userspace") == 0)
-			|| strcmp(policy->governor->name, "performance") == 0) {
+	if ((strcmp(policy->user_policy.governor->name, "userspace") == 0)
+			|| strcmp(policy->user_policy.governor->name, "performance") == 0) {
 		cpufreq_cpu_put(policy);
 		goto good;
 	}
@@ -1879,8 +1879,8 @@ static int exynos_cluster0_min_qos_handler(struct notifier_block *b, unsigned lo
 	}
 
 #if defined(CONFIG_CPU_FREQ_GOV_USERSPACE) || defined(CONFIG_CPU_FREQ_GOV_PERFORMANCE)
-	if ((strcmp(policy->governor->name, "userspace") == 0)
-			|| strcmp(policy->governor->name, "performance") == 0) {
+	if ((strcmp(policy->user_policy.governor->name, "userspace") == 0)
+			|| strcmp(policy->user_policy.governor->name, "performance") == 0) {
 		cpufreq_cpu_put(policy);
 		goto good;
 	}
@@ -1925,8 +1925,8 @@ static int exynos_cluster0_max_qos_handler(struct notifier_block *b, unsigned lo
 	}
 
 #if defined(CONFIG_CPU_FREQ_GOV_USERSPACE) || defined(CONFIG_CPU_FREQ_GOV_PERFORMANCE)
-	if ((strcmp(policy->governor->name, "userspace") == 0)
-			|| strcmp(policy->governor->name, "performance") == 0) {
+	if ((strcmp(policy->user_policy.governor->name, "userspace") == 0)
+			|| strcmp(policy->user_policy.governor->name, "performance") == 0) {
 		cpufreq_cpu_put(policy);
 		goto good;
 	}
