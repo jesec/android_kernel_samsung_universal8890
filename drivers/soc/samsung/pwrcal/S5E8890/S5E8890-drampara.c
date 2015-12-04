@@ -375,14 +375,14 @@ static struct phy_dfs_table *g_phy_dfs_table;
 static struct dram_dfs_table *g_dram_dfs_table;
 static unsigned long long *mif_freq_to_level;
 static int num_mif_freq_to_level;
-
+static unsigned int query_key;
 
 static const unsigned long long mif_freq_to_level_switch[] = {
 	/* BUS3_PLL SW 936 */	936 * MHZ,
 	/* BUS0_PLL SW 468 */	468 * MHZ
 };
 
-
+#ifndef PWRCAL_TARGET_LINUX
 /******************************************************************************
  *
  * @fn      get_smc_dfs_table
@@ -429,6 +429,23 @@ void *get_phy_dfs_table(void)
 void *get_dram_dfs_table(void)
 {
 	return((void *)g_dram_dfs_table);
+}
+#endif
+
+/******************************************************************************
+ *
+ * @fn      pwrcal_get_dram_manufacturer
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
+unsigned int pwrcal_get_dram_manufacturer(void)
+{
+	return (query_key);
 }
 
 /******************************************************************************
@@ -837,7 +854,6 @@ void dfs_dram_param_init(void)
 {
 	int i;
 	void *dram_block;
-	unsigned int query_key; // means 3GB
 	struct ect_timing_param_size *size;
 
 	dram_block = ect_get_block(BLOCK_TIMING_PARAM);

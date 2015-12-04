@@ -748,15 +748,19 @@ static int asv_rcc_set_table(void)
 	return 0;
 }
 
+unsigned int pwrcal_get_dram_manufacturer(void);
 static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwrcal_vclk_dfs *dfs)
 {
 	int i, j, k;
-	void *asv_block, *margin_block;
+	unsigned int ect_query_key;
+	void *asv_block, *margin_block, *tim_block;
+	struct ect_timing_param_size *ect_mif;
 	struct ect_voltage_domain *domain;
 	struct ect_voltage_table *table;
 	struct asv_table_entry *asv_entry;
 	struct ect_margin_domain *margin_domain = NULL;
 	unsigned int max_asv_version = 0;
+	unsigned int *mif_volt_margin = NULL;
 
 	asv_block = ect_get_block("ASV");
 	if (asv_block == NULL)
@@ -777,6 +781,14 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 	if (asv_tbl_info.asv_table_ver > max_asv_version) {
 		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, max_asv_version);
 		asv_tbl_info.asv_table_ver = max_asv_version;
+	}
+
+	tim_block = ect_get_block(BLOCK_TIMING_PARAM);
+	if ((strcmp("dvfs_mif", dfs->vclk.name) == 0) && (tim_block != 0)) {
+		ect_query_key = (pwrcal_get_dram_manufacturer() & 0xffffff00) | 0x3;
+		ect_mif = ect_timing_param_get_key(tim_block, ect_query_key);
+		if (ect_mif)
+			mif_volt_margin = ect_mif->timing_parameter;
 	}
 
 	if (margin_block)
@@ -816,6 +828,9 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 					else
 						asv_entry->voltage[k] += margin_domain->offset_compact[j * margin_domain->num_of_group + k] * margin_domain->volt_step;
 				}
+
+				if (mif_volt_margin != NULL)
+					asv_entry->voltage[k] += mif_volt_margin[j];
 			}
 		}
 	}
