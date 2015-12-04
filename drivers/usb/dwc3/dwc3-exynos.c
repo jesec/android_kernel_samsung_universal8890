@@ -678,8 +678,11 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_OF)
 	exynos->drv_data = dwc3_exynos_get_driver_data(pdev);
 #endif
-	if (!exynos->drv_data)
-		dev_info(exynos->dev, "driver data is not available\n");
+	if (!exynos->drv_data) {
+		dev_info(exynos->dev,
+			"%s fail: drv_data is not available\n", __func__);
+		return -EINVAL;
+	}
 
 	if (exynos->drv_data->cpu_type == TYPE_EXYNOS8890) {
 		exynos->idle_ip_index = exynos_get_idle_ip_index(dev_name(dev));
