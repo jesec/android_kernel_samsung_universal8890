@@ -495,7 +495,9 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 {
 	int count, result;
 	enum thermal_device_mode mode;
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
 	struct thermal_instance *instance;
+#endif
 
 	if (!tz->ops->get_mode)
 		return;
@@ -582,7 +584,10 @@ static ssize_t
 mode_store(struct device *dev, struct device_attribute *attr,
 	   const char *buf, size_t count)
 {
-	struct thermal_zone_device *tz = to_thermal_zone(dev), *pos = NULL;
+	struct thermal_zone_device *tz = to_thermal_zone(dev);
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	struct thermal_zone_device *pos = NULL;
+#endif
 	int result;
 
 	if (!tz->ops->set_mode)

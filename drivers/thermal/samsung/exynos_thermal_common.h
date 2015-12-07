@@ -129,7 +129,7 @@ exynos_report_trigger(struct thermal_sensor_conf *sensor_conf) { return; }
 void core_boost_lock(void);
 void core_boost_unlock(void);
 #else
-static inline core_boost_lock(void) {return ;}
-static inline core_boost_unlock(void) {return ;}
+static inline void core_boost_lock(void) {return ;}
+static inline void core_boost_unlock(void) {return ;}
 #endif
 #endif /* _EXYNOS_THERMAL_COMMON_H */

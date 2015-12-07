@@ -75,8 +75,12 @@ static int exynos_set_mode(struct thermal_zone_device *thermal,
 
 	th_zone->mode = mode;
 
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
 	if (th_zone->therm_dev->device_enable)
 		thermal_zone_device_update(thermal);
+#else
+	thermal_zone_device_update(thermal);
+#endif
 
 	return 0;
 }

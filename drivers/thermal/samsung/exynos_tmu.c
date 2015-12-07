@@ -1365,10 +1365,10 @@ err:
 static int exynos_tmu_remove(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
-	struct exynos_tmu_platform_data *pdata = data->pdata;
 	struct exynos_tmu_data *devnode;
-
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+	struct exynos_tmu_platform_data *pdata = data->pdata;
+
 	if (pdata->d_type == CLUSTER1 && pdata->sensor_type == NORMAL_SENSOR)
 		unregister_cpus_notifier(&exynos_tmu_cpus_nb);
 #endif

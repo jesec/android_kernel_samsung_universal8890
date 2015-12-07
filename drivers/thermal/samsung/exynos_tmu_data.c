@@ -855,7 +855,13 @@ struct exynos_tmu_init_data exynos8890_default_tmu_data = {
 		{ EXYNOS8890_TMU_DATA_APOLLO } ,
 		{ EXYNOS8890_TMU_DATA_GPU } ,
 		{ EXYNOS8890_TMU_DATA_ISP } ,
+#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
+		{ EXYNOS8890_TMU_DATA_MNGS_DUAL } ,
+	},
+	.tmu_count = 5,
+#else
 	},
 	.tmu_count = 4,
+#endif
 };
 #endif
