@@ -610,6 +610,8 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 	} else
 		dev_ops = &exynos_dev_ops;
 
+	th_zone->mode = THERMAL_DEVICE_ENABLED;
+
 	th_zone->therm_dev = thermal_zone_device_register(
 			sensor_conf->name, sensor_conf->trip_data.trip_count,
 			0, th_zone, dev_ops, NULL, 0,
@@ -620,9 +622,9 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 		dev_err(sensor_conf->dev,
 			"Failed to register thermal zone device\n");
 		ret = PTR_ERR(th_zone->therm_dev);
+		th_zone->mode = THERMAL_DEVICE_DISABLED;
 		goto err_unregister;
 	}
-	th_zone->mode = THERMAL_DEVICE_ENABLED;
 	sensor_conf->pzone_data = th_zone;
 
 	if (sensor_conf->id == 0)
