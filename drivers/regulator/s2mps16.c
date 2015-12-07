@@ -32,8 +32,6 @@
 #include <linux/mutex.h>
 #include <linux/exynos-ss.h>
 
-#include "internal.h"
-
 #include <soc/samsung/exynos-pmu.h>
 #if defined(CONFIG_PWRCAL)
 #include <../drivers/soc/samsung/pwrcal/pwrcal.h>
@@ -389,21 +387,6 @@ static int s2m_set_voltage_time_sel(struct regulator_dev *rdev,
 
 	return 0;
 }
-
-int s2m_set_pwm_mode(struct regulator *reg, bool enable)
-{
-	struct regulator_dev *rdev = reg->rdev;
-	struct s2mps16_info *s2mps16 = rdev_get_drvdata(rdev);
-	int ret;
-
-	if(enable)
-		ret = sec_reg_update(s2mps16->iodev, S2MPS16_REG_B7CTRL1, S2MPS16_PWM_MODE, 0x27);
-	else
-		ret = sec_reg_update(s2mps16->iodev, S2MPS16_REG_B7CTRL1, S2MPS16_AUTO_MODE, 0x27);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(s2m_set_pwm_mode);
 
 void s2m_init_dvs()
 {
