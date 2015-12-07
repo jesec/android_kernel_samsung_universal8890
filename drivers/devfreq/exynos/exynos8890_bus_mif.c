@@ -28,6 +28,7 @@
 #include <linux/apm-exynos.h>
 #include <soc/samsung/asv-exynos.h>
 #include <linux/mcu_ipc.h>
+#include <linux/mfd/samsung/core.h>
 
 #include "../../../drivers/soc/samsung/pwrcal/pwrcal.h"
 #include "../../../drivers/soc/samsung/pwrcal/S5E8890/S5E8890-vclk.h"
@@ -42,6 +43,7 @@
 #define DEVFREQ_MIF_SWITCH_FREQ_HI	(936000)
 #define DEVFREQ_MIF_SWITCH_FREQ 	(528000)
 #define DEVFREQ_MIF_BUS3_PLL_THRESHOLD	(845000)
+#define DEVFREQ_MIF_BUCK_CTRL		(1539000)
 #define SWITCH_CMOS_VOLT_OFFSET		(56250)
 
 static struct pm_qos_request int_pm_qos_from_mif;
@@ -62,6 +64,12 @@ static u32 int_min_table[] = {
 };
 
 u32 sw_volt_table[2];
+
+struct mif_private {
+	struct regulator		*vdd;
+};
+
+struct mif_private mif_private_data;
 
 int is_dll_on(void)
 {
@@ -197,10 +205,21 @@ static int exynos8890_devfreq_mif_get_freq(struct device *dev, u32 *cur_freq,
 static int exynos8890_devfreq_mif_change_to_switch_freq(struct device *dev,
 					struct exynos_devfreq_data *data)
 {
+	int ret;
+	struct mif_private *private = (struct mif_private *)data->private_data;
+
 	if (clk_set_rate(data->sw_clk, data->switch_freq)) {
 		dev_err(dev, "failed to set switching frequency by CAL (%uKhz for %uKhz)\n",
 				data->switch_freq, data->new_freq);
 		return -EINVAL;
+	}
+
+	if (data->old_freq < DEVFREQ_MIF_BUCK_CTRL &&
+		data->new_freq >= DEVFREQ_MIF_BUCK_CTRL) {
+			ret = s2m_set_vth(private->vdd, true);
+			if (ret)
+				dev_err(dev, "failed to set Vth up\n");
+			return ret;
 	}
 
 	return 0;
@@ -209,10 +228,21 @@ static int exynos8890_devfreq_mif_change_to_switch_freq(struct device *dev,
 static int exynos8890_devfreq_mif_restore_from_switch_freq(struct device *dev,
 					struct exynos_devfreq_data *data)
 {
+	int ret;
+	struct mif_private *private = (struct mif_private *)data->private_data;
+
 	if (clk_set_rate(data->clk, data->new_freq)) {
 		dev_err(dev, "failed to set frequency by CAL (%uKhz)\n",
 				data->new_freq);
 		return -EINVAL;
+	}
+
+	if (data->old_freq >= DEVFREQ_MIF_BUCK_CTRL &&
+		data->new_freq < DEVFREQ_MIF_BUCK_CTRL) {
+			ret = s2m_set_vth(private->vdd, false);
+			if (ret)
+				dev_err(dev, "failed to set Vth down\n");
+			return ret;
 	}
 
 	return 0;
@@ -413,6 +443,17 @@ static int exynos8890_devfreq_mif_init(struct device *dev,
 		clk_put(data->clk);
 		return -ENODEV;
 	}
+
+	/* for pwm mode control */
+	mif_private_data.vdd = regulator_get(NULL, "vdd_mem");
+	if (IS_ERR(mif_private_data.vdd)) {
+		dev_err(data->dev, "failed to get regulator(vdd_mem)\n");
+		clk_put(data->clk);
+		clk_put(data->sw_clk);
+		return -ENODEV;
+	}
+
+	data->private_data = (void *)&mif_private_data;
 
 	return 0;
 }
