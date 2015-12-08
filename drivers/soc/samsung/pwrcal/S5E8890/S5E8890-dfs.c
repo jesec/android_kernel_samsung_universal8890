@@ -200,6 +200,8 @@ static int pscdc_switch(unsigned int rate_from, unsigned int rate_switch, struct
 	if (!mif_pll_rate)
 		vclk_disable(VCLK(p1_bus3_pll));
 
+	pwrcal_pll_disable(CLK(MIF_PLL));
+
 	if (rate_from > BUS3_PLL_ENABLE_THRESHOLD)
 		vclk_disable(VCLK(p1_bus3_pll));
 
