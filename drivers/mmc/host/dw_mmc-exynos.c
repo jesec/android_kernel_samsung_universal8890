@@ -501,8 +501,8 @@ static int dw_mci_exynos_parse_dt(struct dw_mci *host)
 		ret = -ENOMEM;
 		goto err_ref_clk;
 	}
-	if (of_get_property(np, "cd-gpio", NULL))
-		priv->cd_gpio = of_get_named_gpio(np, "cd-gpio", 0);
+	if (of_get_property(np, "card-detect", NULL))
+		priv->cd_gpio = of_get_named_gpio(np, "card-detect", 0);
 	else
 		priv->cd_gpio = -1;
 
