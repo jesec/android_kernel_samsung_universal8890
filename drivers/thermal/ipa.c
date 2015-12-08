@@ -226,7 +226,7 @@ static void reset_arbiter_configuration(struct ipa_config *config)
 
 static int queue_arbiter_poll(void)
 {
-	int cpu, ret;
+	int cpu, ret = 0;
 	unsigned int period = (arbiter_data.active == true) ? ARBITER_ACTIVE_PERIOD_MSEC : ARBITER_PASSIVE_PERIOD_MSEC;
 
 	if (arbiter_data.config.enabled) {
