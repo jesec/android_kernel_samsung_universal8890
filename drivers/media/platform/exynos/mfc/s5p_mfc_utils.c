@@ -19,17 +19,18 @@
 /*
  * A framerate table determines framerate by the interval(us) of each frame.
  * Framerate is not accurate, just rough value to seperate overload section.
- * Base line of each section are selected from 25fps(40000us), 45fps(22222us)
- * and 100fps(10000us).
+ * Base line of each section are selected from 40fps(25000us), 80fps(12500us),
+ * 145fps(6940us) and 205fps(4860us).
  *
- * interval(us) | 0           10000         22222         40000           |
- * framerate    |     120fps    |    60fps    |    30fps    |    25fps    |
+ * interval(us) | 0         4860          6940          12500         25000          |
+ * framerate    |    240fps   |    180fps   |    120fps   |    60fps    |    30fps   |
  */
 static unsigned long framerate_table[][2] = {
-	{ 25000, 40000 },
-	{ 30000, 22222 },
-	{ 60000, 10000 },
-	{ 120000, 0 },
+	{ 30000, 25000 },
+	{ 60000, 12500 },
+	{ 120000, 6940 },
+	{ 180000, 4860 },
+	{ 240000, 0 },
 };
 
 int get_framerate_by_interval(int interval)

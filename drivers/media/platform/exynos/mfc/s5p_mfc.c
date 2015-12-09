@@ -304,6 +304,7 @@ int get_framerate_by_timestamp(struct s5p_mfc_ctx *ctx, struct v4l2_buffer *buf)
 
 	if (list_empty(&ctx->ts_list)) {
 		dec_add_timestamp(ctx, buf, &ctx->ts_list);
+		return get_framerate_by_interval(0);
 	} else {
 		found = 0;
 		list_for_each_entry_reverse(temp_ts, &ctx->ts_list, list) {

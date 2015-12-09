@@ -37,7 +37,7 @@
 #define DEF_DST_FMT	0
 
 #define MAX_FRAME_SIZE		(2*1024*1024)
-#define DEC_MAX_FPS		(60000)
+#define DEC_MAX_FPS		(240000)
 
 /* Find selected format description */
 static struct s5p_mfc_fmt *find_format(struct v4l2_format *f, unsigned int t)
