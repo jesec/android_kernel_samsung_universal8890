@@ -219,134 +219,124 @@ static void asv_set_ssa0(unsigned int id, unsigned int ssa0)
 
 }
 
-static int get_max_freq_lv(struct ect_voltage_domain *domain, unsigned int version)
+static void get_max_min_freq_lv(struct ect_voltage_domain *domain, unsigned int version, int *max_lv, int *min_lv)
 {
 	int i;
-	int ret = -1;
+	unsigned int max_asv_version = 0;
+	struct ect_voltage_table *table = NULL;
 
+	for (i = 0; i < domain->num_of_table; i++) {
+		table = &domain->table_list[i];
+
+		if (version == table->table_version)
+			break;
+
+		if (table->table_version > max_asv_version)
+			max_asv_version = table->table_version;
+	}
+
+	if (i == domain->num_of_table) {
+		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, max_asv_version);
+		asv_tbl_info.asv_table_ver = max_asv_version;
+		table = &domain->table_list[max_asv_version];
+	}
+
+	*max_lv = -1;
+	*min_lv = domain->num_of_level - 1;
 	for (i = 0; i < domain->num_of_level; i++) {
-		if (domain->table_list[version].level_en[i]) {
-			ret = i;
+		if (*max_lv == -1 && table->level_en[i])
+			*max_lv = i;
+		if (*max_lv != -1 && !table->level_en[i]) {
+			*min_lv = i - 1;
 			break;
 		}
 	}
-
-	return ret;
 }
-static int get_min_freq_lv(struct ect_voltage_domain *domain, unsigned int version)
-{
-	int i;
-	int ret = -1;
 
-	for (i = domain->num_of_level - 1; i >= 0; i--) {
-		if (domain->table_list[version].level_en[i]) {
-			ret = i;
-			break;
-		}
-	}
-
-	return ret;
-}
 static void asv_set_freq_limit(void)
 {
 	void *asv_block;
 	struct ect_voltage_domain *domain;
-	int lv;
+	int max_lv = 0, min_lv = 0;
+	unsigned int asv_table_ver;
+	int retry_done = 1;
 
 	asv_block = ect_get_block("ASV");
 	if (asv_block == NULL)
 		BUG();
 
-	if (!asv_tbl_info.fused_grp)
-		goto notfused;
+retry:
+
+	asv_table_ver = asv_tbl_info.asv_table_ver;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_big");
-	if (asv_tbl_info.asv_table_ver >= domain->num_of_table) {
-		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, domain->num_of_table - 1);
-		asv_tbl_info.asv_table_ver = domain->num_of_table - 1;
-	}
-
 	if (!domain)
 		BUG();
-	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_big->table->max_freq = domain->level_list[lv] * 1000;
-	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_big->table->min_freq = domain->level_list[lv] * 1000;
+	get_max_min_freq_lv(domain, asv_tbl_info.asv_table_ver, &max_lv, &min_lv);
+	if (max_lv >= 0)
+		asv_dvfs_big->table->max_freq = domain->level_list[max_lv] * 1000;
+	if (min_lv >= 0)
+		asv_dvfs_big->table->min_freq = domain->level_list[min_lv] * 1000;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_little");
 	if (!domain)
 		BUG();
-	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_little->table->max_freq = domain->level_list[lv] * 1000;
-	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_little->table->min_freq = domain->level_list[lv] * 1000;
+	get_max_min_freq_lv(domain, asv_tbl_info.asv_table_ver, &max_lv, &min_lv);
+	if (max_lv >= 0)
+		asv_dvfs_little->table->max_freq = domain->level_list[max_lv] * 1000;
+	if (min_lv >= 0)
+		asv_dvfs_little->table->min_freq = domain->level_list[min_lv] * 1000;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_g3d");
 	if (!domain)
 		BUG();
-	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_g3d->table->max_freq = domain->level_list[lv] * 1000;
-	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_g3d->table->min_freq = domain->level_list[lv] * 1000;
+	get_max_min_freq_lv(domain, asv_tbl_info.asv_table_ver, &max_lv, &min_lv);
+	if (max_lv >= 0)
+		asv_dvfs_g3d->table->max_freq = domain->level_list[max_lv] * 1000;
+	if (min_lv >= 0)
+		asv_dvfs_g3d->table->min_freq = domain->level_list[min_lv] * 1000;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_mif");
 	if (!domain)
 		BUG();
-	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_mif->table->max_freq = domain->level_list[lv] * 1000;
-	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_mif->table->min_freq = domain->level_list[lv] * 1000;
+	get_max_min_freq_lv(domain, asv_tbl_info.asv_table_ver, &max_lv, &min_lv);
+	if (max_lv >= 0)
+		asv_dvfs_mif->table->max_freq = domain->level_list[max_lv] * 1000;
+	if (min_lv >= 0)
+		asv_dvfs_mif->table->min_freq = domain->level_list[min_lv] * 1000;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_int");
 	if (!domain)
 		BUG();
-	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_int->table->max_freq = domain->level_list[lv] * 1000;
-	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_int->table->min_freq = domain->level_list[lv] * 1000;
+	get_max_min_freq_lv(domain, asv_tbl_info.asv_table_ver, &max_lv, &min_lv);
+	if (max_lv >= 0)
+		asv_dvfs_int->table->max_freq = domain->level_list[max_lv] * 1000;
+	if (min_lv >= 0)
+		asv_dvfs_int->table->min_freq = domain->level_list[min_lv] * 1000;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_disp");
 	if (!domain)
 		BUG();
-	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_disp->table->max_freq = domain->level_list[lv] * 1000;
-	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_disp->table->min_freq = domain->level_list[lv] * 1000;
+	get_max_min_freq_lv(domain, asv_tbl_info.asv_table_ver, &max_lv, &min_lv);
+	if (max_lv >= 0)
+		asv_dvfs_disp->table->max_freq = domain->level_list[max_lv] * 1000;
+	if (min_lv >= 0)
+		asv_dvfs_disp->table->min_freq = domain->level_list[min_lv] * 1000;
 
 	domain = ect_asv_get_domain(asv_block, "dvfs_cam");
 	if (!domain)
 		BUG();
-	lv = get_max_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_cam->table->max_freq = domain->level_list[lv] * 1000;
-	lv = get_min_freq_lv(domain, asv_tbl_info.asv_table_ver);
-	if (lv >= 0)
-		asv_dvfs_cam->table->min_freq = domain->level_list[lv] * 1000;
+	get_max_min_freq_lv(domain, asv_tbl_info.asv_table_ver, &max_lv, &min_lv);
+	if (max_lv >= 0)
+		asv_dvfs_cam->table->max_freq = domain->level_list[max_lv] * 1000;
+	if (min_lv >= 0)
+		asv_dvfs_cam->table->min_freq = domain->level_list[min_lv] * 1000;
 
+	if (asv_table_ver != asv_tbl_info.asv_table_ver && retry_done) {
+		retry_done = 0;
+		goto retry;
+	}
 
-	return;
-
-
-notfused:
-
-#ifdef PWRCAL_TARGET_LINUX
-	asv_dvfs_big->table->max_freq = 728000;
-	asv_dvfs_little->table->max_freq = 1274000;
-	asv_dvfs_g3d->table->max_freq = 260000;
-	asv_dvfs_mif->table->max_freq = 1539000;
-#endif
 	return;
 }
 
@@ -766,6 +756,7 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 	struct ect_voltage_table *table;
 	struct asv_table_entry *asv_entry;
 	struct ect_margin_domain *margin_domain = NULL;
+	unsigned int max_asv_version = 0;
 
 	asv_block = ect_get_block("ASV");
 	if (asv_block == NULL)
@@ -777,20 +768,30 @@ static void asv_voltage_init_table(struct asv_table_list **asv_table, struct pwr
 	if (domain == NULL)
 		return;
 
-	if (asv_tbl_info.asv_table_ver >= domain->num_of_table) {
-		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, domain->num_of_table - 1);
-		asv_tbl_info.asv_table_ver = domain->num_of_table - 1;
+	for (i = 0; i < domain->num_of_table; i++) {
+		table = &domain->table_list[i];
+		if (table->table_version > max_asv_version)
+			max_asv_version = table->table_version;
+	}
+
+	if (asv_tbl_info.asv_table_ver > max_asv_version) {
+		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, max_asv_version);
+		asv_tbl_info.asv_table_ver = max_asv_version;
 	}
 
 	if (margin_block)
 		margin_domain = ect_margin_get_domain(margin_block, dfs->vclk.name);
 
-	*asv_table = kzalloc(sizeof(struct asv_table_list) * domain->num_of_table, GFP_KERNEL);
+	*asv_table = kzalloc(sizeof(struct asv_table_list) * max_asv_version, GFP_KERNEL);
 	if (*asv_table == NULL)
 		return;
 
-	for (i = 0; i < domain->num_of_table; ++i) {
-		table = &domain->table_list[i];
+	for (i = 0; i <= max_asv_version; ++i) {
+		for (j = 0; j < domain->num_of_table; j++) {
+			table = &domain->table_list[j];
+			if (table->table_version == i)
+				break;
+		}
 
 		(*asv_table)[i].table_size = domain->num_of_table;
 		(*asv_table)[i].table = kzalloc(sizeof(struct asv_table_entry) * domain->num_of_level, GFP_KERNEL);
@@ -828,6 +829,7 @@ static void asv_rcc_init_table(struct asv_table_list **rcc_table, struct pwrcal_
 	struct ect_rcc_domain *domain;
 	struct ect_rcc_table *table;
 	struct asv_table_entry *rcc_entry;
+	unsigned int max_asv_version = 0;
 
 	rcc_block = ect_get_block("RCC");
 	if (rcc_block == NULL)
@@ -837,12 +839,22 @@ static void asv_rcc_init_table(struct asv_table_list **rcc_table, struct pwrcal_
 	if (domain == NULL)
 		return;
 
-	*rcc_table = kzalloc(sizeof(struct asv_table_list) * domain->num_of_table, GFP_KERNEL);
+	for (i = 0; i < domain->num_of_table; i++) {
+		table = &domain->table_list[i];
+		if (table->table_version > max_asv_version)
+			max_asv_version = table->table_version;
+	}
+
+	*rcc_table = kzalloc(sizeof(struct asv_table_list) * max_asv_version, GFP_KERNEL);
 	if (*rcc_table == NULL)
 		return;
 
-	for (i = 0; i < domain->num_of_table; ++i) {
-		table = &domain->table_list[i];
+	for (i = 0; i <= max_asv_version; ++i) {
+		for (j = 0; j < domain->num_of_table; j++) {
+			table = &domain->table_list[j];
+			if (table->table_version == i)
+				break;
+		}
 
 		(*rcc_table)[i].table_size = domain->num_of_table;
 		(*rcc_table)[i].table = kzalloc(sizeof(struct asv_table_entry) * domain->num_of_level, GFP_KERNEL);
