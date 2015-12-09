@@ -700,8 +700,10 @@ static int esa_fw_startup(void)
 	if (si.fw_ready)
 		return 0;
 
-	if (!si.fwmem_loaded)
+	if (!si.fwmem_loaded) {
+		lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
 		return -EAGAIN;
+	}
 
 	/* power on */
 	si.fw_use_dram = true;
@@ -712,6 +714,7 @@ static int esa_fw_startup(void)
 	ret = wait_event_interruptible_timeout(esa_wq, si.fw_ready, HZ / 2);
 	if (!ret) {
 		esa_err("%s: fw not ready!!!\n", __func__);
+		lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
 		si.fw_use_dram = false;
 		return -EBUSY;
 	}
@@ -2108,6 +2111,7 @@ static int esa_do_suspend(struct device *dev)
 	si.effect_ram = NULL;
 	lpeff_set_effect_addr(NULL);
 #endif
+	lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
 	return 0;
 }
 #endif
@@ -2116,6 +2120,7 @@ static int esa_do_resume(struct device *dev)
 {
 	si.pm_on = true;
 
+	lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, true);
 	lpass_get_sync(dev);
 #ifdef CONFIG_SOC_EXYNOS8890
 	si.sram = lpass_get_mem();
