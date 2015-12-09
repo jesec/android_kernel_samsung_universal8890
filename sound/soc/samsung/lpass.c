@@ -1102,12 +1102,12 @@ static int exynos_aud_alpa_notifier(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	switch (event) {
-	case SICD_ENTER:
+	case SICD_AUD_ENTER:
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 		esa_compr_alpa_notifier(true);
 #endif
 		break;
-	case SICD_EXIT:
+	case SICD_AUD_EXIT:
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 		esa_compr_alpa_notifier(false);
 #endif
