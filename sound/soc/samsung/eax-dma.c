@@ -445,14 +445,17 @@ static void eax_adma_hw_free(void)
 			di.params->ops->flush(di.params->ch);
 			di.params->ops->release(di.params->ch, di.params->client);
 		}
+
+		mutex_unlock(&di.mutex);
+		while (!waitqueue_active(&mixer_run_wq)) {
+			schedule_timeout_interruptible(1); /* 1 jiffies = 10ms */
+		};
+		mutex_lock(&di.mutex);
 	}
 
 	di.params_done = false;
 	di.prepare_done = false;
 
-	while (!waitqueue_active(&mixer_run_wq)) {
-		schedule_timeout_interruptible(1); /* 1 jiffies = 10ms */
-	};
 out:
 	di.set_params_cnt--;
 	pr_info("Entered %s --\n", __func__);
