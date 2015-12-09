@@ -198,6 +198,7 @@ static int exynos_mp_cpufreq_init_cal_table(cluster_type cluster)
 	cal_max_freq = cal_dfs_get_max_freq(cl_id);
 	if (!cal_max_freq) {
 		pr_err("%s: failed get max frequency from PWRCAL\n", __func__);
+		kfree(ptr_temp_table);
 		return -EINVAL;
 	}
 

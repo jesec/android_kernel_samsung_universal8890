@@ -2483,8 +2483,10 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 
 		ret = of_property_read_u32_array(np, cluster_name,
 				(unsigned int *)table_ptr, table_size * (ptr->max_idx_num));
-		if (ret < 0)
+		if (ret < 0) {
+			kfree(table_ptr);
 			return -ENODEV;
+		}
 
 		/* freq/volt/bus table is initailized by DT */
 		for (i = 0; i < ptr->max_idx_num; i++) {
