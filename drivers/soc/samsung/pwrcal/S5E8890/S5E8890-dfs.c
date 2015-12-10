@@ -313,14 +313,14 @@ void enable_cppll_sharing_bus012_disable(void)
 	pwrcal_gate_enable(CLK(TOP_GATE_SCLK_BUS_PLL_MIF));
 	pscdc_trans(200, 200, 5, 0, 0, 1, 1, 7, 3, 1, 1);
 
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_528), 4);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_528), 4);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_264), 10);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_264), 3);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_132), 15);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_132), 3);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_PCLK_CCORE_66), 10);
 	pwrcal_mux_set_src(CLK(TOP_MUX_PCLK_CCORE_66), 3);
-	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_528), 2);
-	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_264), 5);
-	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_132), 11);
-	pwrcal_div_set_ratio(CLK(TOP_DIV_PCLK_CCORE_66), 5);
 
 	pwrcal_pll_disable(CLK(BUS0_PLL));
 	pwrcal_pll_disable(CLK(BUS1_PLL));
@@ -354,14 +354,14 @@ void disable_cppll_sharing_bus012_enable(void)
 	rate_smc = rate_table_aclk_ccore_800[dfs_mif_resume_level].smc_ratio;
 	pscdc_trans(rate_sci, rate_smc, 3, 0, 0, 1, 1, mux_value, div_value, 1, 1);
 
-	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_528), 3);
-	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_264), 7);
-	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_132), 15);
-	pwrcal_div_set_ratio(CLK(TOP_DIV_PCLK_CCORE_66), 7);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_528), 0);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_528), 3);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_264), 0);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_264), 7);
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_CCORE_132), 0);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_CCORE_132), 15);
 	pwrcal_mux_set_src(CLK(TOP_MUX_PCLK_CCORE_66), 0);
+	pwrcal_div_set_ratio(CLK(TOP_DIV_PCLK_CCORE_66), 7);
 
 	pwrcal_mux_set_src(CLK(TOP_MUX_ACLK_PSCDC_400), 1);
 	pwrcal_div_set_ratio(CLK(TOP_DIV_ACLK_PSCDC_400), 1);
