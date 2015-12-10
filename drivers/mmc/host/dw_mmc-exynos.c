@@ -1113,15 +1113,6 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 			else
 				dw_mci_set_fine_tuning_bit(host, false);
 		}
-#if defined(CONFIG_MMC_DW_64BIT_DESC)
-		{
-			u32 reg = 0;
-
-			reg = mci_readl(host, AXI_BURST_LEN);
-			reg |= (0x1 << 31);
-			mci_writel(host, AXI_BURST_LEN, reg);
-		}
-#endif
 	} else {
 		/* Failed. Just restore and return error */
 		dev_err(host->dev, "tuning err\n");
