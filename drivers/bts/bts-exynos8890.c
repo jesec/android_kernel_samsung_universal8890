@@ -193,6 +193,7 @@ static struct pm_qos_request exynos8_gpu_mif_bts_qos;
 static struct srcu_notifier_head exynos_media_notifier;
 static struct clk_info clk_table[0];
 
+static void bts_tqos_set(bool on);
 static int bts_trex_qosoff(void __iomem *base);
 static int bts_trex_qoson(void __iomem *base);
 
@@ -1072,10 +1073,14 @@ void bts_ext_scenario_set(enum bts_media_type ip_type,
 
 	case TYPE_CAM:
 		if (scen_type == TYPE_URGENT_OFF) {
-			if (on)
+			if (on) {
 				bts_scen_update(scen_type, 1);
-			else
+				bts_tqos_set(1);
+			}
+			else {
 				bts_scen_update(scen_type, 0);
+				bts_tqos_set(0);
+			}
 		}
 		break;
 	case TYPE_MFC:
@@ -1274,6 +1279,14 @@ void exynos_bts_scitoken_setting(bool on)
 		__raw_writel(0x10101117, sci_base + CMDTOKEN);
 	else
 		__raw_writel(0x10101127, sci_base + CMDTOKEN);
+}
+
+static void bts_tqos_set(bool on)
+{
+	if (on)
+		__raw_writel(0x00A06E01, sci_base + CRPPRI);
+	else
+		__raw_writel(0x00806E01, sci_base + CRPPRI);
 }
 
 #ifdef CONFIG_CPU_IDLE
