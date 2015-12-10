@@ -374,10 +374,10 @@ static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
 			 */
 			pm_qos_update_request(&thermal_cpu_hotplug_request, NR_CPUS);
 
-			mutex_lock(&th_zone->therm_dev->lock);
+			mutex_lock(&thermal->lock);
 			is_cpu_hotplugged_out = false;
 			cpufreq_device->cpufreq_state = 0;
-			mutex_unlock(&th_zone->therm_dev->lock);
+			mutex_unlock(&thermal->lock);
 		}
 	} else {
 		if (cur_temp >= data->hotplug_out_threshold) {
@@ -385,9 +385,9 @@ static int exynos_throttle_cpu_hotplug(struct thermal_zone_device *thermal)
 			 * If current temperature is higher than high threshold,
 			 * call cluster1_cores_hotplug(true) to hold temperature down.
 			 */
-			mutex_lock(&th_zone->therm_dev->lock);
+			mutex_lock(&thermal->lock);
 			is_cpu_hotplugged_out = true;
-			mutex_unlock(&th_zone->therm_dev->lock);
+			mutex_unlock(&thermal->lock);
 
 			pm_qos_update_request(&thermal_cpu_hotplug_request, NR_CLUST1_CPUS);
 		}
