@@ -125,6 +125,12 @@ extern struct decon_bts2 decon_bts2_control;
 			pr_info("[BTS]"pr_fmt(fmt), ##__VA_ARGS__);			\
 	} while (0)
 
+#define decon_cfw_dbg(fmt, ...)							\
+	do {									\
+		if (decon_log_level >= 7)					\
+			pr_info(pr_fmt(fmt), ##__VA_ARGS__);			\
+	} while (0)
+
 #define call_bts_ops(q, op, args...)				\
 	(((q)->bts_ops->op) ? ((q)->bts_ops->op(args)) : 0)
 
@@ -395,6 +401,13 @@ struct decon_win_config {
 	bool compression;
 };
 
+struct decon_sbuf_data {
+	struct list_head	list;
+	unsigned long		addr;
+	unsigned int		len;
+	unsigned int		id;
+};
+
 struct decon_reg_data {
 	struct list_head		list;
 	struct decon_window_regs	win_regs[MAX_DECON_WIN];
@@ -413,6 +426,7 @@ struct decon_reg_data {
 	bool				need_update;
 #endif
 	bool				protection[MAX_DECON_WIN];
+	struct list_head		sbuf_pend_list;
 };
 
 struct decon_win_config_data {
@@ -719,6 +733,7 @@ struct decon_device {
 	void __iomem			*cam_status[2];
 	u32				prev_protection_bitmask;
 	u32				cur_protection_bitmask;
+	struct list_head		sbuf_active_list;
 
 	unsigned int			irq;
 	struct dentry			*debug_root;

@@ -706,6 +706,93 @@ static void decon_vpp_stop(struct decon_device *decon, bool do_reset)
 	}
 }
 
+static int cfw_buf_list_create(struct ion_client *client,
+		struct ion_handle *handle, struct decon_reg_data *regs, u32 id)
+{
+	int ret = 0;
+	struct decon_sbuf_data *sbuf;
+
+	sbuf = kzalloc(sizeof(struct decon_sbuf_data), GFP_KERNEL);
+	if (sbuf == NULL) {
+		decon_err("%s: couldn't allocate.\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = ion_phys(client, handle,
+			(ion_phys_addr_t *)&sbuf->addr, (size_t *)&sbuf->len);
+	if (ret < 0) {
+		decon_err("%s: couldn't get %d ion_phys(ret=%d).\n",
+				__func__, id, ret);
+		kfree(sbuf);
+		return ret;
+	}
+
+	sbuf->id = id + PROT_G0;
+	list_add_tail(&sbuf->list, &regs->sbuf_pend_list);
+
+	decon_cfw_dbg("%s, ID=%d, Addr=0x%lx, Lenth=%d\n",
+			__func__, sbuf->id, sbuf->addr, sbuf->len);
+	return 0;
+}
+
+static void cfw_buf_list_to_active(struct decon_device *decon,
+		struct decon_reg_data *regs)
+{
+	if (regs == NULL) return;
+
+	if (list_empty(&regs->sbuf_pend_list)) return;
+
+	list_replace_init(&regs->sbuf_pend_list, &decon->sbuf_active_list);
+}
+
+static int decon_cfw_buf_ctrl(struct decon_device *decon,
+		struct decon_reg_data *regs, u32 flag)
+{
+	int ret = 0;
+	struct list_head *sbuf_list;
+	struct decon_sbuf_data *sbuf, *next;
+
+	/* Set CFW for pending(will be accessing) lists */
+	if (flag == SMC_DRM_SECBUF_CFW_PROT)
+		sbuf_list = &regs->sbuf_pend_list;
+	else /* Unset CFW for active(Already accessed) lists */
+		sbuf_list = &decon->sbuf_active_list;
+
+	if (list_empty(sbuf_list)) return 0;
+
+	list_for_each_entry_safe(sbuf, next, sbuf_list, list) {
+		decon_cfw_dbg("%s, CFW(0x%x) id=%d, addr=0x%lx, lenth=%d\n",
+				__func__, flag, sbuf->id, sbuf->addr, sbuf->len);
+
+		ret = exynos_smc(flag, sbuf->addr, sbuf->len, sbuf->id);
+		if (ret != DRMDRV_OK) {
+			decon_err("failed to set CFW(0x%x), ID(%d), ret(0x%x)\n",
+					flag, sbuf->id, ret);
+		}
+
+		if (flag == SMC_DRM_SECBUF_CFW_UNPROT) {
+			list_del(&sbuf->list);
+			kfree(sbuf);
+		}
+	}
+
+	return ret;
+}
+
+static void decon_cfw_buf_release(struct decon_device *decon,
+		struct decon_reg_data *regs)
+{
+	if (decon->pdata->out_type == DECON_OUT_DSI) {
+		decon_cfw_buf_ctrl(decon, regs, SMC_DRM_SECBUF_CFW_UNPROT);
+		cfw_buf_list_to_active(decon, regs);
+	} else if (decon->pdata->out_type == DECON_OUT_WB) {
+		cfw_buf_list_to_active(decon, regs);
+		decon_cfw_buf_ctrl(decon, regs, SMC_DRM_SECBUF_CFW_UNPROT);
+	} else {
+		decon_dbg("%s, Not supported\n", __func__);
+	}
+}
+
 #ifdef CONFIG_FB_WINDOW_UPDATE
 static inline void decon_win_update_rect_reset(struct decon_device *decon)
 {
@@ -841,6 +928,7 @@ int decon_tui_protection(struct decon_device *decon, bool tui_en)
 		/* Decon is shutdown. It will be started in secure world */
 		decon_reg_release_resource_instantly(decon->id);
 		decon_set_protected_content(decon, NULL);
+		decon_cfw_buf_release(decon, NULL);
 		decon->vpp_usage_bitmask = 0;
 		decon_vpp_stop(decon, false);
 
@@ -1080,6 +1168,7 @@ int decon_disable(struct decon_device *decon)
 	/* DMA protection disable must be happen on vpp domain is alive */
 	if (decon->pdata->out_type != DECON_OUT_WB) {
 		decon_set_protected_content(decon, NULL);
+		decon_cfw_buf_release(decon, NULL);
 		decon->vpp_usage_bitmask = 0;
 		decon_vpp_stop(decon, true);
 	}
@@ -1586,6 +1675,10 @@ static int decon_set_win_buffer(struct decon_device *decon, struct decon_win *wi
 			ret = -ENOMEM;
 			goto err_map;
 		}
+		if (win_config->protection) {
+			cfw_buf_list_create(decon->ion_client, handle,
+					regs, vpp_id);
+		}
 		win_config->vpp_parm.addr[i] = dma_buf_data[i].dma_addr;
 		handle = NULL;
 		buf[i] = NULL;
@@ -1680,6 +1773,10 @@ static int decon_set_wb_buffer(struct decon_device *decon,
 			decon_err("failed to mapping buffer\n");
 			ret = -ENOMEM;
 			goto fail_map;
+		}
+		if (win_config->protection) {
+			cfw_buf_list_create(decon->ion_client, handle,
+					regs, ODMA_WB);
 		}
 		regs->dma_buf_data[MAX_DECON_WIN][i] = dma_buf_data[i];
 		config->vpp_parm.addr[i] = dma_buf_data[i].dma_addr;
@@ -2236,6 +2333,7 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 
 	/* DMA protection(SFW) enable must be happen on vpp domain is alive */
 	decon_set_protected_content(decon, regs);
+	decon_cfw_buf_ctrl(decon, regs, SMC_DRM_SECBUF_CFW_PROT);
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE)
 	mdnie_reg_update_frame(decon->lcd_info->xres, decon->lcd_info->yres);
@@ -2455,6 +2553,7 @@ end:
 
 	sw_sync_timeline_inc(decon->timeline, 1);
 
+	decon_cfw_buf_release(decon, regs);
 	decon_vpp_stop(decon, false);
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	/* NOTE: Must be called after VPP_STOP
@@ -2568,6 +2667,7 @@ static int decon_set_win_config(struct decon_device *decon,
 		ret = -ENOMEM;
 		goto err;
 	}
+	INIT_LIST_HEAD(&regs->sbuf_pend_list);
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		decon->windows[i]->prev_fix =
@@ -3720,6 +3820,7 @@ static int decon_probe(struct platform_device *pdev)
 	/* init work thread for update registers */
 	mutex_init(&decon->update_regs_list_lock);
 	INIT_LIST_HEAD(&decon->update_regs_list);
+	INIT_LIST_HEAD(&decon->sbuf_active_list);
 	init_kthread_worker(&decon->update_regs_worker);
 
 	decon->update_regs_thread = kthread_run(kthread_worker_fn,
