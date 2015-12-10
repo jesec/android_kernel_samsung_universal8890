@@ -866,8 +866,12 @@ out:
 static irqreturn_t exynos_tmu_irq(int irq, void *id)
 {
 	struct exynos_tmu_data *data = id;
+	struct exynos_tmu_platform_data *pdata = data->pdata;
+	char *name = "interrupt";
 
 	disable_irq_nosync(irq);
+
+	exynos_ss_thermal(pdata, 0, name, 0);
 	schedule_work(&data->irq_work);
 
 	return IRQ_HANDLED;
