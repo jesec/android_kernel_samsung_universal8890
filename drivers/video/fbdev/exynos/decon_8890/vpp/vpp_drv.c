@@ -444,6 +444,8 @@ void vpp_split_single_plane(struct decon_win_config *config, struct vpp_size_par
 	case DECON_PIXEL_FORMAT_NV12N:
 		p->addr1 = NV12N_CBCR_BASE(p->addr0, p->src_fw, p->src_fh);
 		break;
+	case DECON_PIXEL_FORMAT_NV12N_10B:
+		p->addr1 = NV12N_10B_CBCR_BASE(p->addr0, p->src_fw, p->src_fh);
 	default:
 		break;
 	}

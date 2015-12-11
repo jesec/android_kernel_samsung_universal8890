@@ -195,6 +195,7 @@ int vpp_reg_set_in_format(u32 id, struct vpp_img_format *vi)
 	case DECON_PIXEL_FORMAT_NV21:
 	case DECON_PIXEL_FORMAT_NV21M:
 	case DECON_PIXEL_FORMAT_NV12N:
+	case DECON_PIXEL_FORMAT_NV12N_10B:
 		cfg |= VG_IN_CON_IMG_FORMAT_YVU420_2P;
 		break;
 	default:
