@@ -1419,74 +1419,6 @@ static u32 get_vpp_out_format(u32 format)
 	}
 }
 
-static void decon_save_win_state(struct decon_device *decon,
-		struct decon_reg_data *regs)
-{
-	int i = 0;
-	int win_state = 0;
-
-	for (i = 0; i < decon->pdata->max_win; i++) {
-		if (regs->win_regs[i].wincon & WIN_CONTROL_EN_F) {
-			win_state |= (1 << i);
-		}
-		decon->old_protection[i] = regs->protection[i];
-	}
-
-	decon->prev_win_state = win_state;
-	return;
-}
-
-static void decon_save_old_buffer(struct decon_device *decon,
-		struct decon_reg_data *regs, int win)
-{
-	int i;
-
-	decon->old_info.vpp_id = regs->vpp_config[win].idma_type;
-	decon->old_info.pixel_format = regs->vpp_config[win].format;
-	decon->old_info.plane = decon_get_plane_cnt(regs->vpp_config[win].format);
-	for (i = 0; i < decon->old_info.plane; i++) {
-		decon->old_info.phys_addr[i] = regs->phys_addr[win].phy_addr[i];
-		decon->old_info.phys_addr_len[i] = regs->phys_addr[win].phy_addr_len[i];
-	}
-
-}
-
-static void decon_set_cfw(struct decon_device *decon,
-		struct decon_reg_data *regs, int flag)
-{
-	int i;
-	int plane, ret;
-
-	u32 CFW_TAG = flag ? SMC_DRM_SECBUF_CFW_PROT :
-				SMC_DRM_SECBUF_CFW_UNPROT;
-
-	for (i = 0; i < decon->pdata->max_win; i++) {
-		if ((decon->prev_win_state & (1 << i)) && decon->old_protection[i]) {
-			if (decon->old_info.prot_cnt > 0) {
-				for (plane = 0; plane < decon->old_info.plane; plane++) {
-					ret = exynos_smc(CFW_TAG, decon->old_info.phys_addr[plane],
-							decon->old_info.phys_addr_len[plane],
-							decon->old_info.vpp_id + VPP_CFW_OFFSET);
-					if (ret) {
-						vpp_err("failed to secbuf cfw unprotection(%d) vpp(%d) addr[0]\n",
-								ret, decon->old_info.vpp_id);
-						vpp_info("VPP:0 CFW_UNPROT. addr:%#lx, size:%d. ip:%d\n",
-								decon->old_info.phys_addr[i],
-								decon->old_info.phys_addr_len[i],
-								decon->old_info.vpp_id + VPP_CFW_OFFSET);
-					}
-				}
-				if (!decon->old_info.last_frame)
-					decon_save_old_buffer(decon, regs, i);
-			} else {
-				decon->old_info.last_frame = 0;
-				decon_save_old_buffer(decon, regs, i);
-			}
-			decon->old_info.prot_cnt++;
-		}
-	}
-}
-
 static bool decon_get_protected_idma(struct decon_device *decon, u32 prot_bits)
 {
 	int i;
@@ -1538,11 +1470,6 @@ static void decon_set_protected_content(struct decon_device *decon,
 			change = (cur_protect_bits & (1 << type)) ^
 				(decon->prev_protection_bitmask & (1 << type));
 
-			if (!prot && change) {
-				decon->old_info.last_frame++;
-				decon_set_cfw(decon, regs, 0);
-				decon->old_info.prot_cnt = 0;
-			}
 			if (change) {
 				struct v4l2_subdev *sd = NULL;
 				sd = decon->mdev->vpp_sd[type];
@@ -1658,11 +1585,6 @@ static int decon_set_win_buffer(struct decon_device *decon, struct decon_win *wi
 		if (!buf_size) {
 			ret = -ENOMEM;
 			goto err_map;
-		}
-		if (win_config->protection) {
-			ion_phys(decon->ion_client, handle,
-					(ion_phys_addr_t *)&regs->phys_addr[win_no].phy_addr[i],
-					(size_t *)&regs->phys_addr[win_no].phy_addr_len[i]);
 		}
 		win_config->vpp_parm.addr[i] = dma_buf_data[i].dma_addr;
 		handle = NULL;
@@ -2267,12 +2189,6 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 		decon->windows[i]->plane_cnt = plane_cnt;
 		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
 			sd = decon->mdev->vpp_sd[win->vpp_id];
-			if (regs->vpp_config[i].protection) {
-				vpp_ret = v4l2_subdev_call(sd, core, ioctl,
-						VPP_CFW_CONFIG, &regs->phys_addr[i]);
-				if (vpp_ret)
-					decon_err("Failed to CFW config VPP-%d\n", win->vpp_id);
-			}
 			vpp_ret = v4l2_subdev_call(sd, core, ioctl,
 					VPP_WIN_CONFIG, &regs->vpp_config[i]);
 			if (vpp_ret) {
@@ -2298,12 +2214,6 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 		decon->vpp_usage_bitmask |= (1 << ODMA_WB);
 		decon->vpp_used[ODMA_WB] = true;
 		sd = decon->mdev->vpp_sd[ODMA_WB];
-		if (regs->vpp_config[ODMA_WB].protection) {
-			vpp_ret = v4l2_subdev_call(sd, core, ioctl,
-					VPP_CFW_CONFIG, &regs->phys_addr[ODMA_WB]);
-			if (vpp_ret)
-				decon_err("Failed to CFW config VPP-%d\n", ODMA_WB);
-		}
 		if (v4l2_subdev_call(sd, core, ioctl, VPP_WIN_CONFIG,
 				&regs->vpp_config[MAX_DECON_WIN])) {
 			decon_err("Failed to config VPP-%d\n", ODMA_WB);
@@ -2535,8 +2445,6 @@ end:
 				decon_free_dma_buf(decon, &regs->dma_buf_data[i][j]);
 			else
 				decon_free_dma_buf(decon, &old_dma_bufs[i][j]);
-
-		decon->old_protection[i] = regs->protection[i];
 	}
 
 	if (decon->pdata->out_type == DECON_OUT_WB) {
@@ -2547,8 +2455,6 @@ end:
 
 	sw_sync_timeline_inc(decon->timeline, 1);
 
-	decon_save_win_state(decon, regs);
-	decon_set_cfw(decon, regs, 0);
 	decon_vpp_stop(decon, false);
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	/* NOTE: Must be called after VPP_STOP
@@ -3974,7 +3880,6 @@ decon_init_done:
 	for (i = 0; i < MAX_VPP_SUBDEV; i++)
 		decon->vpp_used[i] = false;
 
-	decon->log_cnt = 0;
 	decon_info("decon%d registered successfully", decon->id);
 
 	return 0;
