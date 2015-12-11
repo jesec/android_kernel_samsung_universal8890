@@ -165,6 +165,7 @@ int decon_get_plane_cnt(enum decon_pixel_format format)
 	case DECON_PIXEL_FORMAT_RGBA_5551:
 	case DECON_PIXEL_FORMAT_RGB_565:
 	case DECON_PIXEL_FORMAT_NV12N:
+	case DECON_PIXEL_FORMAT_NV12N_10B:
 		return 1;
 
 	case DECON_PIXEL_FORMAT_NV16:
