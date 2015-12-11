@@ -22,6 +22,7 @@
 #include <linux/err.h>
 #include <linux/dma-mapping.h>
 #include <linux/exynos_ion.h>
+#include <linux/dma-contiguous.h>
 
 /* for ion_heap_ops structure */
 #include "ion_priv.h"
@@ -72,6 +73,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct ion_cma_heap *cma_heap = to_cma_heap(heap);
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info;
+	struct page *page;
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
@@ -84,13 +86,17 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		return ION_CMA_ALLOCATE_FAILED;
 	}
 
-	info->cpu_addr = dma_alloc_coherent(dev, len, &(info->handle),
-						GFP_HIGHUSER | __GFP_ZERO);
-
-	if (!info->cpu_addr) {
+	page = dma_alloc_from_contiguous(dev,
+			(PAGE_ALIGN(len) >> PAGE_SHIFT),
+			(align ? get_order(align) : 0));
+	if (!page) {
 		dev_err(dev, "Fail to allocate buffer\n");
 		goto err;
 	}
+
+	info->handle = phys_to_dma(dev, page_to_phys(page));
+	info->cpu_addr = page_address(page);
+	memset(info->cpu_addr, 0, len);
 
 	info->table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!info->table) {
@@ -134,7 +140,8 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 free_table:
 	kfree(info->table);
 free_mem:
-	dma_free_coherent(dev, len, info->cpu_addr, info->handle);
+	dma_release_from_contiguous(dev, page,
+			(PAGE_ALIGN(len) >> PAGE_SHIFT));
 err:
 	kfree(info);
 	return ION_CMA_ALLOCATE_FAILED;
@@ -152,7 +159,9 @@ static void ion_cma_free(struct ion_buffer *buffer)
 		ion_secure_unprotect(buffer);
 
 	/* release memory */
-	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
+	dma_release_from_contiguous(dev,
+			phys_to_page(dma_to_phys(dev, info->handle)),
+			(PAGE_ALIGN(buffer->size) >> PAGE_SHIFT));
 
 	/* release sg table */
 	sg_free_table(info->table);
@@ -234,6 +243,7 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 	if (!cma_heap)
 		return ERR_PTR(-ENOMEM);
 
+	dev_set_name(data->priv, data->name);
 	cma_heap->heap.ops = &ion_cma_ops;
 	/* get device from private heaps data, later it will be
 	 * used to make the link with reserved CMA memory */
