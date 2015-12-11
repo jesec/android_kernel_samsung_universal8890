@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/exynos_iovmm.h>
+#include <linux/smc.h>
 #include <linux/export.h>
 #include <linux/videodev2_exynos_media.h>
 
@@ -448,23 +449,6 @@ void vpp_split_single_plane(struct decon_win_config *config, struct vpp_size_par
 	}
 }
 
-void vpp_set_cfw(struct vpp_dev *vpp, struct decon_win_config *config)
-{
-	int ret;
-	int i, plane;
-
-	plane = decon_get_plane_cnt(config->format);
-	for (i = 0; i < plane; i++) {
-		ret = exynos_smc(SMC_DRM_SECBUF_CFW_PROT, vpp->phys_addr->phy_addr[i],
-				vpp->phys_addr->phy_addr_len[i], vpp->id + VPP_CFW_OFFSET);
-		if (ret) {
-			vpp_err("failed to secbuf cfw protection(%d) vpp(%d) addr[0]\n", ret, vpp->id);
-			vpp_info("VPP:0 CFW_PROT. addr:%#lx, size:%d. ip:%d\n", vpp->phys_addr->phy_addr[i],
-					vpp->phys_addr->phy_addr_len[i], vpp->id + VPP_CFW_OFFSET);
-		}
-	}
-}
-
 static int vpp_set_config(struct vpp_dev *vpp)
 {
 	struct decon_win_config *config = vpp->config;
@@ -543,8 +527,6 @@ static int vpp_set_config(struct vpp_dev *vpp)
 	}
 
 	vpp_split_single_plane(config, &p);
-	if (config->protection)
-		vpp_set_cfw(vpp, config);
 	vpp_reg_set_in_buf_addr(vpp->id, &p, &vi);
 	vpp_reg_set_smart_if_pix_num(vpp->id, config->dst.w, config->dst.h);
 
@@ -597,7 +579,6 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case VPP_WIN_CONFIG:
 		vpp->config = (struct decon_win_config *)arg;
-		vpp->protection = vpp->config->protection;
 		ret = vpp_set_config(vpp);
 		if (ret)
 			dev_err(DEV, "Failed vpp-%d configuration\n",
@@ -663,10 +644,6 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case VPP_WAIT_FOR_FRAMEDONE:
 		ret = vpp_wait_for_framedone(vpp);
-		break;
-
-	case VPP_CFW_CONFIG:
-		vpp->phys_addr = (struct vpp_phys_addr *)arg;
 		break;
 
 	default:

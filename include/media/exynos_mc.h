@@ -100,7 +100,6 @@ enum vpp_sd_ioctl {
 	VPP_DUMP,
 	VPP_WAIT_IDLE,
 	VPP_WAIT_FOR_FRAMEDONE,
-	VPP_CFW_CONFIG,
 };
 
 enum mdev_node {
