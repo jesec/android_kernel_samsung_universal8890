@@ -720,7 +720,7 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 {
 	struct cpumask mask;
 	struct exynos_tmu_data *devnode;
-	struct exynos_tmu_data *quad_data, *dual_data;
+	struct exynos_tmu_data *quad_data = NULL, *dual_data = NULL;
 	struct exynos_tmu_platform_data *quad_pdata, *dual_pdata;
 #ifdef CONFIG_EXYNOS_SNAPSHOT_THERMAL
 	char *cool_device_name = "CHANGE_MODE";
