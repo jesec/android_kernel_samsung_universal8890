@@ -544,6 +544,19 @@ int cluster_to_logical_mask(unsigned int socket_id, cpumask_t *cluster_mask)
 	return -EINVAL;
 }
 
+int get_current_cpunum(void)
+{
+       unsigned int mpidr;
+       int core_id;
+       int cluster_id;
+       int cpuid;
+       mpidr = read_cpuid_mpidr();
+       core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+       cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+       cpuid = cluster_id ? core_id : core_id + 4;
+       return cpuid;
+}
+
 void store_cpu_topology(unsigned int cpuid)
 {
 	struct cpu_topology *cpu_topo = &cpu_topology[cpuid];
