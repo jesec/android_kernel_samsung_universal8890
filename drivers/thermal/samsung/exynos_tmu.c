@@ -1208,7 +1208,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	struct thermal_sensor_conf *sensor_conf;
 	struct exynos_tmu_data *devnode;
 	u16 p_temp_error1, p_temp_error2;
-	u16 p_threshold_falling, p_cal_type;
+	u16 p_threshold_falling = 0, p_cal_type;
 	int ret, i;
 
 	/* make sure cpufreq driver has been initialized */
