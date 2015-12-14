@@ -977,7 +977,8 @@ struct bts_vpp_info *exynos_bw_calc(enum bts_media_type ip_type, struct bts_hw *
 {
 	u64 s_ratio_h, s_ratio_v = 0;
 	u64 s_ratio = 0;
-	u8 df, bpl = 0;
+	u8 df = 0;
+	u8 bpl = 0;
 	struct bts_vpp_info *vpp = to_bts_vpp(hw);
 
 	switch (ip_type) {
