@@ -88,10 +88,8 @@ static int exynos_pm_dvs_remove(struct platform_device *pdev)
 	struct exynos_dvs_info *di;
 
 	list_for_each_entry(di, &regulator_list, node) {
-		if(!IS_ERR(di->regulator)){
-			regulator_put(di->regulator);
-			kfree(di);
-		}
+		regulator_put(di->regulator);
+		kfree(di);
 	}
 	return 0;
 }
