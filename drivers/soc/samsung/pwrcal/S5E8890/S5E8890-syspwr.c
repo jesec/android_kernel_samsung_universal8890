@@ -385,7 +385,7 @@ static struct exynos_pmu_conf exynos8890_pmu_config[] = {
 	{	LOGIC_RESET_MIF_SYS_PWR_REG,				{	0x3 ,   0x3 ,	  0x3 ,	0x3 ,	0x3 ,	0x0 ,	0x3 ,	0x0 ,	0x0	} },
 	{	OSCCLK_GATE_MIF_SYS_PWR_REG,				{	0x1 ,   0x1 ,	  0x1 ,	0x1 ,	0x0 ,	0x0 ,	0x1 ,	0x0 ,	0x1	} },
 	{	SLEEP_RESET_MIF_SYS_PWR_REG,				{	0x3 ,   0x3 ,	  0x3 ,	0x3 ,	0x3 ,	0x3 ,	0x3 ,	0x3 ,	0x0	} },
-	{	MEMORY_TOP_SYS_PWR_REG,					{	0x3 ,   0x3 ,	  0x3 ,	0x3 ,	0x3 ,	0x0 ,	0x0 ,	0x0 ,	0x3	} },
+	{	MEMORY_TOP_SYS_PWR_REG,					{	0x3 ,   0x3 ,	  0x3 ,	0x3 ,	0x3 ,	0x0 ,	0x0 ,	0x0 ,	0x0	} },
 	{	CLEANY_BUS_SYS_PWR_REG,					{	0x1 ,   0x1 ,	  0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1	} },
 	{	LOGIC_RESET_CP_SYS_PWR_REG,				{	0x3 ,   0x3 ,	  0x3 ,	0x3 ,	0x3 ,	0x3 ,	0x3 ,	0x3 ,	0x3	} },
 	{	TCXO_GATE_SYS_PWR_REG,					{	0x1 ,   0x1 ,	  0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1 ,	0x1	} },
@@ -2249,6 +2249,7 @@ static void pwrcal_syspwr_prepare(int mode)
 		pwrcal_setbit(G3D_OPTION, 31, 0);
 		pwrcal_setbit(G3D_OPTION, 30, 0);
 		pwrcal_setbit(WAKEUP_MASK, 30, 1);
+		pwrcal_setbit(MEMORY_TOP_OPTION, 4, 0);
 		set_pmu_central_seq_mif(true);
 		if (is_cp_aud_enabled()) {
 			mif_use_cp_pll = 1;
@@ -2294,6 +2295,7 @@ static void pwrcal_syspwr_post(int mode)
 	switch (mode) {
 	case syspwr_sleep:
 		set_pmu_lpi_mask();
+		pwrcal_setbit(MEMORY_TOP_OPTION, 4, 1);
 		mif_use_cp_pll = 0;
 		dfsmif_paraset = 0;
 	case syspwr_stop:
@@ -2348,6 +2350,7 @@ static void pwrcal_syspwr_earlywakeup(int mode)
 
 	switch (mode) {
 	case syspwr_sleep:
+		pwrcal_setbit(MEMORY_TOP_OPTION, 4, 1);
 		if (mif_use_cp_pll) {
 			mif_use_cp_pll = 0;
 			disable_cppll_sharing_bus012_enable();
