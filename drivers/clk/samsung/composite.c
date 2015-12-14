@@ -70,7 +70,7 @@ struct samsung_clk_reg_dump *samsung_clk_alloc_reg_dump(
 struct samsung_clk_provider *__init samsung_clk_init(struct device_node *np,
 			void __iomem *base, unsigned long nr_clks)
 {
-	struct samsung_clk_provider *ctx;
+	struct samsung_clk_provider *ctx = NULL;
 	struct clk **clk_table;
 	int i;
 
