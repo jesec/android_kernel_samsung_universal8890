@@ -42,6 +42,7 @@
 #define PARAMS_CNT		(0x0060)
 #define PARAMS_VAL1		(0x0064)
 #define PARAMS_VAL2		(0x0068)
+#define LAST_CHECKPT		(0x006C)
 #define FW_LOG_VAL1		(0x0078)
 #define FW_LOG_VAL2		(0x007C)
 

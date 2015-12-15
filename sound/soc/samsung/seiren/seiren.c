@@ -713,10 +713,19 @@ static int esa_fw_startup(void)
 	/* wait for fw ready */
 	ret = wait_event_interruptible_timeout(esa_wq, si.fw_ready, HZ / 2);
 	if (!ret) {
-		esa_err("%s: fw not ready!!!\n", __func__);
-		lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
-		si.fw_use_dram = false;
-		return -EBUSY;
+		pr_info("%s: Retry CA5 Initialization\n", __func__);
+		lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
+		udelay(20);
+		lpass_reset(LPASS_IP_CA5, LPASS_OP_NORMAL);
+		ret = wait_event_interruptible_timeout(esa_wq, si.fw_ready, HZ / 2);
+		if (!ret) {
+			esa_err("%s: fw not ready!!! (%d)\n", __func__,
+				readl(si.mailbox + LAST_CHECKPT));
+			lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
+			lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
+			si.fw_use_dram = false;
+			return -EBUSY;
+		}
 	}
 
 #ifndef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
