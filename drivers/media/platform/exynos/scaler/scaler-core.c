@@ -238,6 +238,15 @@ static const struct sc_fmt sc_formats[] = {
 		.h_shift	= 1,
 		.v_shift	= 1,
 	}, {
+		.name		= "YUV 4:2:0 contiguous Y/CbCr 10-bit",
+		.pixelformat	= V4L2_PIX_FMT_NV12N_10B,
+		.cfg_val	= SCALER_CFG_FMT_YCBCR420_2P,
+		.bitperpixel	= { 15 },
+		.num_planes	= 1,
+		.num_comp	= 2,
+		.h_shift	= 1,
+		.v_shift	= 1,
+	}, {
 		.name		= "YUV 4:2:0 contiguous 3-planar Y/Cb/Cr",
 		.pixelformat	= V4L2_PIX_FMT_YUV420N,
 		.cfg_val	= SCALER_CFG_FMT_YCBCR420_3P,
@@ -2822,6 +2831,13 @@ static int sc_get_bufaddr(struct sc_dev *sc, struct vb2_buffer *vb2buf,
 					NV12N_CBCR_BASE(frame->addr.y, w, h);
 				frame->addr.ysize = NV12N_Y_SIZE(w, h);
 				frame->addr.cbsize = NV12N_CBCR_SIZE(w, h);
+			} else if (frame->sc_fmt->pixelformat == V4L2_PIX_FMT_NV12N_10B) {
+				unsigned int w = frame->width;
+				unsigned int h = frame->height;
+				frame->addr.cb =
+					NV12N_10B_CBCR_BASE(frame->addr.y, w, h);
+				frame->addr.ysize = NV12N_Y_SIZE(w, h);
+				frame->addr.cbsize = NV12N_CBCR_SIZE(w, h);
 			} else {
 				frame->addr.cb = frame->addr.y + pixsize;
 				frame->addr.ysize = pixsize;
@@ -3259,6 +3275,13 @@ static void sc_m2m1shot_get_bufaddr(struct sc_dev *sc,
 				unsigned int h = frame->height;
 				frame->addr.cb =
 					NV12N_CBCR_BASE(frame->addr.y, w, h);
+				frame->addr.ysize = NV12N_Y_SIZE(w, h);
+				frame->addr.cbsize = NV12N_CBCR_SIZE(w, h);
+			} else if (frame->sc_fmt->pixelformat == V4L2_PIX_FMT_NV12N_10B) {
+				unsigned int w = frame->width;
+				unsigned int h = frame->height;
+				frame->addr.cb =
+					NV12N_10B_CBCR_BASE(frame->addr.y, w, h);
 				frame->addr.ysize = NV12N_Y_SIZE(w, h);
 				frame->addr.cbsize = NV12N_CBCR_SIZE(w, h);
 			} else {
