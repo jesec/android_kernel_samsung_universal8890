@@ -2076,6 +2076,7 @@ struct ect_bin *ect_binary_get_bin(void *block, char *binary_name)
 
 int ect_parse_binary_header(void)
 {
+	int ret = 0;
 	int i, j;
 	char *block_name;
 	void *address;
@@ -2093,14 +2094,17 @@ int ect_parse_binary_header(void)
 	ect_parse_integer(&address, &ect_header->total_size);
 	ect_parse_integer(&address, &ect_header->num_of_header);
 
-	if (memcmp(ect_header->sign, ect_signature, sizeof(ect_signature) - 1))
-		return -EINVAL;
+	if (memcmp(ect_header->sign, ect_signature, sizeof(ect_signature) - 1)) {
+		ret = -EINVAL;
+		goto err_memcmp;
+	}
 
 	ect_present_test_data(ect_header->version);
 
 	for (i = 0; i < ect_header->num_of_header; ++i) {
 		if (ect_parse_string(&address, &block_name, &length)) {
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err_parse_string;
 		}
 
 		ect_parse_integer(&address, &offset);
@@ -2111,7 +2115,8 @@ int ect_parse_binary_header(void)
 
 			if (ect_list[j].parser((void *)ect_address + offset, ect_list + j)) {
 				pr_err("[ECT] : parse error %s\n", block_name);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto err_parser;
 			}
 
 			ect_list[j].block_precedence = i;
@@ -2120,7 +2125,14 @@ int ect_parse_binary_header(void)
 
 	ect_header_info.block_handle = ect_header;
 
-	return 0;
+	return ret;
+
+err_parser:
+err_parse_string:
+err_memcmp:
+	kfree(ect_header);
+
+	return ret;
 }
 
 int ect_strcmp(char *src1, char *src2)
