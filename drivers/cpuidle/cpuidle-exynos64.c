@@ -214,7 +214,7 @@ static int exynos_cpuidle_reboot_notifier(struct notifier_block *this,
 	switch (event) {
 	case SYSTEM_POWER_OFF:
 	case SYS_RESTART:
-		cpu_idle_poll_ctrl(true);
+		cpuidle_pause();
 		break;
 	}
 
