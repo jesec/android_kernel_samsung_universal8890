@@ -13,6 +13,8 @@
 #define MHZ		((unsigned long long)1000000)
 #endif
 
+#define NUM_OF_CH				(4)
+
 #define __SMC_ALL				(DMC_MISC_CCORE_BASE + 0x8000)
 #define __PHY_ALL				(DMC_MISC_CCORE_BASE + 0x4000)
 #define __DMC_MISC_ALL			(DMC_MISC_CCORE_BASE + 0x0000)
@@ -76,6 +78,10 @@
 #define DFIDelay2_1				((void *)(__SMC_ALL + 0x0194))
 
 #define SMC_TmrTrnCtl			((void *)(__SMC_ALL + 0x01D0))
+#define SMC_TmrTrnCtl_CH0		((void *)(SMC0_BASE + 0x01D0))
+#define SMC_TmrTrnCtl_CH1		((void *)(SMC1_BASE + 0x01D0))
+#define SMC_TmrTrnCtl_CH2		((void *)(SMC2_BASE + 0x01D0))
+#define SMC_TmrTrnCtl_CH3		((void *)(SMC3_BASE + 0x01D0))
 #define SMC_TrnStatus_CH0		((void *)(SMC0_BASE + 0x01D8))
 #define SMC_TrnStatus_CH1		((void *)(SMC1_BASE + 0x01D8))
 #define SMC_TrnStatus_CH2		((void *)(SMC2_BASE + 0x01D8))
@@ -145,7 +151,15 @@
 
 #define DMC_MISC_CON0			((void *)(__DMC_MISC_ALL + 0x0014))
 #define DMC_MISC_CON1			((void *)(__DMC_MISC_ALL + 0x003C))
+#define DMC_MISC_CON1_CH0		((void *)(DMC_MISC0_BASE + 0x003C))
+#define DMC_MISC_CON1_CH1		((void *)(DMC_MISC1_BASE + 0x003C))
+#define DMC_MISC_CON1_CH2		((void *)(DMC_MISC2_BASE + 0x003C))
+#define DMC_MISC_CON1_CH3		((void *)(DMC_MISC3_BASE + 0x003C))
 #define MRS_DATA1				((void *)(__DMC_MISC_ALL + 0x0054))
+#define MRS_DATA1_CH0			((void *)(DMC_MISC0_BASE + 0x0054))
+#define MRS_DATA1_CH1			((void *)(DMC_MISC1_BASE + 0x0054))
+#define MRS_DATA1_CH2			((void *)(DMC_MISC2_BASE + 0x0054))
+#define MRS_DATA1_CH3			((void *)(DMC_MISC3_BASE + 0x0054))
 
 #define CG_CTRL_VAL_DDRPHY0		((void *)(CMU_MIF0_BASE + 0x0A08))
 #define CG_CTRL_VAL_DDRPHY1		((void *)(CMU_MIF1_BASE + 0x0A08))
@@ -157,7 +171,12 @@
 #define CG_CTRL_MAN_DDRPHY2		((void *)(CMU_MIF2_BASE + 0x1A08))
 #define CG_CTRL_MAN_DDRPHY3		((void *)(CMU_MIF3_BASE + 0x1A08))
 
+#define PMU_DREX_CALIBRATION1	((void *)(PMU_ALIVE_BASE + 0x09a4))
+#define PMU_DREX_CALIBRATION2	((void *)(PMU_ALIVE_BASE + 0x09a8))
 #define PMU_DREX_CALIBRATION3	((void *)(PMU_ALIVE_BASE + 0x09ac))
+
+#define PHY_CH_ALL							(4)
+#define VREF_BUFFER							(20)
 
 enum mif_timing_set_idx {
 	MIF_TIMING_SET_0,
@@ -370,6 +389,31 @@ struct dram_dfs_table {
 	unsigned int DirectCmd_MR22;
 };
 
+struct vref_trn_t {
+	unsigned short trained_vref[NUM_OF_CH];
+};
+
+struct vref_search_t {
+	unsigned short min_step		: 4;
+	unsigned short max_step		: 4;
+	unsigned short search_step	: 4;
+	unsigned short trial		: 4;
+};
+
+struct vref_info_t {
+	unsigned char			vref;
+	unsigned char			center;
+	struct vref_search_t	search;
+};
+
+struct vref_config_t {
+	unsigned char			num_of_level;
+	struct vref_info_t		read;
+	unsigned char			vref_read[PHY_CH_ALL][VREF_BUFFER];
+	struct vref_info_t		write;
+	unsigned char			vref_write[PHY_CH_ALL][VREF_BUFFER];
+};
+
 static struct smc_dfs_table *g_smc_dfs_table;
 static struct phy_dfs_table *g_phy_dfs_table;
 static struct dram_dfs_table *g_dram_dfs_table;
@@ -379,8 +423,11 @@ static unsigned int query_key;
 
 static const unsigned long long mif_freq_to_level_switch[] = {
 	/* BUS3_PLL SW 936 */	936 * MHZ,
-	/* BUS0_PLL SW 468 */	468 * MHZ
+	/* BUS0_PLL SW 528 */	528 * MHZ
 };
+
+static unsigned long vref_base;
+static struct vref_config_t *vref_config;
 
 #ifndef PWRCAL_TARGET_LINUX
 /******************************************************************************
@@ -518,6 +565,50 @@ void smc_mode_register_write(int mr, int op)
 
 /******************************************************************************
  *
+ * @fn      smc_mode_register_write_per_ch
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
+void smc_mode_register_write_per_ch(int ch, int mr, int rank, int op)
+{
+	void *modereg;
+	void *moderegwrdata;
+	void *mprmrctl;
+
+	unsigned long base;
+
+	switch (ch) {
+	case 0:
+		base = SMC0_BASE;
+		break;
+	case 1:
+		base = SMC1_BASE;
+		break;
+	case 2:
+		base = SMC2_BASE;
+		break;
+	case 3:
+		base = SMC3_BASE;
+		break;
+	}
+	modereg = (void *)(base);
+	moderegwrdata = (void *)(base + 0x8);
+	mprmrctl = (void *)(base + 0x4);
+
+	pwrcal_writel(modereg, (((rank & 0x3) << 28) | (mr << 20)));
+	pwrcal_writel(moderegwrdata, op);
+	dsb(ishst);
+	pwrcal_writel(mprmrctl, 0x10);
+	dsb(ishst);
+}
+
+/******************************************************************************
+ *
  * @fn      convert_to_level
  *
  * @brief
@@ -593,40 +684,59 @@ void *PHY_DVFS1_CON4[] = {PHY_DVFS1_CON4_CH0, PHY_DVFS1_CON4_CH1, PHY_DVFS1_CON4
 void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing_set_idx)
 {
 	int n;
+	int rank;
+
 	unsigned int uReg;
 	unsigned int target_mif_level_idx, target_mif_level_switch_idx;
-	unsigned int mr13;
+	unsigned char mr13;
+	unsigned char mr14;
+
 	phy_dvfs0_con3_t DVFS_CON3_ECT, DVFS_CON3;
 	phy_dvfs0_con4_t DVFS_CON4_ECT, DVFS_CON4;
 	phy_zq_con0_t ZQ_CON0;
 
 	target_mif_level_idx = convert_to_level(target_mif_freq);
 
-	if (target_mif_freq == 936000000) {
 		target_mif_level_switch_idx = convert_to_level_switch(target_mif_freq);
 		target_mif_level_switch_idx += num_mif_freq_to_level;
-	} else {
-		target_mif_level_switch_idx = convert_to_level(target_mif_freq);
-	}
 
+	vref_config = (struct vref_config_t *)(unsigned long)vref_base;
 
 	/* 1. Configure parameter */
 	if (timing_set_idx == MIF_TIMING_SET_0) {
 		//periodic training enable/disable as DVFS level
+
 		//1. Set TmrTrnInterval as zero to disable new periodic training.
 		pwrcal_writel(TmrTrnInterval_1, 0x0);
+
+#ifndef PWRCAL_TARGET_LINUX
+		for (n = 0; n < 4; n++) {
 		//2. Wait until that TrnStatus.TrnSelStatus becomes 4'b0000 or 4'b1xxxx.
-		while (!((pwrcal_readl(SMC_TrnStatus_CH0) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH0) == 0x0)));
-		while (!((pwrcal_readl(SMC_TrnStatus_CH1) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH1) == 0x0)));
-		while (!((pwrcal_readl(SMC_TrnStatus_CH2) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH2) == 0x0)));
-		while (!((pwrcal_readl(SMC_TrnStatus_CH3) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH3) == 0x0)));
+			while (!((pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x100000) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x100000) == 0x0)));
+
 		//3. Change TmrTrnInterval and TmrTrnCtl for new DVFS level.
 		if (g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl == 0)
-			pwrcal_writel(SMC_TmrTrnCtl, 0x0);
+				pwrcal_writel(SMC_TmrTrnCtl_CH0 + n * 0x100000, 0x0);
 		else
-			pwrcal_writel(SMC_TmrTrnCtl, (0x1<<31) | g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl);
+				pwrcal_writel(SMC_TmrTrnCtl_CH0 + n * 0x100000, (0x1 << 31) | g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl);
+		}
+#else
+		for (n = 0; n < 4; n++) {
+		//2. Wait until that TrnStatus.TrnSelStatus becomes 4'b0000 or 4'b1xxxx.
+			while (!((pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x10000) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x10000) == 0x0)));
 
-		pwrcal_writel(DMC_MISC_CON1, 0x0);	//timing_set_sw_r=0x0
+		//3. Change TmrTrnInterval and TmrTrnCtl for new DVFS level.
+		if (g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl == 0)
+				pwrcal_writel(SMC_TmrTrnCtl_CH0 + n * 0x10000, 0x0);
+		else
+				pwrcal_writel(SMC_TmrTrnCtl_CH0 + n * 0x10000, (0x1 << 31) | g_smc_dfs_table[target_mif_level_idx].DvfsTrnCtl);
+		}
+#endif
+
+		pwrcal_writel(DMC_MISC_CON1_CH0, 0x0);	//timing_set_sw_r=0x0
+		pwrcal_writel(DMC_MISC_CON1_CH1, 0x0);	//timing_set_sw_r=0x0
+		pwrcal_writel(DMC_MISC_CON1_CH2, 0x0);	//timing_set_sw_r=0x0
+		pwrcal_writel(DMC_MISC_CON1_CH3, 0x0);	//timing_set_sw_r=0x0
 
 		pwrcal_writel(DramTiming0_0, g_smc_dfs_table[target_mif_level_idx].DramTiming0);
 		pwrcal_writel(DramTiming1_0, g_smc_dfs_table[target_mif_level_idx].DramTiming1);
@@ -660,7 +770,7 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		uReg |= (0x1 << 30);	//0x1 = DVFS 1 mode
 		pwrcal_writel(PHY_DVFS_CON, uReg);
 
-		for (n = 0; n < 4; n++) {
+		for (n = 0; n < NUM_OF_CH; n++) {
 			DVFS_CON3.data = DVFS_CON3_ECT.data = g_phy_dfs_table[target_mif_level_idx].DVFSn_CON3;
 			DVFS_CON4.data = DVFS_CON4_ECT.data = g_phy_dfs_table[target_mif_level_idx].DVFSn_CON4;
 			ZQ_CON0.data = pwrcal_readl(PHY_ZQ_CON0[n]);
@@ -717,24 +827,52 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR3);
 		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR11);
 		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR12);
-		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR14);
+
+		if ((vref_config->write.vref != 0)) {
+			for (n = 0; n < NUM_OF_CH; n++) {
+				mr14 = vref_config->vref_write[n][target_mif_level_idx];
+				for (rank = 1; rank < 0x4; rank <<= 1)
+					smc_mode_register_write_per_ch(n, DRAM_MR14, rank, mr14 & 0xff);
+			}
+		} else {
+			smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR14);
+		}
+
 		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR22);
 
 		mr13 &= ~(0x1 << 7);	// clear FSP-OP[7]
-		pwrcal_writel(MRS_DATA1, mr13);
+		pwrcal_writel(MRS_DATA1_CH0, mr13);
+		pwrcal_writel(MRS_DATA1_CH1, mr13);
+		pwrcal_writel(MRS_DATA1_CH2, mr13);
+		pwrcal_writel(MRS_DATA1_CH3, mr13);
 	} else if (timing_set_idx == MIF_TIMING_SET_1) {
 		//periodic training enable/disable as DVFS level
+
 		//1. Set TmrTrnInterval as zero to disable new periodic training.
 		pwrcal_writel(TmrTrnInterval_0, 0x0);
-		//2. Wait until that TrnStatus.TrnSelStatus becomes 4'b0000 or 4'b1xxxx.
-		while (!((pwrcal_readl(SMC_TrnStatus_CH0) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH0) == 0x0)));
-		while (!((pwrcal_readl(SMC_TrnStatus_CH1) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH1) == 0x0)));
-		while (!((pwrcal_readl(SMC_TrnStatus_CH2) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH2) == 0x0)));
-		while (!((pwrcal_readl(SMC_TrnStatus_CH3) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH3) == 0x0)));
-		//3. Change TmrTrnInterval and TmrTrnCtl for new DVFS level.
-		pwrcal_writel(SMC_TmrTrnCtl, 0x0);	//switching PLL is always periodic training off
 
-		pwrcal_writel(DMC_MISC_CON1, 0x1);	//timing_set_sw_r=0x1
+#ifndef PWRCAL_TARGET_LINUX
+		for (n = 0; n < 4; n++) {
+		//2. Wait until that TrnStatus.TrnSelStatus becomes 4'b0000 or 4'b1xxxx.
+			while (!((pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x100000) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x100000) == 0x0)));
+
+		//3. Change TmrTrnInterval and TmrTrnCtl for new DVFS level.
+			pwrcal_writel(SMC_TmrTrnCtl_CH0 + n * 0x100000, 0x0);	//switching PLL is always periodic training off
+		}
+#else
+		for (n = 0; n < 4; n++) {
+		//2. Wait until that TrnStatus.TrnSelStatus becomes 4'b0000 or 4'b1xxxx.
+			while (!((pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x10000) == 0x8) || (pwrcal_readl(SMC_TrnStatus_CH0 + n * 0x10000) == 0x0)));
+
+		//3. Change TmrTrnInterval and TmrTrnCtl for new DVFS level.
+			pwrcal_writel(SMC_TmrTrnCtl_CH0 + n * 0x10000, 0x0);	//switching PLL is always periodic training off
+		}
+#endif
+
+		pwrcal_writel(DMC_MISC_CON1_CH0, 0x1);	//timing_set_sw_r=0x1
+		pwrcal_writel(DMC_MISC_CON1_CH1, 0x1);	//timing_set_sw_r=0x1
+		pwrcal_writel(DMC_MISC_CON1_CH2, 0x1);	//timing_set_sw_r=0x1
+		pwrcal_writel(DMC_MISC_CON1_CH3, 0x1);	//timing_set_sw_r=0x1
 
 		pwrcal_writel(DramTiming0_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming0);
 		pwrcal_writel(DramTiming1_1, g_smc_dfs_table[target_mif_level_switch_idx].DramTiming1);
@@ -768,7 +906,7 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		uReg |= (0x2 << 30);	//0x2 = DVFS 2 mode
 		pwrcal_writel(PHY_DVFS_CON, uReg);
 
-		for (n = 0; n < 4; n++) {
+		for (n = 0; n < NUM_OF_CH; n++) {
 
 			DVFS_CON3.data = DVFS_CON3_ECT.data = g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON3;
 			DVFS_CON4.data = DVFS_CON4_ECT.data = g_phy_dfs_table[target_mif_level_switch_idx].DVFSn_CON4;
@@ -827,12 +965,25 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR3);
 		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR11);
 		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR12);
-		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR14);
+
+		if ((vref_config->write.vref != 0)) {
+			for (n = 0; n < NUM_OF_CH; n++) {
+				mr14 = vref_config->vref_write[n][target_mif_level_switch_idx];
+				for (rank = 1; rank < 0x4; rank <<= 1)
+					smc_mode_register_write_per_ch(n, DRAM_MR14, rank, mr14 & 0xff);
+			}
+		} else {
+			smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR14);
+		}
+
 		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR22);
 
 		mr13 &= ~(0x1 << 7);	// clear FSP-OP[7]
 		mr13 |= (0x1 << 7);	// set FSP-OP[7]=0x1
-		pwrcal_writel(MRS_DATA1, mr13);
+		pwrcal_writel(MRS_DATA1_CH0, mr13);
+		pwrcal_writel(MRS_DATA1_CH1, mr13);
+		pwrcal_writel(MRS_DATA1_CH2, mr13);
+		pwrcal_writel(MRS_DATA1_CH3, mr13);
 	}	 else {
 		pr_err("wrong DMC timing set selection on DVFS\n");
 		return;
@@ -977,6 +1128,12 @@ void dfs_mif_level_init(void)
  *****************************************************************************/
 void dfs_dram_init(void)
 {
+#ifndef PWRCAL_TARGET_LINUX
+	vref_base = pwrcal_readl(PMU_DREX_CALIBRATION2);
+#else
+	vref_base = (unsigned long)ioremap(pwrcal_readl(PMU_DREX_CALIBRATION2), SZ_2K);
+#endif
+
 	dfs_dram_param_init();
 	dfs_mif_level_init();
 }
