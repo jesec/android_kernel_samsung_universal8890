@@ -187,27 +187,6 @@ static int exynos_enter_idle_state(struct cpuidle_device *dev,
 /***************************************************************************
  *                            Define notifier call                         *
  ***************************************************************************/
-static int exynos_cpuidle_notifier_event(struct notifier_block *this,
-					  unsigned long event,
-					  void *ptr)
-{
-	switch (event) {
-	case PM_SUSPEND_PREPARE:
-		cpu_idle_poll_ctrl(true);
-		return NOTIFY_OK;
-	case PM_POST_RESTORE:
-	case PM_POST_SUSPEND:
-		cpu_idle_poll_ctrl(false);
-		return NOTIFY_OK;
-	}
-
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block exynos_cpuidle_notifier = {
-	.notifier_call = exynos_cpuidle_notifier_event,
-};
-
 static int exynos_cpuidle_reboot_notifier(struct notifier_block *this,
 				unsigned long event, void *_cmd)
 {
@@ -320,7 +299,6 @@ static int __init exynos_idle_init(void)
 	if (ret)
 		goto out_unregister_boot_cluster;
 
-	register_pm_notifier(&exynos_cpuidle_notifier);
 	register_reboot_notifier(&exynos_cpuidle_reboot_nb);
 
 	cpuidle_profile_register(&exynos_idle_boot_cluster_driver);
