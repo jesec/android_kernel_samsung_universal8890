@@ -733,7 +733,6 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.therm_trip_mode_shift = EXYNOS_TMU_TRIP_MODE_SHIFT,
 	.therm_trip_mode_mask = EXYNOS_TMU_TRIP_MODE_MASK,
 	.therm_trip_en_shift = EXYNOS_TMU_THERM_TRIP_EN_SHIFT,
-	.lpi0_mode_en_shift = EXYNOS_TEM1456X_TMU_LPI0_MODE_EN_SHIFT,
 	.tmu_status = EXYNOS_TMU_REG_STATUS,
 	.valid_p0_shift = EXYNOS_TEM1456X_VALID_P0_SHIFT,
 	.valid_mask = EXYNOS_TEM1456X_VALID_MASK,
