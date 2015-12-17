@@ -2865,7 +2865,7 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 
 	pdat = dev_get_platdata(&adev->dev);
 
-	ret = dma_set_mask_and_coherent(&adev->dev, DMA_BIT_MASK(36));
+	ret = dma_set_mask_and_coherent(&adev->dev, DMA_BIT_MASK(32));
 	if (ret)
 		return ret;
 
