@@ -158,6 +158,7 @@ static int _clk_pll1419x_find_pms(struct pll_spec *pll_spec,
 				continue;
 
 			fout = fvco >> s;
+			tmpfout = 0;
 			if ((fout >= pll_spec->fout_min)
 					&& (fout <= pll_spec->fout_max)) {
 				tmprate = rate;
@@ -173,7 +174,7 @@ static int _clk_pll1419x_find_pms(struct pll_spec *pll_spec,
 					return 0;
 				}
 			}
-			if (tmpfout < tmprate && mindiffrate > tmprate - tmpfout) {
+			if (tmpfout && tmpfout < tmprate && mindiffrate > tmprate - tmpfout) {
 				mindiffrate = tmprate - tmpfout;
 				min_fout = fout;
 				min_p = p;
