@@ -49,18 +49,18 @@
 static struct pm_qos_request int_pm_qos_from_mif;
 
 static u32 int_min_table[] = {
-	336000,		/* MIF L0  1794MHz, INT L12 */
+	400000,		/* MIF L0  1794MHz, INT L11 */
 	336000,		/* MIF L1  1716MHz, INT L12 */
-	255000,		/* MIF L2  1539MHz, INT L13 */
+	336000,		/* MIF L2  1539MHz, INT L12 */
 	255000,		/* MIF L3  1352MHz, INT L13 */
-	200000,		/* MIF L4  1144MHz, INT L14 */
+	255000,		/* MIF L4  1144MHz, INT L13 */
 	200000,		/* MIF L5  1014MHz, INT L14 */
-	127000,		/* MIF L6   845MHz, INT L16 */
-	127000,		/* MIF L7   676MHz, INT L16 */
-	127000,		/* MIF L8   546MHz, INT L16 */
-	127000,		/* MIF L9   421MHz, INT L16 */
-	127000,		/* MIF L10  286MHz, INT L16 */
-	127000		/* MIF L11  208MHz, INT L16 */
+	200000,		/* MIF L6   845MHz, INT L14 */
+	200000,		/* MIF L7   676MHz, INT L14 */
+	200000,		/* MIF L8   546MHz, INT L14 */
+	200000,		/* MIF L9   421MHz, INT L14 */
+	200000,		/* MIF L10  286MHz, INT L16 */
+	200000		/* MIF L11  208MHz, INT L16 */
 };
 
 u32 sw_volt_table[2];
