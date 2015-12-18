@@ -414,7 +414,7 @@ errorout:
 static unsigned int get_rate(struct dfs_table *table)
 {
 	int l, m;
-	unsigned int cur[128];
+	unsigned int cur[128] = {0, };
 	unsigned long long rate;
 	struct pwrcal_clk *clk;
 

@@ -39,7 +39,7 @@ static int blkpwr_enable(struct cal_pd *pd)
 		pd->post(1);
 
 out:
-	if (ret)
+	if (pd && ret)
 		pr_err("BLKPWR enable Fail (%s)\n", pd->name);
 
 	return 0;
@@ -80,7 +80,7 @@ static int blkpwr_disable(struct cal_pd *pd)
 		pd->post(0);
 
 out:
-	if (ret)
+	if (pd && ret)
 		pr_err("BLKPWR disable Fail (%s)\n", pd->name);
 
 	return 0;

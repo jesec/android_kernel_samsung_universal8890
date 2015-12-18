@@ -26,7 +26,7 @@ unsigned int pwrcal_readl(void *addr)
 void pwrcal_writel(void *addr, unsigned int regv)
 {
 	void *ma;
-	unsigned long flag;
+	unsigned long flag = 0;
 #ifdef PWRCAL_TARGET_LINUX
 	ma = v2psfrmap[MAP_IDX(addr)].ma + ((unsigned long)addr & 0xFFFF);
 	if (addr < spinlock_enable_offset && !((unsigned long)addr & 0x80000000))
@@ -58,7 +58,7 @@ void pwrcal_setbit(void *addr, unsigned int bitp, unsigned int bitv)
 	void *ma;
 	unsigned int mask = 1 << bitp;
 	unsigned int regv;
-	unsigned long flag;
+	unsigned long flag = 0;
 
 #ifdef PWRCAL_TARGET_LINUX
 	ma = v2psfrmap[MAP_IDX(addr)].ma + ((unsigned long)addr & 0xFFFF);
@@ -97,7 +97,7 @@ void pwrcal_setf(void *addr,
 	void *ma;
 	unsigned int mask = fieldm << fieldp;
 	unsigned int regv;
-	unsigned long flag;
+	unsigned long flag = 0;
 
 #ifdef PWRCAL_TARGET_LINUX
 	ma = v2psfrmap[MAP_IDX(addr)].ma + ((unsigned long)addr & 0xFFFF);
