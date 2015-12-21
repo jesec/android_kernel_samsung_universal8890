@@ -48,7 +48,7 @@
 /* Watchdog interval */
 #define MFC_WATCHDOG_INTERVAL   1000
 /* After how many executions watchdog should assume lock up */
-#define MFC_WATCHDOG_CNT        3
+#define MFC_WATCHDOG_CNT        5
 
 #define MFC_NO_INSTANCE_SET	-1
 
