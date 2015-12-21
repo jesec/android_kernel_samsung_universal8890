@@ -1182,6 +1182,29 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 			mfc_debug(2, "Last frame received after resolution change.\n");
 			s5p_mfc_handle_frame_all_extracted(ctx);
 			s5p_mfc_change_state(ctx, MFCINST_RES_CHANGE_END);
+			/* If there is no display frame after resolution change,
+			 * Some released frames can't be unprotected.
+			 * So, check and request unprotection in the end of DRC.
+			 */
+			if (ctx->is_drm && ctx->raw_protect_flag) {
+				struct s5p_mfc_buf *dst_buf;
+				int i;
+
+				mfc_debug(2, "raw_protect_flag(%#lx) will be released\n",
+						ctx->raw_protect_flag);
+				for (i = 0; i < MFC_MAX_DPBS; i++) {
+					if (test_bit(i, &ctx->raw_protect_flag)) {
+						dst_buf = dec->assigned_dpb[i];
+						if (s5p_mfc_raw_buf_prot(ctx, dst_buf, false))
+							mfc_err_ctx("failed to CFW_UNPROT\n");
+						else
+							clear_bit(i, &ctx->raw_protect_flag);
+						mfc_debug(2, "[%d] dec dst buf un-prot_flag: %#lx\n",
+								i, ctx->raw_protect_flag);
+					}
+				}
+				cleanup_assigned_dpb(ctx);
+			}
 			goto leave_handle_frame;
 		} else {
 			s5p_mfc_handle_frame_all_extracted(ctx);

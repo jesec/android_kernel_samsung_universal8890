@@ -2180,7 +2180,7 @@ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return 0;
 }
 
-static void cleanup_assigned_dpb(struct s5p_mfc_ctx *ctx)
+void cleanup_assigned_dpb(struct s5p_mfc_ctx *ctx)
 {
 	struct s5p_mfc_dec *dec;
 	int i;
