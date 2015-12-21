@@ -2913,7 +2913,7 @@ static int sysmmu_map_pte(struct mm_struct *mm,
 		struct exynos_iommu_domain *domain, dma_addr_t iova, int prot)
 {
 	pte_t *pte;
-	int ret;
+	int ret = 0;
 	spinlock_t *ptl;
 	bool write = !!(prot & IOMMU_WRITE);
 	bool pfnmap = !!(prot & IOMMU_PFNMAP);
@@ -2945,12 +2945,13 @@ static int sysmmu_map_pte(struct mm_struct *mm,
 			/* find_vma() always successes */
 			ret = handle_mm_fault(mm, find_vma(mm, addr),
 					      addr, fault_flag);
+			spin_lock(ptl);
 			if (ret & VM_FAULT_ERROR) {
 				ret = mm_fault_translate(ret);
 				goto err;
+			} else {
+				ret = 0;
 			}
-
-			spin_lock(ptl);
 		}
 
 		BUG_ON(!lv2ent_fault(ent));
@@ -2974,8 +2975,10 @@ static int sysmmu_map_pte(struct mm_struct *mm,
 			pgtable_flush(ent_beg, ent);
 
 			ent = alloc_lv2entry_userptr(domain, iova);
-			if (IS_ERR(ent))
+			if (IS_ERR(ent)) {
+				ret = PTR_ERR(ent);
 				goto err;
+			}
 			ent_beg = ent;
 		}
 	} while (pte++, addr += PAGE_SIZE, addr != end);
@@ -2983,7 +2986,7 @@ static int sysmmu_map_pte(struct mm_struct *mm,
 	pgtable_flush(ent_beg, ent);
 err:
 	pte_unmap_unlock(pte - 1, ptl);
-	return 0;
+	return ret;
 }
 
 static inline int sysmmu_map_pmd(struct mm_struct *mm,
@@ -3074,7 +3077,6 @@ void exynos_iommu_unmap_userptr(struct iommu_domain *dom,
 			entries -= lv2ents;
 			iova += lv2ents << SPAGE_ORDER;
 			sent++;
-			BUG(); /* unexpected situation */
 			continue;
 		}
 
@@ -3085,10 +3087,8 @@ void exynos_iommu_unmap_userptr(struct iommu_domain *dom,
 		pent = page_entry(sent, iova);
 		for (i = 0; i < lv2ents; i++, pent++) {
 			/* ignore fault entries */
-			if (lv2ent_fault(pent)) {
-				BUG(); /* unexpected */
+			if (lv2ent_fault(pent))
 				continue;
-			}
 
 			BUG_ON(!lv2ent_small(pent));
 
@@ -3212,7 +3212,7 @@ void exynos_iommu_sync_for_device(struct device *dev, dma_addr_t iova,
 void exynos_iommu_sync_for_cpu(struct device *dev, dma_addr_t iova, size_t len,
 				enum dma_data_direction dir)
 {
-	if (dir != DMA_TO_DEVICE)
+	if (dir == DMA_TO_DEVICE)
 		return;
 
 	exynos_iommu_sync(sysmmu_get_pgtable(dev),
