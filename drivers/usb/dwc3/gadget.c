@@ -1579,8 +1579,8 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 	} else {
 		dwc3_gadget_disable_irq(dwc);
 		dwc3_event_buffers_cleanup(dwc);
-		__dwc3_gadget_ep_disable(dwc->eps[0]);
 		__dwc3_gadget_ep_disable(dwc->eps[1]);
+		__dwc3_gadget_ep_disable(dwc->eps[0]);
 
 		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 		reg &= ~DWC3_DCTL_RUN_STOP;
@@ -1775,8 +1775,8 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	dwc3_gadget_disable_irq(dwc);
-	__dwc3_gadget_ep_disable(dwc->eps[0]);
 	__dwc3_gadget_ep_disable(dwc->eps[1]);
+	__dwc3_gadget_ep_disable(dwc->eps[0]);
 
 	dwc->gadget_driver	= NULL;
 
@@ -2974,8 +2974,8 @@ void dwc3_gadget_complete(struct dwc3 *dwc)
 
 int dwc3_gadget_suspend(struct dwc3 *dwc)
 {
-	__dwc3_gadget_ep_disable(dwc->eps[0]);
 	__dwc3_gadget_ep_disable(dwc->eps[1]);
+	__dwc3_gadget_ep_disable(dwc->eps[0]);
 
 	dwc->dcfg = dwc3_readl(dwc->regs, DWC3_DCFG);
 
