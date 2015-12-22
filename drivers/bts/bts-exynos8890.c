@@ -190,6 +190,7 @@ static unsigned int mif_freq, int_freq;
 static struct pm_qos_request exynos8_mif_bts_qos;
 static struct pm_qos_request exynos8_int_bts_qos;
 static struct pm_qos_request exynos8_gpu_mif_bts_qos;
+static struct pm_qos_request exynos8_winlayer_mif_bts_qos;
 static struct srcu_notifier_head exynos_media_notifier;
 static struct clk_info clk_table[0];
 
@@ -1103,6 +1104,38 @@ void bts_ext_scenario_set(enum bts_media_type ip_type,
 	return;
 }
 
+int bts_update_winlayer(unsigned int layers)
+{
+	unsigned int freq = 0;
+
+	switch (layers) {
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+		freq = 0;
+		break;
+	case 5:
+		freq = 676000;
+		break;
+	case 6:
+		freq = 845000;
+		break;
+	case 7:
+	case 8:
+		freq = 1014000;
+		break;
+	default:
+		break;
+	}
+
+	if (pm_qos_request_active(&exynos8_winlayer_mif_bts_qos))
+		pm_qos_update_request(&exynos8_winlayer_mif_bts_qos, freq);
+
+	return 0;
+}
+
 #else /* BTS_OPTIMIZATION */
 
 void exynos_update_media_scenario(enum bts_media_type media_type,
@@ -1359,6 +1392,7 @@ static int __init exynos8_bts_init(void)
 	pm_qos_add_request(&exynos8_mif_bts_qos, PM_QOS_BUS_THROUGHPUT, 0);
 	pm_qos_add_request(&exynos8_int_bts_qos, PM_QOS_DEVICE_THROUGHPUT, 0);
 	pm_qos_add_request(&exynos8_gpu_mif_bts_qos, PM_QOS_BUS_THROUGHPUT, 0);
+	pm_qos_add_request(&exynos8_winlayer_mif_bts_qos, PM_QOS_BUS_THROUGHPUT, 0);
 
 	register_pm_notifier(&exynos_bts_notifier);
 
