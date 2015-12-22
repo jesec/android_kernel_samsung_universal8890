@@ -2326,6 +2326,8 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	/* NOTE: Must be called after VPP_WIN_CONFIG
 	 * calculate bandwidth and update min lock(MIF, INT, DISP) */
+
+	decon->num_of_win = regs->num_of_window;
 	decon->bts2_ops->bts_calc_bw(decon);
 	decon->bts2_ops->bts_update_bw(decon, 0);
 #else
@@ -2561,6 +2563,7 @@ end:
 #if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	/* NOTE: Must be called after VPP_STOP
 	 * update min lock(MIF, INT, DISP) */
+	decon->prev_num_of_win = regs->num_of_window;
 	decon->bts2_ops->bts_calc_bw(decon);
 	decon->bts2_ops->bts_update_bw(decon, 1);
 #else

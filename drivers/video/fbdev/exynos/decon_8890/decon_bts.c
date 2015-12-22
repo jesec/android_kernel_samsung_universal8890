@@ -402,11 +402,13 @@ void bts2_update_bw(struct decon_device *decon, u32 is_after)
 	}
 
 	if (is_after) { /* after DECON h/w configuration */
+		bts_update_winlayer(decon->num_of_win);
 		mem_bw  = min(decon->total_bw, deconf->prev_total_bw);
 		bus_bw  = min(decon->max_peak_bw, deconf->prev_max_peak_bw);
 		disp_bw = min(decon->max_disp_ch, deconf->prev_max_disp_ch);
 
 	} else {
+		bts_update_winlayer(decon->prev_num_of_win);
 		mem_bw  = max(decon->total_bw, deconf->prev_total_bw);
 		bus_bw  = max(decon->max_peak_bw, deconf->prev_max_peak_bw);
 		disp_bw = max(decon->max_disp_ch, deconf->prev_max_disp_ch);

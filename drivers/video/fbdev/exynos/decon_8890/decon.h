@@ -697,6 +697,8 @@ struct decon_device {
 	u32				max_peak_bw;
 	u32				prev_total_bw;
 	u32				prev_max_peak_bw;
+	u32				num_of_win;
+	u32				prev_num_of_win;
 
 	/*
 	 * max current DISP INT channel
