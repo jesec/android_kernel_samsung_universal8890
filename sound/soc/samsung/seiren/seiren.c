@@ -2159,6 +2159,14 @@ static int esa_suspend(struct device *dev)
 
 #ifdef CONFIG_SOC_EXYNOS8890
 	si.sram = lpass_get_mem();
+	if (!si.sram) {
+		esa_err("Failed to get lpass sram %s\n", __func__);
+		return -ENOMEM;
+	} else {
+		si.fw_log_buf = si.sram + FW_LOG_ADDR;
+		si.effect_ram = si.sram + EFFECT_OFFSET;
+		lpeff_set_effect_addr(si.effect_ram);
+	}
 #endif
 	esa_fw_shutdown();
 	clk_disable_unprepare(si.clk_ca5);
@@ -2179,6 +2187,14 @@ static int esa_resume(struct device *dev)
 
 #ifdef CONFIG_SOC_EXYNOS8890
 	si.sram = lpass_get_mem();
+	if (!si.sram) {
+		esa_err("Failed to get lpass sram %s\n", __func__);
+		return -ENOMEM;
+	} else {
+		si.fw_log_buf = si.sram + FW_LOG_ADDR;
+		si.effect_ram = si.sram + EFFECT_OFFSET;
+		lpeff_set_effect_addr(si.effect_ram);
+	}
 #endif
 	clk_prepare_enable(si.clk_ca5);
 	esa_fw_startup();
