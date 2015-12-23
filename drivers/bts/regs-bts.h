@@ -188,7 +188,6 @@
 
 #define EXYNOS8_PA_SCI		0x10500000
 #define CMDTOKEN		0x00EC
-#define CRPPRI			0x0094
 
 #define SCI_CTRL		0x0000
 #define READ_QURGENT		0x0010
