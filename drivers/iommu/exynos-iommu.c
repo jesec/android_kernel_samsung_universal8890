@@ -16,6 +16,8 @@
 #include <linux/clk-private.h>
 #include <linux/pm_domain.h>
 #include <linux/sched.h>
+#include <linux/swap.h>
+#include <linux/swapops.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
@@ -2936,21 +2938,39 @@ static int sysmmu_map_pte(struct mm_struct *mm,
 	do {
 		if (pte_none(*pte) || !pte_present(*pte) ||
 					(write && !pte_write(*pte))) {
+			int cnt = 0;
+			int maxcnt = 1;
+
 			if (pfnmap) {
 				ret = -EFAULT;
 				goto err;
 			}
 
-			spin_unlock(ptl);
-			/* find_vma() always successes */
-			ret = handle_mm_fault(mm, find_vma(mm, addr),
-					      addr, fault_flag);
-			spin_lock(ptl);
-			if (ret & VM_FAULT_ERROR) {
-				ret = mm_fault_translate(ret);
-				goto err;
-			} else {
-				ret = 0;
+			while (cnt++ < maxcnt) {
+				spin_unlock(ptl);
+				/* find_vma() always successes */
+				ret = handle_mm_fault(mm, find_vma(mm, addr),
+						addr, fault_flag);
+				spin_lock(ptl);
+				if (ret & VM_FAULT_ERROR) {
+					ret = mm_fault_translate(ret);
+					goto err;
+				} else {
+					ret = 0;
+				}
+				/*
+				 * the racing between handle_mm_fault() and the
+				 * page reclamation may cause handle_mm_fault()
+				 * to return 0 even though it failed to page in.
+				 * This behavior expect the process to access
+				 * the paged out entry again then give
+				 * handle_mm_fault() a chance again to page in
+				 * the entry.
+				 */
+				if (is_swap_pte(*pte)) {
+					BUG_ON(maxcnt > 8);
+					maxcnt++;
+				}
 			}
 		}
 
