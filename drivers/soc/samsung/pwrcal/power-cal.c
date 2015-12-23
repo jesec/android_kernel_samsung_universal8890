@@ -657,6 +657,14 @@ void cal_asv_set_ssa0(unsigned int id, unsigned int ssa0)
 		cal_asv_ops.set_ssa0(id, ssa0);
 }
 
+int cal_asv_get_ids_info(unsigned int domain)
+{
+	if (cal_asv_ops.get_ids_info)
+		return cal_asv_ops.get_ids_info(domain);
+
+	return -1;
+}
+
 int cal_init(void)
 {
 	static int pwrcal_vclk_initialized;
