@@ -115,6 +115,7 @@ static int s5p_mfc_init_decode(struct s5p_mfc_ctx *ctx)
 	switch (ctx->dst_fmt->fourcc) {
 	case V4L2_PIX_FMT_NV12M:
 	case V4L2_PIX_FMT_NV12N:
+	case V4L2_PIX_FMT_NV12N_10B:
 	case V4L2_PIX_FMT_NV12MT_16X16:
 		pix_val = 0;
 		break;

@@ -746,6 +746,14 @@ void mfc_fill_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct vb2_buffer *vb)
 			dpb_vir = NV12N_CBCR_BASE(dpb_vir, ctx->img_width,
 						ctx->img_height);
 		}
+	} else if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_NV12N_10B) {
+		dpb_vir = vb2_plane_vaddr(vb, 0);
+		for (i = 0; i < raw->num_planes; i++) {
+			if (dpb_vir)
+				memset(dpb_vir, color[i], raw->plane_size[i]);
+			dpb_vir = NV12N_10B_CBCR_BASE(dpb_vir, ctx->img_width,
+						ctx->img_height);
+		}
 	} else if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_YUV420N) {
 		dpb_vir = vb2_plane_vaddr(vb, 0);
 		for (i = 0; i < raw->num_planes; i++) {
@@ -788,6 +796,7 @@ static void set_linear_stride_size(struct s5p_mfc_ctx *ctx,
 	case V4L2_PIX_FMT_NV12MT:
 	case V4L2_PIX_FMT_NV12M:
 	case V4L2_PIX_FMT_NV12N:
+	case V4L2_PIX_FMT_NV12N_10B:
 	case V4L2_PIX_FMT_NV21M:
 		raw->stride[0] = ALIGN(ctx->img_width, 16);
 		raw->stride[1] = ALIGN(ctx->img_width, 16);
@@ -865,6 +874,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		raw->plane_size[2] = 0;
 		break;
 	case V4L2_PIX_FMT_NV12N:
+	case V4L2_PIX_FMT_NV12N_10B:
 		raw->plane_size[0] = NV12N_Y_SIZE(ctx->img_width, ctx->img_height);
 		raw->plane_size[1] = NV12N_CBCR_SIZE(ctx->img_width, ctx->img_height);
 		raw->plane_size[2] = 0;
@@ -933,7 +943,7 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		}
 	}
 
-	if (IS_MFCv10X(dev) && dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
+	if (dec->is_10bit) {
 		switch (ctx->dst_fmt->fourcc) {
 			case V4L2_PIX_FMT_NV12M:
 			case V4L2_PIX_FMT_NV21M:
@@ -946,9 +956,17 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 					ALIGN(ctx->img_width / 4, 16) * (ctx->img_height / 2) + 64;
 				raw->plane_size_2bits[2] = 0;
 				break;
+			case V4L2_PIX_FMT_NV12N_10B:
+				raw->stride_2bits[0] = ALIGN(ctx->img_width / 4, 16);
+				raw->stride_2bits[1] = ALIGN(ctx->img_width / 4, 16);
+				raw->stride_2bits[2] = 0;
+				raw->plane_size_2bits[0] = NV12N_10B_Y_2B_SIZE(ctx->img_width, ctx->img_height);
+				raw->plane_size_2bits[1] = NV12N_10B_CBCR_2B_SIZE(ctx->img_width, ctx->img_height);
+				raw->plane_size_2bits[2] = 0;
+				break;
 			default:
-				mfc_info_ctx("HEVC 10bit support only 2 plane YUV. format : %d\n",
-						ctx->dst_fmt->fourcc);
+				mfc_err_ctx("HEVC 10bit: not supported format: %s\n",
+						ctx->dst_fmt->name);
 				break;
 		}
 	}
@@ -957,6 +975,14 @@ void s5p_mfc_dec_calc_dpb_size(struct s5p_mfc_ctx *ctx)
 		raw->total_plane_size += raw->plane_size[i];
 		mfc_debug(2, "Plane[%d] size = %d, stride = %d\n",
 			i, raw->plane_size[i], raw->stride[i]);
+	}
+	if (dec->is_10bit) {
+		for (i = 0; i < raw->num_planes; i++) {
+			raw->total_plane_size += raw->plane_size_2bits[i];
+			mfc_debug(2, "Plane[%d] 2bit size = %d, stride = %d\n",
+					i, raw->plane_size_2bits[i],
+					raw->stride_2bits[i]);
+		}
 	}
 	mfc_debug(2, "total plane size: %d\n", raw->total_plane_size);
 
@@ -1361,7 +1387,7 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 	}
 
 	mfc_set_dec_stride_buffer(ctx, buf_queue);
-	if (IS_MFCv10X(dev) && dec->profile == S5P_FIMV_D_PROFILE_HEVC_MAIN_10) {
+	if (dec->is_10bit) {
 		for (i = 0; i < ctx->raw_buf.num_planes; i++) {
 			MFC_WRITEL(raw->stride_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_STRIDE_SIZE + (i * 4));
 			MFC_WRITEL(raw->plane_size_2bits[i], S5P_FIMV_D_FIRST_PLANE_2BIT_DPB_SIZE + (i * 4));

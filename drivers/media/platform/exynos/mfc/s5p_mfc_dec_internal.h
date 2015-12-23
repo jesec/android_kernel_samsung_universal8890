@@ -73,6 +73,14 @@ static struct s5p_mfc_fmt formats[] = {
 		.mem_planes = 1,
 	},
 	{
+		.name = "4:2:0 2 Planes Y/CbCr 10bit single",
+		.fourcc = V4L2_PIX_FMT_NV12N_10B,
+		.codec_mode = MFC_FORMATS_NO_CODEC,
+		.type = MFC_FMT_RAW,
+		.num_planes = 2,
+		.mem_planes = 1,
+	},
+	{
 		.name = "4:2:0 2 Planes Y/CrCb",
 		.fourcc = V4L2_PIX_FMT_NV21M,
 		.codec_mode = MFC_FORMATS_NO_CODEC,
