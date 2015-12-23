@@ -1116,6 +1116,48 @@ static int asv_get_tablever(void)
 	return (int)(asv_tbl_info.asv_table_ver);
 }
 
+static int asv_get_ids_info(unsigned int domain)
+{
+#ifdef PWRCAL_TARGET_LINUX
+	int ret;
+	register unsigned long long reg0 __asm__("x0");
+	register unsigned long long reg1 __asm__("x1");
+	register unsigned long long reg2 __asm__("x2");
+	register unsigned long long reg3 __asm__("x3");
+
+	if (domain >= 2) {
+		pr_err("[GET_IDS_INFO] Domain is invalid (domain : %d)\n", domain);
+		return -1;
+	}
+
+	reg0 = 0;
+	reg1 = 0;
+	reg2 = 0;
+	reg3 = 0;
+
+	/* SMC_ID = 0x82001014, CMD_ID = 0x2002, read_idx=0x18 */
+	ret = exynos_smc(0x82001014, 0, 0x2002, 0x18);
+	__asm__ volatile(
+		"\t"
+		: "+r"(reg0), "+r"(reg1), "+r"(reg2), "+r"(reg3)
+	);
+
+	if (ret) {
+		pr_err("[GET_IDS_INFO] SMC error (0x%LX)\n", reg0);
+		return -1;
+	}
+
+	if (domain == 0)	/* MNGS */
+		ret = (int)(reg2 & 0xFF);
+	else if (domain == 1)	/* G3D */
+		ret = (int)((reg2 >> 8) & 0xFF);
+
+	return ret;
+#else
+	return 0;
+#endif
+}
+
 struct cal_asv_ops cal_asv_ops = {
 	.print_asv_info = asv_print_info,
 	.print_rcc_info = rcc_print_info,
@@ -1126,5 +1168,6 @@ struct cal_asv_ops cal_asv_ops = {
 	.set_rcc_table = asv_rcc_set_table,
 	.asv_init = asv_init,
 	.asv_pmic_info = asv_get_pmic_info,
+	.get_ids_info = asv_get_ids_info,
 	.set_ssa0 = asv_set_ssa0,
 };
