@@ -743,7 +743,7 @@ void mfc_fill_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct vb2_buffer *vb)
 		for (i = 0; i < raw->num_planes; i++) {
 			if (dpb_vir)
 				memset(dpb_vir, color[i], raw->plane_size[i]);
-			dpb_vir += NV12N_CBCR_SIZE(ctx->img_width,
+			dpb_vir = NV12N_CBCR_BASE(dpb_vir, ctx->img_width,
 						ctx->img_height);
 		}
 	} else if (ctx->dst_fmt->fourcc == V4L2_PIX_FMT_YUV420N) {
@@ -751,7 +751,11 @@ void mfc_fill_dynamic_dpb(struct s5p_mfc_ctx *ctx, struct vb2_buffer *vb)
 		for (i = 0; i < raw->num_planes; i++) {
 			if (dpb_vir)
 				memset(dpb_vir, color[i], raw->plane_size[i]);
-			dpb_vir += YUV420N_CB_SIZE(ctx->img_width,
+			if (i == 0)
+				dpb_vir = YUV420N_CB_BASE(dpb_vir, ctx->img_width,
+						ctx->img_height);
+			if (i == 1)
+				dpb_vir = YUV420N_CR_BASE(dpb_vir, ctx->img_width,
 						ctx->img_height);
 		}
 	} else {
