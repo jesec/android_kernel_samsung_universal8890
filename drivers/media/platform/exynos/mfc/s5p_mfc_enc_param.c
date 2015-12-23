@@ -423,15 +423,31 @@ int s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);
 	}
 
-	/* max & min value of QP */
+	/* max & min value of QP for I frame */
 	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND);
-	/** max QP */
+	/** max I frame QP */
 	reg &= ~(0xFF << 8);
 	reg |= ((p_264->rc_max_qp & 0xFF) << 8);
-	/** min QP */
+	/** min I frame QP */
 	reg &= ~(0xFF);
 	reg |= p_264->rc_min_qp & 0xFF;
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
+
+	/* max & min value of QP for P/B frame */
+	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND_PB);
+	/** max B frame QP */
+	reg &= ~(0xFF << 24);
+	reg |= ((p_264->rc_max_qp_b & 0xFF) << 24);
+	/** min B frame QP */
+	reg &= ~(0xFF << 16);
+	reg |= ((p_264->rc_min_qp_b & 0xFF) << 16);
+	/** max P frame QP */
+	reg &= ~(0xFF << 8);
+	reg |= ((p_264->rc_max_qp_p & 0xFF) << 8);
+	/** min P frame QP */
+	reg &= ~(0xFF);
+	reg |= p_264->rc_min_qp_p & 0xFF;
+	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND_PB);
 
 	reg = MFC_READL(S5P_FIMV_E_FIXED_PICTURE_QP);
 	reg &= ~(0xFF << 24);
@@ -639,15 +655,31 @@ int s5p_mfc_set_enc_params_mpeg4(struct s5p_mfc_ctx *ctx)
 	reg |= (p_mpeg4->rc_frame_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
 
-	/* max & min value of QP */
+	/* max & min value of QP for I frame */
 	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND);
-	/** max QP */
+	/** max I frame QP */
 	reg &= ~(0xFF << 8);
 	reg |= ((p_mpeg4->rc_max_qp & 0xFF) << 8);
-	/** min QP */
+	/** min I frame QP */
 	reg &= ~(0xFF);
 	reg |= (p_mpeg4->rc_min_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
+
+	/* max & min value of QP for P/B frame */
+	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND_PB);
+	/** max B frame QP */
+	reg &= ~(0xFF << 24);
+	reg |= ((p_mpeg4->rc_max_qp_b & 0xFF) << 24);
+	/** min B frame QP */
+	reg &= ~(0xFF << 16);
+	reg |= ((p_mpeg4->rc_min_qp_b & 0xFF) << 16);
+	/** max P frame QP */
+	reg &= ~(0xFF << 8);
+	reg |= ((p_mpeg4->rc_max_qp_p & 0xFF) << 8);
+	/** min P frame QP */
+	reg &= ~(0xFF);
+	reg |= p_mpeg4->rc_min_qp_p & 0xFF;
+	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND_PB);
 
 	/* initialize for '0' only setting*/
 	MFC_WRITEL(0x0, S5P_FIMV_E_MPEG4_OPTIONS); /* SEQ_start only */
@@ -705,15 +737,25 @@ int s5p_mfc_set_enc_params_h263(struct s5p_mfc_ctx *ctx)
 	reg |= (p_mpeg4->rc_frame_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
 
-	/* max & min value of QP */
+	/* max & min value of QP for I frame */
 	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND);
-	/** max QP */
+	/** max I frame QP */
 	reg &= ~(0xFF << 8);
 	reg |= ((p_mpeg4->rc_max_qp & 0xFF) << 8);
-	/** min QP */
+	/** min I frame QP */
 	reg &= ~(0xFF);
 	reg |= (p_mpeg4->rc_min_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
+
+	/* max & min value of QP for P/B frame */
+	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND_PB);
+	/** max P frame QP */
+	reg &= ~(0xFF << 8);
+	reg |= ((p_mpeg4->rc_max_qp_p & 0xFF) << 8);
+	/** min P frame QP */
+	reg &= ~(0xFF);
+	reg |= p_mpeg4->rc_min_qp_p & 0xFF;
+	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND_PB);
 
 	mfc_debug_leave();
 
@@ -807,15 +849,25 @@ int s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	reg |= (p_vp8->rc_frame_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
 
-	/* max & min value of QP */
+	/* max & min value of QP for I frame */
 	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND);
-	/** max QP */
+	/** max I frame QP */
 	reg &= ~(0xFF << 8);
 	reg |= ((p_vp8->rc_max_qp & 0xFF) << 8);
-	/** min QP */
+	/** min I frame QP */
 	reg &= ~(0xFF);
 	reg |= (p_vp8->rc_min_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
+
+	/* max & min value of QP for P/B frame */
+	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND_PB);
+	/** max P frame QP */
+	reg &= ~(0xFF << 8);
+	reg |= ((p_vp8->rc_max_qp_p & 0xFF) << 8);
+	/** min P frame QP */
+	reg &= ~(0xFF);
+	reg |= p_vp8->rc_min_qp_p & 0xFF;
+	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND_PB);
 
 	mfc_debug_leave();
 
@@ -905,15 +957,25 @@ int s5p_mfc_set_enc_params_vp9(struct s5p_mfc_ctx *ctx)
 	reg |= (p_vp9->rc_frame_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_CONFIG);
 
-	/* max & min value of QP */
+	/* max & min value of QP for I frame */
 	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND);
-	/** max QP */
+	/** max I frame QP */
 	reg &= ~(0xFF << 8);
 	reg |= ((p_vp9->rc_max_qp & 0xFF) << 8);
-	/** min QP */
+	/** min I frame QP */
 	reg &= ~(0xFF);
 	reg |= (p_vp9->rc_min_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
+
+	/* max & min value of QP for P/B frame */
+	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND_PB);
+	/** max P frame QP */
+	reg &= ~(0xFF << 8);
+	reg |= ((p_vp9->rc_max_qp_p & 0xFF) << 8);
+	/** min P frame QP */
+	reg &= ~(0xFF);
+	reg |= p_vp9->rc_min_qp_p & 0xFF;
+	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND_PB);
 
 	mfc_debug_leave();
 
@@ -1058,15 +1120,31 @@ int s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);
 	}
 
-	/* max & min value of QP */
+	/* max & min value of QP for I frame */
 	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND);
-	/** max QP */
+	/** max I frame QP */
 	reg &= ~(0xFF << 8);
 	reg |= ((p_hevc->rc_max_qp & 0xFF) << 8);
-	/** min QP */
+	/** min I frame QP */
 	reg &= ~(0xFF);
 	reg |= (p_hevc->rc_min_qp & 0xFF);
 	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND);
+
+	/* max & min value of QP for P/B frame */
+	reg = MFC_READL(S5P_FIMV_E_RC_QP_BOUND_PB);
+	/** max B frame QP */
+	reg &= ~(0xFF << 24);
+	reg |= ((p_hevc->rc_max_qp_b & 0xFF) << 24);
+	/** min B frame QP */
+	reg &= ~(0xFF << 16);
+	reg |= ((p_hevc->rc_min_qp_b & 0xFF) << 16);
+	/** max P frame QP */
+	reg &= ~(0xFF << 8);
+	reg |= ((p_hevc->rc_max_qp_p & 0xFF) << 8);
+	/** min P frame QP */
+	reg &= ~(0xFF);
+	reg |= p_hevc->rc_min_qp_p & 0xFF;
+	MFC_WRITEL(reg, S5P_FIMV_E_RC_QP_BOUND_PB);
 
 	reg = MFC_READL(S5P_FIMV_E_FIXED_PICTURE_QP);
 	reg &= ~(0xFF << 24);

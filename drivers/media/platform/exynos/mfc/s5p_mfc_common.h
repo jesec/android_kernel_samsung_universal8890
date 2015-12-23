@@ -210,6 +210,7 @@
 #define	ENC_SET_TEMP_SVC_CH		(1 << 2)
 #define	ENC_SET_SKYPE_FLAG		(1 << 3)
 #define	ENC_SET_ROI_CONTROL		(1 << 4)
+#define	ENC_SET_QP_BOUND_PB		(1 << 5)
 
 #define MFC_QOS_FLAG_NODATA		0xFFFFFFFF
 

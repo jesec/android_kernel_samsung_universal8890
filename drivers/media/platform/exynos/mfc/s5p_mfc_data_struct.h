@@ -364,6 +364,10 @@ struct s5p_mfc_h264_enc_params {
 	u8 rc_frame_qp;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
+	u8 rc_min_qp_p;
+	u8 rc_max_qp_p;
+	u8 rc_min_qp_b;
+	u8 rc_max_qp_b;
 	u8 rc_mb_dark;
 	u8 rc_mb_smooth;
 	u8 rc_mb_static;
@@ -417,6 +421,10 @@ struct s5p_mfc_mpeg4_enc_params {
 	u8 rc_frame_qp;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
+	u8 rc_min_qp_p;
+	u8 rc_max_qp_p;
+	u8 rc_min_qp_b;
+	u8 rc_max_qp_b;
 	u8 rc_p_frame_qp;
 };
 
@@ -429,6 +437,8 @@ struct s5p_mfc_vp9_enc_params {
 	u8 vp9_version;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
+	u8 rc_min_qp_p;
+	u8 rc_max_qp_p;
 	u8 rc_frame_qp;
 	u8 rc_p_frame_qp;
 	u8 vp9_goldenframesel;
@@ -452,6 +462,8 @@ struct s5p_mfc_vp8_enc_params {
 	u8 vp8_version;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
+	u8 rc_min_qp_p;
+	u8 rc_max_qp_p;
 	u8 rc_frame_qp;
 	u8 rc_p_frame_qp;
 	u8 vp8_numberofpartitions;
@@ -477,6 +489,10 @@ struct s5p_mfc_hevc_enc_params {
 	u32 rc_framerate;
 	u8 rc_min_qp;
 	u8 rc_max_qp;
+	u8 rc_min_qp_p;
+	u8 rc_max_qp_p;
+	u8 rc_min_qp_b;
+	u8 rc_max_qp_b;
 	u8 rc_lcu_dark;
 	u8 rc_lcu_smooth;
 	u8 rc_lcu_static;
@@ -927,8 +943,6 @@ struct s5p_mfc_ctx {
 	int avg_framerate;
 	int frame_count;
 	struct timeval last_timestamp;
-	int qp_min_change;
-	int qp_max_change;
 
 	int is_max_fps;
 	int buf_process_type;

@@ -2093,6 +2093,8 @@ static int enc_ext_info(struct s5p_mfc_ctx *ctx)
 	if (FW_HAS_ROI_CONTROL(dev))
 		val |= ENC_SET_ROI_CONTROL;
 
+	val |= ENC_SET_QP_BOUND_PB;
+
 	return val;
 }
 
@@ -2365,6 +2367,18 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_MAX_QP:
 		p->codec.h264.rc_max_qp = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP_P:
+		p->codec.h264.rc_min_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_MAX_QP_P:
+		p->codec.h264.rc_max_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP_B:
+		p->codec.h264.rc_min_qp_b = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_MAX_QP_B:
+		p->codec.h264.rc_max_qp_b = ctrl->value;
+		break;
 	case V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_DARK:
 		p->codec.h264.rc_mb_dark = ctrl->value;
 		break;
@@ -2522,6 +2536,18 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP:
 		p->codec.mpeg4.rc_max_qp = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP_P:
+		p->codec.mpeg4.rc_min_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP_P:
+		p->codec.mpeg4.rc_max_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP_B:
+		p->codec.mpeg4.rc_min_qp_b = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP_B:
+		p->codec.mpeg4.rc_max_qp_b = ctrl->value;
+		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_QPEL:
 		p->codec.mpeg4.quarter_pixel = ctrl->value;
 		break;
@@ -2549,6 +2575,12 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H263_MAX_QP:
 		p->codec.mpeg4.rc_max_qp = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H263_MIN_QP_P:
+		p->codec.mpeg4.rc_min_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_H263_MAX_QP_P:
+		p->codec.mpeg4.rc_max_qp_p = ctrl->value;
+		break;
 	case V4L2_CID_MPEG_VIDEO_H263_P_FRAME_QP:
 		p->codec.mpeg4.rc_p_frame_qp = ctrl->value;
 		break;
@@ -2563,6 +2595,12 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP8_MAX_QP:
 		p->codec.vp8.rc_max_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP8_MIN_QP_P:
+		p->codec.vp8.rc_min_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP8_MAX_QP_P:
+		p->codec.vp8.rc_max_qp_p = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VP8_I_FRAME_QP:
 		p->codec.vp8.rc_frame_qp = ctrl->value;
@@ -2630,6 +2668,12 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_VP9_MAX_QP:
 		p->codec.vp9.rc_max_qp = ctrl->value;
 		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_MIN_QP_P:
+		p->codec.vp9.rc_min_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_VP9_MAX_QP_P:
+		p->codec.vp9.rc_max_qp_p = ctrl->value;
+		break;
 	case V4L2_CID_MPEG_VIDEO_VP9_I_FRAME_QP:
 		p->codec.vp9.rc_frame_qp = ctrl->value;
 		break;
@@ -2690,6 +2734,18 @@ static int set_enc_param(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP:
 		p->codec.hevc.rc_max_qp = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP_P:
+		p->codec.hevc.rc_min_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP_P:
+		p->codec.hevc.rc_max_qp_p = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP_B:
+		p->codec.hevc.rc_min_qp_b = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP_B:
+		p->codec.hevc.rc_max_qp_b = ctrl->value;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
 		p->codec.hevc.level = ctrl->value;
@@ -2919,17 +2975,30 @@ static int set_ctrl_val(struct s5p_mfc_ctx *ctx, struct v4l2_control *ctrl)
 	case V4L2_CID_MPEG_VIDEO_VP8_MAX_QP:
 	case V4L2_CID_MPEG_VIDEO_VP9_MAX_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP:
-		ctx->qp_max_change = ctrl->value;
-		break;
 	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_H263_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_VP8_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_VP9_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP:
-		ctx->qp_min_change = ctrl->value;
-		ctrl->value = ((ctx->qp_max_change << 8)
-			| (ctx->qp_min_change));
+	case V4L2_CID_MPEG_VIDEO_H264_MAX_QP_P:
+	case V4L2_CID_MPEG_VIDEO_H263_MAX_QP_P:
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP_P:
+	case V4L2_CID_MPEG_VIDEO_VP8_MAX_QP_P:
+	case V4L2_CID_MPEG_VIDEO_VP9_MAX_QP_P:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP_P:
+	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP_P:
+	case V4L2_CID_MPEG_VIDEO_H263_MIN_QP_P:
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP_P:
+	case V4L2_CID_MPEG_VIDEO_VP8_MIN_QP_P:
+	case V4L2_CID_MPEG_VIDEO_VP9_MIN_QP_P:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP_P:
+	case V4L2_CID_MPEG_VIDEO_H264_MAX_QP_B:
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP_B:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP_B:
+	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP_B:
+	case V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP_B:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP_B:
 	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG:
 	case V4L2_CID_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE:
 	case V4L2_CID_MPEG_MFC51_VIDEO_I_PERIOD_CH:
