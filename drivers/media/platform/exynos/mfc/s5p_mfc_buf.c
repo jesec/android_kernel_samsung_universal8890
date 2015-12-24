@@ -1357,6 +1357,10 @@ int s5p_mfc_set_dec_frame_buffer(struct s5p_mfc_ctx *ctx)
 		reg |= (0x1 << S5P_FIMV_D_OPT_NOT_CODED_SET_SHIFT);
 		mfc_info_ctx("Notcoded frame copy mode start\n");
 	}
+	/* Enable 10bit Dithering */
+	if (dec->is_10bit)
+		reg |= (0x1 << S5P_FIMV_D_OPT_DITHERING_SET_SHIFT);
+
 	MFC_WRITEL(reg, S5P_FIMV_D_INIT_BUFFER_OPTIONS);
 
 	frame_size_mv = ctx->mv_size;
