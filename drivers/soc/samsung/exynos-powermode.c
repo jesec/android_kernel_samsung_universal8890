@@ -749,6 +749,7 @@ static int exynos_cpuidle_hotcpu_callback(struct notifier_block *nfb,
 
        switch (action) {
        case CPU_STARTING:
+       case CPU_STARTING_FROZEN:
                spin_lock(&c2_lock);
 
                if (!is_cpu_boot_cluster(cpu))
