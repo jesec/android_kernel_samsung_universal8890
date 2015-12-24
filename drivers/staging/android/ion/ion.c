@@ -1586,8 +1586,18 @@ static int ion_sync_for_device(struct ion_client *client, int fd)
 				buffer->sg_table->nents, DMA_BIDIRECTIONAL,
 				ion_buffer_flush, false);
 	} else {
-		dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
-					buffer->sg_table->nents, DMA_BIDIRECTIONAL);
+		struct scatterlist *sg, *sgl;
+		int nelems;
+		void *vaddr;
+		int i = 0;
+
+		sgl = buffer->sg_table->sgl;
+		nelems = buffer->sg_table->nents;
+
+		for_each_sg(sgl, sg, nelems, i) {
+			vaddr = phys_to_virt(sg_phys(sg));
+			__dma_flush_range(vaddr, vaddr + sg->length);
+		}
 	}
 
 	trace_ion_sync_end(_RET_IP_, buffer->dev->dev.this_device,
