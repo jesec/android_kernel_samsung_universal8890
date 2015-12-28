@@ -1025,9 +1025,11 @@ int decon_enable(struct decon_device *decon)
 				}
 			}
 		}
+
+		pm_stay_awake(decon->dev);
+		dev_warn(decon->dev, "pm_stay_awake");
+
 		if (decon->pdata->out_type == DECON_OUT_DSI) {
-			pm_stay_awake(decon->dev);
-			dev_warn(decon->dev, "pm_stay_awake");
 			ret = v4l2_subdev_call(decon->output_sd, video, s_stream, 1);
 			if (ret) {
 				decon_err("starting stream failed for %s\n",
@@ -1223,10 +1225,9 @@ int decon_disable(struct decon_device *decon)
 				}
 			}
 		}
-		if (decon->pdata->out_type == DECON_OUT_DSI) {
-			pm_relax(decon->dev);
-			dev_warn(decon->dev, "pm_relax");
-		}
+
+		pm_relax(decon->dev);
+		dev_warn(decon->dev, "pm_relax");
 
 		if (decon->pdata->psr_mode != DECON_VIDEO_MODE) {
 			if (decon->pinctrl && decon->decon_te_off) {
@@ -3982,6 +3983,11 @@ decon_init_done:
 		}
 	} else { /* DECON-EXT(only single-dsi) is off at probe */
 		decon->state = DECON_STATE_INIT;
+		ret = device_init_wakeup(decon->dev, true);
+		if (ret) {
+			dev_err(decon->dev, "failed to init wakeup device\n");
+			goto fail_update_thread;
+		}
 	}
 
 	for (i = 0; i < MAX_VPP_SUBDEV; i++)
