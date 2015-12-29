@@ -238,7 +238,6 @@ static void get_max_min_freq_lv(struct ect_voltage_domain *domain, unsigned int 
 	if (i == domain->num_of_table) {
 		pr_err("There is no voltage table at ECT, PWRCAL force change table version from %d to %d\n", asv_tbl_info.asv_table_ver, max_asv_version);
 		asv_tbl_info.asv_table_ver = max_asv_version;
-		table = &domain->table_list[max_asv_version];
 	}
 
 	*max_lv = -1;
@@ -925,6 +924,9 @@ static void asv_ssa_init(void)
 
 	param = ect_gen_param_get_table(gen_block, "SSA_BIG");
 	if (param) {
+		asv_table_version = asv_tbl_info.asv_table_ver;
+		if (asv_table_version >= param->num_of_row)
+			asv_table_version = param->num_of_row - 1;
 		big_subgrp_index = param->parameter[asv_table_version * param->num_of_col + 1];
 		big_ssa0_base = param->parameter[asv_table_version * param->num_of_col + 2];
 		big_ssa0_offset = param->parameter[asv_table_version * param->num_of_col + 3];
@@ -933,6 +935,9 @@ static void asv_ssa_init(void)
 	}
 	param = ect_gen_param_get_table(gen_block, "SSA_LITTLE");
 	if (param) {
+		asv_table_version = asv_tbl_info.asv_table_ver;
+		if (asv_table_version >= param->num_of_row)
+			asv_table_version = param->num_of_row - 1;
 		little_subgrp_index = param->parameter[asv_table_version * param->num_of_col + 1];
 		little_ssa0_base = param->parameter[asv_table_version * param->num_of_col + 2];
 		little_ssa0_offset = param->parameter[asv_table_version * param->num_of_col + 3];
@@ -941,6 +946,9 @@ static void asv_ssa_init(void)
 	}
 	param = ect_gen_param_get_table(gen_block, "SSA_G3D");
 	if (param) {
+		asv_table_version = asv_tbl_info.asv_table_ver;
+		if (asv_table_version >= param->num_of_row)
+			asv_table_version = param->num_of_row - 1;
 		g3d_subgrp_index = param->parameter[asv_table_version * param->num_of_col + 1];
 		g3d_ssa0_base = param->parameter[asv_table_version * param->num_of_col + 2];
 		g3d_ssa0_offset = param->parameter[asv_table_version * param->num_of_col + 3];
@@ -949,6 +957,9 @@ static void asv_ssa_init(void)
 	}
 	param = ect_gen_param_get_table(gen_block, "SSA_MIF");
 	if (param) {
+		asv_table_version = asv_tbl_info.asv_table_ver;
+		if (asv_table_version >= param->num_of_row)
+			asv_table_version = param->num_of_row - 1;
 		mif_subgrp_index = param->parameter[asv_table_version * param->num_of_col + 1];
 		mif_ssa0_base = param->parameter[asv_table_version * param->num_of_col + 2];
 		mif_ssa0_offset = param->parameter[asv_table_version * param->num_of_col + 3];
@@ -957,6 +968,9 @@ static void asv_ssa_init(void)
 	}
 	param = ect_gen_param_get_table(gen_block, "SSA_INT");
 	if (param) {
+		asv_table_version = asv_tbl_info.asv_table_ver;
+		if (asv_table_version >= param->num_of_row)
+			asv_table_version = param->num_of_row - 1;
 		int_subgrp_index = param->parameter[asv_table_version * param->num_of_col + 1];
 		int_ssa0_base = param->parameter[asv_table_version * param->num_of_col + 2];
 		int_ssa0_offset = param->parameter[asv_table_version * param->num_of_col + 3];
@@ -965,6 +979,9 @@ static void asv_ssa_init(void)
 	}
 	param = ect_gen_param_get_table(gen_block, "SSA_CAM");
 	if (param) {
+		asv_table_version = asv_tbl_info.asv_table_ver;
+		if (asv_table_version >= param->num_of_row)
+			asv_table_version = param->num_of_row - 1;
 		cam_subgrp_index = param->parameter[asv_table_version * param->num_of_col + 1];
 		cam_ssa0_base = param->parameter[asv_table_version * param->num_of_col + 2];
 		cam_ssa0_offset = param->parameter[asv_table_version * param->num_of_col + 3];
@@ -973,6 +990,9 @@ static void asv_ssa_init(void)
 	}
 	param = ect_gen_param_get_table(gen_block, "SSA_DISP");
 	if (param) {
+		asv_table_version = asv_tbl_info.asv_table_ver;
+		if (asv_table_version >= param->num_of_row)
+			asv_table_version = param->num_of_row - 1;
 		disp_subgrp_index = param->parameter[asv_table_version * param->num_of_col + 1];
 		disp_ssa0_base = param->parameter[asv_table_version * param->num_of_col + 2];
 		disp_ssa0_offset = param->parameter[asv_table_version * param->num_of_col + 3];
