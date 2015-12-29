@@ -580,7 +580,8 @@ static void m2m1shot2_cancel_context(struct m2m1shot2_context *ctx)
 	sw_sync_timeline_inc(ctx->timeline, 1);
 
 	/* to confirm if no reference to a resource exists */
-	m2m1shot2_put_images(ctx);
+	if (!!(ctx->flags & M2M1SHOT2_FLAG_NONBLOCK))
+		m2m1shot2_put_images(ctx);
 
 	WARN(!M2M1S2_CTXSTATE_IDLE(ctx),
 		"state should be IDLE but %#lx\n", ctx->state);
@@ -1379,8 +1380,10 @@ static long m2m1shot2_ioctl(struct file *filp,
 
 		m2m1shot2_start_context(ctx->m21dev, ctx);
 
-		if (!(data.flags & M2M1SHOT2_FLAG_NONBLOCK))
+		if (!(data.flags & M2M1SHOT2_FLAG_NONBLOCK)) {
 			ret = m2m1shot2_wait_put_user(ctx, uptr, data.flags);
+			m2m1shot2_put_images(ctx);
+		}
 
 		break;
 	}
