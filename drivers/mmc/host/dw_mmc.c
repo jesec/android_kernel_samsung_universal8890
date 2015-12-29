@@ -1167,6 +1167,30 @@ disable:
 	mci_writel(host, CDTHRCTL, SDMMC_SET_RD_THLD(0, 0));
 }
 
+inline u32 dw_mci_calc_hto_timeout(struct dw_mci *host)
+{
+	u32 target_timeout;
+	u32 count;
+	u32 host_clock = host->cur_slot->clock;
+
+	if (!host->pdata->hto_timeout)
+		return 0xFFFFFFFF; /* timeout maximum */
+
+	target_timeout = host->pdata->hto_timeout;
+
+	/* Calculating Timeout value */
+	count = (target_timeout * (host_clock / 1000)) /
+		(SDMMC_DATA_TMOUT_CRT * SDMMC_DATA_TMOUT_EXT);
+
+	if (count > 0x1FFFFF)
+		count = 0x1FFFFF;
+
+	/* Set return value */
+	return ((count << SDMMC_DATA_TMOUT_SHIFT)
+		| (SDMMC_DATA_TMOUT_EXT << SDMMC_DATA_TMOUT_EXT_SHIFT)
+		| SDMMC_RESP_TMOUT);
+}
+
 static int dw_mci_submit_data_dma(struct dw_mci *host, struct mmc_data *data)
 {
 	int sg_len;
@@ -1186,6 +1210,7 @@ static int dw_mci_submit_data_dma(struct dw_mci *host, struct mmc_data *data)
 	sg_len = dw_mci_pre_dma_transfer(host, data, 0);
 	if (sg_len < 0) {
 		host->dma_ops->stop(host);
+		dw_mci_set_timeout(host, dw_mci_calc_hto_timeout(host));
 		return sg_len;
 	}
 
@@ -3360,6 +3385,7 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 	of_property_read_u32(np, "card-detect-delay", &pdata->detect_delay_ms);
 	of_property_read_u32(np, "qos_int_level", &pdata->qos_int_level);
 	of_property_read_u32(np, "data-timeout", &pdata->data_timeout);
+	of_property_read_u32(np, "hto-timeout", &pdata->hto_timeout);
 	of_property_read_u32(np, "desc-size", &pdata->desc_sz);
 
 	if (!of_property_read_u32(np, "clock-frequency", &clock_frequency))

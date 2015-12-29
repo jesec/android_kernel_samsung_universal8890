@@ -307,6 +307,7 @@ struct dw_mci_board {
 
 	/* DATA_TIMEOUT[31:11] of TMOUT */
 	u32 data_timeout;
+	u32 hto_timeout;
 	bool use_gate_clock;
 	bool use_biu_gate_clock;
 	bool enable_cclk_on_suspend;
