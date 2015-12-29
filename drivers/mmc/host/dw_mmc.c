@@ -418,7 +418,8 @@ static void dw_mci_biu_clk_dis(struct dw_mci *host)
 	}
 }
 
-static bool dw_mci_reset(struct dw_mci *host);
+bool dw_mci_fifo_reset(struct device *dev, struct dw_mci *host);
+void dw_mci_ciu_reset(struct device *dev, struct dw_mci *host);
 static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset);
 
 #if defined(CONFIG_DEBUG_FS)
@@ -2037,7 +2038,10 @@ static int dw_mci_data_complete(struct dw_mci *host, struct mmc_data *data)
 		 * After an error, there may be data lingering
 		 * in the FIFO
 		 */
-		dw_mci_reset(host);
+		sg_miter_stop(&host->sg_miter);
+		host->sg = NULL;
+		dw_mci_fifo_reset(host->dev, host);
+		dw_mci_ciu_reset(host->dev, host);
 	} else {
 		data->bytes_xfered = data->blocks * data->blksz;
 		data->error = 0;
@@ -2218,8 +2222,12 @@ static void dw_mci_tasklet_func(unsigned long priv)
 				break;
 
 			/* CMD error in data command */
-			if (mrq->cmd->error && mrq->data)
-				dw_mci_reset(host);
+			if (mrq->cmd->error && mrq->data) {
+				dw_mci_stop_dma(host);
+				sg_miter_stop(&host->sg_miter);
+				host->sg = NULL;
+				dw_mci_fifo_reset(host->dev, host);
+			}
 
 			host->cmd = NULL;
 			host->data = NULL;
@@ -2854,8 +2862,10 @@ static void dw_mci_timeout_timer(unsigned long data)
 			" state = %d\n", host->state);
 		dw_mci_reg_dump(host);
 		spin_lock(&host->lock);
-		dw_mci_reset(host);
+		dw_mci_ciu_reset(host->dev, host);
+		dw_mci_fifo_reset(host->dev, host);
 		dw_mci_request_end(host, mrq);
+		host->state = STATE_IDLE;
 		spin_unlock(&host->lock);
 	}
 }
@@ -2930,8 +2940,25 @@ static void dw_mci_work_routine_card(struct work_struct *work)
 			}
 
 			/* Power down slot */
-			if (present == 0)
-				dw_mci_reset(host);
+			if (present == 0){
+				clear_bit(DW_MMC_CARD_PRESENT, &slot->flags);
+
+				/*
+				 * Clear down the FIFO - doing so generates a
+				 * block interrupt, hence setting the
+				 * scatter-gather pointer to NULL.
+				 */
+				sg_miter_stop(&host->sg_miter);
+				host->sg = NULL;
+				dw_mci_ciu_reset(host->dev, host);
+				dw_mci_fifo_reset(host->dev, host);
+#ifdef CONFIG_MMC_DW_IDMAC
+				dw_mci_idma_reset_dma(host);
+#endif
+			} else if (host->cur_slot) {
+				dw_mci_ciu_reset(host->dev, host);
+				mci_writel(host, RINTSTS, 0xFFFFFFFF);
+			}
 
 			spin_unlock_bh(&host->lock);
 
@@ -3228,86 +3255,15 @@ static bool dw_mci_ctrl_reset(struct dw_mci *host, u32 reset)
 
 }
 
-static bool dw_mci_reset(struct dw_mci *host)
-{
-	u32 flags = SDMMC_CTRL_RESET | SDMMC_CTRL_FIFO_RESET;
+void dw_mci_ciu_reset(struct device *dev, struct dw_mci *host) {
 	struct dw_mci_slot *slot = host->cur_slot;
-	bool ret = false;
+	unsigned long timeout = jiffies + msecs_to_jiffies(10);
 	int retry = 10;
-	unsigned int ctrl;
 	u32 status;
-	/*
-	 * Reseting generates a block interrupt, hence setting
-	 * the scatter-gather pointer to NULL.
-	 */
-	if (host->sg) {
-		sg_miter_stop(&host->sg_miter);
-		host->sg = NULL;
-	}
-
-	if (host->use_dma)
-		flags |= SDMMC_CTRL_DMA_RESET;
-
-	if (dw_mci_ctrl_reset(host, flags)) {
-		/*
-		 * In all cases we clear the RAWINTS register to clear any
-		 * interrupts.
-		 */
-		mci_writel(host, RINTSTS, 0xFFFFFFFF);
-
-		/* if using dma we wait for dma_req to clear */
-		if (host->use_dma) {
-			unsigned long timeout = jiffies + msecs_to_jiffies(500);
-			u32 status;
-			do {
-				status = mci_readl(host, STATUS);
-				if (!(status & SDMMC_STATUS_DMA_REQ))
-					break;
-				cpu_relax();
-			} while (time_before(jiffies, timeout));
-
-			if (status & SDMMC_STATUS_DMA_REQ) {
-				dev_err(host->dev,
-					"%s: Timeout waiting for dma_req to "
-					"clear during reset\n", __func__);
-				goto ciu_out;
-			}
-
-			/* when using DMA next we reset the fifo again */
-			if (!dw_mci_ctrl_reset(host, SDMMC_CTRL_FIFO_RESET))
-				goto ciu_out;
-			else
-			/* clear exception raw interrupts can not be handled
-			   ex) fifo full => RXDR interrupt rising */
-				ctrl = mci_readl(host, RINTSTS);
-				ctrl = ctrl & ~(mci_readl(host, MINTSTS));
-				if (ctrl)
-					mci_writel(host, RINTSTS, ctrl);
-		}
-	} else {
-		/* if the controller reset bit did clear, then set clock regs */
-		if (!(mci_readl(host, CTRL) & SDMMC_CTRL_RESET)) {
-			dev_err(host->dev, "%s: fifo/dma reset bits didn't "
-				"clear but ciu was reset, doing clock update\n",
-				__func__);
-			goto ciu_out;
-		}
-	}
-
-#if IS_ENABLED(CONFIG_MMC_DW_IDMAC)
-	/* It is also recommended that we reset and reprogram idmac */
-	dw_mci_idmac_reset(host);
-#endif
-
-	ret = true;
-
-ciu_out:
 	if (slot) {
-		unsigned long timeout = jiffies + msecs_to_jiffies(500);
 		dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
 		/* Check For DATA busy */
 		do {
-
 			while (time_before(jiffies, timeout)) {
 				status = mci_readl(host, STATUS);
 				if (!(status & SDMMC_STATUS_BUSY))
@@ -3322,6 +3278,39 @@ out:
 	/* After a CTRL reset we need to have CIU set clock registers  */
 		dw_mci_update_clock(slot);
 	return ret;
+}
+
+bool dw_mci_fifo_reset(struct device *dev, struct dw_mci *host)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
+	unsigned int ctrl;
+	bool result;
+
+	do {
+		result = dw_mci_ctrl_reset(host, SDMMC_CTRL_FIFO_RESET);
+		if (!result)
+			break;
+
+		ctrl = mci_readl(host, STATUS);
+		if (!(ctrl & SDMMC_STATUS_DMA_REQ)) {
+			result = dw_mci_ctrl_reset(host, SDMMC_CTRL_FIFO_RESET);
+			if (result) {
+				/* clear exception raw interrupts can not be handled
+				   ex) fifo full => RXDR interrupt rising */
+				ctrl = mci_readl(host, RINTSTS);
+				ctrl = ctrl & ~(mci_readl(host, MINTSTS));
+				if (ctrl)
+					mci_writel(host, RINTSTS, ctrl);
+
+				return true;
+			}
+		}
+	} while (time_before(jiffies, timeout));
+
+	dev_err(dev, "%s: Timeout while resetting host controller after err\n",
+		__func__);
+
+	return false;
 }
 
 #ifdef CONFIG_OF
