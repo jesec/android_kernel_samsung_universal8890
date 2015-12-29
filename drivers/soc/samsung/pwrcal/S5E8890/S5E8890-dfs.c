@@ -776,13 +776,10 @@ struct pwrcal_clk *dfsdisp_dfsclkgrp[] = {
 
 static int dfsbig_set_ema(unsigned int volt)
 {
-	if (volt > 1000000) {
+	if (volt >= 1106000) {
 		pwrcal_writel(MNGS_EMA_CON, 0x000E91B9);
 		pwrcal_writel(MNGS_ASSIST_CON, 0x0);
-	} else if (volt > 850000) {
-		pwrcal_writel(MNGS_EMA_CON, 0x001091B9);
-		pwrcal_writel(MNGS_ASSIST_CON, 0x0);
-	} else if (volt > 750000) {
+	} else if (volt >= 900000) {
 		pwrcal_writel(MNGS_EMA_CON, 0x001091B9);
 		pwrcal_writel(MNGS_ASSIST_CON, 0x0);
 	} else {
