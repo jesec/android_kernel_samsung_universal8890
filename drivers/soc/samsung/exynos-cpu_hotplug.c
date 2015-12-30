@@ -140,8 +140,8 @@ static struct cpumask create_cpumask(void)
 	int cpu;
 	struct cpumask mask;
 
-	online_cpu_min = pm_qos_request(PM_QOS_CPU_ONLINE_MIN),
-	online_cpu_max = pm_qos_request(PM_QOS_CPU_ONLINE_MAX);
+	online_cpu_min = min(pm_qos_request(PM_QOS_CPU_ONLINE_MIN), nr_cpu_ids);
+	online_cpu_max = min(pm_qos_request(PM_QOS_CPU_ONLINE_MAX), nr_cpu_ids);
 
 	cpumask_clear(&mask);
 
