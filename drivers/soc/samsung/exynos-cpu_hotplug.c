@@ -79,6 +79,10 @@ static struct {
 	/* all CPUs running time during booting */
 	int			boot_lock_time;
 
+	/* user input minimum and maximum online cpu */
+	int			user_min;
+	int			user_max;
+
 	/*
 	 * In blocking notifier call chain, it is not supposed to call
 	 * cpu_up() or cpu_down(). In this case, use workqueue.
@@ -324,6 +328,48 @@ static struct kobj_attribute control_online_cpus =
 __ATTR(control_online_cpus, 0644, show_control_online_cpus, store_control_online_cpus);
 
 /*
+ * User can change the number of online cpu by using min_online_cpu and
+ * max_online_cpu sysfs node. User input minimum and maxinum online cpu
+ * to this node as below:
+ *
+ * #echo min > /sys/power/cpuhotplug/min_online_cpu
+ * #echo max > /sys/power/cpuhotplug/max_online_cpus
+ */
+#define attr_online_cpu(type)						\
+static ssize_t show_##type##_online_cpu(struct kobject *kobj,		\
+	struct kobj_attribute *attr, char *buf)				\
+{									\
+	return snprintf(buf, 30, #type " online cpu : %d\n",		\
+			cpu_hotplug.user_##type);			\
+}									\
+									\
+static ssize_t store_##type##_online_cpu(struct kobject *kobj,		\
+	struct kobj_attribute *attr, const char *buf,			\
+	size_t count)							\
+{									\
+	int input;							\
+									\
+	if (!sscanf(buf, "%d", &input))					\
+		return -EINVAL;						\
+									\
+	if (input <= 0 || input > NR_CPUS)							\
+		return -EINVAL;						\
+									\
+	pm_qos_update_request(&user_##type##_cpu_hotplug_request,	\
+				input);					\
+	cpu_hotplug.user_##type = input;				\
+									\
+	return count;							\
+}									\
+									\
+static struct kobj_attribute type##_online_cpu =			\
+__ATTR(type##_online_cpu, 0644,					\
+	show_##type##_online_cpu, store_##type##_online_cpu)
+
+attr_online_cpu(min);
+attr_online_cpu(max);
+
+/*
  * User can control the cpu hotplug operation as below:
  *
  * #echo 1 > /sys/power/cpuhotplug/enabled => enable
@@ -357,6 +403,8 @@ __ATTR(enabled, 0644, show_cpu_hotplug_enable, store_cpu_hotplug_enable);
 
 static struct attribute *cpu_hotplug_attrs[] = {
 	&control_online_cpus.attr,
+	&min_online_cpu.attr,
+	&max_online_cpu.attr,
 	&cpu_hotplug_enabled.attr,
 	NULL,
 };
