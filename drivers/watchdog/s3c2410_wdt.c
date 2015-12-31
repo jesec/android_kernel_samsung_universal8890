@@ -221,7 +221,30 @@ static inline struct s3c2410_wdt *freq_to_wdt(struct notifier_block *nb)
 	return container_of(nb, struct s3c2410_wdt, freq_transition);
 }
 
-static int s3c2410wdt_mask_and_disable_reset(struct s3c2410_wdt *wdt, bool mask)
+static int s3c2410wdt_mask_reset(struct s3c2410_wdt *wdt, bool mask)
+{
+	int ret;
+	u32 mask_val = 1 << wdt->drv_data->mask_bit;
+	u32 val = 0;
+
+	/* No need to do anything if no PMU CONFIG needed */
+	if (!(wdt->drv_data->quirks & QUIRK_HAS_PMU_CONFIG))
+		return 0;
+
+	if (mask)
+		val = mask_val;
+
+	ret = regmap_update_bits(wdt->pmureg,
+			wdt->drv_data->mask_reset_reg,
+			mask_val, val);
+
+	if (ret < 0)
+		dev_err(wdt->dev, "failed to update reg(%d)\n", ret);
+
+	return ret;
+}
+
+static int s3c2410wdt_disable_wdt(struct s3c2410_wdt *wdt, bool mask)
 {
 	int ret;
 	u32 mask_val = 1 << wdt->drv_data->mask_bit;
@@ -237,13 +260,7 @@ static int s3c2410wdt_mask_and_disable_reset(struct s3c2410_wdt *wdt, bool mask)
 	ret = regmap_update_bits(wdt->pmureg,
 			wdt->drv_data->disable_reg,
 			mask_val, val);
-	if (ret < 0)
-		goto error;
 
-	ret = regmap_update_bits(wdt->pmureg,
-			wdt->drv_data->mask_reset_reg,
-			mask_val, val);
- error:
 	if (ret < 0)
 		dev_err(wdt->dev, "failed to update reg(%d)\n", ret);
 
@@ -733,12 +750,16 @@ static int s3c2410wdt_probe(struct platform_device *pdev)
 		dev_err(dev, "cannot register watchdog (%d)\n", ret);
 		goto err_cpufreq;
 	}
-	/* Prevent watchdog reset while setting */
-	s3c2410wdt_stop_intclear(wdt);
-	/* Enable pmu watchdog reset control */
-	ret = s3c2410wdt_mask_and_disable_reset(wdt, false);
+
+	ret = s3c2410wdt_disable_wdt(wdt, false);
 	if (ret < 0)
 		goto err_unregister;
+	/* Prevent watchdog reset while setting */
+	s3c2410wdt_stop_intclear(wdt);
+	ret = s3c2410wdt_mask_reset(wdt, false);
+	if (ret < 0)
+		goto err_unregister;
+
 
 	if (tmr_atboot && started == 0) {
 		dev_info(dev, "starting watchdog timer\n");
@@ -791,7 +812,7 @@ static int s3c2410wdt_remove(struct platform_device *dev)
 
 	unregister_restart_handler(&wdt->restart_handler);
 
-	ret = s3c2410wdt_mask_and_disable_reset(wdt, true);
+	ret = s3c2410wdt_mask_reset(wdt, true);
 	if (ret < 0)
 		return ret;
 
@@ -810,7 +831,7 @@ static void s3c2410wdt_shutdown(struct platform_device *dev)
 {
 	struct s3c2410_wdt *wdt = platform_get_drvdata(dev);
 
-	s3c2410wdt_mask_and_disable_reset(wdt, true);
+	s3c2410wdt_mask_reset(wdt, true);
 
 	s3c2410wdt_stop(&wdt->wdt_device);
 }
@@ -828,7 +849,7 @@ static int s3c2410wdt_suspend(struct device *dev)
 	/* Note that WTCNT doesn't need to be saved. */
 	s3c2410wdt_stop(&wdt->wdt_device);
 
-	ret = s3c2410wdt_mask_and_disable_reset(wdt, true);
+	ret = s3c2410wdt_mask_reset(wdt, true);
 
 	return ret;
 }
@@ -836,21 +857,28 @@ static int s3c2410wdt_suspend(struct device *dev)
 static int s3c2410wdt_resume(struct device *dev)
 {
 	int ret;
+	unsigned int val;
 	struct s3c2410_wdt *wdt = dev_get_drvdata(dev);
 
+	ret = s3c2410wdt_disable_wdt(wdt, false);
+	if (ret < 0)
+		return ret;
+
+	s3c2410wdt_stop_intclear(wdt);
 	/* Restore watchdog state. */
 	writel(wdt->wtdat_save, wdt->reg_base + S3C2410_WTDAT);
 	writel(wdt->wtdat_save, wdt->reg_base + S3C2410_WTCNT);/* Reset count */
 	writel(wdt->wtcon_save, wdt->reg_base + S3C2410_WTCON);
 
-	s3c2410wdt_stop_intclear(wdt);
-	/* Enable pmu watchdog reset control */
-	ret = s3c2410wdt_mask_and_disable_reset(wdt, false);
+	ret = s3c2410wdt_mask_reset(wdt, false);
 	if (ret < 0)
 		return ret;
 
-	dev_info(dev, "watchdog %sabled\n",
-		(wdt->wtcon_save & S3C2410_WTCON_ENABLE) ? "en" : "dis");
+	val = readl(wdt->reg_base + S3C2410_WTCON);
+	dev_info(dev, "watchdog %sabled, con: 0x%08x, dat: 0x%08x, cnt: 0x%08x\n",
+		(val & S3C2410_WTCON_ENABLE) ? "en" : "dis", val,
+		readl(wdt->reg_base + S3C2410_WTDAT),
+		readl(wdt->reg_base + S3C2410_WTCNT));
 
 	return 0;
 }
