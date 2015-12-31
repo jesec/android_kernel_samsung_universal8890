@@ -81,7 +81,7 @@ static bool nowayout	= WATCHDOG_NOWAYOUT;
 static int tmr_margin;
 static int tmr_atboot	= CONFIG_S3C2410_WATCHDOG_ATBOOT;
 static int soft_noboot;
-static int debug = 1;
+static int debug;
 
 module_param(tmr_margin,  int, 0);
 module_param(tmr_atboot,  int, 0);
@@ -258,8 +258,6 @@ static int s3c2410wdt_keepalive(struct watchdog_device *wdd)
 	spin_lock_irqsave(&wdt->lock, flags);
 	writel(wdt->count, wdt->reg_base + S3C2410_WTCNT);
 	spin_unlock_irqrestore(&wdt->lock, flags);
-	pr_info("%s: wdtdat:0x%08x, wdtcnt:0x%08x\n",
-		__func__, readl(wdt->reg_base + S3C2410_WTDAT), readl(wdt->reg_base + S3C2410_WTCNT));
 
 	return 0;
 }
@@ -839,12 +837,10 @@ static int s3c2410wdt_resume(struct device *dev)
 {
 	int ret;
 	struct s3c2410_wdt *wdt = dev_get_drvdata(dev);
-	unsigned long freq = clk_get_rate(wdt->rate_clock);
 
-	/* reset conunt value. */
-	writel(wdt->count, wdt->reg_base + S3C2410_WTDAT);
-	writel(wdt->count, wdt->reg_base + S3C2410_WTCNT);/* Reset count */
 	/* Restore watchdog state. */
+	writel(wdt->wtdat_save, wdt->reg_base + S3C2410_WTDAT);
+	writel(wdt->wtdat_save, wdt->reg_base + S3C2410_WTCNT);/* Reset count */
 	writel(wdt->wtcon_save, wdt->reg_base + S3C2410_WTCON);
 
 	s3c2410wdt_stop_intclear(wdt);
@@ -853,9 +849,8 @@ static int s3c2410wdt_resume(struct device *dev)
 	if (ret < 0)
 		return ret;
 
-	dev_info(dev, "watchdog %sabled wdtdat:0x%08x, wdtcnt:0x%08x, freq:%lu\n",
-		(wdt->wtcon_save & S3C2410_WTCON_ENABLE) ? "en" : "dis",
-		readl(wdt->reg_base + S3C2410_WTDAT), readl(wdt->reg_base + S3C2410_WTCNT), freq);
+	dev_info(dev, "watchdog %sabled\n",
+		(wdt->wtcon_save & S3C2410_WTCON_ENABLE) ? "en" : "dis");
 
 	return 0;
 }
