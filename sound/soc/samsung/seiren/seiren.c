@@ -765,7 +765,8 @@ static int esa_fw_startup(void)
 		lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
 		return -EAGAIN;
 	}
-
+	/* Not to enter SICD_AUD */
+	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
 	/* power on */
 	si.fw_use_dram = true;
 	esa_debug("Turn on CA5...\n");
@@ -784,6 +785,7 @@ static int esa_fw_startup(void)
 				readl(si.mailbox + LAST_CHECKPT));
 			lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
 			lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
+			lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 			si.fw_use_dram = false;
 			return -EBUSY;
 		}
@@ -796,6 +798,7 @@ static int esa_fw_startup(void)
 	dec_ver = dec_ver >> 8;
 	esa_debug("Decoder version : %x\n", dec_ver);
 #endif
+	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 	return 0;
 }
 
@@ -809,6 +812,8 @@ static void esa_fw_shutdown(void)
 	if (!si.fwmem_loaded)
 		return;
 
+	/* Not to enter SICD_AUD */
+	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
 	/* SUSPEND & IDLE */
 	esa_send_cmd(SYS_SUSPEND);
 
@@ -837,6 +842,7 @@ static void esa_fw_shutdown(void)
 	lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
 	si.fw_ready = false;
 	si.fw_use_dram = false;
+	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 }
 
 #if !defined(CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD) && defined(CONFIG_PM_DEVFREQ)
