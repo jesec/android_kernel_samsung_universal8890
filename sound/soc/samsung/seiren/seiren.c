@@ -904,6 +904,9 @@ int esa_effect_write(int type, int *value, int count)
 	int i, *effect_value;
 	int ret = 0;
 
+	if (!check_esa_compr_state())
+		return 0;
+
 	pm_runtime_get_sync(&si.pdev->dev);
 	effect_value = value;
 
