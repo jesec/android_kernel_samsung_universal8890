@@ -168,9 +168,24 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 	/* Bind the thermal zone to the cpufreq cooling device */
 	for (i = 0; i < tab_size; i++) {
 		clip_data = (struct freq_clip_table *)&(tab_ptr[i]);
-		if (data->d_type == CLUSTER0)
+		if (data->d_type == CLUSTER0) {
+			cpufreq_get_policy(&policy, CLUSTER0_CORE);
+
+#if defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
+			max_freq = get_real_max_freq(CL_ZERO);
+#else
+			max_freq = policy.max;
+#endif
+			if (clip_data->freq_clip_max > max_freq) {
+				dev_info(data->dev, "clip_data->freq_clip_max : %d, policy.max : %d \n",
+							clip_data->freq_clip_max, max_freq);
+				clip_data->freq_clip_max = max_freq;
+				dev_info(data->dev, "Apply to clip_data->freq_clip_max : %d",
+							clip_data->freq_clip_max);
+			}
+
 			level = cpufreq_cooling_get_level(0, clip_data->freq_clip_max);
-		else if (data->d_type == CLUSTER1) {
+		} else if (data->d_type == CLUSTER1) {
 			cpufreq_get_policy(&policy, CLUSTER1_CORE);
 
 #if defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
@@ -193,8 +208,10 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 		else
 			level = (int)THERMAL_CSTATE_INVALID;
 
-		if (level == THERMAL_CSTATE_INVALID)
+		if (level == THERMAL_CSTATE_INVALID) {
+			dev_err(data->dev, "%s level is not matching \n", __func__);
 			return 0;
+		}
 
 		exynos_get_trip_type(thermal, i, &type);
 
