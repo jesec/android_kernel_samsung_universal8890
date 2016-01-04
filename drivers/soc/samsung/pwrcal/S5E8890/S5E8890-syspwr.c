@@ -54,6 +54,27 @@ static void set_pmu_lpi_mask(void)
 
 }
 
+#define EMULATION	(0x1 << 31)
+#define ENABLE_DBGNOPWRDWN	(0x1 << 30)
+#define USE_SMPEN	(0x1 << 28)
+#define DBGPWRDWNREQ_EMULATION	(0x1 << 27)
+#define RESET_EMULATION	(0x1 << 26)
+#define CLAMP_EMULATION	(0x1 << 25)
+#define USE_STANDBYWFE	(0x1 << 24)
+#define IGNORE_OUTPUT_UPDATE_DONE	(0x1 << 20)
+#define REQ_LAST_CPU	(0x1 << 17)
+#define USE_STANDBYWFI	(0x1 << 16)
+#define SKIP_DBGPWRDWN	(0x1 << 15)
+#define USE_DELAYED_RESET_ASSERTION	(0x1 << 12)
+#define ENABLE_GPR_CPUPWRUP	(0x1 << 9)
+#define ENABLE_AUTO_WAKEUP_INT_REQ	(0x1 << 8)
+#define USE_IRQCPU_FOR_PWRUP	(0x1 << 5)
+#define USE_IRQCPU_FOR_PWRDOWN	(0x1 << 4)
+#define USE_MEMPWR_FEEDBACK	(0x1 << 3)
+#define USE_MEMPWR_COUNTER	(0x1 << 2)
+#define USE_SC_FEEDBACK	(0x1 << 1)
+#define USE_SC_COUNTER	(0x1 << 0)
+
 /* init_pmu_l2_option*/
 #define USE_AUTOMATIC_L2FLUSHREQ	(0x1 << 17)
 #define USE_STANDBYWFIL2		(0x1 << 16)
@@ -62,6 +83,21 @@ static void set_pmu_lpi_mask(void)
 static void init_pmu_l2_option(void)
 {
 	unsigned int tmp;
+
+	tmp = pwrcal_readl(MNGS_NONCPU_OPTION);
+	tmp &= ~USE_SC_FEEDBACK;
+	tmp |= USE_SC_COUNTER;
+	pwrcal_writel(MNGS_NONCPU_OPTION, tmp);
+
+	tmp = pwrcal_readl(APOLLO_NONCPU_OPTION);
+	tmp &= ~USE_SC_FEEDBACK;
+	tmp |= USE_SC_COUNTER;
+	pwrcal_writel(APOLLO_NONCPU_OPTION, tmp);
+
+	pwrcal_setf(MNGS_NONCPU_DURATION0, 0x8, 0xf, 0x3);
+	pwrcal_setf(MNGS_NONCPU_DURATION0, 0x4, 0xf, 0x3);
+	pwrcal_setf(APOLLO_NONCPU_DURATION0, 0x8, 0xf, 0x3);
+	pwrcal_setf(APOLLO_NONCPU_DURATION0, 0x4, 0xf, 0x3);
 
 	/* disable automatic L2 flush */
 	/* disable L2 retention */
@@ -88,27 +124,16 @@ static unsigned int *pmu_cpuoption_sfrlist[] = {
 	APOLLO_CPU2_OPTION,
 	APOLLO_CPU3_OPTION,
 };
-
-#define EMULATION	(0x1 << 31)
-#define ENABLE_DBGNOPWRDWN	(0x1 << 30)
-#define USE_SMPEN	(0x1 << 28)
-#define DBGPWRDWNREQ_EMULATION	(0x1 << 27)
-#define RESET_EMULATION	(0x1 << 26)
-#define CLAMP_EMULATION	(0x1 << 25)
-#define USE_STANDBYWFE	(0x1 << 24)
-#define IGNORE_OUTPUT_UPDATE_DONE	(0x1 << 20)
-#define REQ_LAST_CPU	(0x1 << 17)
-#define USE_STANDBYWFI	(0x1 << 16)
-#define SKIP_DBGPWRDWN	(0x1 << 15)
-#define USE_DELAYED_RESET_ASSERTION	(0x1 << 12)
-#define ENABLE_GPR_CPUPWRUP	(0x1 << 9)
-#define ENABLE_AUTO_WAKEUP_INT_REQ	(0x1 << 8)
-#define USE_IRQCPU_FOR_PWRUP	(0x1 << 5)
-#define USE_IRQCPU_FOR_PWRDOWN	(0x1 << 4)
-#define USE_MEMPWR_FEEDBACK	(0x1 << 3)
-#define USE_MEMPWR_COUNTER	(0x1 << 2)
-#define USE_SC_FEEDBACK	(0x1 << 1)
-#define USE_SC_COUNTER	(0x1 << 0)
+static unsigned int *pmu_cpuduration_sfrlist[] = {
+	MNGS_CPU0_DURATION0,
+	MNGS_CPU1_DURATION0,
+	MNGS_CPU2_DURATION0,
+	MNGS_CPU3_DURATION0,
+	APOLLO_CPU0_DURATION0,
+	APOLLO_CPU1_DURATION0,
+	APOLLO_CPU2_DURATION0,
+	APOLLO_CPU3_DURATION0,
+};
 
 #define DUR_WAIT_RESET	(0xF << 20)
 #define DUR_CHG_RESET	(0xF << 16)
@@ -187,10 +212,13 @@ static void init_pmu_cpu_option(void)
 		tmp |= USE_MEMPWR_FEEDBACK;
 		tmp &= ~USE_MEMPWR_COUNTER;
 
-		tmp |= USE_SC_FEEDBACK;
-		tmp &= ~USE_SC_COUNTER;
+		tmp &= ~USE_SC_FEEDBACK;
+		tmp |= USE_SC_COUNTER;
 
 		pwrcal_writel(pmu_cpuoption_sfrlist[cpu], tmp);
+
+		pwrcal_setf(pmu_cpuduration_sfrlist[cpu], 0x8, 0xf, 0x3);
+		pwrcal_setf(pmu_cpuduration_sfrlist[cpu], 0x4, 0xf, 0x3);
 	}
 }
 
@@ -217,8 +245,6 @@ static void init_pmu_up_scheduler(void)
 }
 
 static unsigned int *pmu_feedback_sfrlist[] = {
-	MNGS_NONCPU_OPTION,
-	APOLLO_NONCPU_OPTION,
 	TOP_PWR_OPTION,
 	TOP_PWR_MIF_OPTION,
 	PWR_DDRPHY_OPTION,
