@@ -105,10 +105,7 @@ static int qos_min_class[CL_END] = {PM_QOS_CLUSTER0_FREQ_MIN, PM_QOS_CLUSTER1_FR
 static int qos_min_default_value[CL_END] = {PM_QOS_CLUSTER0_FREQ_MIN_DEFAULT_VALUE, PM_QOS_CLUSTER1_FREQ_MIN_DEFAULT_VALUE};
 
 /* For limit number of online cpus through cpuhotplug */
-#define CPUHOTPLUG_MIN_LIMIT	(0)
-#define CPUHOTPLUG_MAX_LIMIT	(1)
 struct pm_qos_request cpufreq_cpu_hotplug_max_request;
-struct pm_qos_request cpufreq_cpu_hotplug_min_request;
 
 /*
  * CPUFREQ init notifier
@@ -1448,28 +1445,14 @@ static ssize_t show_cpufreq_max_limit(struct kobject *kobj,
 	return nsize;
 }
 
-static void enable_nonboot_cluster_cpus(int limit)
+static void enable_nonboot_cluster_cpus(void)
 {
-	switch(limit) {
-	case CPUHOTPLUG_MIN_LIMIT:
-		pm_qos_update_request(&cpufreq_cpu_hotplug_min_request, NR_CPUS);
-		break;
-	case CPUHOTPLUG_MAX_LIMIT:
-		pm_qos_update_request(&cpufreq_cpu_hotplug_max_request, NR_CPUS);
-		break;
-	}
+	pm_qos_update_request(&cpufreq_cpu_hotplug_max_request, NR_CPUS);
 }
 
-static void disable_nonboot_cluster_cpus(int limit)
+static void disable_nonboot_cluster_cpus(void)
 {
-	switch(limit) {
-	case CPUHOTPLUG_MIN_LIMIT:
-		pm_qos_update_request(&cpufreq_cpu_hotplug_min_request, NR_CLUST1_CPUS);
-		break;
-	case CPUHOTPLUG_MAX_LIMIT:
-		pm_qos_update_request(&cpufreq_cpu_hotplug_max_request, NR_CLUST1_CPUS);
-		break;
-	}
+	pm_qos_update_request(&cpufreq_cpu_hotplug_max_request, NR_CLUST1_CPUS);
 }
 
 static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *attr,
@@ -1482,7 +1465,7 @@ static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *a
 
 	if (cluster1_input >= (int)freq_min[CL_ONE]) {
 		if (cluster1_hotplugged) {
-			enable_nonboot_cluster_cpus(CPUHOTPLUG_MAX_LIMIT);
+			enable_nonboot_cluster_cpus();
 			cluster1_hotplugged = false;
 		}
 
@@ -1491,7 +1474,7 @@ static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *a
 	} else if (cluster1_input < (int)freq_min[CL_ONE]) {
 		if (cluster1_input < 0) {
 			if (cluster1_hotplugged) {
-				enable_nonboot_cluster_cpus(CPUHOTPLUG_MAX_LIMIT);
+				enable_nonboot_cluster_cpus();
 				cluster1_hotplugged = false;
 			}
 
@@ -1504,7 +1487,7 @@ static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *a
 			cluster1_input = qos_min_default_value[CL_ONE];
 
 			if (!cluster1_hotplugged) {
-				disable_nonboot_cluster_cpus(CPUHOTPLUG_MAX_LIMIT);
+				disable_nonboot_cluster_cpus();
 				cluster1_hotplugged = true;
 			}
 		}
@@ -1758,11 +1741,6 @@ static int exynos_cluster1_min_qos_handler(struct notifier_block *b, unsigned lo
 	unsigned long freq;
 	struct cpufreq_policy *policy;
 	int cpu = boot_cluster ? 0 : NR_CLUST0_CPUS;
-
-	if (val)
-		enable_nonboot_cluster_cpus(CPUHOTPLUG_MIN_LIMIT);
-	else
-		disable_nonboot_cluster_cpus(CPUHOTPLUG_MIN_LIMIT);
 
 	freq = exynos_getspeed(cpu);
 	if (freq >= val)
@@ -2511,8 +2489,6 @@ static int exynos_mp_cpufreq_probe(struct platform_device *pdev)
 	int ret;
 	cluster_type cluster;
 
-	pm_qos_add_request(&cpufreq_cpu_hotplug_min_request, PM_QOS_CPU_ONLINE_MIN,
-						PM_QOS_CPU_ONLINE_MIN_DEFAULT_VALUE);
 	pm_qos_add_request(&cpufreq_cpu_hotplug_max_request, PM_QOS_CPU_ONLINE_MAX,
 						PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 
