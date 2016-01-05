@@ -690,10 +690,12 @@ static void lpass_enable(void)
 	}
 
 #ifdef CONFIG_SOC_EXYNOS8890
-	lpass.mem = ioremap_wc(SRAM_BASE, SRAM_SIZE);
 	if (!lpass.mem) {
-		pr_err("LPASS driver failed to ioremap sram \n");
-		return;
+		lpass.mem = ioremap_wc(SRAM_BASE, SRAM_SIZE);
+		if (!lpass.mem) {
+			pr_err("LPASS driver failed to ioremap sram \n");
+			return;
+		}
 	}
 #endif
 
@@ -1177,6 +1179,8 @@ static int lpass_probe(struct platform_device *pdev)
 		dev_err(dev, "SRAM ioremap failed\n");
 		return -ENOMEM;
 	}
+#else
+	lpass.mem = NULL;
 #endif
 	lpass.mem_size = resource_size(res);
 	pr_info("%s: sram_base = %08X (%08X bytes)\n",
