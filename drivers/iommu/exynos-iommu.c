@@ -1621,17 +1621,14 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 {
 	if (lv1ent_fault(sent)) {
 		unsigned long flags;
+		sysmmu_pte_t *pent;
+
+		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_KERNEL);
+		if (!pent)
+			return ERR_PTR(-ENOMEM);
+
 		spin_lock_irqsave(&priv->pgtablelock, flags);
 		if (lv1ent_fault(sent)) {
-			sysmmu_pte_t *pent;
-
-			pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
-			BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
-			if (!pent) {
-				spin_unlock_irqrestore(&priv->pgtablelock, flags);
-				return ERR_PTR(-ENOMEM);
-			}
-
 			*sent = mk_lv1ent_page(__pa(pent));
 			kmemleak_ignore(pent);
 			atomic_set(pgcounter, NUM_LV2ENTRIES);
@@ -1639,6 +1636,9 @@ static sysmmu_pte_t *alloc_lv2entry(struct exynos_iommu_domain *priv,
 			pgtable_flush(sent, sent + 1);
 			SYSMMU_EVENT_LOG_IOMMU_ALLOCSLPD(IOMMU_PRIV_TO_LOG(priv),
 							iova & SECT_MASK);
+		} else {
+			/* newly allocated entry is not used */
+			kmem_cache_free(lv2table_kmem_cache, pent);
 		}
 		spin_unlock_irqrestore(&priv->pgtablelock, flags);
 	} else if (!lv1ent_page(sent)) {
@@ -2058,7 +2058,7 @@ static sysmmu_pte_t *alloc_lv2entry_fast(struct exynos_iommu_domain *priv,
 	if (lv1ent_fault(sent)) {
 		sysmmu_pte_t *pent;
 
-		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_ATOMIC);
+		pent = kmem_cache_zalloc(lv2table_kmem_cache, GFP_KERNEL);
 		BUG_ON((unsigned long)pent & (LV2TABLE_SIZE - 1));
 		if (!pent)
 			return ERR_PTR(-ENOMEM);
