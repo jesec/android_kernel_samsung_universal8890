@@ -67,5 +67,6 @@ struct exynos5_i2c {
 	unsigned int		batcher_read_addr;
 	int			need_cs_enb;
 	int			idle_ip_index;
+	int			reset_before_trans;
 };
 #endif /*__I2C_EXYNOS5_H */
