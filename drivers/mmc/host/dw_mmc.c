@@ -3288,10 +3288,8 @@ void dw_mci_ciu_reset(struct device *dev, struct dw_mci *host) {
 		} while (--retry);
 	}
 out:
-
 	/* After a CTRL reset we need to have CIU set clock registers  */
-		dw_mci_update_clock(slot);
-	return;
+	dw_mci_update_clock(slot);
 }
 
 bool dw_mci_fifo_reset(struct device *dev, struct dw_mci *host)
