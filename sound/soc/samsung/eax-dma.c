@@ -446,11 +446,11 @@ static void eax_adma_hw_free(void)
 			di.params->ops->release(di.params->ch, di.params->client);
 		}
 
-		mutex_unlock(&di.mutex);
 		while (!waitqueue_active(&mixer_run_wq)) {
-			schedule_timeout_interruptible(1); /* 1 jiffies = 10ms */
+			if (mi.running)
+				break;
+			usleep_range(50, 100);
 		};
-		mutex_lock(&di.mutex);
 	}
 
 	di.params_done = false;
