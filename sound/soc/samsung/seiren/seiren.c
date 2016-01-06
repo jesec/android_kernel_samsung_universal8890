@@ -781,10 +781,21 @@ static int esa_fw_startup(void)
 		lpass_reset(LPASS_IP_CA5, LPASS_OP_NORMAL);
 		ret = wait_event_interruptible_timeout(esa_wq, si.fw_ready, HZ / 2);
 		if (!ret) {
+#ifdef CONFIG_SOC_EXYNOS8890
+			u32 cfg;
+			void __iomem	*cmu_reg;
+			cmu_reg = ioremap(0x114C0000, SZ_4K);
+			cfg = readl(cmu_reg + 0x800); /* Check CA5 clock */
+			iounmap(cmu_reg);
+			esa_err("%s: fw not ready!!! (%d), clk = %x\n", __func__,
+				readl(si.mailbox + LAST_CHECKPT), cfg);
+#else
 			esa_err("%s: fw not ready!!! (%d)\n", __func__,
 				readl(si.mailbox + LAST_CHECKPT));
+#endif
 			lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
-			lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
+			if (!check_esa_compr_state())
+				lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
 			lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 			si.fw_use_dram = false;
 			return -EBUSY;
@@ -2269,6 +2280,10 @@ static int esa_suspend(struct device *dev)
 
 static int esa_resume(struct device *dev)
 {
+#ifdef CONFIG_SOC_EXYNOS8890
+	void __iomem	*cmu_reg;
+#endif
+
 	esa_debug("%s entered\n", __func__);
 
 	if (!si.pm_suspended)
@@ -2286,6 +2301,9 @@ static int esa_resume(struct device *dev)
 		si.effect_ram = si.sram + EFFECT_OFFSET;
 		lpeff_set_effect_addr(si.effect_ram);
 	}
+	cmu_reg = ioremap(0x114C0000, SZ_4K);
+	writel(0x1, cmu_reg + 0x800); /* Enable CA5 clock */
+	iounmap(cmu_reg);
 #endif
 	clk_prepare_enable(si.clk_ca5);
 	esa_fw_startup();
