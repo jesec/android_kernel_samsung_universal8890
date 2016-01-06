@@ -48,7 +48,9 @@
 #include "exynos_tmu.h"
 #include "exynos_tmu_data.h"
 
+#if defined(CONFIG_CPU_THERMAL_IPA)
 static unsigned int sensor_count = 0;
+#endif
 struct cpufreq_frequency_table gpu_freq_table[10];
 struct isp_fps_table isp_fps_table[10];
 unsigned long base_addr[10];
@@ -206,19 +208,21 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 	}
 
 	if (reg->calib_sel_shift) {
-		status = (readb(data->base + reg->triminfo_data) >> reg->calib_sel_shift) \
+		status = (readl(data->base + reg->triminfo_data) >> reg->calib_sel_shift) \
 				& reg->calib_sel_mask;
 
 		if (status)
 			pdata->cal_type = TYPE_TWO_POINT_TRIMMING;
 		else
 			pdata->cal_type = TYPE_ONE_POINT_TRIMMING;
+
+		dev_info(&pdev->dev, "cal type : %d \n", pdata->cal_type);
 	}
 
 	if (TMU_SUPPORTS(pdata, READY_STATUS)) {
 		timeout = 10;
 		while (1) {
-			status = readb(data->base + reg->tmu_status);
+			status = readl(data->base + reg->tmu_status);
 			if (status & 0x1)
 				break;
 
@@ -429,7 +433,7 @@ static int exynos_tmu_initialize(struct platform_device *pdev)
 
 			timeout = 10;
 			while (1) {
-				status = readb(data->base + reg->tmu_status);
+				status = readl(data->base + reg->tmu_status);
 				if (status & 0x1)
 					break;
 
@@ -535,7 +539,7 @@ static int exynos_tmu_control(struct platform_device *pdev, bool on)
 
 	timeout = 10;
 	while (1) {
-		status = readb(data->base + reg->tmu_status);
+		status = readl(data->base + reg->tmu_status);
 		if (status & 0x1)
 			break;
 
@@ -686,7 +690,7 @@ void exynos_tmu_core_control(bool on, int id)
 				continue;
 
 			for (count = 0; count < 10; count++) {
-				status = readb(devnode->base + devnode->pdata->registers->tmu_status);
+				status = readl(devnode->base + devnode->pdata->registers->tmu_status);
 				if (status & 0x1)
 					break;
 
