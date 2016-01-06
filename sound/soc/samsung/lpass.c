@@ -689,16 +689,6 @@ static void lpass_enable(void)
 		return;
 	}
 
-#ifdef CONFIG_SOC_EXYNOS8890
-	if (!lpass.mem) {
-		lpass.mem = ioremap_wc(SRAM_BASE, SRAM_SIZE);
-		if (!lpass.mem) {
-			pr_err("LPASS driver failed to ioremap sram \n");
-			return;
-		}
-	}
-#endif
-
 	/* Enable PLL */
 	lpass_enable_pll(true);
 
@@ -715,6 +705,17 @@ static void lpass_enable(void)
 	lpass_reset_toggle(LPASS_IP_MEM);
 	lpass_reset_toggle(LPASS_IP_I2S);
 	lpass_reset_toggle(LPASS_IP_DMA);
+
+#ifdef CONFIG_SOC_EXYNOS8890
+	if (!lpass.mem) {
+		lpass.mem = ioremap_wc(SRAM_BASE, SRAM_SIZE);
+		if (!lpass.mem) {
+			lpass_enable_pll(false);
+			pr_err("LPASS driver failed to ioremap sram \n");
+			return;
+		}
+	}
+#endif
 
 	if (lpass.clk_dmac)
 		clk_disable_unprepare(lpass.clk_dmac);
