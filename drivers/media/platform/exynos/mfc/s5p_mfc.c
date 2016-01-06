@@ -151,6 +151,7 @@ static void s5p_mfc_check_and_stop_hw(struct s5p_mfc_dev *dev)
 	MFC_TRACE_DEV("** mfc will stop!!!\n");
 	s5p_mfc_disp_state(dev);
 	s5p_mfc_dump_regs(dev);
+	exynos_sysmmu_show_status(dev->device);
 	BUG();
 }
 
@@ -1994,8 +1995,8 @@ static int s5p_mfc_open(struct file *file)
 #endif
 	}
 
-	mfc_info_ctx("MFC open completed [%d:%d] dev = %p, ctx = %p\n",
-			dev->num_drm_inst, dev->num_inst, dev, ctx);
+	mfc_info_ctx("MFC open completed [%d:%d] dev = %p, ctx = %p, version = %d\n",
+			dev->num_drm_inst, dev->num_inst, dev, ctx, MFC_DRIVER_INFO);
 	mutex_unlock(&dev->mfc_mutex);
 	return ret;
 

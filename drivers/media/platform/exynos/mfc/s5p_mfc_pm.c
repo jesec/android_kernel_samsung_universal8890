@@ -73,7 +73,6 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 
 	dev->pm.clock_on_steps = 1;
 	state = atomic_read(&dev->clk_ref);
-	MFC_TRACE_DEV("++ clock_on : ref state(%d)\n", state);
 
 	ret = clk_enable(dev->pm.clock);
 	if (ret < 0)
@@ -124,7 +123,7 @@ int s5p_mfc_clock_on(struct s5p_mfc_dev *dev)
 	dev->pm.clock_on_steps |= 0x1 << 8;
 	state = atomic_read(&dev->clk_ref);
 	mfc_debug(2, "+ %d\n", state);
-	MFC_TRACE_DEV("-- clock_on : ref state(%d)\n", state);
+	MFC_TRACE_DEV("** clock_on : ref state(%d)\n", state);
 
 	return 0;
 }
@@ -149,7 +148,6 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 
 	dev->pm.clock_off_steps = 1;
 	state = atomic_read(&dev->clk_ref);
-	MFC_TRACE_DEV("++ clock_off: ref state(%d)\n", state);
 
 	if (IS_MFCV6(dev)) {
 		spin_lock_irqsave(&dev->pm.clklock, flags);
@@ -203,7 +201,7 @@ void s5p_mfc_clock_off(struct s5p_mfc_dev *dev)
 	dev->pm.clock_off_steps |= 0x1 << 8;
 	state = atomic_read(&dev->clk_ref);
 	mfc_debug(2, "- %d\n", state);
-	MFC_TRACE_DEV("-- clock_off: ref state(%d)\n", state);
+	MFC_TRACE_DEV("** clock_off: ref state(%d)\n", state);
 }
 
 int s5p_mfc_power_on(struct s5p_mfc_dev *dev)

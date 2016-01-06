@@ -137,6 +137,11 @@ int s5p_mfc_stream_buf_prot(struct s5p_mfc_ctx *ctx,
 					en ? "" : "UN", ret);
 			mfc_err_ctx("DEC src buf, 0x%08llx(0x%08llx) size:%ld\n",
 					buf->planes.stream, addr, dec->src_buf_size);
+		} else {
+			mfc_debug(3, "succeeded to CFW %sPROT\n",
+					en ? "" : "UN");
+			mfc_debug(3, "DEC src buf, 0x%08llx(0x%08llx) size:%ld\n",
+					buf->planes.stream, addr, dec->src_buf_size);
 		}
 	} else if (ctx->type == MFCINST_ENCODER) {
 		enc = ctx->enc_priv;
@@ -145,6 +150,11 @@ int s5p_mfc_stream_buf_prot(struct s5p_mfc_ctx *ctx,
 			mfc_err_ctx("failed to CFW %sPROT (%#x)\n",
 					en ? "" : "UN", ret);
 			mfc_err_ctx("ENC dst buf, 0x%08llx(0x%08llx) size:%ld\n",
+					buf->planes.stream, addr, enc->dst_buf_size);
+		} else {
+			mfc_debug(3, "succeeded to CFW %sPROT\n",
+					en ? "" : "UN");
+			mfc_debug(3, "ENC dst buf, 0x%08llx(0x%08llx) size:%ld\n",
 					buf->planes.stream, addr, enc->dst_buf_size);
 		}
 	}
@@ -194,6 +204,12 @@ int s5p_mfc_raw_buf_prot(struct s5p_mfc_ctx *ctx,
 				mfc_err_ctx("%s buf, addr:0x%08llx(0x%08llx) size:%d\n",
 					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",
 					buf->planes.raw[0], addr, raw->total_plane_size);
+			} else {
+				mfc_debug(3, "succeeded to CFW %sPROT\n",
+						en ? "" : "UN");
+				mfc_debug(3, "%s buf, addr:0x%08llx(0x%08llx) size:%d\n",
+					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",
+					buf->planes.raw[0], addr, raw->total_plane_size);
 			}
 		} else {
 			ret = exynos_smc(cmd_id, addr, raw->plane_size[i], dev->id);
@@ -201,6 +217,12 @@ int s5p_mfc_raw_buf_prot(struct s5p_mfc_ctx *ctx,
 				mfc_err_ctx("failed to buf[%d] CFW %sPROT (%#x)\n",
 						i, en ? "" : "UN", ret);
 				mfc_err_ctx("%s buf, addr:0x%08llx(0x%08llx) size:%d\n",
+					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",
+					buf->planes.raw[i], addr, raw->plane_size[i]);
+			} else {
+				mfc_debug(3, "succeeded to buf[%d] CFW %sPROT\n",
+						i, en ? "" : "UN");
+				mfc_debug(3, "%s buf, addr:0x%08llx(0x%08llx) size:%d\n",
 					ctx->type == MFCINST_DECODER ? "DEC dst" : "ENC src",
 					buf->planes.raw[i], addr, raw->plane_size[i]);
 			}

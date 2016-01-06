@@ -32,7 +32,7 @@
 #include "s5p_mfc_data_struct.h"
 #include "s5p_mfc_debug.h"
 
-#define MFC_DRIVER_INFO		150901
+#define MFC_DRIVER_INFO		160106
 
 #define MFC_MAX_REF_BUFS	2
 #define MFC_FRAME_PLANES	2

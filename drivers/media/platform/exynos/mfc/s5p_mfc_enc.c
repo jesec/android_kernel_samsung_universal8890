@@ -3518,8 +3518,9 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 	int aborted = 0;
 	int ret = 0;
 
-	mfc_info_ctx("stop_streaming is called, hw_lock : %d, type : %d\n",
+	mfc_info_ctx("enc stop_streaming is called, hw_lock : %d, type : %d\n",
 				test_bit(ctx->num, &dev->hw_lock), q->type);
+	MFC_TRACE_CTX("** ENC streamoff(type:%d)\n", q->type);
 
 #ifdef NAL_Q_ENABLE
 	nal_queue_handle *nal_q_handle = dev->nal_q_handle;

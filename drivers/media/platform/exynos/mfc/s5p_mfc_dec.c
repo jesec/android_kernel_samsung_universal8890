@@ -2248,8 +2248,9 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		return;
 	}
 
-	mfc_debug(2, "stop_streaming is called, hw_lock : %d, type : %d\n",
+	mfc_info_ctx("dec stop_streaming is called, hw_lock : %d, type : %d\n",
 				test_bit(ctx->num, &dev->hw_lock), q->type);
+	MFC_TRACE_CTX("** DEC streamoff(type:%d)\n", q->type);
 
 	spin_lock_irq(&dev->condlock);
 	set_bit(ctx->num, &dev->ctx_stop_bits);
@@ -2368,6 +2369,7 @@ static void s5p_mfc_stop_streaming(struct vb2_queue *q)
 		set_bit(ctx->num, &dev->ctx_work_bits);
 		spin_unlock_irq(&dev->condlock);
 		s5p_mfc_clean_ctx_int_flags(ctx);
+		mfc_info_ctx("try to DPB flush\n");
 		s5p_mfc_try_run(dev);
 		if (s5p_mfc_wait_for_done_ctx(ctx,
 				S5P_FIMV_R2H_CMD_DPB_FLUSH_RET))
