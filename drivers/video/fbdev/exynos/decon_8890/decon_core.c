@@ -1599,6 +1599,9 @@ static int decon_set_win_buffer(struct decon_device *decon, struct decon_win *wi
 	int vpp_id;
 	struct device *dev;
 
+	for (i = 0; i < MAX_BUF_PLANE_CNT; i++)
+		buf[i] = NULL;
+
 	if (win_config->format >= DECON_PIXEL_FORMAT_MAX) {
 		decon_err("unknown pixel format %u\n", win_config->format);
 		return -EINVAL;
@@ -1730,7 +1733,8 @@ err_offset:
 	goto err_invalid;
 err_map:
 	for (i = 0; i < plane_cnt; ++i)
-		dma_buf_put(buf[i]);
+		if (buf[i])
+			dma_buf_put(buf[i]);
 err_buf_get:
 	if (handle)
 		ion_free(decon->ion_client, handle);
