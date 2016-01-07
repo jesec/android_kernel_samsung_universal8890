@@ -334,13 +334,13 @@ struct phy_dfs_table {
 };
 
 struct dram_dfs_table {
-	unsigned int DirectCmd_MR1;
-	unsigned int DirectCmd_MR2;
-	unsigned int DirectCmd_MR3;
-	unsigned int DirectCmd_MR11;
-	unsigned int DirectCmd_MR12;
-	unsigned int DirectCmd_MR14;
-	unsigned int DirectCmd_MR22;
+	unsigned char DirectCmd_MR1;
+	unsigned char DirectCmd_MR2;
+	unsigned char DirectCmd_MR3;
+	unsigned char DirectCmd_MR11;
+	unsigned char DirectCmd_MR12;
+	unsigned char DirectCmd_MR14;
+	unsigned char DirectCmd_MR22;
 };
 
 /******************************************************************************
@@ -361,6 +361,12 @@ typedef enum {
 	SMC_CH_3,
 	SMC_CH_ALL,
 } smc_ch_t;
+
+typedef enum {
+	SMC_RANK_0 = 0x1,
+	SMC_RANK_1 = 0x2,
+	SMC_RANK_ALL = 0x3,
+} smc_rank_t;
 
 struct smc_timing_params_t {
 	unsigned int DramTiming0;
@@ -836,7 +842,7 @@ static unsigned int query_key;
 
 static const unsigned long long mif_freq_to_level_switch[] = {
 	936 * MHZ,	/* BUS3_PLL SW 936 */
-	528 * MHZ,	/* BUS0_PLL SW 468 */
+	528 * MHZ,	/* BUS0_PLL SW 528 */
 };
 
 static unsigned long config_base;
@@ -1024,6 +1030,57 @@ void smc_mode_register_write_per_ch(int ch, int mr, int rank, int op)
 #endif
 }
 
+
+/******************************************************************************
+ *
+ * @fn      smc_mode_register_read_per_ch
+ *
+ * @brief
+ *
+ * @param
+ *
+ * @return
+ *
+ *****************************************************************************/
+unsigned int smc_mode_register_read_per_ch(int ch, int mr, int rank)
+{
+	unsigned long modereg;
+	unsigned long mprmrctl;
+	unsigned long moderegrddata0;
+
+	unsigned long base;
+
+	switch (ch) {
+	case 0:
+		base = SMC0_BASE;
+		break;
+	case 1:
+		base = SMC1_BASE;
+		break;
+	case 2:
+		base = SMC2_BASE;
+		break;
+	case 3:
+		base = SMC3_BASE;
+		break;
+	}
+	modereg = base;
+	mprmrctl = (base + 0x4);
+	moderegrddata0 = (base + 0xC);
+
+	pwrcal_writel((void *)modereg, (((rank & 0x3) << 28) | (mr << 20)));
+#ifdef PWRCAL_TARGET_LINUX
+	dsb(ishst);
+	pwrcal_writel((void *)mprmrctl, 0x1);
+	dsb(ishst);
+#else
+	pwrcal_writel((void *)mprmrctl, 0x1);
+#endif
+
+	return pwrcal_readl((void *)moderegrddata0);
+}
+
+
 /******************************************************************************
  *
  * @fn      convert_to_level
@@ -1089,9 +1146,9 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 
 	unsigned int uReg;
 
-	unsigned int target_mif_level_idx, target_mif_level_switch_idx;
-	unsigned int mr13;
-	unsigned short mr14;
+	unsigned char target_mif_level_idx, target_mif_level_switch_idx;
+	unsigned char mr13;
+	unsigned char mr14;
 
 	int gate_offset_adjust = 0;
 	int new_gate_offset;
@@ -1106,12 +1163,8 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 
 	target_mif_level_idx = convert_to_level(target_mif_freq);
 
-	if (target_mif_freq == 936 * MHZ) {
 		target_mif_level_switch_idx = convert_to_level_switch(target_mif_freq);
 		target_mif_level_switch_idx += num_mif_freq_to_level;
-	} else {
-		target_mif_level_switch_idx = convert_to_level(target_mif_freq);
-	}
 
 
 	/* 1. Configure parameter */
@@ -1427,12 +1480,12 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 
 		if ((drampara_config->vref.num_of_level != 0) && (drampara_config->vref.write.vref == 1)) {
 			for (n = 0; n < PHY_CH_ALL; n++) {
-				mr14 = drampara_config->vref.vref_write[n][target_mif_level_idx];
+				mr14 = drampara_config->vref.vref_write[n][target_mif_level_switch_idx];
 				for (rank = 1; rank < 0x4; rank <<= 1)
 					smc_mode_register_write_per_ch(n, DRAM_MR14, rank, mr14 & 0xff);
 			}
 		} else {
-			smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR14);
+			smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR14);
 		}
 
 		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR22);
@@ -1587,6 +1640,9 @@ void dfs_mif_level_init(void)
  *****************************************************************************/
 void dfs_dram_init(void)
 {
+	int ch;
+	unsigned int trained_vref[4];
+
 #ifndef PWRCAL_TARGET_LINUX
 	config_base = pwrcal_readl(PMU_DREX_CALIBRATION1);
 #else
@@ -1600,4 +1656,10 @@ void dfs_dram_init(void)
 
 	dfs_dram_param_init();
 	dfs_mif_level_init();
+
+	for (ch = 0; ch < PHY_CH_ALL; ch++)
+		trained_vref[ch] = smc_mode_register_read_per_ch(ch, DRAM_MR14, SMC_RANK_ALL);
+
+	pr_info("write vref training value = CH0:0x%x, CH1:0x%x, CH2:0x%x, CH3:0x%x\n", \
+		trained_vref[0], trained_vref[1], trained_vref[2], trained_vref[3]);
 }
