@@ -22,6 +22,7 @@
 #include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/reboot.h>
+#include <linux/suspend.h>
 #include <linux/exynos-ss.h>
 
 #include <soc/samsung/exynos-devfreq.h>
@@ -1033,6 +1034,40 @@ static int exynos_devfreq_reboot_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int exynos_devfreq_pm_notifier(struct notifier_block *nb,
+					unsigned long pm_event, void *v)
+{
+	struct exynos_devfreq_data *data = container_of(nb, struct exynos_devfreq_data,
+								pm_notifier);
+	int ret;
+
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		if (data->ops.pm_suspend_prepare) {
+			ret = data->ops.pm_suspend_prepare(data->dev, data);
+			if (ret) {
+				dev_err(data->dev, "failed pm_suspend_prepare\n");
+				goto err;
+			}
+		}
+		break;
+	case PM_POST_SUSPEND:
+		if (data->ops.pm_post_suspend) {
+			ret = data->ops.pm_post_suspend(data->dev, data);
+			if (ret) {
+				dev_err(data->dev, "failed pm_post_suspend\n");
+				goto err;
+			}
+		}
+		break;
+	}
+
+	return NOTIFY_OK;
+
+err:
+	return NOTIFY_BAD;
+}
+
 static int exynos_devfreq_notifier(struct notifier_block *nb,
 					unsigned long val, void *v)
 {
@@ -1626,6 +1661,13 @@ static int exynos_devfreq_probe(struct platform_device *pdev)
 		goto err_reboot_noti;
 	}
 
+	data->pm_notifier.notifier_call = exynos_devfreq_pm_notifier;
+	ret = register_pm_notifier(&data->pm_notifier);
+	if (ret) {
+		dev_err(data->dev, "failed register pm notifier\n");
+		goto err_pm_noti;
+	}
+
 #ifdef CONFIG_ARM_EXYNOS_DEVFREQ_DEBUG
 	ret = sysfs_create_group(&data->devfreq->dev.kobj,
 				&exynos_devfreq_attr_group);
@@ -1639,6 +1681,8 @@ static int exynos_devfreq_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_pm_noti:
+	unregister_reboot_notifier(&data->reboot_notifier);
 err_reboot_noti:
 err_tmu_noti:
 	devfreq_unregister_opp_notifier(data->dev, data->devfreq);
@@ -1697,6 +1741,7 @@ static int exynos_devfreq_remove(struct platform_device *pdev)
 	sysfs_remove_group(&data->devfreq->dev.kobj,
 				&exynos_devfreq_attr_group);
 #endif
+	unregister_pm_notifier(&data->pm_notifier);
 	unregister_reboot_notifier(&data->reboot_notifier);
 	devfreq_unregister_opp_notifier(data->dev, data->devfreq);
 
