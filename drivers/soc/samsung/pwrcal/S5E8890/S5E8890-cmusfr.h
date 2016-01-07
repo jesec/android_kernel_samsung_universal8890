@@ -2197,4 +2197,6 @@
 #define MIF_USE_BUS1_PLL        ((void *)(MAILBOX_BASE + 0x0194))
 #define MIF_INIT_FLAG   0x4
 
+#define MAILBOX_EVS_MODE	((void *)(MAILBOX_BASE + 0x00C0))
+
 #endif

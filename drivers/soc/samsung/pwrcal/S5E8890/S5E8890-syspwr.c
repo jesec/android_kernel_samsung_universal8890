@@ -2277,7 +2277,7 @@ static void pwrcal_syspwr_prepare(int mode)
 		pwrcal_setbit(WAKEUP_MASK, 30, 1);
 		pwrcal_setbit(MEMORY_TOP_OPTION, 4, 0);
 		set_pmu_central_seq_mif(true);
-		if (is_cp_aud_enabled()) {
+		if (is_cp_aud_enabled() && !(pwrcal_readl(MAILBOX_EVS_MODE))) {
 			mif_use_cp_pll = 1;
 			enable_cppll_sharing_bus012_disable();
 		}
