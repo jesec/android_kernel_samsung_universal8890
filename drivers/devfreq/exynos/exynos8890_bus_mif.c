@@ -46,6 +46,11 @@
 #define DEVFREQ_MIF_BUCK_CTRL		(1539000)
 #define SWITCH_CMOS_VOLT_OFFSET		(56250)
 
+/* definition for EVS mode */
+#define MBOX_EVS_MODE			(16)
+#define DEVFREQ_MIF_EVS_FREQ		(1144000)
+
+static unsigned long origin_suspend_freq = 0;
 static struct pm_qos_request int_pm_qos_from_mif;
 
 static u32 int_min_table[] = {
@@ -100,6 +105,22 @@ static int exynos8890_devfreq_mif_reboot(struct device *dev,
 	mutex_lock(&data->devfreq->lock);
 	update_devfreq(data->devfreq);
 	mutex_unlock(&data->devfreq->lock);
+
+	return 0;
+}
+
+static int exynos8890_devfreq_mif_pm_suspend_prepare(struct device *dev,
+					struct exynos_devfreq_data *data)
+{
+	if (!origin_suspend_freq)
+		origin_suspend_freq = data->devfreq_profile.suspend_freq;
+
+#ifdef CONFIG_MCU_IPC
+	if (mbox_get_value(MBOX_EVS_MODE))
+		data->devfreq_profile.suspend_freq = DEVFREQ_MIF_EVS_FREQ;
+	else
+		data->devfreq_profile.suspend_freq = origin_suspend_freq;
+#endif
 
 	return 0;
 }
@@ -265,8 +286,10 @@ static int exynos8890_devfreq_mif_set_freq_post(struct device *dev,
 		pm_qos_update_request(&int_pm_qos_from_mif,
 					int_min_table[data->new_idx]);
 
+#ifdef CONFIG_MCU_IPC
 	/* Send information about MIF frequency to mailbox */
 	mbox_set_value(13, data->new_freq);
+#endif
 
 	return 0;
 }
@@ -489,6 +512,7 @@ static int __init exynos8890_devfreq_mif_init_prepare(struct exynos_devfreq_data
 	data->ops.set_voltage_prepare = exynos8890_devfreq_mif_set_voltage_prepare;
 	data->ops.set_voltage_post = exynos8890_devfreq_mif_set_voltage_post;
 	data->ops.reboot = exynos8890_devfreq_mif_reboot;
+	data->ops.pm_suspend_prepare = exynos8890_devfreq_mif_pm_suspend_prepare;
 	data->ops.cmu_dump = exynos8890_devfreq_mif_cmu_dump;
 
 	mif_data = data;
