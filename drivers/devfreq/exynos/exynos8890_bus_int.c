@@ -84,6 +84,22 @@ static int exynos8890_devfreq_int_set_freq(struct device *dev,
 	return 0;
 }
 
+static int exynos8890_devfreq_int_resume(struct device *dev,
+					struct exynos_devfreq_data *data)
+{
+	u32 cur_freq;
+
+	/* for sync from resume frequency */
+	if (exynos8890_devfreq_int_get_freq(dev, &cur_freq, data)) {
+		dev_err(dev, "failed get frequency when resume\n");
+		return -EINVAL;
+	}
+
+	dev_info(dev, "Resume frequency is %u\n", cur_freq);
+
+	return 0;
+}
+
 static int exynos8890_devfreq_int_init_freq_table(struct device *dev,
 						struct exynos_devfreq_data *data)
 {
@@ -212,6 +228,7 @@ static int __init exynos8890_devfreq_int_init_prepare(struct exynos_devfreq_data
 	data->ops.set_freq = exynos8890_devfreq_int_set_freq;
 	data->ops.init_freq_table = exynos8890_devfreq_int_init_freq_table;
 	data->ops.get_target_freq = exynos8890_devfreq_int_get_target_freq;
+	data->ops.resume = exynos8890_devfreq_int_resume;
 	data->ops.reboot = exynos8890_devfreq_int_reboot;
 	data->ops.cmu_dump = exynos8890_devfreq_int_cmu_dump;
 
