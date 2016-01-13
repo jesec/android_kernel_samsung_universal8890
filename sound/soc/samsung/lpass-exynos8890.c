@@ -50,6 +50,7 @@ static struct lpass_cmu_info {
 } lpass_cmu;
 
 #ifdef CONFIG_CPU_IDLE
+DEFINE_SPINLOCK(sicd_lock);
 static int g_init_sicd_index;
 static int g_init_sicd_aud_index;
 static int g_sicd_index;
@@ -62,6 +63,7 @@ void __iomem *lpass_cmu_save[] = {
 };
 
 extern int check_adma_status(void);
+extern int check_eax_dma_status(void);
 
 void lpass_init_clk_gate(void)
 {
@@ -169,9 +171,11 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 {
 #ifdef CONFIG_CPU_IDLE
 	int dram_used;
+	unsigned long flags;
 
 	dram_used = check_adma_status();
 
+	spin_lock_irqsave(&sicd_lock, flags);
 	if (g_init_sicd_index == 0) {
 		g_sicd_index = exynos_get_idle_ip_index(dev_name(dev));
 		g_init_sicd_index = 1;
@@ -181,15 +185,18 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 		g_init_sicd_aud_index = 1;
 	}
 	if (g_sicd_index < 0 || g_sicd_aud_index < 0) {
+		spin_unlock_irqrestore(&sicd_lock, flags);
 		dev_err(dev, "ERROR : Can't get SICD index for 'audio'.\n");
 		return;
 	}
 
 	if (ctrlid & LPCLK_CTRLID_LEGACY) {
-		if (active)
+		if (active) {
 			g_current_power_mode |= LPCLK_CTRLID_LEGACY;
-		else
-			g_current_power_mode &= (~LPCLK_CTRLID_LEGACY);
+		} else {
+			if (!check_eax_dma_status())
+				g_current_power_mode &= (~LPCLK_CTRLID_LEGACY);
+		}
 	}
 	if (ctrlid & LPCLK_CTRLID_OFFLOAD) {
 		if (active)
@@ -231,6 +238,7 @@ void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool active)
 		pr_err("[ERROR] Invalid audio power mode: 0x%04X\n",
 			g_current_power_mode);
 	}
+	spin_unlock_irqrestore(&sicd_lock, flags);
 #endif
 }
 

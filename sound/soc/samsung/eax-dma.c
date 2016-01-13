@@ -526,9 +526,9 @@ static void eax_adma_trigger(bool on)
 			di.params->ops->stop(di.params->ch);
 		lpass_dma_enable(false);
 		lpass_dec_dram_usage_count();
-		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 		di.prepare_done = false;
 		di.running = on;
+		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
 	}
 
 	spin_unlock(&di.lock);
