@@ -53,7 +53,7 @@ static inline int exynos_pm_unregister_notifier(struct notifier_block *nb)
 	return 0;
 }
 
-static inline int exynos_pm_notify(void)
+static inline int exynos_pm_notify(enum exynos_pm_event event)
 {
 	return 0;
 }
