@@ -641,7 +641,8 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 
 	case VPP_WAIT_IDLE:
-		vpp_reg_wait_idle(vpp->id);
+		if (test_bit(VPP_RUNNING, &vpp->state))
+			vpp_reg_wait_idle(vpp->id);
 		break;
 
 	case VPP_WAIT_FOR_FRAMEDONE:
