@@ -2982,8 +2982,14 @@ static void dw_mci_work_routine_card(struct work_struct *work)
 			present = dw_mci_get_cd(mmc);
 		}
 
-		mmc_detect_change(slot->mmc,
-			msecs_to_jiffies(host->pdata->detect_delay_ms));
+		if (present)
+			mmc_detect_change(slot->mmc,
+				msecs_to_jiffies(host->pdata->detect_delay_ms));
+		else {
+			mmc_detect_change(slot->mmc, 0);
+			if (host->pdata->only_once_tune)
+				host->pdata->tuned = false;
+		}
 	}
 }
 
@@ -3395,6 +3401,9 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
 	if (!of_property_read_u32(np, "clock-frequency", &clock_frequency))
 		pdata->bus_hz = clock_frequency;
 
+	if (of_find_property(np, "only_once_tune", NULL))
+		pdata->only_once_tune = true;
+
 	if (drv_data && drv_data->parse_dt) {
 		ret = drv_data->parse_dt(host);
 		if (ret)
@@ -3445,6 +3454,8 @@ int dw_mci_probe(struct dw_mci *host)
 			return -EINVAL;
 		}
 	}
+
+	host->pdata->tuned = false;
 
 	if (host->pdata->num_slots > 1) {
 		dev_err(host->dev,
