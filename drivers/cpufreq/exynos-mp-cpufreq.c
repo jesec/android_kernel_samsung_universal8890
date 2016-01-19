@@ -1008,9 +1008,13 @@ static struct notifier_block __refdata exynos_cpufreq_cpu_up_nb = {
 	.priority = INT_MIN,
 };
 
+/*
+ * This notifier should be perform before
+ * cpufreq_cpu_notifier performs.
+ */
 static struct notifier_block __refdata exynos_cpufreq_cpu_down_nb = {
 	.notifier_call = exynos_cpufreq_cpu_down_notifier,
-	.priority = INT_MAX,
+	.priority = INT_MIN + 2,
 };
 
 /*

@@ -2382,8 +2382,13 @@ static int cpufreq_cpu_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
+/*
+ * This notifier should be perform after
+ * exynos_cpufreq_cpu_down_nb performs.
+ */
 static struct notifier_block __refdata cpufreq_cpu_notifier = {
 	.notifier_call = cpufreq_cpu_callback,
+	.priority = INT_MIN + 1,
 };
 
 /*********************************************************************
