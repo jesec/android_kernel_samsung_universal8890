@@ -312,10 +312,10 @@ static int pwm_samsung_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	unsigned long flags;
 	u32 tcon;
 
-	spin_lock_irqsave(&samsung_pwm_lock, flags);
-
 	if (!our_chip->enable_cnt && !our_chip->need_hw_init)
 		pwm_samsung_clk_enable(our_chip);
+
+	spin_lock_irqsave(&samsung_pwm_lock, flags);
 
 	if (our_chip->need_hw_init)
 		pwm_samsung_restore(our_chip);
@@ -366,10 +366,11 @@ static void pwm_samsung_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	channel->running = 0;
 	our_chip->enable_cnt--;
-	if (!our_chip->enable_cnt && !our_chip->need_hw_init)
-		pwm_samsung_clk_disable(our_chip);
 
 	spin_unlock_irqrestore(&samsung_pwm_lock, flags);
+
+	if (!our_chip->enable_cnt && !our_chip->need_hw_init)
+		pwm_samsung_clk_disable(our_chip);
 }
 
 static int pwm_samsung_config(struct pwm_chip *chip, struct pwm_device *pwm,
