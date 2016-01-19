@@ -1360,9 +1360,10 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	}
 #endif
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
-	if (pdata->d_type == CLUSTER1 && pdata->sensor_type == NORMAL_SENSOR) {
+	if (pdata->d_type == CLUSTER1 && pdata->sensor_type == VIRTUAL_SENSOR) {
 		register_cpus_notifier(&exynos_tmu_cpus_nb);
 		data->nb.notifier_call = exynos_tmu_cpus_notifier;
+		dev_info(&pdev->dev, "Regist exynos tmu notifier\n");
 	}
 #endif
 	return 0;
