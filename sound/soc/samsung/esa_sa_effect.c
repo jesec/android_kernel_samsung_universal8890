@@ -199,6 +199,7 @@ static int esa_ctl_ms_put(struct snd_kcontrol *kcontrol,
 {
 	int i;
 	int effect_val[MYSPACE_MAX_COUNT];
+	u32 ms = (u32)ucontrol->value.integer.value[0];
 
 	pr_info("%s\n", __func__);
 
@@ -207,6 +208,9 @@ static int esa_ctl_ms_put(struct snd_kcontrol *kcontrol,
 	}
 
 	esa_effect_write(MYSPACE, effect_val, MYSPACE_MAX_COUNT);
+
+	pr_info("%s set myspace value = %d\n", __func__, ms);
+	esa_compr_set_myspace(ms);
 
 	return 0;
 }
