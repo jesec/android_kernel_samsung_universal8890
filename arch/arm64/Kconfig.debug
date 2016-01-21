@@ -34,6 +34,7 @@ config STRICT_DEVMEM
 
 config PID_IN_CONTEXTIDR
 	bool "Write the current PID to the CONTEXTIDR register"
+	depends on !SOC_EXYNOS8890
 	help
 	  Enabling this option causes the kernel to write the current PID to
 	  the CONTEXTIDR register, at the expense of some additional
