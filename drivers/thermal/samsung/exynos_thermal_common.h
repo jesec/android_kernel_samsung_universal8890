@@ -84,6 +84,7 @@ struct	thermal_trip_point_conf {
 	int trip_val[MAX_TRIP_COUNT];
 	int trip_type[MAX_TRIP_COUNT];
 	int trip_count;
+	int trip_old_val;
 	unsigned char trigger_falling;
 };
 

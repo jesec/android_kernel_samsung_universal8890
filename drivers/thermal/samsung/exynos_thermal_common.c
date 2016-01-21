@@ -33,7 +33,6 @@
 
 #include "exynos_thermal_common.h"
 
-static unsigned int prev_i = 0;
 unsigned long cpu_max_temp[2];
 #if defined(CONFIG_ARM_EXYNOS_MP_CPUFREQ)
 int get_real_max_freq(cluster_type cluster);
@@ -496,10 +495,10 @@ void exynos_report_trigger(struct thermal_sensor_conf *conf)
 			th_zone->therm_dev->polling_delay = IDLE_INTERVAL;
 	}
 
-	if (prev_i != i) {
+	if (th_zone->sensor_conf->trip_data.trip_old_val != i) {
 		snprintf(data, sizeof(data), "%u", i);
 		kobject_uevent_env(&th_zone->therm_dev->device.kobj, KOBJ_CHANGE, envp);
-		prev_i = i;
+		th_zone->sensor_conf->trip_data.trip_old_val = i;
 	}
 
 	mutex_unlock(&th_zone->therm_dev->lock);

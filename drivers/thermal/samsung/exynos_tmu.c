@@ -1305,6 +1305,9 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 			pdata->trigger_enable[5] + pdata->trigger_enable[6]+
 			pdata->trigger_enable[7];
 
+	/* trip old val mean previous trigger_level index, this value used uevent message */
+	sensor_conf->trip_data.trip_old_val = -1;
+
 	for (i = 0; i < sensor_conf->trip_data.trip_count; i++) {
 		sensor_conf->trip_data.trip_val[i] =
 			pdata->threshold + pdata->trigger_levels[i];
