@@ -111,14 +111,18 @@ ENDPROC(cpu_do_idle)
 ENTRY(cpu_do_suspend)
 	mrs	x2, tpidr_el0
 	mrs	x3, tpidrro_el0
+	isb
 	mrs	x4, contextidr_el1
+	isb
 	mrs	x5, mair_el1
 	mrs	x6, cpacr_el1
 	mrs	x7, ttbr1_el1
 	mrs	x8, tcr_el1
 	mrs	x9, vbar_el1
 	mrs	x10, mdscr_el1
+	isb
 	mrs	x11, oslsr_el1
+	isb
 	mrs	x12, sctlr_el1
 	stp	x2, x3, [x0]
 	stp	x4, x5, [x0, #16]
@@ -151,7 +155,9 @@ ENTRY(cpu_do_resume)
 	ldr	x12, [x0, #80]
 	msr	tpidr_el0, x2
 	msr	tpidrro_el0, x3
+	isb
 	msr	contextidr_el1, x4
+	isb
 	msr	mair_el1, x5
 	msr	cpacr_el1, x6
 	msr	ttbr0_el1, x1
@@ -163,7 +169,9 @@ ENTRY(cpu_do_resume)
 	 * Restore oslsr_el1 by writing oslar_el1
 	 */
 	ubfx	x11, x11, #1, #1
+	isb
 	msr	oslar_el1, x11
+	isb
 	mov	x0, x12
 	tlbi	vmalle1
 	dsb	nsh		// Make sure local tlb invalidation completed
