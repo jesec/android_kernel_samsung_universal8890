@@ -1084,14 +1084,12 @@ static unsigned int convert_to_level_switch(unsigned long long freq)
 void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing_set_idx)
 {
 	int n;
-	int rank;
 	int byte;
 
 	unsigned int uReg;
 
 	unsigned int target_mif_level_idx, target_mif_level_switch_idx;
 	unsigned int mr13;
-	unsigned short mr14;
 
 	int gate_offset_adjust = 0;
 	int new_gate_offset;
@@ -1284,17 +1282,7 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR3);
 		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR11);
 		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR12);
-
-		if ((drampara_config->vref.num_of_level != 0) && (drampara_config->vref.write.vref == 1)) {
-			for (n = 0; n < PHY_CH_ALL; n++) {
-				mr14 = drampara_config->vref.vref_write[n][target_mif_level_idx];
-				for (rank = 1; rank < 0x4; rank <<= 1)
-					smc_mode_register_write_per_ch(n, DRAM_MR14, rank, mr14 & 0xff);
-			}
-		} else {
-			smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR14);
-		}
-
+		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR14);
 		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR22);
 
 		mr13 &= ~(0x1 << 7);	// clear FSP-OP[7]
@@ -1424,17 +1412,7 @@ void pwrcal_dmc_set_dvfs(unsigned long long target_mif_freq, unsigned int timing
 		smc_mode_register_write(DRAM_MR3, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR3);
 		smc_mode_register_write(DRAM_MR11, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR11);
 		smc_mode_register_write(DRAM_MR12, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR12);
-
-		if ((drampara_config->vref.num_of_level != 0) && (drampara_config->vref.write.vref == 1)) {
-			for (n = 0; n < PHY_CH_ALL; n++) {
-				mr14 = drampara_config->vref.vref_write[n][target_mif_level_idx];
-				for (rank = 1; rank < 0x4; rank <<= 1)
-					smc_mode_register_write_per_ch(n, DRAM_MR14, rank, mr14 & 0xff);
-			}
-		} else {
-			smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_idx].DirectCmd_MR14);
-		}
-
+		smc_mode_register_write(DRAM_MR14, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR14);
 		smc_mode_register_write(DRAM_MR22, g_dram_dfs_table[target_mif_level_switch_idx].DirectCmd_MR22);
 
 		mr13 &= ~(0x1 << 7);	// clear FSP-OP[7]
