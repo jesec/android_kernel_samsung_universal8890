@@ -129,7 +129,8 @@
 	alternative_insn						\
 	"nop; nop; nop; nop; nop",					\
 	"mrs x29, midr_el1; lsr x29, x29, #0x4; and x29, x29, #0xfff;	\
-	 cmp x29, #0x1; b.eq 1f",
+	 cmp x29, #0x1; b.eq 1f",					\
+	ARM64_WORKAROUND_845719
 #endif
 	alternative_insn						\
 	"nop",								\
