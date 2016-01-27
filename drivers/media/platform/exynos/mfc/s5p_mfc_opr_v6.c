@@ -626,6 +626,9 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 		}
 	}
 
+	if (temp_vb->vb.v4l2_buf.reserved2 & FLAG_EMPTY_DATA)
+		temp_vb->vb.v4l2_planes[0].bytesused = 0;
+
 	if (dec->consumed) {
 		s5p_mfc_set_dec_stream_buffer(ctx,
 				s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
@@ -634,8 +637,7 @@ static inline int s5p_mfc_run_dec_frame(struct s5p_mfc_ctx *ctx)
 		if (temp_vb->consumed)
 			size = temp_vb->vb.v4l2_planes[0].bytesused - temp_vb->consumed;
 		else
-			size = temp_vb->vb.v4l2_buf.reserved2 & FLAG_EMPTY_DATA ?
-				0 : temp_vb->vb.v4l2_planes[0].bytesused;
+			size = temp_vb->vb.v4l2_planes[0].bytesused;
 		s5p_mfc_set_dec_stream_buffer(ctx,
 				s5p_mfc_mem_plane_addr(ctx, &temp_vb->vb, 0),
 				temp_vb->consumed, size);
