@@ -122,15 +122,6 @@
 	ldr	x23, [sp, #S_SP]		// load return stack pointer
 
 #ifdef CONFIG_ARM64_ERRATUM_845719
-#ifdef CONFIG_SOC_EXYNOS8890
-	/*
-	 * Skip "Cortex-A53: 845719" on MNGS.
-	 */
-	alternative_insn						\
-	"nop; nop; nop; nop; nop",					\
-	"mrs x29, midr_el1; lsr x29, x29, #0x4; and x29, x29, #0xfff;	\
-	 cmp x29, #0x1; b.eq 1f",
-#endif
 	alternative_insn						\
 	"nop",								\
 	"tbz x22, #4, 1f",						\
