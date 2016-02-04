@@ -224,15 +224,6 @@ int esa_compr_send_cmd(int32_t cmd, struct audio_processor* ap)
 #ifdef CONFIG_SND_ESA_SA_EFFECT
 		spin_lock(&si.cmd_lock);
 		writel(si.out_sample_rate, si.mailbox + COMPR_PARAM_RATE);
-		/* MySpace effect is set before opening offload node.
-		   seiren driver keeps the myspace configuration.
-		   Then, it transfer that value to audio firmware.
-		 */
-		if (si.effect_ram && atomic_read(&si.update_myspace)) {
-			writel(si.myspace, si.effect_ram + MYSPACE_BASE + 0x10);
-			writel(CHANGE_BIT, si.effect_ram + MYSPACE_BASE);
-			atomic_set(&si.update_myspace, 0);
-		}
 		spin_unlock(&si.cmd_lock);
 #endif
 		break;
@@ -470,13 +461,6 @@ void esa_compr_set_sample_rate(u32 rate)
 u32 esa_compr_get_sample_rate(void)
 {
 	return si.out_sample_rate;
-}
-
-void esa_compr_set_myspace(u32 ms)
-{
-	atomic_set(&si.update_myspace, 1);
-	si.myspace = ms;
-	return;
 }
 #endif
 
