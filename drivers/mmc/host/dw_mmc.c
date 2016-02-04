@@ -3296,10 +3296,10 @@ void dw_mci_ciu_reset(struct device *dev, struct dw_mci *host) {
 			dw_mci_ctrl_reset(host, SDMMC_CTRL_RESET);
 			timeout = jiffies + msecs_to_jiffies(10);
 		} while (--retry);
-	}
 out:
 	/* After a CTRL reset we need to have CIU set clock registers  */
-	dw_mci_update_clock(slot);
+		dw_mci_update_clock(slot);
+	}
 }
 
 bool dw_mci_fifo_reset(struct device *dev, struct dw_mci *host)
