@@ -269,7 +269,7 @@ int check_eax_slowpath_dma_status(void)
 
 static void eax_slowpath_adma_alloc_buf(void)
 {
-	dsi.sram_base = lpass_get_mem();
+	dsi.sram_base = ioremap_wc(PHYS_SRAM_ADDR, PHYS_SRAM_SIZE);
 	dsi.sram_dma_buf = dsi.sram_base + DMA_BUF_OFFSET;
 	dsi.sram_dma_start = PHYS_SRAM_ADDR + DMA_BUF_OFFSET;
 	memset(dsi.sram_dma_buf, 0x0, DMA_BUF_SIZE); /* Temporary Test */
@@ -299,6 +299,9 @@ int eax_slowpath_dma_dai_register(struct snd_soc_dai *dai)
 	spin_lock_init(&msi.lock);
 	msi.cpu_dai = dai;
 	msi.running = false;
+
+	/* Get OFFLOAD SRAM BUFFER ADDRESS */
+	eax_slowpath_adma_alloc_buf();
 
 	return 0;
 }
@@ -497,9 +500,6 @@ static int eax_slowpath_dma_hw_params(struct snd_pcm_substream *substream,
 	prtd->format = params_format(params);
 	prtd->rate = params_rate(params);
 	spin_unlock_irq(&prtd->lock);
-
-	/* Get OFFLOAD SRAM BUFFER ADDRESS */
-	eax_slowpath_adma_alloc_buf();
 
 #ifdef EAX_SLOWPATH_DMA_PCM_DUMP
 	snprintf(prtd->name, 50, "/data/pcm/%s_%s_%d_%s.raw",
