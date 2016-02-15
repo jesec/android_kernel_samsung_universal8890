@@ -2967,11 +2967,12 @@ static void dw_mci_work_routine_card(struct work_struct *work)
 				 */
 				sg_miter_stop(&host->sg_miter);
 				host->sg = NULL;
-				dw_mci_ciu_reset(host->dev, host);
-				dw_mci_fifo_reset(host->dev, host);
+
 #ifdef CONFIG_MMC_DW_IDMAC
 				dw_mci_idma_reset_dma(host);
 #endif
+				dw_mci_ciu_reset(host->dev, host);
+				dw_mci_fifo_reset(host->dev, host);
 			} else if (host->cur_slot) {
 				dw_mci_ciu_reset(host->dev, host);
 				mci_writel(host, RINTSTS, 0xFFFFFFFF);
