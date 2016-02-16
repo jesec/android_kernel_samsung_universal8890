@@ -948,6 +948,7 @@ static struct vclk_dfs_ops dfsg3d_dfsops = {
 	.dvs = dfsg3d_dvs,
 	.get_rate_table = dfsg3d_get_rate_table,
 	.get_asv_table = dfsg3d_asv_voltage_table,
+	.get_margin_param = common_get_margin_param,
 };
 
 static int dfsg3dm_get_rate_table(unsigned long *table)
