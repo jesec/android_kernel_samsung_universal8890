@@ -24,7 +24,7 @@ static struct pll_spec gpll1416X_spec = {
 	0,	0,
 	4*MHZ,	12*MHZ,
 	1600*MHZ,	3200*MHZ,
-	25*MHZ,	3200*MHZ,
+	200*MHZ,	3200*MHZ,
 };
 
 static struct pll_spec gpll1417X_spec = {
@@ -34,17 +34,17 @@ static struct pll_spec gpll1417X_spec = {
 	0,	0,
 	4*MHZ,	12*MHZ,
 	1000*MHZ,	2000*MHZ,
-	32*MHZ,	2000*MHZ,
+	200*MHZ,	2000*MHZ,
 };
 
 static struct pll_spec gpll1418X_spec = {
 	1,	63,
-	64,	1023,
+	16,	511,
 	0,	5,
 	0,	0,
 	2*MHZ,	8*MHZ,
 	600*MHZ,	1200*MHZ,
-	20*MHZ,	1200*MHZ,
+	100*MHZ,	1200*MHZ,
 };
 
 static struct pll_spec gpll1419X_spec = {
@@ -54,7 +54,7 @@ static struct pll_spec gpll1419X_spec = {
 	0,	0,
 	4*MHZ,	12*MHZ,
 	1900*MHZ,	3800*MHZ,
-	30*MHZ,	3800*MHZ,
+	200*MHZ,	3800*MHZ,
 };
 
 static struct pll_spec gpll1431X_spec = {
@@ -63,8 +63,8 @@ static struct pll_spec gpll1431X_spec = {
 	0,	5,
 	-32767,	32767,
 	6*MHZ,	30*MHZ,
-	600*MHZ,	1200*MHZ,
-	19*MHZ,	1200*MHZ,
+	400*MHZ,	800*MHZ,
+	50*MHZ,	800*MHZ,
 };
 
 static struct pll_spec gpll1450X_spec = {
