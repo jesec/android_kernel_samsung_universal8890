@@ -113,20 +113,20 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		break;
 	case MFC_QOS_EXTRA:
 #ifdef CONFIG_EXYNOS8890_BTS_OPTIMIZATION
-		if (idx == 0 && (dev->extra_qos != EXTRA_LIMIT_CLK)) {
-			/* limit clock for QoS table [0] */
+		if (idx == 1 && (dev->extra_qos != EXTRA_LIMIT_CLK)) {
+			/* limit clock for QoS table [1] */
 			cal_dfs_ext_ctrl(dvfs_int, cal_dfs_rate_lock, true);
 			dev->extra_qos = EXTRA_LIMIT_CLK;
 			MFC_TRACE_CTX("** QOS extra: limit clk\n");
 			mfc_info_ctx("QoS extra: limit clk\n");
-		} else if (idx > 5 && (dev->extra_qos != EXTRA_NO_LIMIT_MO)) {
-			/* remove MO limitation for QoS table[6]~[9] */
+		} else if (idx > 7 && (dev->extra_qos != EXTRA_NO_LIMIT_MO)) {
+			/* remove MO limitation for QoS table[8]~[11] */
 			bts_ext_scenario_set(TYPE_MFC, TYPE_HIGHPERF, true);
 			dev->extra_qos = EXTRA_NO_LIMIT_MO;
 			MFC_TRACE_CTX("** QOS extra: no limit MO\n");
 			mfc_info_ctx("QoS extra: no limit MO\n");
-		} else if (idx > 0 && idx <= 5) {
-			/* restore default setting for QoS table[1]~[5] */
+		} else if (idx == 0 || (idx > 1 && idx <= 7)) {
+			/* restore default setting for QoS table[0],[2]~[7] */
 			if (dev->extra_qos == EXTRA_LIMIT_CLK) {
 				cal_dfs_ext_ctrl(dvfs_int, cal_dfs_rate_lock, false);
 				dev->extra_qos = EXTRA_DEFAULT;
