@@ -143,6 +143,13 @@
 	"nop",								\
 	"tbz x22, #4, 1f",						\
 	ARM64_WORKAROUND_845719
+#ifdef CONFIG_SOC_EXYNOS8890
+	alternative_insn						\
+	"nop; nop; nop; nop; nop",					\
+	"mrs x29, midr_el1; lsr x29, x29, #0x04; and x29, x29, #0xfff;	\
+	 cmp x29, #0xd03; b.ne 1f",					\
+	ARM64_WORKAROUND_845719
+#endif
 #ifdef CONFIG_PID_IN_CONTEXTIDR
 	alternative_insn						\
 	"nop; nop",							\
@@ -183,6 +190,10 @@
 	pop	x26, x27
 	pop	x28, x29
 	ldr	lr, [sp], #S_FRAME_SIZE - S_LR	// load LR and restore SP
+
+	.if	\el == 0
+	dsb	nsh
+	.endif
 	eret					// return to kernel
 	.endm
 
