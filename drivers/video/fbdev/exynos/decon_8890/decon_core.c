@@ -2275,6 +2275,12 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	if (decon->pdata->out_type == DECON_OUT_DSI)
 		decon_reg_set_win_update_config(decon, regs);
 #endif
+	decon->timeout = 50;
+	/* for testing. it will be removed later */
+	decon->win_id[0] = -1;
+	decon->win_id[1] = -1;
+	decon->vpp_id[0] = -1;
+	decon->vpp_id[1] = -1;
 
 	for (i = 0; i < decon->pdata->max_win; i++) {
 		struct decon_win *win = decon->windows[i];
@@ -2294,6 +2300,20 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 		decon->windows[i]->plane_cnt = plane_cnt;
 		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
 			sd = decon->mdev->vpp_sd[win->vpp_id];
+
+			/* reduce timeout for recovering when AFBC is enabled */
+			if (regs->vpp_config[i].compression) {
+				if (win->vpp_id == IDMA_VGR0) {
+					decon->win_id[0] = win->index;
+					decon->vpp_id[0] = win->vpp_id;
+				}
+				if (win->vpp_id == IDMA_VGR1) {
+					decon->win_id[1] = win->index;
+					decon->vpp_id[1] = win->vpp_id;
+				}
+				decon->timeout = 17;
+			}
+
 			vpp_ret = v4l2_subdev_call(sd, core, ioctl,
 					VPP_WIN_CONFIG, &regs->vpp_config[i]);
 			if (vpp_ret) {
@@ -2424,6 +2444,11 @@ wait_done:
 void decon_wait_for_vstatus(struct decon_device *decon, u32 timeout)
 {
 	int ret;
+	int i;
+	struct decon_mode_info psr;
+	struct dsim_device *dsim;
+	struct vpp_dev *vpp;
+	struct v4l2_subdev *sd = NULL;
 
 	if (decon->id)
 		return;
@@ -2431,8 +2456,32 @@ void decon_wait_for_vstatus(struct decon_device *decon, u32 timeout)
 	ret = wait_event_timeout(decon->wait_vstatus,
 			(decon->frame_start_cnt_target <= decon->frame_start_cnt_cur),
 			msecs_to_jiffies(timeout));
-	if (!ret)
+	if (!ret) {
+		for (i = 0; i < MAX_DECON_WIN; i++) {
+			struct decon_win *win = decon->windows[i];
+			sd = decon->mdev->vpp_sd[win->vpp_id];
+			vpp = v4l2_get_subdevdata(sd);
+
+			if (win->vpp_id == 6 || win->vpp_id == 7)
+				decon->vpp_afbc_re |= vpp->afbc_re;
+		}
+		if (decon->vpp_afbc_re) {
+			/* instance stop for recovering later */
+			decon_to_psr_info(decon, &psr);
+			decon->re_cnt++;
+			decon_info("info:[%d] vpp[%d][%d] vpp[%d][%d]\n",
+					decon->re_cnt, decon->win_id[0],
+					decon->vpp_id[0], decon->win_id[1],
+					decon->vpp_id[1]);
+			decon_reg_release_resource_instantly(decon->id);
+			decon->vpp_usage_bitmask = 0;
+			dsim = container_of(decon->output_sd, struct dsim_device, sd);
+			dsim_reg_funtion_reset(dsim->id);
+
+			return;
+		}
 		decon_warn("%s:timeout\n", __func__);
+	}
 }
 
 static void __decon_update_clear(struct decon_device *decon, struct decon_reg_data *regs)
@@ -2525,7 +2574,7 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	} else {
 		decon->frame_start_cnt_target = decon->frame_start_cnt_cur + 1;
 		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
-		decon_wait_for_vstatus(decon, 50);
+		decon_wait_for_vstatus(decon, decon->timeout);
 		if (decon_reg_wait_for_update_timeout(decon->id, SHADOW_UPDATE_TIMEOUT) < 0) {
 			decon_dump(decon);
 			BUG();
