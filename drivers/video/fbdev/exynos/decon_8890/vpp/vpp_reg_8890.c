@@ -480,44 +480,49 @@ int vpp_reg_set_debug_sfr(u32 id)
 	read_data = vpp_read(id, VPP_DBG_READ_SFR);
 	if (((read_data >> 16) & 0xff) == 1) {
 		afbc_re = true;
+		vpp_dbg("IDMA AIFIF debug sel = 1, debug data bit[23:16] == 8'd1\n");
 	} else {
-		afbc_re = false;
+		afbc_re &= false;
 	}
 
 	/* AFBC debug sel = 0, debug data = 32'd1 */
 	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (0 << 0));
 	read_data = vpp_read(id, VPP_DBG_READ_SFR);
 	if (read_data == 1) {
-		afbc_re = true;
+		afbc_re &= true;
+		vpp_dbg("AFBC debug sel = 0, debug data = 32'd1\n");
 	} else {
-		afbc_re = false;
+		afbc_re &= false;
 	}
 
 	/* AFBC debug sel = 1, debug data = 32'd5 */
 	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (1 << 0));
 	read_data = vpp_read(id, VPP_DBG_READ_SFR);
 	if (read_data == 5) {
-		afbc_re = true;
+		afbc_re &= true;
+		vpp_dbg("AFBC debug sel = 1, debug data = 32'd5\n");
 	} else {
-		afbc_re = false;
+		afbc_re &= false;
 	}
 
 	/* AFBC debug sel = 10, debug data[7:4] 4'hc */
 	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (10 << 0));
 	read_data = vpp_read(id, VPP_DBG_READ_SFR);
 	if ((read_data >> 4 & 0xf)  == 12) {
-		afbc_re = true;
+		afbc_re &= true;
+		vpp_dbg("AFBC debug sel = 10, debug data[7:4] 4'hc\n");
 	} else {
-		afbc_re = false;
+		afbc_re &= false;
 	}
 
 	/* AFBC debug sel = 12, debug data[7:4] 4'h0 */
 	vpp_write(id, VPP_DBG_WRITE_SFR, (5 << 8) | (12 << 0));
 	read_data = vpp_read(id, VPP_DBG_READ_SFR);
 	if ((read_data & 0xf)  == 0) {
-		afbc_re = true;
+		afbc_re &= true;
+		vpp_dbg("AFBC debug sel = 12, debug data[7:4] 4'h0\n");
 	} else {
-		afbc_re = false;
+		afbc_re &= false;
 	}
 
 	return afbc_re;

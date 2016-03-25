@@ -2275,7 +2275,6 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	if (decon->pdata->out_type == DECON_OUT_DSI)
 		decon_reg_set_win_update_config(decon, regs);
 #endif
-	decon->timeout = 50;
 	/* for testing. it will be removed later */
 	decon->win_id[0] = -1;
 	decon->win_id[1] = -1;
@@ -2311,7 +2310,6 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 					decon->win_id[1] = win->index;
 					decon->vpp_id[1] = win->vpp_id;
 				}
-				decon->timeout = 17;
 			}
 
 			vpp_ret = v4l2_subdev_call(sd, core, ioctl,
@@ -2574,7 +2572,7 @@ static void decon_update_regs(struct decon_device *decon, struct decon_reg_data 
 	} else {
 		decon->frame_start_cnt_target = decon->frame_start_cnt_cur + 1;
 		decon_wait_for_vsync(decon, VSYNC_TIMEOUT_MSEC);
-		decon_wait_for_vstatus(decon, decon->timeout);
+		decon_wait_for_vstatus(decon, 50);
 		if (decon_reg_wait_for_update_timeout(decon->id, SHADOW_UPDATE_TIMEOUT) < 0) {
 			decon_dump(decon);
 			BUG();

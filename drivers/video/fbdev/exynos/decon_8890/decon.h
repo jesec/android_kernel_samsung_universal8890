@@ -771,11 +771,10 @@ struct decon_device {
 	struct work_struct		fifo_irq_work;
 	struct workqueue_struct		*fifo_irq_wq;
 	int				fifo_irq_status;
-	int				timeout;
 	int				re_cnt;
 	int				win_id[2];
 	int				vpp_id[2];
-	bool				vpp_afbc_re;
+	bool			vpp_afbc_re;
 };
 
 static inline struct decon_device *get_decon_drvdata(u32 id)
