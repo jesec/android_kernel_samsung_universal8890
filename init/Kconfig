@@ -1309,6 +1309,13 @@ config CC_OPTIMIZE_FOR_SIZE
 
 	  If unsure, say N.
 
+config JESSE_KERNEL_OPTIMIZATION
+	bool "Jesse's kernel optimization flags"
+	help
+	  Enabling this option will pass various of optmization flags to gcc resulting in a possible unstable kernel.
+
+	  If unsure, say N.
+
 config SYSCTL
 	bool
 

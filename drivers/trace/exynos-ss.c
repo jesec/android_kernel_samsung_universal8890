@@ -38,7 +38,9 @@
 #endif
 #include <linux/input.h>
 #include <linux/of_address.h>
+#ifdef CONFIG_EXYNOS_BUSMONITOR
 #include <linux/exynos-busmon.h>
+#endif
 
 #include <asm/cacheflush.h>
 #include <asm/ptrace.h>
@@ -718,11 +720,13 @@ int exynos_ss_prepare_panic(void)
 				" monitor.\n", __func__);
 	}
 
+#ifdef CONFIG_EXYNOS_BUSMONITOR
         if (busmon_get_panic() == true) {
 		pr_emerg("[%s]### before run : dhd_dongle_mem_dump()\n", __func__);
 		dhd_dongle_mem_dump();
 		pr_emerg("[%s]### after  run : dhd_dongle_mem_dump()\n", __func__);
         }
+#endif
 
 	return 0;
 }
