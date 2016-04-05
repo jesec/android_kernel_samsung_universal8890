@@ -580,9 +580,19 @@ static ssize_t decon_psr_info(struct device *dev,
 {
 	struct decon_device *decon = dev_get_drvdata(dev);
 	struct decon_lcd *lcd_info = decon->lcd_info;
-	int dsc_offset = (lcd_info->dsc_enabled)? 4: 0;
+	int dsc_y_slice_size = 0;
 
-	return scnprintf(buf, PAGE_SIZE, "%d\n", decon->pdata->psr_mode + dsc_offset);
+	if (lcd_info->dsc_enabled) {
+		if (lcd_info->dsc_slice_num == 2)
+			dsc_y_slice_size = 32;
+		else if (lcd_info->dsc_slice_num == 4)
+			dsc_y_slice_size = 64;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n%d\n%d\n",
+			decon->pdata->psr_mode + lcd_info->dsc_slice_num,
+			lcd_info->dsc_slice_num,
+			dsc_y_slice_size);
 }
 
 static DEVICE_ATTR(psr_info, S_IRUGO, decon_psr_info, NULL);
