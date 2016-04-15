@@ -36,7 +36,7 @@
 #include "dma.h"
 #include "eax.h"
 
-#define NMIXBUF_SIZE		120 /* PCM 16bit 2ch */
+#define NMIXBUF_SIZE		96 /* PCM 16bit 2ch */
 #define NMIXBUF_BYTE		(NMIXBUF_SIZE * 4) /* PCM 16bit 2ch */
 #define NMIXBUF_441_SIZE	384 /* PCM 16bit 2ch */
 #define NMIXBUF_441_BYTE	(NMIXBUF_441_SIZE * 4) /* PCM 16bit 2ch */
