@@ -38,6 +38,8 @@
 
 #define NMIXBUF_SIZE		120 /* PCM 16bit 2ch */
 #define NMIXBUF_BYTE		(NMIXBUF_SIZE * 4) /* PCM 16bit 2ch */
+#define NMIXBUF_441_SIZE	384 /* PCM 16bit 2ch */
+#define NMIXBUF_441_BYTE	(NMIXBUF_441_SIZE * 4) /* PCM 16bit 2ch */
 #define UMIXBUF_SIZE		480 /* Total 15360 byte / 2ch / 4byte / 4 periods */
 #define UMIXBUF_BYTE		(UMIXBUF_SIZE * 8) /* PCM 32bit 2ch */
 
@@ -600,8 +602,14 @@ static int eax_dma_hw_params(struct snd_pcm_substream *substream,
 		prtd->params->ops->config(prtd->params->ch, &config);
 	} else {
 		prtd->dma_start = runtime->dma_addr;
-		mi.mixbuf_size = NMIXBUF_SIZE;
-		mi.mixbuf_byte = NMIXBUF_BYTE;
+
+		if (prtd->rate == 44100) {
+			mi.mixbuf_size = NMIXBUF_441_SIZE;
+			mi.mixbuf_byte = NMIXBUF_441_BYTE;
+		} else {
+			mi.mixbuf_size = NMIXBUF_SIZE;
+			mi.mixbuf_byte = NMIXBUF_BYTE;
+		}
 	}
 
 	spin_lock_irq(&prtd->lock);
