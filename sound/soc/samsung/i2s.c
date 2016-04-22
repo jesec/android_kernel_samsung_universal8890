@@ -1834,8 +1834,12 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 		if (of_find_property(np, "samsung,supports-sec-compr", NULL))
 			quirks |= QUIRK_SEC_DAI_COMPR;
 
+#ifdef CONFIG_SND_SOC_EAX_SLOWPATH
+		amixer = 2;
+#else
 		if (of_property_read_u32(np, "samsung,amixer", &amixer))
 			amixer = 0;
+#endif
 
 		if (of_find_property(np, "samsung,lpass-subip", NULL))
 			lpass_register_subip(&pdev->dev, "i2s");

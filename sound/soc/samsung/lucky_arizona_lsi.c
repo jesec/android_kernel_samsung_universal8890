@@ -1188,16 +1188,26 @@ static struct snd_soc_dai_link lucky_cs47l91_dai[] = {
 	{ /* eax2 playback */
 		.name = "playback-eax2",
 		.stream_name = "eax2",
+#ifdef CONFIG_SND_SOC_EAX_SLOWPATH
+		.cpu_dai_name = "samsung-eax-slow.0",
+		.platform_name = "samsung-eax-slow.0",
+#else
 		.cpu_dai_name = "samsung-eax.2",
 		.platform_name = "samsung-eax.2",
+#endif
 		.codec_dai_name = "moon-aif1",
 		.ops = &lucky_aif1_ops,
 	},
 	{ /* eax3 playback */
 		.name = "playback-eax3",
 		.stream_name = "eax3",
+#ifdef CONFIG_SND_SOC_EAX_SLOWPATH
+		.cpu_dai_name = "samsung-eax-slow.1",
+		.platform_name = "samsung-eax-slow.1",
+#else
 		.cpu_dai_name = "samsung-eax.3",
 		.platform_name = "samsung-eax.3",
+#endif
 		.codec_dai_name = "moon-aif1",
 		.ops = &lucky_aif1_ops,
 	},
