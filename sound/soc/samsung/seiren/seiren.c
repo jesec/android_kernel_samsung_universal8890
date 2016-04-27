@@ -2589,7 +2589,7 @@ static int esa_probe(struct platform_device *pdev)
 	esa_do_resume(dev);
 #endif
 #ifdef CONFIG_SND_SAMSUNG_ELPE
-	lpeff_init(si);
+	lpeff_init(&si);
 	exynos_init_lpeffworker();
 #endif
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
