@@ -2148,6 +2148,9 @@ int ect_strncmp(char *src1, char *src2, int length)
 {
 	int i;
 
+	if (length <= 0)
+		return -1;
+
 	for (i = 0; i < length; src1++, src2++)
 		if (*src1 != *src2)
 			return ((*(unsigned char *)src1 < *(unsigned char *)src2) ? -1 : +1);
