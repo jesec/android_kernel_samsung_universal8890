@@ -74,6 +74,11 @@ extern struct decon_bts2 decon_bts2_control;
 #define DECON_UNDERRUN_THRESHOLD	0
 #ifdef CONFIG_FB_WINDOW_UPDATE
 #define DECON_WIN_UPDATE_IDX	(8)
+
+#define DECON_CR0_SETTING_BY_UM		1
+#define DECON_CR0_SETTING_BY_GUIDE	0
+#define DECON_CR0_SETTING		DECON_CR0_SETTING_BY_GUIDE
+
 #define decon_win_update_dbg(fmt, ...)					\
 	do {								\
 		if (decon_log_level >= 7)				\

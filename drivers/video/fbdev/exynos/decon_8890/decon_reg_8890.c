@@ -429,7 +429,6 @@ void decon_reg_set_comp_size(u32 id, enum decon_mic_comp_ratio cr, enum decon_ds
 	u32 mic_width_in_bytes, mic_dummy_in_bytes;
 	u32 width;
 	u32 temp_size, odd_n = 0;
-	u32 cr_0_setting_guide = 0;	/* 0 : guide about 1/2 mic, 1 : UM's guide about 1/2 mic */
 
 	if (dsi_mode == DSI_MODE_DUAL_DSI)
 		width = lcd_info->xres * 2;
@@ -493,10 +492,11 @@ void decon_reg_set_comp_size(u32 id, enum decon_mic_comp_ratio cr, enum decon_ds
 
 		ratio_type = 3;
 
-		if (cr_0_setting_guide)
-			mic_width_in_bytes = (width / 2) * 3 / (1 + dsi_mode);
-		else
-			mic_width_in_bytes = (width / 2) * 3;
+#if DECON_CR0_SETTING
+		mic_width_in_bytes = (width / 2) * 3 / (1 + dsi_mode);
+#else
+		mic_width_in_bytes = (width / 2) * 3;
+#endif
 
 		mic_dummy_in_bytes = 0;
 	}
@@ -521,7 +521,30 @@ void decon_reg_set_comp_size(u32 id, enum decon_mic_comp_ratio cr, enum decon_ds
 		if (dsi_mode == DSI_MODE_DUAL_DSI)
 			decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
 	} else {
-		if (cr_0_setting_guide) {
+#if DECON_CR0_SETTING
+		/* set Splitter Size */
+		decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+		/* set Frame FIFO Size */
+		decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+		/* set Display Size */
+		decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3), (lcd_info->yres));
+		if (dsi_mode == DSI_MODE_DUAL_DSI)
+			decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3), (lcd_info->yres));
+#else
+		if (dsi_mode == DSI_MODE_DUAL_DSI) {
+			/* set Splitter Size */
+			decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
+
+			/* set Frame FIFO Size */
+			decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+
+			/* set Display Size */
+			decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+			decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
+
+		} else {
 			/* set Splitter Size */
 			decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
 
@@ -530,31 +553,8 @@ void decon_reg_set_comp_size(u32 id, enum decon_mic_comp_ratio cr, enum decon_ds
 
 			/* set Display Size */
 			decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3), (lcd_info->yres));
-			if (dsi_mode == DSI_MODE_DUAL_DSI)
-				decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3), (lcd_info->yres));
-		} else {
-			if (dsi_mode == DSI_MODE_DUAL_DSI) {
-				/* set Splitter Size */
-				decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
-
-				/* set Frame FIFO Size */
-				decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
-
-				/* set Display Size */
-				decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
-				decon_reg_set_dispif_size(id, 1, (mic_width_in_bytes / 3 / 2), (lcd_info->yres));
-
-			} else {
-				/* set Splitter Size */
-				decon_reg_set_splitter(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
-
-				/* set Frame FIFO Size */
-				decon_reg_set_frame_fifo_size(id, dsi_mode, (mic_width_in_bytes / 3), (lcd_info->yres));
-
-				/* set Display Size */
-				decon_reg_set_dispif_size(id, 0, (mic_width_in_bytes / 3), (lcd_info->yres));
-			}
 		}
+#endif
 	}
 }
 
