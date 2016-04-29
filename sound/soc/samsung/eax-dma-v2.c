@@ -38,7 +38,7 @@
 
 #define NMIXBUF_SIZE		96 /* PCM 16bit 2ch */
 #define NMIXBUF_BYTE		(NMIXBUF_SIZE * 4) /* PCM 16bit 2ch */
-#define NMIXBUF_441_SIZE	384 /* PCM 16bit 2ch */
+#define NMIXBUF_441_SIZE	240 /* PCM 16bit 2ch */
 #define NMIXBUF_441_BYTE	(NMIXBUF_441_SIZE * 4) /* PCM 16bit 2ch */
 #define UMIXBUF_SIZE		480 /* Total 15360 byte / 2ch / 4byte / 4 periods */
 #define UMIXBUF_BYTE		(UMIXBUF_SIZE * 8) /* PCM 32bit 2ch */
@@ -603,7 +603,7 @@ static int eax_dma_hw_params(struct snd_pcm_substream *substream,
 	} else {
 		prtd->dma_start = runtime->dma_addr;
 
-		if (prtd->rate == 44100) {
+		if (params_rate(params) == 44100) {
 			mi.mixbuf_size = NMIXBUF_441_SIZE;
 			mi.mixbuf_byte = NMIXBUF_441_BYTE;
 		} else {
@@ -631,8 +631,8 @@ static int eax_dma_hw_params(struct snd_pcm_substream *substream,
         dump_count++;
 #endif
 
-	pr_info("EAX-V2:%s:DmaAddr=@%x Total=%d PrdSz=%d #Prds=%d area=0x%p\n",
-			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "P" : "C",
+	pr_info("EAX-V2:%c:DmaAddr=@%x Total=%d PrdSz=%d #Prds=%d area=0x%p\n",
+			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? 'P' : 'C',
 			(u32)prtd->dma_start, (int)runtime->dma_bytes,
 			params_period_bytes(params), params_periods(params),
 			runtime->dma_area);
