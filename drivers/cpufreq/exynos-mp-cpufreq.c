@@ -523,6 +523,7 @@ static int exynos_cpufreq_scale(unsigned int target_freq, unsigned int cpu)
 	unsigned int new_index, old_index;
 	unsigned int volt, safe_volt = 0;
 	int ret = 0;
+	unsigned int current_freq = freqs[cur]->old;
 
 	if (!policy)
 		return -EINVAL;
@@ -655,6 +656,10 @@ static int exynos_cpufreq_scale(unsigned int target_freq, unsigned int cpu)
 
 fail_dvfs:
 	cpufreq_freq_transition_end(policy, freqs[cur], ret);
+
+	/* Recover old freq when voltage set failed */
+	freqs[cur]->old = current_freq;
+
 put_policy:
 	cpufreq_cpu_put(policy);
 
