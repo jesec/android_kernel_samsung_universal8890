@@ -269,6 +269,185 @@ out:
 	return ret;
 }
 
+static int s2m_set_fix_ldo_voltage(struct regulator_dev *rdev, bool fix_en)
+{
+	int ret, old_sel, old_val;
+	struct s2mps16_info *s2mps16 = rdev_get_drvdata(rdev);
+	int reg_id = rdev_get_id(rdev);
+	unsigned int buck2_sync_val = 0;
+	char name[16];
+
+	if (s2mps16->cache_data && s2mps16->vsel_value[reg_id])
+		old_val = rdev->desc->min_uV +
+			(s2mps16->vsel_value[reg_id] * rdev->desc->uV_step);
+	else {
+		ret = sec_reg_read(s2mps16->iodev, rdev->desc->vsel_reg, &old_sel);
+		if (ret < 0)
+			goto out;
+		old_val = rdev->desc->min_uV + (rdev->desc->uV_step * old_sel);
+	}
+
+	snprintf(name, sizeof(name), "BUCK%d", (reg_id - S2MPS16_BUCK1) + 1);
+	/* Set buck2 voltage BUCK2_SYNC_VOLTAGE(1150mV) */
+	buck2_sync_val = (BUCK2_SYNC_VOLTAGE - S2MPS16_BUCK_MIN1) / S2MPS16_BUCK_STEP1;
+	exynos_ss_regulator(name, rdev->desc->vsel_reg, BUCK2_SYNC_VOLTAGE, ESS_FLAG_IN);
+	s2mps16->vsel_value[reg_id] = buck2_sync_val;
+	ret = sec_reg_write(s2mps16->iodev, rdev->desc->vsel_reg, buck2_sync_val);
+	if (ret < 0) {
+		exynos_ss_regulator(name, rdev->desc->vsel_reg, BUCK2_SYNC_VOLTAGE, ESS_FLAG_ON);
+		goto out;
+	}
+	exynos_ss_regulator(name, rdev->desc->vsel_reg, BUCK2_SYNC_VOLTAGE, ESS_FLAG_OUT);
+
+	if (BUCK2_SYNC_VOLTAGE > old_val)
+		udelay(DIV_ROUND_UP((BUCK2_SYNC_VOLTAGE - old_val), rdev->constraints->ramp_delay));
+
+	if (reg_id == S2MPS16_BUCK2) {
+		ret = sec_reg_update(s2mps16->iodev, S2MPS16_REG_LDO7_DVS,
+					fix_en << 2, 0x1 << 2);
+		if (ret < 0)
+			goto out;
+
+		s2mps16->buck2_sync = fix_en ? true : false;
+	}
+
+	return ret;
+out:
+	pr_warn("%s: failed to fix_ldo_voltage\n", rdev->desc->name);
+	return ret;
+}
+
+static int s2m_set_ldo_dvs_control(struct regulator_dev *rdev)
+{
+	int ret;
+	struct s2mps16_info *s2mps16 = rdev_get_drvdata(rdev);
+	int reg_id = rdev_get_id(rdev);
+	unsigned int sram_vthr, sram_delta;
+	int asv_info;
+	int vthr_mask, delta_mask;
+	int vthr_val, delta_val = 0;
+	int dvs_reg;
+	unsigned int ctrl_value;
+
+	asv_info = cal_asv_pmic_info();
+	if (asv_info < 0) {
+		pr_warn("Do not read asv pmic fuse value \n");
+		goto out;
+	}
+
+	switch (reg_id) {
+	case S2MPS16_BUCK2:
+		vthr_mask = 0x3;
+		delta_mask = 0x3 << 2;
+		sram_vthr = asv_info & vthr_mask;
+		sram_delta = (asv_info & delta_mask) >> 2;
+		s2mps16->buck2_dvs = sram_delta;
+		dvs_reg = S2MPS16_REG_LDO7_DVS;
+		break;
+	case S2MPS16_BUCK3:
+		vthr_mask = 0x3 << 4;
+		delta_mask = 0x3 << 6;
+		sram_vthr = (asv_info & vthr_mask) >> 4;
+		sram_delta = (asv_info & delta_mask) >> 6;
+		dvs_reg = S2MPS16_REG_LDO10_DVS;
+		break;
+	case S2MPS16_LDO8:
+		vthr_mask = 0x3 << 12;
+		delta_mask = 0x3 << 14;
+		sram_vthr = (asv_info & vthr_mask) >> 12;
+		sram_delta = (asv_info & delta_mask) >> 14;
+		break;
+	case S2MPS16_BUCK1:
+		vthr_mask = 0x3 << 16;
+		delta_mask = 0x3 << 18;
+		sram_vthr = (asv_info & vthr_mask) >> 16;
+		sram_delta = (asv_info & delta_mask) >> 18;
+		dvs_reg = S2MPS16_REG_LDO9_DVS;
+		break;
+	default:
+		dev_err(&rdev->dev, "%s, set invalid reg_id(%d)\n", __func__, reg_id);
+		break;
+	}
+
+	switch (sram_vthr) {
+	case 0x0:
+		if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_vthr = 800000;
+		else if (reg_id == S2MPS16_BUCK2)
+			vthr_val = 0x6 << 5;
+		else if ((reg_id == S2MPS16_BUCK3) || (reg_id == S2MPS16_BUCK1))
+			vthr_val = 0x4 << 5;
+		break;
+	case 0x1:
+		if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_vthr = 750000;
+		else if ((reg_id == S2MPS16_BUCK1) || (reg_id == S2MPS16_BUCK2) || (reg_id == S2MPS16_BUCK3))
+			vthr_val = 0x3 << 5;
+		break;
+	case 0x2:
+		if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_vthr = 850000;
+		else if ((reg_id == S2MPS16_BUCK1) || (reg_id == S2MPS16_BUCK2) || (reg_id == S2MPS16_BUCK3))
+			vthr_val = 0x5 << 5;
+		break;
+	case 0x3:
+		if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_vthr = 900000;
+		else if ((reg_id == S2MPS16_BUCK1) ||(reg_id == S2MPS16_BUCK3))
+			vthr_val = 0x6 << 5;
+		else if (reg_id == S2MPS16_BUCK2)
+			vthr_val = 0x4 << 5;
+		break;
+	}
+
+	switch (sram_delta) {
+	case 0x0:
+		if (reg_id == S2MPS16_BUCK2)
+			delta_val = 0x3 << 3;
+		else if (reg_id == S2MPS16_BUCK3)
+			delta_val = 0x1 << 3;
+		else if (reg_id == S2MPS16_BUCK1)
+			delta_val = 0x1 << 3;
+		else if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_delta = 50000;
+		break;
+	case 0x1:
+		if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_delta = 0;
+		else if ((reg_id == S2MPS16_BUCK1) || (reg_id == S2MPS16_BUCK2) || (reg_id == S2MPS16_BUCK3))
+			delta_val = 0x0 << 3;
+		break;
+	case 0x2:
+		if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_delta = 75000;
+		else if ((reg_id == S2MPS16_BUCK1) || (reg_id == S2MPS16_BUCK2) || (reg_id == S2MPS16_BUCK3))
+			delta_val = 0x2 << 3;
+		break;
+	case 0x3:
+		if (reg_id == S2MPS16_BUCK2)
+			delta_val = 0x1 << 3;
+		else if ((reg_id == S2MPS16_BUCK3) || (reg_id == S2MPS16_BUCK1))
+			delta_val = 0x3 << 3;
+		else if (reg_id == S2MPS16_LDO8)
+			s2mps16->int_delta = 100000;
+		break;
+	}
+
+	if (reg_id == S2MPS16_LDO8)
+		return 0;
+
+	ctrl_value = vthr_val | delta_val;
+	ret = sec_reg_update(s2mps16->iodev, dvs_reg,
+			ctrl_value, 0xf8);
+	if (ret < 0)
+		goto out;
+
+	return ret;
+out:
+	pr_warn("%s: failed to ldo dvs control\n", rdev->desc->name);
+	return ret;
+
+}
 
 static int s2m_set_voltage_sel_regmap_buck(struct regulator_dev *rdev,
 								unsigned sel)
