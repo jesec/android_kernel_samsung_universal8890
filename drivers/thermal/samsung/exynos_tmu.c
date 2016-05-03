@@ -746,6 +746,9 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 			}
 		}
 
+		if ((quad_data == NULL) || (dual_data == NULL))
+			return NOTIFY_OK;
+
 		if (big_cpu_cnt == DUAL_CPU) {
 			/* changed to dual */
 			mutex_lock(&boost_lock);
@@ -773,6 +776,9 @@ static int exynos_tmu_cpus_notifier(struct notifier_block *nb,
 				dual_pdata = dual_data->pdata;
 			}
 		}
+
+		if ((quad_data == NULL) || (dual_data == NULL))
+			return NOTIFY_OK;
 
 		if (big_cpu_cnt == QUAD_CPU){
 			/* changed to quad */
