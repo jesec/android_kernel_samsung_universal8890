@@ -499,8 +499,6 @@ static int vpp_set_config(struct vpp_dev *vpp)
 
 	vpp_reg_wait_pingpong_clear(vpp->id);
 
-	vpp_set_deadlock_time(vpp, 20);
-
 	vpp_set_initial_phase(vpp);
 	vpp_to_scale_params(vpp, &p);
 	ret = vpp_set_scale_info(vpp, &p);
@@ -661,6 +659,10 @@ static long vpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 	case VPP_WAIT_FOR_FRAMEDONE:
 		ret = vpp_wait_for_framedone(vpp);
+		break;
+
+	case VPP_SET_DEADLOCK_NUM:
+		vpp_set_deadlock_time(vpp, 20);
 		break;
 
 	default:

@@ -2353,6 +2353,13 @@ static void __decon_update_regs(struct decon_device *decon, struct decon_reg_dat
 	decon->num_of_win = regs->num_of_window;
 	decon->bts2_ops->bts_calc_bw(decon);
 	decon->bts2_ops->bts_update_bw(decon, 0);
+	for (i = 0; i < decon->pdata->max_win; i++) {
+		struct decon_win *win = decon->windows[i];
+		if (decon->vpp_usage_bitmask & (1 << win->vpp_id)) {
+			sd = decon->mdev->vpp_sd[win->vpp_id];
+			v4l2_subdev_call(sd, core, ioctl, VPP_SET_DEADLOCK_NUM, NULL);
+		}
+	}
 #else
 	decon_get_vpp_min_lock(decon, regs);
 	decon_set_vpp_disp_min_lock(decon, regs);
