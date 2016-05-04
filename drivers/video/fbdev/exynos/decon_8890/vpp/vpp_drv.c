@@ -799,9 +799,9 @@ static irqreturn_t vpp_irq_handler(int irq, void *priv)
 
 		if (is_err_irq(vpp_irq)) {
 			dev_err(DEV, "vpp%d interrupt info(0x%x)\n",vpp->id, vpp_irq);
-			if ((vpp_irq == VG_IRQ_DEADLOCK_STATUS) && (vpp->id == 6 || vpp->id == 7)) {
+			if ((vpp_irq == VG_IRQ_DEADLOCK_STATUS) && (vpp->id == 6 || vpp->id == 7))
 				vpp->afbc_re = vpp_reg_set_debug_sfr(vpp->id);
-			} else {
+			if (!(vpp_irq == VG_IRQ_DEADLOCK_STATUS)) {
 				exynos_sysmmu_show_status(&vpp->pdev->dev);
 				goto err;
 			}
