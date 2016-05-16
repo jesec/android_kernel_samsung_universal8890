@@ -832,11 +832,11 @@ static struct phy_dfs_table *g_phy_dfs_table;
 static struct dram_dfs_table *g_dram_dfs_table;
 static unsigned long long *mif_freq_to_level;
 static int num_mif_freq_to_level;
-static unsigned int query_key;
+static unsigned long long query_key;
 
 static const unsigned long long mif_freq_to_level_switch[] = {
 	936 * MHZ,	/* BUS3_PLL SW 936 */
-	528 * MHZ,	/* BUS0_PLL SW 468 */
+	528 * MHZ,	/* BUS0_PLL SW 528 */
 };
 
 static unsigned long config_base;
@@ -1442,17 +1442,18 @@ void dfs_dram_param_init(void)
 {
 	int i;
 	void *dram_block;
-	struct ect_timing_param_size *size;
+	struct ect_timing_param_size *size = NULL;
 
 	dram_block = ect_get_block(BLOCK_TIMING_PARAM);
 	if (dram_block == NULL)
 		return;
-	query_key = pwrcal_readl(PMU_DREX_CALIBRATION3);
+
+	query_key = ((unsigned long long)pwrcal_readl(PMU_DREX_CALIBRATION2) << 32) | pwrcal_readl(PMU_DREX_CALIBRATION3);
+	pr_info("query key: %llx\n", query_key);
 	if (query_key != 0) {
 		size = ect_timing_param_get_key(dram_block, query_key | 0x1);
 	} else {
-		query_key = 3;
-		size = ect_timing_param_get_size(dram_block, query_key);
+		pr_err("MIF timing parameter table is missing\n");
 	}
 
 	if (size == NULL)
