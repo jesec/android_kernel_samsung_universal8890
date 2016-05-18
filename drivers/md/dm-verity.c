@@ -18,35 +18,32 @@
 
 #include <linux/module.h>
 #include <linux/device-mapper.h>
-#include <linux/reboot.h>
 #include <crypto/hash.h>
 
-#define DM_MSG_PREFIX			"verity"
+#include <linux/ctype.h>
 
-#define DM_VERITY_ENV_LENGTH		42
-#define DM_VERITY_ENV_VAR_NAME		"VERITY_ERR_BLOCK_NR"
+#if defined(CONFIG_TZ_ICCC)
+#include <linux/smc.h>
+#define SMC_CMD_DMV_WRITE_STATUS (0x83000014)
+#endif
+
+#define DM_MSG_PREFIX			"verity"
 
 #define DM_VERITY_IO_VEC_INLINE		16
 #define DM_VERITY_MEMPOOL_SIZE		4
 #define DM_VERITY_DEFAULT_PREFETCH_SIZE	262144
 
 #define DM_VERITY_MAX_LEVELS		63
-#define DM_VERITY_MAX_CORRUPTED_ERRS	100
+
+#define SEC_HEX_DEBUG
 
 static unsigned dm_verity_prefetch_cluster = DM_VERITY_DEFAULT_PREFETCH_SIZE;
+#ifdef SEC_HEX_DEBUG
+static void print_block_data(unsigned long long blocknr, unsigned char *data_to_dump
+		, int start, int len);
+#endif
 
 module_param_named(prefetch_cluster, dm_verity_prefetch_cluster, uint, S_IRUGO | S_IWUSR);
-
-enum verity_mode {
-	DM_VERITY_MODE_EIO = 0,
-	DM_VERITY_MODE_LOGGING = 1,
-	DM_VERITY_MODE_RESTART = 2
-};
-
-enum verity_block_type {
-	DM_VERITY_BLOCK_TYPE_DATA,
-	DM_VERITY_BLOCK_TYPE_METADATA
-};
 
 struct dm_verity {
 	struct dm_dev *data_dev;
@@ -70,8 +67,6 @@ struct dm_verity {
 	unsigned digest_size;	/* digest size for the current hash algorithm */
 	unsigned shash_descsize;/* the size of temporary space for crypto */
 	int hash_failed;	/* set to 1 if hash of any block failed */
-	enum verity_mode mode;	/* mode for handling verification errors */
-	unsigned corrupted_errs;/* Number of errors for corrupted blocks */
 
 	mempool_t *vec_mempool;	/* mempool of bio vector */
 
@@ -193,54 +188,6 @@ static void verity_hash_at_level(struct dm_verity *v, sector_t block, int level,
 }
 
 /*
- * Handle verification errors.
- */
-static int verity_handle_err(struct dm_verity *v, enum verity_block_type type,
-				 unsigned long long block)
-{
-	char verity_env[DM_VERITY_ENV_LENGTH];
-	char *envp[] = { verity_env, NULL };
-	const char *type_str = "";
-	struct mapped_device *md = dm_table_get_md(v->ti->table);
-
-	if (v->corrupted_errs >= DM_VERITY_MAX_CORRUPTED_ERRS)
-		goto out;
-
-	++v->corrupted_errs;
-
-	switch (type) {
-	case DM_VERITY_BLOCK_TYPE_DATA:
-		type_str = "data";
-		break;
-	case DM_VERITY_BLOCK_TYPE_METADATA:
-		type_str = "metadata";
-		break;
-	default:
-		BUG();
-	}
-
-	DMERR_LIMIT("%s: %s block %llu is corrupted", v->data_dev->name,
-                type_str, block);
-
-	if (v->corrupted_errs == DM_VERITY_MAX_CORRUPTED_ERRS)
-		DMERR("%s: reached maximum errors", v->data_dev->name);
-
-	snprintf(verity_env, DM_VERITY_ENV_LENGTH, "%s=%d,%llu",
-		DM_VERITY_ENV_VAR_NAME, type, block);
-
-	kobject_uevent_env(&disk_to_dev(dm_disk(md))->kobj, KOBJ_CHANGE, envp);
-
-out:
-	if (v->mode == DM_VERITY_MODE_LOGGING)
-		return 0;
-
-	if (v->mode == DM_VERITY_MODE_RESTART)
-		kernel_restart("dm-verity device corrupted");
-
-	return 1;
-}
-
-/*
  * Verify hash of a metadata block pertaining to the specified data block
  * ("block" argument) at a specified level ("level" argument).
  *
@@ -317,13 +264,16 @@ static int verity_verify_level(struct dm_verity_io *io, sector_t block,
 			goto release_ret_r;
 		}
 		if (unlikely(memcmp(result, io_want_digest(v, io), v->digest_size))) {
+			DMERR_LIMIT("metadata block %llu is corrupted",
+				(unsigned long long)hash_block);
+#ifdef SEC_HEX_DEBUG
+			print_block_data(0, (unsigned char *)(result), 0, v->digest_size);
+			print_block_data(0, (unsigned char *)(io_want_digest(v, io)), 0, v->digest_size);
+			print_block_data((unsigned long long)hash_block, (unsigned char *)data, 0, PAGE_SIZE);
+#endif
 			v->hash_failed = 1;
-
-			if (verity_handle_err(v, DM_VERITY_BLOCK_TYPE_METADATA,
-					      hash_block)) {
-				r = -EIO;
-				goto release_ret_r;
-			}
+			r = -EIO;
+			goto release_ret_r;
 		} else
 			aux->hash_verified = 1;
 	}
@@ -340,6 +290,50 @@ release_ret_r:
 
 	return r;
 }
+#ifdef SEC_HEX_DEBUG
+static void print_block_data(unsigned long long blocknr, unsigned char *data_to_dump
+			, int start, int len)
+{
+	int i, j;
+	int bh_offset = (start / 16) * 16;
+	char row_data[17] = { 0, };
+	char row_hex[50] = { 0, };
+	char ch;
+	if (blocknr == 0) {
+		printk(KERN_ERR "printing Hash dump %dbyte\n", len);
+	} else {
+		printk(KERN_ERR "dm-verity corrupted, printing data in hex\n");
+		printk(KERN_ERR " dump block# : %llu, start offset(byte) : %d\n"
+				, blocknr, start);
+		printk(KERN_ERR " length(byte) : %d, data_to_dump 0x%p\n"
+				, len, (void *)data_to_dump);
+		printk(KERN_ERR "-------------------------------------------------\n");
+	}
+	for (i = 0; i < (len + 15) / 16; i++) {
+		for (j = 0; j < 16; j++) {
+			ch = *(data_to_dump + bh_offset + j);
+			if (start <= bh_offset + j
+				&& start + len > bh_offset + j) {
+
+				if (isascii(ch) && isprint(ch))
+					sprintf(row_data + j, "%c", ch);
+				else
+					sprintf(row_data + j, ".");
+
+				sprintf(row_hex + (j * 3), "%2.2x ", ch);
+			} else {
+				sprintf(row_data + j, " ");
+				sprintf(row_hex + (j * 3), "-- ");
+			}
+		}
+
+		printk(KERN_ERR "0x%4.4x : %s | %s\n"
+				, bh_offset, row_hex, row_data);
+		bh_offset += 16;
+	}
+	printk(KERN_ERR "---------------------------------------------------\n");
+}
+#endif
 
 /*
  * Verify one "dm_verity_io" structure.
@@ -357,6 +351,7 @@ static int verity_verify_io(struct dm_verity_io *io)
 		u8 *result;
 		int r;
 		unsigned todo;
+		struct bio_vec bv;
 
 		if (likely(v->levels)) {
 			/*
@@ -402,7 +397,7 @@ test_block_hash:
 		do {
 			u8 *page;
 			unsigned len;
-			struct bio_vec bv = bio_iter_iovec(bio, io->iter);
+			bv = bio_iter_iovec(bio, io->iter);
 
 			page = kmap_atomic(bv.bv_page);
 			len = bv.bv_len;
@@ -435,11 +430,23 @@ test_block_hash:
 			return r;
 		}
 		if (unlikely(memcmp(result, io_want_digest(v, io), v->digest_size))) {
-			v->hash_failed = 1;
-
-			if (verity_handle_err(v, DM_VERITY_BLOCK_TYPE_DATA,
-					      io->block + b))
+			DMERR_LIMIT("data block %llu is corrupted",
+				(unsigned long long)(io->block + b));
+			if (io->block != 0) {
+#ifdef SEC_HEX_DEBUG
+				u8 *page;
+				print_block_data(0, (unsigned char *)(result), 0, v->digest_size);
+				print_block_data(0, (unsigned char *)(io_want_digest(v, io)), 0, v->digest_size);
+				page = kmap_atomic(bv.bv_page);
+				print_block_data((unsigned long long)(io->block+b), (unsigned char *)page, 0, PAGE_SIZE);
+				kunmap_atomic(page);
+#endif
+				v->hash_failed = 1;
+#if defined(CONFIG_TZ_ICCC)
+				printk(KERN_ERR "ICCC smc ret = %d \n",exynos_smc(SMC_CMD_DMV_WRITE_STATUS, 1, 0, 0));
+#endif
 				return -EIO;
+			}
 		}
 	}
 
@@ -737,14 +744,14 @@ static int verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 		goto bad;
 	}
 
-	if (argc < 10 || argc > 11) {
-		ti->error = "Invalid argument count: 10-11 arguments required";
+	if (argc != 10) {
+		ti->error = "Invalid argument count: exactly 10 arguments required";
 		r = -EINVAL;
 		goto bad;
 	}
 
-	if (sscanf(argv[0], "%d%c", &num, &dummy) != 1 ||
-	    num < 0 || num > 1) {
+	if (sscanf(argv[0], "%u%c", &num, &dummy) != 1 ||
+	    num > 1) {
 		ti->error = "Invalid version";
 		r = -EINVAL;
 		goto bad;
@@ -857,17 +864,6 @@ static int verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 			r = -EINVAL;
 			goto bad;
 		}
-	}
-
-	if (argc > 10) {
-		if (sscanf(argv[10], "%d%c", &num, &dummy) != 1 ||
-			num < DM_VERITY_MODE_EIO ||
-			num > DM_VERITY_MODE_RESTART) {
-			ti->error = "Invalid mode";
-			r = -EINVAL;
-			goto bad;
-		}
-		v->mode = num;
 	}
 
 	v->hash_per_block_bits =
