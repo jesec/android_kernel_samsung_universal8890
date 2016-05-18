@@ -38,6 +38,7 @@
 #include <linux/mm.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
+#include <linux/file.h>
 #include <linux/string.h>
 #include <linux/ratelimit.h>
 #include <linux/printk.h>
@@ -2345,7 +2346,7 @@ static int _nfs4_do_open(struct inode *dir,
 		goto err_free_label;
 	state = ctx->state;
 
-	if ((opendata->o_arg.open_flags & O_EXCL) &&
+	if ((opendata->o_arg.open_flags & (O_CREAT|O_EXCL)) == (O_CREAT|O_EXCL) &&
 	    (opendata->o_arg.createmode != NFS4_CREATE_GUARDED)) {
 		nfs4_exclusive_attrset(opendata, sattr);
 
@@ -5550,6 +5551,7 @@ static struct nfs4_lockdata *nfs4_alloc_lockdata(struct file_lock *fl,
 	p->server = server;
 	atomic_inc(&lsp->ls_count);
 	p->ctx = get_nfs_open_context(ctx);
+	get_file(fl->fl_file);
 	memcpy(&p->fl, fl, sizeof(p->fl));
 	return p;
 out_free_seqid:
@@ -5639,6 +5641,7 @@ static void nfs4_lock_release(void *calldata)
 		nfs_free_seqid(data->arg.lock_seqid);
 	nfs4_put_lock_state(data->lsp);
 	put_nfs_open_context(data->ctx);
+	fput(data->fl.fl_file);
 	kfree(data);
 	dprintk("%s: done!\n", __func__);
 }
@@ -8440,6 +8443,7 @@ static const struct nfs4_minor_version_ops nfs_v4_2_minor_ops = {
 	.reboot_recovery_ops = &nfs41_reboot_recovery_ops,
 	.nograce_recovery_ops = &nfs41_nograce_recovery_ops,
 	.state_renewal_ops = &nfs41_state_renewal_ops,
+	.mig_recovery_ops = &nfs41_mig_recovery_ops,
 };
 #endif
 
