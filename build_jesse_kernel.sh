@@ -1,13 +1,11 @@
 #!/bin/bash
-# Jesse kernel build script v0.1
+# Jesse kernel build script v0.2
 
 BUILD_COMMAND=$1
 
-MODEL=${BUILD_COMMAND%%_*}
-TEMP=${BUILD_COMMAND#*_}
-REGION=${TEMP%%_*}
-CARRIER=${TEMP##*_}
-PRODUCT_NAME=${MODEL}${CARRIER}
+MODEL=hero2lte
+VARIANT=xx
+ARCH=arm64
 
 BUILD_WHERE=$(pwd)
 BUILD_KERNEL_DIR=$BUILD_WHERE
@@ -22,51 +20,44 @@ BUILD_JOB_NUMBER=`grep processor /proc/cpuinfo|wc -l`
 mkdir -p bin
 ln -sf /usr/bin/python2.7 ./bin/python
 export PATH=$(pwd)/bin:$PATH
-KERNEL_DEFCONFIG=exynos8890-hero2lte_jesse_defconfig
-
-#sed -i.bak "s/CONFIG_MODVERSIONS=y/CONFIG_MODVERSIONS=n/g" ${BUILD_KERNEL_DIR}/arch/arm/configs/${KERNEL_DEFCONFIG}
-
-while getopts "w:t:" flag; do
-	case $flag in
-		w)
-			BUILD_OPTION_HW_REVISION=$OPTARG
-			echo "-w : "$BUILD_OPTION_HW_REVISION""
-			;;
-		t)
-			TARGET_BUILD_VARIANT=$OPTARG
-			echo "-t : "$TARGET_BUILD_VARIANT""
-			;;
-		*)
-			echo "wrong 2nd param : "$OPTARG""
-			exit -1
-			;;
-	esac
-done
-
-shift $((OPTIND-1))
-
-DTS_NAMES=apq8084-sec-
-
-case $1 in
-		clean)
-		echo "Not support... remove kernel out directory by yourself"
-		exit 1
-		;;
-		
-		*)
-		
-		BOARD_KERNEL_BASE=0x00000000
-		BOARD_KERNEL_PAGESIZE=4096
-		BOARD_KERNEL_TAGS_OFFSET=0x01E00000
-		BOARD_RAMDISK_OFFSET=0x02000000
-		BOARD_KERNEL_CMDLINE="console=ttyHSL0,115200,n8 androidboot.hardware=qcom user_debug=31 msm_rtb.filter=0x37 ehci-hcd.park=3"
-		mkdir -p $BUILD_KERNEL_OUT_DIR
-		;;
-
-esac
+KERNEL_DEFCONFIG=exynos8890-${MODEL}_jesse_defconfig
 
 KERNEL_IMG=$BUILD_KERNEL_OUT_DIR/arch/arm64/boot/Image
 DTC=$BUILD_KERNEL_OUT_DIR/scripts/dtc/dtc
+
+case $MODEL in
+herolte)
+	case $VARIANT in
+	can|eur|xx|duos)
+		DTSFILES="exynos8890-herolte_eur_open_00 exynos8890-herolte_eur_open_01
+				exynos8890-herolte_eur_open_02 exynos8890-herolte_eur_open_03
+				exynos8890-herolte_eur_open_04 exynos8890-herolte_eur_open_08
+				exynos8890-herolte_eur_open_09"
+		;;
+	kor|skt|ktt|lgt)
+		DTSFILES="exynos8890-herolte_kor_all_00 exynos8890-herolte_kor_all_01
+				exynos8890-herolte_kor_all_02 exynos8890-herolte_kor_all_03
+				exynos8890-herolte_kor_all_04 exynos8890-herolte_kor_all_08"
+		;;
+	*) abort "Unknown variant: $VARIANT" ;;
+	esac
+	;;
+hero2lte)
+	case $VARIANT in
+	can|eur|xx|duos)
+		DTSFILES="exynos8890-hero2lte_eur_open_00 exynos8890-hero2lte_eur_open_01
+				exynos8890-hero2lte_eur_open_03 exynos8890-hero2lte_eur_open_04
+				exynos8890-hero2lte_eur_open_08"
+		;;
+	kor|skt|ktt|lgt)
+		DTSFILES="exynos8890-hero2lte_kor_all_00 exynos8890-hero2lte_kor_all_01
+				exynos8890-hero2lte_kor_all_03 exynos8890-hero2lte_kor_all_04
+				exynos8890-hero2lte_kor_all_08"
+		;;
+	*) abort "Unknown variant: $VARIANT" ;;
+	esac
+	;;
+esac
 
 FUNC_CLEAN_DTB()
 {
@@ -75,11 +66,15 @@ FUNC_CLEAN_DTB()
 	else
 		echo "rm files in : "$BUILD_KERNEL_OUT_DIR/arch/arm64/boot/dts/*.dtb""
 		rm $BUILD_KERNEL_OUT_DIR/arch/arm64/boot/dts/*.dtb
+		echo "rm files in : "$BUILD_KERNEL_OUT_DIR/arch/arm64/boot/dtb/*""
+		rm -f $BUILD_KERNEL_OUT_DIR/arch/arm64/boot/dtb/*
 	fi
 }
 
 INSTALLED_DTIMAGE_TARGET=${PRODUCT_OUT}/dt.img
-DTBTOOL=$BUILD_KERNEL_DIR/tools/dtbTool
+DTBTOOL=$BUILD_KERNEL_DIR/tools/dtbtool
+PAGE_SIZE=2048
+DTB_PADDING=0
 
 FUNC_BUILD_DTIMAGE_TARGET()
 {
@@ -89,18 +84,17 @@ FUNC_BUILD_DTIMAGE_TARGET()
 	echo "================================="
 	echo ""
 	echo "DT image target : $INSTALLED_DTIMAGE_TARGET"
-	
-	if ! [ -e $DTBTOOL ] ; then
-		if ! [ -d $BUILD_ROOT_DIR/android/out/host/linux-x86/bin ] ; then
-			mkdir -p $BUILD_ROOT_DIR/android/out/host/linux-x86/bin
-		fi
-		cp $BUILD_ROOT_DIR/kernel/tools/dtbTool $DTBTOOL
-	fi
 
-	echo "$DTBTOOL -o $INSTALLED_DTIMAGE_TARGET -s $BOARD_KERNEL_PAGESIZE \
-						-p $BUILD_KERNEL_OUT_DIR/scripts/dtc/ $BUILD_KERNEL_OUT_DIR/arch/arm64/boot/dts/"
-	$DTBTOOL -o $INSTALLED_DTIMAGE_TARGET -s $BOARD_KERNEL_PAGESIZE \
-						-p $BUILD_KERNEL_OUT_DIR/scripts/dtc/ $BUILD_KERNEL_OUT_DIR/arch/arm64/boot/dts/
+	cd "$BUILD_KERNEL_OUT_DIR/arch/$ARCH/boot/dtb"
+	for dts in $DTSFILES; do
+		echo "=> Processing: ${dts}.dts"
+		"${CROSS_COMPILE}cpp" -nostdinc -undef -x assembler-with-cpp -I "$BUILD_KERNEL_DIR/include" "$BUILD_KERNEL_DIR/arch/$ARCH/boot/dts/${dts}.dts" > "${dts}.dts"
+		echo "=> Generating: ${dts}.dtb"
+		$DTC -p $DTB_PADDING -i "$BUILD_KERNEL_DIR/arch/$ARCH/boot/dts" -O dtb -o "${dts}.dtb" "${dts}.dts"
+	done
+
+	echo "Generating dtb.img..."
+	"$DTBTOOL" -o "$INSTALLED_DTIMAGE_TARGET" -p "$BUILD_KERNEL_OUT_DIR/arch/$ARCH/boot/dtb/" -s $PAGE_SIZE
 
 	chmod a+r $INSTALLED_DTIMAGE_TARGET
 
@@ -146,69 +140,14 @@ FUNC_BUILD_KERNEL()
 	echo ""
 }
 
-FUNC_MKBOOTIMG()
-{
-	echo ""
-	echo "==================================="
-	echo "START : FUNC_MKBOOTIMG"
-	echo "==================================="
-	echo ""
-	MKBOOTIMGTOOL=$BUILD_ROOT_DIR/android/kernel/tools/mkbootimg
-
-	if ! [ -e $MKBOOTIMGTOOL ] ; then
-		if ! [ -d $BUILD_ROOT_DIR/android/out/host/linux-x86/bin ] ; then
-			mkdir -p $BUILD_ROOT_DIR/android/out/host/linux-x86/bin
-		fi
-		cp $BUILD_ROOT_DIR/anroid/kernel/tools/mkbootimg $MKBOOTIMGTOOL
-	fi
-
-	echo "Making boot.img ..."
-	echo "	$MKBOOTIMGTOOL --kernel $KERNEL_IMG \
-			--ramdisk $PRODUCT_OUT/ramdisk.img \
-			--output $PRODUCT_OUT/boot.img \
-			--cmdline "$BOARD_KERNEL_CMDLINE" \
-			--base $BOARD_KERNEL_BASE \
-			--pagesize $BOARD_KERNEL_PAGESIZE \
-			--ramdisk_offset $BOARD_RAMDISK_OFFSET \
-			--tags_offset $BOARD_KERNEL_TAGS_OFFSET \
-			--dt $INSTALLED_DTIMAGE_TARGET"
-			
-	$MKBOOTIMGTOOL --kernel $KERNEL_IMG \
-			--ramdisk $PRODUCT_OUT/ramdisk.img \
-			--output $PRODUCT_OUT/boot.img \
-			--cmdline "$BOARD_KERNEL_CMDLINE" \
-			--base $BOARD_KERNEL_BASE \
-			--pagesize $BOARD_KERNEL_PAGESIZE \
-			--ramdisk_offset $BOARD_RAMDISK_OFFSET \
-			--tags_offset $BOARD_KERNEL_TAGS_OFFSET \
-			--dt $INSTALLED_DTIMAGE_TARGET
-	
-	cd $PRODUCT_OUT
-	tar cvf boot_${MODEL}_${CARRIER}.tar boot.img
-
-	cd $BUILD_ROOT_DIR
-	if ! [ -d output ] ; then
-		mkdir -p output
-	fi
-
-	mv $PRODUCT_OUT/boot_${MODEL}_${CARRIER}.tar output/
-
-	cd ~
-	
-	echo ""
-	echo "==================================="
-	echo "END   : FUNC_MKBOOTIMG"
-	echo "==================================="
-	echo ""	
-}
-
 # MAIN FUNCTION
 rm -rf ./build.log
 (
     START_TIME=`date +%s`
 
-	FUNC_BUILD_KERNEL
-	#FUNC_RAMDISK_EXTRACT_N_COPY
+    FUNC_CLEAN_DTB
+    FUNC_BUILD_KERNEL
+    FUNC_BUILD_DTIMAGE_TARGET
 
     END_TIME=`date +%s`
 	
