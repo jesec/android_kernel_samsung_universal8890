@@ -1754,6 +1754,12 @@ config SYSTEM_TRUSTED_KEYRING
 
 	  Keys in this keyring are used by module signature checking.
 
+config DEFERRED_INITCALLS
+	bool "Deferred initcalls support"
+	default n
+	help
+	  Say 'y' here to include support for deferred initcalls
+
 config PROFILING
 	bool "Profiling support"
 	help
