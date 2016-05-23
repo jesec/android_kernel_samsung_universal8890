@@ -2560,8 +2560,6 @@ void mmc_rescan(struct work_struct *work)
 	mmc_release_host(host);
 
  out:
-	if (!host->rescan_disable)
-		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
 	if (host->caps & MMC_CAP_NEEDS_POLL)
 		mmc_schedule_delayed_work(&host->detect, HZ);
 }
