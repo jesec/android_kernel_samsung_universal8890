@@ -31,7 +31,6 @@ enum {
 	Opt_gid,
 	Opt_userid,
 	Opt_debug,
-	Opt_lower_fs,
 	Opt_reserved_mb,
 	Opt_mask,
 	Opt_multi_user,
@@ -46,7 +45,6 @@ static const match_table_t sdcardfs_tokens = {
 	{Opt_gid, "gid=%u"},
 	{Opt_userid, "userid=%u"},
 	{Opt_debug, "debug"},
-	{Opt_lower_fs, "lower_fs=%s"},
 	{Opt_reserved_mb, "reserved_mb=%u"},
 	{Opt_mask, "mask=%o"},
 	{Opt_multi_user, "multi_user"},
@@ -70,8 +68,6 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 	/* by default, userid is 0, gid is AID_EVERYBODY */
 	opts->gid = AID_EVERYBODY;
 	opts->userid = 0;
-	/* by default, we use LOWER_FS_EXT4 as lower fs type */
-	opts->lower_fs = LOWER_FS_EXT4;
 	/* by default, 0MB is reserved */
 	opts->reserved_mb = 0;
 	/* by default, mask is 0 */
@@ -109,27 +105,13 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 			break;
 		case Opt_gid:
 			if (match_int(&args[0], &option))
-				goto invalid_option;
+				return 0;
 			opts->gid = option;
 			break;
 		case Opt_userid:
 			if (match_int(&args[0], &option))
-				goto invalid_option;
+				return 0;
 			opts->userid = option;
-			break;
-		case Opt_lower_fs:
-			string_option = match_strdup(&args[0]);
-			if (!string_option)
-				return -ENOMEM;
-			if (!strcmp("ext4", string_option)) {
-				opts->lower_fs = LOWER_FS_EXT4;
-			} else if (!strcmp("fat", string_option)) {
-				opts->lower_fs = LOWER_FS_FAT;
-			} else {
-				kfree(string_option);
-				goto invalid_option;
-			}
-			kfree(string_option);
 			break;
 		case Opt_reserved_mb:
 			if (match_int(&args[0], &option))
@@ -138,7 +120,7 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 			break;
 		case Opt_mask:
 			if (match_octal(&args[0], &option))
-				goto invalid_option;
+				return 0;
 			opts->mask = option;
 			break;
 		case Opt_multi_user:
@@ -162,13 +144,12 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 				opts->type = TYPE_WRITE;
 			} else {
 				kfree(string_option);
-				goto invalid_option;
+				return 0;
 			}
 			kfree(string_option);
 			break;
 		/* unknown option */
 		default:
-invalid_option:
 			if (!silent) {
 				printk( KERN_ERR "Unrecognized mount option \"%s\" "
 						"or missing value", p);

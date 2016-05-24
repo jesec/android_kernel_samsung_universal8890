@@ -1427,9 +1427,6 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsi
 		return ERR_PTR(-ENAMETOOLONG);
 
 	ci_name_buf[0] = '\0';
-	if (flags & LOOKUP_CASE_INSENSITIVE)
-		bh = ext4_find_entry(dir, &dentry->d_name, &de, NULL, ci_name_buf);
-	else
 		bh = ext4_find_entry(dir, &dentry->d_name, &de, NULL, NULL);
 	if (IS_ERR(bh))
 		return (struct dentry *) bh;
