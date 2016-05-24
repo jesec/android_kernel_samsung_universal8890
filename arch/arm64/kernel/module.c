@@ -21,42 +21,30 @@
 #include <linux/bitops.h>
 #include <linux/elf.h>
 #include <linux/gfp.h>
+#include <linux/kasan.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/moduleloader.h>
 #include <linux/vmalloc.h>
 #include <asm/insn.h>
-#include <linux/random.h>
-
 
 #define	AARCH64_INSN_IMM_MOVNZ		AARCH64_INSN_IMM_MAX
 #define	AARCH64_INSN_IMM_MOVK		AARCH64_INSN_IMM_16
 
-#ifdef  CONFIG_RELOCATABLE_KERNEL
-int randomize_module_space __read_mostly =  1; 
-#define RANDOMIZE_MODULE_REGION  (1*1024*1024)
-#endif
- 
 void *module_alloc(unsigned long size)
 {
-#ifdef CONFIG_RELOCATABLE_KERNEL
-	static unsigned long module_va = 0; 
-	/* random address is 16K ALIGN and will have 16MB shift spaces, this will reduce the avaliable memory space for modules */
-	if(module_va == 0) {
-		module_va = MODULES_VADDR; 
-		if (randomize_module_space)
-			module_va += ALIGN( get_random_int() %  RANDOMIZE_MODULE_REGION, PAGE_SIZE * 4); 
-	}
-	return __vmalloc_node_range(size, 1, module_va, MODULES_END,
-				    GFP_KERNEL, PAGE_KERNEL_EXEC, NUMA_NO_NODE,
-				    __builtin_return_address(0));
-	
-#else
-	return __vmalloc_node_range(size, 1, MODULES_VADDR, MODULES_END,
-				    GFP_KERNEL, PAGE_KERNEL_EXEC, NUMA_NO_NODE,
-				    __builtin_return_address(0));
-#endif 
+	void *p;
 
+	p = __vmalloc_node_range(size, MODULE_ALIGN, MODULES_VADDR, MODULES_END,
+				GFP_KERNEL, PAGE_KERNEL_EXEC, 0,
+				NUMA_NO_NODE, __builtin_return_address(0));
+
+	if (p && (kasan_module_alloc(p, size) < 0)) {
+		vfree(p);
+		return NULL;
+	}
+
+	return p;
 }
 
 enum aarch64_reloc_op {
@@ -207,11 +195,8 @@ static int reloc_insn_imm(enum aarch64_reloc_op op, void *place, u64 val,
 	 * Overflow has occurred if the upper bits are not all equal to
 	 * the sign bit of the value.
 	 */
-	if ((u64)(sval + 1) >= 2){
-		pr_err("module : place %p, val %Lx, sval  %Lx\n", place,  val,  sval);
+	if ((u64)(sval + 1) >= 2)
 		return -ERANGE;
-	
-	}
 
 	return 0;
 }
@@ -417,7 +402,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 	return 0;
 
 overflow:
-	pr_err("module %s: overflow in relocation type %d val %Lx, reloc %p\n",
-	       me->name, (int)ELF64_R_TYPE(rel[i].r_info), val, loc);
+	pr_err("module %s: overflow in relocation type %d val %Lx\n",
+	       me->name, (int)ELF64_R_TYPE(rel[i].r_info), val);
 	return -ENOEXEC;
 }
