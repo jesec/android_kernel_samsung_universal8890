@@ -1,0 +1,4 @@
+build:
+  script:
+    - ./build_jesse_kernel.sh
+    - mv ./output /var/www/files/G935F-Jesse-Kernel-Rolling/$CI_BUILD_REF

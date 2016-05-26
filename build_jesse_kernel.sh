@@ -98,6 +98,8 @@ FUNC_BUILD_DTIMAGE_TARGET()
 
 	chmod a+r $INSTALLED_DTIMAGE_TARGET
 
+	cp $INSTALLED_DTIMAGE_TARGET $BUILD_KERNEL_DIR/output/
+
 	echo ""
 	echo "================================="
 	echo "END   : FUNC_BUILD_DTIMAGE_TARGET"
@@ -115,7 +117,6 @@ FUNC_BUILD_KERNEL()
         echo "build project="$PROJECT_NAME""
         echo "build common config="$KERNEL_DEFCONFIG ""
 
-	FUNC_CLEAN_DTB
 	mkdir $BUILD_KERNEL_DIR/output
 	rm $BUILD_KERNEL_DIR/output/Image $KERNEL_IMG
 	rm $BUILD_KERNEL_OUT_DIR/firmware/apm_8890_evt1.h
@@ -130,8 +131,7 @@ FUNC_BUILD_KERNEL()
 	make -C $BUILD_KERNEL_DIR O=$BUILD_KERNEL_OUT_DIR -j$BUILD_JOB_NUMBER ARCH=arm64 \
 			CROSS_COMPILE=$BUILD_CROSS_COMPILE || exit -1
 
-	cp $KERNEL_IMG $BUILD_KERNEL_DIR/output/Image
-#	FUNC_BUILD_DTIMAGE_TARGET
+	cp $KERNEL_IMG $BUILD_KERNEL_DIR/output/
 	
 	echo ""
 	echo "================================="
@@ -154,3 +154,7 @@ rm -rf ./build.log
     let "ELAPSED_TIME=$END_TIME-$START_TIME"
     echo "Total compile time is $ELAPSED_TIME seconds"
 ) 2>&1	 | tee -a ./build.log
+
+if [ ! -f "$KERNEL_IMG" ]; then
+  exit 1
+fi
