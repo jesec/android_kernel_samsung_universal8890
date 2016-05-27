@@ -55,7 +55,7 @@ struct apll_freq {
 struct overclock_freq {
 	unsigned int	cl0_dt_max_freq;
 	unsigned int	cl1_dt_max_freq;
-};
+}ctoc;
 
 struct exynos_dvfs_info {
 	unsigned long	mpll_freq_khz;
