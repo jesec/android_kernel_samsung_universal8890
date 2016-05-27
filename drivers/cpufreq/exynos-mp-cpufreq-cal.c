@@ -169,7 +169,7 @@ static int exynos_mp_cpufreq_init_cal_table(cluster_type cluster)
 	int table_size, cl_id, i;
 	struct dvfs_rate_volt *ptr_temp_table;
 	struct exynos_dvfs_info *ptr = exynos_info[cluster];
-	struct overclock_freq *oc_freq;
+	static struct overclock_freq *oc_freq = &ctoc;
 	unsigned int cal_max_freq;
 	unsigned int cal_max_support_idx = ptr->max_support_idx;
 	
