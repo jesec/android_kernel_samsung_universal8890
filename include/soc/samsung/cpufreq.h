@@ -52,6 +52,11 @@ struct apll_freq {
 	u32 mps;
 };
 
+struct overclock_freq {
+	unsigned int	cl0_dt_max_freq;
+	unsigned int	cl1_dt_max_freq;
+}ctoc;
+
 struct exynos_dvfs_info {
 	unsigned long	mpll_freq_khz;
 	unsigned int	pll_safe_idx;
