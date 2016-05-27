@@ -172,7 +172,7 @@ static int exynos_mp_cpufreq_init_cal_table(cluster_type cluster)
 	static struct overclock_freq *oc_freq = &ctoc;
 	unsigned int cal_max_freq;
 	unsigned int cal_max_support_idx = ptr->max_support_idx;
-	
+
 	if (!ptr->freq_table || !ptr->volt_table) {
 		pr_err("%s: freq of volt table is NULL\n", __func__);
 		return -EINVAL;
