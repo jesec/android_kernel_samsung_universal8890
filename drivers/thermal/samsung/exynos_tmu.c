@@ -1233,6 +1233,7 @@ static int exynos_tmu_ect_set_information(struct platform_device *pdev)
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	struct ect_ap_thermal_function *function;
+	static struct overclock_freq *oc_freq = &ctoc;
 	int hotplug_threshold = 0, hotplug_flag = 0;
 
 	if (pdata->tmu_name == NULL)
@@ -1261,9 +1262,9 @@ static int exynos_tmu_ect_set_information(struct platform_device *pdev)
 			pdata->trigger_type[i] = (i == function->num_of_range - 1 ? HW_TRIP : THROTTLE_ACTIVE);
 
 		if (function->range_list[i].max_frequency == 2704000)
-			function->range_list[i].max_frequency = 2808000;
+			function->range_list[i].max_frequency = oc_freq->cl1_dt_max_freq;
 		if (function->range_list[i].max_frequency == 1586000)
-			function->range_list[i].max_frequency = 1794000;
+			function->range_list[i].max_frequency = oc_freq->cl0_dt_max_freq;
 
 		pdata->freq_tab[i].temp_level = function->range_list[i].lower_bound_temperature;
 		pdata->freq_tab[i].freq_clip_max = function->range_list[i].max_frequency;
