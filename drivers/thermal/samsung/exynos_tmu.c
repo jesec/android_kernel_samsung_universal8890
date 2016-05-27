@@ -1233,7 +1233,7 @@ static int exynos_tmu_ect_set_information(struct platform_device *pdev)
 	struct exynos_tmu_data *data = platform_get_drvdata(pdev);
 	struct exynos_tmu_platform_data *pdata = data->pdata;
 	struct ect_ap_thermal_function *function;
-	struct overclock_freq *oc_freq;
+	struct overclock_freq *oc_freq = &ctoc;
 	int hotplug_threshold = 0, hotplug_flag = 0;
 
 	if (pdata->tmu_name == NULL)
