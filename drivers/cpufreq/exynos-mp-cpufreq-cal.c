@@ -169,9 +169,10 @@ static int exynos_mp_cpufreq_init_cal_table(cluster_type cluster)
 	int table_size, cl_id, i;
 	struct dvfs_rate_volt *ptr_temp_table;
 	struct exynos_dvfs_info *ptr = exynos_info[cluster];
+	struct overclock_freq *oc_freq;
 	unsigned int cal_max_freq;
 	unsigned int cal_max_support_idx = ptr->max_support_idx;
-
+	
 	if (!ptr->freq_table || !ptr->volt_table) {
 		pr_err("%s: freq of volt table is NULL\n", __func__);
 		return -EINVAL;
@@ -217,6 +218,11 @@ static int exynos_mp_cpufreq_init_cal_table(cluster_type cluster)
 		if (ptr_temp_table[i].rate == cal_max_freq)
 			cal_max_support_idx = i;
 	}
+	
+	if (cluster == CL_ZERO)
+		oc_freq->cl0_dt_max_freq = ptr_temp_table[ptr->max_support_idx].rate
+	if (cluster == CL_ONE)
+		oc_freq->cl1_dt_max_freq = ptr_temp_table[ptr->max_support_idx].rate
 
 	pr_info("CPUFREQ of %s CAL max_freq %lu KHz, DT max_freq %lu\n",
 			cluster ? "CL1" : "CL0",
