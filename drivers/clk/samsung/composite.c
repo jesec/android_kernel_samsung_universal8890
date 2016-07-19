@@ -35,8 +35,6 @@ static struct clk_onecell_data clk_data;
 #endif
 
 #ifdef CONFIG_PM_SLEEP
-static struct samsung_clk_reg_dump *reg_dump;
-static unsigned long nr_reg_dump;
 
 void samsung_clk_save(void __iomem *base,
 				    struct samsung_clk_reg_dump *rd,
@@ -70,38 +68,11 @@ struct samsung_clk_reg_dump *samsung_clk_alloc_reg_dump(
 
 	return rd;
 }
-
-static int samsung_clk_suspend(void)
-{
-	struct samsung_clk_reg_dump *rd = reg_dump;
-	unsigned long i;
-
-	for (i = 0; i < nr_reg_dump; i++, rd++)
-		rd->value = __raw_readl(reg_base + rd->offset);
-
-	return 0;
-}
-
-static void samsung_clk_resume(void)
-{
-	struct samsung_clk_reg_dump *rd = reg_dump;
-	unsigned long i;
-
-	for (i = 0; i < nr_reg_dump; i++, rd++)
-		__raw_writel(rd->value, reg_base + rd->offset);
-}
-
-static struct syscore_ops samsung_clk_syscore_ops = {
-	.suspend	= samsung_clk_suspend,
-	.resume		= samsung_clk_resume,
-};
 #endif /* CONFIG_PM_SLEEP */
 
 /* setup the essentials required to support clock lookup using ccf */
 void __init samsung_clk_init(struct device_node *np, void __iomem *base,
-		unsigned long nr_clks, unsigned long *rdump,
-		unsigned long nr_rdump, unsigned long *soc_rdump,
-		unsigned long nr_soc_rdump)
+		unsigned long nr_clks)
 {
 #ifdef CONFIG_PM_SLEEP
 	reg_base = base;
@@ -119,26 +90,6 @@ void __init samsung_clk_init(struct device_node *np, void __iomem *base,
 	clk_data.clks = clk_table;
 	clk_data.clk_num = nr_clks;
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
-#endif
-
-#ifdef CONFIG_PM_SLEEP
-	if (rdump && nr_rdump) {
-		unsigned int idx;
-		reg_dump = kzalloc(sizeof(struct samsung_clk_reg_dump)
-				* (nr_rdump + nr_soc_rdump), GFP_KERNEL);
-		if (!reg_dump) {
-			pr_err("%s: memory alloc for register dump failed\n",
-					__func__);
-			return;
-		}
-
-		for (idx = 0; idx < nr_rdump; idx++)
-			reg_dump[idx].offset = rdump[idx];
-		for (idx = 0; idx < nr_soc_rdump; idx++)
-			reg_dump[nr_rdump + idx].offset = soc_rdump[idx];
-		nr_reg_dump = nr_rdump + nr_soc_rdump;
-		register_syscore_ops(&samsung_clk_syscore_ops);
-	}
 #endif
 }
 

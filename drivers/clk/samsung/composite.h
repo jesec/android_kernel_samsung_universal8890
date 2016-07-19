@@ -409,9 +409,7 @@ struct samsung_usermux {
 extern void __init samsung_register_usermux(struct samsung_usermux *list,
 			unsigned int nr_usermux);
 extern void __init samsung_clk_init(struct device_node *np, void __iomem *base,
-		unsigned long nr_clks, unsigned long *rdump,
-		unsigned long nr_rdump, unsigned long *soc_rdump,
-		unsigned long nr_soc_rdump);
+				unsigned long nr_clks);
 
 extern void __init samsung_register_of_fixed_ext(
 			struct samsung_fixed_rate *fixed_rate_clk,
