@@ -27,6 +27,18 @@ struct samsung_clk_reg_dump {
 };
 
 /*
+ * struct samsung_clk_provider: information about clock provider
+ * @reg_base: virtual address for the register base.
+ * @clk_data: holds clock related data like clk* and number of clocks.
+ * @lock: maintains exclusion bwtween callbacks for a given clock-provider.
+ */
+struct samsung_clk_provider {
+	void __iomem *reg_base;
+	struct clk_onecell_data clk_data;
+	spinlock_t lock;
+};
+
+/*
  * struct samsung_fixed_rate_clock: information about fixed-rate clock
  * @id: platform specific id of the clock.
  * @name: name of this fixed-rate clock.
@@ -52,7 +64,9 @@ struct samsung_fixed_rate {
 	}
 
 extern void __init samsung_register_fixed_rate(
-		struct samsung_fixed_rate *list, unsigned int nr_clk);
+		struct samsung_clk_provider *ctx,
+		struct samsung_fixed_rate *list,
+		unsigned int nr_clk);
 /*
  * struct samsung_fixed_factor_clock: information about fixed-factor clock
  * @id: platform specific id of the clock.
@@ -82,7 +96,9 @@ struct samsung_fixed_factor {
 	}
 
 extern void __init samsung_register_fixed_factor(
-		struct samsung_fixed_factor *list, unsigned int nr_clk);
+		struct samsung_clk_provider *ctx,
+		struct samsung_fixed_factor *list,
+		unsigned int nr_clk);
 
 /*
  * PLL145xx Clock Type: PLL1450x, PLL1451x, PLL1452x
@@ -220,8 +236,10 @@ struct samsung_composite_pll {
 		.alias		= a,								\
 	}
 
-extern void samsung_register_comp_pll(struct samsung_composite_pll *pll_list,
-					unsigned int nr_pll);
+extern void samsung_register_comp_pll(
+		struct samsung_clk_provider *ctx,
+		struct samsung_composite_pll *pll_list,
+		unsigned int nr_pll);
 
 #define PNAME(x) static const char *x[]
 /*
@@ -272,8 +290,10 @@ struct samsung_composite_mux {
 		.alias		= a,							\
 	}
 
-extern void samsung_register_comp_mux(struct samsung_composite_mux *mux_list,
-					unsigned int nr_mux);
+extern void samsung_register_comp_mux(
+		struct samsung_clk_provider *ctx,
+		struct samsung_composite_mux *mux_list,
+		unsigned int nr_mux);
 
 /*
  * struct samsung_composite_divider: information about composite-divider clocks
@@ -320,8 +340,8 @@ struct samsung_composite_divider {
 		.alias		= a,							\
 	}
 
-extern void samsung_register_comp_divider(struct samsung_composite_divider *div_list,
-					unsigned int nr_div);
+extern void samsung_register_comp_divider(struct samsung_clk_provider *ctx,
+		struct samsung_composite_divider *div_list, unsigned int nr_div);
 
 #define CLK_GATE_ENABLE		BIT(20)
 #define CLK_ON_CHANGING		BIT(7)
@@ -356,8 +376,10 @@ struct samsung_gate {
 		.alias		= a,			\
 	}
 
-extern void __init samsung_register_gate(struct samsung_gate *gate_list,
-				unsigned int nr_gate);
+extern void __init samsung_register_gate(
+		struct samsung_clk_provider *ctx,
+		struct samsung_gate *gate_list,
+		unsigned int nr_gate);
 
 struct clk_samsung_usermux {
 	struct clk_hw		hw;
@@ -406,12 +428,17 @@ struct samsung_usermux {
 		.alias		= a,					\
 	}
 
-extern void __init samsung_register_usermux(struct samsung_usermux *list,
-			unsigned int nr_usermux);
-extern void __init samsung_clk_init(struct device_node *np, void __iomem *base,
-				unsigned long nr_clks);
+extern void __init samsung_register_usermux(
+		struct samsung_clk_provider *ctx,
+		struct samsung_usermux *list,
+		unsigned int nr_usermux);
+
+extern struct samsung_clk_provider *__init samsung_clk_init(
+			struct device_node *np, void __iomem *base,
+			unsigned long nr_clks);
 
 extern void __init samsung_register_of_fixed_ext(
+			struct samsung_clk_provider *ctx,
 			struct samsung_fixed_rate *fixed_rate_clk,
 			unsigned int nr_fixed_rate_clk,
 			struct of_device_id *clk_matches);

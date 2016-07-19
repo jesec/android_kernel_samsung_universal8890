@@ -28,11 +28,6 @@
 #define to_usermux(_hw) container_of(_hw, struct clk_samsung_usermux, hw)
 
 static DEFINE_SPINLOCK(lock);
-static struct clk **clk_table;
-static void __iomem *reg_base;
-#ifdef CONFIG_OF
-static struct clk_onecell_data clk_data;
-#endif
 
 #ifdef CONFIG_PM_SLEEP
 
@@ -71,37 +66,47 @@ struct samsung_clk_reg_dump *samsung_clk_alloc_reg_dump(
 #endif /* CONFIG_PM_SLEEP */
 
 /* setup the essentials required to support clock lookup using ccf */
-void __init samsung_clk_init(struct device_node *np, void __iomem *base,
-		unsigned long nr_clks)
+struct samsung_clk_provider *__init samsung_clk_init(struct device_node *np,
+			void __iomem *base, unsigned long nr_clks)
 {
-#ifdef CONFIG_PM_SLEEP
-	reg_base = base;
-#else
-	reg_base = 0;
-#endif
-	if (!np)
-		return;
+	struct samsung_clk_provider *ctx;
+	struct clk **clk_table;
+	int ret;
 
-#ifdef CONFIG_OF
+	if (!np)
+		return ctx;
+
+	ctx = kzalloc(sizeof(struct samsung_clk_provider), GFP_KERNEL);
+	if (!ctx)
+		panic("could not allocate clock provider context.\n");
+
 	clk_table = kzalloc(sizeof(struct clk *) * nr_clks, GFP_KERNEL);
 	if (!clk_table)
 		panic("could not allocate clock lookup table\n");
 
-	clk_data.clks = clk_table;
-	clk_data.clk_num = nr_clks;
-	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
-#endif
+	ctx->reg_base = base;
+	ctx->clk_data.clks = clk_table;
+	ctx->clk_data.clk_num = nr_clks;
+	spin_lock_init(&ctx->lock);
+
+	ret = of_clk_add_provider(np, of_clk_src_onecell_get,
+			&ctx->clk_data);
+	if (ret)
+		panic("could not register clock provide\n");
+
+	return ctx;
 }
 
 /* add a clock instance to the clock lookup table used for dt based lookup */
-static void samsung_clk_add_lookup(struct clk *clk, unsigned int id)
+static void samsung_clk_add_lookup(struct samsung_clk_provider *ctx, struct clk *clk,
+					unsigned int id)
 {
-	if (clk_table && id)
-		clk_table[id] = clk;
+	if (ctx->clk_data.clks && id)
+		ctx->clk_data.clks[id] = clk;
 }
 
 /* register a list of fixed clocks */
-void __init samsung_register_fixed_rate(
+void __init samsung_register_fixed_rate(struct samsung_clk_provider *ctx,
 		struct samsung_fixed_rate *list, unsigned int nr_clk)
 {
 	struct clk *clk;
@@ -116,7 +121,7 @@ void __init samsung_register_fixed_rate(
 			continue;
 		}
 
-		samsung_clk_add_lookup(clk, list->id);
+		samsung_clk_add_lookup(ctx, clk, list->id);
 
 		/*
 		 * Unconditionally add a clock lookup for the fixed rate clocks.
@@ -130,7 +135,7 @@ void __init samsung_register_fixed_rate(
 }
 
 /* register a list of fixed factor clocks */
-void __init samsung_register_fixed_factor(
+void __init samsung_register_fixed_factor(struct samsung_clk_provider *ctx,
 		struct samsung_fixed_factor *list, unsigned int nr_clk)
 {
 	struct clk *clk;
@@ -145,7 +150,7 @@ void __init samsung_register_fixed_factor(
 			continue;
 		}
 
-		samsung_clk_add_lookup(clk, list->id);
+		samsung_clk_add_lookup(ctx, clk, list->id);
 
 		ret = clk_register_clkdev(clk, list->name, NULL);
 		if (ret)
@@ -158,7 +163,7 @@ void __init samsung_register_fixed_factor(
  * obtain the clock speed of all external fixed clock sources from device
  * tree and register it
  */
-void __init samsung_register_of_fixed_ext(
+void __init samsung_register_of_fixed_ext(struct samsung_clk_provider *ctx,
 			struct samsung_fixed_rate *fixed_rate_clk,
 			unsigned int nr_fixed_rate_clk,
 			struct of_device_id *clk_matches)
@@ -172,7 +177,7 @@ void __init samsung_register_of_fixed_ext(
 			continue;
 		fixed_rate_clk[(unsigned long)match->data].fixed_rate = freq;
 	}
-	samsung_register_fixed_rate(fixed_rate_clk, nr_fixed_rate_clk);
+	samsung_register_fixed_rate(ctx, fixed_rate_clk, nr_fixed_rate_clk);
 }
 
 /* operation functions for pll clocks */
@@ -691,7 +696,8 @@ static const struct clk_ops samsung_pll2650x_clk_ops = {
 };
 
 /* register function for pll clocks */
-static void _samsung_register_comp_pll(struct samsung_composite_pll *list)
+static void _samsung_register_comp_pll(struct samsung_clk_provider *ctx,
+				struct samsung_composite_pll *list)
 {
 	struct clk *clk;
 	static const char *pname[1] = {"fin_pll"};
@@ -742,7 +748,7 @@ static void _samsung_register_comp_pll(struct samsung_composite_pll *list)
 		return;
 	}
 
-	samsung_clk_add_lookup(clk, list->id);
+	samsung_clk_add_lookup(ctx, clk, list->id);
 
 	/* register a clock lookup only if a clock alias is specified */
 	if (list->alias) {
@@ -753,13 +759,13 @@ static void _samsung_register_comp_pll(struct samsung_composite_pll *list)
 	}
 }
 
-void samsung_register_comp_pll(struct samsung_composite_pll *list,
-				unsigned int nr_pll)
+void samsung_register_comp_pll(struct samsung_clk_provider *ctx,
+		struct samsung_composite_pll *list, unsigned int nr_pll)
 {
 	int cnt;
 
 	for (cnt = 0; cnt < nr_pll; cnt++)
-		_samsung_register_comp_pll(&list[cnt]);
+		_samsung_register_comp_pll(ctx, &list[cnt]);
 }
 
 /* operation functions for mux clocks */
@@ -860,7 +866,8 @@ static const struct clk_ops samsung_composite_mux_ops_onchange = {
 };
 
 /* register function for mux clock */
-static void _samsung_register_comp_mux(struct samsung_composite_mux *list)
+static void _samsung_register_comp_mux(struct samsung_clk_provider *ctx,
+				struct samsung_composite_mux *list)
 {
 	struct clk *clk;
 	unsigned int ret = 0;
@@ -884,7 +891,7 @@ static void _samsung_register_comp_mux(struct samsung_composite_mux *list)
 		return;
 	}
 
-	samsung_clk_add_lookup(clk, list->id);
+	samsung_clk_add_lookup(ctx, clk, list->id);
 
 	/* register a clock lookup only if a clock alias is specified */
 	if (list->alias) {
@@ -895,13 +902,13 @@ static void _samsung_register_comp_mux(struct samsung_composite_mux *list)
 	}
 }
 
-void samsung_register_comp_mux(struct samsung_composite_mux *list,
-				unsigned int nr_mux)
+void samsung_register_comp_mux(struct samsung_clk_provider *ctx,
+		struct samsung_composite_mux *list, unsigned int nr_mux)
 {
 	int cnt;
 
 	for (cnt = 0; cnt < nr_mux; cnt++)
-		_samsung_register_comp_mux(&list[cnt]);
+		_samsung_register_comp_mux(ctx, &list[cnt]);
 }
 
 /* operation functions for divider clocks */
@@ -1036,7 +1043,8 @@ static const struct clk_ops samsung_composite_divider_ops = {
 };
 
 /* register function for divider clocks */
-static void _samsung_register_comp_divider(struct samsung_composite_divider *list)
+static void _samsung_register_comp_divider(struct samsung_clk_provider *ctx,
+				struct samsung_composite_divider *list)
 {
 	struct clk *clk;
 	unsigned int ret = 0;
@@ -1054,7 +1062,7 @@ static void _samsung_register_comp_divider(struct samsung_composite_divider *lis
 		return;
 	}
 
-	samsung_clk_add_lookup(clk, list->id);
+	samsung_clk_add_lookup(ctx, clk, list->id);
 
 	/* register a clock lookup only if a clock alias is specified */
 	if (list->alias) {
@@ -1065,13 +1073,13 @@ static void _samsung_register_comp_divider(struct samsung_composite_divider *lis
 	}
 }
 
-void  samsung_register_comp_divider(struct samsung_composite_divider *list,
-				unsigned int nr_div)
+void samsung_register_comp_divider(struct samsung_clk_provider *ctx,
+		struct samsung_composite_divider *list,	unsigned int nr_div)
 {
 	int cnt;
 
 	for (cnt = 0; cnt < nr_div; cnt++)
-		_samsung_register_comp_divider(&list[cnt]);
+		_samsung_register_comp_divider(ctx, &list[cnt]);
 }
 
 struct dummy_gate_clk {
@@ -1124,7 +1132,8 @@ struct clk *samsung_clk_get_by_reg(unsigned long offset, u8 bit_idx)
 }
 
 /* existing register function for gate clocks */
-static struct clk * __init _samsung_register_gate(struct samsung_gate *list)
+static struct clk * __init _samsung_register_gate(
+		struct samsung_clk_provider *ctx, struct samsung_gate *list)
 {
 	struct clk *clk;
 	unsigned int ret = 0;
@@ -1139,7 +1148,7 @@ static struct clk * __init _samsung_register_gate(struct samsung_gate *list)
 		return 0;
 	}
 
-	samsung_clk_add_lookup(clk, list->id);
+	samsung_clk_add_lookup(ctx, clk, list->id);
 
 	if (list->alias) {
 		ret = clk_register_clkdev(clk, list->alias, NULL);
@@ -1151,8 +1160,8 @@ static struct clk * __init _samsung_register_gate(struct samsung_gate *list)
 	return clk;
 }
 
-void __init samsung_register_gate(struct samsung_gate *list,
-			unsigned int nr_gate)
+void __init samsung_register_gate(struct samsung_clk_provider *ctx,
+			struct samsung_gate *list, unsigned int nr_gate)
 {
 	int cnt;
 	struct clk *clk;
@@ -1172,7 +1181,7 @@ void __init samsung_register_gate(struct samsung_gate *list,
 		pr_err("%s: can not alloc for enable gate clock list\n", __func__);
 
 	for (cnt = 0; cnt < nr_gate; cnt++) {
-		clk = _samsung_register_gate(&list[cnt]);
+		clk = _samsung_register_gate(ctx, &list[cnt]);
 
 		if (((&list[cnt])->flag & CLK_GATE_ENABLE) && gate_enable_list) {
 			gate_enable_list[gate_enable_nr] = clk;
@@ -1316,8 +1325,8 @@ static struct clk * __init _samsung_register_comp_usermux(struct samsung_usermux
 	return clk;
 }
 
-void __init samsung_register_usermux(struct samsung_usermux *list,
-			unsigned int nr_usermux)
+void __init samsung_register_usermux(struct samsung_clk_provider *ctx,
+		struct samsung_usermux *list, unsigned int nr_usermux)
 {
 	struct clk *clk;
 	int cnt;
@@ -1331,7 +1340,7 @@ void __init samsung_register_usermux(struct samsung_usermux *list,
 			return;
 		}
 
-		samsung_clk_add_lookup(clk, (&list[cnt])->id);
+		samsung_clk_add_lookup(ctx, clk, (&list[cnt])->id);
 
 		if ((&list[cnt])->alias) {
 			ret = clk_register_clkdev(clk, (&list[cnt])->alias, NULL);
