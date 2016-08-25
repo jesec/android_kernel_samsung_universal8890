@@ -1309,6 +1309,13 @@ config CC_OPTIMIZE_FOR_SIZE
 
 	  If unsure, say N.
 
+config JESSE_KERNEL_OPTIMIZATION
+	bool "Jesse's kernel optimization flags"
+	help
+	  Enabling this option will pass various of optmization flags to gcc resulting in a possible unstable kernel.
+
+	  If unsure, say N.
+
 config SYSCTL
 	bool
 
@@ -1746,6 +1753,12 @@ config SYSTEM_TRUSTED_KEYRING
 	  keys already in the keyring.
 
 	  Keys in this keyring are used by module signature checking.
+
+config DEFERRED_INITCALLS
+	bool "Deferred initcalls support"
+	default n
+	help
+	  Say 'y' here to include support for deferred initcalls
 
 config PROFILING
 	bool "Profiling support"

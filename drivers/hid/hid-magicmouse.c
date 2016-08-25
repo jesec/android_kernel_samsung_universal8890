@@ -476,8 +476,8 @@ static int magicmouse_input_configured(struct hid_device *hdev,
 
 {
 	struct magicmouse_sc *msc = hid_get_drvdata(hdev);
-	int ret = 0;
-	
+	int ret;
+
 	ret = magicmouse_setup_input(msc->input, hdev);
 	if (ret) {
 		hid_err(hdev, "magicmouse setup input failed (%d)\n", ret);
@@ -486,7 +486,7 @@ static int magicmouse_input_configured(struct hid_device *hdev,
 		return ret;
 	}
 
-	return ret;
+	return 0;
 }
 
 

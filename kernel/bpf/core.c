@@ -288,7 +288,6 @@ static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
 	};
 	void *ptr;
 	int off;
-
 #define CONT	 ({ insn++; goto select_insn; })
 #define CONT_JMP ({ insn++; goto select_insn; })
 
@@ -301,7 +300,6 @@ static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
 
 select_insn:
 	goto *jumptable[insn->code];
-
 	/* ALU */
 #define ALU(OPCODE, OP)			\
 	ALU64_##OPCODE##_X:		\
