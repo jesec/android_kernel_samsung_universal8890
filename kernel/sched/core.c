@@ -5041,7 +5041,6 @@ void init_idle(struct task_struct *idle, int cpu)
 	raw_spin_lock(&rq->lock);
 
 	__sched_fork(0, idle);
-
 	idle->state = TASK_RUNNING;
 	idle->se.exec_start = sched_clock();
 
