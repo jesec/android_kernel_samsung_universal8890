@@ -37,7 +37,3 @@ config GATOR_MALI_PATH
 	help
 	  The gator code adds this to its include path so it can get the Mali
 	  trace headers with: #include "linux/mali_linux_trace.h"
-
-config MALI_GATOR_SUPPORT
-	bool "Midgard Gator"
-	select GATOR_WITH_MALI_SUPPORT

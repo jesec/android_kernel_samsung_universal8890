@@ -37,6 +37,9 @@
 #include <asm/stacktrace.h>
 #include <asm/exception.h>
 #include <asm/system_misc.h>
+#ifdef CONFIG_SEC_DEBUG
+#include <linux/sec_debug.h>
+#endif
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -207,7 +210,7 @@ static int __die(const char *str, int err, struct thread_info *thread,
 	if (!user_mode(regs) || in_interrupt()) {
 		dump_mem(KERN_EMERG, "Stack: ", regs->sp,
 			 THREAD_SIZE + (unsigned long)task_stack_page(tsk));
-		dump_backtrace(regs, tsk);
+		dump_backtrace(NULL, tsk);
 		dump_instr(KERN_EMERG, regs);
 	}
 
@@ -246,10 +249,24 @@ void die(const char *str, struct pt_regs *regs, int err)
 	raw_spin_unlock_irq(&die_lock);
 	oops_exit();
 
+#if defined(CONFIG_SEC_DEBUG)
+	sec_debug_store_backtrace(regs);
+
+	if (in_interrupt())
+		panic("%s\nPC is at %pS\nLR is at %pS",
+				"Fatal exception in interrupt", (void *)regs->pc,
+				compat_user_mode(regs) ? (void *)regs->compat_lr : (void *)regs->regs[30]);
+	if (panic_on_oops)
+		panic("%s\nPC is at %pS\nLR is at %pS",
+				"Fatal exception", (void *)regs->pc,
+				compat_user_mode(regs) ? (void *)regs->compat_lr : (void *)regs->regs[30]);
+#else
 	if (in_interrupt())
 		panic("Fatal exception in interrupt");
 	if (panic_on_oops)
 		panic("Fatal exception");
+#endif
+
 	if (ret != NOTIFY_STOP)
 		do_exit(SIGSEGV);
 }
@@ -360,6 +377,11 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	info.si_code  = ILL_ILLOPC;
 	info.si_addr  = pc;
 
+#ifdef CONFIG_SEC_DEBUG
+	if (!user_mode(regs))
+		sec_debug_store_fault_addr(-1, regs);
+#endif
+
 	arm64_notify_die("Oops - undefined instruction", regs, &info, 0);
 }
 
@@ -396,7 +418,7 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 	void __user *pc = (void __user *)instruction_pointer(regs);
 	console_verbose();
 
-	pr_crit("Bad mode in %s handler detected, code 0x%08x\n",
+	pr_auto(ASL1, "Bad mode in %s handler detected, code 0x%08x\n",
 		handler[reason], esr);
 	__show_regs(regs);
 

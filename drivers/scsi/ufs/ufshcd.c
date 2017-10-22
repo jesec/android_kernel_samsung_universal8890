@@ -48,6 +48,7 @@
 #include "unipro.h"
 #include "ufs-exynos.h"
 #include "ufs_quirks.h"
+#include "../sd.h"
 
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
@@ -65,10 +66,11 @@
 /* Query request retries */
 #define QUERY_REQ_RETRIES 10
 /* Query request timeout */
-#define QUERY_REQ_TIMEOUT 1000 /* msec */
+#define QUERY_REQ_TIMEOUT 1300 /* msec */
 
 /* Task management command timeout */
-#define TM_CMD_TIMEOUT	100 /* msecs */
+#define TM_CMD_TIMEOUT	200 /* msecs */
+#define TM_SET_CMD_TIMEOUT	200 /* msecs */
 
 /* maximum number of link-startup retries */
 #define DME_LINKSTARTUP_RETRIES 3
@@ -1224,13 +1226,46 @@ static void ufshcd_prepare_req_desc_hdr(struct ufshcd_lrb *lrbp,
 	if (cmd_dir == DMA_FROM_DEVICE) {
 		data_direction = UTP_DEVICE_TO_HOST;
 		*upiu_flags = UPIU_CMD_FLAGS_READ;
+#ifdef COMMAND_PRIORITY
+		/*
+		 *	UFS header FLAGS bit3 meant for command priority
+		 *			0 - Normal priority
+		 *			1 - High priority
+		 *
+		 * Set High Priority for SYNC reads
+		 */
+		if (lrbp->command_type == UTP_CMD_TYPE_SCSI) {
+			*upiu_flags |= UPIU_COMMAND_PRIORITY_HIGH;
+		}
+#endif
 	} else if (cmd_dir == DMA_TO_DEVICE) {
 		data_direction = UTP_HOST_TO_DEVICE;
 		*upiu_flags = UPIU_CMD_FLAGS_WRITE;
+#ifdef COMMAND_PRIORITY
+		/*
+		 * Set High Priority for SYNC writes
+		 */
+		if ((lrbp->command_type == UTP_CMD_TYPE_SCSI) &&
+			(lrbp->cmd->request->cmd_flags & REQ_SYNC) &&
+			!(lrbp->cmd->request->cmd_flags & REQ_FLUSH)) {
+			*upiu_flags |= UPIU_COMMAND_PRIORITY_HIGH;
+		}
+#endif
 	} else {
 		data_direction = UTP_NO_DATA_TRANSFER;
 		*upiu_flags = UPIU_CMD_FLAGS_NONE;
 	}
+
+#ifdef HEAD_OF_Q_FEATURE
+	/*
+	 * Set HEAD_OF_QUEUE for FLUSH request (REQ_FLUSH)
+	 *	UFS header FLAGS bit0,1 denotes TASK_ATTRIBUTE
+	 */
+	if ((lrbp->command_type == UTP_CMD_TYPE_SCSI) &&
+			(lrbp->cmd->request->cmd_flags & REQ_FLUSH)) {
+		*upiu_flags |= UPIU_TASK_ATTR_HEADQ;
+	}
+#endif
 
 	dword_0 = data_direction | (lrbp->command_type
 				<< UPIU_COMMAND_TYPE_OFFSET);
@@ -2376,9 +2411,13 @@ static int ufshcd_dme_link_startup(struct ufs_hba *hba)
 	uic_cmd.command = UIC_CMD_DME_LINK_STARTUP;
 
 	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
-	if (ret)
+	if (ret) {
+		hba->debug.flag |= UFSHCD_DEBUG_DUMP;
+		hba->vops->get_debug_info(hba);
+		hba->debug.flag = 0;
 		dev_err(hba->dev,
 			"dme-link-startup: error code %d\n", ret);
+	}
 	return ret;
 }
 
@@ -2408,7 +2447,7 @@ static int ufshcd_dme_enable(struct ufs_hba *hba)
 	ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
 	if (ret)
 		dev_err(hba->dev,
-			"dme-reset: error code %d\n", ret);
+			"dme-enable: error code %d\n", ret);
 
 	return ret;
 }
@@ -2543,7 +2582,7 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	status = ufshcd_get_upmcrs(hba);
 	if (status != PWR_LOCAL) {
 		dev_err(hba->dev,
-			"pwr ctrl cmd 0x%0x failed, host umpcrs:0x%x\n",
+			"pwr ctrl cmd 0x%0x failed, host upmcrs:0x%x\n",
 			cmd->command, status);
 		ret = (status != PWR_OK) ? status : -1;
 	}
@@ -3318,6 +3357,8 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 	blk_queue_max_segment_size(q, PRDT_DATA_BYTE_COUNT_MAX);
 	blk_queue_update_dma_alignment(q, PAGE_SIZE - 1);
 
+	blk_queue_update_dma_alignment(sdev->request_queue, PAGE_SIZE - 1);
+
 	return 0;
 }
 
@@ -3365,8 +3406,8 @@ static int ufshcd_task_req_compl(struct ufs_hba *hba, u32 index, u8 *resp)
 	if (ocs_value == OCS_SUCCESS) {
 		task_rsp_upiup = (struct utp_upiu_task_rsp *)
 				task_req_descp[index].task_rsp_upiu;
-		task_result = be32_to_cpu(task_rsp_upiup->header.dword_1);
-		task_result = ((task_result & MASK_TASK_RESPONSE) >> 8);
+		task_result = be32_to_cpu(task_rsp_upiup->output_param1);
+		task_result = task_result & MASK_TM_SERVICE_RESP;
 		if (resp)
 			*resp = (u8)task_result;
 	} else {
@@ -4120,6 +4161,7 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	int free_slot;
 	int err;
 	int task_tag;
+	unsigned int tm_timeout;
 
 	host = hba->host;
 
@@ -4163,6 +4205,10 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	ufshcd_writel(hba, 1 << free_slot, REG_UTP_TASK_REQ_DOOR_BELL);
 
 	spin_unlock_irqrestore(host->host_lock, flags);
+
+	/* Need more time to complete X_SET TM function */
+	tm_timeout = (hba->quirks & UFSHCI_QUIRK_USE_ABORT_TASK) ?
+					TM_SET_CMD_TIMEOUT : TM_CMD_TIMEOUT;
 
 	/* wait until the task management command is completed */
 	err = wait_event_timeout(hba->tm_wq,
@@ -4243,6 +4289,19 @@ out:
 	return err;
 }
 
+static void ufshcd_transfer_req_compl_and_clear(struct ufs_hba *hba)
+{
+	int tag;
+	unsigned long flags;
+
+	for_each_set_bit(tag, &hba->outstanding_reqs, hba->nutrs)
+		ufshcd_clear_cmd(hba, tag);
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	__ufshcd_transfer_req_compl(hba, DID_RESET);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+}
+
 /**
  * ufshcd_abort - abort a specific command
  * @cmd: SCSI command pointer
@@ -4266,12 +4325,27 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	u8 resp = 0xF;
 	struct ufshcd_lrb *lrbp;
 	u32 reg;
+	u8 tm_function;
 
 	host = cmd->device->host;
 	hba = shost_priv(host);
 	tag = cmd->request->tag;
 
-	dev_err(hba->dev, "%s: tag:%d, cmd:0x%x\n", __func__, tag, cmd->cmnd[0]);
+	if (cmd->cmnd[0] == READ_10 || cmd->cmnd[0] == WRITE_10) {
+		unsigned long lba = (cmd->cmnd[2] << 24) |
+					(cmd->cmnd[3] << 16) |
+					(cmd->cmnd[4] << 8) |
+					(cmd->cmnd[5] << 0);
+		unsigned int sct = (cmd->cmnd[7] << 8) |
+					(cmd->cmnd[8] << 0);
+
+		dev_err(hba->dev, "%s: tag:%d, cmd:0x%x, "
+				"lba:0x%08lx, sct:0x%04x, retries %d\n",
+				__func__, tag, cmd->cmnd[0], lba, sct, cmd->allowed);
+	} else {
+		dev_err(hba->dev, "%s: tag:%d, cmd:0x%x, retries %d\n",
+				__func__, tag, cmd->cmnd[0], cmd->allowed);
+	}
 
 	ufshcd_hold(hba, false);
 
@@ -4294,10 +4368,13 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		goto clean;
 	}
 
+	tm_function = (hba->quirks & UFSHCI_QUIRK_USE_ABORT_TASK) ?
+			UFS_QUERY_TASK_SET : UFS_QUERY_TASK;
+
 	lrbp = &hba->lrb[tag];
 	for (poll_cnt = 100; poll_cnt; poll_cnt--) {
 		err = ufshcd_issue_tm_cmd(hba, lrbp->lun, lrbp->task_tag,
-				UFS_QUERY_TASK, &resp);
+				tm_function, &resp);
 		if (!err && resp == UPIU_TASK_MANAGEMENT_FUNC_SUCCEEDED) {
 			/* cmd pending in the device */
 			break;
@@ -4335,14 +4412,29 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		goto out;
 	}
 
+
+	tm_function = (hba->quirks & UFSHCI_QUIRK_USE_ABORT_TASK) ?
+			UFS_ABORT_TASK_SET : UFS_ABORT_TASK;
+
 	err = ufshcd_issue_tm_cmd(hba, lrbp->lun, lrbp->task_tag,
-			UFS_ABORT_TASK, &resp);
+			tm_function, &resp);
 	if (err || resp != UPIU_TASK_MANAGEMENT_FUNC_COMPL) {
 		if (!err)
 			err = resp; /* service response error */
 		dev_err(hba->dev,
 			"%s: abort task failed with err %d\n",
 			__func__, err);
+		goto out;
+	}
+
+	/*
+	 * The actual action is done only first time
+	 * for all pending tasks collectively
+	 * when using UFSHCI_QUIRK_USE_ABORT_TASK
+	 * For abort to others in this case, this function does nothing.
+	 */
+	if (hba->quirks & UFSHCI_QUIRK_USE_ABORT_TASK) {
+		ufshcd_transfer_req_compl_and_clear(hba);
 		goto out;
 	}
 
@@ -4473,8 +4565,10 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 	int err;
 	unsigned long flags;
 	struct ufs_hba *hba;
+	struct exynos_ufs *ufs;
 
 	hba = shost_priv(cmd->device->host);
+	ufs = dev_get_platdata(hba->dev);
 
 	ufshcd_hold(hba, false);
 	/*
@@ -4496,6 +4590,9 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 	hba->ufshcd_state = UFSHCD_STATE_RESET;
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	
+	if (SMU_ABORT(readl(ufs->reg_ufsp + UFSPRSTAT)))
+		dev_err(hba->dev, "%s: SMU abort occurs!\n", __func__);
 
 	err = ufshcd_reset_and_restore(hba);
 
@@ -4740,6 +4837,8 @@ retry:
 	if (ret)
 		goto out;
 
+	mdelay(5);
+
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -4835,6 +4934,9 @@ out:
 		dev_err(hba->dev, "%s failed with err %d, retrying:%d\n",
 			__func__, ret, re_cnt);
 		goto retry;
+	} else if (ret && re_cnt == UFS_LINK_SETUP_RETRIES) {
+		pr_auto(ASL6, "%s %s: %s failed after retries with err %d\n",
+			dev_driver_string(hba->dev), dev_name(hba->dev), __func__, ret);
 	}
 
 	/*
@@ -6261,6 +6363,56 @@ void ufshcd_remove(struct ufs_hba *hba)
 }
 EXPORT_SYMBOL_GPL(ufshcd_remove);
 
+static ssize_t ufshcd_unique_number_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct Scsi_Host *host = container_of(dev, struct Scsi_Host, shost_dev);
+	struct ufs_hba *hba = shost_priv(host);
+	int curr_len;
+
+	curr_len = snprintf(buf, PAGE_SIZE, "%s\n", hba->unique_number);
+
+	return curr_len;
+}
+
+static void ufshcd_add_unique_number_sysfs_nodes(struct ufs_hba *hba)
+{
+	struct device *dev = &(hba->host->shost_dev);
+
+	hba->unique_number_attr.show = ufshcd_unique_number_show;
+	hba->unique_number_attr.store = NULL;
+	sysfs_attr_init(&hba->unique_number_attr.attr);
+	hba->unique_number_attr.attr.name = "unique_number";
+	hba->unique_number_attr.attr.mode = S_IRUGO;
+	if (device_create_file(dev, &hba->unique_number_attr))
+		dev_err(hba->dev, "Failed to create sysfs for unique_number\n");
+}
+
+static ssize_t ufshcd_manufacturer_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct Scsi_Host *host = container_of(dev, struct Scsi_Host, shost_dev);
+	struct ufs_hba *hba = shost_priv(host);
+	int curr_len;
+
+	curr_len = snprintf(buf, PAGE_SIZE, "%04x\n", hba->manufacturer_id);
+
+	return curr_len;
+}
+
+static void ufshcd_add_manufacturer_id_sysfs_nodes(struct ufs_hba *hba)
+{
+	struct device *dev = &(hba->host->shost_dev);
+
+	hba->manufacturer_id_attr.show = ufshcd_manufacturer_id_show;
+	hba->manufacturer_id_attr.store = NULL;
+	sysfs_attr_init(&hba->manufacturer_id_attr.attr);
+	hba->manufacturer_id_attr.attr.name = "man_id";
+	hba->manufacturer_id_attr.attr.mode = S_IRUGO;
+	if (device_create_file(dev, &hba->manufacturer_id_attr))
+		dev_err(hba->dev, "Failed to create sysfs for manufacturer_id\n");
+}
+
 /**
  * ufshcd_set_dma_mask - Set dma mask based on the controller
  *			 addressing capability
@@ -6275,6 +6427,115 @@ static int ufshcd_set_dma_mask(struct ufs_hba *hba)
 			return 0;
 	}
 	return dma_set_mask_and_coherent(hba->dev, DMA_BIT_MASK(32));
+}
+
+static ssize_t ufshcd_bkops_en_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct Scsi_Host *host = container_of(dev, struct Scsi_Host, shost_dev);
+	struct ufs_hba *hba = shost_priv(host);
+
+	dev_err(hba->dev, "TBD : How to check burst mode...\n");
+
+	return 0;
+}
+
+static ssize_t ufshcd_bkops_en_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct Scsi_Host *host = container_of(dev, struct Scsi_Host, shost_dev);
+	struct ufs_hba *hba;
+	int ret = 0;
+	u32 value = 0;
+	/* default vaule is 0x80000000*/
+	u32 attr_val = 0x00800000;
+
+	if (!host) {
+		pr_err("%s: host is NULL : error\n", __func__);
+		return count;
+	}
+
+	hba = shost_priv(host);
+
+	if (kstrtou32(buf, 0, &value)) {
+		pr_err(" %s: error get value = 0x%08x.\n", __func__, value);
+		return count;
+	}
+
+	if (value) {
+		attr_val = 0x00008003;
+		if (value & 0x00008000)
+			attr_val = value;
+	} else
+		attr_val = 0x00008000;
+
+	dev_info(hba->dev, "QUERY CMD : attr_val = 0x%08x. %s vendor mode.\n",
+			attr_val,
+			attr_val & 0x03000003 ? "enter" : "exit");
+
+	ret = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+			0x10, 0, 0, &attr_val);
+	if (ret)
+		dev_err(hba->dev, "Failed to set vendor mode.\n");
+
+	return count;
+}
+
+static void ufshcd_add_bkops_en_sysfs_nodes(struct ufs_hba *hba)
+{
+	struct device *dev= &(hba->host->shost_dev);
+
+	hba->bkops_en_attr.show = ufshcd_bkops_en_show;
+	hba->bkops_en_attr.store = ufshcd_bkops_en_store;
+	sysfs_attr_init(&hba->bkops_en_attr.attr);
+	hba->bkops_en_attr.attr.name = "bkops_en";
+	hba->bkops_en_attr.attr.mode = S_IRUGO | S_IWUSR | S_IWGRP;
+
+	if (device_create_file(dev, &hba->bkops_en_attr) < 0) {
+		dev_err(hba->dev, "Failed to create sysfs for bkops\n");
+#if defined(CONFIG_UFS_BKOPS_NODE_UID) || defined(CONFIG_UFS_BKOPS_NODE_GID)
+	} else {
+		int rc;
+
+		rc = sysfs_chown_file(&dev->kobj, &hba->bkops_en_attr.attr,
+				CONFIG_UFS_BKOPS_NODE_UID,
+				CONFIG_UFS_BKOPS_NODE_GID);
+		if (rc)
+			dev_err(hba->dev, "Failed to change mode of sysfs entry\n");
+#endif
+	}
+}
+
+UFS_DEV_ATTR(capabilities,  "%08x", hba->capabilities);
+UFS_DEV_ATTR(lt,  "%01x", hba->lifetime);
+
+static struct attribute *ufs_attributes[] = {
+	&dev_attr_capabilities.attr,
+	&dev_attr_lt.attr,
+	NULL
+};
+
+static struct attribute_group ufs_attribute_group = {
+	.attrs	= ufs_attributes,
+};
+
+static void ufshcd_add_caps_sysfs_node(struct ufs_hba *hba)
+{
+	int err  = -ENOMEM;
+
+	struct device *dev= &(hba->host->shost_dev);
+	err = sysfs_create_group(&dev->kobj, &ufs_attribute_group);
+
+	if (err)
+		printk( "cannot create sysfs group err: %d\n", err);
+}
+
+static inline void ufshcd_add_sysfs_nodes(struct ufs_hba *hba)
+{
+	ufshcd_add_unique_number_sysfs_nodes(hba);
+	ufshcd_add_bkops_en_sysfs_nodes(hba);
+	ufshcd_add_caps_sysfs_node(hba);
+	ufshcd_add_manufacturer_id_sysfs_nodes(hba);
 }
 
 /**
@@ -6480,6 +6741,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	host->max_channel = UFSHCD_MAX_CHANNEL;
 	host->unique_id = host->host_no;
 	host->max_cmd_len = MAX_CDB_SIZE;
+	host->by_ufs = 1;
 
 	hba->max_pwr_info.is_valid = false;
 
@@ -6560,6 +6822,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	dev_info(hba->dev, "UFS host initialized\n");
 
 	async_schedule(ufshcd_async_scan, hba);
+
+	/*create sysfs related with ufs*/
+	ufshcd_add_sysfs_nodes(hba);
 
 	return 0;
 

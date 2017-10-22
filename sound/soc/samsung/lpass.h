@@ -92,6 +92,9 @@ struct lpass_info {
 	int			kfc_qos;
 	int			mif_qos;
 	int			int_qos;
+#ifdef CONFIG_SOC_EXYNOS8890
+	void			*sram_fw_back;
+#endif
 };
 
 extern void __iomem *lpass_get_regs(void);
@@ -113,6 +116,7 @@ extern void lpass_release_pad_reg(void);
 extern void lpass_reset_clk_default(void);
 extern void lpass_init_clk_gate(void);
 extern void lpass_disable_mif_status(bool on);
+extern void lpass_mif_power_on(void);
 
 extern void lpass_update_lpclock(u32 ctrlid, bool idle);
 extern void lpass_update_lpclock_impl(struct device *dev, u32 ctrlid, bool idle);

@@ -228,6 +228,16 @@ enum {
 #define UIC_ARG_ATTR_TYPE(t)		(((t) & 0xFF) << 16)
 #define UIC_GET_ATTR_ID(v)		(((v) >> 16) & 0xFFFF)
 
+/*
+ * UFS Protector configuration
+ */
+#define UFS_BYPASS_SECTOR_BEGIN			0x0
+#define UFS_ENCRYPTION_SECTOR_BEGIN		0x0000FFFF
+#define UFS_FILE_ENCRYPTION_SECTOR_BEGIN	0xFFFF0000
+
+#define UFSHCI_SECTOR_SIZE			0x1000
+#define MIN_SECTOR_SIZE				0x200
+
 /* UIC Commands */
 enum uic_cmd_dme {
 	UIC_CMD_DME_GET			= 0x01,
@@ -320,6 +330,11 @@ enum {
 /* The granularity of the data byte count field in the PRDT is 32-bit */
 #define PRDT_DATA_BYTE_COUNT_PAD	4
 
+/* FMP bypass/encrypt mode */
+#define CLEAR		0
+#define AES_CBC		1
+#define AES_XTS		2
+
 /**
  * struct ufshcd_sg_entry - UFSHCI PRD Entry
  * @base_addr: Lower 32bit physical address DW-0
@@ -332,6 +347,42 @@ struct ufshcd_sg_entry {
 	__le32    upper_addr;
 	__le32    reserved;
 	__le32    size;
+#define FKL	BIT(26)
+#define DKL	BIT(27)
+#define SET_FAS(d, v) \
+	((d)->size = ((d)->size & 0xcfffffff) | v << 28)
+#define SET_DAS(d, v) \
+	((d)->size = ((d)->size & 0x3fffffff) | v << 30)
+#if defined(CONFIG_UFS_FMP_DM_CRYPT) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
+	__le32	file_iv0;
+	__le32	file_iv1;
+	__le32	file_iv2;
+	__le32	file_iv3;
+	__le32	file_enckey0;
+	__le32	file_enckey1;
+	__le32	file_enckey2;
+	__le32	file_enckey3;
+	__le32	file_enckey4;
+	__le32	file_enckey5;
+	__le32	file_enckey6;
+	__le32	file_enckey7;
+	__le32	file_twkey0;
+	__le32	file_twkey1;
+	__le32	file_twkey2;
+	__le32	file_twkey3;
+	__le32	file_twkey4;
+	__le32	file_twkey5;
+	__le32	file_twkey6;
+	__le32	file_twkey7;
+	__le32	disk_iv0;
+	__le32	disk_iv1;
+	__le32	disk_iv2;
+	__le32	disk_iv3;
+	__le32	reserved0;
+	__le32	reserved1;
+	__le32	reserved2;
+	__le32	reserved3;
+#endif
 };
 
 /**

@@ -1,10 +1,11 @@
 ifneq ($(KERNELRELEASE),)
 
 # Uncomment the following line to enable kernel stack unwinding within gator, or update gator_backtrace.c
-# EXTRA_CFLAGS +=	-DGATOR_KERNEL_STACK_UNWINDING
-
+EXTRA_CFLAGS +=	-DGATOR_KERNEL_STACK_UNWINDING
 CONFIG_GATOR ?= m
 obj-$(CONFIG_GATOR) := gator.o
+
+#obj-y := gator.o
 
 gator-y :=	gator_main.o \
 		gator_events_block.o \
@@ -77,7 +78,7 @@ clean-files := gator_src_md5.h
 silent_chk_events.h = :
 $(obj)/gator_src_md5.h: FORCE
 	@$($(quiet)chk_events.h)
-	$(Q)cd $(srctree) && cd $(src) ; $(CONFIG_SHELL) -c "echo 'static char *gator_src_md5 = \"'\`ls *.c *.h mali/*.h | grep -Ev '^(gator_src_md5\.c|gator\.mod\.c)$$' | LC_ALL=C sort | xargs cat | md5sum | cut -b 1-32\`'\";'" > $(abspath $@)
+	$(Q)cd $(srctree) && cd $(src) ; $(CONFIG_SHELL) -c "echo 'static char *gator_src_md5 = \"'\`ls *.c *.h mali/*.h | grep -Ev '^(gator_src_md5\.h|gator\.mod\.c)$$' | LC_ALL=C sort | xargs cat | md5sum | cut -b 1-32\`'\";'" > $(abspath $@)
 
 else
 

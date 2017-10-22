@@ -151,6 +151,7 @@ struct sec_platform_data {
 	int				g3d_pin;
 	int				dvs_pin;
 	bool				g3d_en;
+	bool				cache_data;
 	bool				smpl_warn_en;
 	bool				dvs_en;
 	bool				buck_dvs_on;
@@ -196,7 +197,6 @@ extern int s2m_get_dvs_is_enable(void);
 extern int s2m_get_dvs_is_on(void);
 extern int s2m_set_dvs_pin(bool gpio_val);
 extern int s2m_set_g3d_pin(bool gpio_val);
-#endif
 extern void sec_core_lock(void);
 extern void sec_core_unlock(void);
 void g3d_pin_config_set(void);

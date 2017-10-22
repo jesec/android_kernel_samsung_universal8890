@@ -422,6 +422,15 @@ config REGULATOR_MAX77838
 	  via I2C bus. The provided regulator is suitable for
 	  Exynos-7 chips to control DISP & TSP voltages.
 
+config REGULATOR_MAX77854
+	tristate "Maxim 77854 regulator"
+	depends on MFD_MAX77854
+	help
+	  This driver controls a Maxim 77843 regulator
+	  via I2C bus. The provided regulator is suitable for
+	  Exynos-5 chips to control VCC_CORE and
+	  VCC_USIM voltages.
+
 config REGULATOR_MC13XXX_CORE
 	tristate
 

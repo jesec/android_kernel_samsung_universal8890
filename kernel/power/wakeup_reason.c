@@ -18,6 +18,7 @@
 #include <linux/wakeup_reason.h>
 #include <linux/kernel.h>
 #include <linux/irq.h>
+#include <linux/irqnr.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kobject.h>
@@ -33,6 +34,7 @@
 static int irq_list[MAX_WAKEUP_REASON_IRQS];
 static int irqcount;
 static bool suspend_abort;
+static bool mbox_wakeup;
 static char abort_reason[MAX_SUSPEND_ABORT_LEN];
 static struct kobject *wakeup_reason;
 static DEFINE_SPINLOCK(resume_reason_lock);
@@ -63,6 +65,9 @@ static ssize_t last_resume_reason_show(struct kobject *kobj, struct kobj_attribu
 				buf_offset += sprintf(buf + buf_offset, "%d\n",
 						irq_list[irq_no]);
 		}
+		/* show INT_MBOX instead of Unknown to distinguish CP wakeup */
+		if (mbox_wakeup)
+			buf_offset += sprintf(buf, "%d %s", nr_irqs+1, "INT_MBOX");
 	}
 	spin_unlock(&resume_reason_lock);
 	return buf_offset;
@@ -134,6 +139,22 @@ void log_wakeup_reason(int irq)
 	spin_unlock(&resume_reason_lock);
 }
 
+void log_mbox_wakeup(void)
+{
+	spin_lock(&resume_reason_lock);
+
+	// Mbox wakeup has already been occured.
+	if (mbox_wakeup) {
+		spin_unlock(&resume_reason_lock);
+		return;
+	}
+
+	mbox_wakeup = true;
+	spin_unlock(&resume_reason_lock);
+
+	printk(KERN_INFO "Resume caused by INT_MBOX\n");
+}
+
 int check_wakeup_reason(int irq)
 {
 	int irq_no;
@@ -182,6 +203,7 @@ static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		spin_lock(&resume_reason_lock);
 		irqcount = 0;
 		suspend_abort = false;
+		mbox_wakeup = false;
 		spin_unlock(&resume_reason_lock);
 		/* monotonic time since boot */
 		last_monotime = ktime_get();

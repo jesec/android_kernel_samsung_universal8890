@@ -40,18 +40,6 @@ struct samsung_clk_reg_dump {
 };
 
 /*
- * struct samsung_clk_provider: information about clock provider
- * @reg_base: virtual address for the register base.
- * @clk_data: holds clock related data like clk* and number of clocks.
- * @lock: maintains exclusion bwtween callbacks for a given clock-provider.
- */
-struct samsung_clk_provider {
-	void __iomem *reg_base;
-	struct clk_onecell_data clk_data;
-	spinlock_t lock;
-};
-
-/*
  * struct samsung_fixed_rate_clock: information about fixed-rate clock
  * @id: platform specific id of the clock.
  * @name: name of this fixed-rate clock.

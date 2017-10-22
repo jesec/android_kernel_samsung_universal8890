@@ -35,6 +35,8 @@
 #define IDLE_INTERVAL 	500
 #define MCELSIUS	1000
 
+#define MAX_TMU_COUNT	4
+
 /* CPU Zone information */
 #define PANIC_ZONE      4
 #define WARN_ZONE       3
@@ -62,6 +64,7 @@ enum dev_type {
 	CLUSTER0,
 	CLUSTER1,
 	GPU,
+	ISP,
 };
 
 /**

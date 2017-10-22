@@ -179,59 +179,60 @@ enum v4l2_memory {
 /* see also http://vektor.theorem.ca/graphics/ycbcr/ */
 enum v4l2_colorspace {
 	/*
-	 * Default colorspace, i.e. let the driver figure it out.
-	 * Can only be used with video capture.
-	 */
-	V4L2_COLORSPACE_DEFAULT       = 0,
+	* Default colorspace, i.e. let the driver figure it out.
+	* Can only be used with video capture.
+	*/
+	V4L2_COLORSPACE_DEFAULT 	  = 0,
 
 	/* SMPTE 170M: used for broadcast NTSC/PAL SDTV */
 	V4L2_COLORSPACE_SMPTE170M     = 1,
-
-	/* Obsolete pre-1998 SMPTE 240M HDTV standard, superseded by Rec 709 */
+	
+	/* Obsolete pre-1998 SMPTE 240M HDTV standard, superseded by Rec 709 */	
 	V4L2_COLORSPACE_SMPTE240M     = 2,
 
-	/* Rec.709: used for HDTV */
+	/* Rec.709: used for HDTV */	
 	V4L2_COLORSPACE_REC709        = 3,
 
 	/*
-	 * Deprecated, do not use. No driver will ever return this. This was
-	 * based on a misunderstanding of the bt878 datasheet.
-	 */
+	* Deprecated, do not use. No driver will ever return this. This was
+	* based on a misunderstanding of the bt878 datasheet.
+	*/
+	
 	V4L2_COLORSPACE_BT878         = 4,
-
 	/*
-	 * NTSC 1953 colorspace. This only makes sense when dealing with
-	 * really, really old NTSC recordings. Superseded by SMPTE 170M.
-	 */
+	* NTSC 1953 colorspace. This only makes sense when dealing with
+	* really, really old NTSC recordings. Superseded by SMPTE 170M.
+	*/
+	
 	V4L2_COLORSPACE_470_SYSTEM_M  = 5,
-
 	/*
-	 * EBU Tech 3213 PAL/SECAM colorspace. This only makes sense when
-	 * dealing with really old PAL/SECAM recordings. Superseded by
-	 * SMPTE 170M.
-	 */
+	* EBU Tech 3213 PAL/SECAM colorspace. This only makes sense when
+	* dealing with really old PAL/SECAM recordings. Superseded by
+	* SMPTE 170M.
+	*/
+	
 	V4L2_COLORSPACE_470_SYSTEM_BG = 6,
 
 	/*
-	 * Effectively shorthand for V4L2_COLORSPACE_SRGB, V4L2_YCBCR_ENC_601
-	 * and V4L2_QUANTIZATION_FULL_RANGE. To be used for (Motion-)JPEG.
-	 */
+	* Effectively shorthand for V4L2_COLORSPACE_SRGB, V4L2_YCBCR_ENC_601
+	* and V4L2_QUANTIZATION_FULL_RANGE. To be used for (Motion-)JPEG.
+	*/
 	V4L2_COLORSPACE_JPEG          = 7,
-
+	
 	/* For RGB colorspaces such as produces by most webcams. */
 	V4L2_COLORSPACE_SRGB          = 8,
-
+	
 	/* AdobeRGB colorspace */
 	V4L2_COLORSPACE_ADOBERGB      = 9,
 
 	/* BT.2020 colorspace, used for UHDTV. */
 	V4L2_COLORSPACE_BT2020        = 10,
-
+	
 	/* Raw colorspace: for RAW unprocessed images */
-	V4L2_COLORSPACE_RAW           = 11,
-
+	V4L2_COLORSPACE_RAW 		  = 11,
+	
 	/* DCI-P3 colorspace, used by cinema projectors */
-	V4L2_COLORSPACE_DCI_P3        = 12,
+	V4L2_COLORSPACE_DCI_P3		  = 12,
 };
 
 /*
@@ -292,7 +293,7 @@ enum v4l2_ycbcr_encoding {
  * This depends on the colorspace.
  */
 #define V4L2_MAP_YCBCR_ENC_DEFAULT(colsp) \
-	(((colsp) == V4L2_COLORSPACE_REC709 || \
+	 (((colsp) == V4L2_COLORSPACE_REC709 || \
 	  (colsp) == V4L2_COLORSPACE_DCI_P3) ? V4L2_YCBCR_ENC_709 : \
 	 ((colsp) == V4L2_COLORSPACE_BT2020 ? V4L2_YCBCR_ENC_BT2020 : \
 	  ((colsp) == V4L2_COLORSPACE_SMPTE240M ? V4L2_YCBCR_ENC_SMPTE240M : \
@@ -307,7 +308,7 @@ enum v4l2_quantization {
 	V4L2_QUANTIZATION_DEFAULT     = 0,
 	V4L2_QUANTIZATION_FULL_RANGE  = 1,
 	V4L2_QUANTIZATION_LIM_RANGE   = 2,
-};
+ };
 
 /*
  * Determine how QUANTIZATION_DEFAULT should map to a proper quantization.
@@ -1909,7 +1910,7 @@ struct v4l2_pix_format_mplane {
 
 	struct v4l2_plane_pix_format	plane_fmt[VIDEO_MAX_PLANES];
 	__u8				num_planes;
-	__u8				flags;
+	__u8				flags;	
 	__u8				ycbcr_enc;
 	__u8				quantization;
 	__u8				reserved[8];

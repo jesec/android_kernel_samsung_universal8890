@@ -609,12 +609,15 @@ static int exynos_tmu_read(struct exynos_tmu_data *data)
 	if (((pdata->d_type == ISP) || (pdata->d_type == GPU)) && reg->valid_mask) {
 		data->vaild = readl(data->base + reg->tmu_status);
 		data->vaild = ((data->vaild >> reg->valid_p0_shift) & reg->valid_mask);
-
+#if !defined(CONFIG_SEC_FACTORY)
 		if (data->vaild) {
+#endif
 			temp_code = readl(data->base + reg->tmu_cur_temp);
 			temp = code_to_temp(data, temp_code);
+#if !defined(CONFIG_SEC_FACTORY)
 		} else
 			temp = 15;
+#endif
 	} else {
 		temp_code = readl(data->base + reg->tmu_cur_temp);
 		temp = code_to_temp(data, temp_code);
@@ -872,6 +875,84 @@ static void exynos_tmu_work(struct work_struct *work)
 out:
 	enable_irq(data->irq);
 }
+
+static ssize_t
+exynos_thermal_sensor_temp(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct exynos_tmu_data *devnode;
+	int i = 0, len = 0;
+	char *name;
+
+	list_for_each_entry(devnode, &dtm_dev_list, node) {
+		if(devnode->pdata->d_type == CLUSTER0)
+			name = "CLUSTER0";
+		else if(devnode->pdata->d_type == CLUSTER1)
+			name = "CLUSTER1";
+		else if(devnode->pdata->d_type == GPU)
+			name = "GPU";
+		else if(devnode->pdata->d_type == ISP)
+			name = "ISP";
+		len += snprintf(&buf[len], PAGE_SIZE,"sensor%d[%s] : %d\n",
+			i, name, exynos_tmu_read(devnode) * MCELSIUS);
+		i++;
+	}
+
+	return len;
+}
+
+static DEVICE_ATTR(temp, S_IRUSR | S_IRGRP, exynos_thermal_sensor_temp, NULL);
+
+#ifdef CONFIG_SEC_BSP
+void get_exynos_thermal_curr_temp(int *temp, int size)
+{
+	struct exynos_tmu_data *devnode;
+	int i = 0;
+
+	list_for_each_entry(devnode, &dtm_dev_list, node) {
+		temp[i] = exynos_tmu_read(devnode);
+		i++;
+		if(i == size)
+			break;
+	}
+}
+#endif
+
+static ssize_t
+exynos_thermal_curr_temp(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct exynos_tmu_data *devnode;
+	unsigned long temp[MAX_TMU_COUNT];
+	int i = 0, len = 0;
+
+	list_for_each_entry(devnode, &dtm_dev_list, node) {
+		temp[i] = exynos_tmu_read(devnode);
+		i++;
+	}
+
+	len += snprintf(&buf[len], PAGE_SIZE,"%lu,", temp[0]);
+	len += snprintf(&buf[len], PAGE_SIZE,"%lu,", temp[1]);
+	len += snprintf(&buf[len], PAGE_SIZE,"%lu,", temp[2]);
+	len += snprintf(&buf[len], PAGE_SIZE,"%lu", temp[3]);
+	len += snprintf(&buf[len], PAGE_SIZE,"\n");
+
+	return len;
+}
+
+static DEVICE_ATTR(curr_temp, S_IRUGO, exynos_thermal_curr_temp, NULL);
+
+
+static struct attribute *exynos_thermal_sensor_attributes[] = {
+	&dev_attr_temp.attr,
+	&dev_attr_curr_temp.attr,
+	NULL
+};
+
+static const struct attribute_group exynos_thermal_sensor_attr_group = {
+	.attrs = exynos_thermal_sensor_attributes,
+};
+
 
 static irqreturn_t exynos_tmu_irq(int irq, void *id)
 {
@@ -1362,6 +1443,9 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 	if (list_is_singular(&dtm_dev_list))
 		exynos_pm_register_notifier(&exynos_low_pwr_nb);
 #endif
+	ret = sysfs_create_group(&pdev->dev.kobj, &exynos_thermal_sensor_attr_group);
+	if (ret)
+		dev_err(&pdev->dev, "cannot create thermal sensor attributes\n");
 #if defined(CONFIG_CPU_THERMAL_IPA)
 	if (pdata->d_type == CLUSTER1 && pdata->sensor_type == NORMAL_SENSOR) {
 		pm_qos_add_request(&ipa_cpu_hotplug_request, PM_QOS_CPU_ONLINE_MAX,
@@ -1402,6 +1486,8 @@ static int exynos_tmu_remove(struct platform_device *pdev)
 	if (list_is_singular(&dtm_dev_list))
 		exynos_pm_unregister_notifier(&exynos_low_pwr_nb);
 #endif
+
+	sysfs_remove_group(&pdev->dev.kobj, &exynos_thermal_sensor_attr_group);
 
 	mutex_lock(&data->lock);
 	list_for_each_entry(devnode, &dtm_dev_list, node) {

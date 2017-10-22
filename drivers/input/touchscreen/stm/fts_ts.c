@@ -52,12 +52,12 @@
 #include <linux/firmware.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
+#include <linux/sec_sysfs.h>
 
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 #include <linux/trustedui.h>
+extern int tui_force_close(uint32_t arg);
 #endif
-
-#define SCAILE_FOR_LSI
 
 #ifdef CONFIG_OF
 #ifndef USE_OPEN_CLOSE
@@ -109,6 +109,7 @@ static int fts_stop_device(struct fts_ts_info *info);
 static int fts_start_device(struct fts_ts_info *info);
 static int fts_irq_enable(struct fts_ts_info *info, bool enable);
 static void fts_reset_work(struct work_struct *work);
+void fts_recovery_cx(struct fts_ts_info *info);
 void fts_release_all_finger(struct fts_ts_info *info);
 
 #ifdef CONFIG_SEC_DEBUG_TSP_LOG
@@ -384,6 +385,10 @@ static void fts_set_cover_type(struct fts_ts_info *info, bool enable)
 	case FTS_CLEAR_FLIP_COVER :
 		fts_enable_feature(info, FTS_FEATURE_COVER_CLEAR_FLIP, enable);
 		break;
+	case FTS_QWERTY_KEYBOARD_EUR :
+	case FTS_QWERTY_KEYBOARD_KOR :
+		fts_enable_feature(info, 0x0D, enable);
+		break;
 	case FTS_CHARGER_COVER:
 	case FTS_COVER_NOTHING1:
 	case FTS_COVER_NOTHING2:
@@ -442,6 +447,18 @@ static int fts_read_chip_id(struct fts_ts_info *info) {
 
 	tsp_debug_info(true, &info->client->dev, "FTS %02X%02X%02X =  %02X %02X %02X %02X %02X %02X\n",
 	       regAdd[0], regAdd[1], regAdd[2], val[1], val[2], val[3], val[4], val[5], val[6]);
+	if(val[1] == FTS_ID0 && val[2] == FTS_ID2)
+	{
+		if(val[4] == 0x00 && val[5] == 0x00)	 // 00 39 6C 03 00 00
+		{
+			// Cx Corruption
+			fts_recovery_cx(info);
+		}
+		else
+		{
+			tsp_debug_info(true, &info->client->dev,"FTS Chip ID : %02X %02X\n", val[1], val[2]);
+		}
+	}
 
 	if (val[1] != FTS_ID0)
 		return -FTS_ERROR_INVALID_CHIP_ID;
@@ -1039,27 +1056,14 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 
 			if (info->fts_power_state == FTS_POWER_STATE_LOWPOWER)
 				break;
-#ifdef SCAILE_FOR_LSI
-			if (!strncmp(info->board->model_name, "espresso", 8)) {
-				x = data[1 + EventNum * FTS_EVENT_SIZE] +
-				    ((data[2 + EventNum * FTS_EVENT_SIZE] & 0x0f) << 8);
-				y = ((data[2 + EventNum * FTS_EVENT_SIZE] & 0xf0) >> 4) +
-					(data[3 +  EventNum * FTS_EVENT_SIZE] << 4);
-			} else {
-				x = (data[1 + EventNum * FTS_EVENT_SIZE] +
-				    ((data[2 + EventNum * FTS_EVENT_SIZE] &
-				      0x0f) << 8)) * info->board->max_x / 4096;
-				y = (((data[2 + EventNum * FTS_EVENT_SIZE] &
-				      0xf0) >> 4) + (data[3 +  EventNum *
-					  FTS_EVENT_SIZE] << 4)) * info->board->max_y / 4096;
-			}
-#else
-			x = data[1 + EventNum * FTS_EVENT_SIZE] +
-			    ((data[2 + EventNum * FTS_EVENT_SIZE] & 0x0f) << 8);
-			y = ((data[2 + EventNum * FTS_EVENT_SIZE] & 0xf0) >> 4) +
-				(data[3 +  EventNum * FTS_EVENT_SIZE] << 4);
 
-#endif
+			x = data[1 + EventNum * FTS_EVENT_SIZE] +
+			    ((data[2 + EventNum * FTS_EVENT_SIZE] &
+			      0x0f) << 8);
+			y = ((data[2 + EventNum * FTS_EVENT_SIZE] &
+			      0xf0) >> 4) + (data[3 +
+						  EventNum *
+						  FTS_EVENT_SIZE] << 4);
 			bw = data[4 + EventNum * FTS_EVENT_SIZE];
 			bh = data[5 + EventNum * FTS_EVENT_SIZE];
 			palm =
@@ -1336,36 +1340,18 @@ static unsigned char fts_event_handler_type_b(struct fts_ts_info *info,
 #endif
 		else if (EventID == EVENTID_LEAVE_POINTER) {
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-			if (strncmp(info->board->model_name, "G925", 4) == 0) {
-				tsp_debug_info(true, &info->client->dev,
-					"[R] tID:%d mc: %d tc:%d lx: %d ly: %d Ver[%01X%01X%04X%01X%01X%01X]\n",
-					TouchID, info->finger[TouchID].mcount, info->touch_count,
-					info->finger[TouchID].lx, info->finger[TouchID].ly,
-					info->tspid_val,info->tspid2_val, info->fw_main_version_of_ic,
-					info->flip_enable, info->mshover_enabled, info->mainscr_disable);
-			}else{
-				tsp_debug_info(true, &info->client->dev,
-					"[R] tID:%d mc: %d tc:%d lx: %d ly: %d Ver[%02X%04X%01X%01X%01X]\n",
-					TouchID, info->finger[TouchID].mcount, info->touch_count,
-					info->finger[TouchID].lx, info->finger[TouchID].ly,
-					info->panel_revision, info->fw_main_version_of_ic,
-					info->flip_enable, info->mshover_enabled, info->mainscr_disable);
-			}
+			tsp_debug_info(true, &info->client->dev,
+				"[R] tID:%d mc: %d tc:%d lx: %d ly: %d Ver[%01X%04X%01X%01X%01X]\n",
+				TouchID, info->finger[TouchID].mcount, info->touch_count,
+				info->finger[TouchID].lx, info->finger[TouchID].ly,
+				info->tspid_val, info->fw_main_version_of_ic,
+				info->flip_enable, info->mshover_enabled, info->mainscr_disable);
 #else
-			if (strncmp(info->board->model_name, "G925", 4) == 0) {
-
-				tsp_debug_info(true, &info->client->dev,
-					"[R] tID:%d mc: %d tc:%d Ver[%01X%01X%04X%01X%01X%01X]\n",
-					TouchID, info->finger[TouchID].mcount, info->touch_count,
-					info->tspid_val,info->tspid2_val, info->fw_main_version_of_ic,
-					info->flip_enable, info->mshover_enabled, info->mainscr_disable);
-			}else{
-				tsp_debug_info(true, &info->client->dev,
-					"[R] tID:%d mc: %d tc:%d Ver[%02X%04X%01X%01X%01X]\n",
-					TouchID, info->finger[TouchID].mcount, info->touch_count,
-					info->panel_revision, info->fw_main_version_of_ic,
-					info->flip_enable, info->mshover_enabled, info->mainscr_disable);
-			}
+			tsp_debug_info(true, &info->client->dev,
+				"[R] tID:%d mc: %d tc:%d Ver[%01X%04X%01X%01X%01X]\n",
+				TouchID, info->finger[TouchID].mcount, info->touch_count,
+				info->tspid_val, info->fw_main_version_of_ic,
+				info->flip_enable, info->mshover_enabled, info->mainscr_disable);
 #endif
 			info->finger[TouchID].mcount = 0;
 		} else if (EventID == EVENTID_HOVER_LEAVE_POINTER) {
@@ -1630,13 +1616,7 @@ static int fts_parse_dt(struct i2c_client *client)
 	if (gpio_is_valid(pdata->tspid))
 		tsp_debug_info(true, dev, "TSP_ID : %d\n", gpio_get_value(pdata->tspid));
 	else
-		tsp_debug_err(true, dev, "Failed to get tspid gpio\n");
-
-	pdata->tspid2 = of_get_named_gpio(np, "stm,tspid2_gpio", 0);
-	if (gpio_is_valid(pdata->tspid2))
-		tsp_debug_info(true, dev, "TSP_ID2 : %d\n", gpio_get_value(pdata->tspid2));
-	else
-		tsp_debug_err(true, dev, "Failed to get tspid2 gpio\n");
+		tsp_debug_err(true, dev, "skipped to get tspid gpio\n");
 
 	pdata->gpio = of_get_named_gpio(np, "stm,irq_gpio", 0);
 	if (gpio_is_valid(pdata->gpio)) {
@@ -1657,7 +1637,7 @@ static int fts_parse_dt(struct i2c_client *client)
 	}
 
 	if (of_property_read_u32(np, "stm,grip_area", &pdata->grip_area))
-		tsp_debug_err(true, dev, "Failed to get grip_area property\n");
+		tsp_debug_err(true, dev, "skipped to get grip_area property\n");
 
 	if (of_property_read_u32_array(np, "stm,max_coords", coords, 2)) {
 		tsp_debug_err(true, dev, "Failed to get max_coords property\n");
@@ -1665,15 +1645,9 @@ static int fts_parse_dt(struct i2c_client *client)
 	}
 	pdata->max_x = coords[0];
 	pdata->max_y = coords[1];
-#ifdef CONFIG_SEC_FACTORY
-	if ((lcdtype == S6E3HF2_WQXGA_ID1) || (lcdtype == S6E3HF2_WQXGA_ID2)) {
-		pdata->max_x = 1439;
-		pdata->max_y = 2559;
-		pdata->grip_area = 160;
-	}
-#endif
+
 	if (of_property_read_u32_array(np, "stm,num_lines", lines, 2))
-		tsp_debug_dbg(true, dev, "skipped to get num_lines property\n");
+		tsp_debug_err(true, dev, "skipped to get num_lines property\n");
 	else {
 		pdata->SenseChannelLength = lines[0];
 		pdata->ForceChannelLength = lines[1];
@@ -1697,9 +1671,9 @@ static int fts_parse_dt(struct i2c_client *client)
 	of_property_read_string(np, "stm,firmware_name", &pdata->firmware_name);
 
 	if (of_property_read_string_index(np, "stm,project_name", 0, &pdata->project_name))
-		tsp_debug_dbg(true, dev, "skipped to get project_name property\n");
+		tsp_debug_err(true, dev, "skipped to get project_name property\n");
 	if (of_property_read_string_index(np, "stm,project_name", 1, &pdata->model_name))
-		tsp_debug_dbg(true, dev, "skipped to get model_name property\n");
+		tsp_debug_err(true, dev, "skipped to get model_name property\n");
 
 	pdata->max_width = 28;
 	pdata->support_hover = true;
@@ -1710,7 +1684,7 @@ static int fts_parse_dt(struct i2c_client *client)
 
 #ifdef FTS_SUPPORT_TOUCH_KEY
 	if (of_property_read_u32(np, "stm,num_touchkey", &pdata->num_touchkey))
-		tsp_debug_dbg(true, dev, "skipped to get num_touchkey property\n");
+		tsp_debug_err(true, dev, "skipped to get num_touchkey property\n");
 	else {
 #ifdef FTS_SUPPORT_SIDE_GESTURE
 		pdata->support_sidegesture = true;
@@ -1719,7 +1693,7 @@ static int fts_parse_dt(struct i2c_client *client)
 		pdata->touchkey = fts_touchkeys;
 
 		if (of_property_read_string(np, "stm,regulator_tk_led", &pdata->regulator_tk_led))
-			tsp_debug_dbg(true, dev, "skipped to get regulator_tk_led name property\n");
+			tsp_debug_err(true, dev, "skipped to get regulator_tk_led name property\n");
 		else
 			pdata->led_power = fts_led_power_ctrl;
 	}
@@ -1856,9 +1830,8 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *idp)
 	struct fts_ts_info *info = NULL;
 	static char fts_ts_phys[64] = { 0 };
 	int i = 0;
-#ifdef SEC_TSP_FACTORY_TEST
 	long j = 0;
-#endif
+
 	tsp_debug_info(true, &client->dev, "FTS Driver [12%s]\n", FTS_TS_DRV_VERSION);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -2200,6 +2173,20 @@ static int fts_input_open(struct input_dev *dev)
 
 	tsp_debug_dbg(false, &info->client->dev, "%s\n", __func__);
 
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+	if(TRUSTEDUI_MODE_TUI_SESSION & trustedui_get_current_mode()){	
+		tsp_debug_err(true, &info->client->dev, "%s TUI cancel event call!\n", __func__);
+		msleep(100);
+		tui_force_close(1);
+		msleep(200);
+		if(TRUSTEDUI_MODE_TUI_SESSION & trustedui_get_current_mode()){	
+			tsp_debug_err(true, &info->client->dev, "%s TUI flag force clear!\n",	__func__);
+			trustedui_clear_mask(TRUSTEDUI_MODE_VIDEO_SECURED|TRUSTEDUI_MODE_INPUT_SECURED);
+			trustedui_set_mode(TRUSTEDUI_MODE_OFF);
+		}
+	}
+#endif
+
 #ifdef USE_OPEN_DWORK
 	schedule_delayed_work(&info->open_work,
 			      msecs_to_jiffies(TOUCH_OPEN_DWORK_TIME));
@@ -2230,6 +2217,20 @@ static void fts_input_close(struct input_dev *dev)
 	struct fts_ts_info *info = input_get_drvdata(dev);
 
 	tsp_debug_dbg(false, &info->client->dev, "%s\n", __func__);
+
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+	if(TRUSTEDUI_MODE_TUI_SESSION & trustedui_get_current_mode()){	
+		tsp_debug_err(true, &info->client->dev, "%s TUI cancel event call!\n", __func__);
+		msleep(100);
+		tui_force_close(1);
+		msleep(200);
+		if(TRUSTEDUI_MODE_TUI_SESSION & trustedui_get_current_mode()){	
+			tsp_debug_err(true, &info->client->dev, "%s TUI flag force clear!\n",	__func__);
+			trustedui_clear_mask(TRUSTEDUI_MODE_VIDEO_SECURED|TRUSTEDUI_MODE_INPUT_SECURED);
+			trustedui_set_mode(TRUSTEDUI_MODE_OFF);
+		}
+	}
+#endif
 
 #ifdef USE_OPEN_DWORK
 	cancel_delayed_work(&info->open_work);
@@ -2271,11 +2272,10 @@ static int fts_get_panel_revision(struct fts_ts_info *info)
 
 	/* The variable of lcdtype has ASCII values(40 81 45) at 0x08 OCTA,
 	  * so if someone need a TSP panel revision then to read third parameter.*/
-#ifdef CONFIG_SEC_FACTORY
 	info->panel_revision = lcdtype[3] & 0x0F;
 	tsp_debug_info(true, &info->client->dev,
 		"%s: update panel_revision 0x%02X\n", __func__, info->panel_revision);
-#endif
+
 	filp_close(window_type, current->files);
 	set_fs(old_fs);
 
@@ -2431,6 +2431,9 @@ void fts_release_all_finger(struct fts_ts_info *info)
 				i, info->finger[i].mcount, info->touch_count,
 				info->panel_revision, info->fw_main_version_of_ic,
 				info->flip_enable, info->mshover_enabled, info->mainscr_disable);
+#ifdef FTS_SUPPORT_SEC_SWIPE
+			input_report_abs(info->input_dev, ABS_MT_PALM, 0);
+#endif
 		}
 
 		info->finger[i].state = EVENTID_LEAVE_POINTER;
@@ -2583,6 +2586,11 @@ static int fts_stop_device(struct fts_ts_info *info)
 #ifdef FTS_SUPPORT_NOISE_PARAM
 		fts_get_noise_param(info);
 #endif
+
+#ifdef FTS_SUPPORT_STRINGLIB
+		if (info->fts_mode)
+			fts_enable_feature(info, 0x0B, true);
+#endif
 	} else {
 		fts_interrupt_set(info, INT_DISABLE);
 		disable_irq(info->irq);
@@ -2665,10 +2673,8 @@ tsp_power_on:
 			 tsp_debug_err(true, &info->client->dev, "%s: failed. ret: %d\n", __func__, ret);
 	 }
 #endif
-	if (strncmp(info->board->model_name, "G925", 4) == 0) {
-		info->tspid_val= gpio_get_value(info->board->tspid);
-		info->tspid2_val= gpio_get_value(info->board->tspid2);
-	}
+
+	info->tspid_val= gpio_get_value(info->board->tspid);
 
  out:
 	mutex_unlock(&info->device_mutex);
@@ -2694,6 +2700,51 @@ static void fts_shutdown(struct i2c_client *client)
 	 if (info->board->led_power)
 		 info->board->led_power(info, false);
 #endif
+}
+
+void fts_recovery_cx(struct fts_ts_info *info)
+{
+	unsigned char regAdd[4] = {0};
+	unsigned char buf[8] = {0};
+	unsigned char cnt = 100;
+
+	regAdd[0] = 0xB6;
+	regAdd[1] = 0x00;
+	regAdd[2] = 0x1E;
+	regAdd[3] = 0x08;
+	fts_write_reg(info,&regAdd[0], 4);		// Loading FW to PRAM  without CRC Check
+	fts_delay(30);
+
+
+	fts_command(info,CX_TUNNING);
+	fts_delay(300);
+
+	fts_command(info,FTS_CMD_SAVE_CX_TUNING);
+	fts_delay(200);
+
+	do
+	{
+		int ret;
+		regAdd[0] = READ_ONE_EVENT;
+		ret = fts_read_reg(info, regAdd, 1, &buf[0], FTS_EVENT_SIZE);
+
+		fts_delay(10);
+		if(cnt-- == 0) break;
+	}while(buf[0] != 0x16 || buf[1] != 0x04);
+
+
+	fts_command(info, SLEEPOUT);
+	fts_delay(50);
+
+	fts_command(info, SENSEON);
+	fts_delay(50);
+
+#ifdef FTS_SUPPORT_TOUCH_KEY
+	if (info->board->support_mskey)
+		fts_command(info, FTS_CMD_KEY_SENSE_ON);
+#endif
+
+	fts_command(info, FLUSHBUFFER);
 }
 
 #ifdef CONFIG_PM

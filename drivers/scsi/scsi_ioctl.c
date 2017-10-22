@@ -177,7 +177,7 @@ static int ioctl_secu_prot_command(struct scsi_device *sdev, char *cmd,
 		}
 	} else {
 		sdev_printk(KERN_INFO, sdev,
-				"DMA direction not set!! %d\n", dma_direction);
+				"DMA direction not set!! \n");
 		result = -EFAULT;
 		goto err_pre_buf_alloc;
 	}
@@ -352,13 +352,17 @@ int scsi_ioctl(struct scsi_device *sdev, int cmd, void __user *arg)
 			unsigned short prot_spec;
 			unsigned long t_len;
 			int _cmd;
+			struct scsi_ioctl_command *ic = (struct scsi_ioctl_command *) arg;
 
 			_cmd = SCSI_UFS_REQUEST_SENSE;
-			if(sdev->host->wlun_clr_uac)
+ 			if(sdev->host->wlun_clr_uac)
 				sdev->host->hostt->ioctl(sdev, _cmd, NULL);
-
+ 
 			prot_spec = SECU_PROT_SPEC_CERT_DATA;
-			t_len = sdev->sector_size;
+			if(cmd == SCSI_IOCTL_SECURITY_PROTOCOL_IN)
+				t_len = ic->inlen;
+			else
+				t_len = ic->outlen;
 
 			scsi_cmd[0] = (cmd == SCSI_IOCTL_SECURITY_PROTOCOL_IN) ?
 				SECURITY_PROTOCOL_IN :

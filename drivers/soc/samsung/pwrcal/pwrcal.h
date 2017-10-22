@@ -80,7 +80,7 @@ extern int cal_asv_get_grp(unsigned int id, unsigned int lv);
 extern void cal_asv_set_tablever(unsigned int version);
 extern int cal_asv_get_tablever(void);
 extern void cal_asv_set_ssa0(unsigned int id, unsigned int ssa0);
-
+extern void cal_dram_print_info(void);
 
 extern int cal_init(void);
 

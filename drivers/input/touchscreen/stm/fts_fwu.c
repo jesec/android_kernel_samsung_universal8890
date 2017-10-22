@@ -309,7 +309,6 @@ EXPORT_SYMBOL(fts_fw_updater);
 #define FW_IMAGE_NAME_D2_TB_INTEG			"tsp_stm/stm_tb_integ.fw"
 #define FW_IMAGE_NAME_D2_Z2A			"tsp_stm/stm_z2a.fw"
 #define FW_IMAGE_NAME_D2_Z2I			"tsp_stm/stm_z2i.fw"
-#define FW_IMAGE_NAME_D2_Z1			"tsp_stm/stm_z1.fw"
 #define CONFIG_ID_D1_S				0x2C
 #define CONFIG_ID_D2_TR				0x2E
 #define CONFIG_ID_D2_TB				0x30
@@ -366,20 +365,8 @@ int fts_fw_update_on_probe(struct fts_ts_info *info)
 
 	if (info->board->firmware_name)
 		info->firmware_name = info->board->firmware_name;
-	else {
-#if 0
-		if ((lcdtype == S6E3HF2_WQXGA_ID1) || (lcdtype == S6E3HF2_WQXGA_ID2)) {
-			info->firmware_name = FW_IMAGE_NAME_D2_TB_INTEG;
-		} else {
-			tspid = gpio_get_value(info->board->tspid);
-			if (tspid)
-				info->firmware_name = FW_IMAGE_NAME_D2_Z2I;
-			else
-				info->firmware_name = FW_IMAGE_NAME_D2_Z2A;
-		}
-#endif
+	else
 		return -1;
-	}
 
 	snprintf(fw_path, FTS_MAX_FW_PATH, "%s", info->firmware_name);
 	tsp_debug_info(true, info->dev, "%s: Load firmware : %s, Digital_rev : %d, TSP_ID : %d\n", __func__,

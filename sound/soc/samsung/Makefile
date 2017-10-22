@@ -72,8 +72,8 @@ snd-soc-bells-objs := bells.o
 snd-soc-odroidx2-max98090-objs := odroidx2_max98090.o
 snd-soc-universal8890-dummy-objs := universal8890_dummy.o
 snd-soc-espresso8890-wm5110-objs := cp_dummy.o espresso8890_wm5110.o
-snd-soc-pacific-arizona-objs := pacific_arizona_318.o
-snd-soc-lucky-arizona-objs := lucky_arizona_lsi.o
+snd-soc-pacific-arizona-objs := pacific_arizona.o
+snd-soc-lucky-arizona-objs := lucky_arizona.o
 
 obj-$(CONFIG_SND_SOC_SAMSUNG_JIVE_WM8750) += snd-soc-jive-wm8750.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_NEO1973_WM8753) += snd-soc-neo1973-wm8753.o

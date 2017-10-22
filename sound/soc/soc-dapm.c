@@ -368,21 +368,6 @@ struct snd_soc_dapm_context *snd_soc_dapm_kcontrol_dapm(
 EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_dapm);
 
 /**
- * snd_soc_dapm_kcontrol_dapm() - Returns the widget list associated to a
- *  kcontrol
- * @kcontrol: The kcontrol
- *
- * Note: This function must only be used on kcontrols that are known to have
- * been registered for a CODEC. Otherwise the behaviour is undefined.
- */
-struct snd_soc_dapm_widget_list *snd_soc_dapm_kcontrol_widget_list(
-	struct snd_kcontrol *kcontrol)
-{
-	return dapm_kcontrol_get_wlist(kcontrol);
-}
-EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_widget_list);
-
-/**
  * snd_soc_dapm_kcontrol_codec() - Returns the codec associated to a kcontrol
  * @kcontrol: The kcontrol
  */
@@ -444,6 +429,35 @@ static void soc_dapm_async_complete(struct snd_soc_dapm_context *dapm)
 {
 	if (dapm->component)
 		snd_soc_component_async_complete(dapm->component);
+}
+
+static struct snd_soc_dapm_widget *
+dapm_wcache_lookup(struct snd_soc_dapm_wcache *wcache, const char *name)
+{
+	struct snd_soc_dapm_widget *w = wcache->widget;
+	struct list_head *wlist;
+	const int depth = 2;
+	int i = 0;
+
+	if (w) {
+		wlist = &w->dapm->card->widgets;
+
+		list_for_each_entry_from(w, wlist, list) {
+			if (!strcmp(name, w->name))
+				return w;
+
+			if (++i == depth)
+				break;
+		}
+	}
+
+	return NULL;
+}
+
+static inline void dapm_wcache_update(struct snd_soc_dapm_wcache *wcache,
+				      struct snd_soc_dapm_widget *w)
+{
+	wcache->widget = w;
 }
 
 /**
@@ -2232,6 +2246,12 @@ static void dapm_free_path(struct snd_soc_dapm_path *path)
 	kfree(path);
 }
 
+void snd_soc_dapm_reset_cache(struct snd_soc_dapm_context *dapm)
+{
+	dapm->path_sink_cache.widget = NULL;
+	dapm->path_source_cache.widget = NULL;
+}
+
 /* free all dapm widgets and resources */
 static void dapm_free_widgets(struct snd_soc_dapm_context *dapm)
 {
@@ -2257,6 +2277,7 @@ static void dapm_free_widgets(struct snd_soc_dapm_context *dapm)
 		kfree(w->name);
 		kfree(w);
 	}
+	snd_soc_dapm_reset_cache(dapm);
 }
 
 static struct snd_soc_dapm_widget *dapm_find_widget(
@@ -2532,6 +2553,12 @@ static int snd_soc_dapm_add_route(struct snd_soc_dapm_context *dapm,
 		source = route->source;
 	}
 
+	wsource = dapm_wcache_lookup(&dapm->path_source_cache, source);
+	wsink = dapm_wcache_lookup(&dapm->path_sink_cache, sink);
+
+	if (wsink && wsource)
+		goto skip_search;
+
 	/*
 	 * find src and dest widgets over all widgets but favor a widget from
 	 * current DAPM context
@@ -2571,6 +2598,10 @@ static int snd_soc_dapm_add_route(struct snd_soc_dapm_context *dapm,
 			route->sink);
 		return -ENODEV;
 	}
+
+skip_search:
+	dapm_wcache_update(&dapm->path_sink_cache, wsink);
+	dapm_wcache_update(&dapm->path_source_cache, wsource);
 
 	ret = snd_soc_dapm_add_path(dapm, wsource, wsink, route->control,
 		route->connected);

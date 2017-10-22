@@ -436,10 +436,19 @@ static void *persistent_ram_vmap(phys_addr_t start, size_t size,
 	page_start = start - offset_in_page(start);
 	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
 
+#ifndef CONFIG_EXYNOS_SNAPSHOT_PSTORE
 	if (memtype)
 		prot = pgprot_noncached(PAGE_KERNEL);
 	else
 		prot = pgprot_writecombine(PAGE_KERNEL);
+#else
+	/*
+	 * If using exynos-snapshot, we can get the debug information
+	 * from tracing data of exynos-snapshot. So we don't need noncacheable
+	 * region that could cause performace problems.
+	 */
+	prot = PAGE_KERNEL;
+#endif
 
 	pages = kmalloc_array(page_count, sizeof(struct page *), GFP_KERNEL);
 	if (!pages) {

@@ -133,6 +133,20 @@ SECTIONS
 
 	PERCPU_SECTION(64)
 
+#ifdef CONFIG_RELOCATABLE_KERNEL
+	.rela : {
+		. = ALIGN(8);
+		__reloc_start = .;
+		*(.rela .rela*)
+		__reloc_end = .;
+	}
+	.dynsym : {
+		. = ALIGN(8);
+		__dynsym_start = .;
+		*(.dynsym)
+	}
+#endif 
+
 	. = ALIGN(PAGE_SIZE);
 	__init_end = .;
 

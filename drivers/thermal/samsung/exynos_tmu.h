@@ -46,6 +46,11 @@ enum calibration_mode {
 	HW_MODE,
 };
 
+enum sensor_type {
+	NORMAL_SENSOR,
+	VIRTUAL_SENSOR,
+};
+
 enum soc_type {
 	SOC_ARCH_EXYNOS3250 = 1,
 	SOC_ARCH_EXYNOS4210,
@@ -299,6 +304,7 @@ struct exynos_tmu_platform_data {
 	bool hotplug_enable;
 	u32 hotplug_in_threshold;
 	u32 hotplug_out_threshold;
+	u32 sensor_type;
 
 	enum calibration_type cal_type;
 	enum soc_type type;

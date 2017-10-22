@@ -547,6 +547,7 @@ void esa_compr_close(void)
 #ifdef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
 static void esa_fw_snapshot(void)
 {
+#if 0
         struct file *sram_filp;
         struct file *dram_filp;
         mm_segment_t old_fs;
@@ -558,6 +559,7 @@ static void esa_fw_snapshot(void)
 		memcpy(si.fwmem_sram_bak, si.sram, SRAM_FW_MAX);
 	} else {
 		esa_err("%s : Can't store seiren firmware\n", __func__);
+		set_fs(old_fs);
 		return;
 	}
 
@@ -574,6 +576,7 @@ static void esa_fw_snapshot(void)
 	filp_close(dram_filp, NULL);
 
 	set_fs(old_fs);
+#endif
 }
 
 struct kobject *seiren_fw_snapshot_kobj = NULL;
@@ -788,39 +791,34 @@ static int esa_fw_startup(void)
 
 	/* Not to enter SICD_AUD */
 	lpass_update_lpclock(LPCLK_CTRLID_LEGACY, true);
+	lpass_mif_power_on();
 	/* power on */
 	si.fw_use_dram = true;
 	esa_debug("Turn on CA5...\n");
 	esa_fw_download();
 
 	/* wait for fw ready */
-	ret = wait_event_interruptible_timeout(esa_wq, si.fw_ready, HZ / 2);
+	ret = wait_event_interruptible_timeout(esa_wq, si.fw_ready, HZ * 3);
 	if (!ret) {
-		pr_info("%s: Retry CA5 Initialization\n", __func__);
-		lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
-		udelay(20);
-		lpass_reset(LPASS_IP_CA5, LPASS_OP_NORMAL);
-		ret = wait_event_interruptible_timeout(esa_wq, si.fw_ready, HZ / 2);
-		if (!ret) {
 #ifdef CONFIG_SOC_EXYNOS8890
-			u32 cfg;
-			void __iomem	*cmu_reg;
-			cmu_reg = ioremap(0x114C0000, SZ_4K);
-			cfg = readl(cmu_reg + 0x800); /* Check CA5 clock */
-			iounmap(cmu_reg);
-			esa_err("%s: fw not ready!!! (%d), clk = %x\n", __func__,
-				readl(si.mailbox + LAST_CHECKPT), cfg);
+		u32 cfg;
+		void __iomem	*cmu_reg;
+		cmu_reg = ioremap(0x114C0000, SZ_4K);
+		cfg = readl(cmu_reg + 0x800); /* Check CA5 clock */
+		iounmap(cmu_reg);
+		esa_err("%s: fw not ready!!! (%d), clk = %x\n", __func__,
+			readl(si.mailbox + LAST_CHECKPT), cfg);
 #else
-			esa_err("%s: fw not ready!!! (%d)\n", __func__,
-				readl(si.mailbox + LAST_CHECKPT));
+		esa_err("%s: fw not ready!!! (%d)\n", __func__,
+			readl(si.mailbox + LAST_CHECKPT));
 #endif
-			lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
-			if (!check_esa_compr_state())
-				lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
-			lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
-			si.fw_use_dram = false;
-			return -EBUSY;
-		}
+		writel(0xE320F003, si.sram); /* Enter CA5 into WFI */
+		lpass_reset(LPASS_IP_CA5, LPASS_OP_RESET);
+		if (!check_esa_compr_state())
+			lpass_update_lpclock(LPCLK_CTRLID_OFFLOAD, false);
+		lpass_update_lpclock(LPCLK_CTRLID_LEGACY, false);
+		si.fw_use_dram = false;
+		return -EBUSY;
 	}
 
 #ifndef CONFIG_SND_SAMSUNG_SEIREN_OFFLOAD
@@ -936,8 +934,10 @@ int esa_effect_write(int type, int *value, int count)
 	int i, *effect_value;
 	int ret = 0;
 
-	if (!check_esa_compr_state() ||
-	   (pm_runtime_get_sync(&si.pdev->dev) < 0))
+	if (!check_esa_compr_state())
+		return 0;
+
+	if (pm_runtime_get_sync(&si.pdev->dev) < 0)
 		return 0;
 
 	effect_value = value;
@@ -2455,6 +2455,8 @@ static void esa_fw_request_complete(const struct firmware *fw_sram, void *ctx)
 	memcpy(si.fwmem, fw_sram->data, si.fw_sbin_size);
 	memcpy(si.fwmem + si.fw_sbin_size, fw_dram->data, si.fw_dbin_size);
 
+	release_firmware(fw_dram);
+
 	esa_info("FW Loaded (SRAM = %d, DRAM = %d)\n",
 			si.fw_sbin_size, si.fw_dbin_size);
 
@@ -2583,8 +2585,6 @@ static int esa_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_set_autosuspend_delay(dev, 300);
 	pm_runtime_enable(dev);
-	pm_runtime_get_sync(dev);
-	pm_runtime_put_sync(dev);
 #else
 	esa_do_resume(dev);
 #endif

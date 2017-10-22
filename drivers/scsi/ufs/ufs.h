@@ -131,6 +131,13 @@ enum {
 	UPIU_TASK_ATTR_ACA	= 0x03,
 };
 
+#ifdef COMMAND_PRIORITY
+/* UPIU Task Attributes */
+enum {
+	UPIU_COMMAND_PRIORITY_HIGH	= 0x4,
+};
+#endif
+
 /* UPIU Query request function */
 enum {
 	UPIU_QUERY_FUNC_STANDARD_READ_REQUEST           = 0x01,
@@ -205,7 +212,7 @@ enum ufs_desc_max_size {
 	QUERY_DESC_STRING_MAX_SIZE		= 0xFE,
 	QUERY_DESC_GEOMETRY_MAZ_SIZE		= 0x44,
 	QUERY_DESC_POWER_MAX_SIZE		= 0x62,
-	QUERY_DESC_HEALTH_MAX_SIZE		= 0x37,
+	QUERY_DESC_HEALTH_MAX_SIZE		= 0x25,
 	QUERY_DESC_RFU_MAX_SIZE			= 0x00,
 };
 
@@ -369,6 +376,7 @@ enum {
 	MASK_QUERY_DATA_SEG_LEN         = 0xFFFF,
 	MASK_RSP_UPIU_DATA_SEG_LEN	= 0xFFFF,
 	MASK_RSP_EXCEPTION_EVENT        = 0x10000,
+	MASK_TM_SERVICE_RESP		= 0xFF,
 };
 
 /* Task management service response */

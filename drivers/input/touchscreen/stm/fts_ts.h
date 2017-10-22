@@ -288,6 +288,8 @@ enum fts_cover_id {
 	FTS_VIEW_WALLET,
 	FTS_LED_COVER,
 	FTS_CLEAR_FLIP_COVER,
+	FTS_QWERTY_KEYBOARD_EUR,
+	FTS_QWERTY_KEYBOARD_KOR,
 	FTS_MONTBLANC_COVER = 100,
 };
 
@@ -391,7 +393,6 @@ struct fts_ts_info {
 	unsigned short fw_main_version_of_bin;	/* firmware main version of binary */
 	int panel_revision;			/* Octa panel revision */
 	int tspid_val;
-	int tspid2_val;
 
 #ifdef USE_OPEN_DWORK
 	struct delayed_work open_work;

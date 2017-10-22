@@ -15,6 +15,7 @@ if VIDEO_EXYNOS
 	source "drivers/media/platform/exynos/hevc/Kconfig"
 	source "drivers/media/platform/exynos/fimg2d_v5/Kconfig"
 	source "drivers/media/platform/exynos/smfc/Kconfig"
+	source "drivers/media/platform/exynos/fimc-is2/Kconfig"
 endif
 
 config MEDIA_EXYNOS

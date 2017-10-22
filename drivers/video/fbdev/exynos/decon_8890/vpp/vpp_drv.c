@@ -107,6 +107,13 @@ static void vpp_dump_registers(struct vpp_dev *vpp)
 void vpp_op_timer_handler(unsigned long arg)
 {
 	struct vpp_dev *vpp = (struct vpp_dev *)arg;
+	struct decon_device *decon = get_decon_drvdata(0);
+
+	if(decon->ignore_vsync)
+	{
+		dev_info(DEV, "VPP[%d] irq hasn't been occured but ignore_vsync is true skip", vpp->id);
+		return;
+	}
 
 	vpp_dump_registers(vpp);
 

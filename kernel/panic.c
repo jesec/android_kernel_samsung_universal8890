@@ -24,6 +24,7 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/exynos-ss.h>
+#include <asm/core_regs.h>
 #include "sched/sched.h"
 
 #define PANIC_TIMER_STEP 100
@@ -80,9 +81,7 @@ void panic(const char *fmt, ...)
 	long i, i_next = 0;
 	int state = 0;
 
-	/*
-	 * TODO: exynos_trace_stop();
-	*/
+	 exynos_trace_stop();
 
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
@@ -110,7 +109,15 @@ void panic(const char *fmt, ...)
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
-	pr_emerg("Kernel panic - not syncing: %s\n", buf);
+	pr_auto(ASL5, "Kernel panic - not syncing: %s\n", buf);
+
+#ifdef CONFIG_RELOCATABLE_KERNEL 
+	{	
+		extern u64 *__boot_kernel_offset; 
+		u64 *kernel_addr = (u64 *) &__boot_kernel_offset;
+		pr_emerg("Kernel loaded at: 0x%llx, offset from compile-time address %llx\n", kernel_addr[1]+kernel_addr[0], kernel_addr[1]- kernel_addr[2] );
+	}
+#endif 
 
 	exynos_ss_prepare_panic();
 	exynos_ss_dump_panic(buf, (size_t)strnlen(buf, sizeof(buf)));
@@ -146,9 +153,7 @@ void panic(const char *fmt, ...)
 
 	kmsg_dump(KMSG_DUMP_PANIC);
 
-	/*
-	 * TODO: exynos_cs_show_pcval();
-	 */
+	exynos_cs_show_pcval();
 
 	exynos_ss_post_panic();
 

@@ -22,17 +22,16 @@
 			compatible = "wlf,wm1840";
 			reg = <0x0>;
 			spi-max-frequency = <25000000>;
-			interrupts = <5 0 0>;
-			interrupt-parent = <&gpa0>;
+			interrupts = <6 0 0>;
+			interrupt-parent = <&gpa2>;
 
 			gpio-controller;
 			#gpio-cells = <2>;
 
 			pinctrl-names ="default";
-			pinctrl-0 = <&codec_reset &codec_irq &codec_ldoena>;
+			pinctrl-0 = <&codec_reset &codec_irq>;
 
 			wlf,reset = <&gpe6 5 0>;
-			wlf,ldoena = <&gpe6 6 0>;
 			wlf,init-mic-delay = <30>;
 			wlf,use-jd-gpio;
 			wlf,micd-clamp-mode = <0x8>;
@@ -123,6 +122,7 @@
 
 			wlf,rev-specific-fw;
 
+			DCVDD-supply = <&ldo31_reg>;
 			AVDD-supply = <&ldo30_reg>;
 			LDOVDD-supply = <&ldo30_reg>;
 			DBVDD1-supply = <&ldo30_reg>;
@@ -131,6 +131,8 @@
 			DBVDD2-supply = <&ldo30_reg>;
 			DBVDD3-supply = <&ldo30_reg>;
 			DBVDD4-supply = <&ldo30_reg>;
+			SPKVDDL-supply = <&ldo30_reg>;
+			SPKVDDR-supply = <&ldo30_reg>;
 
 			adsps {
 				#address-cells = <1>;

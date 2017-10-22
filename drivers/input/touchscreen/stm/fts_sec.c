@@ -65,6 +65,7 @@ static void get_cx_all_data(void *device_data);
 static void run_cx_data_read(void *device_data);
 #ifdef FTS_SUPPORT_TOUCH_KEY
 static void run_key_cx_data_read(void *device_data);
+static void run_key_cm_data_read(void *device_data);
 #endif
 static void set_tsp_test_result(void *device_data);
 static void get_tsp_test_result(void *device_data);
@@ -89,6 +90,8 @@ static void second_screen_enable(void *device_data);
 static void set_longpress_enable(void *device_data);
 static void set_sidescreen_x_length(void *device_data);
 static void set_dead_zone(void *device_data);
+static void dead_zone_enable(void *device_data);
+
 #ifdef SMARTCOVER_COVER
 static void smartcover_cmd(void *device_data);
 #endif
@@ -165,6 +168,7 @@ struct ft_cmd ft_commands[] = {
 	{FT_CMD("run_cx_data_read", run_cx_data_read),},
 #ifdef FTS_SUPPORT_TOUCH_KEY
 	{FT_CMD("run_key_cx_data_read", run_key_cx_data_read),},
+	{FT_CMD("run_key_cm_data_read", run_key_cm_data_read),},
 #endif
 	{FT_CMD("set_tsp_test_result", set_tsp_test_result),},
 	{FT_CMD("get_tsp_test_result", get_tsp_test_result),},
@@ -188,6 +192,7 @@ struct ft_cmd ft_commands[] = {
 	{FT_CMD("set_longpress_enable", set_longpress_enable),},
 	{FT_CMD("set_sidescreen_x_length", set_sidescreen_x_length),},
 	{FT_CMD("set_dead_zone", set_dead_zone),},
+	{FT_CMD("dead_zone_enable", dead_zone_enable),},
 #ifdef FTS_SUPPORT_STRINGLIB
 	{FT_CMD("quick_shot_enable", quick_shot_enable),},
 	{FT_CMD("scrub_enable", scrub_enable),},
@@ -297,18 +302,10 @@ static ssize_t fts_edge_x_position(struct device *dev,
 				__func__);
 		return -EINVAL;
 	}
-#ifdef CONFIG_SEC_FACTORY
-	if ((lcdtype == S6E3HF2_WQXGA_ID1) || (lcdtype == S6E3HF2_WQXGA_ID2)) {
-		edge_position_left = -1;
-		edge_position_right = info->board->max_x + 1 - info->board->grip_area;
-	} else {
-		edge_position_left = info->board->grip_area;
-		edge_position_right = info->board->max_x + 1 - info->board->grip_area;
-	}
-#else
-		edge_position_left = info->board->grip_area;
-		edge_position_right = info->board->max_x + 1 - info->board->grip_area;
-#endif
+
+	edge_position_left = info->board->grip_area;
+	edge_position_right = info->board->max_x + 1 - info->board->grip_area;
+
 	tsp_debug_info(true, &info->client->dev, "%s: %d,%d\n", __func__, edge_position_left, edge_position_right);
 	snprintf(buff, sizeof(buff), "%d,%d", edge_position_left, edge_position_right);
 
@@ -458,7 +455,7 @@ static ssize_t store_cmd(struct device *dev, struct device_attribute *devattr,
 				param_cnt++;
 			}
 			cur++;
-		} while (cur - buf <= len);
+		} while ((cur - buf <= len) && (param_cnt < CMD_PARAM_NUM));
 	}
 	tsp_debug_info(true, &info->client->dev, "cmd = %s\n", ft_cmd_ptr->cmd_name);
 	for (i = 0; i < param_cnt; i++)
@@ -1009,21 +1006,9 @@ static void get_fw_ver_bin(void *device_data)
 	char buff[16] = { 0 };
 	set_default_result(info);
 
-	if (strncmp(info->board->model_name, "G925", 4) == 0) {
-		info->tspid_val= gpio_get_value(info->board->tspid);
-		info->tspid2_val= gpio_get_value(info->board->tspid2);
-
-		sprintf(buff, "ST%01X%01X%04X",
-				info->tspid_val, info->tspid2_val,
-				info->fw_main_version_of_bin);
-	} else if (strncmp(info->board->model_name, "G920", 4) == 0) {
-		sprintf(buff, "ST%02X%04X",
-				info->panel_revision,
-				info->fw_main_version_of_bin);
-	} else {
-		tsp_debug_info(true, &info->client->dev, "%s: Check model name[%s]!\n",
-						__func__, info->board->model_name);
-	}
+	sprintf(buff, "ST%02X%04X",
+		info->panel_revision,
+		info->fw_main_version_of_bin);
 
 	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
 	info->cmd_state = CMD_STATUS_OK;
@@ -1036,21 +1021,9 @@ static void get_fw_ver_ic(void *device_data)
 	char buff[16] = { 0 };
 	set_default_result(info);
 
-	if (strncmp(info->board->model_name, "G925", 4) == 0) {
-		info->tspid_val= gpio_get_value(info->board->tspid);
-		info->tspid2_val= gpio_get_value(info->board->tspid2);
-
-		sprintf(buff, "ST%01X%01X%04X",
-				info->tspid_val, info->tspid2_val,
-				info->fw_main_version_of_ic);
-	} else if (strncmp(info->board->model_name, "G920", 4) == 0) {
-		sprintf(buff, "ST%02X%04X",
-				info->panel_revision,
-				info->fw_main_version_of_ic);
-	} else {
-		tsp_debug_info(true, &info->client->dev, "%s: Check model name[%s]!\n",
-						__func__, info->board->model_name);
-	}
+	sprintf(buff, "ST%02X%04X",
+		info->panel_revision,
+		info->fw_main_version_of_ic);
 
 	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
 	info->cmd_state = CMD_STATUS_OK;
@@ -2365,6 +2338,125 @@ static void run_key_cx_data_read(void *device_data)
 	//snprintf(buff, sizeof(buff), "%s", "OK");
 	snprintf(buff, sizeof(buff), "%d,%d", key_cx2_data[0], key_cx2_data[1]);
 	enable_irq(info->irq);
+	info->cmd_state = CMD_STATUS_OK;
+	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
+	tsp_debug_info(true, &info->client->dev, "%s: %s\n", __func__, buff);
+}
+
+#define KEY_CHANNEL_LENGTH	4
+#define USING_KEY_CHANNEL_LENGTH	2
+
+static void run_key_cm_data_read(void *device_data)
+{
+	struct fts_ts_info *info = (struct fts_ts_info *)device_data;
+	char buff[CMD_STR_LEN] = { 0 };
+	unsigned char data[4] = { 0 };
+	unsigned char addr[4] = {0xD0, 0x00, 0x32, 0x00};// key channel address is 0xD0, 0x00, 0x32
+	unsigned int start_addr;
+	unsigned int end_addr;
+	unsigned int length;
+	unsigned int len;
+	unsigned char *buffer = NULL;
+	unsigned char *pbuffer = NULL;
+	int ii;
+	unsigned int cm_value;
+	unsigned int max_val = 0;
+	unsigned int min_val = 32767;
+
+	set_default_result(info);
+
+	if (info->touch_stopped) {
+		tsp_debug_info(true, &info->client->dev, "%s: [ERROR] Touch is stopped\n",
+			__func__);
+		snprintf(buff, sizeof(buff), "%s", "TSP turned off");
+		set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
+		info->cmd_state = CMD_STATUS_NOT_APPLICABLE;
+		return;
+	}
+
+	disable_irq(info->irq);
+
+	fts_command(info, SENSEOFF);
+	fts_delay(50);
+
+#ifdef FTS_SUPPORT_TOUCH_KEY
+	if (info->board->support_mskey) {
+		fts_command(info, FTS_CMD_KEY_SENSE_OFF);
+		fts_delay(50);
+	}
+#endif
+
+	fts_command(info, FLUSHBUFFER);
+	fts_delay(50);
+
+	fts_read_reg(info, addr, 3, data, 4);
+	tsp_debug_info(true, &info->client->dev, "%s: %X, %X, %X, %X\n",
+				__func__, data[0], data[1], data[2], data[3]);
+
+	fts_delay(10);
+
+	// key channel length : 4
+	start_addr = data[1] + (data[2] << 8);
+	length = KEY_CHANNEL_LENGTH * 2 + 1;
+	end_addr = start_addr + length;
+
+	buffer = kzalloc(length, GFP_KERNEL);
+	if (!buffer) {
+		snprintf(buff, sizeof(buff), "%s", "FAIL");
+		goto err_key_cm_out;
+	}
+
+	tsp_debug_info(true, &info->client->dev, "%s: start: %X, end: %X, length: %X, len: %X\n",
+				__func__, start_addr, end_addr, length, len);
+
+	addr[0] = 0xD0;
+	addr[1] = (start_addr >> 8) & 0xff;
+	addr[2] = (start_addr & 0xff);
+
+	memset(buffer, 0x00, length);
+	pbuffer = buffer;
+	fts_read_reg(info, addr, 3, buffer, length);
+
+	tsp_debug_info(true, &info->client->dev, "%s: %X\n", __func__, *pbuffer);
+
+	pbuffer++;
+
+	for (ii = 0; ii < USING_KEY_CHANNEL_LENGTH; ii++) {
+		cm_value = 0;
+
+		tsp_debug_info(true, &info->client->dev, "%s: (D2) %X\n", __func__, *pbuffer);
+
+		cm_value |= (*pbuffer & 0xFF);
+		pbuffer++;
+
+		tsp_debug_info(true, &info->client->dev, "%s: (D1) %X\n", __func__, *pbuffer);
+
+		cm_value |= (*pbuffer << 8);
+		pbuffer++;
+
+		tsp_debug_info(true, &info->client->dev, "%s: [%d]: %d(%X)\n", __func__, ii, cm_value, cm_value);
+
+		max_val = max(max_val, cm_value);
+		min_val = min(min_val, cm_value);
+
+	}
+
+	tsp_debug_info(true, &info->client->dev, "max: %d, min: %d\n", max_val, min_val);
+
+	snprintf(buff, CMD_STR_LEN, "%d,%d", max_val, min_val);
+
+	kfree(buffer);
+
+err_key_cm_out:
+	enable_irq(info->irq);
+	fts_command(info, SENSEON);
+
+#ifdef FTS_SUPPORT_TOUCH_KEY
+	if (info->board->support_mskey) {
+		fts_command(info, FTS_CMD_KEY_SENSE_ON);
+		fts_delay(50);
+	}
+#endif
 
 	info->cmd_state = CMD_STATUS_OK;
 	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
@@ -3069,6 +3161,47 @@ static void set_dead_zone(void *device_data)
 			regAdd[1] = 0x06;	/* side edge All Off */
 		else
 			regAdd[1] = 0x0;	/* none	*/
+
+		ret = fts_write_reg(info, regAdd, 2);
+
+		if (ret < 0)
+			tsp_debug_err(true, &info->client->dev, "%s failed. ret: %d\n", __func__, ret);
+		else
+			tsp_debug_info(true, &info->client->dev, "%s: reg:%d, ret: %d\n", __func__, info->cmd_param[0], ret);
+
+		fts_delay(1);
+
+		snprintf(buff, sizeof(buff), "%s", "OK");
+		info->cmd_state = CMD_STATUS_OK;
+	}
+	set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
+
+	mutex_lock(&info->cmd_lock);
+	info->cmd_is_running = false;
+	mutex_unlock(&info->cmd_lock);
+	info->cmd_state = CMD_STATUS_WAITING;
+
+	tsp_debug_info(true, &info->client->dev, "%s: %s\n", __func__, buff);
+}
+
+static void dead_zone_enable(void *device_data)
+{
+	struct fts_ts_info *info = (struct fts_ts_info *)device_data;
+	char buff[CMD_STR_LEN] = { 0 };
+	unsigned char regAdd[2] = {0xC2, 0x0C};
+	int ret;
+
+	set_default_result(info);
+
+	if (info->cmd_param[0] < 0 || info->cmd_param[0] > 1) {
+		snprintf(buff, sizeof(buff), "%s", "NG");
+		info->cmd_state = CMD_STATUS_FAIL;
+	} else {
+		if (info->cmd_param[0]==0) {
+			regAdd[0] = 0xC1;	/* dead zone disable */
+		} else {
+			regAdd[0] = 0xC2;	/* dead zone enable */
+		}
 
 		ret = fts_write_reg(info, regAdd, 2);
 

@@ -1,14 +1,16 @@
 #ifndef _LINUX_FTS_I2C_H_
 #define _LINUX_FTS_I2C_H_
 
-#define FTS_SUPPORT_NOISE_PARAM
-#undef FTS_SUPPORT_TOUCH_KEY
-#undef FTS_SUPPORT_SEC_SWIPE
-#undef FTS_SUPPORT_SIDE_GESTURE
-#define FTS_SUPPORT_WATER_MODE
+//#define FTS_SUPPORT_NOISE_PARAM
+#define FTS_SUPPORT_TOUCH_KEY
+#define FTS_SUPPORT_SEC_SWIPE
+#define FTS_SUPPORT_SIDE_GESTURE
+//#define FTS_SUPPORT_WATER_MODE
 /*#define FTS_SUPPORT_2NDSCREEN*/
 /*#define FTS_SUPPORT_SIDE_SCROLL*/
-/*#define FTS_SUPPORT_STRINGLIB */
+
+#define FTS_SUPPORT_STRINGLIB
+#undef FTS_SUPPORT_HOVER
 
 extern struct fts_callbacks *fts_charger_callbacks;
 struct fts_callbacks {
@@ -72,6 +74,8 @@ struct fts_i2c_platform_data {
 	unsigned tspid2;
 	unsigned gpio;
 	int irq_type;
+	int stm_ver;
+	u32	device_num;
 
 #ifdef FTS_SUPPORT_TOUCH_KEY
 	bool support_mskey;
@@ -81,7 +85,7 @@ struct fts_i2c_platform_data {
 	int (*led_power) (void *, bool);
 #endif
 #ifdef FTS_SUPPORT_SIDE_GESTURE
-	bool support_sidegesture;
+	int support_sidegesture;
 #endif
 #ifdef FTS_SUPPORT_2NDSCREEN
 	bool support_2ndscreen;
@@ -93,7 +97,7 @@ struct fts_i2c_platform_data {
 	unsigned gpio_sda;
 };
 
-#undef SEC_TSP_FACTORY_TEST
+#define SEC_TSP_FACTORY_TEST
 
 // #define FTS_SUPPORT_TA_MODE // DE version don't need.
 
@@ -104,4 +108,7 @@ extern struct class *sec_class;
 extern unsigned int lcdtype;
 
 void fts_charger_infom(bool en);
+#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+extern void trustedui_mode_on(void);
+#endif
 #endif

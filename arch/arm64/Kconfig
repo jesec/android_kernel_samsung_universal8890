@@ -145,7 +145,7 @@ config GENERIC_CALIBRATE_DELAY
 	def_bool y
 
 config ZONE_DMA
-	def_bool y
+	def_bool n
 
 config HAVE_GENERIC_RCU_GUP
 	def_bool y
@@ -220,8 +220,17 @@ config SOC_EXYNOS8890
 	select CLKSRC_EXYNOS_MCT
 	select PINCTRL
 	select PWRCAL
+	select PM_GENERIC_DOMAINS if PM
 	select SOC_SAMSUNG
 	select SAMSUNG_DMADEV
+
+config MODEL_HERO
+	bool "Samsung Galaxy S7"
+	depends on SOC_EXYNOS8890
+
+config MODEL_HERO2
+	bool "Samsung Galaxy S7 Edge"
+	depends on SOC_EXYNOS8890
 
 config ARCH_EXYNOS8
 	bool "SAMSUNG EXYNOS8"
@@ -234,6 +243,16 @@ config PWRCAL
     bool "Exynos Power Chip Abstraction Layer"
     help
     Support Power CAL for Exynos SoC.
+
+config ARM_TRUSTZONE
+	bool "Support TrustZone-enabled Trusted Execution Environment"
+	default y
+	help
+	  Select if you want a kernel to be executed at non-secure world.
+	  This option should be used with related secure bootloader and
+	  TrustZone software.
+
+	  If you don't know about TrustZone, say 'N'.
 
 config ZONE_DMA_ALLOW_CUSTOM_SIZE
 	bool "Enable Platform-settable Custom Size for ZONE_DMA"
@@ -576,6 +595,7 @@ config HMP_VARIABLE_SCALE
 config HMP_FREQUENCY_INVARIANT_SCALE
 	bool "(EXPERIMENTAL) Frequency-Invariant Tracked Load for HMP"
 	depends on HMP_VARIABLE_SCALE && CPU_FREQ
+	default y
 	help
 	  Scales the current load contribution in line with the frequency
 	  of the CPU that the task was executed on.
@@ -599,6 +619,14 @@ config SCHED_HMP_LITTLE_PACKING
 	  packing_enable: 1 to enable, 0 to disable packing. Default 1.
 	  packing_limit: runqueue load ratio where a RQ is considered
 	    to be full. Default is NICE_0_LOAD * 9/8.
+
+config SCHED_HMP_DOWN_MIGRATION_COMPENSATION
+	bool "(EXPERIMENTAL) HMP down migration compensation"
+	depends on SCHED_HMP
+	help
+	  Enables down migration compensation. The down-migration compensation
+	  guarantees proper performance to the down-migrated task by frequency
+	  qos lock.
 
 config NR_CPUS
 	int "Maximum number of CPUs (2-64)"
@@ -880,6 +908,16 @@ config ARM64_CPU_SUSPEND
 	def_bool PM_SLEEP
 
 endmenu
+
+config RELOCATABLE_KERNEL 
+	bool "set kernel to relocatable in both virtual and physical address"
+	default n
+	help 	
+	  This configuare will allow you to config the kernel into position independent kernel, with '--PIE' insert into LD script.
+
+config SAMSUNG_PRODUCT_SHIP
+	bool "set up for product shipping"
+	default n
 
 menu "CPU Power Management"
 

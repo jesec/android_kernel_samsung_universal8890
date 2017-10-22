@@ -19,21 +19,40 @@
 #include "arizona.h"
 
 static const struct reg_default moon_reva_16_patch[] = {
-	{ 0x8A,  0x5555 },
-	{ 0x8A,  0xAAAA },
-	{ 0x51B, 0x0001 },
-	{ 0x55B, 0x0001 },
-	{ 0x59B, 0x0001 },
-	{ 0x5BB, 0x0001 },
-	{ 0x4CF, 0x0730 },
-	{ 0x3A2, 0x242A },
-	{ 0x443, 0x9CFA },
-	{ 0x441, 0xC750 },
-	{ 0x4E2, 0x1312 },
-	{ 0x4E3, 0x1312 },
-	{ 0x4E4, 0x1312 },
-	{ 0x8A,  0xCCCC },
-	{ 0x8A,  0x3333 },
+	{ 0x8A,   0x5555 },
+	{ 0x8A,   0xAAAA },
+	{ 0x4CF,  0x0700 },
+	{ 0x171,  0x0003 },
+	{ 0x101,  0x0444 },
+	{ 0x159,  0x0002 },
+	{ 0x120,  0x0444 },
+	{ 0x1D1,  0x0004 },
+	{ 0x1E0,  0xC084 },
+	{ 0x159,  0x0000 },
+	{ 0x120,  0x0404 },
+	{ 0x101,  0x0404 },
+	{ 0x171,  0x0002 },
+	{ 0x17A,  0x2906 },
+	{ 0x19A,  0x2906 },
+	{ 0x441,  0xC750 },
+	{ 0x340,  0x0001 },
+	{ 0x112,  0x0405 },
+	{ 0x124,  0x0C49 },
+	{ 0x1300, 0x050E },
+	{ 0x1302, 0x0101 },
+	{ 0x1380, 0x0425 },
+	{ 0x1381, 0xF6D8 },
+	{ 0x1382, 0x0632 },
+	{ 0x1383, 0xFEC8 },
+	{ 0x1390, 0x042F },
+	{ 0x1391, 0xF6CA },
+	{ 0x1392, 0x0637 },
+	{ 0x1393, 0xFEC8 },
+	{ 0x281,  0x0000 },
+	{ 0x282,  0x0000 },
+	{ 0x4EA,  0x0100 },
+	{ 0x8A,   0xCCCC },
+	{ 0x8A,   0x3333 },
 };
 
 /* We use a function so we can use ARRAY_SIZE() */
@@ -113,6 +132,24 @@ static const struct regmap_irq moon_irqs[ARIZONA_NUM_IRQ] = {
 				  .mask = CLEARWATER_DSP_IRQ7_EINT1},
 	[ARIZONA_IRQ_DSP_IRQ8] = { .reg_offset = 10,
 				  .mask = CLEARWATER_DSP_IRQ8_EINT1},
+
+	[ARIZONA_IRQ_GP1] = { .reg_offset = 16,
+				  .mask = CLEARWATER_GP1_EINT1},
+	[ARIZONA_IRQ_GP2] = { .reg_offset = 16,
+				  .mask = CLEARWATER_GP2_EINT1},
+	[ARIZONA_IRQ_GP3] = { .reg_offset = 16,
+				.mask = CLEARWATER_GP3_EINT1},
+	[ARIZONA_IRQ_GP4] = { .reg_offset = 16,
+				.mask = CLEARWATER_GP4_EINT1},
+	[ARIZONA_IRQ_GP5] = { .reg_offset = 16,
+				  .mask = CLEARWATER_GP5_EINT1},
+	[ARIZONA_IRQ_GP6] = { .reg_offset = 16,
+				  .mask = CLEARWATER_GP6_EINT1},
+	[ARIZONA_IRQ_GP7] = { .reg_offset = 16,
+				.mask = CLEARWATER_GP7_EINT1},
+	[ARIZONA_IRQ_GP8] = { .reg_offset = 16,
+				.mask = CLEARWATER_GP8_EINT1},
+
 	[MOON_IRQ_DSP1_BUS_ERROR] = { .reg_offset = 32,
 				  .mask = MOON_ADSP_ERROR_STATUS_DSP1},
 	[MOON_IRQ_DSP2_BUS_ERROR] = { .reg_offset = 32,
@@ -180,10 +217,10 @@ static const struct reg_default moon_reg_default[] = {
 	{ 0x00000102, 0x0011 }, /* R258 (0x102) - Sample rate 1 */
 	{ 0x00000103, 0x0011 }, /* R259 (0x103) - Sample rate 2 */
 	{ 0x00000104, 0x0011 }, /* R260 (0x104) - Sample rate 3 */
-	{ 0x00000112, 0x0305 }, /* R274 (0x112) - Async clock 1 */
+	{ 0x00000112, 0x0405 }, /* R274 (0x112) - Async clock 1 */
 	{ 0x00000113, 0x0011 }, /* R275 (0x113) - Async sample rate 1 */
 	{ 0x00000114, 0x0011 }, /* R276 (0x114) - Async sample rate 2 */
-	{ 0x00000120, 0x0305 },
+	{ 0x00000120, 0x0404 },
 	{ 0x00000122, 0x0000 },
 	{ 0x00000149, 0x0000 }, /* R329 (0x149) - Output system clock */
 	{ 0x0000014a, 0x0000 }, /* R330 (0x14A) - Output async clock */
@@ -201,6 +238,7 @@ static const struct reg_default moon_reg_default[] = {
 	{ 0x00000177, 0x0281 }, /* R375 (0x177) - FLL1 Loop Filter Test 1 */
 	{ 0x00000178, 0x0000 },
 	{ 0x00000179, 0x0000 }, /* R377 (0x179) - FLL1 Control 7 */
+	{ 0x0000017a, 0x2906 }, /* R377 (0x17A) - FLL1 Efs 2 */
 	{ 0x00000181, 0x0000 }, /* R385 (0x181) - FLL1 Synchroniser 1 */
 	{ 0x00000182, 0x0000 }, /* R386 (0x182) - FLL1 Synchroniser 2 */
 	{ 0x00000183, 0x0000 }, /* R387 (0x183) - FLL1 Synchroniser 3 */
@@ -219,6 +257,7 @@ static const struct reg_default moon_reg_default[] = {
 	{ 0x00000197, 0x0281 }, /* R407 (0x197) - FLL2 Loop Filter Test 1 */
 	{ 0x00000198, 0x0000 },
 	{ 0x00000199, 0x0000 }, /* R409 (0x199) - FLL2 Control 7 */
+	{ 0x0000019a, 0x2906 }, /* R410 (0x19A) - FLL2 Efs 2 */
 	{ 0x000001a1, 0x0000 }, /* R417 (0x1A1) - FLL2 Synchroniser 1 */
 	{ 0x000001a2, 0x0000 }, /* R418 (0x1A2) - FLL2 Synchroniser 2 */
 	{ 0x000001a3, 0x0000 }, /* R419 (0x1A3) - FLL2 Synchroniser 3 */
@@ -750,6 +789,10 @@ static const struct reg_default moon_reg_default[] = {
 	{ 0x000007fd, 0x0080 },
 	{ 0x000007fe, 0x0000 },
 	{ 0x000007ff, 0x0080 },
+	{ 0x00000800, 0x0000 },
+	{ 0x00000801, 0x0080 },
+	{ 0x00000808, 0x0000 },
+	{ 0x00000809, 0x0080 },
 	{ 0x00000880, 0x0000 },
 	{ 0x00000881, 0x0080 },
 	{ 0x00000882, 0x0000 },
@@ -1161,7 +1204,6 @@ static const struct reg_default moon_reg_default[] = {
 	{ 0x00000ef9, 0x0000 }, /* R3833  - ISRC 4 CTRL 1 */
 	{ 0x00000efa, 0x0001 }, /* R3834  - ISRC 4 CTRL 2 */
 	{ 0x00000efb, 0x0000 }, /* R3835  - ISRC 4 CTRL 3 */
-	{ 0x00000f00, 0x0000 }, /* R3840 (0xF00) - Clock Control */
 	{ 0x00000F01, 0x0000 }, /* R3841  - ANC_SRC */
 	{ 0x00000F02, 0x0000 }, /* R3842  - Arizona DSP Status */
 	{ 0x00000F08, 0x001c }, /* R3848  - ANC Coefficient */
@@ -1343,16 +1385,16 @@ static const struct reg_default moon_reg_default[] = {
 	{ 0x00000FC3, 0x0000 }, /* R4035  - ANC Coefficient */
 	{ 0x00000FC4, 0x0000 }, /* R4036  - ANC Coefficient */
 	{ 0x00000FC5, 0x0000 }, /* R4037  - ANC Coefficient */
-	{ 0x00001300, 0x0000 }, /* R4864  - DAC Comp 1 */
-	{ 0x00001302, 0x0000 }, /* R4866  - DAC Comp 2 */
-	{ 0x00001380, 0x0000 },
-	{ 0x00001381, 0x0000 },
-	{ 0x00001382, 0x0000 },
-	{ 0x00001383, 0x0000 },
-	{ 0x00001390, 0x0000 },
-	{ 0x00001391, 0x0000 },
-	{ 0x00001392, 0x0000 },
-	{ 0x00001393, 0x0000 },
+	{ 0x00001300, 0x050E }, /* R4864  - DAC Comp 1 */
+	{ 0x00001302, 0x0101 }, /* R4866  - DAC Comp 2 */
+	{ 0x00001380, 0x0425 },
+	{ 0x00001381, 0xF6D8 },
+	{ 0x00001382, 0x0632 },
+	{ 0x00001383, 0xFEC8 },
+	{ 0x00001390, 0x042F },
+	{ 0x00001391, 0xF6CA },
+	{ 0x00001392, 0x0637 },
+	{ 0x00001393, 0xFEC8 },
 	{ 0x000013a0, 0x0000 },
 	{ 0x000013a1, 0x0000 },
 	{ 0x000013a2, 0x0000 },
@@ -1401,81 +1443,43 @@ static const struct reg_default moon_reg_default[] = {
 	{ 0x000014AA, 0x0000 },
 	{ 0x000014AC, 0x1F00 },
 	{ 0x000014AE, 0x1F00 }, /*R5294  -  DFC8_TX */
-	{ 0x00001700, 0x2001 }, /* R5888  - GPIO1 Control 1 */
 	{ 0x00001701, 0xF000 }, /* R5889  - GPIO1 Control 2 */
-	{ 0x00001702, 0x2001 }, /* R5890  - GPIO2 Control 1 */
 	{ 0x00001703, 0xF000 }, /* R5891  - GPIO2 Control 2 */
-	{ 0x00001704, 0x2001 }, /* R5892  - GPIO3 Control 1 */
 	{ 0x00001705, 0xF000 }, /* R5893  - GPIO3 Control 2 */
-	{ 0x00001706, 0x2001 }, /* R5894  - GPIO4 Control 1 */
 	{ 0x00001707, 0xF000 }, /* R5895  - GPIO4 Control 2 */
-	{ 0x00001708, 0x2001 }, /* R5896  - GPIO5 Control 1 */
 	{ 0x00001709, 0xF000 }, /* R5897  - GPIO5 Control 2 */
-	{ 0x0000170A, 0x2001 }, /* R5898  - GPIO6 Control 1 */
 	{ 0x0000170B, 0xF000 }, /* R5899  - GPIO6 Control 2 */
-	{ 0x0000170C, 0x2001 }, /* R5900  - GPIO7 Control 1 */
 	{ 0x0000170D, 0xF000 }, /* R5901  - GPIO7 Control 2 */
-	{ 0x0000170E, 0x2001 }, /* R5902  - GPIO8 Control 1 */
 	{ 0x0000170F, 0xF000 }, /* R5903  - GPIO8 Control 2 */
-	{ 0x00001710, 0x2001 }, /* R5904  - GPIO9 Control 1 */
 	{ 0x00001711, 0xF000 }, /* R5905  - GPIO9 Control 2 */
-	{ 0x00001712, 0x2001 }, /* R5906  - GPIO10 Control 1 */
 	{ 0x00001713, 0xF000 }, /* R5907  - GPIO10 Control 2 */
-	{ 0x00001714, 0x2001 }, /* R5908  - GPIO11 Control 1 */
 	{ 0x00001715, 0xF000 }, /* R5909  - GPIO11 Control 2 */
-	{ 0x00001716, 0x2001 }, /* R5910  - GPIO12 Control 1 */
 	{ 0x00001717, 0xF000 }, /* R5911  - GPIO12 Control 2 */
-	{ 0x00001718, 0x2001 }, /* R5912  - GPIO13 Control 1 */
 	{ 0x00001719, 0xF000 }, /* R5913  - GPIO13 Control 2 */
-	{ 0x0000171A, 0x2001 }, /* R5914  - GPIO14 Control 1 */
 	{ 0x0000171B, 0xF000 }, /* R5915  - GPIO14 Control 2 */
-	{ 0x0000171C, 0x2001 }, /* R5916  - GPIO15 Control 1 */
 	{ 0x0000171D, 0xF000 }, /* R5917  - GPIO15 Control 2 */
-	{ 0x0000171E, 0x2001 }, /* R5918  - GPIO16 Control 1 */
 	{ 0x0000171F, 0xF000 }, /* R5919  - GPIO16 Control 2 */
-	{ 0x00001720, 0x2001 }, /* R5920  - GPIO17 Control 1 */
 	{ 0x00001721, 0xF000 }, /* R5921  - GPIO17 Control 2 */
-	{ 0x00001722, 0x2001 }, /* R5922  - GPIO18 Control 1 */
 	{ 0x00001723, 0xF000 }, /* R5923  - GPIO18 Control 2 */
-	{ 0x00001724, 0x2001 }, /* R5924  - GPIO19 Control 1 */
 	{ 0x00001725, 0xF000 }, /* R5925  - GPIO19 Control 2 */
-	{ 0x00001726, 0x2001 }, /* R5926  - GPIO20 Control 1 */
 	{ 0x00001727, 0xF000 }, /* R5927  - GPIO20 Control 2 */
-	{ 0x00001728, 0x2001 }, /* R5928  - GPIO21 Control 1 */
 	{ 0x00001729, 0xF000 }, /* R5929  - GPIO21 Control 2 */
-	{ 0x0000172A, 0x2001 }, /* R5930  - GPIO22 Control 1 */
 	{ 0x0000172B, 0xF000 }, /* R5931  - GPIO22 Control 2 */
-	{ 0x0000172C, 0x2001 }, /* R5932  - GPIO23 Control 1 */
 	{ 0x0000172D, 0xF000 }, /* R5933  - GPIO23 Control 2 */
-	{ 0x0000172E, 0x2001 }, /* R5934  - GPIO24 Control 1 */
 	{ 0x0000172F, 0xF000 }, /* R5935  - GPIO24 Control 2 */
-	{ 0x00001730, 0x2001 }, /* R5936  - GPIO25 Control 1 */
 	{ 0x00001731, 0xF000 }, /* R5937  - GPIO25 Control 2 */
-	{ 0x00001732, 0x2001 }, /* R5938  - GPIO26 Control 1 */
 	{ 0x00001733, 0xF000 }, /* R5939  - GPIO26 Control 2 */
-	{ 0x00001734, 0x2001 }, /* R5940  - GPIO27 Control 1 */
 	{ 0x00001735, 0xF000 }, /* R5941  - GPIO27 Control 2 */
-	{ 0x00001736, 0x2001 }, /* R5942  - GPIO28 Control 1 */
 	{ 0x00001737, 0xF000 }, /* R5943  - GPIO28 Control 2 */
-	{ 0x00001738, 0x2001 }, /* R5944  - GPIO29 Control 1 */
 	{ 0x00001739, 0xF000 }, /* R5945  - GPIO29 Control 2 */
-	{ 0x0000173A, 0x2001 }, /* R5946  - GPIO30 Control 1 */
 	{ 0x0000173B, 0xF000 }, /* R5947  - GPIO30 Control 2 */
-	{ 0x0000173C, 0x2001 }, /* R5948  - GPIO31 Control 1 */
 	{ 0x0000173D, 0xF000 }, /* R5949  - GPIO31 Control 2 */
-	{ 0x0000173E, 0x2001 }, /* R5950  - GPIO32 Control 1 */
 	{ 0x0000173F, 0xF000 }, /* R5951  - GPIO32 Control 2 */
-	{ 0x00001740, 0x2001 }, /* R5952  - GPIO33 Control 1 */
 	{ 0x00001741, 0xF000 }, /* R5953  - GPIO33 Control 2 */
-	{ 0x00001742, 0x2001 }, /* R5954  - GPIO34 Control 1 */
 	{ 0x00001743, 0xF000 }, /* R5955  - GPIO34 Control 2 */
-	{ 0x00001744, 0x2001 }, /* R5956  - GPIO35 Control 1 */
 	{ 0x00001745, 0xF000 }, /* R5957  - GPIO35 Control 2 */
-	{ 0x00001746, 0x2001 }, /* R5958  - GPIO36 Control 1 */
 	{ 0x00001747, 0xF000 }, /* R5959  - GPIO36 Control 2 */
-	{ 0x00001748, 0x2001 }, /* R5960  - GPIO37 Control 1 */
 	{ 0x00001749, 0xF000 }, /* R5961  - GPIO37 Control 2 */
-	{ 0x0000174A, 0x2001 }, /* R5962  - GPIO38 Control 1 */
 	{ 0x0000174B, 0xF000 }, /* R5963  - GPIO38 Control 2 */
 	{ 0x00001802, 0x0000 },
 	{ 0x00001803, 0x0000 },
@@ -1630,6 +1634,7 @@ static bool moon_16bit_readable_register(struct device *dev, unsigned int reg)
 	case ARIZONA_FLL1_CONTROL_5:
 	case ARIZONA_FLL1_CONTROL_6:
 	case ARIZONA_FLL1_CONTROL_7:
+	case ARIZONA_FLL1_EFS_2:
 	case ARIZONA_FLL1_LOOP_FILTER_TEST_1:
 	case ARIZONA_FLL1_NCO_TEST_0:
 	case ARIZONA_FLL1_SYNCHRONISER_1:
@@ -1648,6 +1653,7 @@ static bool moon_16bit_readable_register(struct device *dev, unsigned int reg)
 	case ARIZONA_FLL2_CONTROL_5:
 	case ARIZONA_FLL2_CONTROL_6:
 	case ARIZONA_FLL2_CONTROL_7:
+	case ARIZONA_FLL2_EFS_2:
 	case ARIZONA_FLL2_LOOP_FILTER_TEST_1:
 	case ARIZONA_FLL2_NCO_TEST_0:
 	case ARIZONA_FLL2_SYNCHRONISER_1:
@@ -2202,6 +2208,10 @@ static bool moon_16bit_readable_register(struct device *dev, unsigned int reg)
 	case ARIZONA_SLIMTX8MIX_INPUT_3_VOLUME:
 	case ARIZONA_SLIMTX8MIX_INPUT_4_SOURCE:
 	case ARIZONA_SLIMTX8MIX_INPUT_4_VOLUME:
+	case ARIZONA_SPDIFTX1MIX_INPUT_1_SOURCE:
+	case ARIZONA_SPDIFTX1MIX_INPUT_1_VOLUME:
+	case ARIZONA_SPDIFTX2MIX_INPUT_1_SOURCE:
+	case ARIZONA_SPDIFTX2MIX_INPUT_1_VOLUME:
 	case ARIZONA_EQ1MIX_INPUT_1_SOURCE:
 	case ARIZONA_EQ1MIX_INPUT_1_VOLUME:
 	case ARIZONA_EQ1MIX_INPUT_2_SOURCE:
@@ -2793,6 +2803,7 @@ static bool moon_16bit_readable_register(struct device *dev, unsigned int reg)
 	case CLEARWATER_IRQ1_STATUS_30:
 	case CLEARWATER_IRQ1_STATUS_31:
 	case CLEARWATER_IRQ1_STATUS_32:
+	case MOON_IRQ1_STATUS_33:
 	case CLEARWATER_IRQ1_MASK_1:
 	case CLEARWATER_IRQ1_MASK_2:
 	case CLEARWATER_IRQ1_MASK_3:
@@ -2851,7 +2862,6 @@ static bool moon_16bit_readable_register(struct device *dev, unsigned int reg)
 	case CLEARWATER_IRQ2_RAW_STATUS_9:
 	case CLEARWATER_INTERRUPT_DEBOUNCE_7:
 	case CLEARWATER_IRQ1_CTRL:
-	case MOON_IRQ1_STATUS_33:
 		return true;
 	default:
 		return false;
@@ -2893,27 +2903,75 @@ static bool moon_16bit_volatile_register(struct device *dev, unsigned int reg)
 	case ARIZONA_FX_CTRL2:
 	case CLEARWATER_ASRC2_STATUS:
 	case CLEARWATER_ASRC1_STATUS:
+	case ARIZONA_CLOCK_CONTROL:
 	case MOON_DFC_STATUS:
+	case CLEARWATER_GPIO1_CTRL_1:
+	case CLEARWATER_GPIO2_CTRL_1:
+	case CLEARWATER_GPIO3_CTRL_1:
+	case CLEARWATER_GPIO4_CTRL_1:
+	case CLEARWATER_GPIO5_CTRL_1:
+	case CLEARWATER_GPIO6_CTRL_1:
+	case CLEARWATER_GPIO7_CTRL_1:
+	case CLEARWATER_GPIO8_CTRL_1:
+	case CLEARWATER_GPIO9_CTRL_1:
+	case CLEARWATER_GPIO10_CTRL_1:
+	case CLEARWATER_GPIO11_CTRL_1:
+	case CLEARWATER_GPIO12_CTRL_1:
+	case CLEARWATER_GPIO13_CTRL_1:
+	case CLEARWATER_GPIO14_CTRL_1:
+	case CLEARWATER_GPIO15_CTRL_1:
+	case CLEARWATER_GPIO16_CTRL_1:
+	case CLEARWATER_GPIO17_CTRL_1:
+	case CLEARWATER_GPIO18_CTRL_1:
+	case CLEARWATER_GPIO19_CTRL_1:
+	case CLEARWATER_GPIO20_CTRL_1:
+	case CLEARWATER_GPIO21_CTRL_1:
+	case CLEARWATER_GPIO22_CTRL_1:
+	case CLEARWATER_GPIO23_CTRL_1:
+	case CLEARWATER_GPIO24_CTRL_1:
+	case CLEARWATER_GPIO25_CTRL_1:
+	case CLEARWATER_GPIO26_CTRL_1:
+	case CLEARWATER_GPIO27_CTRL_1:
+	case CLEARWATER_GPIO28_CTRL_1:
+	case CLEARWATER_GPIO29_CTRL_1:
+	case CLEARWATER_GPIO30_CTRL_1:
+	case CLEARWATER_GPIO31_CTRL_1:
+	case CLEARWATER_GPIO32_CTRL_1:
+	case CLEARWATER_GPIO33_CTRL_1:
+	case CLEARWATER_GPIO34_CTRL_1:
+	case CLEARWATER_GPIO35_CTRL_1:
+	case CLEARWATER_GPIO36_CTRL_1:
+	case CLEARWATER_GPIO37_CTRL_1:
+	case CLEARWATER_GPIO38_CTRL_1:
 	case CLEARWATER_IRQ1_STATUS_1:
 	case CLEARWATER_IRQ1_STATUS_2:
+	case CLEARWATER_IRQ1_STATUS_3:
+	case CLEARWATER_IRQ1_STATUS_4:
+	case CLEARWATER_IRQ1_STATUS_5:
 	case CLEARWATER_IRQ1_STATUS_6:
 	case CLEARWATER_IRQ1_STATUS_7:
+	case CLEARWATER_IRQ1_STATUS_8:
 	case CLEARWATER_IRQ1_STATUS_9:
+	case CLEARWATER_IRQ1_STATUS_10:
 	case CLEARWATER_IRQ1_STATUS_11:
 	case CLEARWATER_IRQ1_STATUS_12:
 	case CLEARWATER_IRQ1_STATUS_13:
 	case CLEARWATER_IRQ1_STATUS_14:
 	case CLEARWATER_IRQ1_STATUS_15:
+	case CLEARWATER_IRQ1_STATUS_16:
 	case CLEARWATER_IRQ1_STATUS_17:
 	case CLEARWATER_IRQ1_STATUS_18:
 	case CLEARWATER_IRQ1_STATUS_19:
+	case CLEARWATER_IRQ1_STATUS_20:
 	case CLEARWATER_IRQ1_STATUS_21:
 	case CLEARWATER_IRQ1_STATUS_22:
 	case CLEARWATER_IRQ1_STATUS_23:
 	case CLEARWATER_IRQ1_STATUS_24:
 	case CLEARWATER_IRQ1_STATUS_25:
+	case CLEARWATER_IRQ1_STATUS_26:
 	case CLEARWATER_IRQ1_STATUS_27:
 	case CLEARWATER_IRQ1_STATUS_28:
+	case CLEARWATER_IRQ1_STATUS_29:
 	case CLEARWATER_IRQ1_STATUS_30:
 	case CLEARWATER_IRQ1_STATUS_31:
 	case CLEARWATER_IRQ1_STATUS_32:
@@ -2950,7 +3008,7 @@ static bool moon_32bit_readable_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
 	case ARIZONA_WSEQ_SEQUENCE_1 ... ARIZONA_WSEQ_SEQUENCE_508:
-	case CLEARWATER_OTP_HPDET_CALIB_1 ... CLEARWATER_OTP_HPDET_CALIB_2:
+	case MOON_OTP_HPDET_CALIB_1 ... MOON_OTP_HPDET_CALIB_2:
 	case CLEARWATER_DSP1_CONFIG ... MOON_DSP1_PMEM_ERR_ADDR_XMEM_ERR_ADDR:
 	case CLEARWATER_DSP2_CONFIG ... MOON_DSP2_PMEM_ERR_ADDR_XMEM_ERR_ADDR:
 	case CLEARWATER_DSP3_CONFIG ... MOON_DSP3_PMEM_ERR_ADDR_XMEM_ERR_ADDR:
@@ -2968,7 +3026,7 @@ static bool moon_32bit_volatile_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
 	case ARIZONA_WSEQ_SEQUENCE_1 ... ARIZONA_WSEQ_SEQUENCE_508:
-	case CLEARWATER_OTP_HPDET_CALIB_1 ... CLEARWATER_OTP_HPDET_CALIB_2:
+	case MOON_OTP_HPDET_CALIB_1 ... MOON_OTP_HPDET_CALIB_2:
 	case CLEARWATER_DSP1_CONFIG ... MOON_DSP1_PMEM_ERR_ADDR_XMEM_ERR_ADDR:
 	case CLEARWATER_DSP2_CONFIG ... MOON_DSP2_PMEM_ERR_ADDR_XMEM_ERR_ADDR:
 	case CLEARWATER_DSP3_CONFIG ... MOON_DSP3_PMEM_ERR_ADDR_XMEM_ERR_ADDR:

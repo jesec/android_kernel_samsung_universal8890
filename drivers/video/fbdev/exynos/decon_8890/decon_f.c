@@ -188,8 +188,10 @@ void decon_f_set_clocks(struct decon_device *decon)
 	decon_clk_set_rate(dev, decon->res.vclk_leaf,
 			NULL, clks.decon[CLK_ID_VCLK] * MHZ);
 
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	decon->vclk_factor = clk_get_rate(decon->res.vclk_leaf) *
 		DECON_PIX_PER_CLK / MHZ;
+#endif
 
 	/* ECLK */
 	decon_clk_set_rate(dev, decon->res.eclk,

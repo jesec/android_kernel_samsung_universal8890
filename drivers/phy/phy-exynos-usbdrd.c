@@ -416,19 +416,19 @@ static void exynos_usbdrd_fill_sstune(struct exynos_usbdrd_phy *phy_drd,
 	switch (phy_drd->drv_data->cpu_type) {
 	case TYPE_EXYNOS8890:
 		if (phy_drd->drv_data->ip_type == TYPE_USB3DRD) {
-			ss_tune->tx_boost_level	= 0x2;
+			ss_tune->tx_boost_level	= 0x4;
 			ss_tune->tx_swing_level	= 0x1;
 			ss_tune->tx_swing_full	= 0x7F;
 			ss_tune->tx_swing_low	= 0x7F;
 			ss_tune->tx_deemphasis_mode	= 0x1;
-			ss_tune->tx_deemphasis_3p5db	= 0x20;
-			ss_tune->tx_deemphasis_6db	= 0x20;
+			ss_tune->tx_deemphasis_3p5db	= 0x18;
+			ss_tune->tx_deemphasis_6db	= 0x18;
 			ss_tune->enable_ssc	= 0x1; /* TRUE */
 			ss_tune->ssc_range	= 0x0;
 			ss_tune->los_bias	= 0x5;
 			ss_tune->los_mask_val	= 0x104;
 			ss_tune->enable_fixed_rxeq_mode	= 0x1;
-			ss_tune->fix_rxeq_value	= 0x3;
+			ss_tune->fix_rxeq_value	= 0x0;
 		}
 		break;
 	default:
@@ -588,8 +588,17 @@ static int exynos_usbdrd_phy_exit(struct phy *phy)
 static void exynos_usbdrd_pipe3_tune(struct exynos_usbdrd_phy *phy_drd,
 							int phy_state)
 {
+#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+	void __iomem *regs_base;
+	u32 param0_check;
+#endif
 	exynos_usbdrd_fill_hstune(phy_drd, phy_drd->usbphy_info.hs_tune);
-
+#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+			regs_base = phy_drd->usbphy_info.regs_base;
+			param0_check = readl(regs_base + EXYNOS_USBCON_PHYPARAM0);
+			dev_info(phy_drd->dev, "%s param0=0x%x+\n",
+						__func__, param0_check);
+#endif
 	if (phy_state >= OTG_STATE_A_IDLE) {
 		/* for host mode */
 		if (phy_drd->use_additional_tuning)
@@ -603,6 +612,11 @@ static void exynos_usbdrd_pipe3_tune(struct exynos_usbdrd_phy *phy_drd,
 
 		samsung_exynos_cal_usb3phy_tune_dev(&phy_drd->usbphy_info);
 	}
+#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+			param0_check = readl(regs_base + EXYNOS_USBCON_PHYPARAM0);
+			dev_info(phy_drd->dev, "%s param0=0x%x-\n",
+						__func__, param0_check);
+#endif
 
 	samsung_exynos_cal_usb3phy_late_enable(&phy_drd->usbphy_info);
 }

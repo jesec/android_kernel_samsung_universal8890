@@ -331,7 +331,7 @@ struct sc_wdt {
 };
 
 struct sc_csc {
-	unsigned int		csc_eq;
+	unsigned int	csc_eq;
 	bool			csc_range;
 };
 

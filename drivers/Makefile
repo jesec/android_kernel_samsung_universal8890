@@ -60,6 +60,9 @@ obj-$(CONFIG_CONNECTOR)		+= connector/
 obj-$(CONFIG_FB_I810)           += video/fbdev/i810/
 obj-$(CONFIG_FB_INTEL)          += video/fbdev/intelfb/
 
+obj-$(CONFIG_VBUS_NOTIFIER)	+= staging/samsung/sec_notifier/
+obj-$(CONFIG_USE_MUIC)      += muic/
+
 obj-$(CONFIG_PARPORT)		+= parport/
 obj-y				+= base/ block/ misc/ mfd/ nfc/
 obj-$(CONFIG_DMA_SHARED_BUFFER) += dma-buf/
@@ -143,6 +146,7 @@ obj-y				+= clk/
 
 obj-$(CONFIG_MAILBOX)		+= mailbox/
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
+obj-$(CONFIG_GPS_BCMxxxxx)	+= gps/
 obj-$(CONFIG_IOMMU_SUPPORT)	+= iommu/
 obj-$(CONFIG_REMOTEPROC)	+= remoteproc/
 obj-$(CONFIG_RPMSG)		+= rpmsg/
@@ -152,6 +156,11 @@ obj-$(CONFIG_VIRT_DRIVERS)	+= virt/
 obj-$(CONFIG_HYPERV)		+= hv/
 
 obj-$(CONFIG_PM_DEVFREQ)	+= devfreq/
+ifeq ($(CONFIG_BATTERY_SAMSUNG_V2), y)
+  obj-$(CONFIG_BATTERY_SAMSUNG)   += battery_v2/
+else
+  obj-$(CONFIG_BATTERY_SAMSUNG)   += battery/
+endif
 obj-$(CONFIG_EXTCON)		+= extcon/
 obj-$(CONFIG_MEMORY)		+= memory/
 obj-$(CONFIG_IIO)		+= iio/
@@ -164,3 +173,21 @@ obj-$(CONFIG_MCB)		+= mcb/
 obj-$(CONFIG_RAS)		+= ras/
 obj-$(CONFIG_THUNDERBOLT)	+= thunderbolt/
 obj-$(CONFIG_EXYNOS_BTS)	+= bts/
+
+# Mobicore driver
+obj-$(CONFIG_TRUSTONIC_TEE) += gud/
+
+# DS5 streamline
+obj-$(CONFIG_GATOR)		+= gator/
+
+#Sensorhub
+obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/
+
+# FINGERPRINT
+obj-$(CONFIG_SENSORS_FINGERPRINT)	+= fingerprint/
+
+# Motor
+obj-y                           += motor/
+
+# CCIC
+obj-y	+= ccic/

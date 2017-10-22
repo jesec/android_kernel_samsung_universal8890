@@ -66,6 +66,9 @@ struct exynos_dvfs_info {
 	unsigned int	boot_cpu_max_qos;
 	unsigned int	boot_cpu_min_qos_timeout;
 	unsigned int	boot_cpu_max_qos_timeout;
+#ifdef CONFIG_SEC_PM
+	unsigned int	jig_boot_cpu_max_qos;
+#endif
 	unsigned int    resume_freq;
 	int		boot_freq_idx;
 	int		*bus_table;
@@ -118,11 +121,6 @@ static inline void ipa_set_clamp(int cpu, unsigned int clamp_freq, unsigned int 
 #endif
 
 
-#if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
-int exynos_cpufreq_verify_possible_hotplug(unsigned int hcpu);
-#else
-static inline int exynos_cpufreq_verify_possible_hotplug(unsigned int hcpu) {return 0;}
-#endif
 /* interface for THERMAL */
 extern void exynos_thermal_throttle(void);
 extern void exynos_thermal_unthrottle(void);

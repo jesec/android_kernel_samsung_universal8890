@@ -109,6 +109,19 @@
 #define AUD_KFC_FREQ_NORM	(0)
 #define AUD_MIF_FREQ_NORM	(0)
 #define AUD_INT_FREQ_NORM	(0)
+#elif defined(CONFIG_SOC_EXYNOS8890)
+#define AUD_CPU_FREQ_UHQA	(0)
+#define AUD_KFC_FREQ_UHQA	(1040000)
+#define AUD_MIF_FREQ_UHQA	(413000)
+#define AUD_INT_FREQ_UHQA	(0)
+#define AUD_CPU_FREQ_HIGH	(0)
+#define AUD_KFC_FREQ_HIGH	(0)
+#define AUD_MIF_FREQ_HIGH	(500000)
+#define AUD_INT_FREQ_HIGH	(0)
+#define AUD_CPU_FREQ_NORM	(0)
+#define AUD_KFC_FREQ_NORM	(0)
+#define AUD_MIF_FREQ_NORM	(0)
+#define AUD_INT_FREQ_NORM	(0)
 #else
 #define AUD_CPU_FREQ_UHQA	(1000000)
 #define AUD_KFC_FREQ_UHQA	(1300000)
@@ -209,6 +222,26 @@ void lpass_disable_mif_status(bool on)
 	writel(val, lpass.regs + LPASS_MIF_POWER);
 }
 
+void lpass_mif_power_on(void)
+{
+	unsigned int timeout = 3000;
+
+	writel(0x2, lpass.regs + LPASS_MIF_POWER);
+	do {
+		mdelay(1);
+		timeout--;
+
+		if (readl(lpass.regs + LPASS_MIF_POWER) & 0x1)
+			break;
+
+	} while (timeout);
+
+	if (!timeout) {
+		pr_err("%s : LPASS driver failed to enable MIF\n",
+			__func__);
+	}
+}
+
 void lpass_inc_dram_usage_count(void)
 {
 	atomic_inc(&dram_usage_cnt);
@@ -232,6 +265,7 @@ bool lpass_i2s_master_mode(void)
 void update_cp_available(bool cpen)
 {
 	cp_available = cpen;
+	pr_info("%s: cp_available = %d\n", __func__, cp_available);
 }
 
 bool is_cp_aud_enabled(void)
@@ -339,7 +373,9 @@ void lpass_set_dma_intr(bool on)
 
 void lpass_dma_enable(bool on)
 {
-	spin_lock(&lpass.lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&lpass.lock, flags);
 	if (on) {
 		atomic_inc(&lpass.dma_use_cnt);
 		if (atomic_read(&lpass.dma_use_cnt) == 1)
@@ -349,14 +385,16 @@ void lpass_dma_enable(bool on)
 		if (atomic_read(&lpass.dma_use_cnt) == 0)
 			lpass_set_dma_intr(false);
 	}
-	spin_unlock(&lpass.lock);
+	spin_unlock_irqrestore(&lpass.lock, flags);
 }
 
 void ass_reset(int ip, int op)
 {
-	spin_lock(&lpass.lock);
+	unsigned long flags;
 
-	spin_unlock(&lpass.lock);
+	spin_lock_irqsave(&lpass.lock, flags);
+
+	spin_unlock_irqrestore(&lpass.lock, flags);
 }
 
 void lpass_reset(int ip, int op)
@@ -364,13 +402,14 @@ void lpass_reset(int ip, int op)
 	u32 reg, val;
 	u32 bit = 0;
 	void __iomem *regs;
+	unsigned long flags;
 
 	if (is_old_ass()) {
 		ass_reset(ip, op);
 		return;
 	}
 
-	spin_lock(&lpass.lock);
+	spin_lock_irqsave(&lpass.lock, flags);
 	regs = lpass.regs;
 	reg = LPASS_CORE_SW_RESET;
 	switch (ip) {
@@ -406,7 +445,7 @@ void lpass_reset(int ip, int op)
 		}
 		break;
 	default:
-		spin_unlock(&lpass.lock);
+		spin_unlock_irqrestore(&lpass.lock, flags);
 		pr_err("%s: wrong ip type %d!\n", __func__, ip);
 		return;
 	}
@@ -420,13 +459,13 @@ void lpass_reset(int ip, int op)
 		val |= bit;
 		break;
 	default:
-		spin_unlock(&lpass.lock);
+		spin_unlock_irqrestore(&lpass.lock, flags);
 		pr_err("%s: wrong op type %d!\n", __func__, op);
 		return;
 	}
 
 	writel(val, regs + reg);
-	spin_unlock(&lpass.lock);
+	spin_unlock_irqrestore(&lpass.lock, flags);
 }
 
 void lpass_reset_toggle(int ip)
@@ -643,6 +682,20 @@ static void lpass_release_pad(void)
 	/* Release PAD retention */
 	lpass_release_pad_reg();
 }
+
+#ifdef CONFIG_SOC_EXYNOS8890
+static int __attribute__((unused)) lpass_sysmmu_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token)
+{
+	if (lpass.mem && lpass.sram_fw_back) {
+		memcpy(lpass.sram_fw_back, lpass.mem, SRAM_SIZE);
+	} else {
+		pr_err("LPASS driver failed to save sram region \n");
+	}
+
+	return 0;
+}
+#endif
 
 static void ass_enable(void)
 {
@@ -1291,6 +1344,13 @@ static int lpass_probe(struct platform_device *pdev)
 #endif
 
 	exynos_pm_register_notifier(&lpass_lpa_nb);
+#ifdef CONFIG_SOC_EXYNOS8890
+	iovmm_set_fault_handler(&lpass.pdev->dev,
+				lpass_sysmmu_fault_handler, NULL);
+	lpass.sram_fw_back = kzalloc(SRAM_SIZE, GFP_KERNEL);
+	if (!lpass.sram_fw_back)
+		pr_err("LPASS driver failed to allocate memory for SRAM FW Backup\n");
+#endif
 
 	pr_info("%s: LPASS driver was registerd successfully\n", __func__);
 	return 0;
@@ -1314,6 +1374,9 @@ static int lpass_remove(struct platform_device *pdev)
 	iounmap(lpass.regs_s);
 #ifndef CONFIG_SOC_EXYNOS8890
 	iounmap(lpass.mem);
+#endif
+#ifdef CONFIG_SOC_EXYNOS8890
+	kfree(lpass.sram_fw_back);
 #endif
 	return 0;
 }

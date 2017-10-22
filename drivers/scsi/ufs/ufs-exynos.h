@@ -183,6 +183,8 @@ enum {
 #define CFG_AXPROT(type)	(ARPROTPRDT(type) | ARPROTDESC(type) | \
 				ARPROTDATA(type) | AWPROTDESC(type) | \
 				AWPROTDATA(type))
+#define SMU_ABORT(type)		((type & 0x2) >> 1)
+
 #define UFSPVERSION	0x01C
 #define UFSPRENCKEY0	0x020
 #define UFSPRENCKEY1	0x024

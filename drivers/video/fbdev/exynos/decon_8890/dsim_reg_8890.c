@@ -26,7 +26,7 @@
 #define DSIM_LP_RX_TIMEOUT		0xffff
 #define DSIM_MULTI_PACKET_CNT		0xffff
 #define DSIM_PLL_STABLE_TIME		0x13880
-#define DSIM_FIFOCTRL_THRESHOLD		0x20 /* 1 ~ 32 */
+#define DSIM_FIFOCTRL_THRESHOLD		0x0 /* 1 ~ 32 */
 
 /* If below values depend on panel. These values wil be move to panel file.
  * And these values are valid in case of video mode only. */
@@ -588,10 +588,10 @@ void dsim_reg_set_size_of_slice(u32 id, struct decon_lcd *lcd_info)
 		mask_23 = DSIM_SLICE23_SIZE_OF_SLICE3_MASK |
 			DSIM_SLICE23_SIZE_OF_SLICE2_MASK;
 	} else if (lcd_info->dsc_slice_num == 2 && lcd_info->dsc_cnt == 2) {
-		val_01 = DSIM_SLICE01_SIZE_OF_SLICE0(slice_w);
-		mask_01 = DSIM_SLICE01_SIZE_OF_SLICE0_MASK;
-		val_23 = DSIM_SLICE23_SIZE_OF_SLICE2(slice_w);
-		mask_23 = DSIM_SLICE23_SIZE_OF_SLICE2_MASK;
+		val_01 = DSIM_SLICE01_SIZE_OF_SLICE1(slice_w) |
+			DSIM_SLICE01_SIZE_OF_SLICE0(slice_w);
+		mask_01 = DSIM_SLICE01_SIZE_OF_SLICE1_MASK |
+			DSIM_SLICE01_SIZE_OF_SLICE0_MASK;
 	} else if (lcd_info->dsc_slice_num == 2 && lcd_info->dsc_cnt == 1) {
 		val_01 = DSIM_SLICE01_SIZE_OF_SLICE1(slice_w) |
 			DSIM_SLICE01_SIZE_OF_SLICE0(slice_w);
@@ -1145,7 +1145,6 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 		   then just return. */
 		ret = -EBUSY;
 	}
-
 	/* get byte clock */
 	clks->byte_clk = clks->hs_clk / 8;
 	dsim_dbg("byte clock is %u MHz\n", clks->byte_clk);
@@ -1195,6 +1194,7 @@ int dsim_reg_init(u32 id, struct decon_lcd *lcd_info, u32 data_lane_cnt, struct 
 	dsim_reg_set_bta_timeout(id);
 	dsim_reg_set_lpdr_timeout(id);
 	dsim_reg_set_hsync_timeout(id, 0x3f);
+
 	if (lcd_info->dsc_enabled) {
 		dsim_dbg("%s: dsc configuration is set\n", __func__);
 		dsim_reg_set_num_of_slice(id, lcd_info->dsc_slice_num);

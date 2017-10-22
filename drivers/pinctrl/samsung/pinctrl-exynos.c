@@ -33,6 +33,10 @@
 #include "pinctrl-samsung.h"
 #include "pinctrl-exynos.h"
 
+#ifdef CONFIG_SEC_FACTORY
+#undef CONFIG_ESE_SECURE
+#endif
+
 struct exynos_irq_chip {
 	struct irq_chip chip;
 
@@ -548,6 +552,10 @@ static int exynos_eint_wkup_init(struct samsung_pinctrl_drv_data *d)
 	for (i = 0; i < d->ctrl->nr_banks; ++i, ++bank) {
 		if (bank->eint_type != EINT_TYPE_WKUP)
 			continue;
+
+		/* Setting Digital Filter */
+		exynos_eint_flt_config(EXYNOS_EINT_FLTCON_EN,
+					EXYNOS_EINT_FLTCON_SEL, 0, d, bank);
 
 		/* Setting Digital Filter */
 		exynos_eint_flt_config(EXYNOS_EINT_FLTCON_EN,
@@ -1353,17 +1361,21 @@ struct samsung_pin_ctrl exynos8890_pin_ctrl[] = {
 		/* pin-controller instance 3 ESE data */
 		.pin_banks	= exynos8890_pin_banks3,
 		.nr_banks	= ARRAY_SIZE(exynos8890_pin_banks3),
+#ifndef ENABLE_SENSORS_FPRINT_SECURE
 		.eint_gpio_init = exynos_eint_gpio_init,
 		.suspend	= exynos_pinctrl_suspend,
 		.resume		= exynos_pinctrl_resume,
+#endif
 		.label		= "exynos8890-gpio-ctrl3",
 	}, {
 		/* pin-controller instance 4 FP data */
 		.pin_banks	= exynos8890_pin_banks4,
 		.nr_banks	= ARRAY_SIZE(exynos8890_pin_banks4),
+#ifndef CONFIG_ESE_SECURE
 		.eint_gpio_init = exynos_eint_gpio_init,
 		.suspend	= exynos_pinctrl_suspend,
 		.resume		= exynos_pinctrl_resume,
+#endif
 		.label		= "exynos8890-gpio-ctrl4",
 	}, {
 		/* pin-controller instance 5 FSYS0 data */
@@ -1385,9 +1397,11 @@ struct samsung_pin_ctrl exynos8890_pin_ctrl[] = {
 		/* pin-controller instance 7 NFC data */
 		.pin_banks	= exynos8890_pin_banks7,
 		.nr_banks	= ARRAY_SIZE(exynos8890_pin_banks7),
+#ifndef CONFIG_MST_SECURE_GPIO
 		.eint_gpio_init = exynos_eint_gpio_init,
 		.suspend	= exynos_pinctrl_suspend,
 		.resume		= exynos_pinctrl_resume,
+#endif
 		.label		= "exynos8890-gpio-ctrl7",
 	}, {
 		/* pin-controller instance 8 PERIC0 data */
@@ -1416,6 +1430,20 @@ struct samsung_pin_ctrl exynos8890_pin_ctrl[] = {
 	},
 };
 
+#ifdef CONFIG_SEC_GPIO_DVS
+int exynos8890_secgpio_get_nr_gpio(void)
+{
+	int i, j;
+	int nr_gpio = 0;
+
+	for (i = 0; i < ARRAY_SIZE(exynos8890_pin_ctrl); i++) {
+		for(j = 0; j < exynos8890_pin_ctrl[i].nr_banks; j++)
+			nr_gpio += exynos8890_pin_ctrl[i].pin_banks[j].nr_pins;
+	}
+
+	return nr_gpio;
+}
+#endif
 #if defined(CONFIG_SOC_EXYNOS8890)
 u32 exynos_eint_to_pin_num(int eint)
 {

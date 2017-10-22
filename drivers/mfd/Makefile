@@ -42,14 +42,23 @@ obj-$(CONFIG_MFD_ARIZONA_SPI)	+= arizona-spi.o
 ifeq ($(CONFIG_MFD_WM5102),y)
 obj-$(CONFIG_MFD_ARIZONA)	+= wm5102-tables.o
 endif
-ifeq ($(CONFIG_MFD_WM5110),y)
-obj-$(CONFIG_MFD_ARIZONA)	+= wm5110-tables.o
+ifeq ($(CONFIG_MFD_FLORIDA),y)
+obj-$(CONFIG_MFD_ARIZONA)	+= florida-tables.o
 endif
 ifeq ($(CONFIG_MFD_WM8997),y)
 obj-$(CONFIG_MFD_ARIZONA)	+= wm8997-tables.o
 endif
+ifeq ($(CONFIG_MFD_VEGAS),y)
+obj-$(CONFIG_MFD_ARIZONA)	+= vegas-tables.o
+endif
 ifeq ($(CONFIG_MFD_CLEARWATER),y)
-obj-$(CONFIG_MFD_ARIZONA)       += clearwater-tables.o
+obj-$(CONFIG_MFD_ARIZONA)	+= clearwater-tables.o
+endif
+ifeq ($(CONFIG_MFD_MARLEY),y)
+obj-$(CONFIG_MFD_ARIZONA)	+= marley-tables.o
+endif
+ifeq ($(CONFIG_MFD_LARGO),y)
+obj-$(CONFIG_MFD_ARIZONA)	+= largo-tables.o
 endif
 ifeq ($(CONFIG_MFD_MOON), y)
 obj-$(CONFIG_MFD_ARIZONA)	+= moon-tables.o
@@ -123,6 +132,8 @@ obj-$(CONFIG_MFD_DA9063)	+= da9063.o
 obj-$(CONFIG_MFD_MAX14577)	+= max14577.o
 obj-$(CONFIG_MFD_MAX77686)	+= max77686.o
 obj-$(CONFIG_MFD_MAX77693)	+= max77693.o
+obj-$(CONFIG_MFD_MAX77833)	+= max77833.o max77833-irq.o
+obj-$(CONFIG_MFD_MAX77854)	+= max77854.o max77854-irq.o
 obj-$(CONFIG_MFD_MAX8907)	+= max8907.o
 max8925-objs			:= max8925-core.o max8925-i2c.o
 obj-$(CONFIG_MFD_MAX8925)	+= max8925.o

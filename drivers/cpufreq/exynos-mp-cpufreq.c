@@ -34,9 +34,17 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/apm-exynos.h>
+#ifdef CONFIG_MUIC_SUPPORT_CCIC
+#include <linux/of_gpio.h>
+#endif
 
 #include <asm/smp_plat.h>
 #include <asm/cputype.h>
+
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+#include <linux/muic/muic.h>
+#include <linux/muic/muic_notifier.h>
+#endif
 
 #include <soc/samsung/cpufreq.h>
 #include <soc/samsung/exynos-powermode.h>
@@ -45,11 +53,17 @@
 #include <soc/samsung/ect_parser.h>
 #include <soc/samsung/exynos-pmu.h>
 
+#if defined(CONFIG_KFAULT_AUTO_SUMMARY)
+#include <linux/sec_debug.h>
+#endif
+
 #define POWER_COEFF_15P		68 /* percore param */
 #define POWER_COEFF_7P		10 /* percore  param */
 
 #define VOLT_RANGE_STEP		25000
 #define CLUSTER_ID(cl)		(cl ? ID_CL1 : ID_CL0)
+
+#define LIMIT_FREQ_DIVIDER	4
 
 #ifdef CONFIG_SMP
 struct lpj_info {
@@ -80,6 +94,14 @@ static bool hmp_boosted = false;
 static bool cluster1_hotplugged = false;
 #endif
 
+#ifdef CONFIG_SW_SELF_DISCHARGING
+static int self_discharging;
+#endif
+
+#ifdef CONFIG_MUIC_SUPPORT_CCIC
+int jig_on;
+#endif
+
 /* Include CPU mask of each cluster */
 cluster_type exynos_boot_cluster;
 static cluster_type boot_cluster;
@@ -98,6 +120,9 @@ static struct pm_qos_request core_max_qos_real[CL_END];
 static struct pm_qos_request exynos_mif_qos[CL_END];
 static struct pm_qos_request ipa_max_qos[CL_END];
 static struct pm_qos_request reboot_max_qos[CL_END];
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+static struct pm_qos_request jig_boot_max_qos[CL_END];
+#endif
 
 static int qos_max_class[CL_END] = {PM_QOS_CLUSTER0_FREQ_MAX, PM_QOS_CLUSTER1_FREQ_MAX};
 static int qos_min_class[CL_END] = {PM_QOS_CLUSTER0_FREQ_MIN, PM_QOS_CLUSTER1_FREQ_MIN};
@@ -111,6 +136,14 @@ struct pm_qos_request cpufreq_cpu_hotplug_max_request;
  * CPUFREQ init notifier
  */
 static BLOCKING_NOTIFIER_HEAD(exynos_cpufreq_init_notifier_list);
+
+#if defined(CONFIG_KFAULT_AUTO_SUMMARY)
+static struct sec_debug_auto_comm_freq_info* auto_comm_cpufreq_info;
+void sec_debug_set_auto_comm_last_cpufreq_buf(struct sec_debug_auto_comm_freq_info* freq_info)
+{
+	auto_comm_cpufreq_info = freq_info;	
+}
+#endif
 
 int exynos_cpufreq_init_register_notifier(struct notifier_block *nb)
 {
@@ -218,32 +251,6 @@ static void exynos_cpufreq_verify_possible_freq(int *new_index)
 	/* change index and new_freq to possible value */
 	*new_index = exynos_info[CL_ONE]->max_support_idx_table[NR_CLUST1_CPUS - off_cnt];
 	freqs[CL_ONE]->new = exynos_info[CL_ONE]->freq_table[*new_index].frequency;
-}
-
-int exynos_cpufreq_verify_possible_hotplug(unsigned int hcpu)
-{
-	unsigned int possible_freq;
-	struct cpumask mask;
-
-	if (cpumask_test_cpu(hcpu, &hmp_slow_cpu_mask))
-		return 0;
-
-	if (!exynos_cpufreq_init_done)
-		return 0;
-
-	cpumask_and(&mask, cpu_online_mask, &hmp_fast_cpu_mask);
-	cpumask_or(&mask, cpumask_of(hcpu), &mask);
-	possible_freq = exynos_cpufreq_get_possible_max_freq(cpumask_weight(&mask));
-
-	if (freqs[CL_ONE]->old <= possible_freq)
-		return 0;
-
-	pr_err("Can't boot cpu (number of online core: %d -> %d, cur_freq: %d\n",
-		cpumask_weight(&mask), cpumask_weight(&mask) - 1, freqs[CL_ONE]->old);
-
-	BUG();
-
-	return -EINVAL;
 }
 #endif
 
@@ -989,7 +996,9 @@ static int __cpuinit exynos_cpufreq_cpu_down_notifier(struct notifier_block *not
 				if (cpumask_weight(&mask) == 1)
 					pm_qos_update_request(&boot_max_qos[cluster], freq_min[cluster]);
 			}
+			break;
 		case CPU_DOWN_PREPARE_FROZEN:
+		case CPU_DOWN_LATE_PREPARE:
 			mutex_lock(&cpufreq_lock);
 			exynos_info[CL_ZERO]->blocked = true;
 			exynos_info[CL_ONE]->blocked = true;
@@ -1335,7 +1344,7 @@ static ssize_t show_cpufreq_table(struct kobject *kobj,
 	for (i = 0; freq_table_cluster0[i].frequency != CPUFREQ_TABLE_END; i++) {
 		if (freq_table_cluster0[i].frequency != CPUFREQ_ENTRY_INVALID)
 			count += snprintf(&buf[count], pr_len, "%d ",
-					freq_table_cluster0[i].frequency / 2);
+					freq_table_cluster0[i].frequency / LIMIT_FREQ_DIVIDER);
 	}
 
 	count += snprintf(&buf[count - 1], 2, "\n");
@@ -1366,10 +1375,10 @@ static ssize_t show_cpufreq_min_limit(struct kobject *kobj,
 			cluster0_qos_min = freq_max[CL_ZERO];
 		if (cluster0_qos_min < freq_min[CL_ZERO])
 			cluster0_qos_min = freq_min[CL_ZERO];
-		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_min / 2);
+		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_min / LIMIT_FREQ_DIVIDER);
 	} else if (cluster0_qos_min == 0) {
 		cluster0_qos_min = freq_min[CL_ZERO];
-		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_min / 2);
+		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_min / LIMIT_FREQ_DIVIDER);
 	}
 
 	return nsize;
@@ -1412,7 +1421,7 @@ static ssize_t store_cpufreq_min_limit(struct kobject *kobj, struct attribute *a
 			cluster1_input = qos_min_default_value[CL_ONE];
 			cluster0_input = qos_min_default_value[CL_ZERO];
 		} else {
-			cluster0_input = cluster1_input * 2;
+			cluster0_input = cluster1_input * LIMIT_FREQ_DIVIDER;
 			if (cluster0_input > 0)
 				cluster0_input = min(cluster0_input, (int)freq_max[CL_ZERO]);
 			cluster1_input = qos_min_default_value[CL_ONE];
@@ -1445,10 +1454,10 @@ static ssize_t show_cpufreq_max_limit(struct kobject *kobj,
 			cluster0_qos_max = freq_min[CL_ZERO];
 		if (cluster0_qos_max > freq_max[CL_ZERO])
 			cluster0_qos_max = freq_max[CL_ZERO];
-		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_max / 2);
+		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_max / LIMIT_FREQ_DIVIDER);
 	} else if (cluster0_qos_max == 0) {
 		cluster0_qos_max = freq_min[CL_ZERO];
-		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_max / 2);
+		nsize = snprintf(buf, 10, "%u\n", cluster0_qos_max / LIMIT_FREQ_DIVIDER);
 	}
 
 	return nsize;
@@ -1490,7 +1499,7 @@ static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *a
 			cluster1_input = core_max_qos_const[CL_ONE].default_value;
 			cluster0_input = core_max_qos_const[CL_ZERO].default_value;
 		} else {
-			cluster0_input = cluster1_input * 2;
+			cluster0_input = cluster1_input * LIMIT_FREQ_DIVIDER;
 			if (cluster0_input > 0)
 				cluster0_input = max(cluster0_input, (int)freq_min[CL_ZERO]);
 			cluster1_input = qos_min_default_value[CL_ONE];
@@ -1506,6 +1515,34 @@ static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *a
 		pm_qos_update_request(&core_max_qos[CL_ONE], cluster1_input);
 	if (pm_qos_request_active(&core_max_qos[CL_ZERO]))
 		pm_qos_update_request(&core_max_qos[CL_ZERO], cluster0_input);
+
+	return count;
+}
+#endif
+
+#ifdef CONFIG_SW_SELF_DISCHARGING
+static ssize_t show_cpufreq_self_discharging(struct kobject *kobj,
+			     struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", self_discharging);
+}
+
+static ssize_t store_cpufreq_self_discharging(struct kobject *kobj, struct attribute *attr,
+			      const char *buf, size_t count)
+{
+	int input;
+
+	if (!sscanf(buf, "%d", &input))
+		return -EINVAL;
+
+	if (input > 0) {
+		self_discharging = input;
+		cpu_idle_poll_ctrl(true);
+	}
+	else {
+		self_discharging = 0;
+		cpu_idle_poll_ctrl(false);
+	}
 
 	return count;
 }
@@ -1668,6 +1705,12 @@ static struct global_attr cpufreq_min_limit =
 static struct global_attr cpufreq_max_limit =
 		__ATTR(cpufreq_max_limit, S_IRUGO | S_IWUSR,
 			show_cpufreq_max_limit, store_cpufreq_max_limit);
+#endif
+
+#ifdef CONFIG_SW_SELF_DISCHARGING
+static struct global_attr cpufreq_self_discharging =
+		__ATTR(cpufreq_self_discharging, S_IRUGO | S_IWUSR,
+			show_cpufreq_self_discharging, store_cpufreq_self_discharging);
 #endif
 
 /************************** sysfs end ************************/
@@ -1962,19 +2005,12 @@ static struct notifier_block exynos_cpufreq_policy_nb = {
 	.notifier_call = cpufreq_policy_notifier,
 };
 
-static int is_cpufreq_valid(int cpu)
-{
-	struct cpufreq_policy policy;
-
-	return (!cpufreq_get_policy(&policy, cpu) && policy.user_policy.governor);
-}
-
 static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
 				    unsigned long event, void *data)
 {
-	struct cpumask *cl1_mask = &cluster_cpus[CL_ONE];
-	unsigned int cpuid;
 	struct cpumask mask;
+	struct cpumask policy_update_mask;
+	unsigned long timeout;
 
 	switch (event) {
 	case CPUS_DOWN_COMPLETE:
@@ -1983,22 +2019,35 @@ static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
 		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
 		big_cpu_cnt = cpumask_weight(&mask);
 
-		for_each_cpu(cpuid, cl1_mask) {
-			if (is_cpufreq_valid(cpuid))
-				cpufreq_update_policy(cpuid);
+		/*
+		 * if policy_update_mask is 0, it means first hotplug in or last hotplug out
+		 * of fast_cpu domain
+		 */
+		cpumask_clear(&policy_update_mask);
+		cpumask_and(&policy_update_mask, &hmp_fast_cpu_mask, cpu_online_mask);
+		if (!cpumask_weight(&policy_update_mask))
+			return NOTIFY_OK;
+
+		/* if cpufreq_update_policy is failed after 50ms, cancel cpu_up */
+		timeout = jiffies + msecs_to_jiffies(50);
+		while(cpufreq_update_policy(cpumask_first(&policy_update_mask))
+							&& event == CPUS_UP_PREPARE) {
+			if (time_after(jiffies, timeout))
+				return NOTIFY_BAD;
 		}
 	}
 
 	if (event == CPUS_UP_PREPARE) {
 		mutex_lock(&cpufreq_lock);
-		mutex_unlock(&cpufreq_lock);
 
 		if (unlikely(freqs[CL_ONE]->old > exynos_cpufreq_get_possible_max_freq(big_cpu_cnt))) {
 			pr_err("frequency(%d) is higher than possible max frequency of big cpu cnt: %d\n",
 			freqs[CL_ONE]->old, big_cpu_cnt);
+			mutex_unlock(&cpufreq_lock);
 
 			return NOTIFY_BAD;
 		}
+		mutex_unlock(&cpufreq_lock);
 	}
 
 	return NOTIFY_OK;
@@ -2212,12 +2261,26 @@ static int exynos_cpufreq_init(void)
 	}
 #endif
 
+#ifdef CONFIG_SW_SELF_DISCHARGING
+	ret = sysfs_create_file(power_kobj, &cpufreq_self_discharging.attr);
+	if (ret) {
+		pr_err("%s: failed to create cpufreq_self_discharging sysfs interface\n", __func__);
+		goto err_cpufreq_self_discharging;
+	}
+#endif
+
 	exynos_cpufreq_init_done = true;
 	exynos_cpufreq_init_notify_call_chain(CPUFREQ_INIT_COMPLETE);
 
 	pr_info("%s: MP-CPUFreq Initialization Complete\n", __func__);
 	return 0;
 
+#ifdef CONFIG_SW_SELF_DISCHARGING
+err_cpufreq_self_discharging:
+#ifdef CONFIG_PM
+	sysfs_remove_file(power_kobj, &cpufreq_max_limit.attr);
+#endif
+#endif
 #ifdef CONFIG_PM
 err_cpufreq_max_limit:
 	sysfs_remove_file(power_kobj, &cpufreq_min_limit.attr);
@@ -2408,11 +2471,21 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 				&ptr->en_ema))
 		return -ENODEV;
 
+	if (cl == CL_ZERO) {
+		if (of_property_read_u32(np, "cl0_boost_freq", &ptr->boost_freq))
+			return -ENODEV;
+	}
+
 	if (cl == CL_ONE) {
 		if (of_property_read_u32(np, "cl1_en_smpl", &ptr->en_smpl))
 			return -ENODEV;
 		if (of_property_read_u32(np, "cl1_reboot_limit_freq", &ptr->reboot_limit_freq))
 			return -ENODEV;
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+		if (of_property_read_u32(np, "cl1_jig_boot_max_qos", &ptr->jig_boot_cpu_max_qos))
+			return -ENODEV;
+#endif
+
 #if defined(CONFIG_EXYNOS_BIG_FREQ_BOOST)
 		ptr->max_support_idx_table = kzalloc(sizeof(unsigned int)
 				* (NR_CLUST1_CPUS + 1), GFP_KERNEL);
@@ -2431,6 +2504,16 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 	if (of_property_read_string(np, (cl ? "cl1_dvfs_domain_name" : "cl0_dvfs_domain_name"),
 				&cluster_domain_name))
 		return -ENODEV;
+
+#ifdef CONFIG_MUIC_SUPPORT_CCIC
+	jig_on = of_get_named_gpio(np, "cpufreq,jig_on", 0);
+	if (jig_on < 0) {
+		pr_err("%s error reading jig_on = %d\n", __func__,jig_on);
+		jig_on = 0;
+	} else {
+		pr_info("%s use JIG ON gpio for detecting Jig cable(HWrev04 or later)\n", __func__);
+	}
+#endif
 
 #if defined(CONFIG_ECT)
 	not_using_ect = exynos_mp_cpufreq_parse_frequency((char *)cluster_domain_name, ptr);
@@ -2549,6 +2632,14 @@ static int exynos_mp_cpufreq_probe(struct platform_device *pdev)
 		}
 	}
 
+#if defined(CONFIG_KFAULT_AUTO_SUMMARY)
+	if(auto_comm_cpufreq_info) {
+		int offset = offsetof(struct cpufreq_freqs, new);
+		auto_comm_cpufreq_info[FREQ_INFO_CLD0].last_freq_info = virt_to_phys(freqs[CL_ZERO]) + offset;
+		auto_comm_cpufreq_info[FREQ_INFO_CLD0].last_freq_info = virt_to_phys(freqs[CL_ZERO]) + offset;
+	}
+#endif
+
 	return ret;
 
 err_init:
@@ -2641,6 +2732,13 @@ static int exynos_mp_cpufreq_remove(struct platform_device *pdev)
 
 	cpufreq_unregister_driver(&exynos_driver);
 
+#if defined(CONFIG_KFAULT_AUTO_SUMMARY)
+	if(auto_comm_cpufreq_info) {
+		auto_comm_cpufreq_info[FREQ_INFO_CLD0].last_freq_info = 0;
+		auto_comm_cpufreq_info[FREQ_INFO_CLD0].last_freq_info = 0;
+	}
+#endif
+
 	return 0;
 }
 
@@ -2675,6 +2773,75 @@ device_initcall(exynos_mp_cpufreq_init);
 #else
 late_initcall(exynos_mp_cpufreq_init);
 #endif
+
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+static struct notifier_block cpufreq_muic_nb;
+static bool jig_is_attached;
+
+static int exynos_cpufreq_muic_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	muic_attached_dev_t attached_dev = *(muic_attached_dev_t *)data;
+
+	switch (attached_dev) {
+	case ATTACHED_DEV_JIG_UART_OFF_MUIC:
+	case ATTACHED_DEV_JIG_UART_OFF_VB_MUIC:
+	case ATTACHED_DEV_JIG_UART_OFF_VB_OTG_MUIC:
+	case ATTACHED_DEV_JIG_UART_OFF_VB_FG_MUIC:
+		if (action == MUIC_NOTIFY_CMD_DETACH)
+			jig_is_attached = false;
+		else if (action == MUIC_NOTIFY_CMD_ATTACH)
+			jig_is_attached = true;
+		else
+			pr_err("%s - ACTION Error!\n", __func__);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static int __init exynos_cpufreq_late_init(void)
+{
+	cluster_type cluster;
+	unsigned long timeout = 500 * USEC_PER_SEC;
+
+#ifdef CONFIG_SEC_FACTORY
+	timeout = 100 * USEC_PER_SEC;
+#endif
+
+#ifdef CONFIG_MUIC_SUPPORT_CCIC
+	if(!jig_on || !gpio_get_value(jig_on))
+		return 0;
+#else
+	muic_notifier_register(&cpufreq_muic_nb,
+			exynos_cpufreq_muic_notifier, MUIC_NOTIFY_DEV_CPUFREQ);
+
+	if (!jig_is_attached)
+		return 0;
+#endif
+	pr_info("%s: JIG is attached: boot cpu qos %lu sec\n", __func__,
+			timeout / USEC_PER_SEC);
+
+	for (cluster = 0; cluster < CL_END; cluster++) {
+		if (!exynos_info[cluster]->jig_boot_cpu_max_qos)
+			exynos_info[cluster]->jig_boot_cpu_max_qos =
+				exynos_info[cluster]->boot_cpu_max_qos;
+
+		if (exynos_info[cluster]->jig_boot_cpu_max_qos)
+			pm_qos_add_request(&jig_boot_max_qos[cluster],
+					qos_max_class[cluster],
+					core_max_qos_const[cluster].default_value);
+			pm_qos_update_request_timeout(&jig_boot_max_qos[cluster],
+					exynos_info[cluster]->jig_boot_cpu_max_qos,
+					timeout);
+	}
+	return 0;
+}
+
+late_initcall(exynos_cpufreq_late_init);
+#endif /* CONFIG_SEC_PM && CONFIG_MUIC_NOTIFIER && CONFIG_MUIC_SUPPORT_CCIC is not defined */
 
 static void __exit exynos_mp_cpufreq_exit(void)
 {

@@ -44,6 +44,10 @@
 
 #include "../pinctrl/core.h"
 
+#ifdef CONFIG_SEC_FACTORY
+#undef CONFIG_ESE_SECURE
+#endif
+
 static LIST_HEAD(drvdata_list);
 
 #define MAX_SPI_PORTS		10
@@ -149,9 +153,13 @@ static LIST_HEAD(drvdata_list);
 #define TXBUSY    (1<<3)
 
 #define SPI_DBG_MODE (0x1 << 0)
-#define SD_INFO_PA			0x10000004
+#define SD_INFO_PA		(0x10000004)
 
 u32 fusing_bit;
+
+/* For Oberthur ese, to change spi pins pinctrl  */
+struct pinctrl_state *spi_pin_state[ESE_MAX_GPIO_STATE];
+struct pinctrl *spi_pinctrl;
 
 /**
  * struct s3c64xx_spi_info - SPI Controller hardware info
@@ -253,6 +261,27 @@ static void s3c64xx_spi_dump_reg(struct s3c64xx_spi_driver_data *sdd)
 				readl(regs + S3C64XX_SPI_PACKET_CNT));
 
 }
+
+/* For Oberthur ese, to change spi pins pinctrl  */
+int s3c64xx_spi_change_gpio(enum ese_gpio_state gpio_state)
+{
+	struct pinctrl_state *pins_state;
+	int status = 0;
+
+	pins_state = spi_pin_state[gpio_state];
+
+	if(!IS_ERR(pins_state)) {
+
+		status = pinctrl_select_state(spi_pinctrl, pins_state);
+		if (status) {
+			pr_err("%s could not set spi_pinctrl for ese p3.\n",__func__);
+			return -EFAULT;
+		}
+	}
+
+	return 0;
+}
+
 static void flush_fifo(struct s3c64xx_spi_driver_data *sdd)
 {
 	void __iomem *regs = sdd->regs;
@@ -810,7 +839,7 @@ static void s3c64xx_spi_config(struct s3c64xx_spi_driver_data *sdd)
 	}
 }
 
-#define XFER_DMAADDR_INVALID DMA_BIT_MASK(32)
+#define XFER_DMAADDR_INVALID DMA_BIT_MASK(36)
 
 static int s3c64xx_spi_map_mssg(struct s3c64xx_spi_driver_data *sdd,
 						struct spi_message *msg)
@@ -1147,6 +1176,16 @@ static int s3c64xx_spi_setup(struct spi_device *spi)
 		dev_err(&spi->dev, "No CS for SPI(%d)\n", spi->chip_select);
 		return -ENODEV;
 	}
+#ifdef ENABLE_SENSORS_FPRINT_SECURE
+	if (sdd->port_id == CONFIG_SENSORS_FP_SPI_NUMBER)
+		return 0;
+#endif
+#ifdef CONFIG_ESE_SECURE
+	if (sdd->port_id == CONFIG_ESE_SECURE_SPI_PORT) {
+		dev_err(&spi->dev, "%s.....(%d)\n",__func__, sdd->port_id);
+		return 0;
+	}
+#endif
 
 	if (!spi_get_ctldata(spi)) {
 		if(cs->line != 0) {
@@ -1315,6 +1354,14 @@ static void s3c64xx_spi_hwinit(struct s3c64xx_spi_driver_data *sdd, int channel)
 	void __iomem *regs = sdd->regs;
 	unsigned int val;
 
+#ifdef ENABLE_SENSORS_FPRINT_SECURE
+	if (channel == CONFIG_SENSORS_FP_SPI_NUMBER)
+		return;
+#endif
+#ifdef CONFIG_ESE_SECURE
+	if (channel == CONFIG_ESE_SECURE_SPI_PORT)
+		return;
+#endif
 	sdd->cur_speed = 0;
 
 	writel(S3C64XX_SPI_SLAVE_SIG_INACT, sdd->regs + S3C64XX_SPI_SLAVE_SEL);
@@ -1461,6 +1508,10 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	char clk_name[16];
 	int fifosize;
 	u32 __iomem	*fusing_bit_addr;
+
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(36));
+	if (ret)
+		return ret;
 
 	if (!sci && pdev->dev.of_node) {
 		sci = s3c64xx_spi_parse_dt(&pdev->dev);
@@ -1660,6 +1711,20 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 			sdd->port_id, sdd->port_conf->fifo_lvl_mask[sdd->port_id]);
 	}
 
+	/* For Oberthur ese, to change spi pins pinctrl  */
+	if (of_get_property(pdev->dev.of_node, "samsung,ese-oberthur", NULL)) {
+		dev_err(&pdev->dev, "p3 OT!!!\n");
+
+		spi_pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR(spi_pinctrl))
+			dev_err(&pdev->dev, "could not get SPI clock pinctrl of p3\n");
+
+		spi_pin_state[ESE_POWER_OFF] =
+			pinctrl_lookup_state(spi_pinctrl, "ese-pwoff");
+		spi_pin_state[ESE_DEFAULT] =
+			pinctrl_lookup_state(spi_pinctrl, "default");
+	}
+
 	/* Setup Deufult Mode */
 	s3c64xx_spi_hwinit(sdd, sdd->port_id);
 
@@ -1675,9 +1740,18 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		goto err3;
 	}
 
-	writel(S3C64XX_SPI_INT_RX_OVERRUN_EN | S3C64XX_SPI_INT_RX_UNDERRUN_EN |
-	       S3C64XX_SPI_INT_TX_OVERRUN_EN | S3C64XX_SPI_INT_TX_UNDERRUN_EN,
-	       sdd->regs + S3C64XX_SPI_INT_EN);
+	if (1
+#ifdef ENABLE_SENSORS_FPRINT_SECURE
+			&& (sdd->port_id != CONFIG_SENSORS_FP_SPI_NUMBER)
+#endif
+#ifdef CONFIG_ESE_SECURE
+			&& (sdd->port_id != CONFIG_ESE_SECURE_SPI_PORT)
+#endif
+	   ) {
+		writel(S3C64XX_SPI_INT_RX_OVERRUN_EN | S3C64XX_SPI_INT_RX_UNDERRUN_EN |
+				S3C64XX_SPI_INT_TX_OVERRUN_EN | S3C64XX_SPI_INT_TX_UNDERRUN_EN,
+				sdd->regs + S3C64XX_SPI_INT_EN);
+	}
 
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_mark_last_busy(&pdev->dev);

@@ -267,9 +267,9 @@ restart:
 		kstat_incr_softirqs_this_cpu(vec_nr);
 
 		trace_softirq_entry(vec_nr);
-		exynos_ss_irq(ESS_FLAG_SOFTIRQ, h->action, irqs_disabled(), ESS_FLAG_IN);
+		exynos_ss_irq(ESS_FLAG_SOFTIRQ, h->action, vec_nr, ESS_FLAG_IN);
 		h->action(h);
-		exynos_ss_irq(ESS_FLAG_SOFTIRQ, h->action, irqs_disabled(), ESS_FLAG_OUT);
+		exynos_ss_irq(ESS_FLAG_SOFTIRQ, h->action, local_softirq_pending(), ESS_FLAG_OUT);
 		trace_softirq_exit(vec_nr);
 		if (unlikely(prev_count != preempt_count())) {
 			pr_err("huh, entered softirq %u %s %p with preempt_count %08x, exited with %08x?\n",
@@ -502,10 +502,10 @@ static void tasklet_action(struct softirq_action *a)
 							&t->state))
 					BUG();
 				exynos_ss_irq(ESS_FLAG_SOFTIRQ_TASKLET,
-						t->func, irqs_disabled(), ESS_FLAG_IN);
+						t->func, t->state, ESS_FLAG_IN);
 				t->func(t->data);
 				exynos_ss_irq(ESS_FLAG_SOFTIRQ_TASKLET,
-						t->func, irqs_disabled(), ESS_FLAG_OUT);
+						t->func, local_softirq_pending(), ESS_FLAG_OUT);
 				tasklet_unlock(t);
 				continue;
 			}
@@ -542,10 +542,10 @@ static void tasklet_hi_action(struct softirq_action *a)
 							&t->state))
 					BUG();
 				exynos_ss_irq(ESS_FLAG_SOFTIRQ_HI_TASKLET,
-						t->func, irqs_disabled(), ESS_FLAG_IN);
+						t->func, t->state, ESS_FLAG_IN);
 				t->func(t->data);
 				exynos_ss_irq(ESS_FLAG_SOFTIRQ_HI_TASKLET,
-						t->func, irqs_disabled(), ESS_FLAG_OUT);
+						t->func, local_softirq_pending(), ESS_FLAG_OUT);
 				tasklet_unlock(t);
 				continue;
 			}

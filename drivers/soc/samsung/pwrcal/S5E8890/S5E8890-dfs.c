@@ -323,7 +323,7 @@ errorout:
 static unsigned long dfs_mif_get_rate(struct dfs_table *table)
 {
 	int l, m;
-	unsigned int cur[128];
+	unsigned int cur[128] = {0, };
 	unsigned long long rate;
 	struct pwrcal_clk *clk;
 	unsigned int aclk_mif_pll, sclk_bus_pll_mif;

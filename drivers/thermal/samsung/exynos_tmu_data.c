@@ -770,8 +770,9 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 	.emul_time_shift = EXYNOS_EMUL_TIME_SHIFT,
 };
 
-#define EXYNOS8890_TMU_DATA_MNGS \
-	.tmu_name = "MNGS",	\
+#define EXYNOS8890_TMU_DATA_MNGS_QUAD \
+	.tmu_name = "MNGS_QUAD",	\
+	.sensor_type = NORMAL_SENSOR,	\
 	.ect_hotplug_flag = 1,	\
 	.ect_hotplug_interval = 5,	\
 	.threshold_falling = 5, \
@@ -793,6 +794,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_APOLLO \
 	.tmu_name = "APOLLO",	\
+	.sensor_type = NORMAL_SENSOR,	\
 	.threshold_falling = 5, \
 	.temp_mask = TYPE_9BIT_MASK,	\
 	.gain = 5, \
@@ -812,6 +814,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_GPU \
 	.tmu_name = "GPU",	\
+	.sensor_type = NORMAL_SENSOR,	\
 	.threshold_falling = 5, \
 	.temp_mask = TYPE_9BIT_MASK,	\
 	.gain = 5, \
@@ -831,6 +834,7 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 
 #define EXYNOS8890_TMU_DATA_ISP \
 	.tmu_name = "ISP",	\
+	.sensor_type = NORMAL_SENSOR,	\
 	.threshold_falling = 5, \
 	.temp_mask = TYPE_9BIT_MASK,	\
 	.gain = 5, \
@@ -848,9 +852,30 @@ static const struct exynos_tmu_registers exynos8890_tmu_registers = {
 			TMU_SUPPORT_READY_STATUS | TMU_SUPPORT_EMUL_TIME | \
 			TMU_SUPPORT_FALLING_TRIP),
 
+#define EXYNOS8890_TMU_DATA_MNGS_DUAL \
+	.tmu_name = "MNGS_DUAL",	\
+	.sensor_type = VIRTUAL_SENSOR,	\
+	.ect_hotplug_flag = 1,	\
+	.ect_hotplug_interval = 5,	\
+	.threshold_falling = 5, \
+	.temp_mask = TYPE_9BIT_MASK,	\
+	.gain = 5, \
+	.reference_voltage = 16, \
+	.noise_cancel_mode = 4, \
+	.cal_type = TYPE_TWO_POINT_TRIMMING, \
+	.efuse_value = 50, \
+	.first_point_trim = 25, \
+	.second_point_trim = 85, \
+	.default_temp_offset = 25, \
+	.type = SOC_ARCH_EXYNOS8890, \
+	.d_type = CLUSTER1, \
+	.registers = &exynos8890_tmu_registers, \
+	.features = (TMU_SUPPORT_EMULATION | TMU_SUPPORT_TRIM_RELOAD | \
+			TMU_SUPPORT_EMUL_TIME | TMU_SUPPORT_FALLING_TRIP),
+
 struct exynos_tmu_init_data exynos8890_default_tmu_data = {
 	.tmu_data = {
-		{ EXYNOS8890_TMU_DATA_MNGS } ,
+		{ EXYNOS8890_TMU_DATA_MNGS_QUAD } ,
 		{ EXYNOS8890_TMU_DATA_APOLLO } ,
 		{ EXYNOS8890_TMU_DATA_GPU } ,
 		{ EXYNOS8890_TMU_DATA_ISP } ,

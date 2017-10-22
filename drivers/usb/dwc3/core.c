@@ -172,6 +172,7 @@ void dwc3_core_config(struct dwc3 *dwc)
 		reg &= ~DWC3_GUCTL_REFCLKPER_MASK;
 		reg |= DWC3_GUCTL_REFCLKPER(0x29);
 	}
+	reg |= DWC3_GUCTL_SPRSCTRLTRANSEN;
 	dwc3_writel(dwc->regs, DWC3_GUCTL, reg);
 	if (dwc->revision >= DWC3_REVISION_190A &&
 		dwc->revision <= DWC3_REVISION_210A) {

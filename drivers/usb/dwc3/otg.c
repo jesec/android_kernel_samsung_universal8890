@@ -231,6 +231,7 @@ static int dwc3_otg_start_host(struct otg_fsm *fsm, int on)
 			goto err2;
 		}
 	} else {
+		msleep(200);
 		platform_device_del(dwc->xhci);
 err2:
 		dwc3_core_exit(dwc);

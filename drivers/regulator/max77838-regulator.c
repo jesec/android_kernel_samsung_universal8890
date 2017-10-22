@@ -203,6 +203,11 @@ static int max77838_reg_hw_init(struct max77838_reg *max77838_reg,
 	reg = REG_UVLO_CFG1;
 	val = pdata->uvlo_fall_threshold<<M2SH(BIT_UVLO_F);
 	rc = regmap_write(max77838_reg->regmap, reg, val);
+	if (rc != 0)
+		return rc;
+	
+	rc = regmap_read(max77838_reg->regmap, reg, &val);
+	pr_info("UVLO_CFG = 0x%02x\n", val);
 
 	return rc;
 }
@@ -280,7 +285,7 @@ static struct max77838_regulator_platform_data *max77838_reg_parse_dt(struct dev
 	ret = of_property_read_u32(nproot, "uvlo-fall-threshold",
 					&pdata->uvlo_fall_threshold);
 	if (ret != 0)
-		pdata->uvlo_fall_threshold = 3;	/* 2.45V */
+		pdata->uvlo_fall_threshold = 0;	/* 2.3V */
 
 	return pdata;
 }

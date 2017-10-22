@@ -100,13 +100,13 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	/* Initialize dma_mask and coherent_dma_mask to 32-bits */
-	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(36));
 	if (ret)
 		return ret;
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 	else
-		dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+		dma_set_mask(&pdev->dev, DMA_BIT_MASK(36));
 
 	hcd = usb_create_hcd(driver, &pdev->dev, dev_name(&pdev->dev));
 	if (!hcd)
@@ -208,22 +208,6 @@ static int xhci_plat_remove(struct platform_device *dev)
 	struct usb_hcd	*hcd = platform_get_drvdata(dev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct clk *clk = xhci->clk;
-	int timeout = 0;
-
-	/*
-	 * Sometimes deadlock occurred in this function.
-	 * So, below waiting for completion of hub_event was added.
-	 */
-	while (xhci->shared_hcd->is_in_hub_event || hcd->is_in_hub_event) {
-		msleep(10);
-		timeout += 10;
-		if (timeout >= XHCI_HUB_EVENT_TIMEOUT) {
-			xhci_err(xhci,
-				"ERROR: hub_event completion timeout\n");
-			break;
-		}
-	}
-	xhci_dbg(xhci, "%s: waited %dmsec", __func__, timeout);
 
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_put_hcd(xhci->shared_hcd);

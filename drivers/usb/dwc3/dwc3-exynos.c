@@ -662,7 +662,7 @@ static int dwc3_exynos_probe(struct platform_device *pdev)
 	 * Since shared usb code relies on it, set it here for now.
 	 * Once we move to full device tree support this will vanish off.
 	 */
-	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(36));
 	if (ret)
 		return ret;
 
@@ -790,7 +790,11 @@ static int dwc3_exynos_runtime_suspend(struct device *dev)
 {
 	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
 
+#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+	dev_info(dev, "%s\n", __func__);
+#else
 	dev_dbg(dev, "%s\n", __func__);
+#endif
 
 	dwc3_exynos_clk_disable(exynos);
 
@@ -810,7 +814,11 @@ static int dwc3_exynos_runtime_resume(struct device *dev)
 	struct dwc3_exynos *exynos = dev_get_drvdata(dev);
 	int ret = 0;
 
+#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+	dev_info(dev, "%s\n", __func__);
+#else
 	dev_dbg(dev, "%s\n", __func__);
+#endif
 
 #ifdef CONFIG_PM_DEVFREQ
 	if (exynos->int_min_lock)

@@ -35,26 +35,38 @@
 
 #define FLORIDA_NUM_ADSP 4
 
-#define FLORIDA_DEFAULT_FRAGMENTS       1
-#define FLORIDA_DEFAULT_FRAGMENT_SIZE   4096
+/* Number of compressed DAI hookups, each pair of DSP and dummy CPU
+ * are counted as one DAI
+ */
+#define FLORIDA_NUM_COMPR_DAI 2
 
 struct florida_compr {
-	struct mutex lock;
-
-	struct snd_compr_stream *stream;
-	struct wm_adsp *adsp;
-
-	size_t total_copied;
-	bool allocated;
+	struct wm_adsp_compr adsp_compr;
+	const char *dai_name;
 	bool trig;
+	struct mutex trig_lock;
 };
 
 struct florida_priv {
 	struct arizona_priv core;
 	struct arizona_fll fll[2];
-	struct florida_compr compr_info;
+	struct florida_compr compr_info[FLORIDA_NUM_COMPR_DAI];
 
 	struct mutex fw_lock;
+};
+
+static const struct {
+	const char *dai_name;
+	int adsp_num;
+} compr_dai_mapping[FLORIDA_NUM_COMPR_DAI] = {
+	{
+		.dai_name = "florida-dsp-voicectrl",
+		.adsp_num = 2,
+	},
+	{
+		.dai_name = "florida-dsp-trace",
+		.adsp_num = 0,
+	},
 };
 
 static const struct wm_adsp_region florida_dsp1_regions[] = {
@@ -149,22 +161,6 @@ static const struct reg_default florida_sysclk_revd_patch[] = {
 };
 
 static const struct reg_default florida_sysclk_reve_patch[] = {
-	{ 0x325C, 0xE410 },
-	{ 0x325D, 0x3066 },
-	{ 0x325E, 0xE410 },
-	{ 0x325F, 0x3070 },
-	{ 0x3260, 0xE410 },
-	{ 0x3261, 0x3078 },
-	{ 0x3262, 0xE410 },
-	{ 0x3263, 0x3080 },
-	{ 0x3266, 0xE414 },
-	{ 0x3267, 0x3066 },
-	{ 0x3268, 0xE414 },
-	{ 0x3269, 0x3070 },
-	{ 0x326A, 0xE414 },
-	{ 0x326B, 0x3078 },
-	{ 0x326C, 0xE414 },
-	{ 0x326D, 0x3080 },
 	{ 0x3270, 0xE410 },
 	{ 0x3271, 0x3078 },
 	{ 0x3272, 0xE410 },
@@ -225,20 +221,306 @@ static int florida_adsp_power_ev(struct snd_soc_dapm_widget *w,
 				 int event)
 {
 	struct florida_priv *florida = snd_soc_codec_get_drvdata(w->codec);
+	struct snd_soc_codec *codec = w->codec;
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+	unsigned int v;
+	int ret;
+	int i;
+
+	ret = regmap_read(arizona->regmap, ARIZONA_SYSTEM_CLOCK_1, &v);
+	if (ret != 0) {
+		dev_err(codec->dev,
+			"Failed to read SYSCLK state: %d\n", ret);
+		return -EIO;
+	}
+
+	v = (v & ARIZONA_SYSCLK_FREQ_MASK) >> ARIZONA_SYSCLK_FREQ_SHIFT;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (w->shift == 2) {
-			mutex_lock(&florida->compr_info.lock);
-			florida->compr_info.trig = false;
-			mutex_unlock(&florida->compr_info.lock);
+		for (i = 0; i < ARRAY_SIZE(florida->compr_info); ++i) {
+			if (florida->compr_info[i].adsp_compr.dsp->num !=
+			    w->shift + 1)
+				continue;
+
+			mutex_lock(&florida->compr_info[i].trig_lock);
+			florida->compr_info[i].trig = false;
+			mutex_unlock(&florida->compr_info[i].trig_lock);
 		}
 		break;
 	default:
 		break;
 	}
 
-	return arizona_adsp_power_ev(w, kcontrol, event);
+	return wm_adsp2_early_event(w, kcontrol, event, v);
+}
+
+static const struct reg_sequence florida_no_dre_left_enable[] = {
+	{ 0x3024, 0xE410 },
+	{ 0x3025, 0x0056 },
+	{ 0x301B, 0x0224 },
+	{ 0x301F, 0x4263 },
+	{ 0x3021, 0x5291 },
+	{ 0x3030, 0xE410 },
+	{ 0x3031, 0x3066 },
+	{ 0x3032, 0xE410 },
+	{ 0x3033, 0x3070 },
+	{ 0x3034, 0xE410 },
+	{ 0x3035, 0x3078 },
+	{ 0x3036, 0xE410 },
+	{ 0x3037, 0x3080 },
+	{ 0x3038, 0xE410 },
+	{ 0x3039, 0x3080 },
+};
+
+static const struct reg_sequence florida_dre_left_enable[] = {
+	{ 0x3024, 0x0231 },
+	{ 0x3025, 0x0B00 },
+	{ 0x301B, 0x0227 },
+	{ 0x301F, 0x4266 },
+	{ 0x3021, 0x5294 },
+	{ 0x3030, 0xE231 },
+	{ 0x3031, 0x0266 },
+	{ 0x3032, 0x8231 },
+	{ 0x3033, 0x4B15 },
+	{ 0x3034, 0x8231 },
+	{ 0x3035, 0x0B15 },
+	{ 0x3036, 0xE231 },
+	{ 0x3037, 0x5294 },
+	{ 0x3038, 0x0231 },
+	{ 0x3039, 0x0B00 },
+};
+
+static const struct reg_sequence florida_no_dre_right_enable[] = {
+	{ 0x3074, 0xE414 },
+	{ 0x3075, 0x0056 },
+	{ 0x306B, 0x0224 },
+	{ 0x306F, 0x4263 },
+	{ 0x3071, 0x5291 },
+	{ 0x3080, 0xE414 },
+	{ 0x3081, 0x3066 },
+	{ 0x3082, 0xE414 },
+	{ 0x3083, 0x3070 },
+	{ 0x3084, 0xE414 },
+	{ 0x3085, 0x3078 },
+	{ 0x3086, 0xE414 },
+	{ 0x3087, 0x3080 },
+	{ 0x3088, 0xE414 },
+	{ 0x3089, 0x3080 },
+};
+
+static const struct reg_sequence florida_dre_right_enable[] = {
+	{ 0x3074, 0x0231 },
+	{ 0x3075, 0x0B00 },
+	{ 0x306B, 0x0227 },
+	{ 0x306F, 0x4266 },
+	{ 0x3071, 0x5294 },
+	{ 0x3080, 0xE231 },
+	{ 0x3081, 0x0266 },
+	{ 0x3082, 0x8231 },
+	{ 0x3083, 0x4B17 },
+	{ 0x3084, 0x8231 },
+	{ 0x3085, 0x0B17 },
+	{ 0x3086, 0xE231 },
+	{ 0x3087, 0x5294 },
+	{ 0x3088, 0x0231 },
+	{ 0x3089, 0x0B00 },
+};
+
+static int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
+{
+	struct arizona_priv *priv = snd_soc_codec_get_drvdata(w->codec);
+	struct arizona *arizona = priv->arizona;
+	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
+	const struct reg_sequence *wseq;
+	int nregs;
+	int ret;
+
+	switch (w->shift) {
+	case ARIZONA_OUT1L_ENA_SHIFT:
+		if (val & ARIZONA_DRE1L_ENA_MASK) {
+			wseq = florida_dre_left_enable;
+			nregs = ARRAY_SIZE(florida_dre_left_enable);
+		} else {
+			wseq = florida_no_dre_left_enable;
+			nregs = ARRAY_SIZE(florida_no_dre_left_enable);
+			priv->out_up_delay += 10;
+		}
+		break;
+	case ARIZONA_OUT1R_ENA_SHIFT:
+		if (val & ARIZONA_DRE1R_ENA_MASK) {
+			wseq = florida_dre_right_enable;
+			nregs = ARRAY_SIZE(florida_dre_right_enable);
+		} else {
+			wseq = florida_no_dre_right_enable;
+			nregs = ARRAY_SIZE(florida_no_dre_right_enable);
+			priv->out_up_delay += 10;
+		}
+		break;
+	default:
+		return 0;
+	}
+
+	ret = regmap_multi_reg_write(arizona->regmap, wseq, nregs);
+	udelay(1000);
+	return ret;
+}
+
+static int florida_hp_pre_disable(struct snd_soc_dapm_widget *w)
+{
+	struct arizona_priv *priv = snd_soc_codec_get_drvdata(w->codec);
+	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
+
+	switch (w->shift) {
+	case ARIZONA_OUT1L_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1L_ENA_MASK)) {
+			snd_soc_update_bits(w->codec, ARIZONA_SPARE_TRIGGERS,
+					    ARIZONA_WS_TRG1, ARIZONA_WS_TRG1);
+			snd_soc_update_bits(w->codec, ARIZONA_SPARE_TRIGGERS,
+					    ARIZONA_WS_TRG1, 0);
+			priv->out_down_delay += 27;
+		}
+		break;
+	case ARIZONA_OUT1R_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1R_ENA_MASK)) {
+			snd_soc_update_bits(w->codec, ARIZONA_SPARE_TRIGGERS,
+					    ARIZONA_WS_TRG2, ARIZONA_WS_TRG2);
+			snd_soc_update_bits(w->codec, ARIZONA_SPARE_TRIGGERS,
+					    ARIZONA_WS_TRG2, 0);
+			priv->out_down_delay += 27;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int florida_hp_ev(struct snd_soc_dapm_widget *w,
+			 struct snd_kcontrol *kcontrol, int event)
+{
+	struct arizona_priv *priv = snd_soc_codec_get_drvdata(w->codec);
+
+	switch (priv->arizona->rev) {
+	case 0 ... 3:
+		break;
+	default:
+		switch (event) {
+		case SND_SOC_DAPM_PRE_PMU:
+			florida_hp_pre_enable(w);
+			break;
+		case SND_SOC_DAPM_PRE_PMD:
+			florida_hp_pre_disable(w);
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+
+	return arizona_hp_ev(w, kcontrol, event);
+}
+
+static int florida_clear_pga_volume(struct arizona *arizona, int output)
+{
+	struct reg_sequence clear_pga = {
+		ARIZONA_OUTPUT_PATH_CONFIG_1L + output * 4, 0x80
+	};
+	int ret;
+
+	ret = regmap_multi_reg_write_bypassed(arizona->regmap, &clear_pga, 1);
+	if (ret)
+		dev_err(arizona->dev, "Failed to clear PGA (0x%x): %d\n",
+			clear_pga.reg, ret);
+
+	return ret;
+}
+
+static int florida_set_dre(struct arizona *arizona, unsigned int shift,
+			   bool enable)
+{
+	unsigned int mask = 1 << shift;
+	unsigned int val = 0;
+	const struct reg_sequence *wseq;
+	int nregs;
+	bool change;
+
+	if (enable) {
+		regmap_update_bits_check(arizona->regmap, ARIZONA_DRE_ENABLE,
+					 mask, mask, &change);
+		if (!change)
+			return 0;
+
+		switch (shift) {
+		case ARIZONA_DRE1L_ENA_SHIFT:
+			mask = ARIZONA_OUT1L_ENA;
+			wseq = florida_dre_left_enable;
+			nregs = ARRAY_SIZE(florida_dre_left_enable);
+			break;
+		case ARIZONA_DRE1R_ENA_SHIFT:
+			mask = ARIZONA_OUT1R_ENA;
+			wseq = florida_dre_right_enable;
+			nregs = ARRAY_SIZE(florida_dre_right_enable);
+			break;
+		default:
+			return 0;
+		}
+	} else {
+		regmap_update_bits_check(arizona->regmap, ARIZONA_DRE_ENABLE,
+					 mask, 0, &change);
+		if (!change)
+			return 0;
+
+		/* Force reset of PGA Vol */
+		florida_clear_pga_volume(arizona, shift);
+
+		switch (shift) {
+		case ARIZONA_DRE1L_ENA_SHIFT:
+			mask = ARIZONA_OUT1L_ENA;
+			wseq = florida_no_dre_left_enable;
+			nregs = ARRAY_SIZE(florida_no_dre_left_enable);
+			break;
+		case ARIZONA_DRE1R_ENA_SHIFT:
+			mask = ARIZONA_OUT1R_ENA;
+			wseq = florida_no_dre_right_enable;
+			nregs = ARRAY_SIZE(florida_no_dre_right_enable);
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	/* If the output is on we need to update the disable sequence */
+	regmap_read(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1, &val);
+
+	if (val & mask) {
+		regmap_multi_reg_write(arizona->regmap, wseq, nregs);
+		udelay(1000);
+	}
+
+	return 0;
+}
+
+static int florida_put_dre(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int lshift = mc->shift;
+	unsigned int rshift = mc->rshift;
+
+	mutex_lock_nested(&codec->component.card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
+
+	florida_set_dre(arizona, lshift, !!ucontrol->value.integer.value[0]);
+	florida_set_dre(arizona, rshift, !!ucontrol->value.integer.value[1]);
+
+	mutex_unlock(&codec->component.card->dapm_mutex);
+
+	return 0;
 }
 
 static DECLARE_TLV_DB_SCALE(ana_tlv, 0, 100, 0);
@@ -263,23 +545,26 @@ static DECLARE_TLV_DB_SCALE(ng_tlv, -10200, 600, 0);
 	SOC_SINGLE(name " NG SPKDAT2R Switch", base, 11, 1, 0)
 
 #define FLORIDA_RXANC_INPUT_ROUTES(widget, name) \
-	{ widget, NULL, name " Input" }, \
-	{ name " Input", "IN1L", "IN1L PGA" }, \
-	{ name " Input", "IN1R", "IN1R PGA" }, \
-	{ name " Input", "IN1L + IN1R", "IN1L PGA" }, \
-	{ name " Input", "IN1L + IN1R", "IN1R PGA" }, \
-	{ name " Input", "IN2L", "IN2L PGA" }, \
-	{ name " Input", "IN2R", "IN2R PGA" }, \
-	{ name " Input", "IN2L + IN2R", "IN2L PGA" }, \
-	{ name " Input", "IN2L + IN2R", "IN2R PGA" }, \
-	{ name " Input", "IN3L", "IN3L PGA" }, \
-	{ name " Input", "IN3R", "IN3R PGA" }, \
-	{ name " Input", "IN3L + IN3R", "IN3L PGA" }, \
-	{ name " Input", "IN3L + IN3R", "IN3R PGA" }, \
-	{ name " Input", "IN4L", "IN4L PGA" }, \
-	{ name " Input", "IN4R", "IN4R PGA" }, \
-	{ name " Input", "IN4L + IN4R", "IN4L PGA" }, \
-	{ name " Input", "IN4L + IN4R", "IN4R PGA" }
+	{ widget, NULL, name " NG Mux" }, \
+	{ name " NG Internal", NULL, "RXANC NG Clock" }, \
+	{ name " NG Internal", NULL, name " Channel" }, \
+	{ name " NG External", NULL, "RXANC NG External Clock" }, \
+	{ name " NG External", NULL, name " Channel" }, \
+	{ name " NG Mux", "None", name " Channel" }, \
+	{ name " NG Mux", "Internal", name " NG Internal" }, \
+	{ name " NG Mux", "External", name " NG External" }, \
+	{ name " Channel", "Left", name " Left Input" }, \
+	{ name " Channel", "Combine", name " Left Input" }, \
+	{ name " Channel", "Right", name " Right Input" }, \
+	{ name " Channel", "Combine", name " Right Input" }, \
+	{ name " Left Input", "IN1", "IN1L PGA" }, \
+	{ name " Right Input", "IN1", "IN1R PGA" }, \
+	{ name " Left Input", "IN2", "IN2L PGA" }, \
+	{ name " Right Input", "IN2", "IN2R PGA" }, \
+	{ name " Left Input", "IN3", "IN3L PGA" }, \
+	{ name " Right Input", "IN3", "IN3R PGA" }, \
+	{ name " Left Input", "IN4", "IN4L PGA" }, \
+	{ name " Right Input", "IN4", "IN4R PGA" }
 
 #define FLORIDA_RXANC_OUTPUT_ROUTES(widget, name) \
 	{ widget, NULL, name " ANC Source" }, \
@@ -344,9 +629,6 @@ SOC_SINGLE_TLV("IN4R Digital Volume", ARIZONA_ADC_DIGITAL_VOLUME_4R,
 SOC_ENUM("Input Ramp Up", arizona_in_vi_ramp),
 SOC_ENUM("Input Ramp Down", arizona_in_vd_ramp),
 
-SND_SOC_BYTES_MASK("RXANC Config", ARIZONA_CLOCK_CONTROL, 1,
-		   ARIZONA_CLK_R_ENA_CLR | ARIZONA_CLK_R_ENA_SET |
-		   ARIZONA_CLK_L_ENA_CLR | ARIZONA_CLK_L_ENA_SET),
 SND_SOC_BYTES("RXANC Coefficients", ARIZONA_ANC_COEFF_START,
 	      ARIZONA_ANC_COEFF_END - ARIZONA_ANC_COEFF_START + 1),
 SND_SOC_BYTES("RXANCL Config", ARIZONA_FCL_FILTER_CONTROL, 1),
@@ -424,10 +706,10 @@ ARIZONA_MIXER_CONTROLS("LHPF2", ARIZONA_HPLP2MIX_INPUT_1_SOURCE),
 ARIZONA_MIXER_CONTROLS("LHPF3", ARIZONA_HPLP3MIX_INPUT_1_SOURCE),
 ARIZONA_MIXER_CONTROLS("LHPF4", ARIZONA_HPLP4MIX_INPUT_1_SOURCE),
 
-SND_SOC_BYTES("LHPF1 Coefficients", ARIZONA_HPLPF1_2, 1),
-SND_SOC_BYTES("LHPF2 Coefficients", ARIZONA_HPLPF2_2, 1),
-SND_SOC_BYTES("LHPF3 Coefficients", ARIZONA_HPLPF3_2, 1),
-SND_SOC_BYTES("LHPF4 Coefficients", ARIZONA_HPLPF4_2, 1),
+ARIZONA_LHPF_CONTROL("LHPF1 Coefficients", ARIZONA_HPLPF1_2),
+ARIZONA_LHPF_CONTROL("LHPF2 Coefficients", ARIZONA_HPLPF2_2),
+ARIZONA_LHPF_CONTROL("LHPF3 Coefficients", ARIZONA_HPLPF3_2),
+ARIZONA_LHPF_CONTROL("LHPF4 Coefficients", ARIZONA_HPLPF4_2),
 
 SOC_ENUM("LHPF1 Mode", arizona_lhpf1_mode),
 SOC_ENUM("LHPF2 Mode", arizona_lhpf2_mode),
@@ -768,11 +1050,14 @@ static const struct snd_kcontrol_new florida_aec_loopback_mux =
 	SOC_DAPM_ENUM("AEC Loopback", florida_aec_loopback);
 
 static const struct snd_kcontrol_new florida_anc_input_mux[] = {
-	SOC_DAPM_ENUM_EXT("RXANCL Input", arizona_anc_input_src[0],
-			  arizona_get_anc_input, arizona_put_anc_input),
-	SOC_DAPM_ENUM_EXT("RXANCR Input", arizona_anc_input_src[1],
-			  arizona_get_anc_input, arizona_put_anc_input),
+	SOC_DAPM_ENUM("RXANCL Input", arizona_anc_input_src[0]),
+	SOC_DAPM_ENUM("RXANCL Channel", arizona_anc_input_src[1]),
+	SOC_DAPM_ENUM("RXANCR Input", arizona_anc_input_src[2]),
+	SOC_DAPM_ENUM("RXANCR Channel", arizona_anc_input_src[3]),
 };
+
+static const struct snd_kcontrol_new florida_anc_ng_mux =
+	SOC_DAPM_ENUM("RXANC NG Source", arizona_anc_ng_enum);
 
 static const struct snd_kcontrol_new florida_output_anc_src[] = {
 	SOC_DAPM_ENUM("HPOUT1L ANC Source", arizona_output_anc_src[0]),
@@ -975,8 +1260,32 @@ SND_SOC_DAPM_MUX("AEC Loopback", ARIZONA_DAC_AEC_CONTROL_1,
 		       ARIZONA_AEC_LOOPBACK_ENA_SHIFT, 0,
 		       &florida_aec_loopback_mux),
 
-SND_SOC_DAPM_MUX("RXANCL Input", SND_SOC_NOPM, 0, 0, &florida_anc_input_mux[0]),
-SND_SOC_DAPM_MUX("RXANCR Input", SND_SOC_NOPM, 0, 0, &florida_anc_input_mux[1]),
+SND_SOC_DAPM_SUPPLY("RXANC NG External Clock", SND_SOC_NOPM,
+		    ARIZONA_EXT_NG_SEL_SET_SHIFT, 0, arizona_anc_ev,
+		    SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+SND_SOC_DAPM_PGA("RXANCL NG External", SND_SOC_NOPM, 0, 0, NULL, 0),
+SND_SOC_DAPM_PGA("RXANCR NG External", SND_SOC_NOPM, 0, 0, NULL, 0),
+
+SND_SOC_DAPM_SUPPLY("RXANC NG Clock", SND_SOC_NOPM,
+		    ARIZONA_CLK_NG_ENA_SET_SHIFT, 0, arizona_anc_ev,
+		    SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+SND_SOC_DAPM_PGA("RXANCL NG Internal", SND_SOC_NOPM, 0, 0, NULL, 0),
+SND_SOC_DAPM_PGA("RXANCR NG Internal", SND_SOC_NOPM, 0, 0, NULL, 0),
+
+SND_SOC_DAPM_MUX("RXANCL Left Input", SND_SOC_NOPM, 0, 0,
+		 &florida_anc_input_mux[0]),
+SND_SOC_DAPM_MUX("RXANCL Right Input", SND_SOC_NOPM, 0, 0,
+		 &florida_anc_input_mux[0]),
+SND_SOC_DAPM_MUX("RXANCL Channel", SND_SOC_NOPM, 0, 0,
+		 &florida_anc_input_mux[1]),
+SND_SOC_DAPM_MUX("RXANCL NG Mux", SND_SOC_NOPM, 0, 0, &florida_anc_ng_mux),
+SND_SOC_DAPM_MUX("RXANCR Left Input", SND_SOC_NOPM, 0, 0,
+		 &florida_anc_input_mux[2]),
+SND_SOC_DAPM_MUX("RXANCR Right Input", SND_SOC_NOPM, 0, 0,
+		 &florida_anc_input_mux[2]),
+SND_SOC_DAPM_MUX("RXANCR Channel", SND_SOC_NOPM, 0, 0,
+		 &florida_anc_input_mux[3]),
+SND_SOC_DAPM_MUX("RXANCR NG Mux", SND_SOC_NOPM, 0, 0, &florida_anc_ng_mux),
 
 SND_SOC_DAPM_PGA_E("RXANCL", SND_SOC_NOPM, ARIZONA_CLK_L_ENA_SET_SHIFT,
 		   0, NULL, 0, arizona_anc_ev,
@@ -1421,6 +1730,7 @@ static const struct snd_soc_dapm_route florida_dapm_routes[] = {
 	{ "OUT2L", NULL, "SYSCLK" },
 	{ "OUT2R", NULL, "SYSCLK" },
 	{ "OUT3L", NULL, "SYSCLK" },
+	{ "OUT3R", NULL, "SYSCLK" },
 	{ "OUT4L", NULL, "SYSCLK" },
 	{ "OUT4R", NULL, "SYSCLK" },
 	{ "OUT5L", NULL, "SYSCLK" },
@@ -1735,7 +2045,7 @@ static int florida_set_fll(struct snd_soc_codec *codec, int fll_id, int source,
 	}
 }
 
-#define FLORIDA_RATES SNDRV_PCM_RATE_8000_192000
+#define FLORIDA_RATES SNDRV_PCM_RATE_KNOT
 
 #define FLORIDA_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
@@ -1869,7 +2179,7 @@ static struct snd_soc_dai_driver florida_dai[] = {
 		.capture = {
 			.stream_name = "Voice Control CPU",
 			.channels_min = 1,
-			.channels_max = 1,
+			.channels_max = 2,
 			.rates = FLORIDA_RATES,
 			.formats = FLORIDA_FORMATS,
 		},
@@ -1880,7 +2190,7 @@ static struct snd_soc_dai_driver florida_dai[] = {
 		.capture = {
 			.stream_name = "Voice Control DSP",
 			.channels_min = 1,
-			.channels_max = 1,
+			.channels_max = 2,
 			.rates = FLORIDA_RATES,
 			.formats = FLORIDA_FORMATS,
 		},
@@ -1908,235 +2218,103 @@ static struct snd_soc_dai_driver florida_dai[] = {
 	},
 };
 
-static irqreturn_t adsp2_irq(int irq, void *data)
+static void florida_compr_irq(struct florida_priv *florida,
+				struct florida_compr *compr)
+{
+	struct arizona *arizona = florida->core.arizona;
+	bool trigger = false;
+	int ret;
+
+	ret = wm_adsp_compr_irq(&compr->adsp_compr, &trigger);
+	if (ret < 0)
+		return;
+
+	if (trigger && arizona->pdata.ez2ctrl_trigger) {
+		mutex_lock(&compr->trig_lock);
+		if (!compr->trig) {
+			compr->trig = true;
+
+			if (wm_adsp_fw_has_voice_trig(compr->adsp_compr.dsp))
+				arizona->pdata.ez2ctrl_trigger();
+		}
+		mutex_unlock(&compr->trig_lock);
+	}
+}
+
+static irqreturn_t florida_adsp2_irq(int irq, void *data)
 {
 	struct florida_priv *florida = data;
-	int ret, avail;
+	int i;
 
-	mutex_lock(&florida->compr_info.lock);
+	for (i = 0; i < ARRAY_SIZE(florida->compr_info); ++i) {
+		if (!florida->compr_info[i].adsp_compr.dsp->running)
+			continue;
 
-	if (!florida->compr_info.trig &&
-	    florida->core.adsp[2].fw_features.ez2control_trigger &&
-	    florida->core.adsp[2].running) {
-		if (florida->core.arizona->pdata.ez2ctrl_trigger)
-			florida->core.arizona->pdata.ez2ctrl_trigger();
-		florida->compr_info.trig = true;
+		florida_compr_irq(florida, &florida->compr_info[i]);
 	}
-
-	if (!florida->compr_info.allocated)
-		goto out;
-
-	ret = wm_adsp_stream_handle_irq(florida->compr_info.adsp);
-	if (ret < 0) {
-		dev_err(florida->core.arizona->dev,
-			"Failed to capture DSP data: %d\n",
-			ret);
-		goto out;
-	}
-
-	florida->compr_info.total_copied += ret;
-
-	avail = wm_adsp_stream_avail(florida->compr_info.adsp);
-	if (avail > FLORIDA_DEFAULT_FRAGMENT_SIZE)
-		snd_compr_fragment_elapsed(florida->compr_info.stream);
-
-out:
-	mutex_unlock(&florida->compr_info.lock);
 
 	return IRQ_HANDLED;
 }
 
-static int florida_open(struct snd_compr_stream *stream)
+static struct florida_compr *florida_get_compr(struct snd_soc_pcm_runtime *rtd,
+					       struct florida_priv *florida)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(florida->compr_info); ++i) {
+		if (strcmp(rtd->codec_dai->name,
+			   florida->compr_info[i].dai_name) == 0)
+			return &florida->compr_info[i];
+	}
+
+	return NULL;
+}
+
+static int florida_compr_open(struct snd_compr_stream *stream)
 {
 	struct snd_soc_pcm_runtime *rtd = stream->private_data;
 	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
 	struct arizona *arizona = florida->core.arizona;
-	int n_adsp, ret = 0;
+	struct florida_compr *compr;
 
-	mutex_lock(&florida->compr_info.lock);
-
-	if (florida->compr_info.stream) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	if (strcmp(rtd->codec_dai->name, "florida-dsp-voicectrl") == 0) {
-		n_adsp = 2;
-	} else if (strcmp(rtd->codec_dai->name, "florida-dsp-trace") == 0) {
-		n_adsp = 0;
-	} else {
+	/* Find a compr_info for this DAI */
+	compr = florida_get_compr(rtd, florida);
+	if (!compr) {
 		dev_err(arizona->dev,
 			"No suitable compressed stream for dai '%s'\n",
 			rtd->codec_dai->name);
-		ret = -EINVAL;
-		goto out;
+		return -EINVAL;
 	}
 
-	if (!wm_adsp_compress_supported(&florida->core.adsp[n_adsp], stream)) {
-		dev_err(arizona->dev,
-			"No suitable firmware for compressed stream\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	florida->compr_info.adsp = &florida->core.adsp[n_adsp];
-	florida->compr_info.stream = stream;
-out:
-	mutex_unlock(&florida->compr_info.lock);
-
-	return ret;
+	return wm_adsp_compr_open(&compr->adsp_compr, stream);
 }
 
-static int florida_free(struct snd_compr_stream *stream)
+static int florida_compr_trigger(struct snd_compr_stream *stream, int cmd)
 {
-	struct snd_soc_pcm_runtime *rtd = stream->private_data;
-	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
+	struct wm_adsp_compr *adsp_compr =
+			(struct wm_adsp_compr *)stream->runtime->private_data;
+	struct florida_compr *compr = container_of(adsp_compr,
+						      struct florida_compr,
+						      adsp_compr);
+	bool dummy;
+	int ret;
 
-	mutex_lock(&florida->compr_info.lock);
-
-	florida->compr_info.allocated = false;
-	florida->compr_info.stream = NULL;
-	florida->compr_info.total_copied = 0;
-
-	wm_adsp_stream_free(florida->compr_info.adsp);
-
-	mutex_unlock(&florida->compr_info.lock);
-
-	return 0;
-}
-
-static int florida_set_params(struct snd_compr_stream *stream,
-			     struct snd_compr_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = stream->private_data;
-	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
-	struct arizona *arizona = florida->core.arizona;
-	struct florida_compr *compr = &florida->compr_info;
-	int ret = 0;
-
-	mutex_lock(&compr->lock);
-
-	if (!wm_adsp_format_supported(compr->adsp, stream, params)) {
-		dev_err(arizona->dev,
-			"Invalid params: id:%u, chan:%u,%u, rate:%u format:%u\n",
-			params->codec.id, params->codec.ch_in,
-			params->codec.ch_out, params->codec.sample_rate,
-			params->codec.format);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = wm_adsp_stream_alloc(compr->adsp, params);
-	if (ret == 0)
-		compr->allocated = true;
-
-out:
-	mutex_unlock(&compr->lock);
-
-	return ret;
-}
-
-static int florida_get_params(struct snd_compr_stream *stream,
-			     struct snd_codec *params)
-{
-	return 0;
-}
-
-static int florida_trigger(struct snd_compr_stream *stream, int cmd)
-{
-	struct snd_soc_pcm_runtime *rtd = stream->private_data;
-	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
-	int ret = 0;
-	bool pending = false;
-
-	mutex_lock(&florida->compr_info.lock);
+	ret = wm_adsp_compr_trigger(stream, cmd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-		ret = wm_adsp_stream_start(florida->compr_info.adsp);
-
 		/**
-		 * If the stream has already triggered before the stream
-		 * opened better process any outstanding data
+		 * If the firmware already triggered before the stream
+		 * was opened process any outstanding data
 		 */
-		if (florida->compr_info.trig)
-			pending = true;
-		break;
-	case SNDRV_PCM_TRIGGER_STOP:
+		if (compr->trig)
+			wm_adsp_compr_irq(&compr->adsp_compr, &dummy);
 		break;
 	default:
-		ret = -EINVAL;
 		break;
 	}
 
-	mutex_unlock(&florida->compr_info.lock);
-
-	if (pending)
-		adsp2_irq(0, florida);
-
 	return ret;
-}
-
-static int florida_pointer(struct snd_compr_stream *stream,
-			  struct snd_compr_tstamp *tstamp)
-{
-	struct snd_soc_pcm_runtime *rtd = stream->private_data;
-	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
-
-	mutex_lock(&florida->compr_info.lock);
-	tstamp->byte_offset = 0;
-	tstamp->copied_total = florida->compr_info.total_copied;
-	mutex_unlock(&florida->compr_info.lock);
-
-	return 0;
-}
-
-static int florida_copy(struct snd_compr_stream *stream, char __user *buf,
-		       size_t count)
-{
-	struct snd_soc_pcm_runtime *rtd = stream->private_data;
-	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
-	int ret;
-
-	mutex_lock(&florida->compr_info.lock);
-
-	if (stream->direction == SND_COMPRESS_PLAYBACK)
-		ret = -EINVAL;
-	else
-		ret = wm_adsp_stream_read(florida->compr_info.adsp, buf, count);
-
-	mutex_unlock(&florida->compr_info.lock);
-
-	return ret;
-}
-
-static int florida_get_caps(struct snd_compr_stream *stream,
-			   struct snd_compr_caps *caps)
-{
-	struct snd_soc_pcm_runtime *rtd = stream->private_data;
-	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
-
-	mutex_lock(&florida->compr_info.lock);
-
-	memset(caps, 0, sizeof(*caps));
-
-	caps->direction = stream->direction;
-	caps->min_fragment_size = FLORIDA_DEFAULT_FRAGMENT_SIZE;
-	caps->max_fragment_size = FLORIDA_DEFAULT_FRAGMENT_SIZE;
-	caps->min_fragments = FLORIDA_DEFAULT_FRAGMENTS;
-	caps->max_fragments = FLORIDA_DEFAULT_FRAGMENTS;
-
-	wm_adsp_get_caps(florida->compr_info.adsp, stream, caps);
-
-	mutex_unlock(&florida->compr_info.lock);
-
-	return 0;
-}
-
-static int florida_get_codec_caps(struct snd_compr_stream *stream,
-				 struct snd_compr_codec_caps *codec)
-{
-	return 0;
 }
 
 static int florida_codec_probe(struct snd_soc_codec *codec)
@@ -2147,16 +2325,21 @@ static int florida_codec_probe(struct snd_soc_codec *codec)
 
 	priv->core.arizona->dapm = &codec->dapm;
 
-	for (i = 0; i < FLORIDA_NUM_ADSP; i++)
-		wm_adsp_init_debugfs(&priv->core.adsp[i], codec);
-
 	arizona_init_spk(codec);
 	arizona_init_gpio(codec);
 	arizona_init_mono(codec);
 	arizona_init_input(codec);
 
-	ret = snd_soc_add_codec_controls(codec, wm_adsp2_fw_controls, 8);
-	if (ret != 0)
+	for (i = 0; i < FLORIDA_NUM_ADSP; ++i) {
+		ret = wm_adsp2_codec_probe(&priv->core.adsp[i], codec);
+		if (ret)
+			return ret;
+	}
+
+	ret = snd_soc_add_codec_controls(codec,
+					 arizona_adsp2_rate_controls,
+					 FLORIDA_NUM_ADSP);
+	if (ret)
 		return ret;
 
 	snd_soc_dapm_disable_pin(&codec->dapm, "HAPTICS");
@@ -2164,7 +2347,8 @@ static int florida_codec_probe(struct snd_soc_codec *codec)
 	priv->core.arizona->dapm = &codec->dapm;
 
 	ret = arizona_request_irq(arizona, ARIZONA_IRQ_DSP_IRQ1,
-				  "ADSP2 interrupt 1", adsp2_irq, priv);
+				  "ADSP2 interrupt 1",
+				  florida_adsp2_irq, priv);
 	if (ret != 0) {
 		dev_err(arizona->dev, "Failed to request DSP IRQ: %d\n", ret);
 		return ret;
@@ -2196,14 +2380,14 @@ static int florida_codec_remove(struct snd_soc_codec *codec)
 	struct arizona *arizona = priv->core.arizona;
 	int i;
 
-	for (i = 0; i < FLORIDA_NUM_ADSP; i++)
-		wm_adsp_cleanup_debugfs(&priv->core.adsp[i]);
-
 	irq_set_irq_wake(arizona->irq, 0);
 	arizona_free_irq(arizona, ARIZONA_IRQ_DSP_IRQ1, priv);
 	regmap_update_bits(arizona->regmap, ARIZONA_IRQ2_STATUS_3_MASK,
 			   ARIZONA_IM_DRC2_SIG_DET_EINT2,
 			   ARIZONA_IM_DRC2_SIG_DET_EINT2);
+
+	for (i = 0; i < FLORIDA_NUM_ADSP; ++i)
+		wm_adsp2_codec_remove(&priv->core.adsp[i], codec);
 
 	priv->core.arizona->dapm = NULL;
 
@@ -2253,20 +2437,44 @@ static struct snd_soc_codec_driver soc_codec_dev_florida = {
 };
 
 static struct snd_compr_ops florida_compr_ops = {
-	.open = florida_open,
-	.free = florida_free,
-	.set_params = florida_set_params,
-	.get_params = florida_get_params,
-	.trigger = florida_trigger,
-	.pointer = florida_pointer,
-	.copy = florida_copy,
-	.get_caps = florida_get_caps,
-	.get_codec_caps = florida_get_codec_caps,
+	.open = florida_compr_open,
+	.free = wm_adsp_compr_free,
+	.set_params = wm_adsp_compr_set_params,
+	.trigger = florida_compr_trigger,
+	.pointer = wm_adsp_compr_pointer,
+	.copy = wm_adsp_compr_copy,
+	.get_caps = wm_adsp_compr_get_caps,
 };
 
 static struct snd_soc_platform_driver florida_compr_platform = {
 	.compr_ops = &florida_compr_ops,
 };
+
+static void florida_init_compr_info(struct florida_priv *florida)
+{
+	struct wm_adsp *dsp;
+	int i;
+
+	BUILD_BUG_ON(ARRAY_SIZE(florida->compr_info) !=
+		     ARRAY_SIZE(compr_dai_mapping));
+
+	for (i = 0; i < ARRAY_SIZE(florida->compr_info); ++i) {
+		florida->compr_info[i].dai_name = compr_dai_mapping[i].dai_name;
+
+		dsp = &florida->core.adsp[compr_dai_mapping[i].adsp_num],
+		wm_adsp_compr_init(dsp, &florida->compr_info[i].adsp_compr);
+
+		mutex_init(&florida->compr_info[i].trig_lock);
+	}
+}
+
+static void florida_destroy_compr_info(struct florida_priv *florida)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(florida->compr_info); ++i)
+		wm_adsp_compr_destroy(&florida->compr_info[i].adsp_compr);
+}
 
 static int florida_probe(struct platform_device *pdev)
 {
@@ -2282,7 +2490,9 @@ static int florida_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, florida);
 
-	mutex_init(&florida->compr_info.lock);
+	/* Set of_node to parent from the SPI device*/
+	pdev->dev.of_node = arizona->dev->of_node;
+
 	mutex_init(&florida->fw_lock);
 
 	florida->core.arizona = arizona;
@@ -2309,10 +2519,14 @@ static int florida_probe(struct platform_device *pdev)
 				= arizona->pdata.num_fw_defs[i];
 		}
 
+		florida->core.adsp[i].hpimp_cb = arizona_hpimp_cb;
+
 		ret = wm_adsp2_init(&florida->core.adsp[i], &florida->fw_lock);
 		if (ret != 0)
 			goto error;
 	}
+
+	florida_init_compr_info(florida);
 
 	for (i = 0; i < ARRAY_SIZE(florida->fll); i++)
 		florida->fll[i].vco_mult = 3;
@@ -2356,7 +2570,7 @@ static int florida_probe(struct platform_device *pdev)
 	return ret;
 
 error:
-	mutex_destroy(&florida->compr_info.lock);
+	florida_destroy_compr_info(florida);
 	mutex_destroy(&florida->fw_lock);
 
 	return ret;
@@ -2365,11 +2579,17 @@ error:
 static int florida_remove(struct platform_device *pdev)
 {
 	struct florida_priv *florida = platform_get_drvdata(pdev);
+	int i;
 
+	snd_soc_unregister_platform(&pdev->dev);
 	snd_soc_unregister_codec(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
-	mutex_destroy(&florida->compr_info.lock);
+	florida_destroy_compr_info(florida);
+
+	for (i = 0; i < FLORIDA_NUM_ADSP; i++)
+		wm_adsp2_remove(&florida->core.adsp[i]);
+
 	mutex_destroy(&florida->fw_lock);
 
 	return 0;

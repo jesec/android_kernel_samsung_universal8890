@@ -23,6 +23,7 @@
 #define SYNAPTICS_RMI4_DRIVER_VERSION "DS5 1.0"
 #include <linux/device.h>
 #include <linux/i2c/synaptics_rmi.h>
+#include <linux/cdev.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -36,10 +37,11 @@
 
 /**************************************/
 /* Define related with driver feature */
+#define FACTORY_MODE
 #define PROXIMITY_MODE
-#undef EDGE_SWIPE
-#define USE_CUSTOM_REZERO
-#define DEBUG_HOVER
+#define EDGE_SWIPE
+//#define USE_CUSTOM_REZERO
+//#define DEBUG_HOVER
 #define USE_SHUTDOWN_CB
 #ifdef CONFIG_INPUT_BOOSTER
 #define TSP_BOOSTER
@@ -51,9 +53,8 @@
 #define CHECK_PR_NUMBER
 #define REPORT_2D_W
 
-/* #define USE_GUEST_THREAD */
-#define USE_DETECTION_FLAG_2
-#define USE_STYLUS
+//#define USE_DETECTION_FLAG_2
+//#define USE_STYLUS
 /* #define SKIP_UPDATE_FW_ON_PROBE */
 /* #define REPORT_2D_Z */
 /* #define REPORT_ORIENTATION */
@@ -114,15 +115,22 @@
 
 #define SYNAPTICS_DEFAULT_UMS_FW "/sdcard/synaptics.fw"
 
+#define DEFAULT_DEVICE_NUM	1
+
 /* Define for Firmware file image format */
 #define FIRMWARE_IMG_HEADER_MAJOR_VERSION_OFFSET	(0x07)
 #define NEW_IMG_MAJOR_VERSION	(0x10)
 
 /* Previous firmware image format */
 #define OLD_IMG_CHECK_PR_BIT_BIN_OFFSET	(0x06)
-#define OLD_IMG_DATE_OF_FIRMWARE_BIN_OFFSET	(0x016D00)
-#define OLD_IMG_IC_REVISION_BIN_OFFSET	(0x016D02)
-#define OLD_IMG_FW_VERSION_BIN_OFFSET	(0x016D03)
+//#define OLD_IMG_DATE_OF_FIRMWARE_BIN_OFFSET	(0x016D00)
+//#define OLD_IMG_IC_REVISION_BIN_OFFSET	(0x016D02)
+//#define OLD_IMG_FW_VERSION_BIN_OFFSET	(0x016D03)
+/* 20151110 change values for ps-lte model */
+#define OLD_IMG_DATE_OF_FIRMWARE_BIN_OFFSET	0x015D00
+#define OLD_IMG_IC_REVISION_BIN_OFFSET		0x015D02
+#define OLD_IMG_FW_VERSION_BIN_OFFSET		0x015D03
+
 #define OLD_IMG_PR_NUMBER_0TH_BYTE_BIN_OFFSET	(0x50)
 
 /* New firmware image format(PR number is loaded defaultly) */
@@ -191,6 +199,18 @@
 #define OBJECT_UNCLASSIFIED		(0x04)
 #define OBJECT_HOVER			(0x05)
 #define OBJECT_GLOVE			(0x06)
+
+/* Define for object type report enable Mask(F12_2D_CTRL23) */
+#define OBJ_TYPE_FINGER			(1 << 0)
+#define OBJ_TYPE_PASSIVE_STYLUS	(1 << 1)
+#define OBJ_TYPE_PALM			(1 << 2)
+#define OBJ_TYPE_UNCLASSIFIED	(1 << 3)
+#define OBJ_TYPE_HOVER			(1 << 4)
+#define OBJ_TYPE_GLOVE			(1 << 5)
+#define OBJ_TYPE_NARROW_SWIPE	(1 << 6)
+#define OBJ_TYPE_HANDEDGE		(1 << 7)
+#define OBJ_TYPE_DEFAULT		(0x85)
+/*OBJ_TYPE_FINGER, OBJ_TYPE_UNCLASSIFIED, OBJ_TYPE_HANDEDGE*/
 
 /* Define for Data report enable Mask(F12_2D_CTRL28) */
 #define RPT_TYPE (1 << 0)
@@ -286,7 +306,6 @@
 
 #ifdef EDGE_SWIPE
 #define EDGE_SWIPE_WIDTH_MAX	255
-#define EDGE_SWIPE_SUMSIZE_MAX	255
 #define EDGE_SWIPE_PALM_MAX		1
 
 #define EDGE_SWIPE_WITDH_X_OFFSET	5
@@ -364,7 +383,10 @@ enum synaptics_product_ids {
 	SYNAPTICS_PRODUCT_ID_S5000,
 	SYNAPTICS_PRODUCT_ID_S5050,
 	SYNAPTICS_PRODUCT_ID_S5100,
+	SYNAPTICS_PRODUCT_ID_S5200,
 	SYNAPTICS_PRODUCT_ID_S5700,
+	SYNAPTICS_PRODUCT_ID_S5707,
+	SYNAPTICS_PRODUCT_ID_S5710,
 	SYNAPTICS_PRODUCT_ID_MAX
 };
 
@@ -399,244 +421,8 @@ enum synaptics_report_rate {
 };
 #endif
 
-struct synaptics_rmi4_f01_device_status {
-	union {
-		struct {
-			unsigned char status_code:4;
-			unsigned char reserved:2;
-			unsigned char flash_prog:1;
-			unsigned char unconfigured:1;
-		} __packed;
-		unsigned char data[1];
-	};
-};
-
-struct synaptics_rmi4_f12_query_5 {
-	union {
-		struct {
-			unsigned char size_of_query6;
-			struct {
-				unsigned char ctrl0_is_present:1;
-				unsigned char ctrl1_is_present:1;
-				unsigned char ctrl2_is_present:1;
-				unsigned char ctrl3_is_present:1;
-				unsigned char ctrl4_is_present:1;
-				unsigned char ctrl5_is_present:1;
-				unsigned char ctrl6_is_present:1;
-				unsigned char ctrl7_is_present:1;
-			} __packed;
-			struct {
-				unsigned char ctrl8_is_present:1;
-				unsigned char ctrl9_is_present:1;
-				unsigned char ctrl10_is_present:1;
-				unsigned char ctrl11_is_present:1;
-				unsigned char ctrl12_is_present:1;
-				unsigned char ctrl13_is_present:1;
-				unsigned char ctrl14_is_present:1;
-				unsigned char ctrl15_is_present:1;
-			} __packed;
-			struct {
-				unsigned char ctrl16_is_present:1;
-				unsigned char ctrl17_is_present:1;
-				unsigned char ctrl18_is_present:1;
-				unsigned char ctrl19_is_present:1;
-				unsigned char ctrl20_is_present:1;
-				unsigned char ctrl21_is_present:1;
-				unsigned char ctrl22_is_present:1;
-				unsigned char ctrl23_is_present:1;
-			} __packed;
-			struct {
-				unsigned char ctrl24_is_present:1;
-				unsigned char ctrl25_is_present:1;
-				unsigned char ctrl26_is_present:1;
-				unsigned char ctrl27_is_present:1;
-				unsigned char ctrl28_is_present:1;
-				unsigned char ctrl29_is_present:1;
-				unsigned char ctrl30_is_present:1;
-				unsigned char ctrl31_is_present:1;
-			} __packed;
-		};
-		unsigned char data[5];
-	};
-};
-
-struct synaptics_rmi4_f12_query_8 {
-	union {
-		struct {
-			unsigned char size_of_query9;
-			struct {
-				unsigned char data0_is_present:1;
-				unsigned char data1_is_present:1;
-				unsigned char data2_is_present:1;
-				unsigned char data3_is_present:1;
-				unsigned char data4_is_present:1;
-				unsigned char data5_is_present:1;
-				unsigned char data6_is_present:1;
-				unsigned char data7_is_present:1;
-			} __packed;
-			struct {
-				unsigned char data8_is_present:1;
-				unsigned char data9_is_present:1;
-				unsigned char data10_is_present:1;
-				unsigned char data11_is_present:1;
-				unsigned char data12_is_present:1;
-				unsigned char data13_is_present:1;
-				unsigned char data14_is_present:1;
-				unsigned char data15_is_present:1;
-			} __packed;
-		};
-		unsigned char data[3];
-	};
-};
-
-struct synaptics_rmi4_f12_query_10 {
-	union {
-		struct {
-			unsigned char f12_query10_b0__4:5;
-			unsigned char glove_mode_feature:1;
-			unsigned char f12_query10_b6__7:2;
-		} __packed;
-		unsigned char data[1];
-	};
-};
-
-struct synaptics_rmi4_f12_ctrl_8 {
-	union {
-		struct {
-			unsigned char max_x_coord_lsb;
-			unsigned char max_x_coord_msb;
-			unsigned char max_y_coord_lsb;
-			unsigned char max_y_coord_msb;
-			unsigned char rx_pitch_lsb;
-			unsigned char rx_pitch_msb;
-			unsigned char tx_pitch_lsb;
-			unsigned char tx_pitch_msb;
-			unsigned char low_rx_clip;
-			unsigned char high_rx_clip;
-			unsigned char low_tx_clip;
-			unsigned char high_tx_clip;
-			unsigned char num_of_rx;
-			unsigned char num_of_tx;
-		};
-		unsigned char data[14];
-	};
-};
-
-struct synaptics_rmi4_f12_ctrl_9 {
-	union {
-		struct {
-			unsigned char touch_threshold;
-			unsigned char lift_hysteresis;
-			unsigned char small_z_scale_factor_lsb;
-			unsigned char small_z_scale_factor_msb;
-			unsigned char large_z_scale_factor_lsb;
-			unsigned char large_z_scale_factor_msb;
-			unsigned char small_large_boundary;
-			unsigned char wx_scale;
-			unsigned char wx_offset;
-			unsigned char wy_scale;
-			unsigned char wy_offset;
-			unsigned char x_size_lsb;
-			unsigned char x_size_msb;
-			unsigned char y_size_lsb;
-			unsigned char y_size_msb;
-			unsigned char gloved_finger;
-		};
-		unsigned char data[16];
-	};
-};
-
-struct synaptics_rmi4_f12_ctrl_11 {
-	union {
-		struct {
-			unsigned char small_corner;
-			unsigned char large_corner;
-			unsigned char jitter_filter_strength;
-			unsigned char x_minimum_z;
-			unsigned char y_minimum_z;
-			unsigned char x_maximum_z;
-			unsigned char y_maximum_z;
-			unsigned char x_amplitude;
-			unsigned char y_amplitude;
-			unsigned char gloved_finger_jitter_filter_strength;
-		};
-		unsigned char data[10];
-	};
-};
-
-struct synaptics_rmi4_f12_ctrl_23 {
-	union {
-		struct {
-			unsigned char obj_type_enable;
-			unsigned char max_reported_objects;
-		};
-		unsigned char data[2];
-	};
-};
-
-struct synaptics_rmi4_f12_ctrl_26 {
-	union {
-		struct {
-			unsigned char feature_enable;
-		};
-		unsigned char data[1];
-	};
-};
-
-struct synaptics_rmi4_f12_finger_data {
-	unsigned char object_type_and_status;
-	unsigned char x_lsb;
-	unsigned char x_msb;
-	unsigned char y_lsb;
-	unsigned char y_msb;
-#ifdef REPORT_2D_Z
-	unsigned char z;
-#endif
-#ifdef REPORT_2D_W
-	unsigned char wx;
-	unsigned char wy;
-#endif
-};
-
-struct synaptics_rmi4_f1a_query {
-	union {
-		struct {
-			unsigned char max_button_count:3;
-			unsigned char reserved:5;
-			unsigned char has_general_control:1;
-			unsigned char has_interrupt_enable:1;
-			unsigned char has_multibutton_select:1;
-			unsigned char has_tx_rx_map:1;
-			unsigned char has_perbutton_threshold:1;
-			unsigned char has_release_threshold:1;
-			unsigned char has_strongestbtn_hysteresis:1;
-			unsigned char has_filter_strength:1;
-		} __packed;
-		unsigned char data[2];
-	};
-};
-
-struct synaptics_rmi4_f1a_control_0 {
-	union {
-		struct {
-			unsigned char multibutton_report:2;
-			unsigned char filter_mode:2;
-			unsigned char reserved:4;
-		} __packed;
-		unsigned char data[1];
-	};
-};
-
-struct synaptics_rmi4_f1a_control {
-	struct synaptics_rmi4_f1a_control_0 general_control;
-	unsigned char button_int_enable;
-	unsigned char multi_button;
-	unsigned char *txrx_map;
-	unsigned char *button_threshold;
-	unsigned char button_release_threshold;
-	unsigned char strongest_button_hysteresis;
-	unsigned char filter_strength;
-};
+/* load Register map file */
+#include "rmi_register_map.h"
 
 struct synaptics_rmi4_f1a_handle {
 	int button_bitmask_size;
@@ -648,79 +434,7 @@ struct synaptics_rmi4_f1a_handle {
 	struct synaptics_rmi4_f1a_control button_control;
 };
 
-struct synaptics_rmi4_f34_ctrl_3 {
-	union {
-		struct {
-			unsigned char fw_release_month;
-			unsigned char fw_release_date;
-			unsigned char fw_release_revision;
-			unsigned char fw_release_version;
-		};
-		unsigned char data[4];
-	};
-};
-
 #ifdef PROXIMITY_MODE
-struct synaptics_rmi4_f51_query {
-	union {
-		struct {
-			unsigned char query_register_count;
-			unsigned char data_register_count;
-			unsigned char control_register_count;
-			unsigned char command_register_count;
-			unsigned char proximity_controls;
-			unsigned char proximity_controls_2;
-		};
-		unsigned char data[6];
-	};
-};
-
-struct synaptics_rmi4_f51_data {
-	union {
-		struct {
-			unsigned char finger_hover_det:1;
-			unsigned char air_swipe_det:1;
-			unsigned char large_obj_det:1;
-			unsigned char hover_pinch_det:1;
-			unsigned char lowg_detected:1;
-			unsigned char profile_handedness_status:2;
-			unsigned char face_detect:1;
-
-			unsigned char hover_finger_x_4__11;
-			unsigned char hover_finger_y_4__11;
-			unsigned char hover_finger_xy_0__3;
-			unsigned char hover_finger_z;
-		} __packed;
-		unsigned char proximity_data[5];
-	};
-
-#ifdef EDGE_SWIPE
-	union {
-		struct {
-			unsigned char edge_swipe_x_lsb;
-			unsigned char edge_swipe_x_msb;
-			unsigned char edge_swipe_y_lsb;
-			unsigned char edge_swipe_y_msb;
-			unsigned char edge_swipe_z;
-			unsigned char edge_swipe_wx;
-			unsigned char edge_swipe_wy;
-			unsigned char edge_swipe_mm;
-			signed char edge_swipe_dg;
-		} __packed;
-		unsigned char edge_swipe_data[9];
-	};
-#endif
-#ifdef SIDE_TOUCH
-	union {
-		struct {
-			unsigned char side_button_leading;
-			unsigned char side_button_trailing;
-		} __packed;
-		unsigned char side_button_data[2];
-	};
-#endif
-};
-
 #ifdef EDGE_SWIPE
 struct synaptics_rmi4_edge_swipe {
 	int sumsize;
@@ -791,13 +505,6 @@ struct synaptics_rmi4_fn_full_addr {
 	unsigned short cmd_base;
 	unsigned short ctrl_base;
 	unsigned short data_base;
-};
-
-struct synaptics_rmi4_f12_extra_data {
-	unsigned char data1_offset;
-	unsigned char data15_offset;
-	unsigned char data15_size;
-	unsigned char data15_data[(F12_FINGERS_TO_SUPPORT + 7) / 8];
 };
 
 /*
@@ -878,13 +585,329 @@ struct synaptics_rmi4_f12_handle {
 /* CTRL */
 	unsigned short ctrl11_addr;		/* F12_2D_CTRL11 : for jitter level*/
 	unsigned short ctrl15_addr;		/* F12_2D_CTRL15 : for finger amplitude threshold */
-
+	unsigned short ctrl23_addr;		/* F12_2D_CTRL23 : object report enable */
+	unsigned char obj_report_enable;	/* F12_2D_CTRL23 */
 	unsigned short ctrl26_addr;		/* F12_2D_CTRL26 : for glove mode */
 	unsigned char feature_enable;	/* F12_2D_CTRL26 */
 	unsigned short ctrl28_addr;		/* F12_2D_CTRL28 : for report data */
 	unsigned char report_enable;	/* F12_2D_CTRL28 */
 /* QUERY */
 	unsigned char glove_mode_feature;	/* F12_2D_QUERY_10 */
+};
+
+enum bl_version {
+	V5 = 5,
+	V6 = 6,
+};
+
+enum flash_area {
+	NONE,
+	UI_FIRMWARE,
+	CONFIG_AREA,
+};
+
+enum update_mode {
+	UPDATE_MODE_NORMAL = 1,
+	UPDATE_MODE_FORCE = 2,
+	UPDATE_MODE_LOCKDOWN = 8,
+};
+
+enum flash_command {
+	CMD_IDLE = 0x0,
+	CMD_WRITE_FW_BLOCK = 0x2,
+	CMD_ERASE_ALL = 0x3,
+	CMD_WRITE_LOCKDOWN_BLOCK = 0x4,
+	CMD_READ_CONFIG_BLOCK = 0x5,
+	CMD_WRITE_CONFIG_BLOCK = 0x6,
+	CMD_ERASE_CONFIG = 0x7,
+	CMD_READ_SENSOR_ID = 0x8,
+	CMD_ERASE_BL_CONFIG = 0x9,
+	CMD_ERASE_DISP_CONFIG = 0xA,
+	CMD_ERASE_GUEST_CODE = 0xB,
+	CMD_WRITE_GUEST_CODE = 0xC,
+	CMD_ENABLE_FLASH_PROG = 0xF
+};
+
+struct img_x0x6_header {
+	/* 0x00 - 0x0f */
+	unsigned char checksum[4];
+	unsigned char reserved_04;
+	unsigned char reserved_05;
+	unsigned char options_firmware_id:1;
+	unsigned char options_contain_bootloader:1;
+	unsigned char options_reserved:6;
+	unsigned char bootloader_version;
+	unsigned char firmware_size[4];
+	unsigned char config_size[4];
+	/* 0x10 - 0x1f */
+	unsigned char product_id[SYNAPTICS_RMI4_PRODUCT_ID_SIZE];
+	unsigned char package_id[2];
+	unsigned char package_id_revision[2];
+	unsigned char product_info[SYNAPTICS_RMI4_PRODUCT_INFO_SIZE];
+	/* 0x20 - 0x2f */
+	unsigned char reserved_20_2f[16];
+	/* 0x30 - 0x3f */
+	unsigned char ds_firmware_info[16];
+	/* 0x40 - 0x4f */
+	unsigned char ds_info[10];
+	unsigned char reserved_4a_4f[6];
+	/* 0x50 - 0x53 */
+	unsigned char firmware_id[4];
+};
+
+enum img_x10_container_id {
+	ID_TOP_LEVEL_CONTAINER = 0,
+	ID_UI_CONTAINER,
+	ID_UI_CONFIGURATION,
+	ID_BOOTLOADER_CONTAINER,
+	ID_BOOTLOADER_IMAGE_CONTAINER,
+	ID_BOOTLOADER_CONFIGURATION_CONTAINER,
+	ID_BOOTLOADER_LOCKDOWN_INFORMATION_CONTAINER,
+	ID_PERMANENT_CONFIGURATION_CONTAINER,
+	ID_GUEST_CODE_CONTAINER,
+	ID_BOOTLOADER_PROTOCOL_DESCRIPTOR_CONTAINER,
+	ID_UI_PROTOCOL_DESCRIPTOR_CONTAINER,
+	ID_RMI_SELF_DISCOVERY_CONTAINER,
+	ID_RMI_PAGE_CONTENT_CONTAINER,
+	ID_GENERAL_INFORMATION_CONTAINER,
+	RESERVERD
+};
+
+struct block_data {
+	unsigned char *data;
+	int size;
+};
+
+struct img_file_content {
+	unsigned char *fw_image;
+	unsigned int image_size;
+	unsigned char *image_name;
+	unsigned char imageFileVersion;
+	struct block_data uiFirmware;
+	struct block_data uiConfig;
+	struct block_data guestCode;
+	struct block_data lockdown;
+	struct block_data permanent;
+	struct block_data bootloaderInfo;
+	unsigned char blMajorVersion;
+	unsigned char blMinorVersion;
+	unsigned char *configId;	/* len 0x4 */
+	unsigned char *firmwareId;	/* len 0x4 */
+	unsigned char *packageId;		/* len 0x4 */
+	unsigned char *dsFirmwareInfo;	/* len 0x10 */
+};
+
+struct img_x10_descriptor {
+	unsigned char contentChecksum[4];
+	unsigned char containerID[2];
+	unsigned char minorVersion;
+	unsigned char majorVersion;
+	unsigned char reserverd[4];
+	unsigned char containerOptionFlags[4];
+	unsigned char contentOptionLength[4];
+	unsigned char contentOptionAddress[4];
+	unsigned char contentLength[4];
+	unsigned char contentAddress[4];
+};
+
+struct img_x10_bl_container {
+	unsigned char majorVersion;
+	unsigned char minorVersion;
+	unsigned char reserved[2];
+	unsigned char *subContainer;
+};
+
+struct pdt_properties {
+	union {
+		struct {
+			unsigned char reserved_1:6;
+			unsigned char has_bsr:1;
+			unsigned char reserved_2:1;
+		} __packed;
+		unsigned char data[1];
+	};
+};
+
+struct synaptics_rmi4_fwu_handle {
+	enum bl_version bl_version;
+	bool initialized;
+	bool program_enabled;
+	bool has_perm_config;
+	bool has_bl_config;
+	bool has_disp_config;
+	bool has_guest_code;
+	bool force_update;
+	bool in_flash_prog_mode;
+	bool do_lockdown;
+	bool can_guest_bootloader;
+	unsigned int data_pos;
+	unsigned char *ext_data_source;
+	unsigned char *read_config_buf;
+	unsigned char intr_mask;
+	unsigned char command;
+	unsigned char bootloader_id[4];
+	unsigned char flash_status;
+	unsigned char productinfo1;
+	unsigned char productinfo2;
+	unsigned char properties_off;
+	unsigned char blk_size_off;
+	unsigned char blk_count_off;
+	unsigned char blk_data_off;
+	unsigned char properties2_off;
+	unsigned char guest_blk_count_off;
+	unsigned char flash_cmd_off;
+	unsigned char flash_status_off;
+	unsigned short block_size;
+	unsigned short fw_block_count;
+	unsigned short config_block_count;
+	unsigned short perm_config_block_count;
+	unsigned short bl_config_block_count;
+	unsigned short disp_config_block_count;
+	unsigned short guest_code_block_count;
+	unsigned short config_size;
+	unsigned short config_area;
+	char product_id[SYNAPTICS_RMI4_PRODUCT_ID_SIZE + 1];
+
+	struct synaptics_rmi4_f34_query_01 flash_properties;
+	struct workqueue_struct *fwu_workqueue;
+	struct delayed_work fwu_work;
+	struct synaptics_rmi4_fn_desc f01_fd;
+	struct synaptics_rmi4_fn_desc f34_fd;
+	struct synaptics_rmi4_data *rmi4_data;
+	struct img_file_content img;
+	bool polling_mode;
+	struct kobject *attr_dir;
+};
+
+#ifdef FACTORY_MODE
+#include <linux/uaccess.h>
+
+#define CMD_STR_LEN 32
+#define CMD_PARAM_NUM 8
+#define CMD_RESULT_STR_LEN 768
+#define RPT_DATA_STRNCAT_LENGTH 9
+
+#define DEBUG_RESULT_STR_LEN	1024
+#define MAX_VAL_OFFSET_AND_LENGTH	10
+#define DEBUG_STR_LEN	(CMD_STR_LEN * 2)
+
+#define DEBUG_PRNT_SCREEN(_dest, _temp, _length, fmt, ...)	\
+({	\
+	snprintf(_temp, _length, fmt, ## __VA_ARGS__);	\
+	strcat(_dest, _temp);	\
+})
+
+#define FT_CMD(name, func) .cmd_name = name, .cmd_func = func
+
+enum CMD_STATUS {
+	CMD_STATUS_WAITING = 0,
+	CMD_STATUS_RUNNING,
+	CMD_STATUS_OK,
+	CMD_STATUS_FAIL,
+	CMD_STATUS_NOT_APPLICABLE,
+};
+
+struct ft_cmd {
+	const char *cmd_name;
+	void (*cmd_func)(void *dev_data);
+	struct list_head list;
+};
+
+struct factory_data {
+	struct device *fac_dev_ts;
+	short *rawcap_data;
+	short *delta_data;
+	int *abscap_data;
+	int *absdelta_data;
+	char *trx_short;
+	bool cmd_is_running;
+	unsigned char cmd_state;
+	char cmd[CMD_STR_LEN];
+	int cmd_param[CMD_PARAM_NUM];
+	char cmd_buff[CMD_RESULT_STR_LEN];
+	char cmd_result[CMD_RESULT_STR_LEN];
+	struct mutex cmd_lock;
+	struct list_head cmd_list_head;
+};
+#endif
+
+enum f54_report_types {
+	F54_8BIT_IMAGE = 1,
+	F54_16BIT_IMAGE = 2,
+	F54_RAW_16BIT_IMAGE = 3,
+	F54_HIGH_RESISTANCE = 4,
+	F54_TX_TO_TX_SHORT = 5,
+	F54_RX_TO_RX1 = 7,
+	F54_TRUE_BASELINE = 9,
+	F54_FULL_RAW_CAP_MIN_MAX = 13,
+	F54_RX_OPENS1 = 14,
+	F54_TX_OPEN = 15,
+	F54_TX_TO_GROUND = 16,
+	F54_RX_TO_RX2 = 17,
+	F54_RX_OPENS2 = 18,
+	F54_FULL_RAW_CAP = 19,
+	F54_FULL_RAW_CAP_RX_COUPLING_COMP = 20,
+	F54_SENSOR_SPEED = 22,
+	F54_ADC_RANGE = 23,
+	F54_TREX_OPENS = 24,
+	F54_TREX_TO_GND = 25,
+	F54_TREX_SHORTS = 26,
+	F54_ABS_CAP = 38,
+	F54_ABS_DELTA = 40,
+	F54_ABS_ADC = 42,
+	INVALID_REPORT_TYPE = -1,
+};
+
+struct synaptics_rmi4_f54_handle {
+	bool no_auto_cal;
+	unsigned char status;
+	unsigned char intr_mask;
+	unsigned char intr_reg_num;
+	unsigned char rx_assigned;
+	unsigned char tx_assigned;
+	unsigned char *report_data;
+	unsigned short query_base_addr;
+	unsigned short control_base_addr;
+	unsigned short data_base_addr;
+	unsigned short command_base_addr;
+	unsigned short fifoindex;
+	unsigned int report_size;
+	unsigned int data_buffer_size;
+	enum f54_report_types report_type;
+	struct mutex status_mutex;
+	struct mutex data_mutex;
+	struct mutex control_mutex;
+	struct f54_query query;
+	struct f54_query_13 query_13;
+	struct f54_query_15 query_15;
+	struct f54_query_16 query_16;
+	struct f54_query_21 query_21;
+	struct f54_control control;
+#ifdef FACTORY_MODE
+	struct factory_data *factory_data;
+#endif
+	struct kobject *attr_dir;
+	struct hrtimer watchdog;
+	struct work_struct timeout_work;
+	struct delayed_work status_work;
+	struct workqueue_struct *status_workqueue;
+	struct synaptics_rmi4_data *rmi4_data;
+};
+
+struct rmidev_data {
+	int ref_count;
+	struct cdev main_dev;
+	struct class *device_class;
+	struct mutex file_mutex;
+};
+
+struct rmidev_handle {
+	dev_t dev_no;
+	struct device dev;
+	struct kobject *attr_dir;
+	struct rmidev_data dev_data;
+	bool irq_enabled;
+	struct synaptics_rmi4_data *rmi4_data;
 };
 
 /*
@@ -961,6 +984,8 @@ struct synaptics_rmi4_data {
 	bool stay_awake;
 	bool staying_awake;
 	bool tsp_probe;
+	bool tsp_pwr_enabled;
+	unsigned char fingers_already_present;
 
 	enum synaptics_product_ids product_id;			/* product id of ic */
 	int ic_revision_of_ic;		/* revision of reading from IC */
@@ -968,7 +993,7 @@ struct synaptics_rmi4_data {
 	int ic_revision_of_bin;		/* revision of reading from binary */
 	int fw_version_of_bin;		/* firmware version of binary */
 	int fw_release_date_of_ic;	/* Config release data from IC */
-	int panel_revision;			/* Octa panel revision */
+	u32 panel_revision;			/* Octa panel revision */
 	unsigned char bootloader_id[SYNAPTICS_BOOTLOADER_ID_SIZE];	/* Bootloader ID */
 	bool doing_reflash;
 	int rebootcount;
@@ -980,9 +1005,13 @@ struct synaptics_rmi4_data {
 	unsigned char ddi_type;
 
 	struct synaptics_rmi4_f12_handle f12;
+	struct synaptics_rmi4_fwu_handle *fwu;
 #ifdef PROXIMITY_MODE
 	struct synaptics_rmi4_f51_handle *f51;
 #endif
+	struct synaptics_rmi4_f54_handle *f54;
+	struct rmidev_handle *rmidev;
+
 	struct delayed_work rezero_work;
 
 	struct mutex rmi4_device_mutex;
@@ -996,9 +1025,8 @@ struct synaptics_rmi4_data {
 	struct synaptics_rmi_callbacks callbacks;
 #endif
 	bool use_deepsleep;
-#ifdef USE_GUEST_THREAD
-	unsigned char guest_pkt_dbg_level;
-#endif
+	struct pinctrl *pinctrl;
+
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
 			unsigned char *data, unsigned short length);
 	int (*i2c_write)(struct synaptics_rmi4_data *pdata, unsigned short addr,
@@ -1054,10 +1082,10 @@ int rmi4_fw_update_module_register(struct synaptics_rmi4_data *rmi4_data);
 int rmidb_module_register(struct synaptics_rmi4_data *rmi4_data);
 int rmi_guest_module_register(struct synaptics_rmi4_data *rmi4_data);
 
-int synaptics_fw_updater(unsigned char *fw_data);
-extern int synaptics_rmi4_fw_update_on_probe(struct synaptics_rmi4_data *rmi4_data);
+int synaptics_fw_updater(struct synaptics_rmi4_data *rmi4_data, unsigned char *fw_data);
+int synaptics_rmi4_fw_update_on_probe(struct synaptics_rmi4_data *rmi4_data);
 int synaptics_rmi4_f12_ctrl11_set(struct synaptics_rmi4_data *rmi4_data, unsigned char data);
-int synaptics_rmi4_set_tsp_test_result_in_config(int value);
+int synaptics_rmi4_set_tsp_test_result_in_config(struct synaptics_rmi4_data *rmi4_data, int value);
 int synaptics_rmi4_read_tsp_test_result(struct synaptics_rmi4_data *rmi4_data);
 int synaptics_rmi4_access_register(struct synaptics_rmi4_data *rmi4_data,
 				bool mode, unsigned short address, int length, unsigned char *value);
@@ -1073,19 +1101,31 @@ int synaptics_rmi4_glove_mode_enables(struct synaptics_rmi4_data *rmi4_data);
 extern void synaptics_tsp_register_callback(struct synaptics_rmi_callbacks *cb);
 #endif
 
-extern struct class *sec_class;
-
-static inline ssize_t synaptics_rmi4_show_error(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static inline struct device *rmi_attr_kobj_to_dev(struct kobject *kobj)
 {
+	return container_of(kobj->parent, struct device, kobj);
+}
+
+static inline void *rmi_attr_kobj_to_drvdata(struct kobject *kobj)
+{
+	return dev_get_drvdata(rmi_attr_kobj_to_dev(kobj));
+}
+
+static inline ssize_t synaptics_rmi4_show_error(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct device *dev = rmi_attr_kobj_to_dev(kobj);
+
 	dev_warn(dev, "%s Attempted to read from write-only attribute %s\n",
 			__func__, attr->attr.name);
 	return -EPERM;
 }
 
-static inline ssize_t synaptics_rmi4_store_error(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static inline ssize_t synaptics_rmi4_store_error(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
 {
+	struct device *dev = rmi_attr_kobj_to_dev(kobj);
+
 	dev_warn(dev, "%s Attempted to write to read-only attribute %s\n",
 			__func__, attr->attr.name);
 	return -EPERM;
@@ -1101,4 +1141,8 @@ static inline void hstoba(unsigned char *dest, unsigned short src)
 	dest[0] = src % 0x100;
 	dest[1] = src / 0x100;
 }
+
+#define RMI_KOBJ_ATTR(_name, _mode, _show, _store) \
+	struct kobj_attribute kobj_attr_##_name = __ATTR(_name, _mode, _show, _store)
+
 #endif

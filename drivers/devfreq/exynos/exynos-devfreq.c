@@ -1803,7 +1803,6 @@ static const struct dev_pm_ops exynos_devfreq_pm_ops = {
 };
 
 static struct platform_driver exynos_devfreq_driver = {
-	.probe		= exynos_devfreq_probe,
 	.remove		= exynos_devfreq_remove,
 	.id_table	= exynos_devfreq_driver_ids,
 	.driver = {
@@ -1814,7 +1813,7 @@ static struct platform_driver exynos_devfreq_driver = {
 	},
 };
 
-module_platform_driver(exynos_devfreq_driver);
+module_platform_driver_probe(exynos_devfreq_driver, exynos_devfreq_probe);
 
 MODULE_AUTHOR("Taekki Kim <taekki.kim@samsung.com>");
 MODULE_DESCRIPTION("Samsung EXYNOS Soc series devfreq common driver");

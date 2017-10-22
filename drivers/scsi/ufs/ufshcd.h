@@ -65,16 +65,15 @@
 #include <scsi/scsi_eh.h>
 #include <scsi/scsi_ioctl.h>
 
+#define COMMAND_PRIORITY
+#define HEAD_OF_Q_FEATURE
+
 #include "ufs.h"
 #include "ufshci.h"
+#include "ufs_quirks.h"
 
 #define UFSHCD "ufshcd"
 #define UFSHCD_DRIVER_VERSION "0.2"
-
-struct ufs_hba;
-
-
-#define UFS_UNIQUE_NUMBER_LEN 17 /* manufacturer date 4 bytes + serial number 12 bytes + null */
 
 struct ufs_hba;
 
@@ -364,6 +363,7 @@ struct ufs_debug {
 	unsigned long flag;
 #define UFSHCD_DEBUG_LEVEL1	(1 << 0)
 #define UFSHCD_DEBUG_LEVEL2	(1 << 1)
+#define UFSHCD_DEBUG_DUMP	(1 << 2)
 };
 
 /**
@@ -532,18 +532,27 @@ struct ufs_hba {
 
 	u32 quirks;
 
+	/* bkops enable/disable */
+	struct device_attribute bkops_en_attr;
+	struct device_attribute capabilities_attr;
+
+	struct buffer_head *self_test_bh;
+	uint32_t self_test_mode;
+	struct ufshcd_sg_entry *ucd_prdt_ptr_st;
+
 /* UFSHCI doesn't support DWORD size in UTRD */
 #define UFSHCI_QUIRK_BROKEN_DWORD_UTRD		BIT(0)
 #define UFSHCI_QUIRK_BROKEN_REQ_LIST_CLR	BIT(1)
 #define UFSHCI_QUIRK_USE_OF_HCE			BIT(2)
 #define UFSHCI_QUIRK_SKIP_INTR_AGGR		BIT(3)
+#define UFSHCI_QUIRK_USE_ABORT_TASK		BIT(4)
 
 	/* Device deviations from standard UFS device spec. */
 	unsigned int dev_quirks;
 
 	struct device_attribute unique_number_attr;
 	struct device_attribute manufacturer_id_attr;
-	char unique_number[UFS_UNIQUE_NUMBER_LEN];
+	char unique_number[UFS_UN_MAX_DIGITS];
 	u16 manufacturer_id;
 	u8 lifetime;
 
@@ -686,4 +695,14 @@ int ufshcd_read_health_desc(struct ufs_hba *hba, u8 *buf, u32 size);
 #define UTF16_STD false
 int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
 				u32 size, bool ascii);
+
+#define UFS_DEV_ATTR(name, fmt, args...)					\
+static ssize_t ufs_##name##_show (struct device *dev, struct device_attribute *attr, char *buf)	\
+{										\
+	struct Scsi_Host *host = container_of(dev, struct Scsi_Host, shost_dev);\
+	struct ufs_hba *hba = shost_priv(host);                                 \
+	return sprintf(buf, fmt, args);						\
+}										\
+static DEVICE_ATTR(name, S_IRUGO, ufs_##name##_show, NULL)
+
 #endif /* End of Header */

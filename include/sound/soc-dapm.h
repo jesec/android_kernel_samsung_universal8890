@@ -394,6 +394,7 @@ int snd_soc_dapm_del_routes(struct snd_soc_dapm_context *dapm,
 			    const struct snd_soc_dapm_route *route, int num);
 int snd_soc_dapm_weak_routes(struct snd_soc_dapm_context *dapm,
 			     const struct snd_soc_dapm_route *route, int num);
+void snd_soc_dapm_reset_cache(struct snd_soc_dapm_context *dapm);
 
 /* dapm events */
 void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
@@ -447,8 +448,6 @@ int snd_soc_dapm_dai_get_connected_widgets(struct snd_soc_dai *dai, int stream,
 
 struct snd_soc_codec *snd_soc_dapm_kcontrol_codec(struct snd_kcontrol *kcontrol);
 struct snd_soc_dapm_context *snd_soc_dapm_kcontrol_dapm(
-	struct snd_kcontrol *kcontrol);
-struct snd_soc_dapm_widget_list *snd_soc_dapm_kcontrol_widget_list(
 	struct snd_kcontrol *kcontrol);
 
 /* dapm widget types */
@@ -589,6 +588,10 @@ struct snd_soc_dapm_update {
 	int val;
 };
 
+struct snd_soc_dapm_wcache {
+	struct snd_soc_dapm_widget *widget;
+};
+
 /* DAPM context */
 struct snd_soc_dapm_context {
 	enum snd_soc_bias_level bias_level;
@@ -611,6 +614,9 @@ struct snd_soc_dapm_context {
 	int (*stream_event)(struct snd_soc_dapm_context *dapm, int event);
 	int (*set_bias_level)(struct snd_soc_dapm_context *dapm,
 			      enum snd_soc_bias_level level);
+
+	struct snd_soc_dapm_wcache path_sink_cache;
+	struct snd_soc_dapm_wcache path_source_cache;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_dapm;

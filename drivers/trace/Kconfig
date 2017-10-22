@@ -67,15 +67,20 @@ config EXYNOS_SNAPSHOT_HRTIMER
 	depends on EXYNOS_SNAPSHOT && !EXYNOS_SNAPSHOT_MINIMIZED_MODE
 	default n
 
-config EXYNOS_SNAPSHOT_SOFTIRQ
-	bool "Enable debugging of softirq by kevent"
-	depends on EXYNOS_SNAPSHOT && !EXYNOS_SNAPSHOT_MINIMIZED_MODE
-	default y
-
 config EXYNOS_SNAPSHOT_REG
 	bool "Enable debugging of accessing register by kevent"
 	depends on EXYNOS_SNAPSHOT && !EXYNOS_SNAPSHOT_MINIMIZED_MODE
 	default n
+
+config EXYNOS_SNAPSHOT_REGULATOR
+	bool "Enable debugging of regulator and pmic driver"
+	depends on EXYNOS_SNAPSHOT && !EXYNOS_SNAPSHOT_MINIMIZED_MODE
+	default y
+
+config EXYNOS_SNAPSHOT_THERMAL
+	bool "Enable debugging of thermal driver"
+	depends on EXYNOS_SNAPSHOT && !EXYNOS_SNAPSHOT_MINIMIZED_MODE && EXYNOS_THERMAL
+	default y
 
 config EXYNOS_SNAPSHOT_MBOX
 	bool "Enable debugging of mailbox for transferring with APM"
@@ -87,6 +92,14 @@ config EXYNOS_SNAPSHOT_HOOK_LOGGER
 	depends on EXYNOS_SNAPSHOT
 	default y
 
+config EXYNOS_SNAPSHOT_PSTORE
+	bool "Enable supporting ramoops driver for pstore filesystem"
+	depends on EXYNOS_SNAPSHOT
+	select PSTORE
+	select PSTORE_RAM
+	select PSTORE_PMSG
+	default n
+
 config EXYNOS_SNAPSHOT_PANIC_REBOOT
 	bool "Enable forced reboot after panic for ramdump"
 	depends on EXYNOS_SNAPSHOT
@@ -97,8 +110,28 @@ config EXYNOS_SNAPSHOT_WATCHDOG_RESET
 	depends on EXYNOS_SNAPSHOT && EXYNOS_SNAPSHOT_PANIC_REBOOT
 	default y
 
+config EXYNOS_SNAPSHOT_CRASH_KEY
+	bool "Support Crash Key to artificial panic for debugging"
+	depends on EXYNOS_SNAPSHOT && KEYBOARD_GPIO
+	default n
+
+config EXYNOS_SNAPSHOT_SFRDUMP
+	bool "Support dump of sfr region for debugging"
+	depends on EXYNOS_SNAPSHOT && !EXYNOS_SNAPSHOT_MINIMIZED_MODE
+	default y
+
+config EXYNOS_SNAPSHOT_SFRDUMP_ADV
+	bool "SFRDUMP with checking power of IP"
+	depends on EXYNOS_SNAPSHOT_SFRDUMP
+	default y
+
 config EXYNOS_SNAPSHOT_MINIMIZED_MODE
 	bool "Support minimized feature configuration"
+	depends on EXYNOS_SNAPSHOT
+	default n
+
+config EXYNOS_SNAPSHOT_LOGGING_SMC_CALL
+	bool "Support logging SMC call"
 	depends on EXYNOS_SNAPSHOT
 	default n
 
@@ -118,7 +151,7 @@ config PC_ITERATION
 	int "Number of Program Coutner information"
 	depends on EXYNOS_CORESIGHT_PC_INFO
 	range 1 10
-	default 5
+	default 10
 	help
 	  Print out Program Counter as iteration value.
 

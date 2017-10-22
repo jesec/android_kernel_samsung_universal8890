@@ -247,6 +247,10 @@ extern asmlinkage void dump_stack(void) __cold;
 	printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
 #define pr_cont(fmt, ...) \
 	printk(KERN_CONT fmt, ##__VA_ARGS__)
+#define pr_auto(level, fmt, ...) \
+	printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_auto_disable(index)
+#define pr_auto_once(index)
 
 /* pr_devel() should produce zero code unless DEBUG is defined */
 #ifdef DEBUG

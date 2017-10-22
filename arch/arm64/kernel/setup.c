@@ -150,7 +150,7 @@ int __init early_init_dt_scan_ect(unsigned long node, const char *uname,
 	if (psize == NULL)
 		return -1;
 
-	pr_info("[ECT] Address %x, Size %x\b", be32_to_cpu(*paddr), be32_to_cpu(*psize));
+	printk("[ECT] Address %x, Size %x\b", be32_to_cpu(*paddr), be32_to_cpu(*psize));
 	memblock_reserve(be32_to_cpu(*paddr), be32_to_cpu(*psize));
 	ect_init(be32_to_cpu(*paddr), be32_to_cpu(*psize));
 

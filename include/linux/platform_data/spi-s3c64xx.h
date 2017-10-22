@@ -177,4 +177,12 @@ extern int s3c64xx_spi2_cfg_gpio(void);
 extern struct s3c64xx_spi_info s3c64xx_spi0_pdata;
 extern struct s3c64xx_spi_info s3c64xx_spi1_pdata;
 extern struct s3c64xx_spi_info s3c64xx_spi2_pdata;
+
+/* For Oberthur ese, to change spi pins pinctrl  */
+enum ese_gpio_state {
+	ESE_POWER_OFF,
+	ESE_DEFAULT,
+	ESE_MAX_GPIO_STATE,
+};
+extern int s3c64xx_spi_change_gpio(enum ese_gpio_state gpio_state);
 #endif /*__SPI_S3C64XX_H */

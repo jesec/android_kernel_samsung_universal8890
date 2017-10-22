@@ -48,11 +48,18 @@
 #define ARIZONA_MAX_GPIO_REGS 5
 #define CLEARWATER_MAX_GPIO_REGS 80
 
+#define CLEARWATER_NUM_GPIOS	40
+#define MARLEY_NUM_GPIOS	16
+#define MOON_NUM_GPIOS		38
+
 #define ARIZONA_MAX_INPUT 12
 
 #define ARIZONA_MAX_MICBIAS 4
 #define ARIZONA_MAX_CHILD_MICBIAS 4
 
+#define WM5102_NUM_MICBIAS       3
+#define CLEARWATER_NUM_MICBIAS   4
+#define LARGO_NUM_MICBIAS        2
 #define MARLEY_NUM_MICBIAS       2
 #define MARLEY_NUM_CHILD_MICBIAS 2
 #define MOON_NUM_MICBIAS         2
@@ -337,6 +344,10 @@ struct arizona_pdata {
 	 * removal: 1 - IN1L, 2 - IN1R, ..., n - IN[n]R
 	 */
 	unsigned int hs_mic;
+
+	/* If lrclk_adv is set then in dsp-a mode,
+	fsync is shifted left by half bclk */
+	int lrclk_adv[ARIZONA_MAX_AIF];
 };
 
 #endif

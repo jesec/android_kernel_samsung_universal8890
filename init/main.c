@@ -89,6 +89,10 @@
 #include <asm/smp.h>
 #endif
 
+#ifdef CONFIG_RELOCATABLE_KERNEL
+#include <linux/memblock.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -155,6 +159,28 @@ static int __init set_reset_devices(char *str)
 }
 
 __setup("reset_devices", set_reset_devices);
+
+#ifdef CONFIG_RELOCATABLE_KERNEL
+static unsigned long kaslr_mem  __initdata;
+static unsigned long kaslr_size  __initdata;
+
+static int __init set_kaslr_region(char *str){
+	char *endp;
+
+	kaslr_size = memparse(str, &endp);
+	if( *endp == '@')
+	  kaslr_mem = memparse(endp+1, NULL);
+
+	if (memblock_reserve(kaslr_mem, kaslr_size)) {
+			pr_err("%s: failed reserving size %lx " \
+						"at base 0x%lx\n", __func__, kaslr_size, kaslr_mem);
+			return -1;
+	}
+	pr_info("kaslr :%s, base:%lx, size:%lx \n", __func__, kaslr_mem, kaslr_size);
+	return 0;
+}
+__setup("kaslr_region=", set_kaslr_region);
+#endif
 
 static const char *argv_init[MAX_INIT_ARGS+2] = { "init", NULL, };
 const char *envp_init[MAX_INIT_ENVS+2] = { "HOME=/", "TERM=linux", NULL, };

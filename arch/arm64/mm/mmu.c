@@ -789,7 +789,7 @@ static void __init __iotable_init(struct map_desc *io_desc, int nr, int exec)
 
 	for (md = io_desc; nr; md++, nr--) {
 		phys = __pfn_to_phys(md->pfn);
-		create_mapping(phys, md->virtual, md->length);
+		create_mapping(phys, md->virtual, md->length, prot);
 		vm = &svm->vm;
 		vm->addr = (void *)(md->virtual & PAGE_MASK);
 		vm->size = PAGE_ALIGN(md->length + (md->virtual & ~PAGE_MASK));

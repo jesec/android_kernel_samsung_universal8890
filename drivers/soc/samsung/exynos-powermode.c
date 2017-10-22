@@ -27,6 +27,15 @@
 
 #include "pwrcal/pwrcal.h"
 
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER)
+#include <linux/device.h>
+#include <linux/muic/muic.h>
+#include <linux/muic/muic_notifier.h>
+#ifdef CONFIG_CCIC_NOTIFIER
+#include <linux/ccic/ccic_notifier.h>
+#endif
+#endif
+
 #define NUM_WAKEUP_MASK		3
 
 struct exynos_powermode_info {
@@ -442,6 +451,20 @@ static bool check_mode_available(unsigned int mode)
 	return true;
 }
 
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER)
+static bool jig_is_attached;
+
+static inline bool is_jig_attached(void)
+{
+	return jig_is_attached;
+}
+#else
+static inline bool is_jig_attached(void)
+{
+	return false;
+}
+#endif
+
 /**
  * If AP put into SICD, console cannot work normally. For development,
  * support sysfs to enable or disable SICD. Refer below :
@@ -451,6 +474,9 @@ static bool check_mode_available(unsigned int mode)
 static int is_sicd_available(unsigned int cpu, unsigned int *sicd_mode)
 {
 	if (!pm_info->sicd_enabled)
+		return false;
+
+	if (is_jig_attached())
 		return false;
 
 	/*
@@ -823,3 +849,50 @@ int __init exynos_powermode_init(void)
 	return 0;
 }
 arch_initcall(exynos_powermode_init);
+
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER)
+struct notifier_block cpuidle_muic_nb;
+
+static int exynos_cpuidle_muic_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+#ifdef CONFIG_CCIC_NOTIFIER
+	CC_NOTI_ATTACH_TYPEDEF *pnoti = (CC_NOTI_ATTACH_TYPEDEF *)data;
+	muic_attached_dev_t attached_dev = pnoti->cable_type;
+#else
+	muic_attached_dev_t attached_dev = *(muic_attached_dev_t *)data;
+#endif
+
+	switch (attached_dev) {
+	case ATTACHED_DEV_JIG_UART_OFF_MUIC:
+	case ATTACHED_DEV_JIG_UART_OFF_VB_MUIC:
+	case ATTACHED_DEV_JIG_UART_OFF_VB_OTG_MUIC:
+	case ATTACHED_DEV_JIG_UART_OFF_VB_FG_MUIC:
+#ifdef CONFIG_CCIC_NOTIFIER
+	case ATTACHED_DEV_JIG_UART_ON_MUIC:
+	case ATTACHED_DEV_JIG_UART_ON_VB_MUIC:
+#endif
+		if (action == MUIC_NOTIFY_CMD_DETACH)
+			jig_is_attached = false;
+		else if (action == MUIC_NOTIFY_CMD_ATTACH)
+			jig_is_attached = true;
+		else
+			pr_err("%s: ACTION Error!\n", __func__);
+		break;
+	default:
+		break;
+	}
+
+	pr_info("%s: dev=%d, action=%lu\n", __func__, attached_dev, action);
+
+	return NOTIFY_DONE;
+}
+
+static int __init exynos_powermode_muic_notifier_init(void)
+{
+	return muic_notifier_register(&cpuidle_muic_nb,
+			exynos_cpuidle_muic_notifier, MUIC_NOTIFY_DEV_CPUIDLE);
+}
+late_initcall(exynos_powermode_muic_notifier_init);
+#endif
+

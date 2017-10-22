@@ -37,6 +37,8 @@
 		WM_ADSP2_REGION_8 | WM_ADSP2_REGION_9)
 #define WM_ADSP2_REGION_ALL (WM_ADSP2_REGION_0 | WM_ADSP2_REGION_1_9)
 
+struct wm_adsp;
+
 struct wm_adsp_region {
 	int type;
 	unsigned int base;
@@ -73,14 +75,43 @@ struct wm_adsp_fw_defs {
 	const char *name;
 	const char *file;
 	const char *binfile;
+	bool full_name;
 	int compr_direction;
 	int num_caps;
 	struct wm_adsp_fw_caps *caps;
 };
 
 struct wm_adsp_fw_features {
-	bool shutdown:1;
+	bool edac_shutdown:1;
 	bool ez2control_trigger:1;
+	bool host_read_buf:1;
+};
+
+struct wm_adsp_compr_buf {
+	struct mutex lock;
+	struct wm_adsp *dsp;
+	struct wm_adsp_buffer_region *host_regions;
+	u32 host_buf_ptr;
+	u32 error;
+	u32 irq_ack;
+	int read_index;
+	int avail;
+};
+
+struct wm_adsp_compr {
+	struct wm_adsp *dsp;
+	struct wm_adsp_compr_buf *buf;
+
+	u32 *capt_buf;
+
+	u32 irq_watermark;
+	int max_read_words;
+
+	size_t copied_total;
+
+	struct snd_compr_stream *stream;
+
+	unsigned int sample_rate;
 };
 
 struct wm_adsp {
@@ -103,6 +134,8 @@ struct wm_adsp {
 	int (*rate_put_cb) (struct wm_adsp *adsp, unsigned int mask,
 			    unsigned int val);
 
+	unsigned int freq_cache;
+
 	struct list_head alg_regions;
 
 	int fw_id;
@@ -117,17 +150,7 @@ struct wm_adsp {
 
 	struct mutex ctl_lock;
 
-	u32 host_buf_ptr;
-
-
-	int max_dsp_read_bytes;
-	u32 dsp_error;
-	u32 *raw_capt_buf;
-	struct circ_buf capt_buf;
-	int capt_buf_size;
-	u32 capt_watermark;
-	struct wm_adsp_buffer_region *host_regions;
-	bool buffer_drain_pending;
+	struct wm_adsp_compr_buf compr_buf;
 
 	int num_firmwares;
 	struct wm_adsp_fw_defs *firmwares;
@@ -141,11 +164,14 @@ struct wm_adsp {
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_root;
-	char *wmfw_file_loaded;
-	char *bin_file_loaded;
+	struct mutex debugfs_lock;
+	char *wmfw_file_name;
+	char *bin_file_name;
 #endif
 
 	unsigned int lock_regions;
+
+	unsigned int (*hpimp_cb)(struct device *dev);
 };
 
 #define WM_ADSP1(wname, num) \
@@ -160,42 +186,19 @@ struct wm_adsp {
 	.reg = SND_SOC_NOPM, .shift = num, .event = wm_adsp2_event, \
 	.event_flags = SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD }
 
-extern const struct snd_kcontrol_new wm_adsp1_fw_controls[];
-extern const struct snd_kcontrol_new wm_adsp2_fw_controls[];
-extern const struct snd_kcontrol_new wm_adsp2v2_fw_controls[];
+extern const struct snd_kcontrol_new wm_adsp_fw_controls[];
 
 int wm_adsp1_init(struct wm_adsp *dsp);
 int wm_adsp2_init(struct wm_adsp *dsp, struct mutex *fw_lock);
-
-#ifdef CONFIG_DEBUG_FS
-void wm_adsp_init_debugfs(struct wm_adsp *dsp, struct snd_soc_codec *codec);
-void wm_adsp_cleanup_debugfs(struct wm_adsp *dsp);
-#else
-static inline void wm_adsp_init_debugfs(struct wm_adsp *dsp,
-					struct snd_soc_codec *codec)
-{
-}
-
-void wm_adsp_cleanup_debugfs(struct wm_adsp *dsp)
-{
-}
-#endif
-
+void wm_adsp2_remove(struct wm_adsp *dsp);
+int wm_adsp2_codec_probe(struct wm_adsp *dsp, struct snd_soc_codec *codec);
+int wm_adsp2_codec_remove(struct wm_adsp *dsp, struct snd_soc_codec *codec);
 int wm_adsp1_event(struct snd_soc_dapm_widget *w,
 		   struct snd_kcontrol *kcontrol, int event);
 
-#if defined(CONFIG_SND_SOC_WM_ADSP)
 int wm_adsp2_early_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *kcontrol, int event,
 			 unsigned int freq);
-#else
-static inline int wm_adsp2_early_event(struct snd_soc_dapm_widget *w,
-				       struct snd_kcontrol *kcontrol, int event,
-				       unsigned int freq)
-{
-	return 0;
-}
-#endif
 
 int wm_adsp2_lock(struct wm_adsp *adsp, unsigned int regions);
 irqreturn_t wm_adsp2_bus_error(struct wm_adsp *adsp);
@@ -203,24 +206,28 @@ irqreturn_t wm_adsp2_bus_error(struct wm_adsp *adsp);
 int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 		   struct snd_kcontrol *kcontrol, int event);
 
-extern bool wm_adsp_compress_supported(const struct wm_adsp *adsp,
-				       const struct snd_compr_stream *stream);
-extern bool wm_adsp_format_supported(const struct wm_adsp *adsp,
-				     const struct snd_compr_stream *stream,
-				     const struct snd_compr_params *params);
-extern void wm_adsp_get_caps(const struct wm_adsp *adsp,
-			     const struct snd_compr_stream *stream,
-			     struct snd_compr_caps *caps);
+static inline bool wm_adsp_fw_has_voice_trig(const struct wm_adsp *dsp)
+{
+	return dsp->fw_features.ez2control_trigger;
+}
 
-extern int wm_adsp_stream_alloc(struct wm_adsp *adsp,
-				const struct snd_compr_params *params);
-extern int wm_adsp_stream_free(struct wm_adsp *adsp);
-extern int wm_adsp_stream_start(struct wm_adsp *adsp);
+extern int wm_adsp_compr_irq(struct wm_adsp_compr *compr, bool *trigger);
+extern int wm_adsp_compr_open(struct wm_adsp_compr *compr,
+				struct snd_compr_stream *stream);
+extern int wm_adsp_compr_free(struct snd_compr_stream *stream);
+extern int wm_adsp_compr_set_params(struct snd_compr_stream *stream,
+				    struct snd_compr_params *params);
+extern int wm_adsp_compr_get_caps(struct snd_compr_stream *stream,
+				  struct snd_compr_caps *caps);
+extern int wm_adsp_compr_trigger(struct snd_compr_stream *stream, int cmd);
+extern int wm_adsp_compr_pointer(struct snd_compr_stream *stream,
+				 struct snd_compr_tstamp *tstamp);
+extern int wm_adsp_compr_copy(struct snd_compr_stream *stream,
+			      char __user *buf, size_t count);
+extern void wm_adsp_compr_init(struct wm_adsp *dsp, struct wm_adsp_compr *compr);
+extern void wm_adsp_compr_destroy(struct wm_adsp_compr *compr);
 
-extern int wm_adsp_stream_handle_irq(struct wm_adsp *adsp);
-extern int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf,
-			       size_t count);
-extern int wm_adsp_stream_avail(const struct wm_adsp *adsp);
+extern void wm_adsp_control_dump(const struct wm_adsp *adsp);
 
 #endif
 

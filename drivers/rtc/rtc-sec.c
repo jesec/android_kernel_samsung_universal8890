@@ -523,7 +523,8 @@ static void s2m_adc_read_data(struct s2m_rtc_info *info)
 static unsigned int get_coeff(struct device *dev, u8 adc_reg_num)
 {
 	struct s2m_rtc_info *info = dev_get_drvdata(dev);
-	unsigned int coeff, temp;
+	unsigned int coeff = 0;
+	unsigned int temp;
 	u8 is_evt2;
 
 	switch(info->iodev->device_type) {
@@ -550,7 +551,7 @@ static unsigned int get_coeff(struct device *dev, u8 adc_reg_num)
 	case S2MPS16X:
 		/* if the regulator is LDO */
 		if (adc_reg_num >= S2MPS16_LDO_START && adc_reg_num <= S2MPS16_LDO_END)
-			coeff = s2mps16_ldo_coeffs[adc_reg_num - 41];
+			coeff = s2mps16_ldo_coeffs[adc_reg_num - 0x41];
 		/* if the regulator is BUCK */
 		else if (adc_reg_num >= S2MPS16_BUCK_START && adc_reg_num <= S2MPS16_BUCK_END)
 			coeff = s2mps16_buck_coeffs[adc_reg_num - 1];
@@ -706,6 +707,7 @@ static ssize_t adc_ctrl2_show(struct device *dev, struct device_attribute *attr,
 		sec_reg_read(info->iodev, S2MPS16_REG_ADC_CTRL2, &adc_ctrl2);
 		break;
 	default:
+		adc_ctrl2 = 0;
 		break;
 	}
 	return snprintf(buf, PAGE_SIZE, "%x\n", adc_ctrl2);
@@ -1230,6 +1232,11 @@ static void s2m_rtc_enable_wtsr_smpl(struct s2m_rtc_info *info,
 
 	if (pdata->wtsr_smpl->check_jigon && s2m_is_jigonb_low(info))
 		pdata->wtsr_smpl->smpl_en = false;
+
+#ifdef CONFIG_SEC_FACTORY
+	/* FIXME: Must check board revision!!! */
+	pdata->wtsr_smpl->smpl_en = false;
+#endif
 
 	val = (pdata->wtsr_smpl->wtsr_en << WTSR_EN_SHIFT)
 		| (pdata->wtsr_smpl->smpl_en << SMPL_EN_SHIFT)

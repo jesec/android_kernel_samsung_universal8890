@@ -117,9 +117,11 @@ void decon_t_set_clocks(struct decon_device *decon)
 	decon_clk_set_rate(dev, decon->res.eclk_leaf,
 			NULL, clks.decon[CLK_ID_ECLK] * MHZ);
 
+#if defined(CONFIG_EXYNOS8890_BTS_OPTIMIZATION)
 	/* TODO: hard-coded 42 will be changed
 	 * default MIC factor is 3, So default VCLK is 42 for calculating DISP */
 	decon->vclk_factor = 42 * DECON_PIX_PER_CLK;
+#endif
 
 	decon_dbg("%s: pclk %ld eclk %ld Mhz\n",
 		__func__,

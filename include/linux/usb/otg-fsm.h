@@ -26,8 +26,10 @@
 #ifdef VERBOSE
 #define VDBG(fmt, args...) pr_debug("[%s]  " fmt , \
 				 __func__, ## args)
+/*
 #else
 #define VDBG(stuff...)	do {} while (0)
+*/
 #endif
 
 #ifdef VERBOSE
