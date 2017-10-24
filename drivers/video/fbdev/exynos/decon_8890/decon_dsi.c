@@ -344,7 +344,6 @@ int decon_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 			decon->state == DECON_STATE_OFF) {
 		decon_warn("%s: decon%d state(%d), UNBLANK missed\n",
 				__func__, decon->id, decon->state);
-		return 0;
 	}
 
 	decon_set_par(info);
